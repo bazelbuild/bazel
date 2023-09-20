@@ -1829,6 +1829,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/config:feature_flag_value",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/com/google/devtools/build/lib/util:pair",
+        "//third_party:caffeine",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -2038,7 +2039,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/util:pair",
-        "//third_party:flogger",
         "//third_party:guava",
     ],
 )

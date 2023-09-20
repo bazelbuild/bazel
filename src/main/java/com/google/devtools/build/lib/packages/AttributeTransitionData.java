@@ -25,6 +25,7 @@ import javax.annotation.Nullable;
 @AutoValue
 public abstract class AttributeTransitionData implements TransitionFactory.Data {
   /** Returns the {@link AttributeMap} which can be used to create a transition. */
+  @Nullable
   public abstract AttributeMap attributes();
 
   /**
@@ -53,7 +54,7 @@ public abstract class AttributeTransitionData implements TransitionFactory.Data 
   @AutoValue.Builder
   public abstract static class Builder {
     /** Sets the attributes. */
-    public abstract Builder attributes(AttributeMap attributes);
+    public abstract Builder attributes(@Nullable AttributeMap attributes);
 
     /** Sets the execution platform label. */
     public abstract Builder executionPlatform(@Nullable Label executionPlatform);

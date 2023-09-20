@@ -34,16 +34,15 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
 import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Objects;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark.InvalidStarlarkValueException;
 
 /**
  * This class implements {@link TransitionFactory} to provide a starlark-defined transition that
- * rules can apply to their dependencies' configurations. This transition has access to (1) the a
- * map of the current configuration's build settings and (2) the configured attributes of the given
- * rule (not its dependencies').
+ * rules can apply to their dependencies' configurations. This transition has access to (1) the map
+ * of the current configuration's build settings and (2) the configured attributes of the given rule
+ * (not its dependencies').
  *
  * <p>For starlark defined rule class transitions, see {@link StarlarkRuleTransitionProvider}.
  *
@@ -65,9 +64,15 @@ public class StarlarkAttributeTransitionProvider
   }
 
   @Override
+  public int hashCode() {
+    return starlarkDefinedConfigTransition.hashCode();
+  }
+
+  @Override
   public SplitTransition create(AttributeTransitionData data) {
     AttributeMap attributeMap = data.attributes();
-    Preconditions.checkArgument(attributeMap instanceof ConfiguredAttributeMapper);
+    Preconditions.checkArgument(
+        attributeMap == null || attributeMap instanceof ConfiguredAttributeMapper);
     // TODO(bazel-team): consider caching transition instances to save CPU time, similar to what's
     // done in StarlarkRuleTransitionProvider. This could benefit builds that apply transitions over
     // many build graph edges.
@@ -100,17 +105,20 @@ public class StarlarkAttributeTransitionProvider
       super(starlarkDefinedConfigTransition);
 
       LinkedHashMap<String, Object> attributes = new LinkedHashMap<>();
-      for (String attribute : attributeMap.getAttributeNames()) {
-        Object val = attributeMap.get(attribute, attributeMap.getAttributeType(attribute));
-        try {
-          Object starlarkVal = Attribute.valueToStarlark(val);
-          attributes.put(Attribute.getStarlarkName(attribute), starlarkVal);
-        } catch (InvalidStarlarkValueException e) {
-          // This is only possible for native targets, since Starlark targets by definition have
-          // Starlark-readable attributes. The only Starlark transition that can apply to native
-          // targets is the exec transition (ExecutionTransitionFactory). Since that's experimental
-          // we don't need to do anything further.
-          // TODO(b/288258583): encode this more cleanly than a universally swallowed exception.
+      if (attributeMap != null) {
+        for (String attribute : attributeMap.getAttributeNames()) {
+          Object val = attributeMap.get(attribute, attributeMap.getAttributeType(attribute));
+          try {
+            Object starlarkVal = Attribute.valueToStarlark(val);
+            attributes.put(Attribute.getStarlarkName(attribute), starlarkVal);
+          } catch (InvalidStarlarkValueException e) {
+            // This is only possible for native targets, since Starlark targets by definition have
+            // Starlark-readable attributes. The only Starlark transition that can apply to native
+            // targets is the exec transition (ExecutionTransitionFactory). Since that's
+            // experimental
+            // we don't need to do anything further.
+            // TODO(b/288258583): encode this more cleanly than a universally swallowed exception.
+          }
         }
       }
       attrObject = StructProvider.STRUCT.create(attributes, ERROR_MESSAGE_FOR_NO_ATTR);
@@ -122,13 +130,13 @@ public class StarlarkAttributeTransitionProvider
      *     error was encountered during transition application/validation.
      */
     @Override
-    public final Map<String, BuildOptions> split(
+    public final ImmutableMap<String, BuildOptions> split(
         BuildOptionsView buildOptionsView, EventHandler eventHandler) throws InterruptedException {
       // Starlark transitions already have logic to enforce they only access declared inputs and
       // outputs. Rather than complicate BuildOptionsView with more access points to BuildOptions,
       // we just use the original BuildOptions and trust the transition's enforcement logic.
       BuildOptions buildOptions = buildOptionsView.underlying();
-      Map<String, BuildOptions> res =
+      ImmutableMap<String, BuildOptions> res =
           applyAndValidate(buildOptions, starlarkDefinedConfigTransition, attrObject, eventHandler);
       if (res == null) {
         return ImmutableMap.of("error", buildOptions.clone());

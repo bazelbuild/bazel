@@ -235,4 +235,24 @@ public class ComparingTransition implements PatchTransition {
   public String reasonForOverride() {
     return "Adds ability to compare difference between native vs. Starlark transitions";
   }
+
+  /**
+   * Implement {@link ConfigurationTransition#visit}} so {@link
+   * com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache} kicks in if this calls a
+   * Starlark transition.
+   *
+   * <p>Reason: {@link com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache} is
+   * responsible for Starlark transition applications. Let it decisively own that responsibility vs.
+   * writing a new ad hoc cache playing the same role for special corner cases. This keeps the
+   * overall logic clearer.
+   *
+   * <p>If both the delegate transitions are native, we need some other way to avoid redundant
+   * applications at a possible performance cost. In the long term if we eliminate native
+   * transitions, we can eliminate this concern.
+   */
+  @Override
+  public <E extends Exception> void visit(Visitor<E> visitor) throws E {
+    this.activeTransition.visit(visitor);
+    this.altTransition.visit(visitor);
+  }
 }
