@@ -280,6 +280,30 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   }
 
   @Test
+  public void testRootModule_overrideBuiltinModule() throws Exception {
+    setUpWithBuiltinModules(
+        ImmutableMap.of(
+            "bazel_tools",
+            LocalPathOverride.create(
+                rootDirectory.getRelative("bazel_tools_original").getPathString())));
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "local_path_override(module_name='bazel_tools',path='./bazel_tools_new')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    ModuleOverride bazelToolsOverride =
+        result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).getOverrides().get("bazel_tools");
+    assertThat(bazelToolsOverride).isInstanceOf(LocalPathOverride.class);
+    assertThat((LocalPathOverride) bazelToolsOverride)
+        .isEqualTo(LocalPathOverride.create("./bazel_tools_new"));
+  }
+
+  @Test
   public void forgotVersion() throws Exception {
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));

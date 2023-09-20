@@ -69,6 +69,7 @@ public class ModuleFileGlobals {
   private boolean hadNonModuleCall = false;
   private final boolean ignoreDevDeps;
   private final InterimModule.Builder module;
+  private final ImmutableMap<String, NonRegistryOverride> builtinModules;
   private final Map<String, DepSpec> deps = new LinkedHashMap<>();
   private final List<ModuleExtensionUsageBuilder> extensionUsageBuilders = new ArrayList<>();
   private final Map<String, ModuleOverride> overrides = new HashMap<>();
@@ -81,21 +82,7 @@ public class ModuleFileGlobals {
       boolean ignoreDevDeps) {
     module = InterimModule.builder().setKey(key).setRegistry(registry);
     this.ignoreDevDeps = ignoreDevDeps;
-    if (ModuleKey.ROOT.equals(key)) {
-      overrides.putAll(builtinModules);
-    }
-    for (String builtinModule : builtinModules.keySet()) {
-      if (key.getName().equals(builtinModule)) {
-        // The built-in module does not depend on itself.
-        continue;
-      }
-      deps.put(builtinModule, DepSpec.create(builtinModule, Version.EMPTY, -1));
-      try {
-        addRepoNameUsage(builtinModule, "as a built-in dependency", Location.BUILTIN);
-      } catch (EvalException e) {
-        throw new IllegalStateException(e);
-      }
-    }
+    this.builtinModules = builtinModules;
   }
 
   @AutoValue
@@ -990,6 +977,26 @@ public class ModuleFileGlobals {
   }
 
   public InterimModule buildModule() throws EvalException {
+    // Add builtin modules as default deps of the current module.
+    for (String builtinModule : builtinModules.keySet()) {
+      if (module.getKey().getName().equals(builtinModule)) {
+        // The built-in module does not depend on itself.
+        continue;
+      }
+      deps.put(builtinModule, DepSpec.create(builtinModule, Version.EMPTY, -1));
+      try {
+        addRepoNameUsage(builtinModule, "as a built-in dependency", Location.BUILTIN);
+      } catch (EvalException e) {
+        throw new EvalException(
+            e.getMessage()
+                + String.format(
+                    ", '%s' is a built-in dependency and cannot be used by any 'bazel_dep' or"
+                        + " 'use_repo' directive",
+                    builtinModule),
+            e);
+      }
+    }
+    // Build module extension usages and the rest of the module.
     var extensionUsages = ImmutableList.<ModuleExtensionUsage>builder();
     for (var extensionUsageBuilder : extensionUsageBuilders) {
       extensionUsages.add(extensionUsageBuilder.buildUsage());
@@ -1002,6 +1009,12 @@ public class ModuleFileGlobals {
   }
 
   public ImmutableMap<String, ModuleOverride> buildOverrides() {
+    // Add overrides for builtin modules if there is no existing override for them.
+    if (ModuleKey.ROOT.equals(module.getKey())) {
+      for (String moduleName : builtinModules.keySet()) {
+        overrides.putIfAbsent(moduleName, builtinModules.get(moduleName));
+      }
+    }
     return ImmutableMap.copyOf(overrides);
   }
 }

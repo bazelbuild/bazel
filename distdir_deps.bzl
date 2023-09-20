@@ -92,14 +92,14 @@ DIST_DEPS = {
     # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
     # Used in src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSAPCE
     "rules_cc": {
-        "archive": "rules_cc-0.0.8.tar.gz",
-        "sha256": "ae46b722a8b8e9b62170f83bfb040cbf12adb732144e689985a66b26410a7d6f",
-        "urls": ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.8/rules_cc-0.0.8.tar.gz"],
+        "archive": "rules_cc-0.0.9.tar.gz",
+        "sha256": "2037875b9a4456dce4a79d112a8ae885bbc4aad968e6587dca6e64f3a0900cdf",
+        "urls": ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.9/rules_cc-0.0.9.tar.gz"],
         "used_in": [
             "additional_distfiles",
         ],
-        "package_version": "0.0.8",
-        "strip_prefix": "rules_cc-0.0.8",
+        "package_version": "0.0.9",
+        "strip_prefix": "rules_cc-0.0.9",
     },
     "rules_java": {
         "aliases": [
