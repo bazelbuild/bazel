@@ -640,7 +640,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               optimizationInfo.getConfig(),
               optimizationInfo.getRewrittenStartupProfile(),
               optimizationInfo.getRewrittenMergedBaselineProfile());
-      resourceApk = resourceApk.withApk(optimizationInfo.getOptimizedResourceApk());
+      if (optimizationInfo.getOptimizedResourceApk() != null) {
+        resourceApk = resourceApk.withApk(optimizationInfo.getOptimizedResourceApk());
+      } else if (optimizationInfo.getShrunkResourceApk() != null) {
+        resourceApk = resourceApk.withApk(optimizationInfo.getShrunkResourceApk());
+      }
       symlinkOptimizationOutputs(
           ruleContext,
           androidSemantics,
