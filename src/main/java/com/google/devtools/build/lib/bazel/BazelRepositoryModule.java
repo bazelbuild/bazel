@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelpe
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.bazel.bzlmod.AttributeValues;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelFetchAllFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
@@ -276,6 +277,7 @@ public class BazelRepositoryModule extends BlazeModule {
         .addSkyFunction(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
         .addSkyFunction(
             SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(directories.getWorkspace()))
+        .addSkyFunction(SkyFunctions.BAZEL_FETCH_ALL, new BazelFetchAllFunction())
         .addSkyFunction(SkyFunctions.BAZEL_MODULE_INSPECTION, new BazelModuleInspectorFunction())
         .addSkyFunction(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
         .addSkyFunction(SkyFunctions.SINGLE_EXTENSION_EVAL, singleExtensionEvalFunction)

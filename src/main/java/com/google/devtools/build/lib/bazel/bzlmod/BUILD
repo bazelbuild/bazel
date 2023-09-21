@@ -115,6 +115,7 @@ java_library(
         "AbridgedModule.java",
         "ArchiveOverride.java",
         "BazelDepGraphValue.java",
+        "BazelFetchAllValue.java",
         "BazelLockFileValue.java",
         "BazelModuleResolutionEvent.java",
         "BazelModuleResolutionValue.java",
@@ -167,6 +168,7 @@ java_library(
     srcs = [
         "AttributeValuesAdapter.java",
         "BazelDepGraphFunction.java",
+        "BazelFetchAllFunction.java",
         "BazelLockFileFunction.java",
         "BazelModuleResolutionFunction.java",
         "BzlmodFlagsAndEnvVars.java",

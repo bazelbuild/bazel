@@ -1,6 +1,6 @@
 
-Usage: %{product} %{command} [<option> ...] <targets>
+Usage: %{product} %{command} [<option> ...] --all or <targets>
 
-Fetches all external dependencies for the targets given.
+Fetches all external dependencies, or fetch dependencies only for given targets
 
 %{options}

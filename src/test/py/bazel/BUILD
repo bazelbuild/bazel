@@ -296,6 +296,17 @@ py_test(
 )
 
 py_test(
+    name = "bazel_fetch_test",
+    size = "medium",
+    srcs = ["bzlmod/bazel_fetch_test.py"],
+    data = ["//tools/build_defs/repo:http_src"],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+    ],
+)
+
+py_test(
     name = "bazel_overrides_test",
     size = "large",
     srcs = ["bzlmod/bazel_overrides_test.py"],

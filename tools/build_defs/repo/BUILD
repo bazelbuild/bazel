@@ -13,6 +13,15 @@ filegroup(
 )
 
 filegroup(
+    name = "http_src",
+    srcs = [
+        "http.bzl",
+        "utils.bzl",
+    ],
+    visibility = ["//src/test/py/bazel:__pkg__"],
+)
+
+filegroup(
     name = "embedded_tools",
     srcs = glob(["*.bzl"]) + ["BUILD.repo"],
     visibility = ["//tools/build_defs:__pkg__"],
