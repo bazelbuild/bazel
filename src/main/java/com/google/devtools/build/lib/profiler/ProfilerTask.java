@@ -43,6 +43,7 @@ public enum ProfilerTask {
   REMOTE_QUEUE("Remote execution queuing time", Threshold.FIFTY_MILLIS),
   REMOTE_SETUP("Remote execution setup", Threshold.FIFTY_MILLIS),
   FETCH("Remote execution file fetching", Threshold.FIFTY_MILLIS),
+  LOCAL_PROCESS_TIME("Local execution process wall time", Threshold.FIFTY_MILLIS),
   VFS_STAT("VFS stat", Threshold.TEN_MILLIS, /* collectsSlowestInstances= */ true),
   VFS_DIR("VFS readdir", Threshold.TEN_MILLIS, /* collectsSlowestInstances= */ true),
   VFS_READLINK("VFS readlink", Threshold.TEN_MILLIS, /* collectsSlowestInstances= */ true),
