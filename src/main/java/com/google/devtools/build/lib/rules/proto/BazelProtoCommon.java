@@ -22,6 +22,12 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkList;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoCommonApi;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkThread;
 
 /** Protocol buffers support for Starlark. */
@@ -86,5 +92,16 @@ public class BazelProtoCommon implements ProtoCommonApi {
         directDescriptorSet,
         Depset.cast(transitiveDescriptorSets, Artifact.class, "transitive_descriptor_set"),
         Depset.cast(exportedSources, ProtoSource.class, "exported_sources"));
+  }
+
+  @StarlarkMethod(
+      name = "incompatible_enable_proto_toolchain_resolution",
+      useStarlarkThread = true,
+      documented = false)
+  public boolean getDefineProtoToolchains(StarlarkThread thread) throws EvalException {
+    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
+    return thread
+        .getSemantics()
+        .getBool(BuildLanguageOptions.INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION);
   }
 }
