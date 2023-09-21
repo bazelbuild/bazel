@@ -31,11 +31,14 @@ fi
 
 : ${JAVA_VERSION:="11"}
 
+# TODO: remove `norepository_cache_urls_as_default_canonical_id` once all dependencies are mirrored.
+# See https://github.com/bazelbuild/bazel/pull/19549 for more context.
 _BAZEL_ARGS="--spawn_strategy=standalone \
       --nojava_header_compilation \
       --strategy=Javac=worker --worker_quit_after_build --ignore_unsupported_sandboxing \
       --compilation_mode=opt \
       --repository_cache=derived/repository_cache \
+      --norepository_cache_urls_as_default_canonical_id \
       --extra_toolchains=//scripts/bootstrap:all \
       --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain \
       --enable_bzlmod \
