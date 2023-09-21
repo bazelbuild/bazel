@@ -35,13 +35,13 @@ your workspace root, maybe with comments like:
 ### Enable Blzmod in your bazelrc {:#enable-bzldmod}
 
 `.bazelrc` lets you set flags that apply every time your run Bazel.  To enable
-Bzlmod we use the `--enable_bzlmod` flag, and apply it to the `common` command so
+Bzlmod, use the `--enable_bzlmod` flag, and apply it to the `common` command so
 it applies to every command:
 
 * **.bazelrc**
 
     ```
-    # Enable bzlmod for every bazel command
+    # Enable Bzlmod for every Bazel command
     common --enable_bzlmod
     ```
 
