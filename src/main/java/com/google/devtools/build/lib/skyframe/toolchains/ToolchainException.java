@@ -88,7 +88,7 @@ public abstract class ToolchainException extends Exception implements DetailedEx
         targetAndConfiguration.getConfiguration().getEventId(),
         String.format(
             "While resolving toolchains for target %s: %s",
-            targetAndConfiguration.getLabel(), getMessage()),
+            targetAndConfiguration, getMessage()),
         NestedSetBuilder.create(Order.STABLE_ORDER, cause),
         getDetailedExitCode());
   }

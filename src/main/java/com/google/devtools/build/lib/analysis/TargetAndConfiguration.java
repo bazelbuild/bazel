@@ -56,7 +56,7 @@ public final class TargetAndConfiguration {
 
   @Override
   public String toString() {
-    return target.getLabel() + " (" + configuration + ")";
+    return target.getLabel() + " (" + configuration.shortId() + ")";
   }
 
   public Target getTarget() {
