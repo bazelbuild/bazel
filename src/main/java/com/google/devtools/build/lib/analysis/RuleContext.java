@@ -1949,9 +1949,7 @@ public final class RuleContext extends TargetContext
       String ruleClass = prerequisite.getRuleClass();
       if (!ruleClass.isEmpty()) {
         String reason =
-            attribute
-                .getValidityPredicate()
-                .checkValid(target.getAssociatedRule(), ruleClass, prerequisite.getRuleTags());
+            attribute.getValidityPredicate().checkValid(target.getAssociatedRule(), ruleClass);
         if (reason != null) {
           reportBadPrerequisite(attribute, prerequisite, reason, false);
         }

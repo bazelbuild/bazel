@@ -189,16 +189,13 @@ public final class Attribute implements Comparable<Attribute> {
     /**
      * This method should return null if the edge is valid, or a suitable error message if it is
      * not. Note that warnings are not supported.
-     *
-     * @param toRuleTags the tags of the rule, used as a workaround in {@code J2ObjcLibraryBaseRule}
-     *     and should probably be deleted.
      */
     @Nullable
-    String checkValid(Rule from, String toRuleClass, Set<String> toRuleTags);
+    String checkValid(Rule from, String toRuleClass);
   }
 
   @SerializationConstant
-  public static final ValidityPredicate ANY_EDGE = (from, toRuleClass, toRuleTags) -> null;
+  public static final ValidityPredicate ANY_EDGE = (from, toRuleClass) -> null;
 
   /** A predicate class to check if the value of the attribute comes from a predefined set. */
   public static class AllowedValueSet implements PredicateWithMessage<Object> {

@@ -1117,7 +1117,7 @@ public final class RuleClassTest extends PackageLoadingTestCase {
     ValidityPredicate checker =
         new ValidityPredicate() {
           @Override
-          public String checkValid(Rule from, String toRuleClass, Set<String> toRuleTags) {
+          public String checkValid(Rule from, String toRuleClass) {
             assertThat(from.getName()).isEqualTo("top");
             switch (toRuleClass) {
               case "dep1class":
@@ -1144,13 +1144,13 @@ public final class RuleClassTest extends PackageLoadingTestCase {
             topClass
                 .getAttributeByName("deps")
                 .getValidityPredicate()
-                .checkValid(topRule, dep1.getRuleClass(), dep1.getRuleTags()))
+                .checkValid(topRule, dep1.getRuleClass()))
         .isEqualTo("pear");
     assertThat(
             topClass
                 .getAttributeByName("deps")
                 .getValidityPredicate()
-                .checkValid(topRule, dep2.getRuleClass(), dep2.getRuleTags()))
+                .checkValid(topRule, dep2.getRuleClass()))
         .isNull();
   }
 
