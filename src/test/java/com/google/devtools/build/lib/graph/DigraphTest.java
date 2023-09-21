@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.TargetData;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
@@ -96,6 +97,11 @@ public class DigraphTest {
     @Override
     public boolean isConfigurable() {
       return true;
+    }
+
+    @Override
+    public TargetData reduceForSerialization() {
+      throw new UnsupportedOperationException();
     }
   }
 

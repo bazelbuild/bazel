@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.packages.util.TargetDataSubject.assertThat;
 
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
@@ -152,5 +153,13 @@ public class OutputFileTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     getTarget("//output_called_build:BUILD");
     assertContainsEvent("generated file 'BUILD' in rule 'a' conflicts with existing source file");
+  }
+
+  @Test
+  public void testReduceForSerialization() throws Exception {
+    var outputFileX = pkg.getTarget("x");
+    assertThat(outputFileX).hasSamePropertiesAs(outputFileX.reduceForSerialization());
+    var outputFileY = pkg.getTarget("subdir/y");
+    assertThat(outputFileY).hasSamePropertiesAs(outputFileY.reduceForSerialization());
   }
 }

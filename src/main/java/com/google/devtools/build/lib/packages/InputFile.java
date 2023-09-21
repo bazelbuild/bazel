@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -133,5 +134,31 @@ public class InputFile extends FileTarget {
   @Override
   public Path getInputPath() {
     return getPath();
+  }
+
+  @Override
+  public TargetData reduceForSerialization() {
+    return new AutoValue_InputFile_InputFileData(getLocation(), getLabel(), getInputPath());
+  }
+
+  @AutoValue
+  abstract static class InputFileData implements TargetData {
+    @Override
+    public final String getTargetKind() {
+      return targetKind();
+    }
+
+    @Override
+    public final boolean isFile() {
+      return true;
+    }
+
+    @Override
+    public final boolean isInputFile() {
+      return true;
+    }
+
+    @Override
+    public abstract Path getInputPath();
   }
 }

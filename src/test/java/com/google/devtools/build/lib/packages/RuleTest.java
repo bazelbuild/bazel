@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.packages.util.TargetDataSubject.assertThat;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.EventKind;
@@ -78,5 +79,21 @@ public class RuleTest extends PackageLoadingTestCase {
     Package pkg = getTarget("//x:BUILD").getPackage();
     assertThat(pkg.getRule("pu").getVisibility()).isEqualTo(RuleVisibility.PUBLIC);
     assertThat(pkg.getRule("pr").getVisibility()).isEqualTo(RuleVisibility.PRIVATE);
+  }
+
+  @Test
+  public void testReduceForSerialization() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "cc_library(name='dep')",
+        "cc_test(name = 'y', srcs = ['a'], deps=[':dep'])",
+        "cc_binary(name = 'cu', visibility = ['//a:b'])");
+    Package pkg = getTarget("//x:BUILD").getPackage();
+    var testDep = pkg.getRule("dep");
+    assertThat(testDep).hasSamePropertiesAs(testDep.reduceForSerialization());
+    var testRule = pkg.getRule("y");
+    assertThat(testRule).hasSamePropertiesAs(testRule.reduceForSerialization());
+    var ccBinaryRule = pkg.getRule("cu");
+    assertThat(ccBinaryRule).hasSamePropertiesAs(ccBinaryRule.reduceForSerialization());
   }
 }

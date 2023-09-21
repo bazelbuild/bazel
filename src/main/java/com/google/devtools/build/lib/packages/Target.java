@@ -80,4 +80,8 @@ public interface Target extends TargetApi, TargetData {
   /** Returns whether this target type can be configured (e.g. accepts non-null configurations). */
   boolean isConfigurable();
 
+  /**
+   * Creates a compact representation of this target with enough information for dependent parents.
+   */
+  TargetData reduceForSerialization();
 }

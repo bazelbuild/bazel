@@ -14,11 +14,13 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper.attributeOrNull;
+import static com.google.devtools.build.lib.util.HashCodes.hashObjects;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -27,6 +29,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
@@ -44,6 +47,7 @@ import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -52,6 +56,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -1245,6 +1250,11 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return TestTimeout.getTestTimeout(this);
   }
 
+  @Override
+  public AdvertisedProviderSet getAdvertisedProviders() {
+    return getRuleClassObject().getAdvertisedProviders();
+  }
+
   /**
    * Computes labels of additional dependencies that can be provided by aspects that this rule can
    * require from its direct dependencies.
@@ -1297,5 +1307,142 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   /** Returns the suffix of target kind for all rules. */
   public static String targetKindSuffix() {
     return " rule";
+  }
+
+  @Override
+  public TargetData reduceForSerialization() {
+    return new RuleData(
+        ruleClass,
+        getLocation(),
+        ImmutableSet.copyOf(getRuleTags()),
+        getLabel(),
+        getDeprecationWarning(),
+        isTestOnly(),
+        getTestTimeout());
+  }
+
+  @VisibleForSerialization // (private) allows RuleDataCodec visibility
+  static class RuleData implements TargetData {
+    private final RuleClassData ruleClassData;
+    private final Location location;
+    // TODO(b/297857068): this is only used to report TargetCompletion, so it should never be
+    // read from a deserialized instance. Refine the ConfiguredTargetAndData API and delete this.
+    private final ImmutableSet<String> ruleTags;
+    private final Label label;
+    @Nullable private final String deprecationWarning;
+    private final boolean isTestOnly;
+    @Nullable private final TestTimeout testTimeout;
+
+    @VisibleForSerialization // (private) allows RuleDataCodec visibility
+    RuleData(
+        RuleClassData ruleClassData,
+        Location location,
+        ImmutableSet<String> ruleTags,
+        Label label,
+        @Nullable String deprecationWarning,
+        boolean isTestOnly,
+        @Nullable TestTimeout testTimeout) {
+      this.ruleClassData = ruleClassData;
+      this.location = location;
+      this.ruleTags = ruleTags;
+      this.label = label;
+      this.deprecationWarning = deprecationWarning;
+      this.isTestOnly = isTestOnly;
+      this.testTimeout = testTimeout;
+    }
+
+    RuleClassData getRuleClassData() {
+      return ruleClassData;
+    }
+
+    @Override
+    public String getTargetKind() {
+      return ruleClassData.getTargetKind();
+    }
+
+    @Override
+    public Location getLocation() {
+      return location;
+    }
+
+    @Override
+    public String getRuleClass() {
+      return ruleClassData.getName();
+    }
+
+    @Override
+    public ImmutableSet<String> getRuleTags() {
+      return ruleTags;
+    }
+
+    @Override
+    public Label getLabel() {
+      return label;
+    }
+
+    @Override
+    public boolean isRule() {
+      return true;
+    }
+
+    @Override
+    @Nullable
+    public String getDeprecationWarning() {
+      return deprecationWarning;
+    }
+
+    @Override
+    public boolean satisfies(RequiredProviders required) {
+      return required.isSatisfiedBy(ruleClassData.getAdvertisedProviders());
+    }
+
+    @Override
+    public boolean isTestOnly() {
+      return isTestOnly;
+    }
+
+    @Override
+    public AdvertisedProviderSet getAdvertisedProviders() {
+      return ruleClassData.getAdvertisedProviders();
+    }
+
+    @Override
+    @Nullable
+    public TestTimeout getTestTimeout() {
+      return testTimeout;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (!(obj instanceof RuleData)) {
+        return false;
+      }
+      RuleData that = (RuleData) obj;
+      return ruleClassData.equals(that.ruleClassData)
+          && location.equals(that.location)
+          && label.equals(that.label)
+          && Objects.equals(deprecationWarning, that.deprecationWarning)
+          && isTestOnly == that.isTestOnly
+          && Objects.equals(testTimeout, that.testTimeout);
+    }
+
+    @Override
+    public int hashCode() {
+      // Extremely likely equal if this many fields match.
+      return hashObjects(ruleClassData, location, label);
+    }
+
+    @Override
+    public String toString() {
+      return toStringHelper(this)
+          .add("ruleClassData", ruleClassData)
+          .add("location", location)
+          .add("ruleTags", ruleTags)
+          .add("label", label)
+          .add("deprecationWarning", deprecationWarning)
+          .add("isTestOnly", isTestOnly)
+          .add("testTimeout", testTimeout)
+          .toString();
+    }
   }
 }

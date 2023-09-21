@@ -105,4 +105,8 @@ public interface TargetData {
   default TestTimeout getTestTimeout() {
     return null;
   }
+
+  default AdvertisedProviderSet getAdvertisedProviders() {
+    return AdvertisedProviderSet.EMPTY;
+  }
 }
