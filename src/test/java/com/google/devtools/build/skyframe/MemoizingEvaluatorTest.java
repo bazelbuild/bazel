@@ -55,7 +55,6 @@ import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
 import com.google.devtools.build.skyframe.NotifyingHelper.Listener;
 import com.google.devtools.build.skyframe.NotifyingHelper.Order;
-import com.google.devtools.build.skyframe.SkyFunction.Reset;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
 import com.google.errorprone.annotations.ForOverride;
@@ -2367,16 +2366,13 @@ public abstract class MemoizingEvaluatorTest {
    * <p>This test covers the case where {@code dep} is newly requested post-reset during a {@link
    * SkyFunction#compute} invocation that returns a {@link SkyValue}, which exercises a different
    * {@link AbstractParallelEvaluator} code path than the scenario covered by {@link
-   * #resetSelfOnly_extraDepMissingAfterReset}.
+   * #resetSelfOnly_extraDepMissingAfterReset_initialBuild}.
    */
   @Test
-  public void resetSelfOnly_singleDep() throws Exception {
+  public void resetSelfOnly_singleDep_initialBuild() throws Exception {
     assume().that(resetSupported()).isTrue();
 
-    var inconsistencyReceiver = new RecordingInconsistencyReceiver();
-    tester.setGraphInconsistencyReceiver(inconsistencyReceiver);
-    tester.initialize();
-
+    var inconsistencyReceiver = recordInconsistencies();
     SkyKey top = skyKey("top");
     SkyKey dep = skyKey("dep");
 
@@ -2416,6 +2412,54 @@ public abstract class MemoizingEvaluatorTest {
   }
 
   /**
+   * Similar to {@link #resetSelfOnly_singleDep_initialBuild} except that the reset occurs on the
+   * node's incremental build.
+   */
+  @Test
+  public void resetSelfOnly_singleDep_incrementalBuild() throws Exception {
+    assume().that(resetSupported()).isTrue();
+    assume().that(incrementalitySupported()).isTrue();
+
+    var inconsistencyReceiver = recordInconsistencies();
+    SkyKey top = skyKey("top");
+    SkyKey dep = nonHermeticKey("dep");
+
+    tester
+        .getOrCreate(top)
+        .setBuilder(
+            new SkyFunction() {
+              private boolean alreadyReset = false;
+
+              @Nullable
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+                var depValue = (StringValue) env.getValue(dep);
+                if (depValue == null) {
+                  return null;
+                }
+                if (depValue.getValue().equals("depVal2") && !alreadyReset) {
+                  alreadyReset = true;
+                  return Reset.of(Reset.newRewindGraphFor(top));
+                }
+                return new StringValue("topVal");
+              }
+            });
+
+    tester.getOrCreate(dep).setConstantValue(new StringValue("depVal1"));
+    tester.eval(/* keepGoing= */ false, top);
+    assertThat(inconsistencyReceiver).isEmpty();
+
+    tester.set(dep, new StringValue("depVal2"));
+    tester.invalidate();
+    var result = tester.eval(/* keepGoing= */ false, top);
+
+    assertThatEvaluationResult(result).hasEntryThat(top).isEqualTo(new StringValue("topVal"));
+    assertThat(inconsistencyReceiver).containsExactly(InconsistencyData.resetRequested(top));
+    assertThatEvaluationResult(result).hasReverseDepsInGraphThat(dep).containsExactly(top);
+    assertThatEvaluationResult(result).hasDirectDepsInGraphThat(top).containsExactly(dep);
+  }
+
+  /**
    * Test for a {@link SkyFunction.Reset} with no rewinding of dependencies, with a missing
    * dependency requested post-reset.
    *
@@ -2425,16 +2469,13 @@ public abstract class MemoizingEvaluatorTest {
    * <p>This test covers the case where {@code dep} is newly requested post-reset in a {@link
    * SkyFunction#compute} invocation that returns {@code null} (because {@code extraDep} is
    * missing), which exercises a different {@link AbstractParallelEvaluator} code path than the
-   * scenario covered by {@link #resetSelfOnly_singleDep}.
+   * scenario covered by {@link #resetSelfOnly_singleDep_initialBuild}.
    */
   @Test
-  public void resetSelfOnly_extraDepMissingAfterReset() throws Exception {
+  public void resetSelfOnly_extraDepMissingAfterReset_initialBuild() throws Exception {
     assume().that(resetSupported()).isTrue();
 
-    var inconsistencyReceiver = new RecordingInconsistencyReceiver();
-    tester.setGraphInconsistencyReceiver(inconsistencyReceiver);
-    tester.initialize();
-
+    var inconsistencyReceiver = recordInconsistencies();
     SkyKey top = skyKey("top");
     SkyKey dep = skyKey("dep");
     SkyKey extraDep = skyKey("extraDep");
@@ -2484,6 +2525,63 @@ public abstract class MemoizingEvaluatorTest {
   }
 
   /**
+   * Similar to {@link #resetSelfOnly_extraDepMissingAfterReset_initialBuild} except that the reset
+   * occurs on the node's incremental build.
+   */
+  @Test
+  public void resetSelfOnly_extraDepMissingAfterReset_incrementalBuild() throws Exception {
+    assume().that(resetSupported()).isTrue();
+    assume().that(incrementalitySupported()).isTrue();
+
+    var inconsistencyReceiver = recordInconsistencies();
+    SkyKey top = skyKey("top");
+    SkyKey dep = nonHermeticKey("dep");
+    SkyKey extraDep = skyKey("extraDep");
+
+    tester
+        .getOrCreate(top)
+        .setBuilder(
+            new SkyFunction() {
+              private boolean alreadyReset = false;
+
+              @Nullable
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+                var depValue = (StringValue) env.getValue(dep);
+                if (depValue == null) {
+                  return null;
+                }
+                if (depValue.getValue().equals("depVal2") && !alreadyReset) {
+                  alreadyReset = true;
+                  return Reset.of(Reset.newRewindGraphFor(top));
+                }
+                var extraDepValue = env.getValue(extraDep);
+                if (extraDepValue == null) {
+                  return null;
+                }
+                return new StringValue("topVal");
+              }
+            });
+    tester.getOrCreate(dep).setConstantValue(new StringValue("depVal1"));
+    tester.getOrCreate(extraDep).setConstantValue(new StringValue("extraDepVal"));
+    tester.eval(/* keepGoing= */ false, top);
+    assertThat(inconsistencyReceiver).isEmpty();
+
+    tester.set(dep, new StringValue("depVal2"));
+    tester.invalidate();
+    var result = tester.eval(/* keepGoing= */ false, top);
+
+    assertThatEvaluationResult(result).hasEntryThat(top).isEqualTo(new StringValue("topVal"));
+    assertThat(inconsistencyReceiver).containsExactly(InconsistencyData.resetRequested(top));
+    assertThatEvaluationResult(result).hasReverseDepsInGraphThat(dep).containsExactly(top);
+    assertThatEvaluationResult(result)
+        .hasDirectDepsInGraphThat(top)
+        .containsExactly(dep, extraDep)
+        .inOrder();
+    assertThatEvaluationResult(result).hasReverseDepsInGraphThat(extraDep).containsExactly(top);
+  }
+
+  /**
    * Tests that if a dependency is requested prior to a {@link SkyFunction.Reset} but not after,
    * then the corresponding reverse dep edge is removed.
    *
@@ -2494,10 +2592,7 @@ public abstract class MemoizingEvaluatorTest {
   public void resetSelfOnly_depNotRequestedAgainAfterReset() throws Exception {
     assume().that(resetSupported()).isTrue();
 
-    var inconsistencyReceiver = new RecordingInconsistencyReceiver();
-    tester.setGraphInconsistencyReceiver(inconsistencyReceiver);
-    tester.initialize();
-
+    var inconsistencyReceiver = recordInconsistencies();
     SkyKey top = skyKey("top");
     SkyKey flakyDep = skyKey("flakyDep");
     SkyKey stableDep = skyKey("stableDep");
@@ -2558,10 +2653,7 @@ public abstract class MemoizingEvaluatorTest {
     assume().that(resetSupported()).isTrue();
     assume().that(incrementalitySupported()).isTrue();
 
-    var inconsistencyReceiver = new RecordingInconsistencyReceiver();
-    tester.setGraphInconsistencyReceiver(inconsistencyReceiver);
-    tester.initialize();
-
+    var inconsistencyReceiver = recordInconsistencies();
     SkyKey top = skyKey("top");
     SkyKey dep = skyKey("dep");
 
@@ -2597,6 +2689,13 @@ public abstract class MemoizingEvaluatorTest {
     assertThat(inconsistencyReceiver).isEmpty();
     assertThatEvaluationResult(result).hasEntryThat(top).isNull();
     assertThatEvaluationResult(result).hasReverseDepsInGraphThat(dep).isEmpty();
+  }
+
+  private RecordingInconsistencyReceiver recordInconsistencies() {
+    var inconsistencyReceiver = new RecordingInconsistencyReceiver();
+    tester.setGraphInconsistencyReceiver(inconsistencyReceiver);
+    tester.initialize();
+    return inconsistencyReceiver;
   }
 
   private static final class RecordingInconsistencyReceiver
