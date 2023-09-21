@@ -114,8 +114,9 @@ public final class GenQueryRule implements RuleDefinition {
     is not allowed).
   </p>
   <p>
-    The genquery's output is ordered using <code>--order_output=full</code> in
-    order to enforce deterministic output.
+    The genquery's output is ordered lexicographically in order to enforce deterministic output,
+    with the exception of <code>--output=graph|minrank|maxrank</code> or when <code>somepath</code>
+    is used as the top-level function.
   <p>
     The name of the output file is the name of the rule.
   </p>
