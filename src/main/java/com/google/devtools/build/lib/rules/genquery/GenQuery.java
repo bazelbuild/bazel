@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -161,8 +160,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       ruleContext.attributeError("opts", "option --experimental_graphless_query is not allowed");
       return null;
     }
-    queryOptions.useGraphlessQuery =
-        ruleContext.getConfiguration().getOptions().get(CoreOptions.class).useGraphlessQuery;
+    // Genquery should always use AUTO, while build isn't affected by query options, .
+    queryOptions.useGraphlessQuery = TriState.AUTO;
 
     // force relative_locations to true so it has a deterministic output across machines.
     queryOptions.relativeLocations = true;
@@ -284,10 +283,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
                 OutputFormatters.formatterNames(OutputFormatters.getDefaultFormatters())));
         return null;
       }
-      graphlessQuery =
-          queryOptions.useGraphlessQuery == TriState.YES
-              || (queryOptions.useGraphlessQuery == TriState.AUTO
-                  && formatter instanceof StreamedFormatter);
+      graphlessQuery = formatter instanceof StreamedFormatter;
       if (graphlessQuery) {
         queryOptions.orderOutput = OrderOutput.NO;
       } else {

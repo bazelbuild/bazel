@@ -32,6 +32,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.TriState;
 import java.io.IOException;
 import java.util.List;
 
@@ -44,6 +45,49 @@ public final class BazelRulesModule extends BlazeModule {
    */
   @SuppressWarnings("deprecation") // These fields have no JavaDoc by design
   public static class BuildGraveyardOptions extends OptionsBase {
+    @Option(
+        name = "incompatible_genquery_use_graphless_query",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        expansion = {
+          "--experimental_genquery_use_graphless_query=auto",
+        },
+        effectTags = {
+          OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS
+        },
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "Deprecated. No-op.")
+    public Void incompatibleUseGraphlessQuery;
+
+    @Option(
+        name = "noincompatible_genquery_use_graphless_query",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        expansion = {
+          "--experimental_genquery_use_graphless_query=false",
+        },
+        effectTags = {
+          OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS
+        },
+        help = "Deprecated. No-op.")
+    public Void noincompatibleUseGraphlessQuery;
+
+    @Option(
+        name = "experimental_genquery_use_graphless_query",
+        defaultValue = "auto",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS
+        },
+        help = "Deprecated. No-op.")
+    public TriState useGraphlessQuery;
+
     @Option(
         name = "use_top_level_targets_for_symlinks",
         defaultValue = "true",

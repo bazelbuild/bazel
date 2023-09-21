@@ -67,7 +67,8 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
     assertQueryResult("//fruits:q", "//fruits:melon", "//fruits:papaya");
   }
 
-  private void deterministicTestHelper(boolean graphless) throws Exception {
+  @Test
+  public void testDeterministic() throws Exception {
     write(
         "fruits/BUILD",
         "sh_library(name='melon', deps=[':papaya', ':apple'])",
@@ -81,22 +82,8 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
     String firstResult = getQueryResult("//fruits:q");
     for (int i = 0; i < 10; i++) {
       createFilesAndMocks(); // Do a clean.
-      if (graphless) {
-        runtimeWrapper.addOptions("--experimental_genquery_use_graphless_query");
-      }
       assertThat(getQueryResult("//fruits:q")).isEqualTo(firstResult);
     }
-  }
-
-  @Test
-  public void testDeterministic() throws Exception {
-    deterministicTestHelper(/* graphless= */ false);
-  }
-
-  @Test
-  public void testDeterministicGraphless() throws Exception {
-    runtimeWrapper.addOptions("--experimental_genquery_use_graphless_query");
-    deterministicTestHelper(/* graphless= */ true);
   }
 
   @Test
@@ -109,7 +96,6 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
         "genquery(name='q',",
         "         scope=['//query:common'],",
         "         expression='deps(//query:common)')");
-    runtimeWrapper.addOptions("--experimental_genquery_use_graphless_query");
     assertThat(getQueryResult("//query:q").split("\n")).hasLength(3);
   }
 

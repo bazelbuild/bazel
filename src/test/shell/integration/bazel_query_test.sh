@@ -730,8 +730,7 @@ EOF
 EOF
 
   # Genquery uses a graphless blaze environment by default.
-  bazel build --experimental_genquery_use_graphless_query \
-      //foo:q || fail "Expected success"
+  bazel build //foo:q || fail "Expected success"
 
   # The --incompatible_lexicographical_output flag is used to
   # switch order_output=auto to use graphless query and output in
