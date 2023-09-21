@@ -654,6 +654,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
+        "//third_party:guava",
     ],
 )
 
