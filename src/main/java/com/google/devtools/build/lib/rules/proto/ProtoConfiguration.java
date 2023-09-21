@@ -47,17 +47,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
   /** Command line options. */
   public static class Options extends FragmentOptions {
     @Option(
-        name = "incompatible_enable_proto_toolchain_resolution",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help =
-            "If true, proto lang rules use toolchain resolution to find the toolchain. The flags"
-                + " proto_compiler and proto_toolchain_for_* are a no-op.")
-    public boolean enableProtoToolchainResolution;
-
-    @Option(
         name = "protocopt",
         allowMultiple = true,
         defaultValue = "null",
@@ -175,7 +164,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     @Override
     public FragmentOptions getExec() {
       Options exec = (Options) super.getExec();
-      exec.enableProtoToolchainResolution = enableProtoToolchainResolution;
       exec.protoCompiler = protoCompiler;
       exec.protocOpts = protocOpts;
       exec.experimentalProtoDescriptorSetsIncludeSourceInfo =
@@ -196,12 +184,10 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
   private final ImmutableList<String> protocOpts;
   private final ImmutableList<String> ccProtoLibraryHeaderSuffixes;
   private final ImmutableList<String> ccProtoLibrarySourceSuffixes;
-  private final boolean enableProtoToolchainResolution;
   private final Options options;
 
   public ProtoConfiguration(BuildOptions buildOptions) {
     Options options = buildOptions.get(Options.class);
-    this.enableProtoToolchainResolution = options.enableProtoToolchainResolution;
     this.protocOpts = ImmutableList.copyOf(options.protocOpts);
     this.ccProtoLibraryHeaderSuffixes = ImmutableList.copyOf(options.ccProtoLibraryHeaderSuffixes);
     this.ccProtoLibrarySourceSuffixes = ImmutableList.copyOf(options.ccProtoLibrarySourceSuffixes);
@@ -246,11 +232,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       defaultLabel = ProtoConstants.DEFAULT_PROTOC_LABEL)
   @Nullable
   public Label protoCompiler() {
-    if (enableProtoToolchainResolution) {
-      return null;
-    } else {
-      return options.protoCompiler;
-    }
+    return options.protoCompiler;
   }
 
   @StarlarkConfigurationField(
@@ -259,11 +241,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       defaultLabel = ProtoConstants.DEFAULT_JAVA_PROTO_LABEL)
   @Nullable
   public Label protoToolchainForJava() {
-    if (enableProtoToolchainResolution) {
-      return null;
-    } else {
-      return options.protoToolchainForJava;
-    }
+    return options.protoToolchainForJava;
   }
 
   @StarlarkConfigurationField(
@@ -272,11 +250,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       defaultLabel = ProtoConstants.DEFAULT_J2OBJC_PROTO_LABEL)
   @Nullable
   public Label protoToolchainForJ2objc() {
-    if (enableProtoToolchainResolution) {
-      return null;
-    } else {
-      return options.protoToolchainForJ2objc;
-    }
+    return options.protoToolchainForJ2objc;
   }
 
   @StarlarkConfigurationField(
@@ -285,11 +259,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       defaultLabel = ProtoConstants.DEFAULT_JAVA_LITE_PROTO_LABEL)
   @Nullable
   public Label protoToolchainForJavaLite() {
-    if (enableProtoToolchainResolution) {
-      return null;
-    } else {
-      return options.protoToolchainForJavaLite;
-    }
+    return options.protoToolchainForJavaLite;
   }
 
   @StarlarkConfigurationField(
@@ -298,11 +268,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       defaultLabel = ProtoConstants.DEFAULT_CC_PROTO_LABEL)
   @Nullable
   public Label protoToolchainForCc() {
-    if (enableProtoToolchainResolution) {
-      return null;
-    } else {
-      return options.protoToolchainForCc;
-    }
+    return options.protoToolchainForCc;
   }
 
   @StarlarkMethod(name = "strict_proto_deps", useStarlarkThread = true, documented = false)

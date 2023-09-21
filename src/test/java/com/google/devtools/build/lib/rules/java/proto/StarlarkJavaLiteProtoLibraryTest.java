@@ -64,6 +64,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     scratch.file("proto/BUILD", "licenses(['notice'])", "exports_files(['compiler'])");
 
     mockToolchains();
+    invalidatePackages();
 
     actionsTestUtil = actionsTestUtil();
   }

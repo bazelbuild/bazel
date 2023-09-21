@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -52,6 +53,19 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     scratch.file("proto/BUILD", "licenses(['notice'])", "exports_files(['compiler'])");
 
     invalidatePackages();
+  }
+
+  @Test
+  public void protoToolchainResolution_enabled() throws Exception {
+    setBuildLanguageOptions("--incompatible_enable_proto_toolchain_resolution");
+    scratch.file(
+        "x/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "proto_library(name='foo', srcs=['foo.proto'])");
+
+    getDescriptorOutput("//x:foo");
+
+    assertNoEvents();
   }
 
   @Test
@@ -989,6 +1003,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     assertThat(commandLine).contains("-I" + genfiles + "/external/foo/x/y/_virtual_imports/q");
   }
 
+  @CanIgnoreReturnValue
   private Artifact getDescriptorOutput(String label) throws Exception {
     return getFirstArtifactEndingWith(getFilesToBuild(getConfiguredTarget(label)), ".proto.bin");
   }
