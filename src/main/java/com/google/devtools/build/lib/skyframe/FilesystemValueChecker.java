@@ -342,11 +342,7 @@ public class FilesystemValueChecker {
       List<Artifact> artifacts = ImmutableList.copyOf(fileToKeyAndValue.keySet());
       List<FileStatusWithDigest> stats;
       try {
-        stats =
-            batchStatter.batchStat(
-                /* includeDigest= */ true,
-                /* includeLinks= */ true,
-                Artifact.asPathFragments(artifacts));
+        stats = batchStatter.batchStat(Artifact.asPathFragments(artifacts));
       } catch (IOException e) {
         logger.atWarning().withCause(e).log(
             "Unable to process batch stat, falling back to individual stats");

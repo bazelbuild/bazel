@@ -260,7 +260,7 @@ public final class FilesystemValueCheckerTest {
     ENABLED {
       @Override
       BatchStat getBatchStat(FileSystem fileSystem) {
-        return (useDigest, includeLinks, paths) -> {
+        return (paths) -> {
           List<FileStatusWithDigest> stats = new ArrayList<>();
           for (PathFragment pathFrag : paths) {
             stats.add(
@@ -1228,8 +1228,7 @@ public final class FilesystemValueCheckerTest {
     checkDirtyActions(
         new BatchStat() {
           @Override
-          public List<FileStatusWithDigest> batchStat(
-              boolean useDigest, boolean includeLinks, Iterable<PathFragment> paths)
+          public List<FileStatusWithDigest> batchStat(Iterable<PathFragment> paths)
               throws IOException {
             List<FileStatusWithDigest> stats = new ArrayList<>();
             for (PathFragment pathFrag : paths) {
@@ -1249,8 +1248,7 @@ public final class FilesystemValueCheckerTest {
     checkDirtyActions(
         new BatchStat() {
           @Override
-          public List<FileStatusWithDigest> batchStat(
-              boolean useDigest, boolean includeLinks, Iterable<PathFragment> paths)
+          public List<FileStatusWithDigest> batchStat(Iterable<PathFragment> paths)
               throws IOException {
             List<FileStatusWithDigest> stats = new ArrayList<>();
             for (PathFragment pathFrag : paths) {
@@ -1269,8 +1267,7 @@ public final class FilesystemValueCheckerTest {
     checkDirtyActions(
         new BatchStat() {
           @Override
-          public List<FileStatusWithDigest> batchStat(
-              boolean useDigest, boolean includeLinks, Iterable<PathFragment> paths)
+          public List<FileStatusWithDigest> batchStat(Iterable<PathFragment> paths)
               throws IOException {
             throw new IOException("try again");
           }
