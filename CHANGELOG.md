@@ -1,3 +1,39 @@
+## Release 7.0.0-pre.20230917.3 (2023-09-22)
+
+```
+Baseline: 1cf392ff3918386858b8c038f82c013b1e04be98
+
+Cherry picks:
+
+   + 32563ca1728a69437b26efa19d18eebfcecc4765:
+     [Skymeld] Avoid printing extra WARNINGS for execution failures
+     in -k.
+   + 19f5e933d3fc91848b2b786cb11a6decaa96cf6e:
+     Automated rollback of commit
+     f06418470988721c8c3efe38723f910989180ad4.
+```
+
+Incompatible changes:
+
+  - `cmd_helper` module was removed
+  - `ctx.new_file` was removed, `ctx.actions.declare_file` is to be
+    used instead.
+  - Fails on unknown attributes (even when set to None). See
+    https://github.com/bazelbuild/bazel/issues/19403
+  - Flip incompatible_enable_cc_toolchain_resolution
+    (https://github.com/bazelbuild/bazel/issues/7260)
+
+Important changes:
+
+  - Change output paths to consistently start with
+    [cpu]-[compilation_mode] along with other cleanups to output path
+    generation logic.
+  - Compilation actions using the auto-configured MSVC toolchain are
+    forced to emit error messages in English if the English language
+    pack for Visual Studio is installed.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Boleyn Su, Brentley Jones, Daniel Wagner-Hall, Fabian Meumertzheim, Keith Smiley, Roman Salvador, Timothy Gu.
+
 ## Release 7.0.0-pre.20230906.2 (2023-09-14)
 
 ```
