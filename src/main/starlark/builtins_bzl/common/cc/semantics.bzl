@@ -199,4 +199,5 @@ semantics = struct(
     get_nocopts_attr = _get_nocopts_attr,
     get_experimental_link_static_libraries_once = _get_experimental_link_static_libraries_once,
     check_cc_shared_library_tags = _check_cc_shared_library_tags,
+    BUILD_INFO_TRANLATOR_LABEL = "@bazel_tools//tools/build_defs/build_info:cc_build_info",
 )

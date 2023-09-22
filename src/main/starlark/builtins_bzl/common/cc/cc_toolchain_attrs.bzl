@@ -191,6 +191,10 @@ cc_toolchain_attrs_exec = {
         providers = [PackageSpecificationInfo],
         cfg = "exec",
     ),
+    "_build_info_translator": attr.label(
+        default = semantics.BUILD_INFO_TRANLATOR_LABEL,
+        providers = [OutputGroupInfo],
+    ),
     "_is_apple": attr.bool(
         default = False,
     ),

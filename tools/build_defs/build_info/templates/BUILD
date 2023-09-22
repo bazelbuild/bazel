@@ -19,6 +19,12 @@ exports_files(
         "redacted_file.h.template",
     ],
     visibility = [
-        "//tools/build_defs/build_info:__pkg__",
+        "@bazel_tools//tools/build_defs/build_info:__pkg__",
     ],
+)
+
+filegroup(
+    name = "embedded_tools",
+    srcs = glob(["*"]),
+    visibility = ["//tools/build_defs:__pkg__"],
 )

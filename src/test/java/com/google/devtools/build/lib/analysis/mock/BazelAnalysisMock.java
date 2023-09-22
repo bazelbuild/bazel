@@ -627,6 +627,22 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create("embedded_tools/MODULE.bazel", "module(name='bazel_tools')");
     config.create("embedded_tools/tools/build_defs/repo/BUILD");
     config.create(
+        "embedded_tools/tools/build_defs/build_info/bazel_cc_build_info.bzl",
+        "def _impl(ctx):",
+        "  output_groups = {",
+        "    'non_redacted_build_info_files': depset([ctx.info_file, ctx.version_file]),",
+        "    'redacted_build_info_files': depset([ctx.version_file]),",
+        "  }",
+        "  return OutputGroupInfo(**output_groups)",
+        "bazel_cc_build_info = rule(implementation = _impl)");
+    config.create(
+        "embedded_tools/tools/build_defs/build_info/BUILD",
+        "load('//tools/build_defs/build_info:bazel_cc_build_info.bzl'," + " 'bazel_cc_build_info')",
+        "bazel_cc_build_info(",
+        "    name = 'cc_build_info',",
+        "    visibility = ['//visibility:public'],",
+        ")");
+    config.create(
         "embedded_tools/tools/build_defs/repo/utils.bzl",
         "def maybe(repo_rule, name, **kwargs):",
         "  if name not in native.existing_rules():",

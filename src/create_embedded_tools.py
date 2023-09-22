@@ -38,6 +38,10 @@ output_paths = [
         '*tools/build_defs/build_info/BUILD.tools',
         lambda x: 'tools/build_defs/build_info/BUILD',
     ),
+    (
+        '*tools/build_defs/build_info/templates/BUILD.tools',
+        lambda x: 'tools/build_defs/build_info/templates/BUILD',
+    ),
     ('*tools/j2objc/BUILD.tools', lambda x: 'tools/j2objc/BUILD'),
     ('*tools/platforms/*', lambda x: 'platforms/' + os.path.basename(x)),
     ('*tools/cpp/BUILD.tools', lambda x: 'tools/cpp/BUILD'),

@@ -116,7 +116,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       PRIVATE_BUILDINFO_API_ALLOWLIST =
           ImmutableSet.of(
               BuiltinRestriction.allowlistEntry("", "test"), // for tests
-              BuiltinRestriction.allowlistEntry("", "tools/build_defs/build_info"));
+              BuiltinRestriction.allowlistEntry("", "tools/build_defs/build_info"),
+              BuiltinRestriction.allowlistEntry("bazel_tools", "tools/build_defs/build_info"));
 
   public StarlarkActionFactory(StarlarkActionContext context) {
     this.context = context;

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -62,7 +63,8 @@ public final class CcToolchainProvider extends NativeInfo
             StarlarkRuleContext,
             InvalidConfigurationException,
             CppConfiguration,
-            CcToolchainVariables>,
+            CcToolchainVariables,
+            OutputGroupInfo>,
         HasCcToolchainLabel {
 
   public static final BuiltinProvider<CcToolchainProvider> PROVIDER =
@@ -139,6 +141,7 @@ public final class CcToolchainProvider extends NativeInfo
   private final String ldExecutable;
   private final String gcovExecutable;
   private final StarlarkFunction ccToolchainBuildVariablesFunc;
+  private final OutputGroupInfo ccBuildInfoTranslator;
 
   public CcToolchainProvider(
       @Nullable CppConfiguration cppConfiguration,
@@ -202,7 +205,8 @@ public final class CcToolchainProvider extends NativeInfo
       String stripExecutable,
       String ldExecutable,
       String gcovExecutable,
-      StarlarkFunction ccToolchainBuildVariablesFunc) {
+      StarlarkFunction ccToolchainBuildVariablesFunc,
+      OutputGroupInfo ccBuildInfoTranslator) {
     super();
     this.cppConfiguration = cppConfiguration;
     this.crosstoolTopPathFragment = crosstoolTopPathFragment;
@@ -270,6 +274,7 @@ public final class CcToolchainProvider extends NativeInfo
     this.gcovExecutable = gcovExecutable;
     this.grepIncludes = grepIncludes;
     this.ccToolchainBuildVariablesFunc = ccToolchainBuildVariablesFunc;
+    this.ccBuildInfoTranslator = ccBuildInfoTranslator;
   }
 
   @Override
@@ -1063,5 +1068,16 @@ public final class CcToolchainProvider extends NativeInfo
 
   public PackageSpecificationProvider getAllowlistForLooseHeaderCheck() {
     return allowListForLooseHeaderCheck;
+  }
+
+  public OutputGroupInfo getCcBuildInfoTranslator() {
+    return ccBuildInfoTranslator;
+  }
+
+  @Override
+  public OutputGroupInfo getCcBuildInfoTranslatorForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getCcBuildInfoTranslator();
   }
 }

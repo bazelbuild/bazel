@@ -272,7 +272,8 @@ public class CcStarlarkInternal implements StarlarkValue {
         /* stripExecutable= */ stripExecutable,
         /* ldExecutable= */ ldExecutable,
         /* gcovExecutable= */ gcovExecutable,
-        /* ccToolchainBuildVariablesFunc */ attributes.getCcToolchainBuildVariablesFunc());
+        /* ccToolchainBuildVariablesFunc */ attributes.getCcToolchainBuildVariablesFunc(),
+        /* ccBuildInfoTranslator */ attributes.getCcBuildInfoTranslator());
   }
 
   @StarlarkMethod(

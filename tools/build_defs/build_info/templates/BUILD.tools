@@ -12,15 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load(":bazel_cc_build_info.bzl", "bazel_cc_build_info")
-
-package(default_visibility = ["//visibility:public"])
-
-bazel_cc_build_info(
-    name = "cc_build_info",
-)
-
-filegroup(
-    name = "embedded_tools",
-    srcs = glob(["*"]),
+exports_files(
+    [
+        "non_volatile_file.h.template",
+        "volatile_file.h.template",
+        "redacted_file.h.template",
+    ],
+    visibility = [
+        "//tools/build_defs/build_info:__pkg__",
+    ],
 )

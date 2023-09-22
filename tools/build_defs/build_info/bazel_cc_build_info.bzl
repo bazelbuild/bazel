@@ -66,15 +66,15 @@ bazel_cc_build_info = rule(
     implementation = _impl,
     attrs = {
         "_version_template": attr.label(
-            default = "@//tools/build_defs/build_info/templates:volatile_file.h.template",
+            default = "@bazel_tools//tools/build_defs/build_info/templates:volatile_file.h.template",
             allow_single_file = True,
         ),
         "_info_template": attr.label(
-            default = "@//tools/build_defs/build_info/templates:non_volatile_file.h.template",
+            default = "@bazel_tools//tools/build_defs/build_info/templates:non_volatile_file.h.template",
             allow_single_file = True,
         ),
         "_redacted_file": attr.label(
-            default = "@//tools/build_defs/build_info/templates:redacted_file.h.template",
+            default = "@bazel_tools//tools/build_defs/build_info/templates:redacted_file.h.template",
             allow_single_file = True,
         ),
     },

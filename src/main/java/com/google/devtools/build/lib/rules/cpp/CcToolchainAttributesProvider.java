@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.analysis.LicensesProviderImpl;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -105,6 +106,7 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
   private final StarlarkFunction ccToolchainBuildVariablesFunc;
   private final String lateBoundLibc;
   private final String lateBoundTargetLibc;
+  private final OutputGroupInfo ccBuildInfoTranslator;
 
   public CcToolchainAttributesProvider(
       RuleContext ruleContext,
@@ -230,6 +232,8 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
         Allowlist.fetchPackageSpecificationProvider(
             ruleContext, CcToolchainRule.LOOSE_HEADER_CHECK_ALLOWLIST);
     this.ccToolchainBuildVariablesFunc = ccToolchainBuildVariablesFunc;
+    this.ccBuildInfoTranslator =
+        OutputGroupInfo.get(ruleContext.getPrerequisite("$build_info_translator"));
   }
 
   // This is to avoid Starlark limitation of not being able to have complex logic in configuration
@@ -572,6 +576,10 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
 
   public PackageSpecificationProvider getAllowlistForLooseHeaderCheck() {
     return allowlistForLooseHeaderCheck;
+  }
+
+  public OutputGroupInfo getCcBuildInfoTranslator() {
+    return ccBuildInfoTranslator;
   }
 
   private static NestedSet<Artifact> getFiles(RuleContext context, String attribute) {

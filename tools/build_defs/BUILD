@@ -2,6 +2,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//tools/build_defs/build_info:embedded_tools",
+        "//tools/build_defs/build_info/templates:embedded_tools",
         "//tools/build_defs/cc:srcs",
         "//tools/build_defs/cc/tests:cc_import_tests_files",
         "//tools/build_defs/cc/whitelists/parse_headers_and_layering_check:srcs",
@@ -18,6 +19,7 @@ filegroup(
     name = "embedded_tools",
     srcs = glob(["**"]) + [
         "//tools/build_defs/build_info:embedded_tools",
+        "//tools/build_defs/build_info/templates:embedded_tools",
         "//tools/build_defs/cc:srcs",
         "//tools/build_defs/cc/whitelists/parse_headers_and_layering_check:srcs",
         "//tools/build_defs/cc/whitelists/starlark_hdrs_check:srcs",

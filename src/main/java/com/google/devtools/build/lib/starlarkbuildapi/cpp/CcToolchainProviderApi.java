@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.starlarkbuildapi.OutputGroupInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
@@ -41,7 +42,8 @@ public interface CcToolchainProviderApi<
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         InvalidConfigurationExceptionT extends Exception,
         CppConfigurationT extends CppConfigurationApi<InvalidConfigurationExceptionT>,
-        CcToolchainVariablesT extends CcToolchainVariablesApi>
+        CcToolchainVariablesT extends CcToolchainVariablesApi,
+        OutputGroupInfoT extends OutputGroupInfoApi>
     extends StructApi {
 
   @StarlarkMethod(
@@ -307,4 +309,7 @@ public interface CcToolchainProviderApi<
       CppConfigurationT cppConfiguration,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
+
+  @StarlarkMethod(name = "build_info_files", documented = false, useStarlarkThread = true)
+  OutputGroupInfoT getCcBuildInfoTranslatorForStarlark(StarlarkThread thread) throws EvalException;
 }

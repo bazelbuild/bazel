@@ -49,6 +49,7 @@ public interface WrapCcHelperApi<
                     starlarkRuleContextT,
                     ?,
                     ? extends CppConfigurationApi<?>,
+                    ?,
                     ?>,
         CompilationInfoT extends CompilationInfoApi<FileT>,
         FileT extends FileApi,
