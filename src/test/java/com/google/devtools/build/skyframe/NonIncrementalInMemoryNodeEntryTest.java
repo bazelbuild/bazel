@@ -13,15 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.skyframe.NodeEntrySubjectFactory.assertThatNodeEntry;
-
-import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
-import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
-import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.Version.ConstantVersion;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
-import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Tests for {@link NonIncrementalInMemoryNodeEntry}. */
@@ -36,57 +29,5 @@ public class NonIncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<C
   @Override
   final ConstantVersion getInitialVersion() {
     return Version.constant();
-  }
-
-  @Test
-  public void rewindingLifecycle() throws InterruptedException {
-    InMemoryNodeEntry entry = createEntry();
-    entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
-    entry.markRebuilding();
-    setValue(entry, new IntegerValue(1), /* errorInfo= */ null, initialVersion);
-    assertThat(entry.isDirty()).isFalse();
-    assertThat(entry.isDone()).isTrue();
-
-    entry.markDirty(DirtyType.REWIND);
-    assertThat(entry.isDirty()).isTrue();
-    assertThat(entry.isChanged()).isTrue();
-    assertThat(entry.isDone()).isFalse();
-    assertThat(entry.getTemporaryDirectDeps() instanceof GroupedDeps.WithHashSet)
-        .isEqualTo(isPartialReevaluation);
-
-    assertThatNodeEntry(entry)
-        .addReverseDepAndCheckIfDone(null)
-        .isEqualTo(DependencyState.NEEDS_SCHEDULING);
-    assertThat(entry.isReadyToEvaluate()).isTrue();
-    assertThat(entry.hasUnsignaledDeps()).isFalse();
-
-    SkyKey parent = key("parent");
-    entry.addReverseDepAndCheckIfDone(parent);
-    assertThat(entry.getDirtyState()).isEqualTo(DirtyState.NEEDS_REBUILDING);
-    assertThat(entry.isReadyToEvaluate()).isTrue();
-    assertThat(entry.hasUnsignaledDeps()).isFalse();
-    assertThat(entry.getTemporaryDirectDeps()).isEmpty();
-
-    assertThat(setValue(entry, new IntegerValue(2), /* errorInfo= */ null, initialVersion))
-        .containsExactly(parent);
-    assertThat(entry.getValue()).isEqualTo(new IntegerValue(2));
-    assertThat(entry.getVersion()).isEqualTo(initialVersion);
-  }
-
-  @Test
-  public void concurrentRewindingAllowed() throws InterruptedException {
-    InMemoryNodeEntry entry = createEntry();
-    entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
-    entry.markRebuilding();
-    setValue(entry, new SkyValue() {}, /* errorInfo= */ null, initialVersion);
-    assertThat(entry.isDirty()).isFalse();
-    assertThat(entry.isDone()).isTrue();
-
-    assertThat(entry.markDirty(DirtyType.REWIND)).isNotNull();
-    assertThat(entry.markDirty(DirtyType.REWIND)).isNull();
-
-    assertThat(entry.isDirty()).isTrue();
-    assertThat(entry.isChanged()).isTrue();
-    assertThat(entry.isDone()).isFalse();
   }
 }

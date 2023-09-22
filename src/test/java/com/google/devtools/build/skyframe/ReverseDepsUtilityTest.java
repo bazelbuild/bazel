@@ -56,12 +56,16 @@ public final class ReverseDepsUtilityTest {
       }
       // Not a big test but at least check that it does not blow up.
       assertThat(ReverseDepsUtility.toString(example)).isNotEmpty();
-      assertThat(ReverseDepsUtility.getReverseDeps(example, /*checkConsistency=*/ true))
+      assertThat(
+              ReverseDepsUtility.consolidateAndGetReverseDeps(
+                  example, /* checkConsistency= */ true))
           .hasSize(numElements);
       for (int i = 0; i < numRemovals; i++) {
         ReverseDepsUtility.removeReverseDep(example, Key.create(i));
       }
-      assertThat(ReverseDepsUtility.getReverseDeps(example, /*checkConsistency=*/ true))
+      assertThat(
+              ReverseDepsUtility.consolidateAndGetReverseDeps(
+                  example, /* checkConsistency= */ true))
           .hasSize(numElements - numRemovals);
       assertThat(example.getReverseDepsDataToConsolidateForReverseDepsUtil()).isNull();
     }
@@ -75,12 +79,16 @@ public final class ReverseDepsUtilityTest {
       for (int j = 0; j < numElements; j++) {
         ReverseDepsUtility.addReverseDep(example, Key.create(j));
       }
-      assertThat(ReverseDepsUtility.getReverseDeps(example, /*checkConsistency=*/ true))
+      assertThat(
+              ReverseDepsUtility.consolidateAndGetReverseDeps(
+                  example, /* checkConsistency= */ true))
           .hasSize(numElements);
       for (int i = 0; i < numRemovals; i++) {
         ReverseDepsUtility.removeReverseDep(example, Key.create(i));
       }
-      assertThat(ReverseDepsUtility.getReverseDeps(example, /*checkConsistency=*/ true))
+      assertThat(
+              ReverseDepsUtility.consolidateAndGetReverseDeps(
+                  example, /* checkConsistency= */ true))
           .hasSize(numElements - numRemovals);
       assertThat(example.getReverseDepsDataToConsolidateForReverseDepsUtil()).isNull();
     }
@@ -96,11 +104,16 @@ public final class ReverseDepsUtilityTest {
     ReverseDepsUtility.addReverseDep(example, Key.create(0));
     if (numElements == 0) {
       // Will not throw.
-      assertThat(ReverseDepsUtility.getReverseDeps(example, /*checkConsistency=*/ true)).hasSize(1);
+      assertThat(
+              ReverseDepsUtility.consolidateAndGetReverseDeps(
+                  example, /* checkConsistency= */ true))
+          .hasSize(1);
     } else {
       assertThrows(
           RuntimeException.class,
-          () -> ReverseDepsUtility.getReverseDeps(example, /*checkConsistency=*/ true));
+          () ->
+              ReverseDepsUtility.consolidateAndGetReverseDeps(
+                  example, /* checkConsistency= */ true));
     }
   }
 
@@ -111,7 +124,8 @@ public final class ReverseDepsUtilityTest {
       ReverseDepsUtility.addReverseDep(example, Key.create(i));
     }
     ReverseDepsUtility.addReverseDep(example, Key.create(0));
-    assertThat(ReverseDepsUtility.getReverseDeps(example, /*checkConsistency=*/ false))
+    assertThat(
+            ReverseDepsUtility.consolidateAndGetReverseDeps(example, /* checkConsistency= */ false))
         .hasSize(numElements + 1);
   }
 
@@ -125,7 +139,8 @@ public final class ReverseDepsUtilityTest {
     ReverseDepsUtility.removeReverseDep(example, key);
     assertThrows(
         IllegalStateException.class,
-        () -> ReverseDepsUtility.getReverseDeps(example, /*checkConsistency=*/ true));
+        () ->
+            ReverseDepsUtility.consolidateAndGetReverseDeps(example, /* checkConsistency= */ true));
   }
 
   @Test
@@ -157,7 +172,8 @@ public final class ReverseDepsUtilityTest {
     ReverseDepsUtility.addReverseDep(example, key);
     ReverseDepsUtility.removeReverseDep(example, key);
     ReverseDepsUtility.addReverseDep(example, key);
-    assertThat(ReverseDepsUtility.getReverseDeps(example, /*checkConsistency=*/ true))
+    assertThat(
+            ReverseDepsUtility.consolidateAndGetReverseDeps(example, /* checkConsistency= */ true))
         .containsExactly(fixedKey, key);
   }
 

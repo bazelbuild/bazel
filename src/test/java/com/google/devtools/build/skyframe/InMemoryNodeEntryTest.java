@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Reportable;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
+import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -446,6 +447,69 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
     // Set value and check that parent will be signaled.
     assertThat(setValue(entry, new IntegerValue(1), /* errorInfo= */ null, initialVersion))
         .containsExactly(parent);
+  }
+
+  @Test
+  public void rewindingLifecycle() throws InterruptedException {
+    InMemoryNodeEntry entry = createEntry();
+
+    // Rdep that will eventually rewind the entry.
+    SkyKey resetParent = key("resetParent");
+    assertThatNodeEntry(entry)
+        .addReverseDepAndCheckIfDone(resetParent)
+        .isEqualTo(DependencyState.NEEDS_SCHEDULING);
+    entry.markRebuilding();
+
+    // Node completes.
+    assertThat(setValue(entry, new IntegerValue(1), /* errorInfo= */ null, initialVersion))
+        .containsExactly(resetParent);
+    assertThat(entry.isDirty()).isFalse();
+    assertThat(entry.isDone()).isTrue();
+
+    // Rewinding initiated.
+    entry.markDirty(DirtyType.REWIND);
+    assertThat(entry.isDirty()).isTrue();
+    assertThat(entry.isChanged()).isTrue();
+    assertThat(entry.isDone()).isFalse();
+    assertThat(entry.getTemporaryDirectDeps() instanceof GroupedDeps.WithHashSet)
+        .isEqualTo(isPartialReevaluation);
+
+    // Parent declares dep again after resetting.
+    var dependencyState =
+        entry.keepsEdges()
+            ? entry.checkIfDoneForDirtyReverseDep(resetParent)
+            : entry.addReverseDepAndCheckIfDone(resetParent);
+    assertThat(dependencyState).isEqualTo(DependencyState.NEEDS_SCHEDULING);
+    assertThat(entry.getDirtyState()).isEqualTo(DirtyState.NEEDS_REBUILDING);
+    assertThat(entry.isReadyToEvaluate()).isTrue();
+    assertThat(entry.hasUnsignaledDeps()).isFalse();
+    assertThat(entry.getTemporaryDirectDeps()).isEmpty();
+    entry.markRebuilding();
+    assertThat(entry.getDirtyState()).isEqualTo(DirtyState.REBUILDING);
+
+    // Rewound evaluation completes. The parent that initiated rewinding is signalled.
+    assertThat(setValue(entry, new IntegerValue(2), /* errorInfo= */ null, initialVersion))
+        .containsExactly(resetParent);
+    assertThat(entry.getValue()).isEqualTo(new IntegerValue(2));
+    assertThat(entry.getVersion()).isEqualTo(initialVersion);
+  }
+
+  @Test
+  public void concurrentRewindingAllowed() throws InterruptedException {
+    InMemoryNodeEntry entry = createEntry();
+    entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
+    entry.markRebuilding();
+    setValue(entry, new SkyValue() {}, /* errorInfo= */ null, initialVersion);
+    assertThat(entry.isDirty()).isFalse();
+    assertThat(entry.isDone()).isTrue();
+
+    assertThat(entry.markDirty(DirtyType.REWIND)).isNotNull();
+    assertThat(entry.markDirty(DirtyType.REWIND)).isNull();
+
+    assertThat(entry.isDirty()).isTrue();
+    assertThat(entry.isChanged()).isTrue();
+    assertThat(entry.isDone()).isFalse();
+    assertThat(entry.getDirtyState()).isEqualTo(DirtyState.NEEDS_REBUILDING);
   }
 
   @CanIgnoreReturnValue

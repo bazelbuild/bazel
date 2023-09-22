@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -279,7 +278,7 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
   @Override
   public synchronized Collection<SkyKey> getReverseDepsForDoneEntry() {
     checkState(isDone(), "Called on not done %s", this);
-    return ReverseDepsUtility.getReverseDeps(this, /* checkConsistency= */ true);
+    return ReverseDepsUtility.consolidateAndGetReverseDeps(this, /* checkConsistency= */ true);
   }
 
   @Override
@@ -289,7 +288,7 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
       // unimportant since this node is being deleted.
       ReverseDepsUtility.consolidateDataAndReturnNewElements(this);
     }
-    return ReverseDepsUtility.getReverseDeps(this, /* checkConsistency= */ false);
+    return ReverseDepsUtility.consolidateAndGetReverseDeps(this, /* checkConsistency= */ false);
   }
 
   @Override
@@ -315,20 +314,27 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
   @Override
   public synchronized MarkedDirtyResult markDirty(DirtyType dirtyType) {
     checkNotNull(dirtyType, this);
-    // TODO(b/228090759): Support rewinding with incrementality.
-    checkArgument(dirtyType != DirtyType.REWIND, "Rewinding not supported with incrementality");
 
     if (isDone()) {
       GroupedDeps directDeps = GroupedDeps.decompress(getCompressedDirectDepsForDoneEntry());
       checkState(
-          dirtyType == DirtyType.CHANGE || !directDeps.isEmpty(),
+          dirtyType != DirtyType.DIRTY || !directDeps.isEmpty(),
           "%s is being marked dirty but has no children that could have dirtied it",
           getKey());
       dirtyBuildingState = createDirtyBuildingStateForDoneNode(dirtyType, directDeps, value);
       value = null;
       this.directDeps = null;
-      return MarkedDirtyResult.withReverseDeps(
-          ReverseDepsUtility.getReverseDeps(this, /* checkConsistency= */ true));
+      if (dirtyType == DirtyType.REWIND) {
+        // For rewinding, the reverse deps don't need to be included in the MarkedDirtyResult, but
+        // they do need to be consolidated so that ReverseDepsUtility considers only rdep operations
+        // that occur after the rewind to be "new elements." This is important because only rdeps
+        // registered after the rewind should be signalled when the rewound evaluation completes.
+        ReverseDepsUtility.consolidateData(this);
+        return MarkedDirtyResult.forRewinding();
+      } else {
+        return MarkedDirtyResult.withReverseDeps(
+            ReverseDepsUtility.consolidateAndGetReverseDeps(this, /* checkConsistency= */ true));
+      }
     }
 
     // The caller may be simultaneously trying to mark this node dirty and changed, and the dirty

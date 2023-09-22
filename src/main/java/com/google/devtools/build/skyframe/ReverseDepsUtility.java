@@ -146,11 +146,11 @@ abstract class ReverseDepsUtility {
       IncrementalInMemoryNodeEntry entry, Set<SkyKey> deletedKeys) {
     consolidateData(entry);
     ImmutableSet<SkyKey> currentReverseDeps =
-        ImmutableSet.copyOf(getReverseDeps(entry, /* checkConsistency= */ true));
+        ImmutableSet.copyOf(consolidateAndGetReverseDeps(entry, /* checkConsistency= */ true));
     writeReverseDepsSet(entry, Sets.difference(currentReverseDeps, deletedKeys));
   }
 
-  static ImmutableCollection<SkyKey> getReverseDeps(
+  static ImmutableCollection<SkyKey> consolidateAndGetReverseDeps(
       IncrementalInMemoryNodeEntry entry, boolean checkConsistency) {
     consolidateData(entry);
 
@@ -296,7 +296,7 @@ abstract class ReverseDepsUtility {
     return consolidateDataAndReturnNewElements(entry, /* mutateObject= */ true);
   }
 
-  private static void consolidateData(IncrementalInMemoryNodeEntry entry) {
+  static void consolidateData(IncrementalInMemoryNodeEntry entry) {
     List<Object> dataToConsolidate = entry.getReverseDepsDataToConsolidateForReverseDepsUtil();
     if (dataToConsolidate == null) {
       return;

@@ -779,4 +779,89 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
       assertThat(entry.getVersion()).isEqualTo(initialVersion); // Change pruning.
     }
   }
+
+  @Test
+  public void rewindOnIncrementalBuild(@TestParameter boolean valueChanges)
+      throws InterruptedException {
+    InMemoryNodeEntry entry = createEntry();
+
+    // Initial build.
+    entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
+    entry.markRebuilding();
+    SkyValue oldValue = new IntegerValue(1);
+    setValue(entry, oldValue, /* errorInfo= */ null, initialVersion);
+
+    // Rdeps that exhibit various behavior and timing on the incremental build.
+    SkyKey earlyOldParent = key("earlyOldParent");
+    SkyKey lateOldParent = key("lateOldParent");
+    SkyKey cleanParent = key("cleanParent");
+    SkyKey resetDirtyParent = key("resetDirtyParent");
+    SkyKey earlyDirtyParent = key("earlyDirtyParent");
+    SkyKey lateDirtyParent = key("lateDirtyParent");
+    entry.addReverseDepAndCheckIfDone(earlyOldParent);
+    entry.addReverseDepAndCheckIfDone(lateOldParent);
+    entry.addReverseDepAndCheckIfDone(cleanParent);
+    entry.addReverseDepAndCheckIfDone(resetDirtyParent);
+    entry.addReverseDepAndCheckIfDone(earlyDirtyParent);
+    entry.addReverseDepAndCheckIfDone(lateDirtyParent);
+
+    // Start of incremental build.
+
+    // Rdep removed before rewinding.
+    entry.removeReverseDep(earlyOldParent);
+
+    // Dirty rdep registered before rewinding.
+    assertThat(entry.checkIfDoneForDirtyReverseDep(earlyDirtyParent))
+        .isEqualTo(DependencyState.DONE);
+
+    // New rdep registered before rewinding.
+    SkyKey earlyNewParent = key("earlyNewParent");
+    assertThat(entry.addReverseDepAndCheckIfDone(earlyNewParent)).isEqualTo(DependencyState.DONE);
+
+    // Rewinding initiated.
+    assertThat(entry.checkIfDoneForDirtyReverseDep(resetDirtyParent))
+        .isEqualTo(DependencyState.DONE);
+    assertThat(entry.markDirty(DirtyType.REWIND)).isNotNull();
+
+    // Parent declares dep again after resetting.
+    assertThat(entry.checkIfDoneForDirtyReverseDep(resetDirtyParent))
+        .isEqualTo(DependencyState.NEEDS_SCHEDULING);
+    assertThat(entry.getDirtyState()).isEqualTo(DirtyState.NEEDS_REBUILDING);
+    entry.markRebuilding();
+    assertThat(entry.getDirtyState()).isEqualTo(DirtyState.REBUILDING);
+
+    // Rdep removed after rewinding was initiated.
+    entry.removeReverseDep(lateOldParent);
+
+    // Dirty rdep registered after rewinding was initiated.
+    assertThat(entry.checkIfDoneForDirtyReverseDep(lateDirtyParent))
+        .isEqualTo(DependencyState.ALREADY_EVALUATING);
+
+    // New rdep registered after rewinding was initiated.
+    SkyKey lateNewParent = key("lateNewParent");
+    assertThat(entry.addReverseDepAndCheckIfDone(lateNewParent))
+        .isEqualTo(DependencyState.ALREADY_EVALUATING);
+
+    // Rewound evaluation completes. Only parents that are waiting on the node (registered after
+    // rewinding was initiated) are signalled.
+    SkyValue newValue = valueChanges ? new IntegerValue(2) : oldValue;
+    assertThat(setValue(entry, newValue, /* errorInfo= */ null, incrementalVersion))
+        .containsExactly(resetDirtyParent, lateDirtyParent, lateNewParent);
+    assertThat(entry.getValue()).isEqualTo(newValue);
+    if (valueChanges) {
+      assertThat(entry.getVersion()).isEqualTo(incrementalVersion);
+    } else {
+      assertThat(entry.getVersion()).isEqualTo(initialVersion); // Change pruning.
+    }
+
+    // Check rdep accounting.
+    assertThat(entry.getReverseDepsForDoneEntry())
+        .containsExactly(
+            cleanParent,
+            earlyDirtyParent,
+            earlyNewParent,
+            resetDirtyParent,
+            lateDirtyParent,
+            lateNewParent);
+  }
 }

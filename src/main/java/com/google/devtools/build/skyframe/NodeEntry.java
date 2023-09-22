@@ -69,8 +69,14 @@ public interface NodeEntry {
      */
     VERIFIED_CLEAN,
     /**
-     * A rebuilding is required, because either the node itself changed or one of its dependencies
-     * did.
+     * A rebuilding is required for one of the following reasons:
+     *
+     * <ol>
+     *   <li>One of the node's dependencies changed.
+     *   <li>The node is built by a {@link FunctionHermeticity#NONHERMETIC} function and its value
+     *       is known to have changed due to state outside of Skyframe.
+     *   <li>The node was {@linkplain DirtyType#REWIND rewound}.
+     * </ol>
      */
     NEEDS_REBUILDING,
     /** A rebuilding is in progress. */

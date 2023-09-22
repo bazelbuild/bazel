@@ -126,9 +126,8 @@ public abstract class DirtyBuildingState {
       case DIRTY:
         return DirtyState.CHECK_DEPENDENCIES;
       case CHANGE:
-        return DirtyState.NEEDS_REBUILDING;
       case REWIND:
-        throw new IllegalArgumentException(dirtyType.toString());
+        return DirtyState.NEEDS_REBUILDING;
     }
     throw new AssertionError(dirtyType);
   }
