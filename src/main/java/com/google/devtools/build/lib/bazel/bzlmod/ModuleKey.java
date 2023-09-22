@@ -18,7 +18,11 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Comparator;
 import java.util.List;
 
@@ -61,6 +65,13 @@ public abstract class ModuleKey {
 
   /** The version of the module. Must be empty iff the module has a {@link NonRegistryOverride}. */
   public abstract Version getVersion();
+
+  /** Returns the label that points to the MODULE.bazel file of this module. */
+  public final Label moduleFileLabel() {
+    return Label.createUnvalidated(
+        PackageIdentifier.create(getCanonicalRepoName(), PathFragment.EMPTY_FRAGMENT),
+        LabelConstants.MODULE_DOT_BAZEL_FILE_NAME.getBaseName());
+  }
 
   @Override
   public final String toString() {

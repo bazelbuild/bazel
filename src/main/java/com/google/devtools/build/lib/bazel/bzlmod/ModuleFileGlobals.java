@@ -443,8 +443,14 @@ public class ModuleFileGlobals {
       String extensionName,
       boolean devDependency,
       boolean isolate,
-      StarlarkThread thread) {
+      StarlarkThread thread)
+      throws EvalException {
     hadNonModuleCall = true;
+
+    if (extensionName.equals(ModuleExtensionId.INNATE_EXTENSION_NAME)) {
+      throw Starlark.errorf(
+          "innate extensions cannot be directly used; try `use_repo_rule` instead");
+    }
 
     String extensionBzlFile = normalizeLabelString(rawExtensionBzlFile);
     ModuleExtensionUsageBuilder newUsageBuilder =
@@ -560,11 +566,11 @@ public class ModuleFileGlobals {
         this.devDependency = devDependency;
       }
 
-      void addImport(String localRepoName, String exportedName, Location location)
+      void addImport(String localRepoName, String exportedName, String byWhat, Location location)
           throws EvalException {
         RepositoryName.validateUserProvidedRepoName(localRepoName);
         RepositoryName.validateUserProvidedRepoName(exportedName);
-        addRepoNameUsage(localRepoName, "by a use_repo() call", location);
+        addRepoNameUsage(localRepoName, byWhat, location);
         if (imports.containsValue(exportedName)) {
           String collisionRepoName = imports.inverse().get(exportedName);
           throw Starlark.errorf(
@@ -577,26 +583,33 @@ public class ModuleFileGlobals {
         }
       }
 
-      @Nullable
+      class TagCallable implements StarlarkValue {
+        final String tagName;
+
+        TagCallable(String tagName) {
+          this.tagName = tagName;
+        }
+
+        @StarlarkMethod(
+            name = "call",
+            selfCall = true,
+            documented = false,
+            extraKeywords = @Param(name = "kwargs"),
+            useStarlarkThread = true)
+        public void call(Dict<String, Object> kwargs, StarlarkThread thread) {
+          tags.add(
+              Tag.builder()
+                  .setTagName(tagName)
+                  .setAttributeValues(AttributeValues.create(kwargs))
+                  .setDevDependency(devDependency)
+                  .setLocation(thread.getCallerLocation())
+                  .build());
+        }
+      }
+
       @Override
-      public Object getValue(String tagName) throws EvalException {
-        return new StarlarkValue() {
-          @StarlarkMethod(
-              name = "call",
-              selfCall = true,
-              documented = false,
-              extraKeywords = @Param(name = "kwargs"),
-              useStarlarkThread = true)
-          public void call(Dict<String, Object> kwargs, StarlarkThread thread) {
-            tags.add(
-                Tag.builder()
-                    .setTagName(tagName)
-                    .setAttributeValues(AttributeValues.create(kwargs))
-                    .setDevDependency(devDependency)
-                    .setLocation(thread.getCallerLocation())
-                    .build());
-          }
-        };
+      public TagCallable getValue(String tagName) throws EvalException {
+        return new TagCallable(tagName);
       }
 
       @Override
@@ -651,11 +664,85 @@ public class ModuleFileGlobals {
     hadNonModuleCall = true;
     Location location = thread.getCallerLocation();
     for (String arg : Sequence.cast(args, String.class, "args")) {
-      extensionProxy.addImport(arg, arg, location);
+      extensionProxy.addImport(arg, arg, "by a use_repo() call", location);
     }
     for (Map.Entry<String, String> entry :
         Dict.cast(kwargs, String.class, String.class, "kwargs").entrySet()) {
-      extensionProxy.addImport(entry.getKey(), entry.getValue(), location);
+      extensionProxy.addImport(entry.getKey(), entry.getValue(), "by a use_repo() call", location);
+    }
+  }
+
+  @StarlarkMethod(
+      name = "use_repo_rule",
+      doc =
+          "Returns a proxy value that can be directly invoked in the MODULE.bazel file as a"
+              + " repository rule, one or more times. Repos created in such a way are only visible"
+              + " to the current module, under the name declared using the <code>name</code>"
+              + " attribute on the proxy. The implicit Boolean <code>dev_dependency</code>"
+              + " attribute can also be used on the proxy to denote that a certain repo is only to"
+              + " be created when the current module is the root module.",
+      parameters = {
+        @Param(
+            name = "repo_rule_bzl_file",
+            doc = "A label to the Starlark file defining the repo rule."),
+        @Param(
+            name = "repo_rule_name",
+            doc =
+                "The name of the repo rule to use. A symbol with this name must be exported by the"
+                    + " Starlark file."),
+      },
+      useStarlarkThread = true)
+  public RepoRuleProxy useRepoRule(String bzlFile, String ruleName, StarlarkThread thread) {
+    hadNonModuleCall = true;
+    // The builder for the singular "innate" extension of this module. Note that there's only one
+    // such usage (and it's fabricated), so the usage location just points to this file.
+    ModuleExtensionUsageBuilder newUsageBuilder =
+        new ModuleExtensionUsageBuilder(
+            "//:MODULE.bazel",
+            ModuleExtensionId.INNATE_EXTENSION_NAME,
+            /* isolate= */ false,
+            Location.fromFile(thread.getCallerLocation().file()));
+    for (ModuleExtensionUsageBuilder usageBuilder : extensionUsageBuilders) {
+      if (usageBuilder.extensionBzlFile.equals(newUsageBuilder.extensionBzlFile)
+          && usageBuilder.extensionName.equals(newUsageBuilder.extensionName)) {
+        return new RepoRuleProxy(usageBuilder, bzlFile + '%' + ruleName);
+      }
+    }
+    extensionUsageBuilders.add(newUsageBuilder);
+    return new RepoRuleProxy(newUsageBuilder, bzlFile + '%' + ruleName);
+  }
+
+  @StarlarkBuiltin(name = "repo_rule_proxy", documented = false)
+  class RepoRuleProxy implements StarlarkValue {
+    private final ModuleExtensionUsageBuilder usageBuilder;
+    private final String tagName;
+
+    private RepoRuleProxy(ModuleExtensionUsageBuilder usageBuilder, String tagName) {
+      this.usageBuilder = usageBuilder;
+      this.tagName = tagName;
+    }
+
+    @StarlarkMethod(
+        name = "call",
+        selfCall = true,
+        documented = false,
+        parameters = {
+          @Param(name = "name", positional = false, named = true),
+          @Param(name = "dev_dependency", positional = false, named = true, defaultValue = "False")
+        },
+        extraKeywords = @Param(name = "kwargs"),
+        useStarlarkThread = true)
+    public void call(
+        String name, boolean devDependency, Dict<String, Object> kwargs, StarlarkThread thread)
+        throws EvalException {
+      RepositoryName.validateUserProvidedRepoName(name);
+      if (ignoreDevDeps && devDependency) {
+        return;
+      }
+      kwargs.putEntry("name", name);
+      ModuleExtensionProxy extensionProxy = usageBuilder.getProxy(devDependency);
+      extensionProxy.getValue(tagName).call(kwargs, thread);
+      extensionProxy.addImport(name, name, "by a repo rule", thread.getCallerLocation());
     }
   }
 
