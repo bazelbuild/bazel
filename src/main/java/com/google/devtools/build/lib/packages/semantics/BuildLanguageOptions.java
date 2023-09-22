@@ -197,7 +197,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   @Option(
       name = "enable_bzlmod",
       oldName = "experimental_enable_bzlmod",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
       help =

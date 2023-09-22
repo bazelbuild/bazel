@@ -210,7 +210,18 @@ public class ModuleFileFunction implements SkyFunction {
     if (env.getValue(FileValue.key(moduleFilePath)) == null) {
       return null;
     }
-    byte[] moduleFileContents = readModuleFile(moduleFilePath.asPath());
+
+    byte[] moduleFileContents = {};
+    if (moduleFilePath.asPath().exists()) {
+      moduleFileContents = readModuleFile(moduleFilePath.asPath());
+    } else {
+      env.getListener().handle(Event.warn(
+          "--enable_bzlmod is enabled, but no MODULE.bazel file was found at the source root. Bazel will assume an empty MODULE.bazel file. " +
+          "Starting from Bazel 7, Bzlmod is enabled by default. Please consider migrating your external dependencies from WORKSPACE to MODULE.bazel. " +
+              "For more details, please refer to https://github.com/bazelbuild/bazel/issues/18958."
+      ));
+    }
+
     String moduleFileHash = new Fingerprint().addBytes(moduleFileContents).hexDigestAndReset();
     ModuleFileGlobals moduleFileGlobals =
         execModuleFile(
