@@ -20,6 +20,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutionOptions.TestOutputFormat;
 import com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat;
@@ -108,6 +109,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
   private final TestLogPathFormatter testLogPathFormatter;
   private final OptionsParsingResult options;
   private final TestSummaryOptions summaryOptions;
+  private final RepositoryMapping mainRepoMapping;
 
   /**
    * @param printer The terminal to print to
@@ -115,11 +117,13 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
   public TerminalTestResultNotifier(
       AnsiTerminalPrinter printer,
       TestLogPathFormatter testLogPathFormatter,
-      OptionsParsingResult options) {
+      OptionsParsingResult options,
+      RepositoryMapping mainRepoMapping) {
     this.printer = printer;
     this.testLogPathFormatter = testLogPathFormatter;
     this.options = options;
     this.summaryOptions = options.getOptions(TestSummaryOptions.class);
+    this.mainRepoMapping = mainRepoMapping;
   }
 
   /**
@@ -172,7 +176,8 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
           testLogPathFormatter,
           summaryOptions.verboseSummary,
           showAllTestCases,
-          withConfig);
+          withConfig,
+          mainRepoMapping);
     }
   }
 

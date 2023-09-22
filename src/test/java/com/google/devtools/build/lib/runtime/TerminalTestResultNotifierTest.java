@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat;
 import com.google.devtools.build.lib.runtime.TerminalTestResultNotifier.TestSummaryOptions;
@@ -293,7 +294,10 @@ public final class TerminalTestResultNotifierTest {
 
     TerminalTestResultNotifier terminalTestResultNotifier =
         new TerminalTestResultNotifier(
-            ansiTerminalPrinter, Path::getPathString, optionsParsingResult);
+            ansiTerminalPrinter,
+            Path::getPathString,
+            optionsParsingResult,
+            RepositoryMapping.ALWAYS_FALLBACK);
     terminalTestResultNotifier.notify(builder.build(), 0);
   }
 
@@ -318,7 +322,10 @@ public final class TerminalTestResultNotifierTest {
 
     TerminalTestResultNotifier terminalTestResultNotifier =
         new TerminalTestResultNotifier(
-            ansiTerminalPrinter, Path::getPathString, optionsParsingResult);
+            ansiTerminalPrinter,
+            Path::getPathString,
+            optionsParsingResult,
+            RepositoryMapping.ALWAYS_FALLBACK);
     terminalTestResultNotifier.notify(ImmutableSet.of(testSummary), 1);
   }
 
