@@ -14,9 +14,9 @@
 
 """Starlark tests for cc_shared_library"""
 
-load("@bazel_skylib//lib:paths.bzl", "paths")
-load("@rules_testing//lib:truth.bzl", "matching")
 load("@rules_testing//lib:analysis_test.bzl", "analysis_test")
+load("@rules_testing//lib:truth.bzl", "matching")
+load("@bazel_skylib//lib:paths.bzl", "paths")
 
 def _same_package_or_above(label_a, label_b):
     if label_a.workspace_name != label_b.workspace_name:
@@ -186,27 +186,51 @@ def _runfiles_test_impl(env, target):
         "libfoo_so.so",
         "libbar_so.so",
         "libdiff_pkg_so.so",
+        "libdirect_so_file.so",
         "libprivate_lib_so.so",
+        "renamed_so_file_copy.so",
         "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary_Slibfoo_Uso.so",
         "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary_Slibbar_Uso.so",
         "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary3_Slibdiff_Upkg_Uso.so",
-        "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary/renamed_so_file_copy.so",
-        "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary/libdirect_so_file.so",
     ]
-    for runfile in target[DefaultInfo].default_runfiles.files.to_list():
+    runfiles = [file.path for file in target[DefaultInfo].default_runfiles.files.to_list()]
+    for runfile in runfiles:
         # Ignore Python runfiles
-        if "python" in runfile.path:
+        if "python" in runfile:
             continue
 
         found_basename = False
         for expected_basename in expected_basenames:
-            if runfile.path.endswith(expected_basename):
+            if runfile.endswith(expected_basename):
                 found_basename = True
                 break
 
         env.expect.where(
-            detail = runfile.path + " not found in expected basenames:\n" + "\n".join(expected_basenames),
+            detail = runfile + " not found in expected basenames:\n" + "\n".join(expected_basenames),
         ).that_bool(found_basename).equals(True)
+
+    # Match e.g. bazel-out/k8-fastbuild/bin/src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/libdirect_so_file.so
+    path_suffix = "/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library"
+    expected_files = [
+        "libbar_so.so",
+        "libdirect_so_file.so",
+        "libfoo_so.so",
+        "libprivate_lib_so.so",
+        "python_test",
+        "renamed_so_file_copy.so",
+    ]
+    for file in expected_files:
+        path = path_suffix + "/" + file
+
+        found = False
+        for runfile in runfiles:
+            if runfile.endswith(path):
+                found = True
+                break
+
+        env.expect.where(
+            detail = file + " not found in runfiles:\n" + "\n".join(runfiles),
+        ).that_bool(found).equals(True)
 
 def _runfiles_test_macro(name, target):
     analysis_test(

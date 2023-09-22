@@ -14,12 +14,12 @@
 
 """Implementation of cc_shared_library"""
 
+load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
 load(":common/cc/semantics.bzl", "semantics")
 load(":common/proto/proto_info.bzl", "ProtoInfo")
-load(":common/cc/cc_info.bzl", "CcInfo")
-load(":common/cc/cc_common.bzl", "cc_common")
-load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
 
 # TODO(#5200): Add export_define to library_to_link and cc_library
 
@@ -732,7 +732,10 @@ def _cc_shared_library_impl(ctx):
         # precompiled_dynamic_library.dynamic_library could be None if the library to link just contains
         # an interface library which is valid if the actual library is obtained from the system.
         if precompiled_dynamic_library.dynamic_library != None:
-            precompiled_only_dynamic_libraries_runfiles.append(precompiled_dynamic_library.dynamic_library)
+            if precompiled_dynamic_library.resolved_symlink_dynamic_library != None:
+                precompiled_only_dynamic_libraries_runfiles.append(precompiled_dynamic_library.resolved_symlink_dynamic_library)
+            else:
+                precompiled_only_dynamic_libraries_runfiles.append(precompiled_dynamic_library.dynamic_library)
 
     runfiles = runfiles.merge(ctx.runfiles(files = precompiled_only_dynamic_libraries_runfiles))
 
