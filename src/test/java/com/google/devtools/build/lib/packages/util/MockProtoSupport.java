@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages.util;
 
+import com.google.devtools.build.lib.rules.proto.ProtoConstants;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
 
@@ -43,7 +44,9 @@ public final class MockProtoSupport {
         "tools/proto/toolchains/BUILD",
         TestConstants.LOAD_PROTO_TOOLCHAIN,
         "proto_toolchain(name = 'protoc_sources',"
-            + "proto_compiler = '//net/proto2/compiler/public:protocol_compiler')");
+            + "proto_compiler = '"
+            + ProtoConstants.DEFAULT_PROTOC_LABEL
+            + "')");
   }
 
   /** Create a dummy "net/proto2 compiler and proto APIs for all languages and versions. */
