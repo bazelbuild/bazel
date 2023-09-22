@@ -578,7 +578,7 @@ j2objc_aspect = aspect(
         ),
     },
     required_providers = [[JavaInfo], [ProtoInfo]],
-    provides = [apple_common.Objc],
+    provides = [apple_common.Objc, CcInfo],
     toolchains = [java_semantics.JAVA_TOOLCHAIN_TYPE] + cc_helper.use_cpp_toolchain(),
     fragments = ["apple", "cpp", "j2objc", "objc", "proto"],
 )
