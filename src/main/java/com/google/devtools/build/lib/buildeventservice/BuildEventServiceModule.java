@@ -193,7 +193,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
   private void cancelAndResetPendingUploads() {
     closeFuturesWithTimeoutsMap
         .values()
-        .forEach(closeFuture -> closeFuture.cancel(/*mayInterruptIfRunning=*/ true));
+        .forEach(closeFuture -> closeFuture.cancel(/* mayInterruptIfRunning= */ true));
     resetPendingUploads();
   }
 
@@ -631,7 +631,8 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     if (besStreamOptions != null && !besStreamOptions.keepBackendConnections) {
       clearBesClient();
     } else if (besStreamOptions == null) {
-      BugReport.sendBugReport(new NullPointerException("besStreamOptions null: in a crash?"));
+      BugReport.sendNonFatalBugReport(
+          new NullPointerException("besStreamOptions null: in a crash?"));
     }
   }
 

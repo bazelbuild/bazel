@@ -1784,7 +1784,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       return;
     }
     if (!gcnoFile.isFileType(CppFileTypes.COVERAGE_NOTES)) {
-      BugReport.sendBugReport(
+      BugReport.sendNonFatalBugReport(
           new IllegalStateException(
               "In coverage mode but gcno artifact is not correct type: " + gcnoFile + ", " + this));
       return;
