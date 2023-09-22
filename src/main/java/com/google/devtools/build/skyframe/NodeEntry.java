@@ -13,7 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.collect.ImmutableList;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.skyframe.SkyFunction.Reset;
@@ -153,33 +154,54 @@ public interface NodeEntry {
   MarkedDirtyResult markDirty(DirtyType dirtyType) throws InterruptedException;
 
   /**
-   * Returned by {@link #markDirty} if that call changed the node from done to dirty. Contains a
-   * {@link Collection} of the node's reverse deps for efficiency, because an important use case for
-   * {@link #markDirty} is during invalidation, and the invalidator must immediately afterwards
-   * schedule the invalidation of a node's reverse deps if the invalidator successfully dirties that
-   * node.
+   * Returned by {@link #markDirty} if that call changed the node from done to dirty.
+   *
+   * <p>For nodes marked dirty during invalidation ({@link DirtyType#DIRTY} and {@link
+   * DirtyType#CHANGE}), contains a {@link Collection} of the node's reverse deps for efficiency, so
+   * that the invalidator can schedule the invalidation of a node's reverse deps immediately
+   * afterwards.
+   *
+   * <p>For nodes marked dirty intra-evaluation ({@link DirtyType#REWIND}), reverse deps are not
+   * needed by the caller, so {@link #getReverseDepsUnsafe} must not be called.
    *
    * <p>Warning: {@link #getReverseDepsUnsafe()} may return a live view of the reverse deps
    * collection of the marked-dirty node. The consumer of this data must be careful only to iterate
    * over and consume its values while that collection is guaranteed not to change. This is true
    * during invalidation, because reverse deps don't change during invalidation.
    */
-  final class MarkedDirtyResult {
+  abstract class MarkedDirtyResult {
 
-    private static final MarkedDirtyResult NO_RDEPS = new MarkedDirtyResult(ImmutableList.of());
+    private static final MarkedDirtyResult RESULT_FOR_REWINDING =
+        new MarkedDirtyResult() {
+          @Override
+          public Collection<SkyKey> getReverseDepsUnsafe() {
+            throw new IllegalStateException("Should not need reverse deps for rewinding");
+          }
+        };
 
     public static MarkedDirtyResult withReverseDeps(Collection<SkyKey> reverseDepsUnsafe) {
-      return reverseDepsUnsafe.isEmpty() ? NO_RDEPS : new MarkedDirtyResult(reverseDepsUnsafe);
+      return new ResultWithReverseDeps(reverseDepsUnsafe);
     }
 
-    private final Collection<SkyKey> reverseDepsUnsafe;
-
-    private MarkedDirtyResult(Collection<SkyKey> reverseDepsUnsafe) {
-      this.reverseDepsUnsafe = reverseDepsUnsafe;
+    static MarkedDirtyResult forRewinding() {
+      return RESULT_FOR_REWINDING;
     }
 
-    public Collection<SkyKey> getReverseDepsUnsafe() {
-      return reverseDepsUnsafe;
+    private MarkedDirtyResult() {}
+
+    public abstract Collection<SkyKey> getReverseDepsUnsafe();
+
+    private static final class ResultWithReverseDeps extends MarkedDirtyResult {
+      private final Collection<SkyKey> reverseDepsUnsafe;
+
+      private ResultWithReverseDeps(Collection<SkyKey> reverseDepsUnsafe) {
+        this.reverseDepsUnsafe = checkNotNull(reverseDepsUnsafe);
+      }
+
+      @Override
+      public Collection<SkyKey> getReverseDepsUnsafe() {
+        return reverseDepsUnsafe;
+      }
     }
   }
 
