@@ -93,7 +93,7 @@ public class VisibilityTest extends AnalysisTestCase {
   }
 
   @Test
-  public void testToolVisibilityUseCheckAtRule() throws Exception {
+  public void testToolVisibilityUseCheckAtRule_fallbackToUse() throws Exception {
     setupArgsScenario();
     scratch.file("data/BUILD", "exports_files(['data.txt'], visibility=['//visibility:public'])");
     scratch.file("tool/BUILD", "exports_files(['tool.sh'], visibility=['//use:__pkg__'])");
