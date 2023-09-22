@@ -32,8 +32,16 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.Keep;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import javax.annotation.Nullable;
 
 /** An executable tool that is part of {@code java_toolchain}. */
@@ -154,6 +162,30 @@ public abstract class JavaToolchainTool {
       inputs.addTransitive(tool().getFilesToRun());
     } else {
       inputs.add(executable).addTransitive(toolchain.getJavaRuntime().javaBaseInputs());
+    }
+  }
+
+  @Keep // Accessed reflectively.
+  private static class Codec implements ObjectCodec<JavaToolchainTool> {
+    @Override
+    public Class<JavaToolchainTool> getEncodedClass() {
+      return JavaToolchainTool.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, JavaToolchainTool obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.serialize(obj.tool(), codedOut);
+      context.serialize(obj.data(), codedOut);
+      context.serialize(obj.jvmOpts(), codedOut);
+    }
+
+    @Override
+    public JavaToolchainTool deserialize(DeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      return create(
+          context.deserialize(codedIn), context.deserialize(codedIn), context.deserialize(codedIn));
     }
   }
 }
