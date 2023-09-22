@@ -31,6 +31,13 @@ def _rule_impl(ctx):
     if ctx.attr.plugin != None:
         plugin = ctx.attr.plugin[DefaultInfo].files_to_run
 
+    if semantics.INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION:
+        proto_compiler = ctx.toolchains[semantics.PROTO_TOOLCHAIN_TYPE].proto.proto_compiler
+        protoc_opts = ctx.toolchains[semantics.PROTO_TOOLCHAIN_TYPE].proto.protoc_opts
+    else:
+        proto_compiler = ctx.attr._proto_compiler.files_to_run
+        protoc_opts = ctx.fragments.proto.experimental_protoc_opts
+
     return [
         DefaultInfo(
             files = depset(),
@@ -43,8 +50,8 @@ def _rule_impl(ctx):
             plugin = plugin,
             runtime = ctx.attr.runtime,
             provided_proto_sources = provided_proto_sources,
-            proto_compiler = ctx.attr._proto_compiler.files_to_run,
-            protoc_opts = ctx.fragments.proto.experimental_protoc_opts,
+            proto_compiler = proto_compiler,
+            protoc_opts = protoc_opts,
             progress_message = ctx.attr.progress_message,
             mnemonic = ctx.attr.mnemonic,
         ),
@@ -67,13 +74,15 @@ proto_lang_toolchain = rule(
             "blacklisted_protos": attr.label_list(
                 providers = [ProtoInfo],
             ),
+        } | ({} if semantics.INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION else {
             "_proto_compiler": attr.label(
                 cfg = "exec",
                 executable = True,
                 allow_files = True,
                 default = configuration_field("proto", "proto_compiler"),
             ),
-        },
+        }),
     provides = [ProtoLangToolchainInfo],
     fragments = ["proto"],
+    toolchains = semantics.PROTO_TOOLCHAIN,  # Used to obtain protoc
 )
