@@ -95,7 +95,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
   private final ElementType elemType;
   private final NestedSet<?> set;
 
-  private Depset(ElementType elemType, NestedSet<?> set) {
+  Depset(ElementType elemType, NestedSet<?> set) {
     this.elemType = Preconditions.checkNotNull(elemType, "element type cannot be null");
     this.set = set;
   }
@@ -189,6 +189,9 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
   // two arguments: of(Class<T> elemType, NestedSet<T> set). We could also avoid the allocations
   // done by ElementType.of().
   public static <T> Depset of(ElementType elemType, NestedSet<T> set) {
+    if (set.isEmpty()) {
+      return set.getOrder().emptyDepset();
+    }
     return new Depset(elemType, set);
   }
 
@@ -280,14 +283,10 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
   public static <T> NestedSet<T> noneableCast(Object x, Class<T> type, String what)
       throws EvalException {
     if (x == Starlark.NONE) {
-      @SuppressWarnings("unchecked")
-      NestedSet<T> empty = (NestedSet<T>) EMPTY;
-      return empty;
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
     return cast(x, type, what);
   }
-
-  private static final NestedSet<?> EMPTY = NestedSetBuilder.<Object>emptySet(Order.STABLE_ORDER);
 
   public boolean isEmpty() {
     return set.isEmpty();
@@ -390,7 +389,19 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
       }
     }
 
-    return new Depset(type, builder.build());
+    if (builder.isEmpty()) {
+      return builder.getOrder().emptyDepset();
+    }
+    NestedSet<Object> set = builder.build();
+    // If the nested set was optimized to one of the transitive elements, reuse the corresponding
+    // depset.
+    for (Depset x : transitive) {
+      if (x.getSet() == set) {
+        return x;
+      }
+    }
+
+    return new Depset(type, set);
   }
 
   /** An exception thrown when validation fails on the type of elements of a nested set. */

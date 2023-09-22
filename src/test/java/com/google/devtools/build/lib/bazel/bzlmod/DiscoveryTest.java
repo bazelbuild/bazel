@@ -108,7 +108,13 @@ public class DiscoveryTest extends FoundationTestCase {
       if (root == null) {
         return null;
       }
-      ImmutableMap<ModuleKey, InterimModule> depGraph = Discovery.run(env, root);
+      ImmutableMap<ModuleKey, InterimModule> depGraph;
+      try {
+        depGraph = Discovery.run(env, root);
+      } catch (ExternalDepsException e) {
+        throw new BazelModuleResolutionFunction.BazelModuleResolutionFunctionException(
+            e, SkyFunctionException.Transience.PERSISTENT);
+      }
       return depGraph == null ? null : DiscoveryValue.create(depGraph);
     }
   }

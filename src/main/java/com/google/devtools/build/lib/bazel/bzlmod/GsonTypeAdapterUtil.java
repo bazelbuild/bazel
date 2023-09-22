@@ -148,6 +148,57 @@ public final class GsonTypeAdapterUtil {
         }
       };
 
+  public static final TypeAdapter<ModuleExtensionEvalFactors>
+      MODULE_EXTENSION_FACTORS_TYPE_ADAPTER =
+          new TypeAdapter<>() {
+
+            private static final String OS_KEY = "os:";
+            private static final String ARCH_KEY = "arch:";
+            // This is used when the module extension doesn't depend on os or arch, to indicate that
+            // its value is "general" and can be used with any platform
+            private static final String GENERAL_EXTENSION = "general";
+
+            @Override
+            public void write(JsonWriter jsonWriter, ModuleExtensionEvalFactors extFactors)
+                throws IOException {
+              if (extFactors.isEmpty()) {
+                jsonWriter.value(GENERAL_EXTENSION);
+              } else {
+                StringBuilder jsonBuilder = new StringBuilder();
+                if (!extFactors.getOs().isEmpty()) {
+                  jsonBuilder.append(OS_KEY).append(extFactors.getOs());
+                }
+                if (!extFactors.getArch().isEmpty()) {
+                  if (jsonBuilder.length() > 0) {
+                    jsonBuilder.append(",");
+                  }
+                  jsonBuilder.append(ARCH_KEY).append(extFactors.getArch());
+                }
+                jsonWriter.value(jsonBuilder.toString());
+              }
+            }
+
+            @Override
+            public ModuleExtensionEvalFactors read(JsonReader jsonReader) throws IOException {
+              String jsonString = jsonReader.nextString();
+              if (jsonString.equals(GENERAL_EXTENSION)) {
+                return ModuleExtensionEvalFactors.create("", "");
+              }
+
+              String os = "";
+              String arch = "";
+              var extParts = Splitter.on(',').splitToList(jsonString);
+              for (String part : extParts) {
+                if (part.startsWith(OS_KEY)) {
+                  os = part.substring(OS_KEY.length());
+                } else if (part.startsWith(ARCH_KEY)) {
+                  arch = part.substring(ARCH_KEY.length());
+                }
+              }
+              return ModuleExtensionEvalFactors.create(os, arch);
+            }
+          };
+
   public static final TypeAdapter<ModuleExtensionId.IsolationKey> ISOLATION_KEY_TYPE_ADAPTER =
       new TypeAdapter<>() {
         @Override
@@ -325,6 +376,8 @@ public final class GsonTypeAdapterUtil {
         .registerTypeAdapter(Version.class, VERSION_TYPE_ADAPTER)
         .registerTypeAdapter(ModuleKey.class, MODULE_KEY_TYPE_ADAPTER)
         .registerTypeAdapter(ModuleExtensionId.class, MODULE_EXTENSION_ID_TYPE_ADAPTER)
+        .registerTypeAdapter(
+            ModuleExtensionEvalFactors.class, MODULE_EXTENSION_FACTORS_TYPE_ADAPTER)
         .registerTypeAdapter(ModuleExtensionId.IsolationKey.class, ISOLATION_KEY_TYPE_ADAPTER)
         .registerTypeAdapter(AttributeValues.class, new AttributeValuesAdapter())
         .registerTypeAdapter(byte[].class, BYTE_ARRAY_TYPE_ADAPTER)

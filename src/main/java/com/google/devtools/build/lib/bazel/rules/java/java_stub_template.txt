@@ -306,21 +306,24 @@ function create_and_run_classpath_jar() {
 
   OLDIFS="$IFS"
   IFS="${CLASSPATH_SEPARATOR}" # Use a custom separator for the loop.
+  current_dir=$(pwd)
   for path in ${CLASSPATH}; do
     # Loop through the characters of the path and convert characters that are
     # not alphanumeric nor -_.~/ to their 2-digit hexadecimal representation
-    local i c buff
-    local converted_path=""
+    if [[ ! $path =~ ^[-_.~/a-zA-Z0-9]*$ ]]; then
+      local i c buff
+      local converted_path=""
 
-    for ((i=0; i<${#path}; i++)); do
-      c=${path:$i:1}
-      case ${c} in
-            [-_.~/a-zA-Z0-9] ) buff=${c} ;;
-            * )               printf -v buff '%%%02x' "'$c'"
-      esac
-      converted_path+="${buff}"
-    done
-    path=${converted_path}
+      for ((i=0; i<${#path}; i++)); do
+        c=${path:$i:1}
+        case ${c} in
+              [-_.~/a-zA-Z0-9] ) buff=${c} ;;
+              * )               printf -v buff '%%%02x' "'$c'"
+        esac
+        converted_path+="${buff}"
+      done
+      path=${converted_path}
+    fi
 
     if is_windows; then
       path="file:/${path}" # e.g. "file:/C:/temp/foo.jar"
@@ -328,7 +331,7 @@ function create_and_run_classpath_jar() {
       # If not absolute, qualify the path
       case "${path}" in
         /*) ;; # Already an absolute path
-        *) path="$(pwd)/${path}";; # Now qualified
+        *) path="${current_dir}/${path}";; # Now qualified
       esac
       path="file:${path}" # e.g. "file:/usr/local/foo.jar"
     fi

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -55,6 +56,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * {@link QueryEnvironment} that is specialized for running action graph queries over the configured
@@ -81,7 +83,8 @@ public class ActionGraphQueryEnvironment
       TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
-      Set<Setting> settings) {
+      Set<Setting> settings,
+      LabelPrinter labelPrinter) {
     super(
         keepGoing,
         eventHandler,
@@ -91,7 +94,8 @@ public class ActionGraphQueryEnvironment
         mainRepoTargetParser,
         pkgPath,
         walkableGraphSupplier,
-        settings);
+        settings,
+        labelPrinter);
     this.configuredTargetKeyExtractor = KeyedConfiguredTargetValue::getConfiguredTargetKey;
     this.accessor =
         new ConfiguredTargetValueAccessor(
@@ -107,7 +111,8 @@ public class ActionGraphQueryEnvironment
       TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
-      AqueryOptions aqueryOptions) {
+      AqueryOptions aqueryOptions,
+      LabelPrinter labelPrinter) {
     this(
         keepGoing,
         eventHandler,
@@ -117,7 +122,8 @@ public class ActionGraphQueryEnvironment
         mainRepoTargetParser,
         pkgPath,
         walkableGraphSupplier,
-        aqueryOptions.toSettings());
+        aqueryOptions.toSettings(),
+        labelPrinter);
     this.aqueryOptions = aqueryOptions;
   }
 
@@ -143,7 +149,8 @@ public class ActionGraphQueryEnvironment
           SkyframeExecutor skyframeExecutor,
           BuildConfigurationValue hostConfiguration,
           @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
-          PackageManager packageManager) {
+          PackageManager packageManager,
+          StarlarkSemantics starlarkSemantics) {
     return ImmutableList.of(
         new ActionGraphProtoOutputFormatterCallback(
             eventHandler,
@@ -176,7 +183,7 @@ public class ActionGraphQueryEnvironment
             skyframeExecutor,
             accessor,
             actionFilters,
-            getMainRepoMapping()),
+            getLabelPrinter()),
         new ActionGraphSummaryOutputFormatterCallback(
             eventHandler, aqueryOptions, out, skyframeExecutor, accessor, actionFilters));
   }

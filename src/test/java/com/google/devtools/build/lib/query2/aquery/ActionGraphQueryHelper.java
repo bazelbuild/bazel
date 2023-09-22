@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.query2.aquery;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
@@ -42,7 +43,8 @@ public class ActionGraphQueryHelper extends PostAnalysisQueryHelper<KeyedConfigu
         mainRepoTargetParser,
         analysisHelper.getPackageManager().getPackagePath(),
         () -> walkableGraph,
-        settings);
+        settings,
+        LabelPrinter.legacy());
   }
 
   @Override

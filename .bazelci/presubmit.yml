@@ -334,6 +334,7 @@ tasks:
       - "-//src/test/py/bazel:bazel_overrides_test"
       - "-//src/test/py/bazel:bazel_repo_mapping_test"
       - "-//src/test/py/bazel:bazel_yanked_versions_test"
+      - "-//src/test/py/bazel:bzlmod_query_test"
       - "-//src/test/shell/bazel:verify_workspace"
   kythe_ubuntu2004:
     shell_commands:

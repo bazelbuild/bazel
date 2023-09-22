@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.buildtool.BuildTool.ExitException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
@@ -166,7 +167,10 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
             env.getSkyframeExecutor(),
             hostConfiguration,
             runtime.getRuleClassProvider().getTrimmingTransitionFactory(),
-            env.getPackageManager());
+            env.getPackageManager(),
+            env.getSkyframeExecutor()
+                .getEffectiveStarlarkSemantics(
+                    env.getOptions().getOptions(BuildLanguageOptions.class)));
     String outputFormat = postAnalysisQueryEnvironment.getOutputFormat();
     NamedThreadSafeOutputFormatterCallback<T> callback =
         NamedThreadSafeOutputFormatterCallback.selectCallback(outputFormat, callbacks);
