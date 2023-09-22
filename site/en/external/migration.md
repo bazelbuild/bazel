@@ -32,7 +32,7 @@ your workspace root, maybe with comments like:
     # See MODULE.bazel for external dependencies setup.
     ```
 
-### Enable Blzmod in your bazelrc {:#enable-bzldmod}
+### Enable Bzlmod in your bazelrc {:#enable-bzlmod}
 
 `.bazelrc` lets you set flags that apply every time your run Bazel. To enable
 Bzlmod, use the `--enable_bzlmod` flag, and apply it to the `common` command so
