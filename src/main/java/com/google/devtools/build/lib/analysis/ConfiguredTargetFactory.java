@@ -473,7 +473,7 @@ public final class ConfiguredTargetFactory {
       ImmutableList.Builder<AnalysisFailure> analysisFailures = ImmutableList.builder();
 
       for (String errorMessage : ruleContext.getSuppressedErrorMessages()) {
-        analysisFailures.add(new AnalysisFailure(ruleContext.getLabel(), errorMessage));
+        analysisFailures.add(AnalysisFailure.create(ruleContext.getLabel(), errorMessage));
       }
       RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
       builder.addNativeDeclaredProvider(
@@ -649,7 +649,7 @@ public final class ConfiguredTargetFactory {
       ImmutableList.Builder<AnalysisFailure> analysisFailures = ImmutableList.builder();
 
       for (String errorMessage : ruleContext.getSuppressedErrorMessages()) {
-        analysisFailures.add(new AnalysisFailure(ruleContext.getLabel(), errorMessage));
+        analysisFailures.add(AnalysisFailure.create(ruleContext.getLabel(), errorMessage));
       }
       ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(ruleContext);
       builder.addNativeDeclaredProvider(
