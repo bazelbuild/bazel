@@ -427,7 +427,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     }
     FileSystem fs = sandboxExecRoot.getFileSystem();
     writableDirs.add(fs.getPath("/dev/shm").resolveSymbolicLinks());
-    writableDirs.add(fs.getPath("/tmp"));
+    writableDirs.add(fs.getPath("/tmp").resolveSymbolicLinks());
 
     return writableDirs.build();
   }
