@@ -214,7 +214,7 @@ public class UploadManifestTest {
             /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(link));
     Digest digest = digestUtil.compute(target);
-    assertThat(um.getDigestToFile()).containsExactly(digest, link);
+    assertThat(um.getCasDigestToFile()).containsExactly(digest, link);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputFilesBuilder().setPath("link").setDigest(digest).setIsExecutable(true);
@@ -241,7 +241,7 @@ public class UploadManifestTest {
             /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(link));
     Digest digest = digestUtil.compute(foo);
-    assertThat(um.getDigestToFile()).containsExactly(digest, execRoot.getRelative("link/foo"));
+    assertThat(um.getCasDigestToFile()).containsExactly(digest, execRoot.getRelative("link/foo"));
 
     Tree tree =
         Tree.newBuilder()
@@ -278,7 +278,7 @@ public class UploadManifestTest {
             /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(link));
     Digest digest = digestUtil.compute(target);
-    assertThat(um.getDigestToFile()).containsExactly(digest, link);
+    assertThat(um.getCasDigestToFile()).containsExactly(digest, link);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputFilesBuilder().setPath("link").setDigest(digest).setIsExecutable(true);
@@ -305,7 +305,7 @@ public class UploadManifestTest {
             /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(link));
     Digest digest = digestUtil.compute(foo);
-    assertThat(um.getDigestToFile()).containsExactly(digest, execRoot.getRelative("link/foo"));
+    assertThat(um.getCasDigestToFile()).containsExactly(digest, execRoot.getRelative("link/foo"));
 
     Tree tree =
         Tree.newBuilder()
@@ -342,7 +342,7 @@ public class UploadManifestTest {
             /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(link));
     Digest digest = digestUtil.compute(target);
-    assertThat(um.getDigestToFile()).containsExactly(digest, link);
+    assertThat(um.getCasDigestToFile()).containsExactly(digest, link);
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputFilesBuilder().setPath("link").setDigest(digest).setIsExecutable(true);
@@ -369,7 +369,7 @@ public class UploadManifestTest {
             /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(link));
     Digest digest = digestUtil.compute(foo);
-    assertThat(um.getDigestToFile()).containsExactly(digest, execRoot.getRelative("link/foo"));
+    assertThat(um.getCasDigestToFile()).containsExactly(digest, execRoot.getRelative("link/foo"));
 
     Tree tree =
         Tree.newBuilder()
@@ -405,7 +405,7 @@ public class UploadManifestTest {
             /*allowDanglingSymlinks=*/ false,
             /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(link));
-    assertThat(um.getDigestToFile()).isEmpty();
+    assertThat(um.getCasDigestToFile()).isEmpty();
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputFileSymlinksBuilder().setPath("link").setTarget("target");
@@ -432,7 +432,7 @@ public class UploadManifestTest {
             /*allowDanglingSymlinks=*/ false,
             /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(link));
-    assertThat(um.getDigestToFile()).isEmpty();
+    assertThat(um.getCasDigestToFile()).isEmpty();
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputDirectorySymlinksBuilder().setPath("link").setTarget("dir");
@@ -503,7 +503,7 @@ public class UploadManifestTest {
             /*allowDanglingSymlinks=*/ true,
             /*allowAbsoluteSymlinks=*/ true);
     um.addFiles(ImmutableList.of(link));
-    assertThat(um.getDigestToFile()).isEmpty();
+    assertThat(um.getCasDigestToFile()).isEmpty();
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputFileSymlinksBuilder().setPath("link").setTarget("/execroot/target");
@@ -550,7 +550,7 @@ public class UploadManifestTest {
             /*allowDanglingSymlinks=*/ true,
             /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(link));
-    assertThat(um.getDigestToFile()).isEmpty();
+    assertThat(um.getCasDigestToFile()).isEmpty();
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputFileSymlinksBuilder().setPath("link").setTarget("target");
@@ -578,7 +578,7 @@ public class UploadManifestTest {
             /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(dir));
     Digest digest = digestUtil.compute(target);
-    assertThat(um.getDigestToFile()).containsExactly(digest, link);
+    assertThat(um.getCasDigestToFile()).containsExactly(digest, link);
 
     Tree tree =
         Tree.newBuilder()
@@ -620,7 +620,8 @@ public class UploadManifestTest {
             /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(dir));
     Digest digest = digestUtil.compute(foo);
-    assertThat(um.getDigestToFile()).containsExactly(digest, execRoot.getRelative("dir/link/foo"));
+    assertThat(um.getCasDigestToFile())
+        .containsExactly(digest, execRoot.getRelative("dir/link/foo"));
 
     Directory barDir =
         Directory.newBuilder()
@@ -667,7 +668,7 @@ public class UploadManifestTest {
             /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(dir));
     Digest digest = digestUtil.compute(target);
-    assertThat(um.getDigestToFile()).containsExactly(digest, link);
+    assertThat(um.getCasDigestToFile()).containsExactly(digest, link);
 
     Tree tree =
         Tree.newBuilder()
@@ -709,7 +710,8 @@ public class UploadManifestTest {
             /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(dir));
     Digest digest = digestUtil.compute(foo);
-    assertThat(um.getDigestToFile()).containsExactly(digest, execRoot.getRelative("dir/link/foo"));
+    assertThat(um.getCasDigestToFile())
+        .containsExactly(digest, execRoot.getRelative("dir/link/foo"));
 
     Directory barDir =
         Directory.newBuilder()
@@ -755,7 +757,7 @@ public class UploadManifestTest {
             /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(dir));
     Digest digest = digestUtil.compute(target);
-    assertThat(um.getDigestToFile()).containsExactly(digest, link);
+    assertThat(um.getCasDigestToFile()).containsExactly(digest, link);
 
     Tree tree =
         Tree.newBuilder()
@@ -797,7 +799,8 @@ public class UploadManifestTest {
             /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(dir));
     Digest digest = digestUtil.compute(foo);
-    assertThat(um.getDigestToFile()).containsExactly(digest, execRoot.getRelative("dir/link/foo"));
+    assertThat(um.getCasDigestToFile())
+        .containsExactly(digest, execRoot.getRelative("dir/link/foo"));
 
     Directory barDir =
         Directory.newBuilder()
@@ -843,7 +846,7 @@ public class UploadManifestTest {
             /*allowDanglingSymlinks=*/ false,
             /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(dir));
-    assertThat(um.getDigestToFile()).isEmpty();
+    assertThat(um.getCasDigestToFile()).isEmpty();
 
     Tree tree =
         Tree.newBuilder()
@@ -884,7 +887,7 @@ public class UploadManifestTest {
             /*allowDanglingSymlinks=*/ false,
             /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(dir));
-    assertThat(um.getDigestToFile()).isEmpty();
+    assertThat(um.getCasDigestToFile()).isEmpty();
 
     Tree tree =
         Tree.newBuilder()
@@ -973,7 +976,7 @@ public class UploadManifestTest {
             /*allowDanglingSymlinks=*/ false,
             /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(dir));
-    assertThat(um.getDigestToFile()).isEmpty();
+    assertThat(um.getCasDigestToFile()).isEmpty();
 
     Tree tree =
         Tree.newBuilder()
@@ -1012,7 +1015,7 @@ public class UploadManifestTest {
             /*allowDanglingSymlinks=*/ true,
             /*allowAbsoluteSymlinks=*/ false);
     um.addFiles(ImmutableList.of(dir));
-    assertThat(um.getDigestToFile()).isEmpty();
+    assertThat(um.getCasDigestToFile()).isEmpty();
 
     Tree tree =
         Tree.newBuilder()
