@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.CommandLineItem;
+import com.google.devtools.build.lib.actions.CommandLineItem.ExceptionlessMapFn;
 import com.google.devtools.build.lib.actions.CommandLineItem.MapFn;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -96,13 +97,14 @@ public final class StrippingPathMapper {
   private static PathMapper create(String mnemonic, boolean isStarlarkAction,
       PathFragment outputRoot) {
     final StringStripper argStripper = new StringStripper(outputRoot.getPathString());
-    final MapFn<Object> structuredArgStripper = (object, args) -> {
-      if (object instanceof String) {
-        args.accept(argStripper.strip((String) object));
-      } else {
-        args.accept(CommandLineItem.expandToCommandLine(object));
-      }
-    };
+    final ExceptionlessMapFn<Object> structuredArgStripper =
+        (object, args) -> {
+          if (object instanceof String) {
+            args.accept(argStripper.strip((String) object));
+          } else {
+            args.accept(CommandLineItem.expandToCommandLine(object));
+          }
+        };
     // This kind of special handling should not be extended. It is a hack that works around a
     // limitation of the native implementation of location expansion: The output is just a list of
     // strings, not a structured command line that would allow transparent path mapping.
@@ -155,8 +157,8 @@ public final class StrippingPathMapper {
       }
 
       @Override
-      public MapFn<Object> getMapFn(@Nullable String previousArg) {
-        if (isJavaAction && "--javacopts".equals(previousArg)) {
+      public ExceptionlessMapFn<Object> getMapFn(@Nullable String previousFlag) {
+        if (isJavaAction && "--javacopts".equals(previousFlag)) {
           return structuredArgStripper;
         }
         return MapFn.DEFAULT;

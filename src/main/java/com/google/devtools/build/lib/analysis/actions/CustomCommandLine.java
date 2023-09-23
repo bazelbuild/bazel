@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
+import com.google.devtools.build.lib.actions.CommandLineItem.ExceptionlessMapFn;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -1243,15 +1244,20 @@ public class CustomCommandLine extends CommandLine {
     ImmutableList.Builder<String> builder = ImmutableList.builder();
     List<Object> arguments = rawArgsAsList();
     int count = arguments.size();
+    // Track the last scalar, non-path argument (e.g. "--javacopts") so that the PathMapper can
+    // heuristically map subsequent argument collections that contain paths.
+    String previousFlag = null;
     for (int i = 0; i < count; ) {
       Object arg = arguments.get(i++);
       if (arg instanceof TreeFileArtifactArgvFragment) {
         arg = substituteTreeFileArtifactArgvFragment((TreeFileArtifactArgvFragment) arg);
       }
       if (arg instanceof NestedSet) {
-        evalSimpleVectorArg(((NestedSet<?>) arg).toList(), builder, pathMapper);
+        evalSimpleVectorArg(((NestedSet<?>) arg).toList(), builder, pathMapper, previousFlag);
+        previousFlag = null;
       } else if (arg instanceof Iterable) {
-        evalSimpleVectorArg((Iterable<?>) arg, builder, pathMapper);
+        evalSimpleVectorArg((Iterable<?>) arg, builder, pathMapper, previousFlag);
+        previousFlag = null;
       } else if (arg instanceof ArgvFragment) {
         if (artifactExpander != null && arg instanceof TreeArtifactExpansionArgvFragment) {
           TreeArtifactExpansionArgvFragment expansionArg = (TreeArtifactExpansionArgvFragment) arg;
@@ -1259,24 +1265,30 @@ public class CustomCommandLine extends CommandLine {
         } else {
           i = ((ArgvFragment) arg).eval(arguments, i, builder, pathMapper);
         }
+        previousFlag = null;
       } else if (arg instanceof ActionInput) {
         builder.add(pathMapper.getMappedExecPathString((ActionInput) arg));
+        previousFlag = null;
       } else if (arg instanceof PathFragment) {
         builder.add(pathMapper.map((PathFragment) arg).getPathString());
+        previousFlag = null;
       } else {
-        builder.add(CommandLineItem.expandToCommandLine(arg));
+        previousFlag = CommandLineItem.expandToCommandLine(arg);
+        builder.add(previousFlag);
       }
     }
     return builder.build();
   }
 
   private void evalSimpleVectorArg(Iterable<?> arg, ImmutableList.Builder<String> builder,
-      PathMapper pathMapper) {
+                                   PathMapper pathMapper, String previousFlag) {
+    ExceptionlessMapFn<Object> mapFn = pathMapper.getMapFn(previousFlag);
     for (Object value : arg) {
-      builder.add(
-          value instanceof ActionInput
-              ? pathMapper.getMappedExecPathString((ActionInput) value)
-              : CommandLineItem.expandToCommandLine(value));
+      if (value instanceof ActionInput) {
+        builder.add(pathMapper.getMappedExecPathString((ActionInput) value));
+      } else {
+        mapFn.expandToCommandLine(value, builder::add);
+      }
     }
   }
 

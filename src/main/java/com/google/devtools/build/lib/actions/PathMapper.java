@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.actions.CommandLineItem.ExceptionlessMapFn;
 import com.google.devtools.build.lib.actions.CommandLineItem.MapFn;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Support for mapping config parts of exec paths in an action's command line as well as when
@@ -68,7 +70,7 @@ public interface PathMapper {
    *
    * <p>By default, this method returns {@link MapFn#DEFAULT}.
    */
-  default MapFn<Object> getMapFn(String previousArg) {
+  default ExceptionlessMapFn<Object> getMapFn(@Nullable String previousFlag) {
     return MapFn.DEFAULT;
   }
 
