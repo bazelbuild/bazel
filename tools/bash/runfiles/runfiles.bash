@@ -98,16 +98,21 @@ case "$(uname -s | tr [:upper:] [:lower:])" in
 msys*|mingw*|cygwin*)
   # matches an absolute Windows path
   export _RLOCATION_ISABS_PATTERN="^[a-zA-Z]:[/\\]"
+  # Windows paths are case insensitive and Bazel and MSYS2 capitalize differently, so we can't
+  # assume that all paths are in the same native case.
+  export _RLOCATION_GREP_CASE_INSENSITIVE_ARGS=-i
   ;;
 *)
   # matches an absolute Unix path
   export _RLOCATION_ISABS_PATTERN="^/[^/].*"
+  export _RLOCATION_GREP_CASE_INSENSITIVE_ARGS=
   ;;
 esac
 
-# Does not exit with a non-zero exit code if no match is found.
+# Does not exit with a non-zero exit code if no match is found and performs a case-insensitive
+# search on Windows.
 function __runfiles_maybe_grep() {
-  grep "$@" || test $? = 1;
+  grep $_RLOCATION_GREP_CASE_INSENSITIVE_ARGS "$@" || test $? = 1;
 }
 export -f __runfiles_maybe_grep
 
@@ -251,8 +256,13 @@ function runfiles_current_repository() {
   # If the runfiles directory exists, check if the caller's path is of the form
   # $RUNFILES_DIR/rlocation_path and if so, set $rlocation_path.
   if [[ -z "$rlocation_path" && -d "${RUNFILES_DIR:-/dev/null}" ]]; then
-    local -r normalized_caller_path="$(echo "$caller_path" | sed 's|\\\\*|/|g')"
-    local -r normalized_dir="$(echo "${RUNFILES_DIR%[\/]}" | sed 's|\\\\*|/|g')"
+    normalized_caller_path="$(echo "$caller_path" | sed 's|\\\\*|/|g')"
+    normalized_dir="$(echo "${RUNFILES_DIR%[\/]}" | sed 's|\\\\*|/|g')"
+    if [[ -n "${_RLOCATION_GREP_CASE_INSENSITIVE_ARGS}" ]]; then
+      # When comparing file paths insensitively, also normalize the case of the prefixes.
+      normalized_caller_path=$(echo "$normalized_caller_path" | tr '[:upper:]' '[:lower:]')
+      normalized_dir=$(echo "$normalized_dir" | tr '[:upper:]' '[:lower:]')
+    fi
     if [[ "$normalized_caller_path" == "$normalized_dir"/* ]]; then
       rlocation_path=${normalized_caller_path:${#normalized_dir}}
       rlocation_path=${rlocation_path:1}
