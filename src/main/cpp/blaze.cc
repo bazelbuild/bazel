@@ -2151,6 +2151,12 @@ unsigned int BlazeServer::Communicate(
       return blaze_exit_code::INTERNAL_ERROR;
     }
 
+    // Clear environment variables before setting the requested ones so that
+    // users can still explicitly override the clearing.
+    for (const auto &variable_name : request.environment_variable_to_clear()) {
+      UnsetEnv(variable_name);
+    }
+
     vector<string> argv(request.argv().begin(), request.argv().end());
     for (const auto &variable : request.environment_variable()) {
       SetEnv(variable.name(), variable.value());
