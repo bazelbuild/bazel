@@ -148,10 +148,19 @@ public class ShowIncludesFilter {
                 StandardCharsets.UTF_8) // Spanish
             );
     private final String sourceFileName;
+    private boolean sawPotentialUnsupportedShowIncludesLine;
     // Grab everything under the execroot base so that external repository header files are covered
     // in the sibling repository layout.
     private static final Pattern EXECROOT_BASE_HEADER_PATTERN =
         Pattern.compile(".*execroot\\\\(?<headerPath>.*)");
+    // Match a line of the form "fooo: bar:   C:\some\path\file.h". As this is relatively generic,
+    // we require the line to include an absolute path with drive letter. If remote workers rewrite
+    // the path to a relative one, we won't match it, but it is unlikely that such setups use an
+    // unsupported encoding. We also exclude any matches that contain numbers: MSVC warnings and
+    // errors always contain numbers, but the /showIncludes output doesn't in any encoding since all
+    // codepages are ASCII-compatible.
+    private static final Pattern POTENTIAL_UNSUPPORTED_SHOW_INCLUDES_LINE =
+        Pattern.compile("[^:0-9]+:\\s+[^:0-9]+:\\s+[A-Za-z]:\\\\[^:]*\\\\execroot\\\\[^:]*");
 
     public FilterShowIncludesOutputStream(OutputStream out, String sourceFileName) {
       super(out);
@@ -182,6 +191,15 @@ public class ShowIncludesFilter {
         }
         // cl.exe also prints out the file name unconditionally, we need to also filter it out.
         if (!prefixMatched && !line.trim().equals(sourceFileName)) {
+          // When the toolchain definition failed to force an English locale, /showIncludes lines
+          // can use non-UTF8 encodings, which the checks above fail to detect. As this results in
+          // incorrect incremental builds, we emit a warning if the raw byte sequence comprising the
+          // line looks like it could be a /showIncludes line.
+          if (POTENTIAL_UNSUPPORTED_SHOW_INCLUDES_LINE
+              .matcher(buffer.toString(StandardCharsets.ISO_8859_1).trim())
+              .matches()) {
+            sawPotentialUnsupportedShowIncludesLine = true;
+          }
           buffer.writeTo(out);
         }
         buffer.reset();
@@ -214,6 +232,10 @@ public class ShowIncludesFilter {
     public Collection<String> getDependencies() {
       return this.dependencies;
     }
+
+    public boolean sawPotentialUnsupportedShowIncludesLine() {
+      return sawPotentialUnsupportedShowIncludesLine;
+    }
   }
 
   public FilterOutputStream getFilteredOutputStream(OutputStream outputStream) {
@@ -230,6 +252,11 @@ public class ShowIncludesFilter {
       }
     }
     return Collections.unmodifiableCollection(dependenciesInPath);
+  }
+
+  public boolean sawPotentialUnsupportedShowIncludesLine() {
+    return filterShowIncludesOutputStream != null
+        && filterShowIncludesOutputStream.sawPotentialUnsupportedShowIncludesLine();
   }
 
   @VisibleForTesting
