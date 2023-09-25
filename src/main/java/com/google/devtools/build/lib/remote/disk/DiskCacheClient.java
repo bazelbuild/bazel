@@ -139,6 +139,13 @@ public class DiskCacheClient implements RemoteCacheClient {
     }
   }
 
+  /**
+   * Checks that all of the blobs referenced by the {@link ActionResult} exist and marks them as
+   * recently used.
+   *
+   * @throws CacheNotFoundException if at least one of the referenced blobs is missing.
+   * @throws IOException if an I/O error other than a missing file occurs.
+   */
   private void checkActionResult(ActionResult actionResult) throws IOException {
     for (var outputFile : actionResult.getOutputFilesList()) {
       checkDigestExists(outputFile.getDigest());
@@ -155,6 +162,14 @@ public class DiskCacheClient implements RemoteCacheClient {
       for (var dir : tree.getChildrenList()) {
         checkOutputDirectory(dir);
       }
+    }
+
+    if (actionResult.hasStdoutDigest()) {
+      checkDigestExists(actionResult.getStdoutDigest());
+    }
+
+    if (actionResult.hasStderrDigest()) {
+      checkDigestExists(actionResult.getStderrDigest());
     }
   }
 
