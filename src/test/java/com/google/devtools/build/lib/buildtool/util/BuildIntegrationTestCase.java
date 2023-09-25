@@ -28,6 +28,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.eventbus.Subscribe;
@@ -353,10 +354,12 @@ public abstract class BuildIntegrationTestCase {
   }
 
   protected final void reinitializeAndPreserveOptions() throws Exception {
-    List<String> options = runtimeWrapper.getOptions();
+    ImmutableList<String> options = runtimeWrapper.getOptions();
+    ImmutableMap<String, Object> starlarkOptions = runtimeWrapper.getStarlarkOptions();
     createFilesAndMocks();
     runtimeWrapper.resetOptions();
     runtimeWrapper.addOptions(options);
+    runtimeWrapper.addStarlarkOptions(starlarkOptions);
   }
 
   protected void runPriorToBeforeMethods() throws Exception {
@@ -758,7 +761,7 @@ public abstract class BuildIntegrationTestCase {
     if (result == null) {
       return baseConfiguration;
     }
-    Set<BuildConfigurationValue> topLevelTargetConfigurations =
+    ImmutableSet<BuildConfigurationValue> topLevelTargetConfigurations =
         result.getActualTargets().stream()
             .map(this::getConfiguration)
             .filter(Objects::nonNull)

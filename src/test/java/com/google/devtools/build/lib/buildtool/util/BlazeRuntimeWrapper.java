@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
@@ -247,12 +248,20 @@ public class BlazeRuntimeWrapper {
     starlarkOptions.put(Label.parseCanonicalUnchecked(label).getCanonicalForm(), value);
   }
 
+  public void addStarlarkOptions(Map<String, Object> starlarkOptions) {
+    starlarkOptions.forEach(this::addStarlarkOption);
+  }
+
   public ImmutableList<String> getOptions() {
     return ImmutableList.copyOf(optionsToParse);
   }
 
   public <O extends OptionsBase> O getOptions(Class<O> optionsClass) {
     return optionsParser.getOptions(optionsClass);
+  }
+
+  public ImmutableMap<String, Object> getStarlarkOptions() {
+    return ImmutableMap.copyOf(starlarkOptions);
   }
 
   public void addOptionsClass(Class<? extends OptionsBase> optionsClass) {
