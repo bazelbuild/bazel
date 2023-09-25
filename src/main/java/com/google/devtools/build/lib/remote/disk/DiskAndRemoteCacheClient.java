@@ -166,7 +166,7 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
     }
 
     Path tempPath = getTempPath();
-    OutputStream tempOut = new LazyFileOutputStream(tempPath);
+    LazyFileOutputStream tempOut = new LazyFileOutputStream(tempPath);
 
     if (context.getReadCachePolicy().allowRemoteCache()) {
       ListenableFuture<Void> download =
@@ -176,6 +176,9 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
           download,
           (unused) -> {
             try {
+              // Fsync temp before we rename it to avoid data loss in the case of machine
+              // crashes (the OS may reorder the writes and the rename).
+              tempOut.syncIfPossible();
               tempOut.close();
               diskCache.captureFile(tempPath, digest, Store.CAS);
             } catch (IOException e) {

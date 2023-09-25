@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote.common;
 
 import com.google.devtools.build.lib.vfs.Path;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 
@@ -59,6 +60,17 @@ public class LazyFileOutputStream extends OutputStream {
   public void close() throws IOException {
     ensureOpen();
     out.close();
+  }
+
+  /**
+   * If the output stream is a {@link FileOutputStream}, call {@link FileDescriptor#sync} on it.
+   * Otherwise, do nothing.
+   */
+  public void syncIfPossible() throws IOException {
+    ensureOpen();
+    if (out instanceof FileOutputStream) {
+      ((FileOutputStream) out).getFD().sync();
+    }
   }
 
   private void ensureOpen() throws IOException {
