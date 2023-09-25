@@ -37,6 +37,7 @@ java_library(
             "RemoteOutputChecker.java",
             "AbstractActionInputPrefetcher.java",
             "LeaseService.java",
+            "Store.java",
         ],
     ),
     exports = [
@@ -51,6 +52,7 @@ java_library(
         ":abstract_action_input_prefetcher",
         ":lease_service",
         ":remote_output_checker",
+        ":store",
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:runtime/command_line_path_factory",
@@ -248,4 +250,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//third_party:jsr305",
     ],
+)
+
+java_library(
+    name = "store",
+    srcs = ["Store.java"],
 )

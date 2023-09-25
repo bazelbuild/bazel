@@ -29,6 +29,7 @@ import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
@@ -47,26 +48,6 @@ import javax.annotation.Nullable;
 
 /** A on-disk store for the remote action cache. */
 public class DiskCacheClient implements RemoteCacheClient {
-
-  /** Identifies one of the two stores comprised by the disk cache. */
-  public enum Store {
-    /** Action cache. */
-    AC("ac"),
-
-    /** Content-addressed storage. */
-    CAS("cas");
-
-    private final String name;
-
-    private Store(String name) {
-      this.name = name;
-    }
-
-    private String getDirectoryName() {
-      return name;
-    }
-  }
-
   private final Path root;
   private final boolean verifyDownloads;
   private final DigestUtil digestUtil;
@@ -262,7 +243,7 @@ public class DiskCacheClient implements RemoteCacheClient {
 
   protected Path toPath(String key, Store store) {
     // Create the file in a subfolder to bypass possible folder file count limits
-    return root.getChild(store.getDirectoryName()).getChild(key.substring(0, 2)).getChild(key);
+    return root.getChild(store.toString()).getChild(key.substring(0, 2)).getChild(key);
   }
 
   private void saveFile(String key, InputStream in, Store store) throws IOException {

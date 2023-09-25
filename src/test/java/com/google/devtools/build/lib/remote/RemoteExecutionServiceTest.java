@@ -1840,11 +1840,12 @@ public class RemoteExecutionServiceTest {
 
     assertThat(eventHandler.getPosts())
         .containsAtLeast(
-            ActionUploadStartedEvent.create(spawn.getResourceOwner(), "cas/" + digest.getHash()),
-            ActionUploadFinishedEvent.create(spawn.getResourceOwner(), "cas/" + digest.getHash()),
-            ActionUploadStartedEvent.create(spawn.getResourceOwner(), "ac/" + action.getActionId()),
+            ActionUploadStartedEvent.create(spawn.getResourceOwner(), Store.CAS, digest),
+            ActionUploadFinishedEvent.create(spawn.getResourceOwner(), Store.CAS, digest),
+            ActionUploadStartedEvent.create(
+                spawn.getResourceOwner(), Store.AC, action.getActionKey().getDigest()),
             ActionUploadFinishedEvent.create(
-                spawn.getResourceOwner(), "ac/" + action.getActionId()));
+                spawn.getResourceOwner(), Store.AC, action.getActionKey().getDigest()));
   }
 
   @Test

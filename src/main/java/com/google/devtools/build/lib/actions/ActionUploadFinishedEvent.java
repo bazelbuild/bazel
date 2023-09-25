@@ -13,23 +13,29 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import build.bazel.remote.execution.v2.Digest;
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+import com.google.devtools.build.lib.remote.Store;
 
-/** The event that is fired when the file being uploaded by the action is finished. */
+/**
+ * The event fired when a resource is done uploading to a remote or disk cache upon completion of a
+ * local action.
+ */
 @AutoValue
 public abstract class ActionUploadFinishedEvent implements Postable {
 
   public static ActionUploadFinishedEvent create(
-      ActionExecutionMetadata action, String resourceId) {
-    return new AutoValue_ActionUploadFinishedEvent(action, resourceId);
+      ActionExecutionMetadata action, Store store, Digest digest) {
+    return new AutoValue_ActionUploadFinishedEvent(action, store, digest);
   }
 
   /** Returns the associated action. */
   public abstract ActionExecutionMetadata action();
 
-  /**
-   * Returns the id that uniquely determines the resource being uploaded among all upload events.
-   */
-  public abstract String resourceId();
+  /** Returns the {@link Store} that the resource belongs to. */
+  public abstract Store store();
+
+  /** Returns the {@link Digest} that uniquely identifies the resource. */
+  public abstract Digest digest();
 }

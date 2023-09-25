@@ -24,6 +24,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import build.bazel.remote.execution.v2.Digest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -61,6 +62,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
+import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.runtime.SkymeldUiStateTracker.BuildStatus;
 import com.google.devtools.build.lib.runtime.UiStateTracker.StrategyIds;
 import com.google.devtools.build.lib.skyframe.ConfigurationPhaseStartedEvent;
@@ -1568,7 +1570,9 @@ public class UiStateTrackerTest extends FoundationTestCase {
     UiStateTracker stateTracker = getUiStateTracker(clock);
     // Mimic being at the execution phase.
     simulateExecutionPhase(stateTracker);
-    stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, "foo"));
+    stateTracker.actionUploadStarted(
+        ActionUploadStartedEvent.create(
+            action, Store.AC, Digest.newBuilder().setHash("foo").setSizeBytes(1).build()));
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
 
     stateTracker.writeProgressBar(terminalWriter);
@@ -1584,7 +1588,9 @@ public class UiStateTrackerTest extends FoundationTestCase {
     UiStateTracker stateTracker = getUiStateTracker(clock);
     // Mimic being at the execution phase.
     simulateExecutionPhase(stateTracker);
-    stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, "foo"));
+    stateTracker.actionUploadStarted(
+        ActionUploadStartedEvent.create(
+            action, Store.AC, Digest.newBuilder().setHash("foo").setSizeBytes(1).build()));
     BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
     buildResult.setDetailedExitCode(DetailedExitCode.success());
     buildResult.setStopTime(clock.currentTimeMillis());
@@ -1600,17 +1606,20 @@ public class UiStateTrackerTest extends FoundationTestCase {
 
   @Test
   public void waitingRemoteCacheMessage_multipleUploadEvents_countCorrectly() throws IOException {
+    Digest a = Digest.newBuilder().setHash("a").setSizeBytes(1).build();
+    Digest b = Digest.newBuilder().setHash("b").setSizeBytes(2).build();
+    Digest c = Digest.newBuilder().setHash("c").setSizeBytes(3).build();
     ManualClock clock = new ManualClock();
     Action action = mockAction("Some action", "foo");
     UiStateTracker stateTracker = getUiStateTracker(clock);
-    stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, "a"));
+    stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, Store.AC, a));
     BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
     buildResult.setDetailedExitCode(DetailedExitCode.success());
     buildResult.setStopTime(clock.currentTimeMillis());
     var unused = stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
-    stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, "b"));
-    stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, "c"));
-    stateTracker.actionUploadFinished(ActionUploadFinishedEvent.create(action, "a"));
+    stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, Store.CAS, b));
+    stateTracker.actionUploadStarted(ActionUploadStartedEvent.create(action, Store.CAS, c));
+    stateTracker.actionUploadFinished(ActionUploadFinishedEvent.create(action, Store.AC, a));
     clock.advanceMillis(Duration.ofSeconds(2).toMillis());
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
 
