@@ -237,8 +237,8 @@ public class DiskCacheClient implements RemoteCacheClient {
     return immediateFuture(ImmutableSet.copyOf(digests));
   }
 
-  protected Path toPathNoSplit(String key) {
-    return root.getChild(key);
+  Path getTempPath() {
+    return root.getChild(UUID.randomUUID().toString());
   }
 
   protected Path toPath(String key, Store store) {
@@ -254,14 +254,23 @@ public class DiskCacheClient implements RemoteCacheClient {
     target.getParentDirectory().createDirectoryAndParents();
 
     // Write a temporary file first, and then rename, to avoid data corruption in case of a crash.
-    Path temp = toPathNoSplit(UUID.randomUUID().toString());
+    Path temp = getTempPath();
 
-    try (FileOutputStream out = new FileOutputStream(temp.getPathFile())) {
-      ByteStreams.copy(in, out);
-      // Fsync temp before we rename it to avoid data loss in the case of machine
-      // crashes (the OS may reorder the writes and the rename).
-      out.getFD().sync();
+    try {
+      try (FileOutputStream out = new FileOutputStream(temp.getPathFile())) {
+        ByteStreams.copy(in, out);
+        // Fsync temp before we rename it to avoid data loss in the case of machine
+        // crashes (the OS may reorder the writes and the rename).
+        out.getFD().sync();
+      }
+      temp.renameTo(target);
+    } catch (IOException e) {
+      try {
+        temp.delete();
+      } catch (IOException deleteErr) {
+        e.addSuppressed(deleteErr);
+      }
+      throw e;
     }
-    temp.renameTo(target);
   }
 }

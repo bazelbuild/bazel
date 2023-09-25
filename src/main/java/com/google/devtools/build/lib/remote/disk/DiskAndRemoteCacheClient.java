@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.UUID;
 
 /**
  * A {@link RemoteCacheClient} implementation combining two blob stores. A local disk blob store and
@@ -134,18 +133,23 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
             directExecutor());
   }
 
-  private Path newTempPath() {
-    return diskCache.toPathNoSplit(UUID.randomUUID().toString());
+  private Path getTempPath() {
+    return diskCache.getTempPath();
   }
 
-  private static ListenableFuture<Void> closeStreamOnError(
-      ListenableFuture<Void> f, OutputStream out) {
+  private static ListenableFuture<Void> cleanupTempFileOnError(
+      ListenableFuture<Void> f, Path tempPath, OutputStream tempOut) {
     return Futures.catchingAsync(
         f,
         Exception.class,
         (rootCause) -> {
           try {
-            out.close();
+            tempOut.close();
+          } catch (IOException e) {
+            rootCause.addSuppressed(e);
+          }
+          try {
+            tempPath.delete();
           } catch (IOException e) {
             rootCause.addSuppressed(e);
           }
@@ -161,13 +165,13 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
       return diskCache.downloadBlob(context, digest, out);
     }
 
-    Path tempPath = newTempPath();
-    final OutputStream tempOut;
-    tempOut = new LazyFileOutputStream(tempPath);
+    Path tempPath = getTempPath();
+    OutputStream tempOut = new LazyFileOutputStream(tempPath);
 
     if (context.getReadCachePolicy().allowRemoteCache()) {
       ListenableFuture<Void> download =
-          closeStreamOnError(remoteCache.downloadBlob(context, digest, tempOut), tempOut);
+          cleanupTempFileOnError(
+              remoteCache.downloadBlob(context, digest, tempOut), tempPath, tempOut);
       return Futures.transformAsync(
           download,
           (unused) -> {
