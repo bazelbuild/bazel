@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.exec.ExecutionOptions.TestOutputFormat;
 import com.google.devtools.build.lib.exec.TestLogHelper;
 import com.google.devtools.build.lib.util.LoggingUtil;
@@ -119,7 +120,14 @@ public class TestSummaryPrinter {
       TestLogPathFormatter testLogPathFormatter,
       boolean verboseSummary,
       boolean showAllTestCases) {
-    print(summary, terminalPrinter, testLogPathFormatter, verboseSummary, showAllTestCases, false);
+    print(
+        summary,
+        terminalPrinter,
+        testLogPathFormatter,
+        verboseSummary,
+        showAllTestCases,
+        false,
+        RepositoryMapping.ALWAYS_FALLBACK);
   }
 
   /**
@@ -133,7 +141,8 @@ public class TestSummaryPrinter {
       TestLogPathFormatter testLogPathFormatter,
       boolean verboseSummary,
       boolean showAllTestCases,
-      boolean withConfigurationName) {
+      boolean withConfigurationName,
+      RepositoryMapping mainRepoMapping) {
     BlazeTestStatus status = summary.getStatus();
     // Skip output for tests that failed to build.
     if ((!verboseSummary && status == BlazeTestStatus.FAILED_TO_BUILD)
@@ -141,7 +150,7 @@ public class TestSummaryPrinter {
       return;
     }
     String message = getCacheMessage(summary) + statusString(summary);
-    String targetName = summary.getLabel().toString();
+    String targetName = summary.getLabel().getDisplayForm(mainRepoMapping);
     if (withConfigurationName) {
       targetName += " (" + summary.getConfiguration().getMnemonic() + ")";
     }
