@@ -47,6 +47,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/apple",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/objc",
         "//src/main/java/com/google/devtools/build/lib/util",

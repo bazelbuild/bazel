@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcModule;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.objc.ObjcProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -108,8 +109,10 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     }
   }
 
+  @SerializationConstant
   public static final Key<Artifact> LIBRARY = new Key<>(LINK_ORDER, "library", Artifact.class);
 
+  @SerializationConstant
   public static final Key<Artifact> IMPORTED_LIBRARY =
       new Key<>(LINK_ORDER, "imported_library", Artifact.class);
 
@@ -117,68 +120,80 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
    * Indicates which libraries to load with {@code -force_load}. This is a subset of the union of
    * the {@link #LIBRARY} and {@link #IMPORTED_LIBRARY} sets.
    */
+  @SerializationConstant
   public static final Key<Artifact> FORCE_LOAD_LIBRARY =
       new Key<>(LINK_ORDER, "force_load_library", Artifact.class);
 
-  /**
-   * Contains all source files.
-   */
+  /** Contains all source files. */
+  @SerializationConstant
   public static final Key<Artifact> SOURCE = new Key<>(STABLE_ORDER, "source", Artifact.class);
 
   /**
    * Include search paths {@code -I} that are stored specially in their own field, and not
    * propagated transitively.
    */
+  @SerializationConstant
   public static final Key<PathFragment> STRICT_INCLUDE =
       new Key<>(LINK_ORDER, "strict_include", PathFragment.class);
 
+  @SerializationConstant
   public static final Key<String> SDK_DYLIB = new Key<>(STABLE_ORDER, "sdk_dylib", String.class);
+
+  @SerializationConstant
   public static final Key<String> SDK_FRAMEWORK =
       new Key<>(STABLE_ORDER, "sdk_framework", String.class);
+
+  @SerializationConstant
   public static final Key<String> WEAK_SDK_FRAMEWORK =
       new Key<>(STABLE_ORDER, "weak_sdk_framework", String.class);
+
+  @SerializationConstant
   public static final Key<Flag> FLAG = new Key<>(STABLE_ORDER, "flag", Flag.class);
 
   /**
    * Clang umbrella header. Public headers are #included in umbrella headers to be compatible with
    * J2ObjC segmented headers.
    */
+  @SerializationConstant
   public static final Key<Artifact> UMBRELLA_HEADER =
       new Key<>(STABLE_ORDER, "umbrella_header", Artifact.class);
 
-  /**
-   * Clang module maps, used to enforce proper use of private header files.
-   */
+  /** Clang module maps, used to enforce proper use of private header files. */
+  @SerializationConstant
   public static final Key<Artifact> MODULE_MAP =
       new Key<>(STABLE_ORDER, "module_map", Artifact.class);
 
   /** The static library files of user-specified static frameworks. */
+  @SerializationConstant
   public static final Key<Artifact> STATIC_FRAMEWORK_FILE =
       new Key<>(STABLE_ORDER, "static_framework_file", Artifact.class);
 
   /** The dynamic library files of user-specified dynamic frameworks. */
+  @SerializationConstant
   public static final Key<Artifact> DYNAMIC_FRAMEWORK_FILE =
       new Key<>(STABLE_ORDER, "dynamic_framework_file", Artifact.class);
 
   /** Linking information from cc dependencies. */
+  @SerializationConstant
   public static final Key<LibraryToLink> CC_LIBRARY =
       new Key<>(LINK_ORDER, "cc_library", LibraryToLink.class);
 
-  /**
-   * Linking options from dependencies.
-   */
+  /** Linking options from dependencies. */
+  @SerializationConstant
   public static final Key<String> LINKOPT = new Key<>(LINK_ORDER, "linkopt", String.class);
 
   /**
    * Link time artifacts from dependencies. These do not fall into any other category such as
-   * libraries or archives, rather provide a way to add arbitrary data (e.g. Swift AST files)
-   * to the linker. The rule that adds these is also responsible to add the necessary linker flags
-   * in {@link #LINKOPT}.
+   * libraries or archives, rather provide a way to add arbitrary data (e.g. Swift AST files) to the
+   * linker. The rule that adds these is also responsible to add the necessary linker flags in
+   * {@link #LINKOPT}.
    */
+  @SerializationConstant
   public static final Key<Artifact> LINK_INPUTS =
       new Key<>(LINK_ORDER, "link_inputs", Artifact.class);
 
   /** Static libraries that are built from J2ObjC-translated Java code. */
+  @SerializationConstant
   public static final Key<Artifact> J2OBJC_LIBRARY =
       new Key<>(LINK_ORDER, "j2objc_library", Artifact.class);
 
