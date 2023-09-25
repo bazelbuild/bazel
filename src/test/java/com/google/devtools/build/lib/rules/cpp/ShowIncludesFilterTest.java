@@ -55,6 +55,7 @@ public class ShowIncludesFilterTest {
     // Normal output message with newline
     filterOutputStream.write(getBytes("I am compiling\n"));
     assertThat(output.toString()).isEqualTo("I am compiling\n");
+    assertThat(showIncludesFilter.sawPotentialUnsupportedShowIncludesLine()).isFalse();
   }
 
   @Test
@@ -65,6 +66,7 @@ public class ShowIncludesFilterTest {
     filterOutputStream.flush();
     // flush to output should succeed
     assertThat(output.toString()).isEqualTo("Still compiling");
+    assertThat(showIncludesFilter.sawPotentialUnsupportedShowIncludesLine()).isFalse();
   }
 
   @Test
@@ -78,6 +80,7 @@ public class ShowIncludesFilterTest {
     filterOutputStream.write(getBytes("other info"));
     filterOutputStream.flush();
     assertThat(output.toString()).isEqualTo("Note: other info");
+    assertThat(showIncludesFilter.sawPotentialUnsupportedShowIncludesLine()).isFalse();
   }
 
   @Test
@@ -91,6 +94,7 @@ public class ShowIncludesFilterTest {
     // It's a match, output should be filtered, dependency on bar.h should be found.
     assertThat(output.toString()).isEmpty();
     assertThat(showIncludesFilter.getDependencies()).contains("bar.h");
+    assertThat(showIncludesFilter.sawPotentialUnsupportedShowIncludesLine()).isFalse();
   }
 
   @Test
@@ -106,6 +110,7 @@ public class ShowIncludesFilterTest {
     // It's a match, output should be filtered, dependency on bar.h should be found.
     assertThat(output.toString()).isEmpty();
     assertThat(showIncludesFilter.getDependencies()).contains("..\\__main__\\foo\\bar\\bar.h");
+    assertThat(showIncludesFilter.sawPotentialUnsupportedShowIncludesLine()).isFalse();
   }
 
   @Test
@@ -119,6 +124,7 @@ public class ShowIncludesFilterTest {
     // It's a match, output should be filtered, dependency on bar.h should be found.
     assertThat(output.toString()).isEmpty();
     assertThat(showIncludesFilter.getDependencies()).contains("C:\\system\\foo\\bar\\bar.h");
+    assertThat(showIncludesFilter.sawPotentialUnsupportedShowIncludesLine()).isFalse();
   }
 
   @Test
@@ -127,6 +133,7 @@ public class ShowIncludesFilterTest {
     // It's a match, output should be filtered, no dependency found.
     assertThat(output.toString()).isEmpty();
     assertThat(showIncludesFilter.getDependencies()).isEmpty();
+    assertThat(showIncludesFilter.sawPotentialUnsupportedShowIncludesLine()).isFalse();
   }
 
   @Test
@@ -138,5 +145,36 @@ public class ShowIncludesFilterTest {
     filterOutputStream.write(getBytes(".h"));
     filterOutputStream.flush();
     assertThat(output.toString()).isEqualTo("foo.h");
+    assertThat(showIncludesFilter.sawPotentialUnsupportedShowIncludesLine()).isFalse();
+  }
+
+  @Test
+  public void testSawPotentialUnsupportedShowIncludesLine() throws IOException {
+    // MSVC output with French non-UTF-8 locale.
+    filterOutputStream.write(getBytes("Remarque"));
+    filterOutputStream.write(0xFF);
+    filterOutputStream.write(getBytes(": inclusion du fichier"));
+    filterOutputStream.write(0xFF);
+    filterOutputStream.write(getBytes(":  C:\\bazel\\execroot\\foo\n"));
+    filterOutputStream.flush();
+
+    assertThat(output.toString(UTF_8)).isNotEmpty();
+    assertThat(showIncludesFilter.getDependencies()).isEmpty();
+    assertThat(showIncludesFilter.sawPotentialUnsupportedShowIncludesLine()).isTrue();
+  }
+
+  @Test
+  public void testSawPotentialUnsupportedShowIncludesLine_nearMatches() throws IOException {
+    filterOutputStream.write(getBytes("foo: bar: C:\\bazel\\foo\n"));
+    filterOutputStream.write(getBytes("foo: C:\\bazel\\execroot\\foo\n"));
+    filterOutputStream.write(getBytes("foo: bar: baz: C:\\bazel\\execroot\\foo\n"));
+    filterOutputStream.write(getBytes("foo: bar(123): C:\\bazel\\execroot\\foo\n"));
+    filterOutputStream.write(getBytes("foo: bar: C:\\bazel\\execroot\\foo: baz\n"));
+    filterOutputStream.write(getBytes("foo: bar: bazel\\execroot\\foo\n"));
+    filterOutputStream.flush();
+
+    assertThat(output.toString(UTF_8)).isNotEmpty();
+    assertThat(showIncludesFilter.getDependencies()).isEmpty();
+    assertThat(showIncludesFilter.sawPotentialUnsupportedShowIncludesLine()).isFalse();
   }
 }

@@ -1614,6 +1614,22 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       throws ActionExecutionException {
     Collection<Path> stdoutDeps = showIncludesFilterForStdout.getDependencies(execRoot);
     Collection<Path> stderrDeps = showIncludesFilterForStderr.getDependencies(execRoot);
+    if (stdoutDeps.isEmpty()
+        && stderrDeps.isEmpty()
+        && (showIncludesFilterForStdout.sawPotentialUnsupportedShowIncludesLine()
+            || showIncludesFilterForStderr.sawPotentialUnsupportedShowIncludesLine())) {
+      // /showIncludes parsing didn't result in any headers being found (unusual) *and* also
+      // encountered a line that looked like /showIncludes output in an unsupported encoding.
+      String message =
+          "While parsing the C++ compiler output for information about included headers, Bazel "
+              + "failed to find any headers but encountered a line that appears to be "
+              + "/showIncludes output in an unsupported encoding. This can result in incorrect "
+              + "incremental builds. If you are using the default Windows MSVC toolchain that "
+              + "ships with Bazel, ensure that the English language pack for Visual Studio is "
+              + "installed and then run 'bazel clean --expunge'.";
+      DetailedExitCode code = createDetailedExitCode(message, Code.FIND_USED_HEADERS_IO_EXCEPTION);
+      throw new ActionExecutionException(message, this, /* catastrophe= */ false, code);
+    }
     return HeaderDiscovery.discoverInputsFromDependencies(
         this,
         getSourceFile(),
