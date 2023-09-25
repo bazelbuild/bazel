@@ -15,6 +15,9 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.common.annotations.VisibleForTesting;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -147,7 +150,7 @@ public class RunCommand implements BlazeCommand  {
 
   public static final String MULTIPLE_TESTS_MESSAGE =
       "'run' only works with tests with one shard ('--test_sharding_strategy=disabled' is okay) "
-      + "and without --runs_per_test";
+          + "and without --runs_per_test";
 
   // The test policy to determine the environment variables from when running tests
   private final TestPolicy testPolicy;
@@ -157,11 +160,22 @@ public class RunCommand implements BlazeCommand  {
 
   private static final FileType RUNFILES_MANIFEST = FileType.of(".runfiles_manifest");
 
+  private static final ImmutableList<String> ENV_VARIABLES_TO_CLEAR =
+      ImmutableList.of(
+          // These variables are all used by runfiles libraries to locate the runfiles directory or
+          // manifest and can cause incorrect behavior when set for the top-level binary run with
+          // bazel run.
+          "JAVA_RUNFILES",
+          "RUNFILES_DIR",
+          "RUNFILES_MANIFEST_FILE",
+          "RUNFILES_MANIFEST_ONLY",
+          "TEST_SRCDIR");
+
   public RunCommand(TestPolicy testPolicy) {
     this.testPolicy = testPolicy;
   }
 
-  @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
+  @VisibleForTesting // productionVisibility = Visibility.PRIVATE
   protected BuildResult processRequest(final CommandEnvironment env, BuildRequest request) {
     List<String> targetPatternStrings = request.getTargets();
     return new BuildTool(env)
@@ -542,6 +556,7 @@ public class RunCommand implements BlazeCommand  {
               /* prettyPrintArgs= */ false,
               cmdLine,
               runEnvironment,
+              ENV_VARIABLES_TO_CLEAR,
               workingDir.getPathString(),
               configuration.checksum(),
               /* executionPlatformAsLabelString= */ null);
@@ -629,6 +644,10 @@ public class RunCommand implements BlazeCommand  {
           .setValue(ByteString.copyFrom(variable.getValue(), StandardCharsets.ISO_8859_1))
           .build());
     }
+    execDescription.addAllEnvironmentVariableToClear(
+        ENV_VARIABLES_TO_CLEAR.stream()
+            .map(s -> ByteString.copyFrom(s, ISO_8859_1))
+            .collect(toImmutableList()));
 
     return BlazeCommandResult.execute(execDescription.build());
   }
