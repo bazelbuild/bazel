@@ -25,9 +25,10 @@ import com.google.devtools.build.skyframe.NotComparableSkyValue;
  */
 @Immutable
 @ThreadSafe
-final class ArtifactNestedSetValue implements NotComparableSkyValue {
+public enum ArtifactNestedSetValue implements NotComparableSkyValue {
+  /** All artifacts in this nested set are present. */
+  ALL_PRESENT,
 
-  static final ArtifactNestedSetValue INSTANCE = new ArtifactNestedSetValue();
-
-  private ArtifactNestedSetValue() {}
+  /** Some artifacts in this nested set are missing. */
+  SOME_MISSING,
 }

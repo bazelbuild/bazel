@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingArtifactValue;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -91,6 +92,7 @@ final class ArtifactNestedSetFunction implements SkyFunction {
     NestedSetBuilder<Pair<SkyKey, Exception>> transitiveExceptionsBuilder =
         NestedSetBuilder.stableOrder();
     boolean catastrophic = false;
+    ArtifactNestedSetValue result = ArtifactNestedSetValue.ALL_PRESENT;
 
     // Throw a SkyFunctionException when a dep evaluation results in an exception.
     // Only non-null values should be committed to
@@ -104,9 +106,21 @@ final class ArtifactNestedSetFunction implements SkyFunction {
                 SourceArtifactException.class,
                 ActionExecutionException.class,
                 ArtifactNestedSetEvalException.class);
-        if (key instanceof ArtifactNestedSetKey || value == null) {
+        if (value == null) {
           continue;
         }
+
+        if (key instanceof ArtifactNestedSetKey) {
+          if (value == ArtifactNestedSetValue.SOME_MISSING) {
+            result = ArtifactNestedSetValue.SOME_MISSING;
+          }
+          continue;
+        }
+
+        if (value instanceof MissingArtifactValue) {
+          result = ArtifactNestedSetValue.SOME_MISSING;
+        }
+
         artifactSkyKeyToSkyValue.put(key, value);
       } catch (SourceArtifactException e) {
         // SourceArtifactException is never catastrophic.
@@ -138,7 +152,7 @@ final class ArtifactNestedSetFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    return ArtifactNestedSetValue.INSTANCE;
+    return result;
   }
 
   static ArtifactNestedSetFunction getInstance() {

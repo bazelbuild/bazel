@@ -91,6 +91,7 @@ java_library(
         ":artifact_conflict_finder",
         ":artifact_function",
         ":artifact_nested_set_function",
+        ":artifact_nested_set_value",
         ":aspect_completion_value",
         ":aspect_creation_exception",
         ":aspect_key_creator",
