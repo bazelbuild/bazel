@@ -1,22 +1,25 @@
 load("@rules_java//java:defs.bzl", "java_test")
 
-licenses(["notice"])  # Apache 2.0
+package(
+    default_applicable_licenses = ["//:license"],
+    default_testonly = 1,
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
+    testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_test(
     name = "AllocationTrackerTest",
     srcs = ["AllocationTrackerTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:allocationtracker",
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:current_rule_tracker",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
