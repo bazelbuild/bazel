@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.stream;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -221,12 +222,12 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
    *     it out.
    */
   private ImmutableList<String> getConfigHashes(boolean includeNoConfig) throws Exception {
-    return JsonParser.parseString(callConfigCommand().outAsLatin1())
-        .getAsJsonObject()
-        .get("configuration-IDs")
-        .getAsJsonArray()
-        .asList()
-        .stream()
+    return stream(
+            JsonParser.parseString(callConfigCommand().outAsLatin1())
+                .getAsJsonObject()
+                .get("configuration-IDs")
+                .getAsJsonArray()
+                .iterator())
         .filter(includeNoConfig ? Predicates.alwaysTrue() : this::skipNoConfig)
         .map(c -> c.getAsString())
         .collect(toImmutableList());

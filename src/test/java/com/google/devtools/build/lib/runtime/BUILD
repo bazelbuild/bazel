@@ -13,7 +13,10 @@ java_library(
             "*.java",
             "commands/*.java",
         ],
-        exclude = ["commands/DumpCommandTest.java"],
+        exclude = [
+            "commands/ConfigCommandTest.java",
+            "commands/DumpCommandTest.java",
+        ],
     ),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
@@ -89,11 +92,9 @@ java_library(
         "//src/main/protobuf:execution_graph_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
-        "//src/main/protobuf:memory_pressure_java_proto",
         "//src/main/protobuf:test_status_java_proto",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/exec/util",
         "//src/test/java/com/google/devtools/build/lib/starlark/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
@@ -104,19 +105,37 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/vfs/util",
         "//src/test/java/com/google/devtools/common/options:testutils",
         "//third_party:flogger",
-        "//third_party:gson",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
-        "//third_party/java/hamcrest",
         "//third_party/protobuf:protobuf_java",
         "//third_party/protobuf:protobuf_java_util",
         "@com_google_protobuf//:protobuf_java",
         "@maven//:com_google_testparameterinjector_test_parameter_injector",
         "@zstd-jni",
+    ],
+)
+
+java_test(
+    name = "ConfigCommandTest",
+    srcs = ["commands/ConfigCommandTest.java"],
+    # TODO(bazel-team): Fails on Windows for unclear reasons.
+    tags = ["no_windows"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands",
+        "//src/main/java/com/google/devtools/build/lib/util:pair",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
+        "//third_party:gson",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
 
