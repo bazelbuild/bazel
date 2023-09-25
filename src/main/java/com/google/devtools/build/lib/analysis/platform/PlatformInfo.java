@@ -30,12 +30,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.Dict;
-import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
-import net.starlark.java.eval.Sequence;
-import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 
 /** Provider for a platform, which is a group of constraints and values. */
@@ -66,49 +61,8 @@ public class PlatformInfo extends NativeInfo
   }
 
   /** Provider singleton constant. */
-  public static final BuiltinProvider<PlatformInfo> PROVIDER = new Provider();
-
-  /** Provider for {@link PlatformInfo} objects. */
-  private static class Provider extends BuiltinProvider<PlatformInfo>
-      implements PlatformInfoApi.Provider<
-          ConstraintSettingInfo, ConstraintValueInfo, PlatformInfo> {
-    private Provider() {
-      super(STARLARK_NAME, PlatformInfo.class);
-    }
-
-    @Override
-    public PlatformInfo platformInfo(
-        Label label,
-        Object parentUnchecked,
-        Sequence<?> constraintValuesUnchecked,
-        Object execPropertiesUnchecked,
-        StarlarkThread thread)
-        throws EvalException {
-      PlatformInfo.Builder builder = PlatformInfo.builder();
-      builder.setLabel(label);
-      if (parentUnchecked != Starlark.NONE) {
-        builder.setParent((PlatformInfo) parentUnchecked);
-      }
-      if (!constraintValuesUnchecked.isEmpty()) {
-        builder.addConstraints(
-            Sequence.cast(
-                constraintValuesUnchecked, ConstraintValueInfo.class, "constraint_values"));
-      }
-      if (execPropertiesUnchecked != null) {
-        Dict<String, String> execProperties =
-            Dict.noneableCast(
-                execPropertiesUnchecked, String.class, String.class, "exec_properties");
-        builder.setExecProperties(ImmutableMap.copyOf(execProperties));
-      }
-      builder.setLocation(thread.getCallerLocation());
-
-      try {
-        return builder.build();
-      } catch (DuplicateConstraintException | ExecPropertiesException e) {
-        throw new EvalException(e);
-      }
-    }
-  }
+  public static final BuiltinProvider<PlatformInfo> PROVIDER =
+      new BuiltinProvider<PlatformInfo>(STARLARK_NAME, PlatformInfo.class) {};
 
   private final Label label;
   private final ConstraintCollection constraints;
@@ -147,12 +101,10 @@ public class PlatformInfo extends NativeInfo
     return constraints;
   }
 
-  @Override
   public String remoteExecutionProperties() {
     return remoteExecutionProperties;
   }
 
-  @Override
   public ImmutableMap<String, String> execProperties() {
     return execProperties;
   }
