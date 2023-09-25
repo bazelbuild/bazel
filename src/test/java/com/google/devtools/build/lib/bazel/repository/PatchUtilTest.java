@@ -512,22 +512,8 @@ public final class PatchUtilTest {
     assertThat(expected)
         .hasMessageThat()
         .contains(
-            "in patch applied to /root/foo.cc: Incorrect Chunk: the chunk content doesn't match "
-                + "the target\n"
-                + "**Original Position**: 2\n"
-                + "\n"
-                + "**Original Content**:\n"
-                + "\n"
-                + "void main(){\n"
-                + "  printf(\"Hello bar\");\n"
-                + "}\n"
-                + "\n"
-                + "**Revised Content**:\n"
-                + "\n"
-                + "void main(){\n"
-                + "  printf(\"Hello bar\");\n"
-                + "  printf(\"Hello from patch\");\n"
-                + "}\n");
+            "in patch applied to /root/foo.cc: could not apply patch due to"
+                + " CONTENT_DOES_NOT_MATCH_TARGET");
   }
 
   @Test

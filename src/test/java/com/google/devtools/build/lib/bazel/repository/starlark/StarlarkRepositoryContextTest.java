@@ -376,15 +376,8 @@ public final class StarlarkRepositoryContextTest {
           .hasMessageThat()
           .isEqualTo(
               "Error applying patch /outputDir/my.patch: in patch applied to "
-                  + "/outputDir/foo: Incorrect Chunk: the chunk content doesn't match the target\n"
-                  + "**Original Position**: 1\n"
-                  + "\n"
-                  + "**Original Content**:\n"
-                  + "line one\n"
-                  + "\n"
-                  + "**Revised Content**:\n"
-                  + "line one\n"
-                  + "line two\n");
+                  + "/outputDir/foo: could not apply patch due to"
+                  + " CONTENT_DOES_NOT_MATCH_TARGET");
     }
   }
 

@@ -392,7 +392,7 @@ maven_install(
         "com.squareup:javapoet:1.12.0",
         "commons-collections:commons-collections:3.2.2",
         "commons-lang:commons-lang:2.6",
-        "io.github.java-diff-utils:java-diff-utils:4.0",
+        "io.github.java-diff-utils:java-diff-utils:4.12",
         "io.grpc:grpc-api:1.48.1",
         "io.grpc:grpc-auth:1.48.1",
         "io.grpc:grpc-context:1.48.1",
