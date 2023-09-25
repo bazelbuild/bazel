@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.AdditionalAnswers.answerVoid;
@@ -36,8 +37,11 @@ import build.bazel.remote.execution.v2.FileNode;
 import build.bazel.remote.execution.v2.FindMissingBlobsRequest;
 import build.bazel.remote.execution.v2.FindMissingBlobsResponse;
 import build.bazel.remote.execution.v2.GetActionResultRequest;
+import build.bazel.remote.execution.v2.RequestMetadata;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.Tree;
 import build.bazel.remote.execution.v2.UpdateActionResultRequest;
+import com.github.luben.zstd.Zstd;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
 import com.google.bytestream.ByteStreamProto.QueryWriteStatusRequest;
 import com.google.bytestream.ByteStreamProto.QueryWriteStatusResponse;
@@ -50,36 +54,74 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
+import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
+import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
+import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.TestUtils;
+import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
+import com.google.gson.JsonObject;
 import com.google.protobuf.ByteString;
 import io.grpc.BindableService;
+import io.grpc.CallCredentials;
+import io.grpc.CallOptions;
+import io.grpc.Channel;
+import io.grpc.ClientCall;
+import io.grpc.ClientInterceptor;
+import io.grpc.ManagedChannel;
 import io.grpc.Metadata;
+import io.grpc.MethodDescriptor;
+import io.grpc.Server;
 import io.grpc.ServerCall;
 import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.grpc.ServerInterceptors;
 import io.grpc.Status;
+import io.grpc.inprocess.InProcessChannelBuilder;
+import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
+import io.grpc.util.MutableHandlerRegistry;
+import io.reactivex.rxjava3.core.Single;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -90,9 +132,144 @@ import org.mockito.stubbing.Answer;
 
 /** Tests for {@link GrpcCacheClient}. */
 @RunWith(JUnit4.class)
-public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
+public class GrpcCacheClientTest {
+  private static final DigestUtil DIGEST_UTIL =
+      new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
+
+  private FileSystem fs;
+  private Path execRoot;
+  private FileOutErr outErr;
+  private FakeActionInputFileCache fakeFileCache;
+  private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
+  private final String fakeServerName = "fake server for " + getClass();
+  private Server fakeServer;
+  private RemoteActionExecutionContext context;
+  private RemotePathResolver remotePathResolver;
+  private ListeningScheduledExecutorService retryService;
+  private final ArrayList<ReferenceCountedChannel> channels = new ArrayList<>();
+
   private GrpcCacheClient newClient() throws IOException {
     return newClient(Options.getDefaults(RemoteOptions.class));
+  }
+
+  private GrpcCacheClient newClient(RemoteOptions remoteOptions) throws IOException {
+    return newClient(remoteOptions, () -> new ExponentialBackoff(remoteOptions));
+  }
+
+  private GrpcCacheClient newClient(RemoteOptions remoteOptions, Supplier<Backoff> backoffSupplier)
+      throws IOException {
+    AuthAndTLSOptions authTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
+    authTlsOptions.useGoogleDefaultCredentials = true;
+    authTlsOptions.googleCredentials = "/execroot/main/creds.json";
+    authTlsOptions.googleAuthScopes = ImmutableList.of("dummy.scope");
+
+    JsonObject json = new JsonObject();
+    json.addProperty("type", "authorized_user");
+    json.addProperty("client_id", "some_client");
+    json.addProperty("client_secret", "foo");
+    json.addProperty("refresh_token", "bar");
+    Scratch scratch = new Scratch();
+    scratch.file(authTlsOptions.googleCredentials, json.toString());
+
+    CallCredentialsProvider callCredentialsProvider;
+    try (InputStream in = scratch.resolve(authTlsOptions.googleCredentials).getInputStream()) {
+      callCredentialsProvider =
+          GoogleAuthUtils.newCallCredentialsProvider(
+              GoogleAuthUtils.newGoogleCredentialsFromFile(in, authTlsOptions.googleAuthScopes));
+    }
+    CallCredentials creds = callCredentialsProvider.getCallCredentials();
+
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            backoffSupplier, RemoteRetrier.RETRIABLE_GRPC_ERRORS, retryService);
+    ReferenceCountedChannel channel =
+        new ReferenceCountedChannel(
+            new ChannelConnectionWithServerCapabilitiesFactory() {
+              @Override
+              public Single<ChannelConnectionWithServerCapabilities> create() {
+                ManagedChannel ch =
+                    InProcessChannelBuilder.forName(fakeServerName)
+                        .directExecutor()
+                        .intercept(new CallCredentialsInterceptor(creds))
+                        .intercept(TracingMetadataUtils.newCacheHeadersInterceptor(remoteOptions))
+                        .build();
+                return Single.just(
+                    new ChannelConnectionWithServerCapabilities(
+                        ch, ServerCapabilities.getDefaultInstance()));
+              }
+
+              @Override
+              public int maxConcurrency() {
+                return 100;
+              }
+            });
+    channels.add(channel);
+    return new GrpcCacheClient(
+        channel, callCredentialsProvider, remoteOptions, retrier, DIGEST_UTIL);
+  }
+
+  private static byte[] downloadBlob(
+      RemoteActionExecutionContext context, GrpcCacheClient cacheClient, Digest digest)
+      throws IOException, InterruptedException {
+    try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+      getFromFuture(cacheClient.downloadBlob(context, digest, out));
+      return out.toByteArray();
+    }
+  }
+
+  private static class CallCredentialsInterceptor implements ClientInterceptor {
+    private final CallCredentials credentials;
+
+    public CallCredentialsInterceptor(CallCredentials credentials) {
+      this.credentials = credentials;
+    }
+
+    @Override
+    public <RequestT, ResponseT> ClientCall<RequestT, ResponseT> interceptCall(
+        MethodDescriptor<RequestT, ResponseT> method, CallOptions callOptions, Channel next) {
+      assertThat(callOptions.getCredentials()).isEqualTo(credentials);
+      // Remove the call credentials to allow testing with dummy ones.
+      return next.newCall(method, callOptions.withCallCredentials(null));
+    }
+  }
+
+  @Before
+  public final void setUp() throws Exception {
+    // Use a mutable service registry for later registering the service impl for each test case.
+    fakeServer =
+        InProcessServerBuilder.forName(fakeServerName)
+            .fallbackHandlerRegistry(serviceRegistry)
+            .directExecutor()
+            .build()
+            .start();
+    Chunker.setDefaultChunkSizeForTesting(1000); // Enough for everything to be one chunk.
+    fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
+    execRoot = fs.getPath("/execroot/main");
+    execRoot.createDirectoryAndParents();
+    fakeFileCache = new FakeActionInputFileCache(execRoot);
+    remotePathResolver = RemotePathResolver.createDefault(execRoot);
+
+    Path stdout = fs.getPath("/tmp/stdout");
+    Path stderr = fs.getPath("/tmp/stderr");
+    stdout.getParentDirectory().createDirectoryAndParents();
+    stderr.getParentDirectory().createDirectoryAndParents();
+    outErr = new FileOutErr(stdout, stderr);
+    RequestMetadata metadata =
+        TracingMetadataUtils.buildMetadata(
+            "none", "none", Digest.getDefaultInstance().getHash(), null);
+    context = RemoteActionExecutionContext.create(metadata);
+    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+  }
+
+  @After
+  public void tearDown() throws Exception {
+    channels.forEach(ReferenceCountedChannel::release);
+    retryService.shutdownNow();
+    retryService.awaitTermination(
+        com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS, SECONDS);
+
+    fakeServer.shutdownNow();
+    fakeServer.awaitTermination();
   }
 
   @Test
@@ -1017,6 +1194,86 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
         });
 
     assertThat(downloadBlob(context, client, digest)).isEqualTo(downloadContents.toByteArray());
+  }
+
+  @Test
+  public void compressedDownloadBlobIsRetriedWithProgress()
+      throws IOException, InterruptedException {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.cacheCompression = true;
+    final GrpcCacheClient client = newClient(options);
+    final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
+    ByteString chunk1 = ByteString.copyFrom(Zstd.compress("abc".getBytes(UTF_8)));
+    ByteString chunk2 = ByteString.copyFrom(Zstd.compress("def".getBytes(UTF_8)));
+    ByteString chunk3 = ByteString.copyFrom(Zstd.compress("g".getBytes(UTF_8)));
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          private boolean first = true;
+
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            assertThat(request.getResourceName()).contains(digest.getHash());
+            if (first) {
+              first = false;
+              responseObserver.onError(Status.DEADLINE_EXCEEDED.asException());
+              return;
+            }
+            switch (Math.toIntExact(request.getReadOffset())) {
+              case 0:
+                responseObserver.onNext(ReadResponse.newBuilder().setData(chunk1).build());
+                break;
+              case 3:
+                responseObserver.onNext(ReadResponse.newBuilder().setData(chunk2).build());
+                break;
+              case 6:
+                responseObserver.onNext(ReadResponse.newBuilder().setData(chunk3).build());
+                responseObserver.onCompleted();
+                return;
+              default:
+                throw new IllegalStateException("unexpected offset " + request.getReadOffset());
+            }
+            responseObserver.onError(Status.DEADLINE_EXCEEDED.asException());
+          }
+        });
+    assertThat(new String(downloadBlob(context, client, digest), UTF_8)).isEqualTo("abcdefg");
+  }
+
+  @Test
+  public void testCompressedDownload() throws IOException, InterruptedException {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.cacheCompression = true;
+    final GrpcCacheClient client = newClient(options);
+    final byte[] data = "abcdefg".getBytes(UTF_8);
+    final Digest digest = DIGEST_UTIL.compute(data);
+    final byte[] compressed = Zstd.compress(data);
+
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            assertThat(request.getResourceName()).contains(digest.getHash());
+            responseObserver.onNext(
+                ReadResponse.newBuilder()
+                    .setData(ByteString.copyFrom(Arrays.copyOf(compressed, compressed.length / 3)))
+                    .build());
+            responseObserver.onNext(
+                ReadResponse.newBuilder()
+                    .setData(
+                        ByteString.copyFrom(
+                            Arrays.copyOfRange(
+                                compressed, compressed.length / 3, compressed.length / 3 * 2)))
+                    .build());
+            responseObserver.onNext(
+                ReadResponse.newBuilder()
+                    .setData(
+                        ByteString.copyFrom(
+                            Arrays.copyOfRange(
+                                compressed, compressed.length / 3 * 2, compressed.length)))
+                    .build());
+            responseObserver.onCompleted();
+          }
+        });
+    assertThat(downloadBlob(context, client, digest)).isEqualTo(data);
   }
 
   @Test
