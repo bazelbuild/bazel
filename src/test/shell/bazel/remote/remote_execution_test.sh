@@ -1737,8 +1737,7 @@ EOF
   remote_ac_files="$(count_remote_ac_files)"
   [[ "$remote_ac_files" == 1 ]] || fail "Expected 1 remote action cache entries, not $remote_ac_files"
   remote_cas_files="$(count_remote_cas_files)"
-  # foo.txt + Command proto; stdout/stderr not uploaded because they're empty
-  [[ "$remote_cas_files" == 2 ]] || fail "Expected 2 remote cas entries, not $remote_cas_files"
+  [[ "$remote_cas_files" == 3 ]] || fail "Expected 3 remote cas entries, not $remote_cas_files"
 }
 
 function test_combined_cache_with_no_remote_cache_tag_remote_cache() {

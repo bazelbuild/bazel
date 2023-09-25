@@ -224,11 +224,11 @@ EOF
 function test_upload_minimal_respect_no_upload_results_combined_cache() {
   local cache_dir="${TEST_TMPDIR}/disk_cache"
   mkdir -p a
-  cat > a/BUILD <<'EOF'
+  cat > a/BUILD <<EOF
 genrule(
   name = 'foo',
   outs = ["foo.txt"],
-  cmd = "echo out && echo err 1>&2 && echo 'foo bar' > $@",
+  cmd = "echo \"foo bar\" > \$@",
 )
 EOF
 
@@ -246,18 +246,18 @@ EOF
   remote_cas_files="$(count_remote_cas_files)"
   [[ "$remote_cas_files" == 1 ]] || fail "Expected 1 remote cas entries, not $remote_cas_files"
   disk_cas_files="$(count_disk_cas_files $cache_dir)"
-  # foo.txt, stdout, stderr, Command proto for action 'foo'
-  [[ "$disk_cas_files" == 4 ]] || fail "Expected 4 disk cas entries, not $disk_cas_files"
+  # foo.txt, stdout and stderr for action 'foo'
+  [[ "$disk_cas_files" == 3 ]] || fail "Expected 3 disk cas entries, not $disk_cas_files"
 }
 
 function test_upload_all_combined_cache() {
   local cache_dir="${TEST_TMPDIR}/disk_cache"
   mkdir -p a
-  cat > a/BUILD <<'EOF'
+  cat > a/BUILD <<EOF
 genrule(
   name = 'foo',
   outs = ["foo.txt"],
-  cmd = "echo out && echo err 1>&2 && echo 'foo bar' > $@",
+  cmd = "echo \"foo bar\" > \$@",
 )
 EOF
 
@@ -275,8 +275,8 @@ EOF
   remote_cas_files="$(count_remote_cas_files)"
   [[ "$remote_cas_files" == 1 ]] || fail "Expected 1 remote cas entries, not $remote_cas_files"
   disk_cas_files="$(count_disk_cas_files $cache_dir)"
-  # foo.txt, stdout, stderr, Command proto for action 'foo'
-  [[ "$disk_cas_files" == 4 ]] || fail "Expected 4 disk cas entries, not $disk_cas_files"
+  # foo.txt, stdout and stderr for action 'foo'
+  [[ "$disk_cas_files" == 3 ]] || fail "Expected 3 disk cas entries, not $disk_cas_files"
 }
 
 function test_upload_minimal_alias_action_doesnt_upload_missing_blobs() {

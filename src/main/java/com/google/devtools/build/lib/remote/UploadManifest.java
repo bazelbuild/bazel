@@ -84,8 +84,8 @@ public class UploadManifest {
   private final boolean followSymlinks;
   private final boolean allowDanglingSymlinks;
   private final boolean allowAbsoluteSymlinks;
-  private final Map<Digest, Path> casDigestToFile = new HashMap<>();
-  private final Map<Digest, ByteString> casDigestToBlob = new HashMap<>();
+  private final Map<Digest, Path> digestToFile = new HashMap<>();
+  private final Map<Digest, ByteString> digestToBlobs = new HashMap<>();
   @Nullable private ActionKey actionKey;
   private Digest stderrDigest;
   private Digest stdoutDigest;
@@ -172,11 +172,11 @@ public class UploadManifest {
   private void setStdoutStderr(FileOutErr outErr) throws IOException {
     if (outErr.getErrorPath().exists()) {
       stderrDigest = digestUtil.compute(outErr.getErrorPath());
-      casDigestToFile.put(stderrDigest, outErr.getErrorPath());
+      digestToFile.put(stderrDigest, outErr.getErrorPath());
     }
     if (outErr.getOutputPath().exists()) {
       stdoutDigest = digestUtil.compute(outErr.getOutputPath());
-      casDigestToFile.put(stdoutDigest, outErr.getOutputPath());
+      digestToFile.put(stdoutDigest, outErr.getOutputPath());
     }
   }
 
@@ -255,21 +255,22 @@ public class UploadManifest {
   private void addAction(RemoteCacheClient.ActionKey actionKey, Action action, Command command) {
     Preconditions.checkState(this.actionKey == null, "Already added an action");
     this.actionKey = actionKey;
-    casDigestToBlob.put(action.getCommandDigest(), command.toByteString());
+    digestToBlobs.put(actionKey.getDigest(), action.toByteString());
+    digestToBlobs.put(action.getCommandDigest(), command.toByteString());
   }
 
   /** Map of digests to file paths to upload. */
-  public Map<Digest, Path> getCasDigestToFile() {
-    return casDigestToFile;
+  public Map<Digest, Path> getDigestToFile() {
+    return digestToFile;
   }
 
   /**
    * Map of digests to chunkers to upload. When the file is a regular, non-directory file it is
-   * transmitted through {@link #getCasDigestToFile()}. When it is a directory, it is transmitted as
-   * a {@link Tree} protobuf message through {@link #getCasDigestToBlob()}.
+   * transmitted through {@link #getDigestToFile()}. When it is a directory, it is transmitted as a
+   * {@link Tree} protobuf message through {@link #getDigestToBlobs()}.
    */
-  public Map<Digest, ByteString> getCasDigestToBlob() {
-    return casDigestToBlob;
+  public Map<Digest, ByteString> getDigestToBlobs() {
+    return digestToBlobs;
   }
 
   @Nullable
@@ -310,7 +311,7 @@ public class UploadManifest {
         // The permission of output file is changed to 0555 after action execution
         .setIsExecutable(true);
 
-    casDigestToFile.put(digest, file);
+    digestToFile.put(digest, file);
   }
 
   // Field numbers of the 'root' and 'directory' fields in the Tree message.
@@ -346,7 +347,7 @@ public class UploadManifest {
           .setIsTopologicallySorted(true);
     }
 
-    casDigestToBlob.put(digest, data);
+    digestToBlobs.put(digest, data);
   }
 
   private ByteString computeDirectory(Path path, Set<ByteString> directories)
@@ -378,7 +379,7 @@ public class UploadManifest {
         if (statFollow.isFile() && !statFollow.isSpecialFile()) {
           Digest digest = digestUtil.compute(child);
           b.addFilesBuilder().setName(name).setDigest(digest).setIsExecutable(child.isExecutable());
-          casDigestToFile.put(digest, child);
+          digestToFile.put(digest, child);
         } else if (statFollow.isDirectory()) {
           ByteString dir = computeDirectory(child, directories);
           b.addDirectoriesBuilder().setName(name).setDigest(digestUtil.compute(dir.toByteArray()));
@@ -388,7 +389,7 @@ public class UploadManifest {
       } else if (dirent.getType() == Dirent.Type.FILE) {
         Digest digest = digestUtil.compute(child);
         b.addFilesBuilder().setName(name).setDigest(digest).setIsExecutable(child.isExecutable());
-        casDigestToFile.put(digest, child);
+        digestToFile.put(digest, child);
       } else {
         illegalOutput(child);
       }
@@ -438,12 +439,12 @@ public class UploadManifest {
 
   private Completable upload(
       RemoteActionExecutionContext context, RemoteCache remoteCache, Digest digest) {
-    Path file = casDigestToFile.get(digest);
+    Path file = digestToFile.get(digest);
     if (file != null) {
       return toCompletable(() -> remoteCache.uploadFile(context, digest, file), directExecutor());
     }
 
-    ByteString blob = casDigestToBlob.get(digest);
+    ByteString blob = digestToBlobs.get(digest);
     if (blob == null) {
       String message = "FindMissingBlobs call returned an unknown digest: " + digest;
       return Completable.error(new IOException(message));
@@ -486,8 +487,8 @@ public class UploadManifest {
       RemoteCache remoteCache,
       ExtendedEventHandler reporter) {
     Collection<Digest> digests = new ArrayList<>();
-    digests.addAll(casDigestToFile.keySet());
-    digests.addAll(casDigestToBlob.keySet());
+    digests.addAll(digestToFile.keySet());
+    digests.addAll(digestToBlobs.keySet());
 
     ActionExecutionMetadata action = context.getSpawnOwner();
 

@@ -620,7 +620,8 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
               FindMissingBlobsRequest request,
               StreamObserver<FindMissingBlobsResponse> responseObserver) {
             assertThat(request.getBlobDigestsList())
-                .containsExactly(cmdDigest, fooDigest, barDigest, stdoutDigest, stderrDigest);
+                .containsExactly(
+                    cmdDigest, actionDigest, fooDigest, barDigest, stdoutDigest, stderrDigest);
             // Nothing is missing.
             responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
             responseObserver.onCompleted();
@@ -724,7 +725,7 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
         .setDigest(barDigest)
         .setIsExecutable(true);
     assertThat(result).isEqualTo(expectedResult.build());
-    assertThat(numGetMissingCalls.get()).isEqualTo(3);
+    assertThat(numGetMissingCalls.get()).isEqualTo(4);
   }
 
   @Test
