@@ -26,7 +26,7 @@ CHECK_FOR_ANDROID_SDK = select(
     {
         "//external:has_androidsdk": [],
     },
-    no_match_error = "This test requires an android SDK, and one isn't present. Make sure to uncomment the android rules in the WORKSPACE.",
+    no_match_error = "This test requires an android SDK, and one isn't present. Make sure to uncomment the android rules in the WORKSPACE.bzlmod.",
 )
 
 def android_sh_test(create_test_with_released_tools = True, **kwargs):
