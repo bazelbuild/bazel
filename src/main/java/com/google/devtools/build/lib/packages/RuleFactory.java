@@ -232,7 +232,10 @@ public class RuleFactory {
     // optionally followed by other Starlark or built-in functions, and finally the rule
     // instantiation function.
     if (stack.size() < 2 || !stack.get(1).location.file().endsWith(".bzl")) {
-      return args; // Not instantiated by a Starlark macro.
+      // Not instantiated by a Starlark macro.
+      // (Edge case not handled: BUILD file calls helper(cc_library) defined in an .scl file, and
+      // helper instantiates the rule that's passed as an argument.)
+      return args;
     }
 
     if (args.containsAttributeNamed("generator_name")) {
