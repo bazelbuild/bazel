@@ -217,6 +217,11 @@ def create_android_sdk_rules(
         name = "sdk",
         actual = ":sdk-%d" % default_api_level,
     )
+    native.alias(
+        name = "sdk-toolchain",
+        actual = ":sdk-%d-toolchain" % default_api_level,
+    )
+
     java_binary(
         name = "apksigner",
         main_class = "com.android.apksigner.ApkSignerTool",
