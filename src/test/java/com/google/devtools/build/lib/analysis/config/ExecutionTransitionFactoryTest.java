@@ -14,15 +14,22 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.stream;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.common.options.OptionsParsingException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -30,7 +37,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link ExecutionTransitionFactory}. */
 @RunWith(JUnit4.class)
-public class ExecutionTransitionFactoryTest {
+public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
   private static final Label EXECUTION_PLATFORM = Label.parseCanonicalUnchecked("//platform:exec");
 
   @Test
@@ -212,5 +219,65 @@ public class ExecutionTransitionFactoryTest {
 
     assertThat(result.get(CoreOptions.class).affectedByStarlarkTransition).isEmpty();
     assertThat(result.get(CoreOptions.class).platformSuffix).isEqualTo("exec");
+  }
+
+  /**
+   * Migration test for b/292619013.
+   *
+   * <p>The exec transition is moving to Starlark. The Starlark version is currently checked into
+   * Blaze builtins and enabled by {@code --experimental_exec_config}.
+   *
+   * <p>That means both the native and Starlark versions co-exist until we're ready to use the
+   * Starlark version exclusively and delete the native version. During this migration period we
+   * must ensure they stay in sync. That's what this test checks.
+   *
+   * <p>Specifically, this test sets {@code --experimental_exec_config_diff}. That makes builds run
+   * both the native and Starlark logic on any exec transition, compare their output, and print
+   * differences as an INFO event. This test checks that the event message shows no differences.
+   *
+   * <p>If you see a difference, that means the Starlark transition is setting a flag value
+   * differently than the native transition. The fix is to update one or both transitions to ensure
+   * they're setting the flag the same way. Test error output should show which values differ.
+   */
+  // TODO(b/301644122): delete the native exec transition and this test.
+  @Test
+  public void testStarlarkExecTransitionMatchesNativeExecTransition() throws Exception {
+    if (TestConstants.PRODUCT_NAME.equals("bazel")) {
+      // TODO(b/301643153): check a Bazel-compatible Starlark transition into Bazel builtins.
+      return;
+    }
+    scratch.file(
+        "test/defs.bzl",
+        "with_exec_transition = rule(",
+        "  implementation = lambda ctx: [],",
+        "  attrs = {",
+        "    'dep': attr.label(cfg = 'exec'),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'with_exec_transition')",
+        "with_exec_transition(name = 'parent', dep = ':exec_configured_dep')",
+        "with_exec_transition(name = 'exec_configured_dep')");
+    useConfiguration(
+        "--experimental_exec_config=@_builtins//:blaze/common/google_exec_platforms.bzl%google_exec_transition",
+        "--experimental_exec_config_diff",
+        // This flag's default value is {'Proguard': null}. null (the Java object) isn't readable
+        // by Starlark transitions and crashes Blaze. This isn't a problem in production because
+        // a global blazerc overrides the default. Do similar here. Also see b/294914034#comment3.
+        "--experimental_bytecode_optimizers=Optimizer=//java/com/google/optimizationtest:optimizer");
+
+    getConfiguredTarget("//test:parent");
+
+    ImmutableList<Event> comparingTransitionEvents =
+        stream(eventCollector.filtered(EventKind.INFO))
+            .filter(e -> e.getMessage().contains("ComparingTransition"))
+            .collect(toImmutableList());
+    String comparingTransitionOutput =
+        Iterables.getOnlyElement(comparingTransitionEvents).getMessage();
+
+    assertThat(comparingTransitionOutput).contains("- unique fragments in starlark mode: none");
+    assertThat(comparingTransitionOutput).contains("- unique fragments in native mode: none");
+    assertThat(comparingTransitionOutput).contains("- total option differences: 0");
   }
 }

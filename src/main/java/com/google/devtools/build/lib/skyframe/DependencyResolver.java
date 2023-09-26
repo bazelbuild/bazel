@@ -459,7 +459,13 @@ public final class DependencyResolver {
       throw new UnreportedException(
           new ConfiguredValueCreationException(targetAndConfiguration.getTarget(), e.getMessage()));
     }
-    BzlLoadValue bzlValue = (BzlLoadValue) env.getValue(BzlLoadValue.keyForBuild(bzlFile));
+    BzlLoadValue bzlValue =
+        (BzlLoadValue)
+            env.getValue(
+                Objects.equals(bzlFile.getRepository(), StarlarkBuiltinsValue.BUILTINS_REPO)
+                    ? BzlLoadValue.keyForBuiltins(bzlFile)
+                    : BzlLoadValue.keyForBuild(bzlFile));
+
     if (bzlValue == null) {
       return null;
     }
