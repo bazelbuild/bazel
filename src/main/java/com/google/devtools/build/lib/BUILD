@@ -65,7 +65,6 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/pkgcache:srcs",
         "//src/main/java/com/google/devtools/build/lib/platform:srcs",
         "//src/main/java/com/google/devtools/build/lib/profiler:srcs",
-        "//src/main/java/com/google/devtools/build/lib/profiler/callcounts:srcs",
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:srcs",
         "//src/main/java/com/google/devtools/build/lib/query2:srcs",
         "//src/main/java/com/google/devtools/build/lib/query2/common:srcs",
