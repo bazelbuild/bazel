@@ -478,7 +478,7 @@ use_toolchain(
 EOF
 
   bazel build "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //${pkg}/demo:use: No matching toolchains found for types //${pkg}/toolchain:test_toolchain."
+  expect_log "While resolving toolchains for target //${pkg}/demo:use[^:]*: No matching toolchains found for types //${pkg}/toolchain:test_toolchain."
 }
 
 function test_multiple_toolchain_use_in_rule {
@@ -621,7 +621,7 @@ use_toolchains(
 EOF
 
   bazel build "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //${pkg}/demo:use: No matching toolchains found for types //${pkg}/toolchain:test_toolchain_2."
+  expect_log "While resolving toolchains for target //${pkg}/demo:use[^:]*: No matching toolchains found for types //${pkg}/toolchain:test_toolchain_2."
 }
 
 function test_toolchain_use_in_rule_non_required_toolchain {
@@ -936,7 +936,7 @@ EOF
     --host_platform="//${pkg}:platform1" \
     --platforms="//${pkg}:platform1" \
     "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //${pkg}/demo:use: No matching toolchains found for types //${pkg}/toolchain:test_toolchain."
+  expect_log "While resolving toolchains for target //${pkg}/demo:use[^:]*: No matching toolchains found for types //${pkg}/toolchain:test_toolchain."
   expect_not_log 'Using toolchain: rule message:'
 }
 
@@ -988,7 +988,7 @@ use_toolchain(
 EOF
 
   bazel build "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //${pkg}/demo:use: invalid registered toolchain '//${pkg}/demo:not_a_target': no such target '//${pkg}/demo:not_a_target': target 'not_a_target' not declared in package '${pkg}/demo'"
+  expect_log "While resolving toolchains for target //${pkg}/demo:use[^:]*: invalid registered toolchain '//${pkg}/demo:not_a_target': no such target '//${pkg}/demo:not_a_target': target 'not_a_target' not declared in package '${pkg}/demo'"
 }
 
 function test_register_toolchain_error_target_not_a_toolchain() {
@@ -1020,7 +1020,7 @@ use_toolchain(
 EOF
 
   bazel build "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //${pkg}/demo:use: invalid registered toolchain '//${pkg}/demo:invalid': target does not provide the DeclaredToolchainInfo provider"
+  expect_log "While resolving toolchains for target //${pkg}/demo:use[^:]*: invalid registered toolchain '//${pkg}/demo:invalid': target does not provide the DeclaredToolchainInfo provider"
 }
 
 
@@ -1054,7 +1054,7 @@ EOF
 
   bazel build "//${pkg}:foo" &> $TEST_log && fail "Build failure expected"
   # It's uncertain which error will happen first, so handle either.
-  expect_log "While resolving toolchains for target //${pkg}:foo: invalid registered toolchain '//${pkg}:bad[12]': no such target"
+  expect_log "While resolving toolchains for target //${pkg}:foo[^:]*: invalid registered toolchain '//${pkg}:bad[12]': no such target"
 }
 
 
@@ -1178,7 +1178,7 @@ EOF
   bazel build \
     --toolchain_resolution_debug=.* \
     "//${pkg}/demo:target" &> $TEST_log && fail "Build failure expected"
-  expect_log "While resolving toolchains for target //${pkg}/demo:target: .* from available execution platforms \[\]"
+    expect_log "While resolving toolchains for target //${pkg}/demo:target[^:]*: .* from available execution platforms \[\]"
 
   # When the platform exists, it is used.
   bazel build \
