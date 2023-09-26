@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.remote.Store;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
@@ -161,14 +162,23 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   @Override
   public ListenableFuture<Void> downloadBlob(
       RemoteActionExecutionContext context, Digest digest, OutputStream out) {
-    if (context.getReadCachePolicy().allowDiskCache() && diskCache.contains(digest)) {
-      return diskCache.downloadBlob(context, digest, out);
+    if (context.getReadCachePolicy().allowDiskCache()) {
+      return Futures.catchingAsync(
+          diskCache.downloadBlob(context, digest, out),
+          CacheNotFoundException.class,
+          (unused) -> downloadBlobFromRemote(context, digest, out),
+          directExecutor());
+    } else {
+      return downloadBlobFromRemote(context, digest, out);
     }
+  }
 
-    Path tempPath = getTempPath();
-    LazyFileOutputStream tempOut = new LazyFileOutputStream(tempPath);
-
+  private ListenableFuture<Void> downloadBlobFromRemote(
+      RemoteActionExecutionContext context, Digest digest, OutputStream out) {
     if (context.getReadCachePolicy().allowRemoteCache()) {
+      Path tempPath = getTempPath();
+      LazyFileOutputStream tempOut = new LazyFileOutputStream(tempPath);
+
       ListenableFuture<Void> download =
           cleanupTempFileOnError(
               remoteCache.downloadBlob(context, digest, tempOut), tempPath, tempOut);

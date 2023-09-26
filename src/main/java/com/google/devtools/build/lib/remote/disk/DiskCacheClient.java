@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.disk;
 
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.devtools.build.lib.remote.util.DigestUtil.isOldStyleDigestFunction;
 
@@ -39,14 +40,25 @@ import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistryLite;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.time.Instant;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
-/** A on-disk store for the remote action cache. */
+/**
+ * An on-disk store for the remote action cache.
+ *
+ * <p>Concurrent Bazel processes can safely retrieve and store entries in a shared disk cache, even
+ * when they collide.
+ *
+ * <p>The mtime of an entry reflects the most recent time the entry was stored *or* retrieved. This
+ * property may be used to trim the disk cache to the most recently used entries. However, it's not
+ * safe to trim the cache at the same time a Bazel process is accessing it.
+ */
 public class DiskCacheClient implements RemoteCacheClient {
   private final Path root;
   private final boolean verifyDownloads;
@@ -72,33 +84,52 @@ public class DiskCacheClient implements RemoteCacheClient {
     this.root.createDirectoryAndParents();
   }
 
-  /** Returns {@code true} if the provided {@code key} is stored in the CAS. */
-  public boolean contains(Digest digest) {
-    return toPath(digest.getHash(), Store.CAS).exists();
+  /**
+   * If the given path exists, updates its mtime and returns true. Otherwise, returns false.
+   *
+   * <p>This provides a cheap way to identify candidates for deletion when trimming the cache. We
+   * deliberately use the mtime because the atime is more likely to be externally modified and may
+   * be unavailable on some filesystems.
+   *
+   * <p>Prefer calling {@link #downloadBlob} or {@link #downloadActionResult} instead, which will
+   * automatically update the mtime. This method should only be called by the remote worker
+   * implementation.
+   *
+   * @throws IOException if an I/O error other than a missing file occurs.
+   */
+  public boolean refresh(Path path) throws IOException {
+    try {
+      path.setLastModifiedTime(Instant.now().toEpochMilli());
+    } catch (FileNotFoundException e) {
+      return false;
+    }
+    return true;
   }
 
-  /** Returns {@link Path} into the CAS for the given {@link Digest}. */
-  public Path getPath(Digest digest) {
-    return toPath(digest.getHash(), Store.CAS);
-  }
-
-  public void captureFile(Path src, Digest digest, Store store) throws IOException {
-    Path target = toPath(digest.getHash(), store);
+  /**
+   * Moves an existing file into the cache.
+   *
+   * <p>The caller must ensure that the digest is correct and the file has been recently modified.
+   * This method should only be called by the combined cache implementation.
+   */
+  void captureFile(Path src, Digest digest, Store store) throws IOException {
+    Path target = toPath(digest, store);
     target.getParentDirectory().createDirectoryAndParents();
     src.renameTo(target);
   }
 
   private ListenableFuture<Void> download(Digest digest, OutputStream out, Store store) {
-    Path p = toPath(digest.getHash(), store);
-    if (!p.exists()) {
-      return Futures.immediateFailedFuture(new CacheNotFoundException(digest));
-    } else {
-      try (InputStream in = p.getInputStream()) {
+    Path path = toPath(digest, store);
+    try {
+      if (!refresh(path)) {
+        return immediateFailedFuture(new CacheNotFoundException(digest));
+      }
+      try (InputStream in = path.getInputStream()) {
         ByteStreams.copy(in, out);
         return immediateFuture(null);
-      } catch (IOException e) {
-        return Futures.immediateFailedFuture(e);
       }
+    } catch (IOException e) {
+      return immediateFailedFuture(e);
     }
   }
 
@@ -123,17 +154,18 @@ public class DiskCacheClient implements RemoteCacheClient {
         MoreExecutors.directExecutor());
   }
 
-  private void checkDigestExists(Digest digest) throws CacheNotFoundException {
+  private void checkDigestExists(Digest digest) throws IOException {
     if (digest.getSizeBytes() == 0) {
       return;
     }
 
-    if (!toPath(digest.getHash(), Store.CAS).exists()) {
+    Path path = toPath(digest, Store.CAS);
+    if (!refresh(path)) {
       throw new CacheNotFoundException(digest);
     }
   }
 
-  private void checkOutputDirectory(Directory dir) throws CacheNotFoundException {
+  private void checkOutputDirectory(Directory dir) throws IOException {
     for (var file : dir.getFilesList()) {
       checkDigestExists(file.getDigest());
     }
@@ -155,7 +187,7 @@ public class DiskCacheClient implements RemoteCacheClient {
       var treeDigest = outputDirectory.getTreeDigest();
       checkDigestExists(treeDigest);
 
-      var treePath = toPath(treeDigest.getHash(), Store.CAS);
+      var treePath = toPath(treeDigest, Store.CAS);
       var tree =
           Tree.parseFrom(treePath.getInputStream(), ExtensionRegistryLite.getEmptyRegistry());
       checkOutputDirectory(tree.getRoot());
@@ -198,10 +230,20 @@ public class DiskCacheClient implements RemoteCacheClient {
           }
 
           try {
+            // Verify that all of the referenced blobs exist and update their mtime.
             checkActionResult(actionResult);
           } catch (CacheNotFoundException e) {
+            // If at least one of the referenced blobs is missing, consider the action result to be
+            // stale. At this point we might have unnecessarily updated the mtime on some of the
+            // referenced blobs, but this should happen infrequently, and doing it this way avoids a
+            // double pass over the blobs.
             return immediateFuture(null);
           }
+
+          // Update the mtime for the action result itself. This ensures that blobs are older than
+          // the action result, so that trimming the cache in LRU order will not create dangling
+          // references.
+          var unused = refresh(toPath(actionKey.getDigest(), Store.AC));
 
           return immediateFuture(CachedActionResult.disk(actionResult));
         },
@@ -212,7 +254,7 @@ public class DiskCacheClient implements RemoteCacheClient {
   public ListenableFuture<Void> uploadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
     try (InputStream data = actionResult.toByteString().newInput()) {
-      saveFile(actionKey.getDigest().getHash(), data, Store.AC);
+      saveFile(actionKey.getDigest(), Store.AC, data);
       return immediateFuture(null);
     } catch (IOException e) {
       return Futures.immediateFailedFuture(e);
@@ -226,7 +268,7 @@ public class DiskCacheClient implements RemoteCacheClient {
   public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file) {
     try (InputStream in = file.getInputStream()) {
-      saveFile(digest.getHash(), in, Store.CAS);
+      saveFile(digest, Store.CAS, in);
     } catch (IOException e) {
       return Futures.immediateFailedFuture(e);
     }
@@ -237,7 +279,7 @@ public class DiskCacheClient implements RemoteCacheClient {
   public ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context, Digest digest, ByteString data) {
     try (InputStream in = data.newInput()) {
-      saveFile(digest.getHash(), in, Store.CAS);
+      saveFile(digest, Store.CAS, in);
     } catch (IOException e) {
       return Futures.immediateFailedFuture(e);
     }
@@ -256,17 +298,18 @@ public class DiskCacheClient implements RemoteCacheClient {
     return root.getChild(UUID.randomUUID().toString());
   }
 
-  protected Path toPath(String key, Store store) {
-    // Create the file in a subfolder to bypass possible folder file count limits
-    return root.getChild(store.toString()).getChild(key.substring(0, 2)).getChild(key);
+  public Path toPath(Digest digest, Store store) {
+    String hash = digest.getHash();
+    // Create the file in a subfolder to bypass possible folder file count limits.
+    return root.getChild(store.toString()).getChild(hash.substring(0, 2)).getChild(hash);
   }
 
-  private void saveFile(String key, InputStream in, Store store) throws IOException {
-    Path target = toPath(key, store);
-    if (target.exists()) {
+  private void saveFile(Digest digest, Store store, InputStream in) throws IOException {
+    Path path = toPath(digest, store);
+
+    if (refresh(path)) {
       return;
     }
-    target.getParentDirectory().createDirectoryAndParents();
 
     // Write a temporary file first, and then rename, to avoid data corruption in case of a crash.
     Path temp = getTempPath();
@@ -278,7 +321,8 @@ public class DiskCacheClient implements RemoteCacheClient {
         // crashes (the OS may reorder the writes and the rename).
         out.getFD().sync();
       }
-      temp.renameTo(target);
+      path.getParentDirectory().createDirectoryAndParents();
+      temp.renameTo(path);
     } catch (IOException e) {
       try {
         temp.delete();

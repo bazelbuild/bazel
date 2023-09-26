@@ -22,6 +22,7 @@ import build.bazel.remote.execution.v2.FileNode;
 import build.bazel.remote.execution.v2.SymlinkNode;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.remote.RemoteCache;
+import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -41,12 +42,10 @@ class OnDiskBlobStoreCache extends RemoteCache {
         digestUtil);
   }
 
-  public boolean containsKey(Digest digest) {
-    return ((DiskCacheClient) cacheProtocol).contains(digest);
-  }
-
-  public Path getPath(Digest digest) {
-    return ((DiskCacheClient) cacheProtocol).getPath(digest);
+  /** If the given blob exists, updates its mtime and returns true. Otherwise, returns false. */
+  boolean refresh(Digest digest) throws IOException {
+    DiskCacheClient diskCache = (DiskCacheClient) cacheProtocol;
+    return diskCache.refresh(diskCache.toPath(digest, Store.CAS));
   }
 
   @SuppressWarnings("ProtoParseWithRegistry")
