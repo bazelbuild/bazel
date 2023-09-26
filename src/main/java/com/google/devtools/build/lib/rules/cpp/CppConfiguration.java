@@ -478,10 +478,6 @@ public final class CppConfiguration extends Fragment
     return cppOptions.experimentalLinkStaticLibrariesOnce;
   }
 
-  public boolean experimentalCcSharedLibraryDebug() {
-    return cppOptions.experimentalCcSharedLibraryDebug;
-  }
-
   public boolean experimentalPlatformCcTest() {
     return cppOptions.experimentalPlatformCcTest;
   }
@@ -932,12 +928,6 @@ public final class CppConfiguration extends Fragment
       throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return experimentalLinkStaticLibrariesOnce();
-  }
-
-  @Override
-  public boolean getExperimentalCcSharedLibraryDebug(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return experimentalCcSharedLibraryDebug();
   }
 
   @Override

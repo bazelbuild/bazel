@@ -69,7 +69,6 @@ EOF
   fi
 
   bazel $START_OPTS test --define=is_bazel=true --test_output=streamed \
-    --experimental_cc_shared_library_debug \
     //src/main/starlark/tests/builtins_bzl/cc/... || fail "expected success"
 }
 

@@ -1135,17 +1135,6 @@ public class CppOptions extends FragmentOptions {
   public boolean experimentalLinkStaticLibrariesOnce;
 
   @Option(
-      name = "experimental_cc_shared_library_debug",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-      },
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If enabled, will create debug files associated with cc_shared_library.")
-  public boolean experimentalCcSharedLibraryDebug;
-
-  @Option(
       name = "experimental_cpp_compile_resource_estimation",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -1233,7 +1222,6 @@ public class CppOptions extends FragmentOptions {
       cxxoptListBuilder.add("-g0");
     }
     exec.experimentalLinkStaticLibrariesOnce = experimentalLinkStaticLibrariesOnce;
-    exec.experimentalCcSharedLibraryDebug = experimentalCcSharedLibraryDebug;
     exec.experimentalCcImplementationDeps = experimentalCcImplementationDeps;
 
     exec.coptList = coptListBuilder.addAll(hostCoptList).build();
