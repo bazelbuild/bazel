@@ -907,14 +907,12 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public FragmentOptions getExec() {
     CoreOptions exec = (CoreOptions) getDefault();
 
-    exec.affectedByStarlarkTransition = affectedByStarlarkTransition;
     exec.outputDirectoryNamingScheme = outputDirectoryNamingScheme;
     exec.compilationMode = hostCompilationMode;
     exec.isExec = false;
     exec.execConfigurationDistinguisherScheme = execConfigurationDistinguisherScheme;
     exec.outputPathsMode = outputPathsMode;
     exec.enableRunfiles = enableRunfiles;
-    exec.executionInfoModifier = executionInfoModifier;
     exec.commandLineBuildVariables = commandLineBuildVariables;
     exec.enforceConstraints = enforceConstraints;
     exec.mergeGenfilesDirectory = mergeGenfilesDirectory;

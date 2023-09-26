@@ -328,7 +328,10 @@ public class ExecutionTransitionFactory
           // else if OFF just mark that we are now in an exec transition
           coreOptions.platformSuffix = "exec";
       }
-
+      coreOptions.affectedByStarlarkTransition =
+          options.underlying().get(CoreOptions.class).affectedByStarlarkTransition;
+      coreOptions.executionInfoModifier =
+          options.underlying().get(CoreOptions.class).executionInfoModifier;
       return result;
     }
   }
