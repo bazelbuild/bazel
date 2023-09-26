@@ -315,16 +315,6 @@ public final class BazelRulesModule extends BlazeModule {
     public boolean cpuLimited;
 
     @Option(
-        name = "dynamic_worker_strategy",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        metadataTags = {OptionMetadataTag.DEPRECATED},
-        defaultValue = "",
-        help = "Deprecated no-op. Please use --dynamic_local_strategy=worker,....")
-    @Deprecated
-    public String dynamicWorkerStrategy;
-
-    @Option(
         name = "experimental_dynamic_skip_first_build",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
