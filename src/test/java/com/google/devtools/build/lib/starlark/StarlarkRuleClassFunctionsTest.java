@@ -26,11 +26,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkConfig;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkGlobalsImpl;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.StarlarkRuleFunction;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
@@ -69,11 +72,13 @@ import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -83,6 +88,7 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkInt;
@@ -2245,7 +2251,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "   pass",
         "documented_aspect = aspect(_impl, doc='My doc string')",
         "long_documented_aspect = aspect(",
-        "    _impl,",
+        "    implementation = _impl,",
         "    doc='''",
         "           My doc string",
         "           ",
@@ -3127,6 +3133,377 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     ev.assertContainsError("Fail called in initializer");
     // TODO: b/298561048 - fix that the whole package doesn't fail if possible
     ev.assertContainsError("target 'my_target' not declared in package 'initializer_testing'");
+  }
+
+  private void scratchParentRule(String rule, String... ruleArgs) throws IOException {
+    scratch.file("parent/BUILD");
+    scratch.file(
+        "parent/parent.bzl",
+        "ParentInfo = provider()",
+        "def _impl(ctx):",
+        "  return [ParentInfo()]",
+        rule + " = rule(",
+        "  implementation = _impl,",
+        "  attrs = { ",
+        "    'srcs': attr.label_list(allow_files = ['.parent']),",
+        "    'deps': attr.label_list(providers = [ParentInfo]),",
+        "  },",
+        String.join("\n", ruleArgs),
+        ")");
+  }
+
+  @Test
+  public void extendRule_onlyAllowedInBuiltins() throws Exception {
+    scratchParentRule("parent_library");
+    scratch.file(
+        "bar/child.bzl",
+        "load('//parent:parent.bzl', 'parent_library')",
+        "def _impl(ctx):",
+        "  pass",
+        "my_library = rule(",
+        "  implementation = _impl,",
+        "  parent = parent_library,",
+        ")");
+    scratch.file(
+        "bar/BUILD", //
+        "load(':child.bzl','my_library')",
+        "my_library(name = 'my_target', srcs = ['a.proto'])");
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//bar:my_target");
+
+    ev.assertContainsError("file '//bar:child.bzl' cannot use private API");
+  }
+
+  @Test
+  public void extendRule_basicUse() throws Exception {
+    // TODO b/300201845 - support calling parent's implementation function
+    scratchParentRule("parent_library"); // parent has srcs and deps attribute
+    scratch.file(
+        "extend_rule_testing/child.bzl",
+        "load('//parent:parent.bzl', 'parent_library')",
+        "MyInfo = provider()",
+        "def _impl(ctx):",
+        "  return MyInfo(",
+        "    srcs = ctx.files.srcs,",
+        "    deps = ctx.attr.deps,",
+        "    runtime_deps = ctx.attr.runtime_deps)",
+        "my_library = rule(",
+        "  implementation = _impl,",
+        "  parent = parent_library,",
+        "  attrs = {",
+        "    'runtime_deps': attr.label_list(),",
+        "  }",
+        ")");
+    scratch.file(
+        "extend_rule_testing/BUILD",
+        "load(':child.bzl', 'my_library')",
+        "my_library(name = 'my_target', srcs = ['a.parent'], runtime_deps = [':dep'])",
+        "filegroup(name = 'dep')");
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//extend_rule_testing:my_target");
+    Rule rule = getRuleContext(myTarget).getRule();
+    StarlarkProvider.Key myInfoKey =
+        new StarlarkProvider.Key(
+            Label.parseCanonicalUnchecked("//extend_rule_testing:child.bzl"), "MyInfo");
+    StarlarkInfo myInfo = (StarlarkInfo) myTarget.get(myInfoKey);
+
+    assertNoEvents();
+    assertThat(rule.getRuleClassObject().isExecutableStarlark()).isFalse();
+    assertThat(rule.getRuleClassObject().getRuleClassType()).isEqualTo(RuleClassType.NORMAL);
+    assertThat(
+            Sequence.cast(myInfo.getValue("srcs"), Artifact.class, "srcs").stream()
+                .map(Artifact::getFilename))
+        .containsExactly("a.parent");
+    assertThat(
+            Sequence.cast(myInfo.getValue("deps"), ConfiguredTarget.class, "deps").stream()
+                .map(ConfiguredTarget::getLabel)
+                .map(Label::getName))
+        .containsExactly();
+    assertThat(
+            Sequence.cast(myInfo.getValue("runtime_deps"), ConfiguredTarget.class, "runtime_deps")
+                .stream()
+                .map(ConfiguredTarget::getLabel)
+                .map(Label::getName))
+        .containsExactly("dep");
+  }
+
+  @Test
+  public void extendRule_attributeCollision() throws Exception {
+    // TODO b/300201845 - support public attribute merging/overriding
+    // TODO b/300201845 - encapsulate parents and childs private attributes
+    scratchParentRule("parent_library");
+    scratch.file(
+        "extend_rule_testing/child.bzl",
+        "load('//parent:parent.bzl', 'parent_library')",
+        "def _impl(ctx):",
+        "  pass",
+        "my_library = rule(",
+        "  implementation = _impl,",
+        "  parent = parent_library,",
+        "  attrs = {",
+        "    'srcs': attr.string(),", // srcs already defined as label_list in parent
+        "  }",
+        ")");
+    scratch.file("extend_rule_testing/BUILD", "load(':child.bzl', 'my_library')");
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//extend_rule_testing:BUILD");
+
+    // TODO: b/300201845 - adjust error messaging, "built-in attr" -> "attr in parent"
+    ev.assertContainsError(
+        "Error in rule: cannot add attribute: There is already a built-in attribute 'srcs' which"
+            + " cannot be overridden.");
+  }
+
+  @Test
+  public void extendRule_executableMatches() throws Exception {
+    scratchParentRule("parent_binary", "executable = True,");
+    scratch.file(
+        "extend_rule_testing/child.bzl",
+        "load('//parent:parent.bzl', 'parent_binary')",
+        "MyInfo = provider()",
+        "def _impl(ctx):",
+        "  exec = ctx.actions.declare_file('my_exec')",
+        "  ctx.actions.write(exec, '')",
+        "  return DefaultInfo(executable = exec)",
+        "my_binary = rule(",
+        "  implementation = _impl,",
+        "  parent = parent_binary,",
+        ")");
+    scratch.file(
+        "extend_rule_testing/BUILD",
+        "load(':child.bzl', 'my_binary')",
+        "my_binary(name = 'my_target', srcs = ['a.parent'])");
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//extend_rule_testing:my_target");
+    Rule rule = getRuleContext(myTarget).getRule();
+
+    assertNoEvents();
+    assertThat(rule.getRuleClassObject().isExecutableStarlark()).isTrue();
+    assertThat(rule.getRuleClassObject().getRuleClassType()).isEqualTo(RuleClassType.NORMAL);
+  }
+
+  @Test
+  public void extendRule_testMatches() throws Exception {
+    scratchParentRule("parent_test", "test = True,");
+    scratch.file(
+        "extend_rule_testing/child.bzl",
+        "load('//parent:parent.bzl', 'parent_test')",
+        "MyInfo = provider()",
+        "def _impl(ctx):",
+        "  exec = ctx.actions.declare_file('my_exec')",
+        "  ctx.actions.write(exec, '')",
+        "  return DefaultInfo(executable = exec)",
+        "my_test = rule(",
+        "  implementation = _impl,",
+        "  parent = parent_test,",
+        ")");
+    scratch.file(
+        "extend_rule_testing/BUILD",
+        "load(':child.bzl', 'my_test')",
+        "my_test(name = 'my_target', srcs = ['a.parent'])");
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//extend_rule_testing:my_target");
+    Rule rule = getRuleContext(myTarget).getRule();
+
+    assertNoEvents();
+    assertThat(rule.getRuleClassObject().isExecutableStarlark()).isTrue();
+    assertThat(rule.getRuleClassObject().getRuleClassType()).isEqualTo(RuleClassType.TEST);
+  }
+
+  @Test
+  public void extendRule_controlledParameters_fail() throws Exception {
+    BazelEvaluationTestCase ev = new BazelEvaluationTestCase("//extend_rule_testing:child.bzl");
+    ev.exec(
+        "def impl():", //
+        "  pass");
+    ev.execAndExport("parent_library = rule(impl)");
+
+    ev.checkEvalError(
+        "Omit test parameter when extending rules.",
+        "rule(impl, test = False, parent = parent_library)");
+    ev.checkEvalError(
+        "Omit executable parameter when extending rules.",
+        "rule(impl, executable = False, parent = parent_library)");
+    ev.checkEvalError(
+        "output_to_genfiles are not supported when extending rules (deprecated).",
+        "rule(impl, output_to_genfiles = True, parent = parent_library)");
+    ev.checkEvalError(
+        "host_fragments are not supported when extending rules (deprecated).",
+        "rule(impl, host_fragments = ['a'], parent = parent_library)");
+    ev.checkEvalError(
+        "_skylark_testable is not supported when extending rules.",
+        "rule(impl, _skylark_testable = True, parent = parent_library)");
+    ev.checkEvalError(
+        "analysis_test is not supported when extending rules.",
+        "rule(impl, analysis_test = True, parent = parent_library)");
+
+    ev.update("config", new StarlarkConfig());
+    ev.checkEvalError(
+        "build_setting is not supported when extending rules.",
+        "rule(impl, build_setting = config.int(), parent = parent_library)");
+  }
+
+  @Test
+  public void extendRule_fragments_merged() throws Exception {
+    scratchParentRule(
+        "parent_library", //
+        "fragments = ['java']");
+    scratch.file(
+        "extend_rule_testing/child.bzl",
+        "load('//parent:parent.bzl', 'parent_library')",
+        "MyInfo = provider()",
+        "def _impl(ctx):",
+        "  pass",
+        "my_library = rule(",
+        "  implementation = _impl,",
+        "  parent = parent_library,",
+        "  fragments = ['cc']",
+        ")");
+    scratch.file(
+        "extend_rule_testing/BUILD",
+        "load(':child.bzl', 'my_library')",
+        "my_library(name = 'my_target')");
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//extend_rule_testing:my_target");
+    Rule rule = getRuleContext(myTarget).getRule();
+
+    assertNoEvents();
+    assertThat(
+            rule.getRuleClassObject()
+                .getConfigurationFragmentPolicy()
+                .getRequiredStarlarkFragments())
+        .containsExactly("java", "cc");
+  }
+
+  // TODO: b/300201845 - verify build_setting, analysis_test, ... can't be extended
+  @Test
+  public void extendRule_toolchains_merged() throws Exception {
+    scratchParentRule(
+        "parent_library", //
+        "toolchains = ['" + TestConstants.CPP_TOOLCHAIN_TYPE + "']");
+    scratch.file(
+        "extend_rule_testing/child.bzl",
+        "load('//parent:parent.bzl', 'parent_library')",
+        "MyInfo = provider()",
+        "def _impl(ctx):",
+        "  pass",
+        "my_library = rule(",
+        "  implementation = _impl,",
+        "  parent = parent_library,",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "']",
+        ")");
+    scratch.file(
+        "extend_rule_testing/BUILD",
+        "load(':child.bzl', 'my_library')",
+        "my_library(name = 'my_target')");
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//extend_rule_testing:my_target");
+    Rule rule = getRuleContext(myTarget).getRule();
+
+    assertNoEvents();
+    assertThat(
+            rule.getRuleClassObject().getToolchainTypes().stream()
+                .map(ToolchainTypeRequirement::toolchainType)
+                .map(Label::toString))
+        .containsExactly(TestConstants.JAVA_TOOLCHAIN_TYPE, TestConstants.CPP_TOOLCHAIN_TYPE);
+  }
+
+  @Test
+  public void extendRule_advertisedProviders_merged() throws Exception {
+    scratchParentRule(
+        "parent_library", //
+        "provides = [ParentInfo]");
+    scratch.file(
+        "extend_rule_testing/child.bzl",
+        "load('//parent:parent.bzl', 'parent_library', 'ParentInfo')",
+        "MyInfo = provider()",
+        "def _impl(ctx):",
+        "  return [MyInfo(), ParentInfo()]",
+        "my_library = rule(",
+        "  implementation = _impl,",
+        "  parent = parent_library,",
+        "  provides = [MyInfo]",
+        ")");
+    scratch.file(
+        "extend_rule_testing/BUILD",
+        "load(':child.bzl', 'my_library')",
+        "my_library(name = 'my_target')");
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//extend_rule_testing:my_target");
+    Rule rule = getRuleContext(myTarget).getRule();
+
+    assertNoEvents();
+    assertThat(
+            rule.getRuleClassObject().getAdvertisedProviders().getStarlarkProviders().stream()
+                .map(StarlarkProviderIdentifier::getKey)
+                .map(key -> ((StarlarkProvider.Key) key).getExportedName()))
+        .containsExactly("MyInfo", "ParentInfo");
+  }
+
+  @Test
+  public void extendRule_execCompatibleWith_merged() throws Exception {
+    String constr1 = TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64";
+    String constr2 = TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux";
+    scratchParentRule(
+        "parent_library", //
+        "exec_compatible_with = ['" + constr1 + "']");
+    scratch.file(
+        "extend_rule_testing/child.bzl",
+        "load('//parent:parent.bzl', 'parent_library', 'ParentInfo')",
+        "MyInfo = provider()",
+        "def _impl(ctx):",
+        "  return [MyInfo(), ParentInfo()]",
+        "my_library = rule(",
+        "  implementation = _impl,",
+        "  parent = parent_library,",
+        "  exec_compatible_with = ['" + constr2 + "']",
+        ")");
+    scratch.file(
+        "extend_rule_testing/BUILD",
+        "load(':child.bzl', 'my_library')",
+        "my_library(name = 'my_target')");
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//extend_rule_testing:my_target");
+    Rule rule = getRuleContext(myTarget).getRule();
+
+    assertNoEvents();
+    assertThat(
+            rule.getRuleClassObject().getExecutionPlatformConstraints().stream()
+                .map(Label::toString))
+        .containsExactly(constr1, constr2);
+  }
+
+  @Test
+  public void extendRule_execGroups_merged() throws Exception {
+    scratchParentRule(
+        "parent_library", //
+        "exec_groups = {'parent_exec_group': exec_group()}");
+    scratch.file(
+        "extend_rule_testing/child.bzl",
+        "load('//parent:parent.bzl', 'parent_library', 'ParentInfo')",
+        "MyInfo = provider()",
+        "def _impl(ctx):",
+        "  return [MyInfo(), ParentInfo()]",
+        "my_library = rule(",
+        "  implementation = _impl,",
+        "  parent = parent_library,",
+        "  exec_groups = {'child_exec_group': exec_group()}",
+        ")");
+    scratch.file(
+        "extend_rule_testing/BUILD",
+        "load(':child.bzl', 'my_library')",
+        "my_library(name = 'my_target')");
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//extend_rule_testing:my_target");
+    Rule rule = getRuleContext(myTarget).getRule();
+
+    assertNoEvents();
+    assertThat(rule.getRuleClassObject().getExecGroups().keySet())
+        .containsExactly("parent_exec_group", "child_exec_group");
   }
 
   @Test

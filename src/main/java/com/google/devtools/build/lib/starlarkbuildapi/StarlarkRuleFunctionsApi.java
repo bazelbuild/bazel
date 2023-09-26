@@ -213,13 +213,16 @@ public interface StarlarkRuleFunctionsApi {
         @Param(
             name = "test",
             named = true,
-            defaultValue = "False",
+            defaultValue = "unbound",
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+            },
             doc =
                 "Whether this rule is a test rule, that is, whether it may be the subject of a"
                     + " <code>blaze test</code> command. All test rules are automatically"
                     + " considered <a href='#rule.executable'>executable</a>; it is unnecessary"
                     + " (and discouraged) to explicitly set <code>executable = True</code> for a"
-                    + " test rule. See the <a"
+                    + " test rule. The value defaults to <code>False</code>. See the <a"
                     + " href='https://bazel.build/extending/rules#executable_rules_and_test_rules'>"
                     + " Rules page</a> for more information."),
         @Param(
@@ -299,10 +302,14 @@ public interface StarlarkRuleFunctionsApi {
         @Param(
             name = "executable",
             named = true,
-            defaultValue = "False",
+            defaultValue = "unbound",
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+            },
             doc =
                 "Whether this rule is considered executable, that is, whether it may be the subject"
-                    + " of a <code>blaze run</code> command. See the <a"
+                    + " of a <code>blaze run</code> command. It defaults to <code>False</code>. See"
+                    + " the <a"
                     + " href='https://bazel.build/extending/rules#executable_rules_and_test_rules'>"
                     + " Rules page</a> for more information."),
         @Param(
@@ -464,6 +471,18 @@ public interface StarlarkRuleFunctionsApi {
                     + "<p>It's a good practice to use <code>**kwargs</code> for attributes "
                     + " that are not handled."),
         @Param(
+            name = "parent",
+            named = true,
+            defaultValue = "None",
+            positional = false,
+            doc =
+                "Experimental: the Stalark function that is extended. When set the public"
+                    + " attributes are merged as well as advertised providers. The rule matches"
+                    + " <code>executable</code> and <code>test</code> from the parent. Values of"
+                    + " <code>fragments</code>, <code>toolchains</code>,"
+                    + " <code>exec_compatible_with</code>, and <code>exec_groups</code> are"
+                    + " merged. Legacy or deprecated parameters may not be set."),
+        @Param(
             name = "subrules",
             allowedTypes = {
               @ParamType(type = Sequence.class, generic1 = StarlarkSubruleApi.class),
@@ -476,24 +495,25 @@ public interface StarlarkRuleFunctionsApi {
       useStarlarkThread = true)
   StarlarkCallable rule(
       StarlarkFunction implementation,
-      Boolean test,
+      Object testUnchecked,
       Dict<?, ?> attrs,
       Object implicitOutputs,
-      Boolean executable,
-      Boolean outputToGenfiles,
+      Object executableUnchecked,
+      boolean outputToGenfiles,
       Sequence<?> fragments,
       Sequence<?> hostFragments,
-      Boolean starlarkTestable,
+      boolean starlarkTestable,
       Sequence<?> toolchains,
       boolean useToolchainTransition,
       Object doc,
       Sequence<?> providesArg,
       Sequence<?> execCompatibleWith,
-      Object analysisTest,
+      boolean analysisTest,
       Object buildSetting,
       Object cfg,
       Object execGroups,
       Object initializer,
+      Object parentUnchecked,
       Sequence<?> subrules,
       StarlarkThread thread)
       throws EvalException;

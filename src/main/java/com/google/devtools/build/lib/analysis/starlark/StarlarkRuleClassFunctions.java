@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.starlark;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.RUN_UNDER;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.TIMEOUT_DEFAULT;
@@ -160,10 +159,17 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       new RuleClass.Builder("$binary_base_rule", RuleClassType.ABSTRACT, true, baseRule)
           .add(attr("args", STRING_LIST))
           .add(attr("output_licenses", LICENSE))
+          .addAttribute(
+              attr("$is_executable", BOOLEAN)
+                  .value(true)
+                  .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target")
+                  .build())
           .build();
 
   private static final ImmutableSet<AllowlistEntry> ALLOWLIST_INITIALIZER =
       ImmutableSet.of(allowlistEntry("", "initializer_testing"));
+  private static final ImmutableSet<AllowlistEntry> ALLOWLIST_EXTEND_RULE =
+      ImmutableSet.of(allowlistEntry("", "extend_rule_testing"));
   private static final ImmutableSet<AllowlistEntry> ALLOWLIST_SUBRULES =
       ImmutableSet.of(allowlistEntry("", "subrule_testing"));
 
@@ -248,7 +254,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                             labelCache.get(
                                 toolsRepository
                                     + BaseRuleClasses.DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE))))
-            .add(attr(":run_under", LABEL).value(RUN_UNDER));
+            .add(attr(":run_under", LABEL).value(RUN_UNDER))
+            .addAttribute(
+                attr("$is_executable", BOOLEAN)
+                    .value(true)
+                    .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target")
+                    .build());
 
     env.getNetworkAllowlistForTests()
         .ifPresent(
@@ -286,47 +297,106 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     }
   }
 
+  @FormatMethod
+  private static void failIf(boolean condition, String message, Object... args)
+      throws EvalException {
+    if (condition) {
+      throw Starlark.errorf(message, args);
+    }
+  }
+
   // TODO(bazel-team): implement attribute copy and other rule properties
   @Override
   public StarlarkRuleFunction rule(
       StarlarkFunction implementation,
-      Boolean test,
+      Object testUnchecked,
       Dict<?, ?> attrs,
       Object implicitOutputs,
-      Boolean executable,
-      Boolean outputToGenfiles,
+      Object executableUnchecked,
+      boolean outputToGenfiles,
       Sequence<?> fragments,
       Sequence<?> hostFragments,
-      Boolean starlarkTestable,
+      boolean starlarkTestable,
       Sequence<?> toolchains,
       boolean useToolchainTransition,
       Object doc,
       Sequence<?> providesArg,
       Sequence<?> execCompatibleWith,
-      Object analysisTest,
+      boolean analysisTest,
       Object buildSetting,
       Object cfg,
       Object execGroups,
       Object initializer,
+      Object parentUnchecked,
       Sequence<?> subrules,
       StarlarkThread thread)
       throws EvalException {
     // Ensure we're initializing a .bzl file, which also means we have a RuleDefinitionEnvironment.
     BzlInitThreadContext bazelContext = BzlInitThreadContext.fromOrFail(thread, "rule()");
 
-    // Get the callstack, sans the last entry, which is the builtin 'rule' callable itself.
-    ImmutableList<StarlarkThread.CallStackEntry> callStack = thread.getCallStack();
-    callStack = callStack.subList(0, callStack.size() - 1);
+    if (initializer != Starlark.NONE) {
+      BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_INITIALIZER);
+    }
 
-    LabelConverter labelConverter = LabelConverter.forBzlEvaluatingThread(thread);
+    if (parentUnchecked != Starlark.NONE) {
+      BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_EXTEND_RULE);
+    }
 
     if (!subrules.isEmpty()) {
       BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_SUBRULES);
     }
 
-    if (initializer != Starlark.NONE) {
-      BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_INITIALIZER);
+    final RuleClass parent;
+    final boolean executable;
+    final boolean test;
+
+    if (parentUnchecked == Starlark.NONE) {
+      parent = null;
+      executable = executableUnchecked == Starlark.UNBOUND ? false : (Boolean) executableUnchecked;
+      test = testUnchecked == Starlark.UNBOUND ? false : (Boolean) testUnchecked;
+    } else {
+      failIf(
+          !(parentUnchecked instanceof StarlarkRuleFunction), "Parent needs to be a Starlark rule");
+      // Assuming parent is already exported.
+      failIf(
+          ((StarlarkRuleFunction) parentUnchecked).ruleClass == null,
+          "Please export the parent rule before extending it.");
+
+      parent = ((StarlarkRuleFunction) parentUnchecked).ruleClass;
+      executable = parent.isExecutableStarlark();
+      test = parent.getRuleClassType() == RuleClassType.TEST;
+
+      // TODO b/300201845 - verify that parent is extendable
+
+      failIf(
+          executableUnchecked != Starlark.UNBOUND,
+          "Omit executable parameter when extending rules.");
+      failIf(testUnchecked != Starlark.UNBOUND, "Omit test parameter when extending rules.");
+      // TODO b/300201845 - add cfg support
+      failIf(cfg != Starlark.NONE, "cfg is not supported in extended rules yet.");
+      // TODO b/300201845 - add initializers
+      failIf(initializer != Starlark.NONE, "initializers are not supported in extended rules yet.");
+      // TODO b/300201845 - add subrules support
+      failIf(!subrules.isEmpty(), "subrules are not supported in extended rules yet.");
+      failIf(
+          implicitOutputs != Starlark.NONE,
+          "implicit_outputs is not supported when extending rules (deprecated).");
+      failIf(
+          !hostFragments.isEmpty(),
+          "host_fragments are not supported when extending rules (deprecated).");
+      failIf(
+          outputToGenfiles,
+          "output_to_genfiles are not supported when extending rules (deprecated).");
+      failIf(starlarkTestable, "_skylark_testable is not supported when extending rules.");
+      failIf(analysisTest, "analysis_test is not supported when extending rules.");
+      failIf(buildSetting != Starlark.NONE, "build_setting is not supported when extending rules.");
     }
+
+    // Get the callstack, sans the last entry, which is the builtin 'rule' callable itself.
+    ImmutableList<StarlarkThread.CallStackEntry> callStack = thread.getCallStack();
+    callStack = callStack.subList(0, callStack.size() - 1);
+
+    LabelConverter labelConverter = LabelConverter.forBzlEvaluatingThread(thread);
 
     return createRule(
         // Contextual parameters.
@@ -338,6 +408,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         labelConverter,
         thread.getSemantics(),
         // rule() parameters
+        parent,
         implementation,
         initializer == Starlark.NONE ? null : (StarlarkFunction) initializer,
         test,
@@ -378,6 +449,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       LabelConverter labelConverter,
       StarlarkSemantics starlarkSemantics,
       // Parameters that come from rule().
+      @Nullable RuleClass parent,
       StarlarkFunction implementation,
       @Nullable StarlarkFunction initializer,
       boolean test,
@@ -402,13 +474,19 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     test |= Boolean.TRUE.equals(analysisTest);
 
     RuleClassType type = test ? RuleClassType.TEST : RuleClassType.NORMAL;
-    RuleClass parent =
-        test
-            ? getTestBaseRule(ruleDefinitionEnvironment)
-            : (executable ? binaryBaseRule : baseRule);
+    if (parent == null) {
+      parent =
+          test
+              ? getTestBaseRule(ruleDefinitionEnvironment)
+              : (executable ? binaryBaseRule : baseRule);
+    }
 
     // We'll set the name later, pass the empty string for now.
     RuleClass.Builder builder = new RuleClass.Builder("", type, true, parent);
+
+    if (executable || test) {
+      builder.setExecutableStarlark();
+    }
 
     builder.setCallStack(definitionCallstack);
 
@@ -421,21 +499,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     if (Boolean.TRUE.equals(analysisTest)) {
       builder.setIsAnalysisTest();
     }
-
-    if (executable || test) {
-      builder.addAttribute(
-          attr("$is_executable", BOOLEAN)
-              .value(true)
-              .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target")
-              .build());
-      builder.setExecutableStarlark();
-    }
-
-    // For documentation generation, we need to distinguish Starlark-defined attributes passed via
-    // `rule(attrs=...) from implicitly added attributes such as "tags" or "testonly".
-    checkArgument(
-        builder.getAttributes().stream().noneMatch(Attribute::starlarkDefined),
-        "Implicitly added attributes are expected to be built-in, not Starlark-defined");
 
     boolean hasStarlarkDefinedTransition = false;
     boolean hasFunctionTransitionAllowlist = false;

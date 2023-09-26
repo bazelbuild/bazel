@@ -109,6 +109,7 @@ public class StarlarkTestingModule implements TestingModuleApi {
             labelConverter,
             thread.getSemantics(),
             // rule() parameters.
+            /* parent= */ null,
             implementation,
             /* initializer= */ null,
             /* test= */ true,
@@ -126,7 +127,7 @@ public class StarlarkTestingModule implements TestingModuleApi {
             /* buildSetting= */ Starlark.NONE,
             /* cfg= */ Starlark.NONE,
             /* execGroups= */ Starlark.NONE,
-            /* subrules= */ StarlarkList.empty());
+            /* subrulesUnchecked= */ StarlarkList.empty());
 
     // Export the rule.
     //

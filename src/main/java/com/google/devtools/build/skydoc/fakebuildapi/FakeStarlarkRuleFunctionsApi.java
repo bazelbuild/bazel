@@ -131,24 +131,25 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi {
   @Override
   public StarlarkCallable rule(
       StarlarkFunction implementation,
-      Boolean test,
+      Object test,
       Dict<?, ?> attrs,
       Object implicitOutputs,
-      Boolean executable,
-      Boolean outputToGenfiles,
+      Object executable,
+      boolean outputToGenfiles,
       Sequence<?> fragments,
       Sequence<?> hostFragments,
-      Boolean starlarkTestable,
+      boolean starlarkTestable,
       Sequence<?> toolchains,
       boolean useToolchainTransition,
       Object doc,
       Sequence<?> providesArg,
       Sequence<?> execCompatibleWith,
-      Object analysisTest,
+      boolean analysisTest,
       Object buildSetting,
       Object cfg,
       Object execGroups,
       Object initializer,
+      Object parent,
       Sequence<?> subrules,
       StarlarkThread thread)
       throws EvalException {
@@ -156,6 +157,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi {
     attrsMapBuilder.putAll(Dict.cast(attrs, String.class, FakeDescriptor.class, "attrs"));
 
     attrsMapBuilder.put("name", IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR);
+    // TODO b/300201845 - add parent attributes
     List<AttributeInfo> attrInfos =
         attrsMapBuilder.build().entrySet().stream()
             .filter(entry -> !entry.getKey().startsWith("_"))
