@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.starlarkbuildapi.test;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.RunEnvironmentInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
 import net.starlark.java.annot.Param;
@@ -136,8 +135,7 @@ public interface TestingModuleApi extends StarlarkValue {
             defaultValue = "{}",
             doc = "Dictionary of attribute values to pass to the implementation."),
       },
-      useStarlarkThread = true,
-      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_ANALYSIS_TEST_CALL)
+      useStarlarkThread = true)
   void analysisTest(
       String name,
       StarlarkFunction implementation,
