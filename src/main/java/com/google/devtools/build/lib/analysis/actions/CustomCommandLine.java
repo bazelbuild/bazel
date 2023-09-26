@@ -1244,8 +1244,6 @@ public class CustomCommandLine extends CommandLine {
     ImmutableList.Builder<String> builder = ImmutableList.builder();
     List<Object> arguments = rawArgsAsList();
     int count = arguments.size();
-    // Track the last scalar, non-path argument (e.g. "--javacopts") so that the PathMapper can
-    // heuristically map subsequent argument collections that contain paths.
     String previousFlag = null;
     for (int i = 0; i < count; ) {
       Object arg = arguments.get(i++);
@@ -1254,10 +1252,8 @@ public class CustomCommandLine extends CommandLine {
       }
       if (arg instanceof NestedSet) {
         evalSimpleVectorArg(((NestedSet<?>) arg).toList(), builder, pathMapper, previousFlag);
-        previousFlag = null;
       } else if (arg instanceof Iterable) {
         evalSimpleVectorArg((Iterable<?>) arg, builder, pathMapper, previousFlag);
-        previousFlag = null;
       } else if (arg instanceof ArgvFragment) {
         if (artifactExpander != null && arg instanceof TreeArtifactExpansionArgvFragment) {
           TreeArtifactExpansionArgvFragment expansionArg = (TreeArtifactExpansionArgvFragment) arg;
@@ -1265,16 +1261,19 @@ public class CustomCommandLine extends CommandLine {
         } else {
           i = ((ArgvFragment) arg).eval(arguments, i, builder, pathMapper);
         }
-        previousFlag = null;
       } else if (arg instanceof ActionInput) {
         builder.add(pathMapper.getMappedExecPathString((ActionInput) arg));
-        previousFlag = null;
       } else if (arg instanceof PathFragment) {
         builder.add(pathMapper.map((PathFragment) arg).getPathString());
-        previousFlag = null;
       } else {
-        previousFlag = CommandLineItem.expandToCommandLine(arg);
-        builder.add(previousFlag);
+        builder.add(CommandLineItem.expandToCommandLine(arg));
+      }
+      // Track the last scalar string argument (e.g. "--javacopts") so that the PathMapper can
+      // heuristically map subsequent argument collections that contain paths.
+      if (arg instanceof String) {
+        previousFlag = (String) arg;
+      } else {
+        previousFlag = null;
       }
     }
     return builder.build();
