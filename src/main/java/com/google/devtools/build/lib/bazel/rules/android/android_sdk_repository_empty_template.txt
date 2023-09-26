@@ -20,6 +20,12 @@ filegroup(
     srcs = [":error_message"],
 )
 
+toolchain(
+    name = "sdk-toolchain",
+    toolchain_type = "@bazel_tools//tools/android:sdk_toolchain_type",
+    toolchain = ":error_message",
+)
+
 filegroup(
     name = "d8_jar_import",
     srcs = [":error_message"],
