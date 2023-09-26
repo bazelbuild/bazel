@@ -46,7 +46,9 @@ public class AndroidSdkRepositoryRule implements RuleDefinition {
   }
 
   private static final ImmutableList<String> calculateToolchainsToRegister(Rule rule) {
-    return ImmutableList.of(String.format("@%s//:all", rule.getName()));
+    return ImmutableList.of(
+        String.format("@%s//:sdk-toolchain", rule.getName()), // Register the default SDK first.
+        String.format("@%s//:all", rule.getName()));
   }
 
   @Override

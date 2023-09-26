@@ -13,8 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_java//java:defs.bzl", "java_binary", "java_import")
 load("@local_config_platform//:constraints.bzl", "HOST_CONSTRAINTS")
+load("@rules_java//java:defs.bzl", "java_binary", "java_import")
 
 def _bool_flag_impl(_unused_ctx):
     pass
@@ -217,6 +217,11 @@ def create_android_sdk_rules(
         name = "sdk",
         actual = ":sdk-%d" % default_api_level,
     )
+    native.alias(
+        name = "sdk-toolchain",
+        actual = ":sdk-%d-toolchain" % default_api_level,
+    )
+
     java_binary(
         name = "apksigner",
         main_class = "com.android.apksigner.ApkSignerTool",
