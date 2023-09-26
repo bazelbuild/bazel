@@ -22,6 +22,7 @@ load(":bazel/java/bazel_java_binary.bzl", _java_test = "java_test", java_bin_exe
 load(":bazel/java/bazel_java_binary_nonexec.bzl", java_bin_nonexec = "java_binary")
 load(":bazel/java/bazel_java_binary_deploy_jar.bzl", "deploy_jars", "deploy_jars_nonexec")
 load(":common/java/java_binary_wrapper.bzl", "register_java_binary_rules")
+load(":common/java/java_semantics.bzl", "semantics")
 
 def java_binary(**kwargs):
     register_java_binary_rules(
@@ -33,11 +34,12 @@ def java_binary(**kwargs):
     )
 
 def java_test(**kwargs):
-    register_java_binary_rules(
-        _java_test,
-        _java_test,
-        rule_deploy_jars = deploy_jars,
-        rule_deploy_jars_nonexec = deploy_jars_nonexec,
-        is_test_rule_class = True,
-        **kwargs
-    )
+    if "stamp" in kwargs and type(kwargs["stamp"]) == type(True):
+        kwargs["stamp"] = 1 if kwargs["stamp"] else 0
+    if "use_launcher" in kwargs and not kwargs["use_launcher"]:
+        kwargs["launcher"] = None
+    else:
+        # If launcher is not set or None, set it to config flag
+        if "launcher" not in kwargs or not kwargs["launcher"]:
+            kwargs["launcher"] = semantics.LAUNCHER_FLAG_LABEL
+    _java_test(**kwargs)
