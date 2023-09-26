@@ -324,11 +324,14 @@ public final class IncrementalArtifactConflictFinder {
         return;
       }
       for (SkyValue alv : actionLookupValues) {
+        if (!(alv instanceof ActionLookupValue)) {
+          continue;
+        }
         futures.add(
             freeForAllPool.submit(
                 () ->
                     actionRegistration(
-                        alv,
+                        (ActionLookupValue) alv,
                         threadSafeMutableActionGraph,
                         pathFragmentTrieRoot,
                         strictConflictChecks,
@@ -361,13 +364,12 @@ public final class IncrementalArtifactConflictFinder {
   }
 
   private static Void actionRegistration(
-      SkyValue value,
+      ActionLookupValue alv,
       MutableActionGraph actionGraph,
       ConcurrentMap<String, Object> pathFragmentTrieRoot,
       boolean strictConflictChecks,
       ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap) {
-    Preconditions.checkState(value instanceof ActionLookupValue);
-    for (ActionAnalysisMetadata action : ((ActionLookupValue) value).getActions()) {
+    for (ActionAnalysisMetadata action : alv.getActions()) {
       try {
         actionGraph.registerAction(action);
       } catch (ActionConflictException e) {
@@ -547,10 +549,14 @@ public final class IncrementalArtifactConflictFinder {
         }
       }
       var finalValue = value;
+      // The value can be a non ActionLookupValue e.g. NonRuleConfiguredTargetValue.
+      if (!(finalValue instanceof ActionLookupValue)) {
+        return;
+      }
       Callable<Void> goThroughActions =
           () ->
               actionRegistration(
-                  finalValue,
+                  (ActionLookupValue) finalValue,
                   threadSafeMutableActionGraph,
                   pathFragmentTrieRoot,
                   strictConflictChecks,
