@@ -1088,16 +1088,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean getJavaResourcesFromOptimizedJar;
 
     @Option(
-        name = "android_include_proguard_location_references",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-        help =
-            "When using aapt2 to generate proguard configurations, include location references."
-                + " This will make the build nondeterministic.")
-    public boolean includeProguardLocationReferences;
-
-    @Option(
         name = "incompatible_android_platforms_transition_updated_affected",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -1193,7 +1183,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean incompatibleUseToolchainResolution;
   private final boolean hwasan;
   private final boolean getJavaResourcesFromOptimizedJar;
-  private final boolean includeProguardLocationReferences;
 
   public AndroidConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
     Options options = buildOptions.get(Options.class);
@@ -1254,7 +1243,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.incompatibleUseToolchainResolution = options.incompatibleUseToolchainResolution;
     this.hwasan = options.hwasan;
     this.getJavaResourcesFromOptimizedJar = options.getJavaResourcesFromOptimizedJar;
-    this.includeProguardLocationReferences = options.includeProguardLocationReferences;
 
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(
@@ -1535,10 +1523,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
   public boolean getJavaResourcesFromOptimizedJar() {
     return getJavaResourcesFromOptimizedJar;
-  }
-
-  public boolean includeProguardLocationReferences() {
-    return includeProguardLocationReferences;
   }
 
   boolean outputLibraryMergedAssets() {
