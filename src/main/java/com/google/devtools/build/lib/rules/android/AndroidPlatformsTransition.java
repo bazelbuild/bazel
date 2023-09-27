@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
@@ -63,10 +64,37 @@ public final class AndroidPlatformsTransition implements PatchTransition {
   public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
     AndroidConfiguration.Options androidOptions = options.get(AndroidConfiguration.Options.class);
     if (!androidOptions.incompatibleUseToolchainResolution) {
-      // No change.
+      return patchLegacyFlags(options, androidOptions);
+    }
+
+    return patchAndroidPlatforms(options, androidOptions);
+  }
+
+  private BuildOptions patchLegacyFlags(
+      BuildOptionsView options, AndroidConfiguration.Options androidOptions) {
+    if (androidOptions.fatApkCpus.isEmpty()) {
       return options.underlying();
     }
 
+    BuildOptionsView newOptions = options.clone();
+
+    // Set a reasonable value for --cpu and --android_cpu, to enable platform mappings to set the
+    // target platform appropriately.
+    // Almost all of these will be overridden in AndroidSplitTransition.
+    newOptions.get(CoreOptions.class).cpu = Iterables.getFirst(androidOptions.fatApkCpus, null);
+    newOptions.get(AndroidConfiguration.Options.class).cpu =
+        Iterables.getFirst(androidOptions.fatApkCpus, null);
+    newOptions.get(CppOptions.class).crosstoolTop = androidOptions.androidCrosstoolTop;
+
+    // Ensure that platform mappings will be used.
+    newOptions.get(PlatformOptions.class).platforms = ImmutableList.of();
+    newOptions.get(AndroidConfiguration.Options.class).androidPlatforms = ImmutableList.of();
+
+    return newOptions.underlying();
+  }
+
+  private BuildOptions patchAndroidPlatforms(
+      BuildOptionsView options, AndroidConfiguration.Options androidOptions) {
     BuildOptionsView newOptions = options.clone();
     PlatformOptions newPlatformOptions = newOptions.get(PlatformOptions.class);
     // Set the value of --platforms for this target and its dependencies.
