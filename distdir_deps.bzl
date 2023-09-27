@@ -444,28 +444,28 @@ DIST_DEPS = {
         "package_version": "2.6",
     },
     "openjdk_linux_vanilla": {
-        "archive": "zulu20.30.11-ca-jdk20.0.1-linux_x64.tar.gz",
-        "sha256": "ec5c0426a0eb2b0460968a044665ed4603b224acd5e20c379e9d7890511da683",
-        "strip_prefix": "zulu20.30.11-ca-jdk20.0.1-linux_x64",
+        "archive": "zulu21.28.85-ca-jdk21.0.0-linux_x64.tar.gz",
+        "sha256": "0c0eadfbdc47a7ca64aeab51b9c061f71b6e4d25d2d87674512e9b6387e9e3a6",
+        "strip_prefix": "zulu21.28.85-ca-jdk21.0.0-linux_x64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu20.30.11-ca-jdk20.0.1-linux_x64.tar.gz",
-            "https://cdn.azul.com/zulu/bin/zulu20.30.11-ca-jdk20.0.1-linux_x64.tar.gz",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu21.28.85-ca-jdk21.0.0-linux_x64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu21.28.85-ca-jdk21.0.0-linux_x64.tar.gz",
         ],
         "used_in": [
         ],
     },
     "openjdk_linux_aarch64_vanilla": {
-        "archive": "zulu20.30.11-ca-jdk20.0.1-linux_aarch64.tar.gz",
-        "sha256": "2487cf315d1f56291c1f41fb56a34a7f863ce5bf85cadd284c79ea3f848d707c",
-        "strip_prefix": "zulu20.30.11-ca-jdk20.0.1-linux_aarch64",
+        "archive": "zulu21.28.85-ca-jdk21.0.0-linux_aarch64.tar.gz",
+        "sha256": "1fb64b8036c5d463d8ab59af06bf5b6b006811e6012e3b0eb6bccf57f1c55835",
+        "strip_prefix": "zulu21.28.85-ca-jdk21.0.0-linux_aarch64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu20.30.11-ca-jdk20.0.1-linux_aarch64.tar.gz",
-            "https://cdn.azul.com/zulu/bin/zulu20.30.11-ca-jdk20.0.1-linux_aarch64.tar.gz",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu21.28.85-ca-jdk21.0.0-linux_aarch64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu21.28.85-ca-jdk21.0.0-linux_aarch64.tar.gz",
         ],
         "used_in": [
         ],
     },
-    # JDK20 unavailable so use JDK19 instead for linux s390x.
+    # JDK21 unavailable so use JDK19 instead for linux s390x.
     "openjdk_linux_s390x_vanilla": {
         "archive": "OpenJDK19U-jdk_s390x_linux_hotspot_19.0.2_7.tar.gz",
         "sha256": "f2512f9a8e9847dd5d3557c39b485a8e7a1ef37b601dcbcb748d22e49f44815c",
@@ -477,6 +477,7 @@ DIST_DEPS = {
         "used_in": [
         ],
     },
+    # JDK21 unavailable so use JDK19 instead for linux ppc64le.
     "openjdk_linux_ppc64le_vanilla": {
         "archive": "OpenJDK20U-jdk_ppc64le_linux_hotspot_20_36.tar.gz",
         "sha256": "45dde71faf8cbb78fab3c976894259655c8d3de827347f23e0ebe5710921dded",
@@ -488,39 +489,39 @@ DIST_DEPS = {
         "used_in": [],
     },
     "openjdk_macos_x86_64_vanilla": {
-        "archive": "zulu20.30.11-ca-jdk20.0.1-macosx_x64.tar.gz",
-        "sha256": "befee9db92345d5146945061b721d3a6c6e182471c1536f87dbadfd5aab0e241",
-        "strip_prefix": "zulu20.30.11-ca-jdk20.0.1-macosx_x64",
+        "archive": "zulu21.28.85-ca-jdk21.0.0-macosx_x64.tar.gz",
+        "sha256": "9639b87db586d0c89f7a9892ae47f421e442c64b97baebdff31788fbe23265bd",
+        "strip_prefix": "zulu21.28.85-ca-jdk21.0.0-macosx_x64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu20.30.11-ca-jdk20.0.1-macosx_x64.tar.gz",
-            "https://cdn.azul.com/zulu/bin/zulu20.30.11-ca-jdk20.0.1-macosx_x64.tar.gz",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu21.28.85-ca-jdk21.0.0-macosx_x64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu21.28.85-ca-jdk21.0.0-macosx_x64.tar.gz",
         ],
         "used_in": [
         ],
     },
     "openjdk_macos_aarch64_vanilla": {
-        "archive": "zulu20.30.11-ca-jdk20.0.1-macosx_aarch64.tar.gz",
-        "sha256": "01e59f0160d051524bb16d865652d25d00a85390581737a8f35f89057c80892d",
-        "strip_prefix": "zulu20.30.11-ca-jdk20.0.1-macosx_aarch64",
+        "archive": "zulu21.28.85-ca-jdk21.0.0-macosx_aarch64.tar.gz",
+        "sha256": "2a7a99a3ea263dbd8d32a67d1e6e363ba8b25c645c826f5e167a02bbafaff1fa",
+        "strip_prefix": "zulu21.28.85-ca-jdk21.0.0-macosx_aarch64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu20.30.11-ca-jdk20.0.1-macosx_aarch64.tar.gz",
-            "https://cdn.azul.com/zulu/bin/zulu20.30.11-ca-jdk20.0.1-macosx_aarch64.tar.gz",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu21.28.85-ca-jdk21.0.0-macosx_aarch64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu21.28.85-ca-jdk21.0.0-macosx_aarch64.tar.gz",
         ],
         "used_in": [
         ],
     },
     "openjdk_win_vanilla": {
-        "archive": "zulu20.30.11-ca-jdk20.0.1-win_x64.zip",
-        "sha256": "8a97ee11da578292f7c9e772f3edd3f083fa4f34f47a98e3abefb625ab2225ba",
-        "strip_prefix": "zulu20.30.11-ca-jdk20.0.1-win_x64",
+        "archive": "zulu21.28.85-ca-jdk21.0.0-win_x64.zip",
+        "sha256": "e9959d500a0d9a7694ac243baf657761479da132f0f94720cbffd092150bd802",
+        "strip_prefix": "zulu21.28.85-ca-jdk21.0.0-win_x64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu20.30.11-ca-jdk20.0.1-win_x64.zip",
-            "https://cdn.azul.com/zulu/bin/zulu20.30.11-ca-jdk20.0.1-win_x64.zip",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu21.28.85-ca-jdk21.0.0-win_x64.zip",
+            "https://cdn.azul.com/zulu/bin/zulu21.28.85-ca-jdk21.0.0-win_x64.zip",
         ],
         "used_in": [
         ],
     },
-    # JDK20 unavailable so use JDK19 instead for win aarch64.
+    # JDK21 unavailable so use JDK19 instead for win aarch64.
     "openjdk_win_arm64_vanilla": {
         "archive": "zulu19.28.81-ca-jdk19.0.0-win_aarch64.zip",
         "sha256": "e73e851638066c48421a60e01ce7d956c1de0935620e1b66d8bbbd6cdd4f815e",
