@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.In
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.DefaultSyscallCache;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -722,7 +721,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     write("depth2/three.sh", "");
 
     QueryOutput oneDep = getQueryResult("deps(//depth:one, 1)");
-    assertQueryOutputContains(oneDep, "//depth:one.sh", "//depth:two", TestConstants.LAUNCHER_PATH);
+    assertQueryOutputContains(oneDep, "//depth:one.sh", "//depth:two");
     assertQueryOutputDoesNotContain(oneDep, "//depth2");
 
     // Ensure that the whole transitive closure wasn't pulled in earlier if not pre-loading.
@@ -744,8 +743,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         "//depth:three.sh",
         "//depth:four",
         "//depth2:three",
-        "//depth2:three.sh",
-        TestConstants.LAUNCHER_PATH);
+        "//depth2:three.sh");
 
     QueryOutput oneDepNonExperimental = getQueryResult("deps(//depth:one, 3)");
 
@@ -765,8 +763,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         "//depth:three.sh",
         "//depth:four",
         "//depth2:three",
-        "//depth2:three.sh",
-        TestConstants.LAUNCHER_PATH);
+        "//depth2:three.sh");
 
     QueryOutput twoDep =
         getQueryResult("deps(//depth:one, 2)", "--experimental_ui_debug_all_events");
@@ -783,8 +780,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         "//depth:two.sh",
         "//depth:three",
         "//depth:div2",
-        "//depth2:three",
-        TestConstants.LAUNCHER_PATH);
+        "//depth2:three");
 
     // Same as above
     QueryOutput twoDepNonExperimental = getQueryResult("deps(//depth:one, 2)");
@@ -797,8 +793,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         "//depth:two.sh",
         "//depth:three",
         "//depth:div2",
-        "//depth2:three",
-        TestConstants.LAUNCHER_PATH);
+        "//depth2:three");
   }
 
   @Test
