@@ -126,11 +126,11 @@ public /*final*/ class ConfiguredRuleClassProvider
 
     @Override
     protected synchronized byte[] getFastDigest(PathFragment path) {
-      return getDigest(path);
+      return getDigest(path, -1);
     }
 
     @Override
-    protected synchronized byte[] getDigest(PathFragment path) {
+    protected synchronized byte[] getDigest(PathFragment path, long expectedSize) {
       return getDigestFunction().getHashFunction().hashString(path.toString(), UTF_8).asBytes();
     }
   }

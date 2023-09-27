@@ -557,7 +557,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       // possible to hit the digest cache - we probably already computed the digest for the
       // target during previous action execution.
       Path pathToDigest = isResolvedSymlink ? statAndValue.realPath() : statAndValue.pathNoFollow();
-      actualDigest = DigestUtils.manuallyComputeDigest(pathToDigest);
+      actualDigest = DigestUtils.manuallyComputeDigest(pathToDigest, value.getSize());
     }
 
     if (!isResolvedSymlink) {

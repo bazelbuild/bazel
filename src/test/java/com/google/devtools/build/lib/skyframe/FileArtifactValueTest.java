@@ -186,7 +186,7 @@ public final class FileArtifactValueTest {
     FileSystem fs =
         new InMemoryFileSystem(DigestHashFunction.SHA256) {
           @Override
-          public byte[] getDigest(PathFragment path) throws IOException {
+          public byte[] getDigest(PathFragment path, long expectedSize) throws IOException {
             throw exception;
           }
 

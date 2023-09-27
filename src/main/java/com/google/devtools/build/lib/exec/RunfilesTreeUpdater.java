@@ -138,8 +138,8 @@ public class RunfilesTreeUpdater {
       if (tree.getSymlinksMode() != SKIP
           && !outputManifest.isSymbolicLink()
           && Arrays.equals(
-              DigestUtils.getDigestWithManualFallback(outputManifest, xattrProvider),
-              DigestUtils.getDigestWithManualFallback(inputManifest, xattrProvider))
+              DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(outputManifest, xattrProvider),
+              DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(inputManifest, xattrProvider))
           && (OS.getCurrent() != OS.WINDOWS || isRunfilesDirectoryPopulated(runfilesDirPath))) {
         return;
       }

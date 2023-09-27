@@ -119,8 +119,10 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     setupRoot(
         new CustomInMemoryFs() {
           @Override
-          public byte[] getDigest(PathFragment path) throws IOException {
-            return path.getBaseName().equals("unreadable") ? expectedDigest : super.getDigest(path);
+          public byte[] getDigest(PathFragment path, long expectedSize) throws IOException {
+            return path.getBaseName().equals("unreadable")
+                ? expectedDigest
+                : super.getDigest(path, expectedSize);
           }
         });
 

@@ -895,9 +895,9 @@ public class FileFunctionTest {
     fs =
         new CustomInMemoryFs(manualClock) {
           @Override
-          protected byte[] getDigest(PathFragment path) throws IOException {
+          protected byte[] getDigest(PathFragment path, long expectedSize) throws IOException {
             digestCalls.incrementAndGet();
-            return super.getDigest(path);
+            return super.getDigest(path, expectedSize);
           }
         };
     pkgRoot = Root.fromPath(fs.getPath("/root"));
@@ -1816,7 +1816,7 @@ public class FileFunctionTest {
       if (stubbedFastDigestErrors.containsKey(path)) {
         throw stubbedFastDigestErrors.get(path);
       }
-      return fastDigest ? getDigest(path) : null;
+      return fastDigest ? getDigest(path, -1) : null;
     }
 
     void stubStat(Path path, @Nullable FileStatus stubbedResult) {

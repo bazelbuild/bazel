@@ -137,7 +137,7 @@ public class StubbableFSBuildViewTest extends BuildViewTestBase {
       if (stubbedFastDigestErrors.containsKey(path)) {
         throw stubbedFastDigestErrors.get(path);
       }
-      return getDigest(path);
+      return getDigest(path, -1);
     }
   }
 }

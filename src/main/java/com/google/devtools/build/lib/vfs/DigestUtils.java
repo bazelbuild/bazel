@@ -160,19 +160,40 @@ public class DigestUtils {
    * #manuallyComputeDigest} to skip an additional attempt to obtain the fast digest.
    *
    * @param path Path of the file.
+   * @param fileSize Size of the file. Used to determine if digest calculation should be done
+   *     serially or in parallel. Files larger than a certain threshold will be read serially, in
+   *     order to avoid excessive disk seeks.
    */
-  public static byte[] getDigestWithManualFallback(Path path, XattrProvider xattrProvider)
-      throws IOException {
+  public static byte[] getDigestWithManualFallback(
+      Path path, long fileSize, XattrProvider xattrProvider) throws IOException {
     byte[] digest = xattrProvider.getFastDigest(path);
-    return digest != null ? digest : manuallyComputeDigest(path);
+    return digest != null ? digest : manuallyComputeDigest(path, fileSize);
+  }
+
+  /**
+   * Gets the digest of {@code path}, using a constant-time xattr call if the filesystem supports
+   * it, and calculating the digest manually otherwise.
+   *
+   * <p>Unlike {@link #getDigestWithManualFallback}, will not rate-limit manual digesting of files,
+   * so only use this method if the file size is truly unknown and you don't expect many concurrent
+   * manual digests of large files.
+   *
+   * @param path Path of the file.
+   */
+  public static byte[] getDigestWithManualFallbackWhenSizeUnknown(
+      Path path, XattrProvider xattrProvider) throws IOException {
+    return getDigestWithManualFallback(path, -1, xattrProvider);
   }
 
   /**
    * Calculates the digest manually.
    *
    * @param path Path of the file.
+   * @param fileSize Size of the file. Used to determine if digest calculation should be done
+   *     serially or in parallel. Files larger than a certain threshold will be read serially, in
+   *     order to avoid excessive disk seeks.
    */
-  public static byte[] manuallyComputeDigest(Path path) throws IOException {
+  public static byte[] manuallyComputeDigest(Path path, long fileSize) throws IOException {
     byte[] digest;
 
     // Attempt a cache lookup if the cache is enabled.
@@ -186,9 +207,9 @@ public class DigestUtils {
       }
     }
 
-    digest = path.getDigest();
+    digest = path.getDigest(fileSize);
 
-    Preconditions.checkNotNull(digest, "Missing digest for %s", path);
+    Preconditions.checkNotNull(digest, "Missing digest for %s (size %s)", path, fileSize);
     if (cache != null) {
       cache.put(key, digest);
     }

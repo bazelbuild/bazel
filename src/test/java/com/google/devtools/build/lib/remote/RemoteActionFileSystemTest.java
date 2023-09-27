@@ -21,6 +21,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.stream;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -578,9 +579,9 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     // Verify that we don't fall back to a slow digest.
     reset(fs);
     assertThat(actionFs.getFastDigest(path)).isEqualTo(getDigest("local contents"));
-    verify(fs, never()).getDigest(any());
+    verify(fs, never()).getDigest(any(), anyLong());
 
-    assertThat(actionFs.getDigest(path)).isEqualTo(getDigest("local contents"));
+    assertThat(actionFs.getDigest(path, -1)).isEqualTo(getDigest("local contents"));
   }
 
   @Test
@@ -593,9 +594,9 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     // Verify that we don't fall back to a slow digest.
     reset(fs);
     assertThat(actionFs.getFastDigest(path)).isEqualTo(getDigest("remote contents"));
-    verify(fs, never()).getDigest(any());
+    verify(fs, never()).getDigest(any(), anyLong());
 
-    assertThat(actionFs.getDigest(path)).isEqualTo(getDigest("remote contents"));
+    assertThat(actionFs.getDigest(path, -1)).isEqualTo(getDigest("remote contents"));
   }
 
   @Test
@@ -606,7 +607,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     injectRemoteFile(actionFs, artifact.getPath().asFragment(), "remote contents");
 
     assertThat(actionFs.getFastDigest(path)).isEqualTo(getDigest("remote contents"));
-    assertThat(actionFs.getDigest(path)).isEqualTo(getDigest("remote contents"));
+    assertThat(actionFs.getDigest(path, -1)).isEqualTo(getDigest("remote contents"));
   }
 
   @Test
@@ -617,7 +618,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     writeLocalFile(actionFs, artifact.getPath().asFragment(), "local contents");
 
     assertThat(actionFs.getFastDigest(path)).isNull();
-    assertThat(actionFs.getDigest(path)).isEqualTo(getDigest("local contents"));
+    assertThat(actionFs.getDigest(path, -1)).isEqualTo(getDigest("local contents"));
   }
 
   @Test
@@ -627,7 +628,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     PathFragment path = artifact.getPath().asFragment();
 
     assertThrows(FileNotFoundException.class, () -> actionFs.getFastDigest(path));
-    assertThrows(FileNotFoundException.class, () -> actionFs.getDigest(path));
+    assertThrows(FileNotFoundException.class, () -> actionFs.getDigest(path, -1));
   }
 
   @Test
@@ -650,7 +651,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
       assertThat(actionFs.getFastDigest(linkPath)).isEqualTo(getDigest("content"));
     }
 
-    assertThat(actionFs.getDigest(linkPath)).isEqualTo(getDigest("content"));
+    assertThat(actionFs.getDigest(linkPath, -1)).isEqualTo(getDigest("content"));
   }
 
   @Test

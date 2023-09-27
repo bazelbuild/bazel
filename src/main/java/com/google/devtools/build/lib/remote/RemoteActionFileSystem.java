@@ -434,7 +434,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
   }
 
   @Override
-  protected byte[] getDigest(PathFragment path) throws IOException {
+  protected byte[] getDigest(PathFragment path, long expectedSize) throws IOException {
     path = resolveSymbolicLinks(path).asFragment();
     // Try to obtain a fast digest through a stat. This is only possible for in-memory files.
     // The parent path has already been canonicalized by resolveSymbolicLinks, so FOLLOW_NONE is
@@ -443,7 +443,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
     if (status instanceof FileStatusWithDigest) {
       return ((FileStatusWithDigest) status).getDigest();
     }
-    return localFs.getPath(path).getDigest();
+    return localFs.getPath(path).getDigest(expectedSize);
   }
 
   @Override

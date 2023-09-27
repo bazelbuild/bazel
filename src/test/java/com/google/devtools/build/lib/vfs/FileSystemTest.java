@@ -1794,11 +1794,14 @@ public abstract class FileSystemTest {
 
   @Test
   public void testGetDigest() throws Exception {
-    byte[] buffer = new byte[500000];
+    var size = 500000;
+    byte[] buffer = new byte[size];
     for (int i = 0; i < buffer.length; ++i) {
       buffer[i] = 1;
     }
     FileSystemUtils.writeContent(xFile, buffer);
+    assertThrows(IOException.class, () -> xFile.getDigest(size + 1));
+    assertThrows(IOException.class, () -> xFile.getDigest(size - 1));
     Fingerprint fp = new Fingerprint(digestHashFunction);
     fp.addBytes(buffer);
     assertThat(fp.hexDigestAndReset())

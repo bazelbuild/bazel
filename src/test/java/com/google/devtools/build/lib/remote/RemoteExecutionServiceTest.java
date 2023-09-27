@@ -385,7 +385,7 @@ public class RemoteExecutionServiceTest {
     // assert
     assertThat(inMemoryOutput).isNull();
     RemoteActionFileSystem actionFs = context.getActionFileSystem();
-    assertThat(actionFs.getDigest(execRoot.asFragment().getRelative("outputs/file1")))
+    assertThat(actionFs.getDigest(execRoot.asFragment().getRelative("outputs/file1"), -1))
         .isEqualTo(toBinaryDigest(d1));
     assertThat(readContent(execRoot.getRelative("outputs/file1"), UTF_8)).isEqualTo("content1");
     assertThat(context.isLockOutputFilesCalled()).isTrue();
@@ -422,9 +422,10 @@ public class RemoteExecutionServiceTest {
 
     // assert
     RemoteActionFileSystem actionFs = context.getActionFileSystem();
-    assertThat(actionFs.getDigest(execRoot.asFragment().getRelative("outputs/a/dir/foo")))
+    assertThat(actionFs.getDigest(execRoot.asFragment().getRelative("outputs/a/dir/foo"), -1))
         .isEqualTo(toBinaryDigest(fooDigest));
-    assertThat(actionFs.getDigest(execRoot.asFragment().getRelative("outputs/a/dir/subdir/bar")))
+    assertThat(
+            actionFs.getDigest(execRoot.asFragment().getRelative("outputs/a/dir/subdir/bar"), -1))
         .isEqualTo(toBinaryDigest(barDigest));
     assertThat(readContent(execRoot.getRelative("outputs/a/dir/foo"), UTF_8))
         .isEqualTo("foo-contents");
@@ -1150,9 +1151,9 @@ public class RemoteExecutionServiceTest {
     // assert
     assertThat(inMemoryOutput).isNull();
     RemoteActionFileSystem actionFs = context.getActionFileSystem();
-    assertThat(actionFs.getDigest(execRoot.asFragment().getRelative("outputs/file1")))
+    assertThat(actionFs.getDigest(execRoot.asFragment().getRelative("outputs/file1"), -1))
         .isEqualTo(toBinaryDigest(d1));
-    assertThat(actionFs.getDigest(execRoot.asFragment().getRelative("outputs/file2")))
+    assertThat(actionFs.getDigest(execRoot.asFragment().getRelative("outputs/file2"), -1))
         .isEqualTo(toBinaryDigest(d2));
     assertThat(execRoot.getRelative("outputs/file1").exists()).isTrue();
     assertThat(execRoot.getRelative("outputs/file2").exists()).isFalse();
@@ -1184,9 +1185,9 @@ public class RemoteExecutionServiceTest {
     // assert
     assertThat(inMemoryOutput).isNull();
     RemoteActionFileSystem actionFs = context.getActionFileSystem();
-    assertThat(actionFs.getDigest(execRoot.asFragment().getRelative("outputs/file1")))
+    assertThat(actionFs.getDigest(execRoot.asFragment().getRelative("outputs/file1"), -1))
         .isEqualTo(toBinaryDigest(d1));
-    assertThat(actionFs.getDigest(execRoot.asFragment().getRelative("outputs/file2")))
+    assertThat(actionFs.getDigest(execRoot.asFragment().getRelative("outputs/file2"), -1))
         .isEqualTo(toBinaryDigest(d2));
     assertThat(execRoot.getRelative("outputs/file1").exists()).isFalse();
     assertThat(execRoot.getRelative("outputs/file2").exists()).isFalse();
@@ -1234,9 +1235,9 @@ public class RemoteExecutionServiceTest {
     // assert
     assertThat(inMemoryOutput).isNull();
     RemoteActionFileSystem actionFs = context.getActionFileSystem();
-    assertThat(actionFs.getDigest(execRoot.asFragment().getRelative("outputs/dir/file1")))
+    assertThat(actionFs.getDigest(execRoot.asFragment().getRelative("outputs/dir/file1"), -1))
         .isEqualTo(toBinaryDigest(d1));
-    assertThat(actionFs.getDigest(execRoot.asFragment().getRelative("outputs/dir/a/file2")))
+    assertThat(actionFs.getDigest(execRoot.asFragment().getRelative("outputs/dir/a/file2"), -1))
         .isEqualTo(toBinaryDigest(d2));
     assertThat(execRoot.getRelative("outputs/dir/file1").exists()).isTrue();
     assertThat(execRoot.getRelative("outputs/dir/a").exists()).isFalse();
@@ -1283,9 +1284,9 @@ public class RemoteExecutionServiceTest {
     // assert
     assertThat(inMemoryOutput).isNull();
     RemoteActionFileSystem actionFs = context.getActionFileSystem();
-    assertThat(actionFs.getDigest(execRoot.asFragment().getRelative("outputs/dir/file1")))
+    assertThat(actionFs.getDigest(execRoot.asFragment().getRelative("outputs/dir/file1"), -1))
         .isEqualTo(toBinaryDigest(d1));
-    assertThat(actionFs.getDigest(execRoot.asFragment().getRelative("outputs/dir/a/file2")))
+    assertThat(actionFs.getDigest(execRoot.asFragment().getRelative("outputs/dir/a/file2"), -1))
         .isEqualTo(toBinaryDigest(d2));
     assertThat(execRoot.getRelative("outputs/dir/file1").exists()).isFalse();
     assertThat(execRoot.getRelative("outputs/dir/a").exists()).isFalse();
@@ -1366,8 +1367,10 @@ public class RemoteExecutionServiceTest {
     // assert
     assertThat(inMemoryOutput).isNull();
     RemoteActionFileSystem actionFs = context.getActionFileSystem();
-    assertThat(actionFs.getDigest(outErr.getOutputPathFragment())).isEqualTo(toBinaryDigest(dOut));
-    assertThat(actionFs.getDigest(outErr.getErrorPathFragment())).isEqualTo(toBinaryDigest(dErr));
+    assertThat(actionFs.getDigest(outErr.getOutputPathFragment(), -1))
+        .isEqualTo(toBinaryDigest(dOut));
+    assertThat(actionFs.getDigest(outErr.getErrorPathFragment(), -1))
+        .isEqualTo(toBinaryDigest(dErr));
     assertThat(outErr.outAsLatin1()).isEqualTo("stdout");
     assertThat(outErr.errAsLatin1()).isEqualTo("stderr");
     Path outputBase = checkNotNull(artifactRoot.getRoot().asPath());
@@ -1400,8 +1403,10 @@ public class RemoteExecutionServiceTest {
     // assert
     assertThat(inMemoryOutput).isNull();
     RemoteActionFileSystem actionFs = context.getActionFileSystem();
-    assertThat(actionFs.getDigest(outErr.getOutputPathFragment())).isEqualTo(toBinaryDigest(dOut));
-    assertThat(actionFs.getDigest(outErr.getErrorPathFragment())).isEqualTo(toBinaryDigest(dErr));
+    assertThat(actionFs.getDigest(outErr.getOutputPathFragment(), -1))
+        .isEqualTo(toBinaryDigest(dOut));
+    assertThat(actionFs.getDigest(outErr.getErrorPathFragment(), -1))
+        .isEqualTo(toBinaryDigest(dErr));
     assertThat(inMemoryOutput).isNull();
     assertThat(outErr.outAsLatin1()).isEqualTo("stdout");
     assertThat(outErr.errAsLatin1()).isEqualTo("stderr");
@@ -1443,9 +1448,9 @@ public class RemoteExecutionServiceTest {
     assertThat(inMemoryOutput.getOutput())
         .isEqualTo(ActionsTestUtil.createArtifact(artifactRoot, "file1"));
     RemoteActionFileSystem actionFs = context.getActionFileSystem();
-    assertThat(actionFs.getDigest(execRoot.asFragment().getRelative("outputs/file1")))
+    assertThat(actionFs.getDigest(execRoot.asFragment().getRelative("outputs/file1"), -1))
         .isEqualTo(toBinaryDigest(d1));
-    assertThat(actionFs.getDigest(execRoot.asFragment().getRelative("outputs/file2")))
+    assertThat(actionFs.getDigest(execRoot.asFragment().getRelative("outputs/file2"), -1))
         .isEqualTo(toBinaryDigest(d2));
     assertThat(execRoot.getRelative("outputs/file1").exists()).isFalse();
     assertThat(execRoot.getRelative("outputs/file2").exists()).isFalse();
@@ -1554,9 +1559,11 @@ public class RemoteExecutionServiceTest {
 
     assertThat(inMemoryOutput).isNull();
     RemoteActionFileSystem actionFs = context.getActionFileSystem();
-    assertThat(actionFs.getDigest(output1.getPath().asFragment())).isEqualTo(toBinaryDigest(d1));
+    assertThat(actionFs.getDigest(output1.getPath().asFragment(), -1))
+        .isEqualTo(toBinaryDigest(d1));
     assertThat(readContent(output1.getPath(), UTF_8)).isEqualTo("content1");
-    assertThat(actionFs.getDigest(output2.getPath().asFragment())).isEqualTo(toBinaryDigest(d2));
+    assertThat(actionFs.getDigest(output2.getPath().asFragment(), -1))
+        .isEqualTo(toBinaryDigest(d2));
     assertThat(readContent(output2.getPath(), UTF_8)).isEqualTo("content2");
     assertThat(context.isLockOutputFilesCalled()).isTrue();
   }

@@ -686,7 +686,23 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    * @throws IOException if the digest could not be computed for any reason
    */
   public byte[] getDigest() throws IOException {
-    return fileSystem.getDigest(asFragment());
+    return getDigest(-1);
+  }
+
+  /**
+   * Returns the digest of the file denoted by the current path, following symbolic links. Is not
+   * guaranteed to call {@link #getFastDigest} internally, even if a fast digest is likely
+   * available. Callers should prefer {@link DigestUtils#getDigestWithManualFallback} to this method
+   * unless they know that a fast digest is unavailable and do not need the other features
+   * (disk-read rate-limiting, global cache) that {@link DigestUtils} provides.
+   *
+   * @param expectedSize If not -1, the expected number of bytes to digest. If this does not match
+   *     the number of bytes digested, an {@link IOException} may be raised.
+   * @return a new byte array containing the file's digest
+   * @throws IOException if the digest could not be computed for any reason
+   */
+  public byte[] getDigest(long expectedSize) throws IOException {
+    return fileSystem.getDigest(asFragment(), expectedSize);
   }
 
   /**
@@ -716,7 +732,8 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
         } else {
           hasher.putChar('-');
         }
-        hasher.putBytes(DigestUtils.getDigestWithManualFallback(path, xattrProvider));
+        hasher.putBytes(
+            DigestUtils.getDigestWithManualFallback(path, stat.getSize(), xattrProvider));
       } else if (stat.isDirectory()) {
         hasher.putChar('d').putUnencodedChars(path.getDirectoryDigest(xattrProvider));
       } else if (stat.isSymbolicLink()) {
@@ -730,7 +747,8 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
               } else {
                 hasher.putChar('-');
               }
-              hasher.putBytes(DigestUtils.getDigestWithManualFallback(resolved, xattrProvider));
+              hasher.putBytes(
+                  DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(resolved, xattrProvider));
             } else {
               // link to a non-file: include the link itself in the hash
               hasher.putChar('l').putUnencodedChars(link.toString());

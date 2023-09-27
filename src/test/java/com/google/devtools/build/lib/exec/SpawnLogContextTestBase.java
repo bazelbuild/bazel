@@ -86,11 +86,11 @@ public abstract class SpawnLogContextTestBase {
 
     @Override
     protected byte[] getFastDigest(PathFragment path) throws IOException {
-      return super.getDigest(path);
+      return super.getDigest(path, -1);
     }
 
     @Override
-    protected byte[] getDigest(PathFragment path) throws IOException {
+    protected byte[] getDigest(PathFragment path, long expectedSize) throws IOException {
       throw new UnsupportedOperationException();
     }
   }

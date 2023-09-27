@@ -49,7 +49,7 @@ public final class DigestUtilsTest {
     FileSystem myfs =
         new InMemoryFileSystem(hf) {
           @Override
-          protected byte[] getDigest(PathFragment path) throws IOException {
+          protected byte[] getDigest(PathFragment path, long expectedSize) throws IOException {
             try {
               barrierLatch.countDown();
               readyLatch.countDown();
@@ -59,12 +59,12 @@ public final class DigestUtilsTest {
             } catch (Exception e) {
               throw new IOException(e);
             }
-            return super.getDigest(path);
+            return super.getDigest(path, expectedSize);
           }
 
           @Override
           protected byte[] getFastDigest(PathFragment path) throws IOException {
-            return fastDigest ? super.getDigest(path) : null;
+            return fastDigest ? super.getDigest(path, -1) : null;
           }
         };
 
@@ -75,14 +75,12 @@ public final class DigestUtilsTest {
 
     TestThread thread1 =
         new TestThread(
-            () -> {
-              var unused = DigestUtils.getDigestWithManualFallback(myFile1, SyscallCache.NO_CACHE);
-            });
+            () ->
+                DigestUtils.getDigestWithManualFallback(myFile1, fileSize1, SyscallCache.NO_CACHE));
     TestThread thread2 =
         new TestThread(
-            () -> {
-              var unused = DigestUtils.getDigestWithManualFallback(myFile2, SyscallCache.NO_CACHE);
-            });
+            () ->
+                DigestUtils.getDigestWithManualFallback(myFile2, fileSize2, SyscallCache.NO_CACHE));
      thread1.start();
      thread2.start();
      if (!expectConcurrent) { // Synchronized case.
@@ -111,9 +109,9 @@ public final class DigestUtilsTest {
           }
 
           @Override
-          protected byte[] getDigest(PathFragment path) throws IOException {
+          protected byte[] getDigest(PathFragment path, long expectedSize) throws IOException {
             getDigestCounter.incrementAndGet();
-            return super.getDigest(path);
+            return super.getDigest(path, expectedSize);
           }
         };
 
@@ -122,18 +120,23 @@ public final class DigestUtilsTest {
     Path file = tracingFileSystem.getPath("/file.txt");
     FileSystemUtils.writeContentAsLatin1(file, "some contents");
 
-    byte[] digest = DigestUtils.getDigestWithManualFallback(file, SyscallCache.NO_CACHE);
+    byte[] digest =
+        DigestUtils.getDigestWithManualFallback(file, file.getFileSize(), SyscallCache.NO_CACHE);
     assertThat(getFastDigestCounter.get()).isEqualTo(1);
     assertThat(getDigestCounter.get()).isEqualTo(1);
 
-    assertThat(DigestUtils.getDigestWithManualFallback(file, SyscallCache.NO_CACHE))
+    assertThat(
+            DigestUtils.getDigestWithManualFallback(
+                file, file.getFileSize(), SyscallCache.NO_CACHE))
         .isEqualTo(digest);
     assertThat(getFastDigestCounter.get()).isEqualTo(2);
     assertThat(getDigestCounter.get()).isEqualTo(1); // Cached.
 
     DigestUtils.clearCache();
 
-    assertThat(DigestUtils.getDigestWithManualFallback(file, SyscallCache.NO_CACHE))
+    assertThat(
+            DigestUtils.getDigestWithManualFallback(
+                file, file.getFileSize(), SyscallCache.NO_CACHE))
         .isEqualTo(digest);
     assertThat(getFastDigestCounter.get()).isEqualTo(3);
     assertThat(getDigestCounter.get()).isEqualTo(2); // Not cached.
@@ -150,13 +153,13 @@ public final class DigestUtilsTest {
           }
 
           @Override
-          protected byte[] getDigest(PathFragment path) {
+          protected byte[] getDigest(PathFragment path, long expectedSize) {
             return digest;
           }
         };
     Path file = noDigestFileSystem.getPath("/f.txt");
     FileSystemUtils.writeContentAsLatin1(file, "contents");
 
-    assertThat(DigestUtils.manuallyComputeDigest(file)).isEqualTo(digest);
+    assertThat(DigestUtils.manuallyComputeDigest(file, /* fileSize= */ 8)).isEqualTo(digest);
   }
 }

@@ -72,7 +72,8 @@ public class DigestUtil {
   }
 
   public Digest compute(Path file, long fileSize) throws IOException {
-    return buildDigest(DigestUtils.getDigestWithManualFallback(file, xattrProvider), fileSize);
+    return buildDigest(
+        DigestUtils.getDigestWithManualFallback(file, fileSize, xattrProvider), fileSize);
   }
 
   public Digest compute(VirtualActionInput input) throws IOException {

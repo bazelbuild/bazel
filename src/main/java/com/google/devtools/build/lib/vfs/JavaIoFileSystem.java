@@ -420,11 +420,11 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected byte[] getDigest(PathFragment path) throws IOException {
+  protected byte[] getDigest(PathFragment path, long expectedSize) throws IOException {
     String name = path.toString();
     long startTime = Profiler.nanoTimeMaybe();
     try {
-      return super.getDigest(path);
+      return super.getDigest(path, expectedSize);
     } finally {
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_MD5, name);
     }

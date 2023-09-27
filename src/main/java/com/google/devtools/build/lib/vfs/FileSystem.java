@@ -20,6 +20,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
+import com.google.common.hash.Funnels;
 import com.google.common.io.ByteSource;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -33,6 +34,7 @@ import java.nio.file.FileAlreadyExistsException;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import javax.annotation.Nullable;
 
 /** This interface models a file system. */
@@ -347,13 +349,26 @@ public abstract class FileSystem {
    * @return a new byte array containing the file's digest
    * @throws IOException if the digest could not be computed for any reason
    */
-  protected byte[] getDigest(PathFragment path) throws IOException {
-    return new ByteSource() {
-      @Override
-      public InputStream openStream() throws IOException {
-        return getInputStream(path);
-      }
-    }.hash(digestFunction.getHashFunction()).asBytes();
+  protected byte[] getDigest(PathFragment path, long expectedSize) throws IOException {
+    var bs =
+        new ByteSource() {
+          @Override
+          public InputStream openStream() throws IOException {
+            return getInputStream(path);
+          }
+        };
+    var hasher = digestFunction.getHashFunction().newHasher();
+    var copied = bs.copyTo(Funnels.asOutputStream(hasher));
+    if (expectedSize != -1 && copied != expectedSize) {
+      throw new IOException(
+          String.format(
+              Locale.US,
+              "digesting %s saw %s bytes rather than the expected %s",
+              path,
+              copied,
+              expectedSize));
+    }
+    return hasher.hash().asBytes();
   }
 
   /**

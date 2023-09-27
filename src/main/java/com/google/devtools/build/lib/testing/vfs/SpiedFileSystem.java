@@ -58,8 +58,8 @@ public class SpiedFileSystem extends DelegateFileSystem {
   }
 
   @Override
-  public byte[] getDigest(PathFragment path) throws IOException {
-    return super.getDigest(path);
+  public byte[] getDigest(PathFragment path, long expectedSize) throws IOException {
+    return super.getDigest(path, expectedSize);
   }
 
   @Override

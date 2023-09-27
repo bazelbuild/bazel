@@ -227,8 +227,8 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   }
 
   @Override
-  protected byte[] getDigest(PathFragment path) throws IOException {
-    return delegateFs.getDigest(toDelegatePath(path));
+  protected byte[] getDigest(PathFragment path, long expectedSize) throws IOException {
+    return delegateFs.getDigest(toDelegatePath(path), expectedSize);
   }
 
   @Override

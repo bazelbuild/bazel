@@ -61,9 +61,9 @@ public class SingleBuildFileCacheTest {
           }
 
           @Override
-          protected byte[] getDigest(PathFragment path) throws IOException {
+          protected byte[] getDigest(PathFragment path, long expectedSize) throws IOException {
             byte[] override = digestOverrides.get(path.getPathString());
-            return override != null ? override : super.getDigest(path);
+            return override != null ? override : super.getDigest(path, expectedSize);
           }
 
           @Override
