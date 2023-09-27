@@ -174,7 +174,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "incompatible_disallow_unsound_directory_outputs",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},

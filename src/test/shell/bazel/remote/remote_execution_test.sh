@@ -936,6 +936,7 @@ function test_symlinks_in_directory() {
     bazel build \
           --incompatible_remote_symlinks \
           --noincompatible_remote_disallow_symlink_in_tree_artifact \
+          --noincompatible_disallow_unsound_directory_outputs \
           --remote_executor=grpc://localhost:${worker_port} \
           --remote_download_all \
           --spawn_strategy=remote \
@@ -961,6 +962,7 @@ function test_symlinks_in_directory_cache_only() {
     bazel build \
           --incompatible_remote_symlinks \
           --noincompatible_remote_disallow_symlink_in_tree_artifact \
+          --noincompatible_disallow_unsound_directory_outputs \
           --remote_cache=grpc://localhost:${worker_port} \
           --remote_download_all \
           --spawn_strategy=local \
@@ -971,6 +973,7 @@ function test_symlinks_in_directory_cache_only() {
     bazel build \
           --incompatible_remote_symlinks \
           --noincompatible_remote_disallow_symlink_in_tree_artifact \
+          --noincompatible_disallow_unsound_directory_outputs \
           --remote_cache=grpc://localhost:${worker_port} \
           --remote_download_all \
           --spawn_strategy=local \

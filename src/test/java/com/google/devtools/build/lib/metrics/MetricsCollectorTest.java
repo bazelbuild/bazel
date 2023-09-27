@@ -75,9 +75,8 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
         "foo/BUILD",
         "genrule(",
         "    name = 'foo',",
-        "    outs = ['dir'],",
-        "    cmd = '/bin/mkdir $(location dir)',",
-        "    srcs = [],",
+        "    outs = ['out'],",
+        "    cmd = 'touch $@',",
         ")");
   }
 
@@ -577,9 +576,9 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
         "foo/BUILD",
         "genrule(",
         "    name = 'foo',",
-        "    outs = ['dir'],",
+        "    outs = ['out'],",
         "    srcs = ['//noexist:noexist'],",
-        "    cmd = '/bin/mkdir $(location dir)',",
+        "    cmd = 'touch $@',",
         ")");
 
     addOptions("--analyze");
@@ -591,7 +590,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
         "foo/BUILD",
         "genrule(",
         "    name = 'foo',",
-        "    outs = ['dir'],",
+        "    outs = ['out'],",
         "    cmd = '/bin/false',",
         ")");
 
@@ -628,15 +627,13 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
         "foo/BUILD",
         "genrule(",
         "    name = 'foo',",
-        "    outs = ['dir'],",
-        "    cmd = '/bin/mkdir $(location dir)',",
-        "    srcs = [],",
+        "    outs = ['out'],",
+        "    cmd = 'touch $@',",
         ")",
         "genrule(",
         "    name = 'bar',",
-        "    outs = ['dir2'],",
-        "    cmd = '/bin/mkdir $(location dir2)',",
-        "    srcs = [],",
+        "    outs = ['out2'],",
+        "    cmd = 'touch $@',",
         ")");
     addOptions("--experimental_merged_skyframe_analysis_execution");
     BuildGraphMetrics expected =

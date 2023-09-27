@@ -60,13 +60,28 @@ EOF
 
 function test_delete_tree_in_unwritable_dir() {
   mkdir -p x || fail "Can't create x"
+  cat > x/defs.bzl << 'EOF'
+def _impl(ctx):
+  dir = ctx.actions.declare_directory("unwritable/somedir")
+  ctx.actions.run_shell(
+    outputs = [dir],
+    command = "mkdir -p $1 && echo $2 $1/somefile && chmod a-w $(dirname $1)",
+    arguments = [dir.path, ctx.attr.content],
+    execution_requirements = {"local": "1"},
+  )
+  return DefaultInfo(files = depset([dir]))
+
+tree_in_unwritable_dir = rule(
+  implementation = _impl,
+  attrs = {"content": attr.string()},
+)
+EOF
+
   cat > x/BUILD << 'EOF'
-genrule(
-  name = "unwritable",
-  srcs = [],
-  outs = ["unwritable/somedir"],
-  local = 1,
-  cmd = "mkdir -p $@; echo 'some output' > $@/somefile.out; chmod a-w $$(dirname $@)"
+load(":defs.bzl", "tree_in_unwritable_dir")
+tree_in_unwritable_dir(
+    name = "unwritable",
+    content = "foo",
 )
 EOF
 
@@ -75,12 +90,10 @@ EOF
   # Now modify the build file to force a rebuild while creating the same output
   # within the write-protected directory.
   cat > x/BUILD << 'EOF'
-genrule(
+load(":defs.bzl", "tree_in_unwritable_dir")
+tree_in_unwritable_dir(
   name = "unwritable",
-  srcs = [],
-  outs = ["unwritable/somedir"],
-  local = 1,
-  cmd = "mkdir -p $@; echo 'some other output' > $@/somefile.out; chmod a-w $$(dirname $@)"
+  content = "bar",
 )
 EOF
 

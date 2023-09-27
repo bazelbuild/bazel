@@ -40,6 +40,7 @@ public class DirectoryArtifactWarningTest extends BuildIntegrationTestCase {
   public void testOutputArtifactDirectoryWarning_forGenrule() throws Exception {
     setupGenruleWithOutputArtifactDirectory();
 
+    addOptions("--noincompatible_disallow_unsound_directory_outputs");
     buildTarget("//x");
 
     events.assertContainsWarning(
@@ -81,6 +82,7 @@ public class DirectoryArtifactWarningTest extends BuildIntegrationTestCase {
   public void testOutputArtifactDirectoryWarning_forStarlarkRule() throws Exception {
     setupStarlarkRuleWithOutputArtifactDirectory();
 
+    addOptions("--noincompatible_disallow_unsound_directory_outputs");
     buildTarget("//x");
 
     events.assertContainsWarning(

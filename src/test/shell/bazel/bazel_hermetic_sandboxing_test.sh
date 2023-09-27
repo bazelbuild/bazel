@@ -369,7 +369,8 @@ function test_subdirectories_in_declared_directory() {
 # Test that the sandbox is able to handle various types of artifacts.
 # Regression test for Issue #15340
 function test_other_artifacts() {
-  bazel build examples/hermetic:other_artifacts &> $TEST_log
+  bazel build --noincompatible_disallow_unsound_directory_outputs \
+    examples/hermetic:other_artifacts &> $TEST_log
   assert_contains ".regular_file_artifact" "bazel-bin/examples/hermetic/other_artifacts.result"
   assert_contains ".unresolved_symlink_artifact" "bazel-bin/examples/hermetic/other_artifacts.result"
   assert_contains ".directory_artifact" "bazel-bin/examples/hermetic/other_artifacts.result"
