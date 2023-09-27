@@ -79,7 +79,7 @@ public final class TestTrimmingTransitionFactory implements TransitionFactory<Ru
     // --trim_test_configuration on versus off.
     private static final BuildOptionsCache<Boolean> cache =
         new BuildOptionsCache<>(
-            (options, unused) ->
+            (options, unused, unusedNonEventHandler) ->
                 options.underlying().toBuilder().removeFragmentOptions(TestOptions.class).build());
 
     @Override
@@ -100,7 +100,7 @@ public final class TestTrimmingTransitionFactory implements TransitionFactory<Ru
         return originalOptions.underlying();
       }
       // No context needed, use the constant Boolean.TRUE.
-      return cache.applyTransition(originalOptions, Boolean.TRUE);
+      return cache.applyTransition(originalOptions, Boolean.TRUE, null);
     }
   }
 

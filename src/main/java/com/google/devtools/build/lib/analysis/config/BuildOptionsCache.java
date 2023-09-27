@@ -19,7 +19,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.auto.value.AutoValue;
-import java.util.function.BiFunction;
+import com.google.devtools.build.lib.events.EventHandler;
+import javax.annotation.Nullable;
 
 /**
  * Protects against excessive memory consumption when the same transition applies multiple times.
@@ -41,9 +42,16 @@ public final class BuildOptionsCache<T> {
 
   private final Cache<CacheKey<T>, BuildOptions> cache = Caffeine.newBuilder().softValues().build();
 
-  private final BiFunction<BuildOptionsView, T, BuildOptions> transition;
+  /** An interface describing a function representing the transition used in this cache. */
+  @FunctionalInterface
+  public interface CacheRetrievalFunction<A, T, B, C> {
+    public C apply(A fromOptions, T context, B eventHandler);
+  }
 
-  public BuildOptionsCache(BiFunction<BuildOptionsView, T, BuildOptions> transition) {
+  private final CacheRetrievalFunction<BuildOptionsView, T, EventHandler, BuildOptions> transition;
+
+  public BuildOptionsCache(
+      CacheRetrievalFunction<BuildOptionsView, T, EventHandler, BuildOptions> transition) {
     this.transition = checkNotNull(transition);
   }
 
@@ -55,10 +63,11 @@ public final class BuildOptionsCache<T> {
    * @param fromOptions the starting options
    * @param context an additional object that affects the transition's result
    */
-  public BuildOptions applyTransition(BuildOptionsView fromOptions, T context) {
+  public BuildOptions applyTransition(
+      BuildOptionsView fromOptions, T context, @Nullable EventHandler eventHandler) {
     return cache.get(
         CacheKey.create(fromOptions.underlying().checksum(), context),
-        unused -> transition.apply(fromOptions, context));
+        unused -> transition.apply(fromOptions, context, eventHandler));
   }
 
   /**

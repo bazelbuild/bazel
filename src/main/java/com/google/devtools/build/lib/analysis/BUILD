@@ -1698,9 +1698,11 @@ java_library(
     srcs = ["config/BuildOptionsCache.java"],
     deps = [
         ":config/build_options",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//third_party:auto_value",
         "//third_party:caffeine",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 

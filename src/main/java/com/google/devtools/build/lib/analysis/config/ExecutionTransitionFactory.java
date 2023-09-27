@@ -31,14 +31,12 @@ import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.rules.config.FeatureFlagValue;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkConfigApi.ExecTransitionFactoryApi;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.Map;
-import java.util.StringJoiner;
 import javax.annotation.Nullable;
 
 /**
@@ -94,7 +92,7 @@ public class ExecutionTransitionFactory
    *       options. So we need to cache on {@code label, originalTransition} pairs.
    * </ol>
    */
-  private static final Cache<Pair<Label, Integer>, PatchTransition> transitionIntanceCache =
+  private static final Cache<Pair<Label, Integer>, PatchTransition> transitionInstanceCache =
       Caffeine.newBuilder().weakValues().build();
 
   @Override
@@ -114,7 +112,7 @@ public class ExecutionTransitionFactory
 
     // Always get the native transition.
     PatchTransition nativeTransition =
-        transitionIntanceCache.get(
+        transitionInstanceCache.get(
             Pair.of(
                 data.executionPlatform(), System.identityHashCode(NativeExecTransition.INSTANCE)),
             (p) ->
@@ -128,7 +126,7 @@ public class ExecutionTransitionFactory
       return nativeTransition;
     }
 
-    return transitionIntanceCache.get(
+    return transitionInstanceCache.get(
         // A Starlark transition keeps the same instance unless we modify its .bzl file.
         Pair.of(data.executionPlatform(), starlarkExecTransitionProvider.hashCode()),
         (p) -> {
@@ -237,37 +235,21 @@ public class ExecutionTransitionFactory
       return nativeApplicationCache.applyTransition(
           options,
           // The execution platform impacts the output's --platform_suffix and --platforms flags.
-          Pair.of(executionPlatform, mainTransition));
-    }
-
-    private static class DebuggingEventHandler implements EventHandler {
-      final StringJoiner messages = new StringJoiner("\n");
-
-      @Override
-      public void handle(Event event) {
-        messages.add(event.getMessage());
-      }
+          Pair.of(executionPlatform, mainTransition),
+          eventHandler);
     }
 
     private static BuildOptions transitionImpl(
-        BuildOptionsView options, Pair<Label, ConfigurationTransition> data) {
+        BuildOptionsView options,
+        Pair<Label, ConfigurationTransition> data,
+        @Nullable EventHandler eventHandler) {
       Label executionPlatform = data.first;
       ConfigurationTransition mainTransition = data.second;
 
       BuildOptions execOptions;
-      DebuggingEventHandler errorHandler = new DebuggingEventHandler();
       try {
-
         Map.Entry<String, BuildOptions> splitOptions =
-            Iterables.getOnlyElement(mainTransition.apply(options, errorHandler).entrySet());
-        if (splitOptions.getKey().equals("error")) {
-          // TODO(b/288258583): support event handling properly.
-          throw new VerifyException(
-              "Starlark transition failed on "
-                  + options.underlying().checksum()
-                  + ": "
-                  + errorHandler.messages);
-        }
+            Iterables.getOnlyElement(mainTransition.apply(options, eventHandler).entrySet());
         execOptions = splitOptions.getValue();
       } catch (InterruptedException e) {
         throw new VerifyException(e);
