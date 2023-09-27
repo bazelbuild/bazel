@@ -69,20 +69,6 @@ public class IncludeScanningOptions extends OptionsBase {
   public int experimentalRemoteExtractionThreshold;
 
   @Option(
-    name = "experimental_skyframe_include_scanning",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {
-      OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-      OptionEffectTag.EXECUTION,
-      OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
-    },
-    defaultValue = "false",
-    deprecationWarning = "No longer active: is a no-op",
-    help = "Deprecated, has no effect."
-  )
-  public boolean skyframeIncludeScanning;
-
-  @Option(
       name = "experimental_include_scanning_parallelism",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
