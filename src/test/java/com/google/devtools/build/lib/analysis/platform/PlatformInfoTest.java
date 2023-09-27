@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.analysis.platform;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -19,6 +18,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo.ExecPropertiesException;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import org.junit.Test;
@@ -239,6 +239,27 @@ public class PlatformInfoTest extends BuildViewTestCase {
   }
 
   @Test
+  public void remoteExecutionProperties_parentSpecifiesExecProperties_error() throws Exception {
+    PlatformInfo parent =
+        PlatformInfo.builder()
+            .setLabel(Label.parseCanonicalUnchecked("//foo:parent_platform"))
+            .setExecProperties(ImmutableMap.of("elem1", "value1"))
+            .build();
+
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    builder.setRemoteExecutionProperties("props");
+
+    ExecPropertiesException exception = assertThrows(ExecPropertiesException.class, builder::build);
+    assertThat(exception)
+        .hasMessageThat()
+        .contains(
+            "Platform specifies remote_execution_properties but its parent specifies"
+                + " exec_properties. Prefer exec_properties over the deprecated"
+                + " remote_execution_properties.");
+  }
+
+  @Test
   public void execProperties_empty() throws Exception {
     PlatformInfo.Builder builder = PlatformInfo.builder();
     builder.setExecProperties(ImmutableMap.of());
@@ -288,6 +309,41 @@ public class PlatformInfoTest extends BuildViewTestCase {
 
     assertThat(platformInfo).isNotNull();
     assertThat(platformInfo.execProperties()).containsExactly("p1", "keep", "p3", "child");
+  }
+
+  @Test
+  public void execProperties_remoteExecProperties_error() throws Exception {
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setExecProperties(ImmutableMap.of("elem1", "value1"));
+    builder.setRemoteExecutionProperties("props");
+
+    ExecPropertiesException exception = assertThrows(ExecPropertiesException.class, builder::build);
+    assertThat(exception)
+        .hasMessageThat()
+        .contains(
+            "Platform contains both remote_execution_properties and exec_properties. Prefer"
+                + " exec_properties over the deprecated remote_execution_properties.");
+  }
+
+  @Test
+  public void execProperties_parentSpecifiesRemoteExecutionProperties_error() throws Exception {
+    PlatformInfo parent =
+        PlatformInfo.builder()
+            .setLabel(Label.parseCanonicalUnchecked("//foo:parent_platform"))
+            .setRemoteExecutionProperties("props")
+            .build();
+
+    PlatformInfo.Builder builder = PlatformInfo.builder();
+    builder.setParent(parent);
+    builder.setExecProperties(ImmutableMap.of("elem1", "value1"));
+
+    ExecPropertiesException exception = assertThrows(ExecPropertiesException.class, builder::build);
+    assertThat(exception)
+        .hasMessageThat()
+        .contains(
+            "Platform specifies exec_properties but its parent //foo:parent_platform specifies"
+                + " remote_execution_properties. Prefer exec_properties over the deprecated"
+                + " remote_execution_properties.");
   }
 
   @Test

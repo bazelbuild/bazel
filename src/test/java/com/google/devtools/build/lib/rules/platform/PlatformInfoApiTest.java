@@ -182,19 +182,18 @@ public class PlatformInfoApiTest extends PlatformTestCase {
 
   @Test
   public void remoteExecutionProperties_parentSpecifiesExecProperties_error() throws Exception {
-    ImmutableMap<String, String> propsChild = ImmutableMap.of("k2", "child_v2", "k3", "child_v3");
-    platformBuilder("//foo:parent_platform").setRemoteExecutionProperties("properties").write();
+    ImmutableMap<String, String> propsParent = ImmutableMap.of("k1", "v1", "k2", "v2");
+    platformBuilder("//foo:parent_platform").setExecProperties(propsParent).write();
     PlatformBuilder builder =
         platformBuilder("//bar:my_platform")
             .setParent("//foo:parent_platform")
-            .setExecProperties(propsChild);
+            .setRemoteExecutionProperties("properties");
 
     checkError(
         "bar",
         "my_platform",
-        "Platform specifies exec_properties but its parent //foo:parent_platform specifies"
-            + " remote_execution_properties. Prefer exec_properties over the deprecated"
-            + " remote_execution_properties.",
+        "Platform specifies remote_execution_properties but its parent specifies exec_properties."
+            + " Prefer exec_properties over the deprecated remote_execution_properties.",
         builder.lines().toArray(new String[] {}));
   }
 
@@ -257,18 +256,19 @@ public class PlatformInfoApiTest extends PlatformTestCase {
 
   @Test
   public void execProperties_parentSpecifiesRemoteExecutionProperties_error() throws Exception {
-    ImmutableMap<String, String> propsParent = ImmutableMap.of("k1", "v1", "k2", "v2");
-    platformBuilder("//foo:parent_platform").setExecProperties(propsParent).write();
+    ImmutableMap<String, String> propsChild = ImmutableMap.of("k2", "child_v2", "k3", "child_v3");
+    platformBuilder("//foo:parent_platform").setRemoteExecutionProperties("properties").write();
     PlatformBuilder builder =
         platformBuilder("//bar:my_platform")
             .setParent("//foo:parent_platform")
-            .setRemoteExecutionProperties("properties");
+            .setExecProperties(propsChild);
 
     checkError(
         "bar",
         "my_platform",
-        "Platform specifies remote_execution_properties but its parent specifies exec_properties."
-            + " Prefer exec_properties over the deprecated remote_execution_properties.",
+        "Platform specifies exec_properties but its parent //foo:parent_platform specifies"
+            + " remote_execution_properties. Prefer exec_properties over the deprecated"
+            + " remote_execution_properties.",
         builder.lines().toArray(new String[] {}));
   }
 }
