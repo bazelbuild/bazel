@@ -185,55 +185,43 @@ public final class SpawnStrategyRegistry
    * Records the list of all spawn strategies that can be returned by the various query methods of
    * this registry to the given reporter.
    */
-  void writeSpawnStrategiesTo(Reporter reporter) {
+  void logSpawnStrategies() {
     for (Map.Entry<String, Collection<SpawnStrategy>> entry :
         mnemonicToStrategies.asMap().entrySet()) {
-      reporter.handle(
-          Event.info(
-              String.format(
-                  "MnemonicToStrategyImplementations: \"%s\" = [%s]",
-                  entry.getKey(), toImplementationNames(entry.getValue()))));
+      logger.atInfo().log(
+          "MnemonicToStrategyImplementations: \"%s\" = [%s]",
+          entry.getKey(), toImplementationNames(entry.getValue()));
     }
 
     for (Map.Entry<RegexFilter, Collection<SpawnStrategy>> entry :
         filterToStrategies.asMap().entrySet()) {
       Collection<SpawnStrategy> value = entry.getValue();
-      reporter.handle(
-          Event.info(
-              String.format(
-                  "FilterToStrategyImplementations: \"%s\" = [%s]",
-                  entry.getKey(), toImplementationNames(value))));
+      logger.atInfo().log(
+          "FilterToStrategyImplementations: \"%s\" = [%s]",
+          entry.getKey(), toImplementationNames(value));
     }
 
-    reporter.handle(
-        Event.info(
-            String.format(
-                "DefaultStrategyImplementations: [%s]", toImplementationNames(defaultStrategies))));
+    logger.atInfo().log(
+        "DefaultStrategyImplementations: [%s]", toImplementationNames(defaultStrategies));
 
     if (remoteLocalFallbackStrategy != null) {
-      reporter.handle(
-          Event.info(
-              String.format(
-                  "RemoteLocalFallbackImplementation: [%s]",
-                  remoteLocalFallbackStrategy.getClass().getSimpleName())));
+      logger.atInfo().log(
+          "RemoteLocalFallbackImplementation: [%s]",
+          remoteLocalFallbackStrategy.getClass().getSimpleName());
     }
 
     for (Map.Entry<String, Collection<SandboxedSpawnStrategy>> entry :
         mnemonicToRemoteDynamicStrategies.asMap().entrySet()) {
-      reporter.handle(
-          Event.info(
-              String.format(
-                  "MnemonicToRemoteDynamicStrategyImplementations: \"%s\" = [%s]",
-                  entry.getKey(), toImplementationNames(entry.getValue()))));
+      logger.atInfo().log(
+          "MnemonicToRemoteDynamicStrategyImplementations: \"%s\" = [%s]",
+          entry.getKey(), toImplementationNames(entry.getValue()));
     }
 
     for (Map.Entry<String, Collection<SandboxedSpawnStrategy>> entry :
         mnemonicToLocalDynamicStrategies.asMap().entrySet()) {
-      reporter.handle(
-          Event.info(
-              String.format(
-                  "MnemonicToLocalDynamicStrategyImplementations: \"%s\" = [%s]",
-                  entry.getKey(), toImplementationNames(entry.getValue()))));
+      logger.atInfo().log(
+          "MnemonicToLocalDynamicStrategyImplementations: \"%s\" = [%s]",
+          entry.getKey(), toImplementationNames(entry.getValue()));
     }
   }
 

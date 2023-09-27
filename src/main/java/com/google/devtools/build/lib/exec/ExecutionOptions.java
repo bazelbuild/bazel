@@ -367,14 +367,6 @@ public class ExecutionOptions extends OptionsBase {
   public boolean prioritizeLocalActions;
 
   @Option(
-      name = "debug_print_action_contexts",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Print the contents of the SpawnActionContext and ContextProviders maps.")
-  public boolean debugPrintActionContexts;
-
-  @Option(
       name = "cache_computed_file_digests",
       defaultValue = "50000",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
