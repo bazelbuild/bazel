@@ -128,10 +128,6 @@ public interface SkyFunction {
    *
    * <p>All {@link ListenableFuture}s used in calls to {@link Environment#dependOnFuture} which were
    * not already complete will be cancelled.
-   *
-   * <p>This may only be returned by {@link #compute} if {@link Environment#resetPermitted} is true.
-   * If resetting is not permitted, {@link #compute} should throw an appropriate {@link
-   * SkyFunctionException}.
    */
   final class Reset implements SkyValue {
 
@@ -400,12 +396,6 @@ public interface SkyFunction {
      * thread pool without blocking the current Skyframe thread.
      */
     void dependOnFuture(ListenableFuture<?> future);
-
-    /**
-     * A {@link SkyFunction#compute} call may return {@link Reset} only if this returns {@code
-     * true}.
-     */
-    boolean resetPermitted();
 
     /**
      * Container for data stored in between calls to {@link #compute} for the same {@link SkyKey}.

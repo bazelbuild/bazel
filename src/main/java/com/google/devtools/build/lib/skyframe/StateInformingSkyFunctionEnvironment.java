@@ -157,11 +157,6 @@ final class StateInformingSkyFunctionEnvironment implements SkyFunction.Environm
   }
 
   @Override
-  public boolean resetPermitted() {
-    return delegate.resetPermitted();
-  }
-
-  @Override
   public SkyframeLookupResult getLookupHandleForPreviouslyRequestedDeps() {
     return delegate.getLookupHandleForPreviouslyRequestedDeps();
   }

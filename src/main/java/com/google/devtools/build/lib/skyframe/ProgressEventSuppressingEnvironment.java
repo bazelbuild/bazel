@@ -129,11 +129,6 @@ final class ProgressEventSuppressingEnvironment implements SkyFunction.Environme
   }
 
   @Override
-  public boolean resetPermitted() {
-    return delegate.resetPermitted();
-  }
-
-  @Override
   public SkyframeLookupResult getLookupHandleForPreviouslyRequestedDeps() {
     return delegate.getLookupHandleForPreviouslyRequestedDeps();
   }

@@ -219,6 +219,7 @@ public final class SkyframeActionExecutor {
   private final AtomicReference<ActionExecutionStatusReporter> statusReporterRef;
   private OutputService outputService;
   private boolean finalizeActions;
+  private boolean rewindingEnabled;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
 
   private DiscoveredModulesPruner discoveredModulesPruner;
@@ -300,6 +301,7 @@ public final class SkyframeActionExecutor {
     this.options = options;
     // Cache some option values for performance, since we consult them on every action.
     this.finalizeActions = buildRequestOptions.finalizeActions;
+    this.rewindingEnabled = buildRequestOptions.rewindLostInputs;
     this.outputService = outputService;
     this.outputDirectoryHelper = outputDirectoryHelper;
 
@@ -367,8 +369,7 @@ public final class SkyframeActionExecutor {
   FileSystem createActionFileSystem(
       String relativeOutputPath,
       ActionInputMap inputArtifactData,
-      Iterable<Artifact> outputArtifacts,
-      boolean rewindingEnabled) {
+      Iterable<Artifact> outputArtifacts) {
     return outputService.createActionFileSystem(
         executorEngine.getFileSystem(),
         executorEngine.getExecRoot().asFragment(),
@@ -502,7 +503,6 @@ public final class SkyframeActionExecutor {
 
     ActionExecutionContext actionExecutionContext =
         getContext(
-            env,
             action,
             metadataHandler,
             metadataHandler,
@@ -574,7 +574,6 @@ public final class SkyframeActionExecutor {
   }
 
   private ActionExecutionContext getContext(
-      Environment env,
       Action action,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
@@ -593,7 +592,7 @@ public final class SkyframeActionExecutor {
         actionInputPrefetcher,
         actionKeyContext,
         outputMetadataStore,
-        env.resetPermitted(),
+        rewindingEnabled,
         lostInputsCheck(actionFileSystem, action, outputService),
         fileOutErr,
         selectEventHandler(emitProgressEvents),
@@ -831,7 +830,7 @@ public final class SkyframeActionExecutor {
             actionInputPrefetcher,
             actionKeyContext,
             outputMetadataStore,
-            env.resetPermitted(),
+            rewindingEnabled,
             lostInputsCheck(actionFileSystem, action, outputService),
             fileOutErr,
             eventHandler,

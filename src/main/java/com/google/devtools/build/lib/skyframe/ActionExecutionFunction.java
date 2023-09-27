@@ -320,8 +320,7 @@ public final class ActionExecutionFunction implements SkyFunction {
             skyframeActionExecutor.createActionFileSystem(
                 directories.getRelativeOutputPath(),
                 checkedInputs.actionInputMap,
-                action.getOutputs(),
-                env.resetPermitted());
+                action.getOutputs());
       }
     }
 

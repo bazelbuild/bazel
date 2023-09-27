@@ -51,8 +51,7 @@ public final class SkyFunctionEnvironmentForTesting
   }
 
   @Override
-  protected ValueOrUntypedException getSingleValueOrUntypedException(SkyKey depKey)
-      throws InterruptedException {
+  protected ValueOrUntypedException getSingleValueOrUntypedException(SkyKey depKey) {
     return getOrderedValueOrUntypedExceptions(ImmutableList.of(depKey)).get(0);
   }
 
@@ -81,7 +80,7 @@ public final class SkyFunctionEnvironmentForTesting
 
   @Override
   protected List<ValueOrUntypedException> getOrderedValueOrUntypedExceptions(
-      Iterable<? extends SkyKey> depKeys) throws InterruptedException {
+      Iterable<? extends SkyKey> depKeys) {
     EvaluationResult<SkyValue> evaluationResult =
         skyframeExecutor.evaluateSkyKeys(eventHandler, depKeys, true);
     return stream(depKeys)
@@ -98,11 +97,6 @@ public final class SkyFunctionEnvironmentForTesting
   @Override
   public void dependOnFuture(ListenableFuture<?> future) {
     throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public boolean resetPermitted() {
-    return false;
   }
 
   @Override

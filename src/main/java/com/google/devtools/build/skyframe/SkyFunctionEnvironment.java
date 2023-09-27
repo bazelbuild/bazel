@@ -1023,11 +1023,6 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
   }
 
   @Override
-  public boolean resetPermitted() {
-    return evaluatorContext.resetPermitted();
-  }
-
-  @Override
   public SkyframeLookupResult getLookupHandleForPreviouslyRequestedDeps() {
     checkActive();
     return this;

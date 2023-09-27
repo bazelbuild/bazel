@@ -452,11 +452,6 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public boolean resetPermitted() {
-      return false;
-    }
-
-    @Override
     public <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier) {
       return stateSupplier.get();
     }

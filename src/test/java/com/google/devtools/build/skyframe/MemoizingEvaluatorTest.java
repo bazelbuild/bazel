@@ -2709,11 +2709,6 @@ public abstract class MemoizingEvaluatorTest {
     }
 
     @Override
-    public boolean resetPermitted() {
-      return true;
-    }
-
-    @Override
     public Iterator<InconsistencyData> iterator() {
       return inconsistencies.iterator();
     }
@@ -2731,7 +2726,7 @@ public abstract class MemoizingEvaluatorTest {
   public void sameDepInTwoGroups() throws Exception {
     initializeTester();
 
-    // leaf4 should not built in the second build.
+    // leaf4 should not be built in the second build.
     SkyKey leaf4 = skyKey("leaf4");
     AtomicBoolean shouldNotBuildLeaf4 = new AtomicBoolean(false);
     injectGraphListenerForTesting(

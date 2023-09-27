@@ -271,11 +271,6 @@ public final class CppIncludeScanningContextImplTest extends BuildViewTestCase {
       }
 
       @Override
-      public boolean resetPermitted() {
-        return false;
-      }
-
-      @Override
       public <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier) {
         throw new UnsupportedOperationException();
       }
