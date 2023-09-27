@@ -36,7 +36,7 @@
 <pre>
 package(default_deprecation, default_package_metadata, default_testonly, default_visibility, features)
 </pre>
-<p>This function declares metadata that applies to every subsequent rule in the
+<p>This function declares metadata that applies to every rule in the
 package. It is used at most once within a package (BUILD file).</p>
 
 <p>The package() function should be called right after all the load() statements at the top of the
