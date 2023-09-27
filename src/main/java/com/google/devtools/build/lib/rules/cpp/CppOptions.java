@@ -864,17 +864,6 @@ public class CppOptions extends FragmentOptions {
   public boolean removeCpuCompilerCcToolchainAttributes;
 
   @Option(
-      name = "incompatible_disable_expand_if_all_available_in_flag_set",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If true, Bazel will not allow specifying expand_if_all_available in flag_sets"
-              + "(see https://github.com/bazelbuild/bazel/issues/7008 for migration instructions).")
-  public boolean disableExpandIfAllAvailableInFlagSet;
-
-  @Option(
       name = "incompatible_disable_legacy_cc_provider",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -1208,7 +1197,6 @@ public class CppOptions extends FragmentOptions {
     exec.stripBinaries = StripMode.ALWAYS;
     exec.inmemoryDotdFiles = inmemoryDotdFiles;
 
-    exec.disableExpandIfAllAvailableInFlagSet = disableExpandIfAllAvailableInFlagSet;
     exec.disableLegacyCcProvider = disableLegacyCcProvider;
     exec.removeCpuCompilerCcToolchainAttributes = removeCpuCompilerCcToolchainAttributes;
     exec.enableCcToolchainResolution = enableCcToolchainResolution;
