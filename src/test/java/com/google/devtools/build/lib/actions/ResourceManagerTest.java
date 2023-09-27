@@ -79,7 +79,6 @@ public final class ResourceManagerTest {
     sync = new CyclicBarrier(2);
     sync2 = new CyclicBarrier(2);
     rm.resetResourceUsage();
-    rm.setPrioritizeLocalActions(true);
     worker = mock(Worker.class);
     rm.setWorkerPool(createWorkerPool());
   }
@@ -513,66 +512,6 @@ public final class ResourceManagerTest {
     thread4.join();
 
     assertThat(rm.inUse()).isFalse();
-  }
-
-  @Test
-  @SuppressWarnings("ThreadPriorityCheck")
-  public void testRelease_noPriority() throws Exception {
-    rm.setPrioritizeLocalActions(false);
-    assertThat(rm.inUse()).isFalse();
-
-    TestThread thread1 =
-        new TestThread(
-            () -> {
-              acquire(700, 0, 0);
-              sync.await();
-              sync2.await();
-              release(700, 0, 0);
-            });
-    thread1.start();
-    // Wait for thread1 to have acquired its RAM
-    sync.await(1, TimeUnit.SECONDS);
-
-    // Set up threads that compete for resources
-    CyclicBarrier syncDynamicStandalone =
-        startAcquireReleaseThread(ResourcePriority.DYNAMIC_STANDALONE);
-    while (rm.getWaitCount() < 1) {
-      Thread.yield();
-    }
-    CyclicBarrier syncDynamicWorker = startAcquireReleaseThread(ResourcePriority.DYNAMIC_WORKER);
-    while (rm.getWaitCount() < 2) {
-      Thread.yield();
-    }
-    CyclicBarrier syncLocal = startAcquireReleaseThread(ResourcePriority.LOCAL);
-    while (rm.getWaitCount() < 3) {
-      Thread.yield();
-    }
-
-    sync2.await();
-
-    while (syncLocal.getNumberWaiting()
-            + syncDynamicWorker.getNumberWaiting()
-            + syncDynamicStandalone.getNumberWaiting()
-        == 0) {
-      Thread.yield();
-    }
-    assertThat(rm.getWaitCount()).isEqualTo(2);
-    assertThat(syncDynamicStandalone.getNumberWaiting()).isEqualTo(1);
-    syncDynamicStandalone.await(1, TimeUnit.SECONDS);
-
-    while (syncDynamicWorker.getNumberWaiting() + syncLocal.getNumberWaiting() == 0) {
-      Thread.yield();
-    }
-    assertThat(syncDynamicWorker.getNumberWaiting()).isEqualTo(1);
-    assertThat(rm.getWaitCount()).isEqualTo(1);
-
-    syncDynamicWorker.await(1, TimeUnit.SECONDS);
-    while (syncLocal.getNumberWaiting() == 0) {
-      Thread.yield();
-    }
-    assertThat(syncLocal.getNumberWaiting()).isEqualTo(1);
-    assertThat(rm.getWaitCount()).isEqualTo(0);
-    syncLocal.await(1, TimeUnit.SECONDS);
   }
 
   @Test

@@ -987,7 +987,6 @@ public class ExecutionTool {
   @VisibleForTesting
   public static void configureResourceManager(ResourceManager resourceMgr, BuildRequest request) {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
-    resourceMgr.setPrioritizeLocalActions(options.prioritizeLocalActions);
     ImmutableMap<String, Float> extraResources =
         options.localExtraResources.stream()
             .collect(

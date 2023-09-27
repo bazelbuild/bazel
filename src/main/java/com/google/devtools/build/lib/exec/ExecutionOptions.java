@@ -356,17 +356,6 @@ public class ExecutionOptions extends OptionsBase {
   }
 
   @Option(
-      name = "experimental_prioritize_local_actions",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help =
-          "If set, actions that can only run locally are given first chance at acquiring resources,"
-              + " dynamically run workers get second chance, and dynamically-run standalone actions"
-              + " come last.")
-  public boolean prioritizeLocalActions;
-
-  @Option(
       name = "cache_computed_file_digests",
       defaultValue = "50000",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

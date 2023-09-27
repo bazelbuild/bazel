@@ -195,9 +195,6 @@ public class ResourceManager implements ResourceEstimator {
   // Used local test count. Corresponds to the local test count definition in the ResourceSet class.
   private int usedLocalTestCount;
 
-  /** If set, local-only actions are given priority over dynamically run actions. */
-  private boolean prioritizeLocalActions;
-
   @VisibleForTesting
   public static ResourceManager instanceForTestingOnly() {
     return new ResourceManager();
@@ -241,11 +238,6 @@ public class ResourceManager implements ResourceEstimator {
   /** Sets worker pool for taking the workers. Must be called before requesting the workers. */
   public void setWorkerPool(WorkerPool workerPool) {
     this.workerPool = workerPool;
-  }
-
-  /** Sets whether to prioritize local-only actions in resource allocation. */
-  public void setPrioritizeLocalActions(boolean prioritizeLocalActions) {
-    this.prioritizeLocalActions = prioritizeLocalActions;
   }
 
   /**
@@ -401,24 +393,20 @@ public class ResourceManager implements ResourceEstimator {
     }
     Pair<ResourceSet, LatchWithWorker> request =
         new Pair<>(resources, new LatchWithWorker(new CountDownLatch(1), /* worker= */ null));
-    if (this.prioritizeLocalActions) {
-      switch (priority) {
-        case LOCAL:
-          localRequests.addLast(request);
-          break;
-        case DYNAMIC_WORKER:
-          // Dynamic requests should be LIFO, because we are more likely to win the race on newer
-          // actions.
-          dynamicWorkerRequests.addFirst(request);
-          break;
-        case DYNAMIC_STANDALONE:
-          // Dynamic requests should be LIFO, because we are more likely to win the race on newer
-          // actions.
-          dynamicStandaloneRequests.addFirst(request);
-          break;
-      }
-    } else {
-      localRequests.addLast(request);
+    switch (priority) {
+      case LOCAL:
+        localRequests.addLast(request);
+        break;
+      case DYNAMIC_WORKER:
+        // Dynamic requests should be LIFO, because we are more likely to win the race on newer
+        // actions.
+        dynamicWorkerRequests.addFirst(request);
+        break;
+      case DYNAMIC_STANDALONE:
+        // Dynamic requests should be LIFO, because we are more likely to win the race on newer
+        // actions.
+        dynamicStandaloneRequests.addFirst(request);
+        break;
     }
     return request.second;
   }
