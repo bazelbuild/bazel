@@ -889,18 +889,6 @@ public class CppOptions extends FragmentOptions {
   public boolean disableExpandIfAllAvailableInFlagSet;
 
   @Option(
-      name = "experimental_includes_attribute_subpackage_traversal",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "If a cc target has loose headers checking, disabled layering check and an "
-              + "includes attribute set, it is allowed to include anything under its folder, even "
-              + "across subpackage boundaries.")
-  public boolean experimentalIncludesAttributeSubpackageTraversal;
-
-  @Option(
       name = "incompatible_disable_legacy_cc_provider",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

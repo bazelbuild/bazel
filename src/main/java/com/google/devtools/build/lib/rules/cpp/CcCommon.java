@@ -448,12 +448,7 @@ public final class CcCommon implements StarlarkValue {
             .getExecPath(ruleContext.getConfiguration().isSiblingRepositoryLayout());
     result.add(rulePackage);
 
-    if (ruleContext
-            .getConfiguration()
-            .getOptions()
-            .get(CppOptions.class)
-            .experimentalIncludesAttributeSubpackageTraversal
-        && ruleContext.getRule().isAttributeValueExplicitlySpecified("includes")) {
+    if (ruleContext.getRule().isAttributeValueExplicitlySpecified("includes")) {
       PathFragment packageFragment =
           ruleContext
               .getLabel()
