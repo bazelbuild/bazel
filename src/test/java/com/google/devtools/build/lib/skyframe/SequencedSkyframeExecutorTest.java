@@ -105,6 +105,7 @@ import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.query2.common.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
+import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn;
@@ -2662,24 +2663,11 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   }
 
   @Test
-  public void usesCorrectGraphInconsistencyReceiver(
-      @TestParameter boolean trackIncrementalState,
-      @TestParameter boolean useActionCache,
-      @TestParameter boolean rewindLostInputs)
+  public void rewindingPrerequisites(
+      @TestParameter boolean trackIncrementalState, @TestParameter boolean useActionCache)
       throws Exception {
-    extraSkyFunctions.put(
-        SkyFunctionName.FOR_TESTING,
-        (key, env) -> {
-          if (!trackIncrementalState && !useActionCache && rewindLostInputs) {
-            assertThat(env.resetPermitted()).isTrue();
-          } else {
-            assertThat(env.resetPermitted()).isFalse();
-          }
-          return new SkyValue() {};
-        });
     initializeSkyframeExecutor();
-    options.parse(
-        "--use_action_cache=" + useActionCache, "--rewind_lost_inputs=" + rewindLostInputs);
+    options.parse("--rewind_lost_inputs", "--use_action_cache=" + useActionCache);
 
     skyframeExecutor.setActive(false);
     skyframeExecutor.decideKeepIncrementalState(
@@ -2690,10 +2678,14 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         /* discardAnalysisCache= */ false,
         reporter);
     skyframeExecutor.setActive(true);
-    syncSkyframeExecutor();
 
-    EvaluationResult<?> result = evaluate(ImmutableList.of(GraphTester.skyKey("key")));
-    assertThat(result.hasError()).isFalse();
+    if (useActionCache) {
+      AbruptExitException e = assertThrows(AbruptExitException.class, this::syncSkyframeExecutor);
+      assertThat(e.getDetailedExitCode().getFailureDetail().getActionRewinding().getCode())
+          .isEqualTo(ActionRewinding.Code.REWIND_LOST_INPUTS_PREREQ_UNMET);
+    } else {
+      syncSkyframeExecutor(); // Permitted.
+    }
   }
 
   private void syncSkyframeExecutor() throws InterruptedException, AbruptExitException {

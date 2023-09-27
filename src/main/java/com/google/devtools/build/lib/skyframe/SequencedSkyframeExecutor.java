@@ -59,6 +59,8 @@ import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
+import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
@@ -67,6 +69,7 @@ import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryConsumingOutputHandler;
 import com.google.devtools.build.lib.skyframe.rewinding.RewindableGraphInconsistencyReceiver;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
@@ -244,8 +247,10 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       QuiescingExecutors executors,
       OptionsProvider options)
       throws InterruptedException, AbruptExitException {
+    // TODO(b/228090759): Set the correct inconsistency receiver when evaluatorNeedsReset is false.
+    boolean rewindingEnabled = rewindingEnabled(options);
     if (evaluatorNeedsReset) {
-      if (rewindingPermitted(options)) {
+      if (rewindingEnabled) {
         // Currently incompatible with Skymeld i.e. this code path won't be run in Skymeld mode. We
         // may need to combine these GraphInconsistencyReceiver implementations in the future.
         var rewindableReceiver = new RewindableGraphInconsistencyReceiver();
@@ -295,15 +300,22 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     return workspaceInfo;
   }
 
-  private boolean rewindingPermitted(OptionsProvider options) {
-    // Rewinding is only supported with no incremental state and no action cache.
-    if (trackIncrementalState) {
+  private static boolean rewindingEnabled(OptionsProvider options) throws AbruptExitException {
+    var buildRequestOptions = options.getOptions(BuildRequestOptions.class);
+    if (buildRequestOptions == null || !buildRequestOptions.rewindLostInputs) {
       return false;
     }
-    BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
-    return buildRequestOptions != null
-        && !buildRequestOptions.useActionCache
-        && buildRequestOptions.rewindLostInputs;
+    if (buildRequestOptions.useActionCache) {
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage("--rewind_lost_inputs requires --nouse_action_cache")
+                  .setActionRewinding(
+                      ActionRewinding.newBuilder()
+                          .setCode(ActionRewinding.Code.REWIND_LOST_INPUTS_PREREQ_UNMET))
+                  .build()));
+    }
+    return true;
   }
 
   /**
