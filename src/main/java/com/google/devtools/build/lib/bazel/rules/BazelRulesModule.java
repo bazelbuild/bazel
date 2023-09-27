@@ -105,119 +105,6 @@ public final class BazelRulesModule extends BlazeModule {
     public boolean skyframePrepareAnalysis;
 
     @Option(
-        name = "incompatible_disable_crosstool_file",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "Deprecated no-op.")
-    public boolean disableCrosstool;
-
-    @Option(
-        name = "incompatible_disable_legacy_crosstool_fields",
-        oldName = "experimental_disable_legacy_crosstool_fields",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "Deprecated no-op.")
-    public boolean disableLegacyCrosstoolFields;
-
-    @Option(
-        name = "incompatible_require_feature_configuration_for_pic",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "Deprecated no-op.")
-    public boolean requireFeatureConfigurationForPic;
-
-    @Option(
-        name = "incompatible_disable_depset_in_cc_user_flags",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "Deprecated no-op.")
-    public boolean disableDepsetInUserFlags;
-
-    @Option(
-        name = "incompatible_dont_emit_static_libgcc",
-        oldName = "experimental_dont_emit_static_libgcc",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "Deprecated no-op.")
-    public boolean disableEmittingStaticLibgcc;
-
-    @Option(
-        name = "incompatible_linkopts_in_user_link_flags",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "Deprecated no-op.")
-    public boolean enableLinkoptsInUserLinkFlags;
-
-    @Option(
-        name = "incompatible_disable_runtimes_filegroups",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {OptionEffectTag.ACTION_COMMAND_LINES, OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "Deprecated no-op.")
-    public boolean disableRuntimesFilegroups;
-
-    @Option(
-        name = "incompatible_disable_tools_defaults_package",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "Deprecated no-op.")
-    public boolean incompatibleDisableInMemoryToolsDefaultsPackage;
-
-    @Option(
-        name = "incompatible_disable_sysroot_from_configuration",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "Deprecated no-op.")
-    public boolean disableSysrootFromConfiguration;
-
-    @Option(
-        name = "incompatible_provide_cc_toolchain_info_from_cc_toolchain_suite",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "Deprecated no-op.")
-    public boolean provideCcToolchainInfoFromCcToolchainSuite;
-
-    @Option(
-        name = "incompatible_disable_cc_toolchain_label_from_crosstool_proto",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EAGERNESS_TO_EXIT},
-        metadataTags = {OptionMetadataTag.DEPRECATED, OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "Deprecated no-op.")
-    public boolean disableCcToolchainFromCrosstool;
-
-    @Option(
-        name = "incompatible_disable_cc_configuration_make_variables",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.DEPRECATED,
-        },
-        help = "Deprecated no-op.")
-    public boolean disableMakeVariables;
-
-    @Option(
         name = "incompatible_disable_legacy_flags_cc_toolchain_api",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -227,24 +114,6 @@ public final class BazelRulesModule extends BlazeModule {
             "Flag for disabling the legacy cc_toolchain Starlark API for accessing legacy "
                 + "CROSSTOOL fields.")
     public boolean disableLegacyFlagsCcToolchainApi;
-
-    @Option(
-        name = "incompatible_enable_legacy_cpp_toolchain_skylark_api",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
-        help = "Obsolete, no effect.")
-    public boolean enableLegacyToolchainStarlarkApi;
-
-    @Option(
-        name = "incompatible_disable_legacy_cpp_toolchain_skylark_api",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
-        help = "Obsolete, no effect.")
-    public boolean disableLegacyToolchainStarlarkApi;
 
     @Option(
         name = "incompatible_enable_profile_by_default",
@@ -615,14 +484,6 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         help = "No-op")
     public boolean besBestEffort;
-
-    @Option(
-        name = "incompatible_disable_managed_directories",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        help = "No-op")
-    public boolean incompatibleDisableManagedDirectories;
 
     @Option(
         name = "experimental_use_event_based_build_completion_status",
