@@ -56,6 +56,7 @@ public final class AndroidSdkProvider extends NativeInfo
   @Nullable private final Artifact shrinkedAndroidJar;
   private final Artifact mainDexClasses;
   private final FilesToRunProvider adb;
+  private final FilesToRunProvider dexdump;
   private final FilesToRunProvider dx;
   private final FilesToRunProvider mainDexListCreator;
   private final FilesToRunProvider aidl;
@@ -87,7 +88,8 @@ public final class AndroidSdkProvider extends NativeInfo
       FilesToRunProvider proguard,
       FilesToRunProvider zipalign,
       @Nullable BootClassPathInfo system,
-      @Nullable FilesToRunProvider legacyMainDexListGenerator) {
+      @Nullable FilesToRunProvider legacyMainDexListGenerator,
+      @Nullable FilesToRunProvider dexdump) {
     this.buildToolsVersion = buildToolsVersion;
     this.frameworkAidl = frameworkAidl;
     this.aidlLib = aidlLib;
@@ -96,6 +98,7 @@ public final class AndroidSdkProvider extends NativeInfo
     this.shrinkedAndroidJar = shrinkedAndroidJar;
     this.mainDexClasses = mainDexClasses;
     this.adb = adb;
+    this.dexdump = dexdump;
     this.dx = dx;
     this.mainDexListCreator = mainDexListCreator;
     this.aidl = aidl;
@@ -309,6 +312,11 @@ public final class AndroidSdkProvider extends NativeInfo
   }
 
   @Override
+  public FilesToRunProvider getDexdump() {
+    return dexdump;
+  }
+
+  @Override
   public FilesToRunProvider getDx() {
     return dx;
   }
@@ -393,7 +401,8 @@ public final class AndroidSdkProvider extends NativeInfo
         FilesToRunProvider proguard,
         FilesToRunProvider zipalign,
         Object system,
-        Object legacyMainDexListGenerator)
+        Object legacyMainDexListGenerator,
+        Object dexdump)
         throws EvalException {
       return new AndroidSdkProvider(
           buildToolsVersion,
@@ -414,7 +423,8 @@ public final class AndroidSdkProvider extends NativeInfo
           proguard,
           zipalign,
           fromNoneable(system, BootClassPathInfo.class),
-          fromNoneable(legacyMainDexListGenerator, FilesToRunProvider.class));
+          fromNoneable(legacyMainDexListGenerator, FilesToRunProvider.class),
+          fromNoneable(dexdump, FilesToRunProvider.class));
     }
   }
 }

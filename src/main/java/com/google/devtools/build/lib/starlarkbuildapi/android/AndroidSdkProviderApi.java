@@ -95,6 +95,9 @@ public interface AndroidSdkProviderApi<
   @StarlarkMethod(name = "adb", structField = true, doc = "", documented = false)
   FilesToRunProviderT getAdb();
 
+  @StarlarkMethod(name = "dexdump", structField = true, doc = "", documented = false)
+  FilesToRunProviderT getDexdump();
+
   @StarlarkMethod(name = "dx", structField = true, doc = "", documented = false)
   FilesToRunProviderT getDx();
 
@@ -271,6 +274,16 @@ public interface AndroidSdkProviderApi<
                 @ParamType(type = FilesToRunProviderApi.class),
                 @ParamType(type = NoneType.class),
               }),
+          @Param(
+              name = "dexdump",
+              doc = "A files to run provider of Dexdump.",
+              defaultValue = "None",
+              positional = true,
+              named = false,
+              allowedTypes = {
+                @ParamType(type = FilesToRunProviderApi.class),
+                @ParamType(type = NoneType.class),
+              }),
         },
         selfCall = true)
     @StarlarkConstructor
@@ -293,7 +306,8 @@ public interface AndroidSdkProviderApi<
         FilesToRunProviderT proguard,
         FilesToRunProviderT zipalign,
         Object system,
-        Object legacyMainDexListGenerator)
+        Object legacyMainDexListGenerator,
+        Object dexdump)
         throws EvalException;
   }
 }
