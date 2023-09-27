@@ -2197,12 +2197,7 @@ public class RuleClass implements RuleClassData {
         // graph is inconsistent in that some license() rules have applicable_licenses while others
         // do not.
         if (rule.getRuleClassObject().isPackageMetadataRule()) {
-          // Do nothing
-        } else {
-          rule.setAttributeValue(
-              attr,
-              pkgBuilder.getPartialPackageArgs().defaultPackageMetadata(),
-              /* explicit= */ false);
+          rule.setAttributeValue(attr, ImmutableList.of(), /* explicit= */ false);
         }
 
       } else if (attr.getName().equals("licenses") && attr.getType() == BuildType.LICENSE) {

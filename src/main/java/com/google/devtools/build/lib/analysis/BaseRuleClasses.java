@@ -112,6 +112,20 @@ public class BaseRuleClasses {
         }
       };
 
+  @SerializationConstant @AutoCodec.VisibleForSerialization
+  public static final Attribute.ComputedDefault packageMetadataDefault =
+      new Attribute.ComputedDefault() {
+        @Override
+        public Object getDefault(AttributeMap rule) {
+          return rule.getPackageArgs().defaultPackageMetadata();
+        }
+
+        @Override
+        public boolean resolvableWithRawAttributes() {
+          return true;
+        }
+      };
+
   // TODO(b/65746853): provide a way to do this without passing the entire configuration
   /**
    * Implementation for the :action_listener attribute.
@@ -371,6 +385,7 @@ public class BaseRuleClasses {
                 .nonconfigurable("stores configurability keys"))
         .add(
             attr(RuleClass.APPLICABLE_LICENSES_ATTR, LABEL_LIST)
+                .value(packageMetadataDefault)
                 .cfg(ExecutionTransitionFactory.createFactory())
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 // TODO(b/148601291): Require provider to be "LicenseInfo".
