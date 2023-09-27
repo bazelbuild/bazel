@@ -407,7 +407,6 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
     var buffer = new ByteArrayOutputStream();
     startLogging(eventBus, UUID.randomUUID(), buffer, DependencyInfo.ALL);
     var options = new ExecutionGraphModule.ExecutionGraphOptions();
-    options.logMissedActions = true;
     module.setOptions(options);
 
     module.spawnExecuted(
@@ -438,7 +437,6 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
     var buffer = new ByteArrayOutputStream();
     startLogging(eventBus, UUID.randomUUID(), buffer, DependencyInfo.ALL);
     var options = new ExecutionGraphModule.ExecutionGraphOptions();
-    options.logMissedActions = true;
     module.setOptions(options);
     var nanosToMillis = BlazeClock.createNanosToMillisSinceEpochConverter();
     module.setNanosToMillis(nanosToMillis);

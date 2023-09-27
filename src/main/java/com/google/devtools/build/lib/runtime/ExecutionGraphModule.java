@@ -155,22 +155,6 @@ public class ExecutionGraphModule extends BlazeModule {
     public boolean logMiddlemanActions;
 
     @Option(
-        name = "experimental_execution_graph_log_cached",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "true",
-        help = "Subscribe to CachedActionEvent in ExecutionGraphModule.")
-    public boolean logCachedActions;
-
-    @Option(
-        name = "experimental_execution_graph_log_missed",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "true",
-        help = "Subscribe to ActionCompletionEvent in ExecutionGraphModule.")
-    public boolean logMissedActions;
-
-    @Option(
         name = "experimental_execution_graph_enable_edges_from_filewrite_actions",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
@@ -321,10 +305,8 @@ public class ExecutionGraphModule extends BlazeModule {
   @AllowConcurrentEvents
   public void actionComplete(ActionCompletionEvent event) {
     // TODO(vanja): handle finish time in ActionCompletionEvent
-    if (options.logMissedActions) {
-      actionEvent(
-          event.getAction(), event.getRelativeActionStartTimeNanos(), event.getFinishTimeNanos());
-    }
+    actionEvent(
+        event.getAction(), event.getRelativeActionStartTimeNanos(), event.getFinishTimeNanos());
   }
 
   /**
@@ -335,9 +317,7 @@ public class ExecutionGraphModule extends BlazeModule {
   @Subscribe
   @AllowConcurrentEvents
   public void actionCached(CachedActionEvent event) {
-    if (options.logCachedActions) {
-      actionEvent(event.getAction(), event.getNanoTimeStart(), event.getNanoTimeFinish());
-    }
+    actionEvent(event.getAction(), event.getNanoTimeStart(), event.getNanoTimeFinish());
   }
 
   /**
