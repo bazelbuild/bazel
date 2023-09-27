@@ -163,7 +163,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
                     // deps.
                     ImmutableSet.of(ProtoLangToolchainProvider.PROVIDER_ID)))
             .addToolchainTypes(
-                ToolchainTypeRequirement.builder(toolchainType).mandatory(true).build())
+                ToolchainTypeRequirement.builder(toolchainType).mandatory(false).build())
             // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule
             .add(
                 attr(ASPECT_DESUGAR_PREREQ, LABEL)
