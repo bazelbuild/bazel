@@ -521,14 +521,14 @@ DIST_DEPS = {
         "used_in": [
         ],
     },
-    # JDK21 unavailable so use JDK19 instead for win aarch64.
+    # JDK21 unavailable from zulu, we'll use Microsoft's OpenJDK build instead.
     "openjdk_win_arm64_vanilla": {
-        "archive": "zulu19.28.81-ca-jdk19.0.0-win_aarch64.zip",
-        "sha256": "e73e851638066c48421a60e01ce7d956c1de0935620e1b66d8bbbd6cdd4f815e",
-        "strip_prefix": "zulu19.28.81-ca-jdk19.0.0-win_aarch64",
+        "archive": "microsoft-jdk-21.0.0-windows-aarch64.zip",
+        "sha256": "975603e684f2ec5a525b3b5336d6aa0b09b5b7d2d0d9e271bd6a9892ad550181",
+        "strip_prefix": "microsoft-jdk-21.0.0-windows-aarch64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu19.28.81-ca-jdk19.0.0-win_aarch64.zip",
-            "https://cdn.azul.com/zulu/bin/zulu19.28.81-ca-jdk19.0.0-win_aarch64.zip",
+            "https://mirror.bazel.build/aka.ms/download-jdk/microsoft-jdk-21.0.0-windows-aarch64.zip",
+            "https://aka.ms/download-jdk/microsoft-jdk-21.0.0-windows-aarch64.zip",
         ],
         "used_in": [
         ],
