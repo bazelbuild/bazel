@@ -39,6 +39,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/repository:repository_events",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
+        "//src/main/java/com/google/devtools/build/lib/rules:repository/resolved_file_value",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/workspace_base_rule",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/workspace_configured_target_factory",
         "//src/main/java/com/google/devtools/build/lib/util",

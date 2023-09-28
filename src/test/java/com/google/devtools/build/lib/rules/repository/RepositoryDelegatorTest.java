@@ -245,7 +245,6 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                     SkyFunctions.IGNORED_PACKAGE_PREFIXES,
                     new IgnoredPackagePrefixesFunction(
                         /* ignoredPackagePrefixesFile= */ PathFragment.EMPTY_FRAGMENT))
-                .put(SkyFunctions.RESOLVED_HASH_VALUES, new ResolvedHashesFunction())
                 .put(SkyFunctions.REPOSITORY_MAPPING, new RepositoryMappingFunction())
                 .put(
                     SkyFunctions.MODULE_FILE,
@@ -274,9 +273,6 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.empty());
     PrecomputedValue.REPO_ENV.set(differencer, ImmutableMap.of());
-    RepositoryDelegatorFunction.OUTPUT_VERIFICATION_REPOSITORY_RULES.set(
-        differencer, ImmutableSet.of());
-    RepositoryDelegatorFunction.RESOLVED_FILE_FOR_VERIFICATION.set(differencer, Optional.empty());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
     YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());

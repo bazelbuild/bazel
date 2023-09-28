@@ -134,8 +134,6 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("REPOSITORY_MAPPING");
   public static final SkyFunctionName RESOLVED_FILE =
       SkyFunctionName.createHermetic("RESOLVED_FILE");
-  public static final SkyFunctionName RESOLVED_HASH_VALUES =
-      SkyFunctionName.createHermetic("RESOLVED_HASH_VALUES");
   public static final SkyFunctionName MODULE_FILE =
       SkyFunctionName.createNonHermetic("MODULE_FILE");
   public static final SkyFunctionName REPO_FILE = SkyFunctionName.createHermetic("REPO_FILE");

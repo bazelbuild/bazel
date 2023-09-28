@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.ATTRIBUTES;
-import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.NATIVE;
-import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.REPOSITORIES;
-import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.RULE_CLASS;
+import static com.google.devtools.build.lib.rules.repository.ResolvedFileValue.ATTRIBUTES;
+import static com.google.devtools.build.lib.rules.repository.ResolvedFileValue.NATIVE;
+import static com.google.devtools.build.lib.rules.repository.ResolvedFileValue.REPOSITORIES;
+import static com.google.devtools.build.lib.rules.repository.ResolvedFileValue.RULE_CLASS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;

@@ -51,7 +51,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
@@ -74,12 +73,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
   public static final Precomputed<String> DEPENDENCY_FOR_UNCONDITIONAL_CONFIGURING =
       new Precomputed<>("dependency_for_unconditional_configuring");
-
-  public static final Precomputed<Optional<RootedPath>> RESOLVED_FILE_FOR_VERIFICATION =
-      new Precomputed<>("resolved_file_for_external_repository_verification");
-
-  public static final Precomputed<Set<String>> OUTPUT_VERIFICATION_REPOSITORY_RULES =
-      new Precomputed<>("output_verification_repository_rules");
 
   public static final Precomputed<Optional<RootedPath>> RESOLVED_FILE_INSTEAD_OF_WORKSPACE =
       new Precomputed<>("resolved_file_instead_of_workspace");

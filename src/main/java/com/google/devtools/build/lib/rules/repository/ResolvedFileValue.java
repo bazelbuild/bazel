@@ -28,6 +28,15 @@ import java.util.Objects;
 /** The value of the binding of "resolved" in a given file. */
 public class ResolvedFileValue implements SkyValue {
 
+  public static final String ORIGINAL_RULE_CLASS = "original_rule_class";
+  public static final String ORIGINAL_ATTRIBUTES = "original_attributes";
+  public static final String DEFINITION_INFORMATION = "definition_information";
+  public static final String RULE_CLASS = "rule_class";
+  public static final String ATTRIBUTES = "attributes";
+  public static final String OUTPUT_TREE_HASH = "output_tree_hash";
+  public static final String REPOSITORIES = "repositories";
+  public static final String NATIVE = "native";
+
   /** Argument for the SkyKey to request the resolved value of a file. */
   @Immutable
   @AutoCodec

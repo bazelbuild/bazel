@@ -94,11 +94,11 @@ public class LocalRepositoryFunction extends RepositoryFunction {
       @Override
       public Object getResolvedInformation(XattrProvider xattrProvider) {
         return ImmutableMap.<String, Object>builder()
-            .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, "local_repository")
+            .put(ResolvedFileValue.ORIGINAL_RULE_CLASS, "local_repository")
             .put(
-                ResolvedHashesFunction.ORIGINAL_ATTRIBUTES,
+                ResolvedFileValue.ORIGINAL_ATTRIBUTES,
                 ImmutableMap.<String, Object>builder().put("name", name).put("path", path).build())
-            .put(ResolvedHashesFunction.NATIVE, repr)
+            .put(ResolvedFileValue.NATIVE, repr)
             .build();
       }
     };

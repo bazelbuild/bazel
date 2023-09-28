@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.bazel.ResolvedEvent;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
-import com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction;
+import com.google.devtools.build.lib.rules.repository.ResolvedFileValue;
 import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
@@ -90,11 +90,11 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
               public Object getResolvedInformation(XattrProvider xattrProvider) {
                 String repr = String.format("local_config_platform(name = '%s')", name);
                 return ImmutableMap.<String, Object>builder()
-                    .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, LocalConfigPlatformRule.NAME)
+                    .put(ResolvedFileValue.ORIGINAL_RULE_CLASS, LocalConfigPlatformRule.NAME)
                     .put(
-                        ResolvedHashesFunction.ORIGINAL_ATTRIBUTES,
+                        ResolvedFileValue.ORIGINAL_ATTRIBUTES,
                         ImmutableMap.<String, Object>builder().put("name", name).buildOrThrow())
-                    .put(ResolvedHashesFunction.NATIVE, repr)
+                    .put(ResolvedFileValue.NATIVE, repr)
                     .buildOrThrow();
               }
             });

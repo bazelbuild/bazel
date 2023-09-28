@@ -222,9 +222,9 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
       @Override
       public Object getResolvedInformation(XattrProvider xattrProvider) {
         return ImmutableMap.<String, Object>builder()
-            .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, "new_local_repository")
-            .put(ResolvedHashesFunction.ORIGINAL_ATTRIBUTES, orig)
-            .put(ResolvedHashesFunction.NATIVE, nativeCommand)
+            .put(ResolvedFileValue.ORIGINAL_RULE_CLASS, "new_local_repository")
+            .put(ResolvedFileValue.ORIGINAL_ATTRIBUTES, orig)
+            .put(ResolvedFileValue.NATIVE, nativeCommand)
             .buildOrThrow();
       }
     };
