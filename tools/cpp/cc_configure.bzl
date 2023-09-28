@@ -58,7 +58,10 @@ def cc_autoconf_impl(repository_ctx):
     Args:
        repository_ctx: repository context
     """
-    overriden_tools = repository_ctx.attr.overriden_tools
+    overriden_tools = dict()
+    for tool_label in repository_ctx.attr.overriden_tools:
+        overriden_tools[repository_ctx.attr.overriden_tools[tool_label]] = repository_ctx.path(tool_label)
+
     env = repository_ctx.os.environ
     cpu_value = get_cpu_value(repository_ctx)
     if "BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN" in env and env["BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN"] == "1":
@@ -107,8 +110,9 @@ MSVC_ENVVARS = [
 
 cc_autoconf = repository_rule(
     attrs = {
-        "overriden_tools": attr.string_dict(
+        "overriden_tools": attr.label_keyed_string_dict(
             doc = "dict of tool paths to use instead of autoconfigured tools",
+            allow_files = True,
         ),
     },
     environ = [
@@ -157,8 +161,25 @@ def cc_configure():
         "@local_config_cc_toolchains//:all",
     )
 
-def _cc_configure_extension_impl(ctx):
-    cc_autoconf_toolchains(name = "local_config_cc_toolchains")
-    cc_autoconf(name = "local_config_cc")
+_override_tools = tag_class(attrs = {
+    "tools": attr.label_keyed_string_dict(
+        doc = "dict of tool paths to use instead of autoconfigured tools",
+        allow_files = True,
+    ),
+})
 
-cc_configure_extension = module_extension(implementation = _cc_configure_extension_impl)
+def _cc_configure_extension_impl(ctx):
+    overriden_tools = dict()
+    for mod in ctx.modules:
+        if mod.is_root:
+            for ot in mod.tags.override_tools:
+                overriden_tools = ot.tools
+            break
+
+    cc_autoconf_toolchains(name = "local_config_cc_toolchains")
+    cc_autoconf(name = "local_config_cc", overriden_tools=overriden_tools)
+
+cc_configure_extension = module_extension(
+    implementation = _cc_configure_extension_impl,
+    tag_classes = {"override_tools": _override_tools}
+)
