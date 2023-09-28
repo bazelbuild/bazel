@@ -126,8 +126,8 @@ public abstract class BazelLockFileValue implements SkyValue, Postable {
       byte[] transitiveDigest,
       boolean filesChanged,
       ImmutableMap<String, String> envVariables,
-      ImmutableMap<ModuleKey, ModuleExtensionUsage> extensionUsages,
-      ImmutableMap<ModuleKey, ModuleExtensionUsage> lockedExtensionUsages) {
+      ImmutableList<Map.Entry<ModuleKey, ModuleExtensionUsage>> extensionUsages,
+      ImmutableList<Map.Entry<ModuleKey, ModuleExtensionUsage>> lockedExtensionUsages) {
 
     ImmutableList.Builder<String> extDiff = new ImmutableList.Builder<>();
     if (!Arrays.equals(transitiveDigest, lockedExtension.getBzlTransitiveDigest())) {

@@ -282,13 +282,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     boolean filesChanged = didFilesChange(env, lockedExtension.getAccumulatedFileDigests());
     // Check extension data in lockfile is still valid, disregarding usage information that is not
     // relevant for the evaluation of the extension.
-    var trimmedLockedUsages =
-        ImmutableMap.copyOf(
-            transformValues(lockedExtensionUsages, ModuleExtensionUsage::trimForEvaluation));
-    var trimmedUsages =
-        ImmutableMap.copyOf(
-            transformValues(
-                usagesValue.getExtensionUsages(), ModuleExtensionUsage::trimForEvaluation));
+    var trimmedLockedUsages = ModuleExtensionUsage.trimForEvaluation(lockedExtensionUsages);
+    var trimmedUsages = ModuleExtensionUsage.trimForEvaluation(usagesValue.getExtensionUsages());
     if (!filesChanged
         && Arrays.equals(bzlTransitiveDigest, lockedExtension.getBzlTransitiveDigest())
         && trimmedUsages.equals(trimmedLockedUsages)

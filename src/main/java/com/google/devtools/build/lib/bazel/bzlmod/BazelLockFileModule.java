@@ -206,14 +206,9 @@ public class BazelLockFileModule extends BlazeModule {
     // that irrelevant changes (e.g. locations or imports) don't cause the extension to be removed.
     // Note: Extension results can still be stale for other reasons, e.g. because their transitive
     // bzl hash changed, but such changes will be detected in SingleExtensionEvalFunction.
-    var currentTrimmedUsages =
-        Maps.transformValues(
-            moduleResolutionEvent.getExtensionUsagesById().row(extensionId),
-            ModuleExtensionUsage::trimForEvaluation);
-    var lockedTrimmedUsages =
-        Maps.transformValues(
-            oldExtensionUsages.row(extensionId), ModuleExtensionUsage::trimForEvaluation);
-    return currentTrimmedUsages.equals(lockedTrimmedUsages);
+    return ModuleExtensionUsage.trimForEvaluation(
+            moduleResolutionEvent.getExtensionUsagesById().row(extensionId))
+        .equals(ModuleExtensionUsage.trimForEvaluation(oldExtensionUsages.row(extensionId)));
   }
 
   /**

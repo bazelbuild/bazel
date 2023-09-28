@@ -1339,11 +1339,113 @@ class BazelLockfileTest(test_base.TestBase):
     with open('MODULE.bazel.lock', 'r') as json_file:
       lockfile = json.load(json_file)
     remote_patches = lockfile['moduleDepGraph']['ss@1.3-1']['repoSpec'][
-        'attributes'
+      'attributes'
     ]['remote_patches']
     for key in remote_patches.keys():
       self.assertIn('%workspace%', key)
 
+  def testExtensionEvaluationRerunsIfDepGraphOrderChanges(self):
+    self.ScratchFile(
+      'MODULE.bazel',
+      [
+        'module(name = "root", version = "1.0")',
+        'bazel_dep(name = "aaa", version = "1.0")',
+        'bazel_dep(name = "bbb", version = "1.0")',
+        'ext = use_extension("extension.bzl", "ext")',
+        'ext.tag(value = "root")',
+        'use_repo(ext, "dep")',
+      ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+      'extension.bzl',
+      [
+        'def _repo_rule_impl(ctx):',
+        '    ctx.file("WORKSPACE")',
+        '    ctx.file("BUILD", "exports_files([\\"data.txt\\"])")',
+        '    ctx.file("data.txt", ctx.attr.value)',
+        '    print(ctx.attr.value)',
+        '',
+        'repo_rule = repository_rule(',
+        '    implementation=_repo_rule_impl,',
+        '    attrs = {"value": attr.string()},'
+        ')',
+        '',
+        'def _ext_impl(ctx):',
+        '    print("Ext is being evaluated")',
+        '    values = ",".join([tag.value for mod in ctx.modules for tag in mod.tags.tag])',
+        '    repo_rule(name="dep", value="Ext saw values: " + values)',
+        '',
+        'ext = module_extension(',
+        '    implementation=_ext_impl,',
+        '    tag_classes={"tag": tag_class(attrs={"value": attr.string()})}',
+        ')',
+      ],
+    )
+    self.main_registry.createCcModule('aaa', '1.0', extra_module_file_contents=[
+      'bazel_dep(name = "root", version = "1.0")',
+      'ext = use_extension("@root//:extension.bzl", "ext")',
+      'ext.tag(value = "aaa")',
+    ])
+    self.main_registry.createCcModule('bbb', '1.0', extra_module_file_contents=[
+      'bazel_dep(name = "root", version = "1.0")',
+      'ext = use_extension("@root//:extension.bzl", "ext")',
+      'ext.tag(value = "bbb")',
+    ])
+
+    _, _, stderr = self.RunBazel(['build', '@dep//:all'])
+    stderr = '\n'.join(stderr)
+
+    self.assertIn('Ext is being evaluated', stderr)
+    self.assertIn('Ext saw values: root,aaa,bbb', stderr)
+    ext_key = '//:extension.bzl%ext'
+    with open('MODULE.bazel.lock', 'r') as json_file:
+      lockfile = json.load(json_file)
+    self.assertIn(ext_key, lockfile['moduleExtensions'])
+    self.assertIn('Ext saw values: root,aaa,bbb',
+                  lockfile['moduleExtensions'][ext_key]['general']['generatedRepoSpecs']['dep'][
+                    'attributes']['value'])
+
+    # Shut down bazel to empty the cache, modify the MODULE.bazel file in a way that only changes
+    # the order of the bazel_deps on aaa and bbb, which results in their usages being ordered
+    # differently in module_ctx.modules, which is visible to the extension. Rerun a build that
+    # does not trigger evaluation of the extension.
+    self.RunBazel(['shutdown'])
+    self.ScratchFile(
+      'MODULE.bazel',
+      [
+        'module(name = "root", version = "1.0")',
+        'bazel_dep(name = "bbb", version = "1.0")',
+        'bazel_dep(name = "aaa", version = "1.0")',
+        'ext = use_extension("extension.bzl", "ext")',
+        'ext.tag(value = "root")',
+        'use_repo(ext, "dep")',
+      ],
+    )
+    _, _, stderr = self.RunBazel(['build', '//:all'])
+    stderr = '\n'.join(stderr)
+
+    self.assertNotIn('Ext is being evaluated', stderr)
+    with open('MODULE.bazel.lock', 'r') as json_file:
+      lockfile = json.load(json_file)
+    # The order of usages of ext changed, but the extension is not re-evaluated, so its previous,
+    # now stale resolution result must have been removed.
+    self.assertNotIn(ext_key, lockfile['moduleExtensions'])
+
+    # Trigger evaluation of the extension.
+    _, _, stderr = self.RunBazel(['build', '@dep//:all'])
+    stderr = '\n'.join(stderr)
+
+    self.assertIn('Ext is being evaluated', stderr)
+    self.assertIn('Ext saw values: root,bbb,aaa', stderr)
+    ext_key = '//:extension.bzl%ext'
+    with open('MODULE.bazel.lock', 'r') as json_file:
+      lockfile = json.load(json_file)
+    self.assertIn(ext_key, lockfile['moduleExtensions'])
+    self.assertIn('Ext saw values: root,bbb,aaa',
+                  lockfile['moduleExtensions'][ext_key]['general']['generatedRepoSpecs']['dep'][
+                    'attributes']['value'])
+    
 
 if __name__ == '__main__':
   absltest.main()
