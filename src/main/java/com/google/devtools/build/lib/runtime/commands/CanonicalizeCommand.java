@@ -96,14 +96,6 @@ public final class CanonicalizeCommand implements BlazeCommand {
     public boolean canonicalizePolicy;
 
     @Option(
-        name = "show_warnings",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
-        help = "Output parser warnings to standard error (e.g. for conflicting flag options).")
-    public boolean showWarnings;
-
-    @Option(
         name = "experimental_include_default_values",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
@@ -236,12 +228,6 @@ public final class CanonicalizeCommand implements BlazeCommand {
       InvocationPolicyEnforcer invocationPolicyEnforcer =
           new InvocationPolicyEnforcer(policy, Level.INFO, mainRepoMapping);
       invocationPolicyEnforcer.enforce(parser, commandName);
-
-      if (canonicalizeOptions.showWarnings) {
-        for (String warning : parser.getWarnings()) {
-          env.getReporter().handle(Event.warn(warning));
-        }
-      }
 
       // Print out the canonical invocation policy if requested.
       if (canonicalizeOptions.canonicalizePolicy) {
