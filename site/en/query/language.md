@@ -1193,6 +1193,52 @@ Like `label`, this output format prints the labels of
 each target in the resulting graph, in topological order, but it
 additionally precedes the label by the [_kind_](#kind) of the target.
 
+### Print targets in protocol buffer format {:#print-target-proto}
+
+```
+--output proto
+```
+
+Prints the query output as a
+[`QueryResult`](https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/build.proto)
+protocol buffer.
+
+### Print targets in length-delimited protocol buffer format {:#print-target-length-delimited-proto}
+
+```
+--output streamed_proto
+```
+
+Prints a
+[length-delimited](https://protobuf.dev/programming-guides/encoding/#size-limit)
+stream of
+[`Target`](https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/build.proto)
+protocol buffers. This is useful to _(i)_ get around
+[size limitations](https://protobuf.dev/programming-guides/encoding/#size-limit)
+of protocol buffers when there are too many targets to fit in a single
+`QueryResult` or _(ii)_ to start processing while Bazel is still outputting.
+
+### Print targets in text proto format {:#print-target-textproto}
+
+```
+--output textproto
+```
+
+Similar to `--output proto`, prints the
+[`QueryResult`](https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/build.proto)
+protocol buffer but in
+[text format](https://protobuf.dev/reference/protobuf/textformat-spec/).
+
+### Print targets in ndjson format {:#print-target-streamed-jsonproto}
+
+```
+--output streamed_jsonproto
+```
+
+Similar to `--output streamed_proto`, prints a stream of
+[`Target`](https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/build.proto)
+protocol buffers but in [ndjson](http://ndjson.org/) format.
+
 ### Print the label of each target, in rank order {:#print-target-label-rank-order}
 
 ```

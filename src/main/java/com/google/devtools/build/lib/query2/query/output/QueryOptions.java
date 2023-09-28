@@ -41,7 +41,7 @@ public class QueryOptions extends CommonQueryOptions {
       help =
           "The format in which the query results should be printed. Allowed values for query are:"
               + " build, graph, streamed_jsonproto, label, label_kind, location, maxrank, minrank,"
-              + " package, proto, xml.")
+              + " package, proto, streamed_proto, textproto, xml.")
   public String outputFormat;
 
   @Option(
