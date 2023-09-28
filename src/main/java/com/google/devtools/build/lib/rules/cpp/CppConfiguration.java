@@ -799,10 +799,6 @@ public final class CppConfiguration extends Fragment
     return disableNoCopts();
   }
 
-  public boolean loadCcRulesFromBzl() {
-    return cppOptions.loadCcRulesFromBzl;
-  }
-
   public boolean validateTopLevelHeaderInclusions() {
     return cppOptions.validateTopLevelHeaderInclusions;
   }

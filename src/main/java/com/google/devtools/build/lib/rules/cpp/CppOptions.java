@@ -924,15 +924,6 @@ public class CppOptions extends FragmentOptions {
   public boolean enableCcTestFeature;
 
   @Option(
-      name = "incompatible_load_cc_rules_from_bzl",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "No-op flag. Will be removed in a future release.")
-  public boolean loadCcRulesFromBzl;
-
-  @Option(
       name = "apple_generate_dsym",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
@@ -1206,7 +1197,6 @@ public class CppOptions extends FragmentOptions {
     exec.useStandaloneLtoIndexingCommandLines = useStandaloneLtoIndexingCommandLines;
     exec.useSpecificToolFiles = useSpecificToolFiles;
     exec.disableNoCopts = disableNoCopts;
-    exec.loadCcRulesFromBzl = loadCcRulesFromBzl;
     exec.validateTopLevelHeaderInclusions = validateTopLevelHeaderInclusions;
     exec.strictSystemIncludes = strictSystemIncludes;
     exec.useArgsParamsFile = useArgsParamsFile;
