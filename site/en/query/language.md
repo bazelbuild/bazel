@@ -1213,10 +1213,10 @@ Prints a
 [length-delimited](https://protobuf.dev/programming-guides/encoding/#size-limit)
 stream of
 [`Target`](https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/build.proto)
-protocol buffers. This is useful to get around
+protocol buffers. This is useful to _(i)_ get around
 [size limitations](https://protobuf.dev/programming-guides/encoding/#size-limit)
 of protocol buffers when there are too many targets to fit in a single
-`QueryResult`.
+`QueryResult` or _(ii)_ to start processing while Bazel is still outputting.
 
 ### Print targets in text proto format {:#print-target-textproto}
 
