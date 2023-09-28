@@ -128,6 +128,8 @@ public class BazelDepGraphFunction implements SkyFunction {
         calculateUniqueNameForUsedExtensionId(extensionUsagesById);
 
     if (!lockfileMode.equals(LockfileMode.OFF)) {
+      // This will keep all module extension evaluation results, some of which may be stale due to
+      // changed usages. They will be removed in BazelLockFileModule.
       BazelLockFileValue updateLockfile =
           lockfile.toBuilder()
               .setLockFileVersion(BazelLockFileValue.LOCK_FILE_VERSION)
