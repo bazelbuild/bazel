@@ -17,7 +17,9 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.skyframe.AbstractSkyKey;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -27,9 +29,40 @@ import com.google.devtools.build.skyframe.SkyValue;
  */
 @AutoValue
 public abstract class BazelFetchAllValue implements SkyValue {
-  @SerializationConstant public static final SkyKey KEY = () -> SkyFunctions.BAZEL_FETCH_ALL;
+
+  /** Creates a key from the given repository name. */
+  public static BazelFetchAllValue.Key key(Boolean configureEnabled) {
+    return BazelFetchAllValue.Key.create(configureEnabled);
+  }
 
   public static BazelFetchAllValue create() {
     return new AutoValue_BazelFetchAllValue();
+  }
+
+  /** Key type for BazelFetchAllValue. */
+  @AutoCodec.VisibleForSerialization
+  @AutoCodec
+  public static class Key extends AbstractSkyKey<Boolean> {
+    private static final SkyKeyInterner<BazelFetchAllValue.Key> interner = SkyKey.newInterner();
+
+    private Key(Boolean arg) {
+      super(arg);
+    }
+
+    @AutoCodec.VisibleForSerialization
+    @AutoCodec.Instantiator
+    static BazelFetchAllValue.Key create(Boolean arg) {
+      return interner.intern(new BazelFetchAllValue.Key(arg));
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.BAZEL_FETCH_ALL;
+    }
+
+    @Override
+    public SkyKeyInterner<BazelFetchAllValue.Key> getSkyKeyInterner() {
+      return interner;
+    }
   }
 }

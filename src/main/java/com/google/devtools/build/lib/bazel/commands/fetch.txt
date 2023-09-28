@@ -1,6 +1,8 @@
 
-Usage: %{product} %{command} [<option> ...] --all or <targets>
+Usage: %{product} %{command} [<option> ...]
 
-Fetches all external dependencies, or fetch dependencies only for given targets
+  - --all: Fetches all external dependencies, only works with bzlmod
+  - --configure: Only fetches repositories marked as 'configure', only works with bzlmod
+  - <targets>: Fetches dependencies only for given targets
 
 %{options}

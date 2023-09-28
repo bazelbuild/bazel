@@ -30,9 +30,18 @@ public class FetchOptions extends OptionsBase {
               + " works when --enable_bzlmod is on.")
   public boolean all;
 
+  @Option(
+      name = "configure",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help =
+          "Only fetch repositories marked as 'configure' for system-configuration purpose. Only"
+              + " works when --enable_bzlmod is on.")
+  public boolean configure;
+
   /*TODO(salmasamy) add more options:
    * repo: to fetch a specific repo
    * force: to force fetch even if a repo exists
-   * configure: to fetch only the repos marked as configure
    */
 }

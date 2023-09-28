@@ -48,6 +48,27 @@ class BazelFetchTest(test_base.TestBase):
     # The existence of WORKSPACE.bzlmod prevents WORKSPACE prefixes or suffixes
     # from being used; this allows us to test built-in modules actually work
     self.ScratchFile('WORKSPACE.bzlmod')
+    self.generatBuiltinModules()
+
+  def generatBuiltinModules(self):
+    self.ScratchFile('platforms_mock/BUILD')
+    self.ScratchFile('platforms_mock/WORKSPACE')
+    self.ScratchFile(
+        'platforms_mock/MODULE.bazel', ['module(name="local_config_platform")']
+    )
+
+    self.ScratchFile('tools_mock/BUILD')
+    self.ScratchFile('tools_mock/WORKSPACE')
+    self.ScratchFile('tools_mock/MODULE.bazel', ['module(name="bazel_tools")'])
+    self.ScratchFile('tools_mock/tools/build_defs/repo/BUILD')
+    self.CopyFile(
+        self.Rlocation('io_bazel/tools/build_defs/repo/http.bzl'),
+        'tools_mock/tools/build_defs/repo/http.bzl',
+    )
+    self.CopyFile(
+        self.Rlocation('io_bazel/tools/build_defs/repo/utils.bzl'),
+        'tools_mock/tools/build_defs/repo/utils.bzl',
+    )
 
   def testFetchAll(self):
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
@@ -74,29 +95,9 @@ class BazelFetchTest(test_base.TestBase):
             'repo_rule = repository_rule(implementation=_repo_rule_impl)',
             '',
             'def _ext_impl(ctx):',
-            '    print("I was called!")',
             '    repo_rule(name="hello")',
             'ext = module_extension(implementation=_ext_impl)',
         ],
-    )
-
-    self.ScratchFile('platforms_mock/BUILD')
-    self.ScratchFile('platforms_mock/WORKSPACE')
-    self.ScratchFile(
-        'platforms_mock/MODULE.bazel', ['module(name="local_config_platform")']
-    )
-
-    self.ScratchFile('tools_mock/BUILD')
-    self.ScratchFile('tools_mock/WORKSPACE')
-    self.ScratchFile('tools_mock/MODULE.bazel', ['module(name="bazel_tools")'])
-    self.ScratchFile('tools_mock/tools/build_defs/repo/BUILD')
-    self.CopyFile(
-        self.Rlocation('io_bazel/tools/build_defs/repo/http.bzl'),
-        'tools_mock/tools/build_defs/repo/http.bzl',
-    )
-    self.CopyFile(
-        self.Rlocation('io_bazel/tools/build_defs/repo/utils.bzl'),
-        'tools_mock/tools/build_defs/repo/utils.bzl',
     )
 
     self.RunBazel(['fetch', '--all'])
@@ -105,6 +106,57 @@ class BazelFetchTest(test_base.TestBase):
     self.assertIn('aaa~1.0', repos_fetched)
     self.assertIn('bbb~1.0', repos_fetched)
     self.assertIn('_main~ext~hello', repos_fetched)
+
+  def testFetchConfig(self):
+    self.main_registry.createCcModule('aaa', '1.0').createCcModule(
+        'bbb', '1.0', {'aaa': '1.0'}
+    )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.0")',
+            'ext = use_extension("extension.bzl", "ext")',
+            'use_repo(ext, "notConfig")',
+            'use_repo(ext, "IamConfig")',
+            'local_path_override(module_name="bazel_tools", path="tools_mock")',
+            'local_path_override(module_name="local_config_platform", ',
+            'path="platforms_mock")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("WORKSPACE")',
+            '    ctx.file("BUILD")',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule2 = repository_rule(implementation=_repo_rule_impl, ',
+            'configure=True)',
+            '',
+            'def _ext_impl(ctx):',
+            '    repo_rule(name="notConfig")',
+            '    repo_rule2(name="IamConfig")',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+
+    self.RunBazel(['fetch', '--configure'])
+    _, stdout, _ = self.RunBazel(['info', 'output_base'])
+    repos_fetched = os.listdir(stdout[0] + '/external')
+    self.assertNotIn('aaa~1.0', repos_fetched)
+    self.assertNotIn('_main~ext~notConfig', repos_fetched)
+    self.assertIn('_main~ext~IamConfig', repos_fetched)
+
+  def testFetchFailsWithMultipleOptions(self):
+    exit_code, _, stderr = self.RunBazel(
+        ['fetch', '--all', '--configure'], allow_failure=True
+    )
+    self.AssertExitCode(exit_code, 2, stderr)
+    self.assertIn(
+        'ERROR: Only one fetch option should be provided for fetch command.',
+        stderr,
+    )
 
 
 if __name__ == '__main__':

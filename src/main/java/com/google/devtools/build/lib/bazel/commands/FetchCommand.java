@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.commands;
 
+import static com.google.common.primitives.Booleans.countTrue;
+
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -87,8 +89,15 @@ public final class FetchCommand implements BlazeCommand {
       env.getReporter().handle(Event.error(null, errorMessage));
       return createFailedBlazeCommandResult(Code.OPTIONS_INVALID, errorMessage);
     }
-
     FetchOptions fetchOptions = options.getOptions(FetchOptions.class);
+    // Validate only one option is provided for fetch
+    boolean moreThanOneOption =
+        countTrue(fetchOptions.all, fetchOptions.configure, !options.getResidue().isEmpty()) > 1;
+    if (moreThanOneOption) {
+      String errorMessage = "Only one fetch option should be provided for fetch command.";
+      env.getReporter().handle(Event.error(null, errorMessage));
+      return createFailedBlazeCommandResult(Code.OPTIONS_INVALID, errorMessage);
+    }
     LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
 
     env.getEventBus()
@@ -100,8 +109,9 @@ public final class FetchCommand implements BlazeCommand {
                 /* showProgress= */ true,
                 /* id= */ null));
     BlazeCommandResult result;
-    if (fetchOptions.all) {
-      result = fetchAll(env, options, threadsOption);
+
+    if (fetchOptions.all || fetchOptions.configure) {
+      return fetchAll(env, options, fetchOptions.configure, threadsOption);
     } else {
       result = fetchTarget(env, options, threadsOption);
     }
@@ -115,6 +125,7 @@ public final class FetchCommand implements BlazeCommand {
   private BlazeCommandResult fetchAll(
       CommandEnvironment env,
       OptionsParsingResult options,
+      boolean configureEnabled,
       LoadingPhaseThreadsOption threadsOption) {
     if (!options.getOptions(BuildLanguageOptions.class).enableBzlmod) {
       String errorMessage =
@@ -135,7 +146,7 @@ public final class FetchCommand implements BlazeCommand {
       env.syncPackageLoading(options);
       EvaluationResult<SkyValue> evaluationResult =
           skyframeExecutor.prepareAndGet(
-              ImmutableSet.of(BazelFetchAllValue.KEY), evaluationContext);
+              ImmutableSet.of(BazelFetchAllValue.key(configureEnabled)), evaluationContext);
       if (evaluationResult.hasError()) {
         Exception e = evaluationResult.getError().getException();
         String errorMessage =
