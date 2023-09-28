@@ -788,6 +788,7 @@ class BazelLockfileTest(test_base.TestBase):
             'repo_rule = repository_rule(implementation=_repo_rule_impl)',
             '',
             'def _module_ext_impl(ctx):',
+            '    print("I am running the extension")',
             '    print(ctx.read(Label("//:hello.txt")))',
             '    repo_rule(name="hello")',
             '',
@@ -799,17 +800,23 @@ class BazelLockfileTest(test_base.TestBase):
 
     self.ScratchFile('hello.txt', ['I will not stay the same.'])
     _, _, stderr = self.RunBazel(['build', '@hello//:all'])
-    self.assertIn('I will not stay the same.', ''.join(stderr))
+    stderr = ''.join(stderr)
+    self.assertIn('I am running the extension', stderr)
+    self.assertIn('I will not stay the same.', stderr)
 
     # Shutdown bazel to empty cache and run with no changes
     self.RunBazel(['shutdown'])
     _, _, stderr = self.RunBazel(['build', '@hello//:all'])
-    self.assertNotIn('I will not stay the same.', ''.join(stderr))
+    stderr = ''.join(stderr)
+    self.assertNotIn('I am running the extension', stderr)
+    self.assertNotIn('I will not stay the same.', stderr)
 
     # Update file and rerun
     self.ScratchFile('hello.txt', ['I have changed now!'])
     _, _, stderr = self.RunBazel(['build', '@hello//:all'])
-    self.assertIn('I have changed now!', ''.join(stderr))
+    stderr = ''.join(stderr)
+    self.assertIn('I am running the extension', stderr)
+    self.assertIn('I have changed now!', stderr)
 
   def testOldVersion(self):
     self.ScratchFile('MODULE.bazel')

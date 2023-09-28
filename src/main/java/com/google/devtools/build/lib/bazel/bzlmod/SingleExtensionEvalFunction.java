@@ -179,17 +179,21 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       if (lockfile == null) {
         return null;
       }
-      SingleExtensionEvalValue singleExtensionEvalValue =
-          tryGettingValueFromLockFile(
-              env,
-              extensionId,
-              extensionFactors,
-              extensionEnvVars,
-              usagesValue,
-              bzlTransitiveDigest,
-              lockfile);
-      if (singleExtensionEvalValue != null) {
-        return singleExtensionEvalValue;
+      try {
+        SingleExtensionEvalValue singleExtensionEvalValue =
+            tryGettingValueFromLockFile(
+                env,
+                extensionId,
+                extensionFactors,
+                extensionEnvVars,
+                usagesValue,
+                bzlTransitiveDigest,
+                lockfile);
+        if (singleExtensionEvalValue != null) {
+          return singleExtensionEvalValue;
+        }
+      } catch (NeedsSkyframeRestartException e) {
+        return null;
       }
     }
 
@@ -228,6 +232,13 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         generatedRepoSpecs, moduleExtensionMetadata, extensionId, usagesValue, env);
   }
 
+  /**
+   * Tries to get the evaluation result from the lockfile, if it's still up-to-date. Otherwise,
+   * returns {@code null}.
+   *
+   * @throws NeedsSkyframeRestartException in case we need a skyframe restart. Note that we
+   *     <em>don't</em> return {@code null} in this case!
+   */
   @Nullable
   private SingleExtensionEvalValue tryGettingValueFromLockFile(
       Environment env,
@@ -237,7 +248,9 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       SingleExtensionUsagesValue usagesValue,
       byte[] bzlTransitiveDigest,
       BazelLockFileValue lockfile)
-      throws SingleExtensionEvalFunctionException, InterruptedException {
+      throws SingleExtensionEvalFunctionException,
+          InterruptedException,
+          NeedsSkyframeRestartException {
     LockfileMode lockfileMode = BazelLockFileFunction.LOCKFILE_MODE.get(env);
 
     var lockedExtensionMap = lockfile.getModuleExtensions().get(extensionId);
@@ -267,11 +280,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       throw new SingleExtensionEvalFunctionException(e, Transience.PERSISTENT);
     }
 
-    Boolean filesChanged = didFilesChange(env, lockedExtension.getAccumulatedFileDigests());
-    if (filesChanged == null) { // still calculating file changes
-      return null;
-    }
-
+    boolean filesChanged = didFilesChange(env, lockedExtension.getAccumulatedFileDigests());
     // Check extension data in lockfile is still valid, disregarding usage information that is not
     // relevant for the evaluation of the extension.
     var trimmedLockedUsages = trimUsagesForEvaluation(lockedExtensionUsages);
@@ -307,10 +316,9 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     return null;
   }
 
-  @Nullable
-  private Boolean didFilesChange(
+  private boolean didFilesChange(
       Environment env, ImmutableMap<Label, String> accumulatedFileDigests)
-      throws InterruptedException {
+      throws InterruptedException, NeedsSkyframeRestartException {
     // Turn labels into FileValue keys & get those values
     Map<Label, FileValue.Key> fileKeys = new HashMap<>();
     for (Label label : accumulatedFileDigests.keySet()) {
@@ -318,7 +326,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         RootedPath rootedPath = RepositoryFunction.getRootedPathFromLabel(label, env);
         fileKeys.put(label, FileValue.key(rootedPath));
       } catch (NeedsSkyframeRestartException e) {
-        return null;
+        throw e;
       } catch (EvalException e) {
         // Consider those exception to be a cause for invalidation
         return true;
@@ -326,7 +334,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     }
     SkyframeLookupResult result = env.getValuesAndExceptions(fileKeys.values());
     if (env.valuesMissing()) {
-      return null;
+      throw new NeedsSkyframeRestartException();
     }
 
     // Compare the collected file values with the hashes stored in the lockfile
