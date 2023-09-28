@@ -54,28 +54,14 @@ final class FormatUtils {
   }
 
   /**
-   * Returns the target location string, optionally relative to its package's source root directory.
-   */
-  static String getLocation(Target target, boolean relative) {
-    Location loc = target.getLocation();
-
-    if (relative) {
-      loc = getRootRelativeLocation(loc, target.getPackage());
-    }
-    return loc.toString();
-  }
-
-  /**
    * Returns the target location string, optionally relative to its package's source root directory
    * and optionally to display the location of source files.
    *
    * @param relative flag to display the location relative to its package's source root directory.
-   * @param displaySourceFileLocation flag to display the location of line 1 of the actual source
-   *     file instead of its location in the BUILD file.
    */
-  static String getLocation(Target target, boolean relative, boolean displaySourceFileLocation) {
+  static String getLocation(Target target, boolean relative) {
     Location loc = target.getLocation();
-    if (target instanceof InputFile && displaySourceFileLocation) {
+    if (target instanceof InputFile) {
       PathFragment packageDir = target.getPackage().getPackageDirectory().asFragment();
       loc = Location.fromFileLineColumn(packageDir.getRelative(target.getName()).toString(), 1, 1);
     }

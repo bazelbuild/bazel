@@ -508,47 +508,23 @@ py_binary(
 EOF
   touch foo/main.py || fail "Could not touch foo/main.py"
 
-  # The incompatible_display_source_file_location flag displays the location of
-  # line 1 of the actual source file
+  # Check that Bazel displays the location of line 1 of the actual source file
   bazel query \
     --output=location \
-    --incompatible_display_source_file_location \
     '//foo:main.py' >& $TEST_log || fail "Expected success"
   expect_log "source file //foo:main.py"
   expect_log "^${TEST_TMPDIR}/.*/foo/main.py:1:1"
   expect_not_log "^${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
 
-  # The noincompatible_display_source_file_location flag displays its location
-  # in the BUILD file
-  bazel query \
-    --output=location \
-    --noincompatible_display_source_file_location \
-    '//foo:main.py' >& $TEST_log || fail "Expected success"
-  expect_log "source file //foo:main.py"
-  expect_log "^${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
-  expect_not_log "^${TEST_TMPDIR}/.*/foo/main.py:1:1"
-
-  # The incompatible_display_source_file_location should still be affected by
-  # relative_locations flag to display the relative location of the source file
+  # Location should still be affected by relative_locations flag to display the
+  # relative location of the source file
   bazel query \
     --output=location \
     --relative_locations \
-    --incompatible_display_source_file_location \
     '//foo:main.py' >& $TEST_log || fail "Expected success"
   expect_log "source file //foo:main.py"
   expect_log "^foo/main.py:1:1"
   expect_not_log "^${TEST_TMPDIR}/.*/foo/main.py:1:1"
-
-  # The noincompatible_display_source_file_location flag should still be
-  # affected by relative_locations flag to display the relative location of
-  # the BUILD file.
-  bazel query --output=location \
-    --relative_locations \
-    --noincompatible_display_source_file_location \
-    '//foo:main.py' >& $TEST_log || fail "Expected success"
-  expect_log "source file //foo:main.py"
-  expect_log "^foo/BUILD:[0-9]*:[0-9]*"
-  expect_not_log "^${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
 }
 
 function test_proto_output_source_files() {
@@ -563,17 +539,10 @@ EOF
   touch foo/main.py || fail "Could not touch foo/main.py"
 
   bazel query --output=proto \
-    --incompatible_display_source_file_location \
     '//foo:main.py' >& $TEST_log || fail "Expected success"
 
   expect_log "${TEST_TMPDIR}/.*/foo/main.py:1:1" $TEST_log
   expect_not_log "${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*" $TEST_log
-
-  bazel query --output=proto \
-    --noincompatible_display_source_file_location \
-    '//foo:main.py' >& $TEST_log || fail "Expected success"
-  expect_log "${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*" $TEST_log
-  expect_not_log "${TEST_TMPDIR}/.*/foo/main.py:1:1" $TEST_log
 }
 
 function test_xml_output_source_files() {
@@ -588,16 +557,9 @@ EOF
   touch foo/main.py || fail "Could not touch foo/main.py"
 
   bazel query --output=xml \
-    --incompatible_display_source_file_location \
     '//foo:main.py' >& $TEST_log || fail "Expected success"
   expect_log "location=\"${TEST_TMPDIR}/.*/foo/main.py:1:1"
   expect_not_log "location=\"${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
-
-  bazel query --output=xml \
-    --noincompatible_display_source_file_location \
-    '//foo:main.py' >& $TEST_log || fail "Expected success"
-  expect_log "location=\"${TEST_TMPDIR}/.*/foo/BUILD:[0-9]*:[0-9]*"
-  expect_not_log "location=\"${TEST_TMPDIR}/.*/foo/main.py:1:1"
 }
 
 function test_subdirectory_named_external() {

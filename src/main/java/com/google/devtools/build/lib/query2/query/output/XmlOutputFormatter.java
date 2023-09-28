@@ -64,7 +64,6 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   private DependencyFilter dependencyFilter;
   private boolean packageGroupIncludesDoubleSlash;
   private boolean relativeLocations;
-  private boolean displaySourceFileLocation;
   private QueryOptions queryOptions;
 
   @Override
@@ -87,7 +86,6 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
     this.dependencyFilter = FormatUtils.getDependencyFilter(options);
     this.packageGroupIncludesDoubleSlash = options.incompatiblePackageGroupIncludesDoubleSlash;
     this.relativeLocations = options.relativeLocations;
-    this.displaySourceFileLocation = options.displaySourceFileLocation;
 
     Preconditions.checkArgument(options instanceof QueryOptions);
     this.queryOptions = (QueryOptions) options;
@@ -247,7 +245,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
     }
 
     elem.setAttribute("name", labelPrinter.toString(target.getLabel()));
-    String location = FormatUtils.getLocation(target, relativeLocations, displaySourceFileLocation);
+    String location = FormatUtils.getLocation(target, relativeLocations);
     if (!queryOptions.xmlLineNumbers) {
       int firstColon = location.indexOf(':');
       if (firstColon != -1) {

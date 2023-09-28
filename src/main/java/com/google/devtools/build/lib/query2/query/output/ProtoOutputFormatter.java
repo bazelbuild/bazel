@@ -101,7 +101,6 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   private DependencyFilter dependencyFilter;
   private boolean packageGroupIncludesDoubleSlash;
   private boolean relativeLocations;
-  private boolean displaySourceFileLocation;
   private boolean includeDefaultValues = true;
   private Predicate<String> ruleAttributePredicate = Predicates.alwaysTrue();
   private boolean flattenSelects = true;
@@ -128,7 +127,6 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     this.dependencyFilter = FormatUtils.getDependencyFilter(options);
     this.packageGroupIncludesDoubleSlash = options.incompatiblePackageGroupIncludesDoubleSlash;
     this.relativeLocations = options.relativeLocations;
-    this.displaySourceFileLocation = options.displaySourceFileLocation;
     this.includeDefaultValues = options.protoIncludeDefaultValues;
     this.ruleAttributePredicate = newAttributePredicate(options.protoOutputRuleAttributes);
     this.flattenSelects = options.protoFlattenSelects;
@@ -298,8 +296,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
           Build.SourceFile.newBuilder().setName(labelPrinter.toString(label));
 
       if (includeLocations) {
-        input.setLocation(
-            FormatUtils.getLocation(target, relativeLocations, displaySourceFileLocation));
+        input.setLocation(FormatUtils.getLocation(target, relativeLocations));
       }
 
       if (inputFile.getName().equals("BUILD")) {

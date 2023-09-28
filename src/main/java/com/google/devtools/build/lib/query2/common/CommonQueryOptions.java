@@ -191,23 +191,6 @@ public class CommonQueryOptions extends OptionsBase {
   }
 
   ///////////////////////////////////////////////////////////
-  // LOCATION OUTPUT FORMATTER OPTIONS                     //
-  ///////////////////////////////////////////////////////////
-
-  // TODO(tanzhengwei): Clean up in next major release
-  @Option(
-      name = "incompatible_display_source_file_location",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.QUERY,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "True by default, displays the target of the source file. "
-              + "If true, displays the location of line 1 of source files in location outputs. "
-              + "This flag only exists for migration purposes.")
-  public boolean displaySourceFileLocation;
-
-  ///////////////////////////////////////////////////////////
   // PROTO OUTPUT FORMATTER OPTIONS                        //
   ///////////////////////////////////////////////////////////
 

@@ -41,7 +41,6 @@ import java.io.OutputStream;
 class LocationOutputFormatter extends AbstractUnorderedFormatter {
 
   private boolean relativeLocations;
-  private boolean displaySourceFileLocation;
 
   @Override
   public String getName() {
@@ -53,7 +52,6 @@ class LocationOutputFormatter extends AbstractUnorderedFormatter {
       CommonQueryOptions options, AspectResolver aspectResolver, HashFunction hashFunction) {
     super.setOptions(options, aspectResolver, hashFunction);
     this.relativeLocations = options.relativeLocations;
-    this.displaySourceFileLocation = options.displaySourceFileLocation;
   }
 
   @Override
@@ -84,7 +82,7 @@ class LocationOutputFormatter extends AbstractUnorderedFormatter {
         final String lineTerm = options.getLineTerminator();
         for (Target target : partialResult) {
           writer
-              .append(FormatUtils.getLocation(target, relativeLocations, displaySourceFileLocation))
+              .append(FormatUtils.getLocation(target, relativeLocations))
               .append(": ")
               .append(target.getTargetKind())
               .append(" ")
