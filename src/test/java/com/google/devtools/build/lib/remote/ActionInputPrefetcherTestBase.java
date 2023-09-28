@@ -439,8 +439,9 @@ public abstract class ActionInputPrefetcherTestBase {
     Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
         createRemoteTreeArtifact(
             "dir",
-            /* localContentMap= */ ImmutableMap.of("subdir/file1", "content1"),
-            /* remoteContentMap= */ ImmutableMap.of("subdir/file2", "content2"),
+            /* localContentMap= */ ImmutableMap.of(),
+            /* remoteContentMap= */ ImmutableMap.of(
+                "subdir/file1", "content1", "subdir/file2", "content2"),
             metadata,
             cas);
     SpecialArtifact tree = treeAndChildren.getFirst();
