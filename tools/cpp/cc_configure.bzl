@@ -52,14 +52,13 @@ cc_autoconf_toolchains = repository_rule(
     configure = True,
 )
 
-def cc_autoconf_impl(repository_ctx, overriden_tools = dict()):
+def cc_autoconf_impl(repository_ctx):
     """Generate BUILD file with 'cc_toolchain' targets for the local host C++ toolchain.
 
     Args:
        repository_ctx: repository context
-       overriden_tools: dict of tool paths to use instead of autoconfigured tools
     """
-
+    overriden_tools = repository_ctx.attr.overriden_tools
     env = repository_ctx.os.environ
     cpu_value = get_cpu_value(repository_ctx)
     if "BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN" in env and env["BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN"] == "1":
@@ -107,6 +106,11 @@ MSVC_ENVVARS = [
 ]
 
 cc_autoconf = repository_rule(
+    attrs = {
+        "overriden_tools": attr.string_dict(
+            doc = "dict of tool paths to use instead of autoconfigured tools",
+        ),
+    },
     environ = [
         "ABI_LIBC_VERSION",
         "ABI_VERSION",
