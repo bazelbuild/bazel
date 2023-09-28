@@ -434,7 +434,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @Nullable final DiffAwarenessManager diffAwarenessManager;
   // If this is null then workspace header pre-calculation won't happen.
   @Nullable private final SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder;
-  private boolean repositoryHelpersHolderIgnored = false;
   @Nullable private final WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver;
   private Set<String> previousClientEnvironment = ImmutableSet.of();
 
@@ -1043,12 +1042,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // external repository support. They are never needed if external repositories are disabled. To
     // avoid complexity from toggling this, just choose a setting for the lifetime of the server.
     // TODO(b/283125139): Can we support external repositories without tracking transitive packages?
-    return repositoryHelpersHolder != null && !repositoryHelpersHolderIgnored;
-  }
-
-  @VisibleForTesting
-  public void ignoreRepositoryHelpersHolderForTesting() {
-    this.repositoryHelpersHolderIgnored = true;
+    return repositoryHelpersHolder != null;
   }
 
   @VisibleForTesting

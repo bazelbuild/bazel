@@ -18,10 +18,13 @@ import static com.google.common.truth.TruthJUnit.assume;
 
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.includescanning.IncludeScanningModule;
+import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.testutil.ActionEventRecorder;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -42,7 +45,18 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
     return super.getRuntimeBuilder()
         .addBlazeModule(new IncludeScanningModule())
-        .addBlazeModule(helper.makeControllableActionStrategyModule("standalone"));
+        .addBlazeModule(helper.makeControllableActionStrategyModule("standalone"))
+        .addBlazeModule(
+            new BlazeModule() {
+              @Override
+              public void workspaceInit(
+                  BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
+                // Null out RepositoryHelpersHolder so that we don't trigger
+                // RepoMappingManifestAction. This preserves action graph structure between blaze
+                // and bazel, which is important for this test's assertions.
+                builder.setSkyframeExecutorRepositoryHelpersHolder(null);
+              }
+            });
   }
 
   @Override
@@ -57,9 +71,6 @@ public final class RewindingTest extends BuildIntegrationTestCase {
         "--experimental_remote_include_extraction_size_threshold=0",
         "--keep_going=" + keepGoing);
     runtimeWrapper.registerSubscriber(actionEventRecorder);
-    // Tell Skyframe to ignore RepositoryHelpersHolder so that we don't trigger
-    // RepoMappingManifestAction to preserve the expected order of Actions.
-    this.getSkyframeExecutor().ignoreRepositoryHelpersHolderForTesting();
   }
 
   /**
