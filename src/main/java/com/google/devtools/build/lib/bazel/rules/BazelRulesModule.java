@@ -125,16 +125,6 @@ public final class BazelRulesModule extends BlazeModule {
     public boolean enableProfileByDefault;
 
     @Option(
-        name = "legacy_spawn_scheduler",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "false",
-        deprecationWarning =
-            "The --legacy_spawn_scheduler flag is a no-op and will be removed soon.",
-        help = "Was used to enable the old spawn scheduler. Now a no-op.")
-    public boolean legacySpawnScheduler;
-
-    @Option(
         name = "incompatible_override_toolchain_transition",
         defaultValue = "true",
         deprecationWarning = "This is now always set, please remove this flag.",
@@ -167,15 +157,6 @@ public final class BazelRulesModule extends BlazeModule {
         help = "No-op, will be removed soon.",
         allowMultiple = true)
     public List<String> highPriorityWorkers;
-
-    @Option(
-        name = "use_workers_with_dexbuilder",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.EXECUTION},
-        help = "This option is deprecated and has no effect.")
-    @Deprecated
-    public boolean useWorkersWithDexbuilder;
 
     @Option(
         name = "target_platform_fallback",
@@ -257,14 +238,6 @@ public final class BazelRulesModule extends BlazeModule {
         help = "Deprecated. No-op.",
         deprecationWarning = "This option is now deprecated and is a no-op")
     public boolean announce;
-
-    @Option(
-        name = "print_workspace_in_output_paths_if_needed",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-        help = "Deprecated no-op.")
-    public boolean printWorkspaceInOutputPathsIfNeeded;
 
     @Option(
         name = "action_cache_store_output_metadata",
@@ -529,38 +502,6 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help = "This flag is a noop and scheduled for removal.")
     public boolean experimentalJavaProtoAddAllowedPublicImports;
-
-    @Option(
-        name = "watchos_simulator_version",
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        help = "No-op")
-    public String watchosSimulatorVersion;
-
-    @Option(
-        name = "watchos_simulator_device",
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        help = "No-op")
-    public String watchosSimulatorDevice;
-
-    @Option(
-        name = "tvos_simulator_version",
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        help = "No-op")
-    public String tvosSimulatorVersion;
-
-    @Option(
-        name = "tvos_simulator_device",
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        help = "No-op")
-    public String tvosSimulatorDevice;
 
     @Option(
         name = "java_optimization_mode",
