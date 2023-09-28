@@ -480,40 +480,30 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     Path finalTreeRoot = treeRoot;
     Path finalPath = path;
 
-    AtomicBoolean completed = new AtomicBoolean(false);
     Completable download =
-        Completable.using(
-                tempPathGenerator::generateTempPath,
-                tempPath ->
-                    toCompletable(
-                            () ->
-                                doDownloadFile(
-                                    action,
-                                    reporter,
-                                    tempPath,
-                                    finalPath.relativeTo(execRoot),
-                                    metadata,
-                                    priority),
-                            directExecutor())
-                        .doOnComplete(
-                            () -> {
-                              finalizeDownload(dirCtx, finalTreeRoot, tempPath, finalPath);
-                              completed.set(true);
-                            }),
-                tempPath -> {
-                  if (!completed.get()) {
-                    deletePartialDownload(tempPath);
-                  }
-                },
-                // Set eager=false here because we want cleanup the download *after* upstream is
-                // disposed.
-                /* eager= */ false)
-            .doOnError(
-                error -> {
-                  if (error instanceof CacheNotFoundException) {
-                    missingActionInputs.add(actionInput);
-                  }
-                });
+        usingTempPath(
+            (tempPath, alreadyDeleted) ->
+                toCompletable(
+                        () ->
+                            doDownloadFile(
+                                action,
+                                reporter,
+                                tempPath,
+                                finalPath.relativeTo(execRoot),
+                                metadata,
+                                priority),
+                        directExecutor())
+                    .doOnComplete(
+                        () -> {
+                          finalizeDownload(dirCtx, finalTreeRoot, tempPath, finalPath);
+                          alreadyDeleted.set(true);
+                        })
+                    .doOnError(
+                        error -> {
+                          if (error instanceof CacheNotFoundException) {
+                            missingActionInputs.add(actionInput);
+                          }
+                        }));
 
     return downloadCache.executeIfNot(
         finalPath,
@@ -570,6 +560,30 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     // for artifacts produced by local actions.
     tmpPath.chmod(outputPermissions.getPermissionsMode());
     FileSystemUtils.moveFile(tmpPath, finalPath);
+  }
+
+  private interface TaskWithTempPath {
+    Completable run(Path tempPath, AtomicBoolean alreadyDeleted);
+  }
+
+  /**
+   * Runs a task with a temporary path.
+   *
+   * <p>The temporary path will be deleted once the task is done. Set {@code alreadyDeleted} to
+   * signal that deletion is no longer needed.
+   */
+  private Completable usingTempPath(TaskWithTempPath task) {
+    AtomicBoolean alreadyDeleted = new AtomicBoolean(false);
+    return Completable.using(
+        tempPathGenerator::generateTempPath,
+        (tempPath) -> task.run(tempPath, alreadyDeleted),
+        tempPath -> {
+          if (!alreadyDeleted.get()) {
+            deletePartialDownload(tempPath);
+          }
+        },
+        // Clean up after the upstream is disposed to ensure tempPath won't be touched further.
+        /* eager= */ false);
   }
 
   private void deletePartialDownload(Path path) {
