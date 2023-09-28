@@ -31,11 +31,18 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Tests for action rewinding on non-incremental builds. */
-// TODO(b/228090759): Add back actionFromPreviousBuildReevaluated when incrementality is supported.
+/**
+ * Integration tests for action rewinding.
+ *
+ * <p>Uses {@link TestParameter}s to run tests with all four combinations of {@code
+ * --track_incremental_state} and {@code --keep_going}.
+ */
+// TODO(b/228090759): Consider asserting on graph structure to improve coverage for incrementality.
+// TODO(b/228090759): Add back actionFromPreviousBuildReevaluated.
 @RunWith(TestParameterInjector.class)
 public final class RewindingTest extends BuildIntegrationTestCase {
 
+  @TestParameter private boolean trackIncrementalState;
   @TestParameter private boolean keepGoing;
 
   private final ActionEventRecorder actionEventRecorder = new ActionEventRecorder();
@@ -64,11 +71,11 @@ public final class RewindingTest extends BuildIntegrationTestCase {
     super.setupOptions();
     addOptions(
         "--spawn_strategy=standalone",
-        "--notrack_incremental_state",
         "--nouse_action_cache",
         "--rewind_lost_inputs",
         "--features=cc_include_scanning",
         "--experimental_remote_include_extraction_size_threshold=0",
+        "--track_incremental_state=" + trackIncrementalState,
         "--keep_going=" + keepGoing);
     runtimeWrapper.registerSubscriber(actionEventRecorder);
   }

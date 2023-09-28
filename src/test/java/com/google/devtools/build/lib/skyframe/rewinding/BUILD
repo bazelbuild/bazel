@@ -53,7 +53,7 @@ java_library(
 java_test(
     name = "RewindingTest",
     srcs = ["RewindingTest.java"],
-    shard_count = 6,
+    shard_count = 12,
     tags = ["no_windows"],  # BuildIntegrationTestCase isn't fully compatible with Windows.
     deps = [
         ":rewinding_tests_helper",
