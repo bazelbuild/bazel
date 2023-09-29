@@ -950,15 +950,6 @@ public class CppOptions extends FragmentOptions {
   public boolean experimentalStarlarkCcImport;
 
   @Option(
-      name = "incompatible_force_strict_header_check_from_starlark",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.CHANGES_INPUTS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If enabled, set strict header checking in the Starlark API")
-  public boolean forceStrictHeaderCheckFromStarlark;
-
-  @Option(
       name = "experimental_generate_llvm_lcov",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -1190,7 +1181,6 @@ public class CppOptions extends FragmentOptions {
     exec.ignoreParamFile = ignoreParamFile;
     exec.experimentalIncludeScanning = experimentalIncludeScanning;
     exec.enableCcTestFeature = enableCcTestFeature;
-    exec.forceStrictHeaderCheckFromStarlark = forceStrictHeaderCheckFromStarlark;
     exec.useCppCompileHeaderMnemonic = useCppCompileHeaderMnemonic;
 
     // Save host options for further use.

@@ -116,10 +116,7 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
   @Override
   public HeadersCheckingMode determineStarlarkHeadersCheckingMode(
       RuleContext ruleContext, CppConfiguration cppConfig, CcToolchainProvider toolchain) {
-    if (cppConfig.strictHeaderCheckingFromStarlark()) {
-      return HeadersCheckingMode.STRICT;
-    }
-    return HeadersCheckingMode.LOOSE;
+    return HeadersCheckingMode.STRICT;
   }
 
   @Override
