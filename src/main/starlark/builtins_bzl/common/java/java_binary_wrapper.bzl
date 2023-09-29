@@ -27,14 +27,12 @@ def register_java_binary_rules(
         rule_nonexec,
         rule_deploy_jars = None,
         rule_deploy_jars_nonexec = None,
-        is_test_rule_class = False,
         **kwargs):
     """Registers the correct java_binary rule and deploy jar rule
 
     Args:
         rule_exec: (Rule) The executable java_binary rule
         rule_nonexec: (Rule) The non-executable java_binary rule
-        is_test_rule_class: (bool) If this is a test rule
         **kwargs: Actual args to instantiate the rule
     """
 
@@ -60,8 +58,6 @@ def register_java_binary_rules(
         not kwargs.get("tags", []) or "nodeployjar" not in kwargs.get("tags", [])
     ):
         deploy_jar_args = _filtered_dict(kwargs, _DEPLOY_JAR_RULE_ATTRS)
-        if is_test_rule_class:
-            deploy_jar_args["testonly"] = True
 
         # Do not let the deploy jar be matched by wildcard target patterns.
         if "tags" not in deploy_jar_args or not deploy_jar_args["tags"]:
