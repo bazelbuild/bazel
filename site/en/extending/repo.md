@@ -32,17 +32,30 @@ function describe how to create the repository, its content and `BUILD` files.
 
 ## Attributes
 
-An attribute is a rule argument, such as `url` or `sha256`. You must list
-the attributes and their types when you define a repository rule.
+Attribute are rule arguments passed as a dict to the `attrs` rule argument.
+The attributes and their types are defined are listed when you define a
+repository rule. An example definining `url` and `sha256` attributes as
+strings:
 
 ```python
 local_repository = repository_rule(
     implementation=_impl,
     local=True,
-    attrs={"path": attr.string(mandatory=True)})
+    attrs={
+        "url": attr.string(mandatory=True)
+        "sha256": attr.string(mandatory=True)
+    }
+)
 ```
 
-To access an attribute, use `repository_ctx.attr.<attribute_name>`.
+To access an attribute within the implementation function, use
+`repository_ctx.attr.<attribute_name>`:
+
+```python
+def _impl(repository_ctx):
+    url = repository_ctx.attr.url
+    checksum = repository_ctx.attr.sha256
+```
 
 All `repository_rule`s have implicitly defined attributes (just like build
 rules). The two implicit attributes are `name` (just like for build rules) and
