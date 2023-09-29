@@ -3999,4 +3999,60 @@ public class ParallelEvaluatorTest {
     assertThat(key1EvaluationsInflight.get()).isEqualTo(0);
     assertThat(key1EvaluationCount.get()).isEqualTo(3);
   }
+
+  // Regression test for b/225877591 ("Unexpected missing value in PrepareDepsOfPatternsFunction
+  // when there's both a dep with a cached cycle and another dep with an error").
+  @Test
+  public void testDepOnCachedNodeThatItselfDependsOnBothCycleAndError() throws Exception {
+    graph = new InMemoryGraphImpl();
+    SkyKey parentKey = skyKey("parent");
+    SkyKey childKey = skyKey("child");
+    SkyKey cycleKey = skyKey("cycle");
+    SkyKey errorKey = skyKey("error");
+    tester.getOrCreate(cycleKey).addDependency(cycleKey);
+    tester.getOrCreate(errorKey).setHasError(true);
+    tester.getOrCreate(childKey).addDependency(cycleKey).addDependency(errorKey);
+
+    EvaluationResult<StringValue> result = eval(/* keepGoing= */ true, ImmutableList.of(childKey));
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(childKey)
+        .hasCycleInfoThat()
+        .containsExactly(new CycleInfo(ImmutableList.of(childKey), ImmutableList.of(cycleKey)));
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(childKey)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains(errorKey.toString());
+
+    tester
+        .getOrCreate(parentKey)
+        .setBuilder(
+            (key, env) -> {
+              SkyframeLookupResult unusedLookupResult =
+                  env.getValuesAndExceptions(ImmutableList.of(childKey));
+              // env.valuesMissing() should always return true given the graph structure staged
+              // above, regardless of the cached state. (This test case specifically stages a fully
+              // cached graph state and picks on the getValuesAndExceptions method, because that was
+              // the situation of the bug for which this is a regression test.)
+              //
+              // If childKey is legit not yet in the graph, then of course env.valuesMissing()
+              // should return true.
+              //
+              // If childKey is in the graph, then env.valuesMissing() should still return true
+              // because childKey transitively depends on a cycle.
+              assertThat(env.valuesMissing()).isTrue();
+              return null;
+            });
+    result = eval(/* keepGoing= */ true, ImmutableList.of(parentKey));
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(parentKey)
+        .hasCycleInfoThat()
+        .containsExactly(
+            new CycleInfo(ImmutableList.of(parentKey, childKey), ImmutableList.of(cycleKey)));
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(parentKey)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains(errorKey.toString());
+  }
 }

@@ -599,8 +599,28 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       // errors or return a value/null (but there's currently no way to enforce this).
       Thread.currentThread().interrupt();
     }
-    if ((!evaluatorContext.keepGoing() && bubbleErrorInfo == null)
-        || errorInfo.getException() == null) {
+
+    // If we get here, then the dep node is present and also (i) depends on a cycle or (ii) errorful
+    // or (iii) both. The remaining question is whether or not to convey to the SkyFunction that the
+    // dep node is missing.
+    //
+    // If the dep node depends on a cycle, then we always want the SkyFunction to act as though the
+    // dep is missing (cycles are not supposed to be observable by SkyFunctions), so we always set
+    // valuesMissing.
+    //
+    // If the dep node is errorful and we're in nokeep_going mode and not in error bubbling, then
+    // the SkyFunction is not supposed to be able to observe the error and is supposed to act like
+    // the dep is missing, so we set valuesMissing. In contrast, if we are in error bubbling, then
+    // the SkyFunction is supposed to be able to observe the error (so as to have the chance to
+    // produce an enriched error).
+    //
+    // If the dep node is errorful and we're in keep_going mode, then SkyFunction is supposed to be
+    // able to observe the error (say, with a followup SkyframeLookupResult#getOrThrow) so we don't
+    // set valuesMissing.
+    if (!errorInfo.getCycleInfo().isEmpty()
+        || (errorInfo.getException() != null
+            && !evaluatorContext.keepGoing()
+            && bubbleErrorInfo == null)) {
       valuesMissing = true;
       // We arbitrarily record the first child error if we are about to abort.
       if (!evaluatorContext.keepGoing() && depErrorKey == null) {
