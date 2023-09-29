@@ -55,6 +55,7 @@ import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
 import com.google.devtools.build.skyframe.NotifyingHelper.Listener;
 import com.google.devtools.build.skyframe.NotifyingHelper.Order;
+import com.google.devtools.build.skyframe.SkyFunction.Reset;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
 import com.google.errorprone.annotations.ForOverride;
@@ -66,7 +67,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -2691,6 +2694,254 @@ public abstract class MemoizingEvaluatorTest {
     assertThatEvaluationResult(result).hasReverseDepsInGraphThat(dep).isEmpty();
   }
 
+  /** Basic test of rewinding. */
+  @Test
+  public void rewindOneDep() throws Exception {
+    assume().that(resetSupported()).isTrue();
+
+    var inconsistencyReceiver = recordInconsistencies();
+    var rewindableFunction = new RewindableFunction();
+    SkyKey top = skyKey("top");
+    SkyKey dep = skyKey("dep");
+
+    tester.getOrCreate(dep).setBuilder(rewindableFunction);
+    tester
+        .getOrCreate(top)
+        .setBuilder(
+            (skyKey, env) -> {
+              var depValue = (StringValue) env.getValue(dep);
+              if (depValue == null) {
+                return null;
+              }
+              if (depValue.equals(RewindableFunction.STALE_VALUE)) {
+                var rewindGraph = Reset.newRewindGraphFor(top);
+                rewindGraph.putEdge(top, dep);
+                return Reset.of(rewindGraph);
+              }
+              assertThat(depValue).isEqualTo(RewindableFunction.FRESH_VALUE);
+              return new StringValue("topVal");
+            });
+
+    var result = tester.eval(/* keepGoing= */ false, top);
+
+    assertThatEvaluationResult(result).hasEntryThat(top).isEqualTo(new StringValue("topVal"));
+    assertThat(inconsistencyReceiver)
+        .containsExactly(
+            InconsistencyData.resetRequested(top),
+            InconsistencyData.rewind(top, ImmutableSet.of(dep)));
+    assertThat(rewindableFunction.calls).isEqualTo(2);
+
+    if (!incrementalitySupported()) {
+      return; // Skip assertions on dependency edges when they aren't kept.
+    }
+
+    assertThatEvaluationResult(result).hasReverseDepsInGraphThat(dep).containsExactly(top);
+    assertThatEvaluationResult(result).hasDirectDepsInGraphThat(top).containsExactly(dep);
+  }
+
+  /**
+   * Tests the case where multiple parents attempt to rewind the same node concurrently, one
+   * successfully dirties the node, and the other observes the node as already dirty.
+   */
+  @Test
+  public void twoParentsRewindSameDep_markedDirtyOnce() throws Exception {
+    assume().that(resetSupported()).isTrue();
+
+    var inconsistencyReceiver = recordInconsistencies();
+    var rewindableFunction = new RewindableFunction();
+    CyclicBarrier parentBarrier = new CyclicBarrier(2);
+    SkyKey top1 = skyKey("top1");
+    SkyKey top2 = skyKey("top2");
+    SkyKey dep = skyKey("dep");
+
+    tester.getOrCreate(dep).setBuilder(rewindableFunction);
+    injectGraphListenerForTesting(
+        (key, type, order, context) -> {
+          if (type == EventType.MARK_DIRTY && order == Order.AFTER) {
+            awaitUnchecked(parentBarrier);
+          }
+        },
+        /* deterministic= */ false);
+    SkyFunction parentFunction =
+        (skyKey, env) -> {
+          var depValue = (StringValue) env.getValue(dep);
+          if (depValue == null) {
+            return null;
+          }
+          if (depValue.equals(RewindableFunction.STALE_VALUE)) {
+            awaitUnchecked(parentBarrier);
+            var rewindGraph = Reset.newRewindGraphFor(skyKey);
+            rewindGraph.putEdge(skyKey, dep);
+            return Reset.of(rewindGraph);
+          }
+          assertThat(depValue).isEqualTo(RewindableFunction.FRESH_VALUE);
+          return new StringValue("topVal");
+        };
+    tester.getOrCreate(top1).setBuilder(parentFunction);
+    tester.getOrCreate(top2).setBuilder(parentFunction);
+
+    var result = tester.eval(/* keepGoing= */ false, top1, top2);
+
+    assertThatEvaluationResult(result).hasEntryThat(top1).isEqualTo(new StringValue("topVal"));
+    assertThatEvaluationResult(result).hasEntryThat(top2).isEqualTo(new StringValue("topVal"));
+    assertThat(inconsistencyReceiver)
+        .containsExactly(
+            InconsistencyData.resetRequested(top1),
+            InconsistencyData.rewind(top1, ImmutableSet.of(dep)),
+            InconsistencyData.resetRequested(top2),
+            InconsistencyData.rewind(top2, ImmutableSet.of(dep)));
+    assertThat(rewindableFunction.calls).isEqualTo(2);
+
+    if (!incrementalitySupported()) {
+      return; // Skip assertions on dependency edges when they aren't kept.
+    }
+
+    assertThatEvaluationResult(result).hasDirectDepsInGraphThat(top1).containsExactly(dep);
+    assertThatEvaluationResult(result).hasDirectDepsInGraphThat(top2).containsExactly(dep);
+    assertThatEvaluationResult(result).hasReverseDepsInGraphThat(dep).containsExactly(top1, top2);
+  }
+
+  /**
+   * Tests the case where multiple parents attempt to rewind the same node concurrently and one
+   * successfully dirties the node, which then completes before the second parent dirties the node
+   * again.
+   */
+  @Test
+  public void twoParentsRewindSameDep_markedDirtyTwice() throws Exception {
+    assume().that(resetSupported()).isTrue();
+
+    var inconsistencyReceiver = recordInconsistencies();
+    var rewindableFunction = new RewindableFunction();
+    CyclicBarrier parentBarrier = new CyclicBarrier(2);
+    AtomicBoolean isFirstParent = new AtomicBoolean(true);
+    CountDownLatch firstParentDone = new CountDownLatch(1);
+    SkyKey top1 = skyKey("top1");
+    SkyKey top2 = skyKey("top2");
+    SkyKey dep = skyKey("dep");
+
+    tester.getOrCreate(dep).setBuilder(rewindableFunction);
+    injectGraphListenerForTesting(
+        (key, type, order, context) -> {
+          if (type == EventType.MARK_DIRTY && order == Order.BEFORE) {
+            if (!isFirstParent.getAndSet(false)) {
+              // Lost the race. Wait for the first parent to finish so we rewind again. We could
+              // just wait for dep to finish, but then we might mark it dirty before the first
+              // parent uses it, which would lead to flaky BUILDING_PARENT_FOUND_UNDONE_CHILD
+              // inconsistencies.
+              Uninterruptibles.awaitUninterruptibly(firstParentDone);
+            }
+          }
+        },
+        /* deterministic= */ false);
+    SkyFunction parentFunction =
+        (skyKey, env) -> {
+          var depValue = (StringValue) env.getValue(dep);
+          if (depValue == null) {
+            return null;
+          }
+          if (depValue.equals(RewindableFunction.STALE_VALUE)) {
+            awaitUnchecked(parentBarrier);
+            var rewindGraph = Reset.newRewindGraphFor(skyKey);
+            rewindGraph.putEdge(skyKey, dep);
+            return Reset.of(rewindGraph);
+          }
+          assertThat(depValue).isEqualTo(RewindableFunction.FRESH_VALUE);
+          firstParentDone.countDown();
+          return new StringValue("topVal");
+        };
+    tester.getOrCreate(top1).setBuilder(parentFunction);
+    tester.getOrCreate(top2).setBuilder(parentFunction);
+
+    var result = tester.eval(/* keepGoing= */ false, top1, top2);
+
+    assertThatEvaluationResult(result).hasEntryThat(top1).isEqualTo(new StringValue("topVal"));
+    assertThatEvaluationResult(result).hasEntryThat(top2).isEqualTo(new StringValue("topVal"));
+    assertThat(inconsistencyReceiver)
+        .containsExactly(
+            InconsistencyData.resetRequested(top1),
+            InconsistencyData.rewind(top1, ImmutableSet.of(dep)),
+            InconsistencyData.resetRequested(top2),
+            InconsistencyData.rewind(top2, ImmutableSet.of(dep)));
+    assertThat(rewindableFunction.calls).isEqualTo(3);
+
+    if (!incrementalitySupported()) {
+      return; // Skip assertions on dependency edges when they aren't kept.
+    }
+
+    assertThatEvaluationResult(result).hasDirectDepsInGraphThat(top1).containsExactly(dep);
+    assertThatEvaluationResult(result).hasDirectDepsInGraphThat(top2).containsExactly(dep);
+    assertThatEvaluationResult(result).hasReverseDepsInGraphThat(dep).containsExactly(top1, top2);
+  }
+
+  private static void awaitUnchecked(CyclicBarrier barrier) {
+    try {
+      barrier.await();
+    } catch (InterruptedException | BrokenBarrierException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  /**
+   * Test for a rewind graph with depth > 1.
+   *
+   * <p>Since {@code mid} simply propagates the value of {@code bottom}, {@code top} must rewind
+   * both {@code mid} and {@code bottom}. See {@link
+   * com.google.devtools.build.lib.actions.ActionExecutionMetadata#mayInsensitivelyPropagateInputs}
+   * for the case that this test is simulating.
+   */
+  @Test
+  public void rewindTransitiveDep() throws Exception {
+    assume().that(resetSupported()).isTrue();
+
+    var inconsistencyReceiver = recordInconsistencies();
+    var rewindableFunction = new RewindableFunction();
+    SkyKey top = skyKey("top");
+    SkyKey mid = skyKey("mid");
+    SkyKey bottom = skyKey("bottom");
+
+    tester.getOrCreate(bottom).setBuilder(rewindableFunction);
+    tester.getOrCreate(mid).addDependency(bottom).setComputedValue(COPY);
+    tester
+        .getOrCreate(top)
+        .setBuilder(
+            new SkyFunction() {
+              @Nullable
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+                var midValue = (StringValue) env.getValue(mid);
+                if (midValue == null) {
+                  return null;
+                }
+                if (midValue.equals(RewindableFunction.STALE_VALUE)) {
+                  var rewindGraph = Reset.newRewindGraphFor(top);
+                  rewindGraph.putEdge(top, mid);
+                  rewindGraph.putEdge(mid, bottom);
+                  return Reset.of(rewindGraph);
+                }
+                assertThat(midValue).isEqualTo(RewindableFunction.FRESH_VALUE);
+                return new StringValue("topVal");
+              }
+            });
+
+    var result = tester.eval(/* keepGoing= */ false, top);
+
+    assertThatEvaluationResult(result).hasEntryThat(top).isEqualTo(new StringValue("topVal"));
+    assertThat(inconsistencyReceiver)
+        .containsExactly(
+            InconsistencyData.resetRequested(top),
+            InconsistencyData.rewind(top, ImmutableSet.of(mid, bottom)));
+    assertThat(rewindableFunction.calls).isEqualTo(2);
+
+    if (!incrementalitySupported()) {
+      return; // Skip assertions on dependency edges when they aren't kept.
+    }
+
+    assertThatEvaluationResult(result).hasDirectDepsInGraphThat(top).containsExactly(mid);
+    assertThatEvaluationResult(result).hasReverseDepsInGraphThat(mid).containsExactly(top);
+    assertThatEvaluationResult(result).hasDirectDepsInGraphThat(mid).containsExactly(bottom);
+    assertThatEvaluationResult(result).hasReverseDepsInGraphThat(bottom).containsExactly(mid);
+  }
+
   private RecordingInconsistencyReceiver recordInconsistencies() {
     var inconsistencyReceiver = new RecordingInconsistencyReceiver();
     tester.setGraphInconsistencyReceiver(inconsistencyReceiver);
@@ -2715,6 +2966,22 @@ public abstract class MemoizingEvaluatorTest {
 
     void clear() {
       inconsistencies.clear();
+    }
+  }
+
+  /**
+   * {@link SkyFunction} for rewinding tests that returns {@link #STALE_VALUE} the first time and
+   * {@link #FRESH_VALUE} thereafter.
+   */
+  private static final class RewindableFunction implements SkyFunction {
+    static final StringValue STALE_VALUE = new StringValue("stale");
+    static final StringValue FRESH_VALUE = new StringValue("fresh");
+
+    private int calls;
+
+    @Override
+    public SkyValue compute(SkyKey skyKey, Environment env) {
+      return ++calls == 1 ? STALE_VALUE : FRESH_VALUE;
     }
   }
 
@@ -5208,7 +5475,7 @@ public abstract class MemoizingEvaluatorTest {
   public abstract static class InconsistencyData {
     public abstract SkyKey key();
 
-    public abstract ImmutableList<SkyKey> otherKeys();
+    public abstract ImmutableSet<SkyKey> otherKeys();
 
     public abstract Inconsistency inconsistency();
 
@@ -5216,11 +5483,15 @@ public abstract class MemoizingEvaluatorTest {
       return create(key, /* otherKeys= */ null, Inconsistency.RESET_REQUESTED);
     }
 
+    static InconsistencyData rewind(SkyKey parent, ImmutableSet<SkyKey> children) {
+      return create(parent, children, Inconsistency.PARENT_FORCE_REBUILD_OF_CHILD);
+    }
+
     public static InconsistencyData create(
         SkyKey key, @Nullable Collection<SkyKey> otherKeys, Inconsistency inconsistency) {
       return new AutoValue_MemoizingEvaluatorTest_InconsistencyData(
           key,
-          otherKeys == null ? ImmutableList.of() : ImmutableList.copyOf(otherKeys),
+          otherKeys == null ? ImmutableSet.of() : ImmutableSet.copyOf(otherKeys),
           inconsistency);
     }
   }
