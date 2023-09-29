@@ -18,6 +18,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.ImmutableTable;
+import com.google.common.collect.Maps;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
@@ -67,25 +69,42 @@ public class BazelLockFileModule extends BlazeModule {
     RootedPath lockfilePath =
         RootedPath.toRootedPath(Root.fromPath(workspaceRoot), LabelConstants.MODULE_LOCKFILE_NAME);
 
+    // Read the existing lockfile (if none exists, will get an empty lockfile value) and get its
+    // module extension usages. This information is needed to determine which extension results are
+    // now stale and need to be removed.
+    BazelLockFileValue oldLockfile;
+    try {
+      oldLockfile = BazelLockFileFunction.getLockfileValue(lockfilePath);
+    } catch (IOException | JsonSyntaxException | NullPointerException e) {
+      logger.atSevere().withCause(e).log(
+          "Failed to read and parse the MODULE.bazel.lock file with error: %s."
+              + " Try deleting it and rerun the build.",
+          e.getMessage());
+      return;
+    }
+    ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> oldExtensionUsages;
+    try {
+      oldExtensionUsages =
+          BazelDepGraphFunction.getExtensionUsagesById(oldLockfile.getModuleDepGraph());
+    } catch (ExternalDepsException e) {
+      logger.atSevere().withCause(e).log(
+          "Failed to read and parse the MODULE.bazel.lock file with error: %s."
+              + " Try deleting it and rerun the build.",
+          e.getMessage());
+      return;
+    }
+
     // Create an updated version of the lockfile with the events updates
     BazelLockFileValue lockfile;
     if (moduleResolutionEvent != null) {
       lockfile = moduleResolutionEvent.getLockfileValue();
     } else {
-      // Read the existing lockfile (if none exists, will get an empty lockfile value)
-      try {
-        lockfile = BazelLockFileFunction.getLockfileValue(lockfilePath);
-      } catch (IOException | JsonSyntaxException | NullPointerException e) {
-        logger.atSevere().withCause(e).log(
-            "Failed to read and parse the MODULE.bazel.lock file with error: %s."
-                + " Try deleting it and rerun the build.",
-            e.getMessage());
-        return;
-      }
+      lockfile = oldLockfile;
     }
     lockfile =
         lockfile.toBuilder()
-            .setModuleExtensions(combineModuleExtensions(lockfile.getModuleExtensions()))
+            .setModuleExtensions(
+                combineModuleExtensions(lockfile.getModuleExtensions(), oldExtensionUsages))
             .build();
 
     // Write the new value to the file
@@ -99,6 +118,7 @@ public class BazelLockFileModule extends BlazeModule {
    * extensions from the events (if any)
    *
    * @param oldModuleExtensions Module extensions stored in the current lockfile
+   * @param oldExtensionUsages Module extension usages stored in the current lockfile
    */
   private ImmutableMap<
           ModuleExtensionId, ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
@@ -106,7 +126,8 @@ public class BazelLockFileModule extends BlazeModule {
           ImmutableMap<
                   ModuleExtensionId,
                   ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
-              oldModuleExtensions) {
+              oldModuleExtensions,
+          ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> oldExtensionUsages) {
 
     Map<ModuleExtensionId, ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
         updatedExtensionMap = new HashMap<>();
@@ -115,7 +136,7 @@ public class BazelLockFileModule extends BlazeModule {
     oldModuleExtensions.forEach(
         (moduleExtensionId, innerMap) -> {
           ModuleExtensionEvalFactors firstEntryKey = innerMap.keySet().iterator().next();
-          if (shouldKeepExtension(moduleExtensionId, firstEntryKey)) {
+          if (shouldKeepExtension(moduleExtensionId, firstEntryKey, oldExtensionUsages)) {
             updatedExtensionMap.put(moduleExtensionId, innerMap);
           }
         });
@@ -146,14 +167,21 @@ public class BazelLockFileModule extends BlazeModule {
   }
 
   /**
-   * Decide whether to keep this extension or not depending on both: 1. If its dependency on os &
-   * arch didn't change 2. If it is still has a usage in the module
+   * Decide whether to keep this extension or not depending on all of:
+   *
+   * <ol>
+   *   <li>If its dependency on os & arch didn't change
+   *   <li>If its usages haven't changed
+   * </ol>
    *
    * @param lockedExtensionKey object holding the old extension id and state of os and arch
+   * @param oldExtensionUsages the usages of this extension in the existing lockfile
    * @return True if this extension should still be in lockfile, false otherwise
    */
   private boolean shouldKeepExtension(
-      ModuleExtensionId extensionId, ModuleExtensionEvalFactors lockedExtensionKey) {
+      ModuleExtensionId extensionId,
+      ModuleExtensionEvalFactors lockedExtensionKey,
+      ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> oldExtensionUsages) {
 
     // If there is a new event for this extension, compare it with the existing ones
     ModuleExtensionResolutionEvent extEvent = extensionResolutionEventsMap.get(extensionId);
@@ -168,11 +196,24 @@ public class BazelLockFileModule extends BlazeModule {
       }
     }
 
-    // If moduleResolutionEvent is null, then no usage has changed. So we don't need this check
-    if (moduleResolutionEvent != null) {
-      return moduleResolutionEvent.getExtensionUsagesById().containsRow(extensionId);
+    // If moduleResolutionEvent is null, then no usage has changed and all locked extension
+    // resolutions are still up-to-date.
+    if (moduleResolutionEvent == null) {
+      return true;
     }
-    return true;
+    // Otherwise, compare the current usages of this extension with the ones in the lockfile. We
+    // trim the usages to only the information that influences the evaluation of the extension so
+    // that irrelevant changes (e.g. locations or imports) don't cause the extension to be removed.
+    // Note: Extension results can still be stale for other reasons, e.g. because their transitive
+    // bzl hash changed, but such changes will be detected in SingleExtensionEvalFunction.
+    var currentTrimmedUsages =
+        Maps.transformValues(
+            moduleResolutionEvent.getExtensionUsagesById().row(extensionId),
+            ModuleExtensionUsage::trimForEvaluation);
+    var lockedTrimmedUsages =
+        Maps.transformValues(
+            oldExtensionUsages.row(extensionId), ModuleExtensionUsage::trimForEvaluation);
+    return currentTrimmedUsages.equals(lockedTrimmedUsages);
   }
 
   /**
