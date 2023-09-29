@@ -86,10 +86,10 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
 
       // Determine if we should use the new visibility rules for tools.
       boolean toolCheckAtDefinition =
-          context
-              .getStarlarkSemantics()
-              .getBool(
-                  BuildLanguageOptions.INCOMPATIBLE_VISIBILITY_PRIVATE_ATTRIBUTES_AT_DEFINITION);
+              context
+                      .getStarlarkSemantics()
+                      .getBool(
+                              BuildLanguageOptions.INCOMPATIBLE_VISIBILITY_PRIVATE_ATTRIBUTES_AT_DEFINITION);
 
       if (!toolCheckAtDefinition
               || !attribute.isImplicit()
@@ -119,8 +119,14 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
           implicitDefinition =
                   checkNotNull(rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel());
         }
+        // Check that the prerequisite is visible from the definition. As a fallback, check if the
+        // prerequisite is visible from the target so that adopting this new style of checking
+        // visibility is not a breaking change.
         if (implicitDefinition != null
-                && !RuleContext.isVisible(implicitDefinition, prerequisite.getConfiguredTarget())) {
+            && !RuleContext.isVisible(implicitDefinition, prerequisite.getConfiguredTarget())
+            && !context.isVisible(prerequisite.getConfiguredTarget())) {
+          // In the error message, always suggest making the prerequisite visible from the definition,
+          // not the target.
           handleVisibilityConflict(context, prerequisite, implicitDefinition);
         }
       }
