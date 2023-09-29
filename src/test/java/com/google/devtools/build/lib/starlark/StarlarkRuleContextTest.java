@@ -3544,7 +3544,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testTemplateExpansionComputedSubstitution() throws Exception {
-    setBuildLanguageOptions("--experimental_lazy_template_expansion");
     scratch.file(
         "test/rules.bzl",
         "def _artifact_to_basename(file):",
@@ -3609,7 +3608,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testTemplateExpansionComputedSubstitutionWithUniquify() throws Exception {
-    setBuildLanguageOptions("--experimental_lazy_template_expansion");
     scratch.file(
         "test/rules.bzl",
         "def _artifact_to_extension(file):",
@@ -3667,7 +3665,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   @Test
   public void testTemplateExpansionComputedSubstitutionWithUniquifyAndListMapEach()
       throws Exception {
-    setBuildLanguageOptions("--experimental_lazy_template_expansion");
     scratch.file(
         "test/rules.bzl",
         "def _artifact_to_extension(file):",
@@ -3728,7 +3725,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testTemplateExpansionComputedSubstitutionDuplicateKeys() throws Exception {
-    setBuildLanguageOptions("--experimental_lazy_template_expansion");
     scratch.file(
         "test/rules.bzl",
         "def _undertest_impl(ctx):",
@@ -3758,7 +3754,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testTemplateExpansionComputedSubstitutionNoParamMapEach() throws Exception {
-    setBuildLanguageOptions("--experimental_lazy_template_expansion");
     scratch.file(
         "test/rules.bzl",
         "def no_args_func():",
@@ -3806,7 +3801,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testTemplateExpansionComputedSubstitutionTwoParamMapEach() throws Exception {
-    setBuildLanguageOptions("--experimental_lazy_template_expansion");
     scratch.file(
         "test/rules.bzl",
         "def two_args_func(arg1, arg2):",
@@ -3854,7 +3848,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testTemplateExpansionComputedSubstitutionMapEachBadReturnType() throws Exception {
-    setBuildLanguageOptions("--experimental_lazy_template_expansion");
     scratch.file(
         "test/rules.bzl",
         "def file_to_owner_label(file):",
@@ -3905,7 +3898,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testTemplateExpansionComputedSubstitutionMapEachBadListReturnType() throws Exception {
-    setBuildLanguageOptions("--experimental_lazy_template_expansion");
     scratch.file(
         "test/rules.bzl",
         "def file_to_owner_label(file):",
@@ -3956,7 +3948,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testTemplateExpansionComputedSubstitutionMapEachMustBeTopLevel() throws Exception {
-    setBuildLanguageOptions("--experimental_lazy_template_expansion");
     scratch.file(
         "test/rules.bzl",
         "def _undertest_impl(ctx):",
