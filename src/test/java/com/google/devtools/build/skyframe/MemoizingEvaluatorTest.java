@@ -3719,7 +3719,7 @@ public abstract class MemoizingEvaluatorTest {
    * Utility function to induce a graph clean of whatever value is requested, by trying to build
    * this value and interrupting the build as soon as this value's function evaluation starts.
    */
-  private void failBuildAndRemoveValue(SkyKey value) {
+  private void failBuildAndRemoveValue(SkyKey value) throws InterruptedException {
     tester.set(value, null);
     // Evaluator will think leaf was interrupted because it threw, so it will be cleaned from graph.
     tester.getOrCreate(value, /* markAsModified= */ true).setBuilder(INTERRUPT_BUILDER);
@@ -5547,7 +5547,8 @@ public abstract class MemoizingEvaluatorTest {
       return evaluator;
     }
 
-    public void invalidate() {
+    public void invalidate() throws InterruptedException {
+      evaluator.noteEvaluationsAtSameVersionMayBeFinished(reporter);
       differencer.invalidate(getModifiedValues());
       clearModifiedValues();
       progressReceiver.clear();
