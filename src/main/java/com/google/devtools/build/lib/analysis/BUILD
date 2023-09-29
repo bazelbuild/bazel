@@ -283,6 +283,7 @@ java_library(
         ":config/build_configuration",
         ":config/build_option_details",
         ":config/build_options",
+        ":config/common_options",
         ":config/config_conditions",
         ":config/config_matching_provider",
         ":config/core_options",
@@ -1707,6 +1708,16 @@ java_library(
 )
 
 java_library(
+    name = "config/common_options",
+    srcs = ["config/CommonOptions.java"],
+    deps = [
+        ":config/build_options",
+        ":config/core_options",
+        "//src/main/java/com/google/devtools/common/options",
+    ],
+)
+
+java_library(
     name = "config/compilation_mode",
     srcs = ["config/CompilationMode.java"],
     deps = [
@@ -2127,6 +2138,7 @@ java_library(
     srcs = ["config/transitions/NoConfigTransition.java"],
     deps = [
         ":config/build_options",
+        ":config/common_options",
         ":config/core_options",
         ":config/fragment_options",
         ":config/transitions/patch_transition",

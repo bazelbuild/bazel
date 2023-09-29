@@ -27,6 +27,8 @@ import com.google.devtools.common.options.OptionsParsingException;
 @AutoCodec
 public final class BuildConfigurationKey implements SkyKey {
 
+  private static final SkyKeyInterner<BuildConfigurationKey> interner = SkyKey.newInterner();
+
   /**
    * Creates a new configuration key based on the given options, after applying a platform mapping
    * transformation.
@@ -54,8 +56,6 @@ public final class BuildConfigurationKey implements SkyKey {
   public static BuildConfigurationKey withoutPlatformMapping(BuildOptions options) {
     return interner.intern(new BuildConfigurationKey(options));
   }
-
-  private static final SkyKeyInterner<BuildConfigurationKey> interner = SkyKey.newInterner();
 
   private final BuildOptions options;
 

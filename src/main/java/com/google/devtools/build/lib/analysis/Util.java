@@ -17,10 +17,12 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.CommonOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -103,11 +105,8 @@ public abstract class Util {
         maybeImplicitDeps.add(
             ConfiguredTargetKey.builder()
                 .setLabel(platformConfiguration.getTargetPlatform())
-                // This is technically the wrong configuration, because PlatformRule uses
-                // NoConfigTransition to reduce configured target fanout. However, it still works,
-                // because PostAnalysisQueryEnvironment also guesses using the wrong configuration,
-                // so the target platform dependency is correctly marked as implicit anyway.
-                .setConfiguration(ruleContext.getConfiguration())
+                .setConfigurationKey(
+                    BuildConfigurationKey.withoutPlatformMapping(CommonOptions.EMPTY_OPTIONS))
                 .build());
       }
     }

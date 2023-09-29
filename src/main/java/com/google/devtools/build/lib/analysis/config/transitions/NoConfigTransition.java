@@ -17,6 +17,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.analysis.config.CommonOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -43,8 +44,6 @@ public class NoConfigTransition implements PatchTransition {
 
   @SerializationConstant public static final NoConfigTransition INSTANCE = new NoConfigTransition();
 
-  public static final BuildOptions NO_CONFIG_OPTIONS = BuildOptions.builder().build();
-
   private NoConfigTransition() {}
 
   @Override
@@ -54,19 +53,7 @@ public class NoConfigTransition implements PatchTransition {
 
   @Override
   public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
-    // Ideally the build options should be empty: no fragment options and no flags. But core Bazel
-    // code assumes CoreOptions exists. For example CoreOptions.check_visibility is required for
-    // basic configured target graph evaluation. So we provide CoreOptions with default values
-    // (not inherited from parent configuration). This means flags like --check_visibility may not
-    // be consistently applied. If this becomes a problem in practice we can carve out exceptions
-    // to flags like that to propagate.
-    // TODO(bazel-team): break out flags that configure Bazel's analysis phase into their own
-    // FragmentOptions and propagate them to this configuration. Those flags should also be
-    // ineligible outputs for other transitions because they're not meant for rule logic.  That
-    // would guarantee consistency of flags like --check_visibility while still preventing forking.
-    return BuildOptions.builder()
-        .addFragmentOptions(options.get(CoreOptions.class).getDefault())
-        .build();
+    return CommonOptions.EMPTY_OPTIONS;
   }
 
   /** Returns a {@link TransitionFactory} instance that generates the transition. */
