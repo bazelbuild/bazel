@@ -208,12 +208,8 @@ public class BazelModuleResolutionFunction implements SkyFunction {
         if (!curVersion.satisfiesCompatibility(compatVersion)) {
           String message =
               String.format(
-                  "Bazel version %s is not compatible with module \"%s@%s\" (bazel_compatibility:"
-                      + " %s)",
-                  curVersion.getOriginal(),
-                  module.getName(),
-                  module.getVersion().getOriginal(),
-                  module.getBazelCompatibility());
+                  "Bazel version %s is not compatible with module \"%s\" (bazel_compatibility: %s)",
+                  curVersion.getOriginal(), module.getKey(), module.getBazelCompatibility());
 
           if (mode == BazelCompatibilityMode.WARNING) {
             eventHandler.handle(Event.warn(message));
