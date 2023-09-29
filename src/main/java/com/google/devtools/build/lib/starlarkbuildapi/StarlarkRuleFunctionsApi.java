@@ -213,6 +213,7 @@ public interface StarlarkRuleFunctionsApi {
         @Param(
             name = "test",
             named = true,
+            positional = false,
             defaultValue = "unbound",
             allowedTypes = {
               @ParamType(type = Boolean.class),
@@ -231,6 +232,7 @@ public interface StarlarkRuleFunctionsApi {
               @ParamType(type = Dict.class),
             },
             named = true,
+            positional = false,
             defaultValue = "{}",
             doc =
                 "dictionary to declare all the attributes of the rule. It maps from an attribute"
@@ -251,6 +253,7 @@ public interface StarlarkRuleFunctionsApi {
               @ParamType(type = StarlarkFunction.class) // a function defined in Starlark
             },
             named = true,
+            positional = false,
             defaultValue = "None",
             valueWhenDisabled = "None",
             disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM,
@@ -302,6 +305,7 @@ public interface StarlarkRuleFunctionsApi {
         @Param(
             name = "executable",
             named = true,
+            positional = false,
             defaultValue = "unbound",
             allowedTypes = {
               @ParamType(type = Boolean.class),
@@ -315,6 +319,7 @@ public interface StarlarkRuleFunctionsApi {
         @Param(
             name = "output_to_genfiles",
             named = true,
+            positional = false,
             defaultValue = "False",
             doc =
                 "If true, the files will be generated in the genfiles directory instead of the "
@@ -324,6 +329,7 @@ public interface StarlarkRuleFunctionsApi {
             name = "fragments",
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             named = true,
+            positional = false,
             defaultValue = "[]",
             doc =
                 "List of names of configuration fragments that the rule requires "
@@ -332,6 +338,7 @@ public interface StarlarkRuleFunctionsApi {
             name = "host_fragments",
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             named = true,
+            positional = false,
             defaultValue = "[]",
             doc =
                 "List of names of configuration fragments that the rule requires "
@@ -339,6 +346,7 @@ public interface StarlarkRuleFunctionsApi {
         @Param(
             name = "_skylark_testable",
             named = true,
+            positional = false,
             defaultValue = "False",
             doc =
                 "<i>(Experimental)</i><br/><br/>If true, this rule will expose its actions for"
@@ -351,6 +359,7 @@ public interface StarlarkRuleFunctionsApi {
             name = TOOLCHAINS_PARAM,
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = Object.class)},
             named = true,
+            positional = false,
             defaultValue = "[]",
             doc =
                 "If set, the set of toolchains this rule requires. The list can contain String,"
@@ -361,10 +370,12 @@ public interface StarlarkRuleFunctionsApi {
             name = "incompatible_use_toolchain_transition",
             defaultValue = "False",
             named = true,
+            positional = false,
             doc = "Deprecated, this is no longer in use and should be removed."),
         @Param(
             name = "doc",
             named = true,
+            positional = false,
             allowedTypes = {
               @ParamType(type = String.class),
               @ParamType(type = NoneType.class),
