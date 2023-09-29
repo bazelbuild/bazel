@@ -407,16 +407,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean incompatibleDisallowEmptyGlob;
 
   @Option(
-      name = "incompatible_disallow_legacy_javainfo",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "Deprecated. No-op.")
-  // TODO(elenairina): Move option to graveyard after the flag is removed from the global blazerc.
-  public boolean incompatibleDisallowLegacyJavaInfo;
-
-  @Option(
       name = "incompatible_disallow_struct_provider_syntax",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
