@@ -24,8 +24,6 @@ CcToolchainConfigInfo = _builtins.toplevel.CcToolchainConfigInfo
 MemProfProfileInfo = _builtins.internal.MemProfProfileInfo
 
 cc_toolchain_attrs_exec = {
-    "cpu": attr.string(),
-    "compiler": attr.string(),
     # buildifier: disable=attr-license
     "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
     # buildifier: disable=attr-license

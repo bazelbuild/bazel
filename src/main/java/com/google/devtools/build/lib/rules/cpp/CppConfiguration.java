@@ -696,10 +696,6 @@ public final class CppConfiguration extends Fragment
     return cppOptions.useLLVMCoverageMapFormat;
   }
 
-  public boolean removeCpuCompilerCcToolchainAttributes() {
-    return cppOptions.removeCpuCompilerCcToolchainAttributes;
-  }
-
   @Nullable
   public static PathFragment computeDefaultSysroot(String builtInSysroot) {
     if (builtInSysroot.isEmpty()) {

@@ -852,18 +852,6 @@ public class CppOptions extends FragmentOptions {
   public boolean removeLegacyWholeArchive;
 
   @Option(
-      name = "incompatible_remove_cpu_and_compiler_attributes_from_cc_toolchain",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If true, Bazel will complain when cc_toolchain.cpu and cc_toolchain.compiler attributes "
-              + "are set "
-              + "(see https://github.com/bazelbuild/bazel/issues/7075 for migration instructions).")
-  public boolean removeCpuCompilerCcToolchainAttributes;
-
-  @Option(
       name = "incompatible_disable_legacy_cc_provider",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -1189,7 +1177,6 @@ public class CppOptions extends FragmentOptions {
     exec.inmemoryDotdFiles = inmemoryDotdFiles;
 
     exec.disableLegacyCcProvider = disableLegacyCcProvider;
-    exec.removeCpuCompilerCcToolchainAttributes = removeCpuCompilerCcToolchainAttributes;
     exec.enableCcToolchainResolution = enableCcToolchainResolution;
     exec.removeLegacyWholeArchive = removeLegacyWholeArchive;
     exec.dontEnableHostNonhost = dontEnableHostNonhost;

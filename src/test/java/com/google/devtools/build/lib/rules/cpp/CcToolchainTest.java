@@ -375,7 +375,6 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    toolchain_identifier = 'toolchain-identifier-k8',",
         "    toolchain_config = ':toolchain_config',",
         "    module_map = ':multiple-maps',",
-        "    cpu = 'cherry',",
         "    ar_files = 'ar-cherry',",
         "    as_files = 'as-cherry',",
         "    compiler_files = 'compile-cherry',",
