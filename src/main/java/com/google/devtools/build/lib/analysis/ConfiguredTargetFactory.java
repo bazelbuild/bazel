@@ -423,7 +423,7 @@ public final class ConfiguredTargetFactory {
     if (ruleContext.getConfiguration().allowAnalysisFailures()) {
       ImmutableList.Builder<NestedSet<AnalysisFailure>> analysisFailures = ImmutableList.builder();
       Iterable<? extends TransitiveInfoCollection> infoCollections =
-          Iterables.concat(ruleContext.getConfiguredTargetMap().values(), extraDeps);
+          Iterables.concat(ruleContext.getAllPrerequisites(), extraDeps);
       for (TransitiveInfoCollection infoCollection : infoCollections) {
         AnalysisFailureInfo failureInfo =
             infoCollection.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR);

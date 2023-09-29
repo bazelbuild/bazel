@@ -356,19 +356,11 @@ public final class RuleContext extends TargetContext
     return reporter.hasErrors();
   }
 
-  /**
-   * Returns an immutable map from attribute name to list of configured targets for that attribute.
-   */
-  public ListMultimap<String, ? extends TransitiveInfoCollection> getConfiguredTargetMap() {
-    return Multimaps.transformValues(targetMap, ConfiguredTargetAndData::getConfiguredTarget);
-  }
-
-  /**
-   * Returns an immutable map from attribute name to list of {@link ConfiguredTargetAndData} objects
-   * for that attribute.
-   */
-  public ListMultimap<String, ConfiguredTargetAndData> getConfiguredTargetAndDataMap() {
-    return targetMap;
+  /** Returns a list of all prerequisites as {@code ConfiguredTarget} objects. */
+  public ImmutableList<? extends TransitiveInfoCollection> getAllPrerequisites() {
+    return targetMap.values().stream()
+        .map(ConfiguredTargetAndData::getConfiguredTarget)
+        .collect(toImmutableList());
   }
 
   /** Returns the {@link ConfiguredTargetAndData} the given attribute. */
@@ -877,8 +869,14 @@ public final class RuleContext extends TargetContext
    */
   @Nullable
   public TransitiveInfoCollection getPrerequisite(String attributeName) {
-    ConfiguredTargetAndData result = getPrerequisiteConfiguredTargetAndData(attributeName);
-    return result == null ? null : result.getConfiguredTarget();
+    checkAttributeIsDependency(attributeName);
+    List<ConfiguredTargetAndData> elements = getPrerequisiteConfiguredTargets(attributeName);
+    Preconditions.checkState(
+        elements.size() <= 1,
+        "%s attribute %s produces more than one prerequisite",
+        ruleClassNameForLogging,
+        attributeName);
+    return elements.isEmpty() ? null : elements.get(0).getConfiguredTarget();
   }
 
   /**
@@ -890,22 +888,6 @@ public final class RuleContext extends TargetContext
   public <T extends Info> T getPrerequisite(String attributeName, BuiltinProvider<T> starlarkKey) {
     TransitiveInfoCollection prerequisite = getPrerequisite(attributeName);
     return prerequisite == null ? null : prerequisite.get(starlarkKey);
-  }
-
-  /**
-   * Returns the {@link ConfiguredTargetAndData} that feeds ino this target through the specified
-   * attribute. Returns null if the attribute is empty.
-   */
-  @Nullable
-  private ConfiguredTargetAndData getPrerequisiteConfiguredTargetAndData(String attributeName) {
-    checkAttributeIsDependency(attributeName);
-    List<ConfiguredTargetAndData> elements = getPrerequisiteConfiguredTargets(attributeName);
-    Preconditions.checkState(
-        elements.size() <= 1,
-        "%s attribute %s produces more than one prerequisite",
-        ruleClassNameForLogging,
-        attributeName);
-    return elements.isEmpty() ? null : elements.get(0);
   }
 
   /**

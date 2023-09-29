@@ -73,7 +73,7 @@ public final class NativeLibs {
       throws InterruptedException, RuleErrorException {
     Map<String, ConfiguredTargetAndData> toolchainsByLibDir = new LinkedHashMap<>();
     for (ConfiguredTargetAndData toolchainDep :
-        ruleContext.getConfiguredTargetAndDataMap().get("$cc_toolchain_split")) {
+        ruleContext.getPrerequisiteConfiguredTargets("$cc_toolchain_split")) {
       toolchainsByLibDir.put(getLibDirName(toolchainDep), toolchainDep);
     }
 
@@ -82,8 +82,7 @@ public final class NativeLibs {
     Multimap<String, ConfiguredTargetAndData> depsByLibDir =
         MultimapBuilder.treeKeys().arrayListValues().build();
     for (String depsAttr : depsAttributes) {
-      for (ConfiguredTargetAndData dep :
-          ruleContext.getConfiguredTargetAndDataMap().get(depsAttr)) {
+      for (ConfiguredTargetAndData dep : ruleContext.getPrerequisiteConfiguredTargets(depsAttr)) {
         depsByLibDir.put(getLibDirName(dep), dep);
       }
     }

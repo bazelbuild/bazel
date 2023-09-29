@@ -814,7 +814,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected List<? extends TransitiveInfoCollection> getPrerequisites(
       ConfiguredTarget target, String attributeName) throws Exception {
-    return getRuleContext(target).getConfiguredTargetMap().get(attributeName);
+    return Lists.transform(
+        getRuleContext(target).getPrerequisiteConfiguredTargets(attributeName),
+        ConfiguredTargetAndData::getConfiguredTarget);
   }
 
   /**

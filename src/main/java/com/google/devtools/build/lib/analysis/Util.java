@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -83,10 +82,9 @@ public abstract class Util {
     Set<ConfiguredTargetKey> explicitDeps = CompactHashSet.create();
     // Consider rule attribute dependencies.
     AttributeMap attributes = ruleContext.attributes();
-    ListMultimap<String, ConfiguredTargetAndData> targetMap =
-        ruleContext.getConfiguredTargetAndDataMap();
     for (String attrName : attributes.getAttributeNames()) {
-      List<ConfiguredTargetAndData> attrValues = targetMap.get(attrName);
+      List<ConfiguredTargetAndData> attrValues =
+          ruleContext.getPrerequisiteConfiguredTargets(attrName);
       if (attrValues != null && !attrValues.isEmpty()) {
         if (attributes.isAttributeValueExplicitlySpecified(attrName)) {
           addLabelsAndConfigs(explicitDeps, attrValues);
