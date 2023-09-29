@@ -313,7 +313,8 @@ public interface SkyFunction {
      * </ul>
      *
      * <p>If this returns true, the {@link SkyFunction} must return {@code null} or throw a {@link
-     * SkyFunctionException} if it detected an error even with values missing.
+     * SkyFunctionException}. It should do the latter only if it encountered an error (on its own or
+     * from a dependency) and wants to convey that error.
      */
     boolean valuesMissing();
 
