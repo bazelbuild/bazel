@@ -18,14 +18,13 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import static com.google.common.base.StandardSystemProperty.OS_ARCH;
 import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Maps.transformValues;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableTable;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
@@ -283,8 +282,13 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     boolean filesChanged = didFilesChange(env, lockedExtension.getAccumulatedFileDigests());
     // Check extension data in lockfile is still valid, disregarding usage information that is not
     // relevant for the evaluation of the extension.
-    var trimmedLockedUsages = trimUsagesForEvaluation(lockedExtensionUsages);
-    var trimmedUsages = trimUsagesForEvaluation(usagesValue.getExtensionUsages());
+    var trimmedLockedUsages =
+        ImmutableMap.copyOf(
+            transformValues(lockedExtensionUsages, ModuleExtensionUsage::trimForEvaluation));
+    var trimmedUsages =
+        ImmutableMap.copyOf(
+            transformValues(
+                usagesValue.getExtensionUsages(), ModuleExtensionUsage::trimForEvaluation));
     if (!filesChanged
         && Arrays.equals(bzlTransitiveDigest, lockedExtension.getBzlTransitiveDigest())
         && trimmedUsages.equals(trimmedLockedUsages)
@@ -420,33 +424,6 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                         RepositoryName.createUnvalidated(
                             usagesValue.getExtensionUniqueName() + "~" + e),
                     Function.identity())));
-  }
-
-  /**
-   * Returns usages with all information removed that does not influence the evaluation of the
-   * extension.
-   */
-  private static ImmutableMap<ModuleKey, ModuleExtensionUsage> trimUsagesForEvaluation(
-      Map<ModuleKey, ModuleExtensionUsage> usages) {
-    return ImmutableMap.copyOf(
-        Maps.transformValues(
-            usages,
-            usage ->
-                // We start with the full usage and selectively remove information that does not
-                // influence the evaluation of the extension. Compared to explicitly copying over
-                // the parts that do, this preserves correctness in case new fields are added to
-                // ModuleExtensionUsage without updating this code.
-                usage.toBuilder()
-                    // Locations are only used for error reporting and thus don't influence whether
-                    // the evaluation of the extension is successful and what its result is
-                    // in case of success.
-                    .setLocation(Location.BUILTIN)
-                    // Extension implementation functions do not see the imports, they are only
-                    // validated against the set of generated repos in a validation step that comes
-                    // afterward.
-                    .setImports(ImmutableBiMap.of())
-                    .setDevImports(ImmutableSet.of())
-                    .build()));
   }
 
   private BzlLoadValue loadBzlFile(
