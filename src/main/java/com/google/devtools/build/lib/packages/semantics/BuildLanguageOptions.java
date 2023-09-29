@@ -444,13 +444,13 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_visibility_private_attributes_at_definition",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If set to true, the visibility of private rule attributes is checked with respect "
-              + "to the rule definition, rather than the rule usage.")
+              + "to the rule definition, falling back to rule usage if not visible.")
   public boolean incompatibleVisibilityPrivateAttributesAtDefinition;
 
   @Option(
@@ -882,7 +882,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION =
       "+incompatible_unambiguous_label_stringification";
   public static final String INCOMPATIBLE_VISIBILITY_PRIVATE_ATTRIBUTES_AT_DEFINITION =
-      "-incompatible_visibility_private_attributes_at_definition";
+      "+incompatible_visibility_private_attributes_at_definition";
   public static final String INCOMPATIBLE_TOP_LEVEL_ASPECTS_REQUIRE_PROVIDERS =
       "-incompatible_top_level_aspects_require_providers";
   public static final String INCOMPATIBLE_DISABLE_STARLARK_HOST_TRANSITIONS =

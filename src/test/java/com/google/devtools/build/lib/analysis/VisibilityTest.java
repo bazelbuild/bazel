@@ -93,14 +93,15 @@ public class VisibilityTest extends AnalysisTestCase {
   }
 
   @Test
-  public void testToolVisibilityUseCheckAtRule() throws Exception {
+  public void testToolVisibilityUseCheckAtRule_fallbackToUse() throws Exception {
     setupArgsScenario();
     scratch.file("data/BUILD", "exports_files(['data.txt'], visibility=['//visibility:public'])");
     scratch.file("tool/BUILD", "exports_files(['tool.sh'], visibility=['//use:__pkg__'])");
     useConfiguration("--incompatible_visibility_private_attributes_at_definition");
 
-    reporter.removeHandler(failFastHandler);
-    assertThrows(ViewCreationFailedException.class, () -> update("//use:world"));
+    update("//use:world");
+
+    assertThat(hasErrors(getConfiguredTarget("//use:world"))).isFalse();
   }
 
   @Test
@@ -274,7 +275,7 @@ public class VisibilityTest extends AnalysisTestCase {
   }
 
   @Ignore(
-      "TODO(b/206127051): The aspects path implicit dependendencies with same name are incorrectly"
+      "TODO(b/206127051): The aspects path implicit dependencies with same name are incorrectly"
           + " merged, enable this test when this is fixed.")
   @Test
   public void testAspectImplicitDependencyCheckedAtDefinition_visibleWithNameCollision()
@@ -402,7 +403,6 @@ public class VisibilityTest extends AnalysisTestCase {
         "  visibility = [",
         "    '//inner_aspect:__pkg__',",
         "    '//rule:__pkg__',",
-        "    '//foo:__pkg__',",
         "  ],",
         ")",
         "sh_binary(",
@@ -485,7 +485,6 @@ public class VisibilityTest extends AnalysisTestCase {
         "  visibility = [",
         "    '//outer_aspect:__pkg__',",
         "    '//rule:__pkg__',",
-        "    '//foo:__pkg__',",
         "  ],",
         ")",
         "sh_binary(",
@@ -568,7 +567,6 @@ public class VisibilityTest extends AnalysisTestCase {
         "  visibility = [",
         "    '//outer_aspect:__pkg__',",
         "    '//inner_aspect:__pkg__',",
-        "    '//foo:__pkg__',",
         "  ],",
         ")");
     useConfiguration("--incompatible_visibility_private_attributes_at_definition");
