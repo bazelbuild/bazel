@@ -690,6 +690,16 @@ public final class BuildLanguageOptions extends OptionsBase {
               + " repositories.")
   public boolean incompatibleEnableProtoToolchainResolution;
 
+  // Flip when java_single_jar is feature complete
+  @Option(
+      name = "incompatible_disable_non_executable_java_binary",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "If true, java_binary is always executable. create_executable attribute is removed.")
+  public boolean incompatibleDisableNonExecutableJavaBinary;
+
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -792,6 +802,9 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION,
                 incompatibleEnableProtoToolchainResolution)
+            .setBool(
+                INCOMPATIBLE_DISABLE_NON_EXECUTABLE_JAVA_BINARY,
+                incompatibleDisableNonExecutableJavaBinary)
             .build();
     return INTERNER.intern(semantics);
   }
@@ -884,6 +897,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "+incompatible_fail_on_unknown_attributes";
   public static final String INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION =
       "-incompatible_enable_proto_toolchain_resolution";
+  public static final String INCOMPATIBLE_DISABLE_NON_EXECUTABLE_JAVA_BINARY =
+      "-incompatible_disable_non_executable_java_binary";
 
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =

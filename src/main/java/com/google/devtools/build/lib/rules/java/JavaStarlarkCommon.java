@@ -421,6 +421,13 @@ public class JavaStarlarkCommon
     return StarlarkList.lazyImmutable(() -> interned);
   }
 
+  @Override
+  public boolean incompatibleDisableNonExecutableJavaBinary(StarlarkThread thread) {
+    return thread
+        .getSemantics()
+        .getBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_NON_EXECUTABLE_JAVA_BINARY);
+  }
+
   static boolean isInstanceOfProvider(Object obj, Provider provider) {
     if (obj instanceof NativeInfo) {
       return ((NativeInfo) obj).getProvider().getKey().equals(provider.getKey());

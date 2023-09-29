@@ -22,7 +22,7 @@ load(":common/java/java_semantics.bzl", "semantics")
 
 _DEPLOY_JAR_RULE_NAME_SUFFIX = "_deployjars_internal_rule"
 
-def register_java_binary_rules(
+def register_legacy_java_binary_rules(
         rule_exec,
         rule_nonexec,
         rule_deploy_jars = None,
@@ -54,6 +54,48 @@ def register_java_binary_rules(
 
     if not create_executable:
         rule_deploy_jars = rule_deploy_jars_nonexec
+    if rule_deploy_jars and (
+        not kwargs.get("tags", []) or "nodeployjar" not in kwargs.get("tags", [])
+    ):
+        deploy_jar_args = _filtered_dict(kwargs, _DEPLOY_JAR_RULE_ATTRS)
+
+        # Do not let the deploy jar be matched by wildcard target patterns.
+        if "tags" not in deploy_jar_args or not deploy_jar_args["tags"]:
+            deploy_jar_args["tags"] = []
+        if "manual" not in deploy_jar_args["tags"]:
+            tags = []
+            tags.extend(deploy_jar_args["tags"])
+            tags.append("manual")
+            deploy_jar_args["tags"] = tags
+        rule_deploy_jars(
+            name = kwargs["name"] + _DEPLOY_JAR_RULE_NAME_SUFFIX,  # to avoid collision
+            binary = kwargs["name"],
+            **deploy_jar_args
+        )
+
+def register_java_binary_rules(
+        java_binary,
+        rule_deploy_jars = None,
+        **kwargs):
+    """Creates a java_binary rule and a deploy jar rule
+
+    Args:
+        java_binary: (Rule) The executable java_binary rule
+        **kwargs: Actual args to instantiate the rule
+    """
+
+    # TODO(hvd): migrate depot to integers / maybe use decompose_select_list()
+    if "stamp" in kwargs and type(kwargs["stamp"]) == type(True):
+        kwargs["stamp"] = 1 if kwargs["stamp"] else 0
+
+    if "use_launcher" in kwargs and not kwargs["use_launcher"]:
+        kwargs["launcher"] = None
+    else:
+        # If launcher is not set or None, set it to config flag
+        if "launcher" not in kwargs or not kwargs["launcher"]:
+            kwargs["launcher"] = semantics.LAUNCHER_FLAG_LABEL
+    java_binary(**kwargs)
+
     if rule_deploy_jars and (
         not kwargs.get("tags", []) or "nodeployjar" not in kwargs.get("tags", [])
     ):

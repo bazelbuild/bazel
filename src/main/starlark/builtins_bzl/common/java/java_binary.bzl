@@ -532,7 +532,6 @@ BASIC_JAVA_BINARY_ATTRIBUTES = merge_attrs(
         "main_class": attr.string(),
         "jvm_flags": attr.string_list(),
         "deploy_manifest_lines": attr.string_list(),
-        "create_executable": attr.bool(default = True),
         "stamp": attr.int(default = -1, values = [-1, 0, 1]),
         "use_testrunner": attr.bool(default = False),
         "use_launcher": attr.bool(default = True),
@@ -545,7 +544,7 @@ BASIC_JAVA_BINARY_ATTRIBUTES = merge_attrs(
         ),
         "_cc_toolchain": attr.label(default = "@" + cc_semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
         "_java_toolchain_type": attr.label(default = semantics.JAVA_TOOLCHAIN_TYPE),
-    },
+    } | ({} if _builtins.internal.java_common_internal_do_not_use.incompatible_disable_non_executable_java_binary() else {"create_executable": attr.bool(default = True)}),
 )
 
 BASE_TEST_ATTRIBUTES = {
