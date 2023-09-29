@@ -24,6 +24,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/config_conditions",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/config_matching_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/configuration_transition_event",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/common_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/starlark_transition_cache",

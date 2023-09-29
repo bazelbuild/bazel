@@ -285,13 +285,7 @@ public final class TargetAndConfigurationProducer
             new PlatformConfiguration(preRuleTransitionKey.getConfigurationKey().getOptions());
         tasks.enqueue(
             new PlatformInfoProducer(
-                ConfiguredTargetKey.builder()
-                    .setLabel(platformConfiguration.getTargetPlatform())
-                    .setConfigurationKey(
-                        unloadedToolchainContextsInputs
-                            .targetToolchainContextKey()
-                            .configurationKey())
-                    .build(),
+                platformConfiguration.getTargetPlatform(),
                 (PlatformInfoProducer.ResultSink) this,
                 this::computeConfigConditions));
       } else {

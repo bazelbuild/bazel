@@ -15,10 +15,13 @@ package com.google.devtools.build.lib.analysis.producers;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.config.CommonOptions;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.PackageValue;
@@ -29,7 +32,10 @@ import com.google.devtools.build.skyframe.state.StateMachine;
 import javax.annotation.Nullable;
 
 /**
- * Retrieves {@link PlatformInfo} for a given platform key.
+ * Retrieves {@link PlatformInfo} for a given platform.
+ *
+ * <p>Since platforms do not rely on the configuration, this uses a dummy blank configuration to
+ * help reduce the number of skyframe edges created.
  *
  * <p>This creates an explicit dependency on the {@link Package} to retrieve the associated target,
  * so it is possible to verify that {@link PlatformInfo} is an advertised provider before
@@ -44,7 +50,7 @@ final class PlatformInfoProducer
   }
 
   // -------------------- Input --------------------
-  private final ConfiguredTargetKey platformKey;
+  private final Label platformLabel;
 
   // -------------------- Output --------------------
   private final ResultSink sink;
@@ -56,8 +62,8 @@ final class PlatformInfoProducer
   private boolean passedValidation = false;
   private ConfiguredTarget platform;
 
-  PlatformInfoProducer(ConfiguredTargetKey platformKey, ResultSink sink, StateMachine runAfter) {
-    this.platformKey = platformKey;
+  PlatformInfoProducer(Label platformLabel, ResultSink sink, StateMachine runAfter) {
+    this.platformLabel = platformLabel;
     this.sink = sink;
     this.runAfter = runAfter;
   }
@@ -69,7 +75,7 @@ final class PlatformInfoProducer
     //
     // In distributed analysis, these packages will be duplicated across shards.
     tasks.lookUp(
-        platformKey.getLabel().getPackageIdentifier(),
+        platformLabel.getPackageIdentifier(),
         NoSuchPackageException.class,
         (StateMachine.ValueOrExceptionSink<NoSuchPackageException>) this);
     return this::lookupPlatform;
@@ -81,10 +87,10 @@ final class PlatformInfoProducer
     if (value != null) {
       var pkg = ((PackageValue) value).getPackage();
       try {
-        var label = platformKey.getLabel();
-        var target = pkg.getTarget(label.getName());
+        var target = pkg.getTarget(platformLabel.getName());
         if (!PlatformLookupUtil.hasPlatformInfo(target)) {
-          sink.acceptPlatformInfoError(new InvalidPlatformException(label)); // validation failure
+          // validation failure
+          sink.acceptPlatformInfoError(new InvalidPlatformException(platformLabel));
           return;
         }
       } catch (NoSuchTargetException e) {
@@ -106,6 +112,13 @@ final class PlatformInfoProducer
       return runAfter;
     }
 
+    // Create a configured target key with a dummy configuration.
+    ConfiguredTargetKey platformKey =
+        ConfiguredTargetKey.builder()
+            .setLabel(platformLabel)
+            .setConfigurationKey(
+                BuildConfigurationKey.withoutPlatformMapping(CommonOptions.EMPTY_OPTIONS))
+            .build();
     tasks.lookUp(
         platformKey, ConfiguredValueCreationException.class, this::acceptPlatformValueOrError);
     return this::retrievePlatformInfo;
@@ -119,7 +132,7 @@ final class PlatformInfoProducer
       return;
     }
     if (error != null) {
-      sink.acceptPlatformInfoError(new InvalidPlatformException(platformKey.getLabel(), error));
+      sink.acceptPlatformInfoError(new InvalidPlatformException(platformLabel, error));
       return;
     }
     throw new IllegalArgumentException("both value and error were null");

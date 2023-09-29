@@ -96,10 +96,7 @@ public final class DependencyContextProducerWithCompatibilityCheck
     // Checks for incompatibility before toolchain resolution so that known missing
     // toolchains mark the target incompatible instead of failing the build.
     return new PlatformInfoProducer(
-        ConfiguredTargetKey.builder()
-            .setLabel(platformConfiguration.getTargetPlatform())
-            .setConfigurationKey(defaultToolchainContextKey.configurationKey())
-            .build(),
+        platformConfiguration.getTargetPlatform(),
         (PlatformInfoProducer.ResultSink) this,
         /* runAfter= */ this::computeConfigConditions);
   }
