@@ -242,7 +242,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
           AnalysisProtosV2.ConfiguredTarget.newBuilder();
 
       // Re: testing. Since this formatter relies on the heavily tested ProtoOutputFormatter class
-      // for all its work with targets, ProtoOuputFormatterCallbackTest doesn't test any of the
+      // for all its work with targets, ProtoOutputFormatterCallbackTest doesn't test any of the
       // logic in this next line. If this were to change (i.e. we manipulate targets any further),
       // we will want to add relevant tests.
       currentTarget = keyedConfiguredTarget;
