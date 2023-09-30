@@ -30,9 +30,9 @@ def extract_url(attributes):
         The url extracted from the given attributes.
     """
     if "urls" in attributes:
-        return attributes["urls"][0][2:]
+        return attributes["urls"][0].removeprefix("--")
     elif "url" in attributes:
-        return attributes["url"][2:]
+        return attributes["url"].removeprefix("--")
     else:
         fail("Could not find url in attributes %s" % attributes)
 
@@ -49,7 +49,10 @@ def parse_http_artifacts(ctx, lockfile_path, required_repos):
         A list of http artifacts in the form of
         [{"integrity": <integrity value>, "url": <url>}, {"sha256": <sha256 value>, "url": <url>}, ...]
 
-    All lockfile string values are prefixed with `--`, hence the `[2:]` is needed to remove the prefix.
+    All lockfile string values in version 2, but not version 3, are prefixed with `--`, hence the
+    `.removeprefix("--")` is needed to remove the prefix if it exists. This is a heuristic as
+    version 3 strings could start with `--`, but that is unlikely.
+    TODO: Remove this hack after the release of Bazel 6.4.0.
     """
     lockfile = json.decode(ctx.read(lockfile_path))
     http_artifacts = []
@@ -58,21 +61,21 @@ def parse_http_artifacts(ctx, lockfile_path, required_repos):
         if "repoSpec" in module and module["repoSpec"]["ruleClassName"] == "http_archive":
             repo_spec = module["repoSpec"]
             attributes = repo_spec["attributes"]
-            repo_name = attributes["name"][2:]
+            repo_name = attributes["name"].removeprefix("--")
 
             if repo_name not in required_repos:
                 continue
             found_repos.append(repo_name)
 
             http_artifacts.append({
-                "integrity": attributes["integrity"][2:],
+                "integrity": attributes["integrity"].removeprefix("--"),
                 "url": extract_url(attributes),
             })
             if "remote_patches" in attributes:
                 for patch, integrity in attributes["remote_patches"].items():
                     http_artifacts.append({
-                        "integrity": integrity[2:],
-                        "url": patch[2:],
+                        "integrity": integrity.removeprefix("--"),
+                        "url": patch.removeprefix("--"),
                     })
 
     for _, extension in lockfile["moduleExtensions"].items():
@@ -81,14 +84,14 @@ def parse_http_artifacts(ctx, lockfile_path, required_repos):
             rule_class = repo_spec["ruleClassName"]
             if rule_class == "http_archive" or rule_class == "http_file" or rule_class == "http_jar":
                 attributes = repo_spec["attributes"]
-                repo_name = attributes["name"][2:]
+                repo_name = attributes["name"].removeprefix("--")
 
                 if repo_name not in required_repos:
                     continue
                 found_repos.append(repo_name)
 
                 http_artifacts.append({
-                    "sha256": attributes["sha256"][2:],
+                    "sha256": attributes["sha256"].removeprefix("--"),
                     "url": extract_url(attributes),
                 })
 
