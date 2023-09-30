@@ -398,10 +398,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
     Stopwatch queueStopwatch = Stopwatch.createStarted();
     ResourceSet resourceSet =
-        ResourceSet.createWithWorkerKey(
-            spawn.getLocalResources().getMemoryMb(),
-            spawn.getLocalResources().getCpuUsage(),
-            spawn.getLocalResources().getExtraResourceUsage(),
+        ResourceSet.create(
+            spawn.getLocalResources().getResources(),
             spawn.getLocalResources().getLocalTestCount(),
             key);
 
