@@ -186,12 +186,12 @@ final class StringModule implements StarlarkValue {
    */
   // TODO(https://github.com/bazelbuild/starlark/issues/112): use the Unicode definition of
   // whitespace, matching Python 3.
-  private static final String LATIN1_WHITESPACE =
-      ("\u0009" + "\n" + "\u000B" + "\u000C" + "\r" + "\u001C" + "\u001D" + "\u001E" + "\u001F"
-          + " " + "\u0085" + "\u00A0");
+  private static final CharMatcher LATIN1_WHITESPACE =
+      CharMatcher.anyOf(
+          "\u0009" + "\n" + "\u000B" + "\u000C" + "\r" + "\u001C" + "\u001D" + "\u001E" + "\u001F "
+              + "\u0085" + "\u00A0");
 
-  private static String stringLStrip(String self, String chars) {
-    CharMatcher matcher = CharMatcher.anyOf(chars);
+  private static String stringLStrip(String self, CharMatcher matcher) {
     for (int i = 0; i < self.length(); i++) {
       if (!matcher.matches(self.charAt(i))) {
         return self.substring(i);
@@ -200,8 +200,7 @@ final class StringModule implements StarlarkValue {
     return ""; // All characters were stripped.
   }
 
-  private static String stringRStrip(String self, String chars) {
-    CharMatcher matcher = CharMatcher.anyOf(chars);
+  private static String stringRStrip(String self, CharMatcher matcher) {
     for (int i = self.length() - 1; i >= 0; i--) {
       if (!matcher.matches(self.charAt(i))) {
         return self.substring(0, i + 1);
@@ -210,8 +209,8 @@ final class StringModule implements StarlarkValue {
     return ""; // All characters were stripped.
   }
 
-  private static String stringStrip(String self, String chars) {
-    return stringLStrip(stringRStrip(self, chars), chars);
+  private static String stringStrip(String self, CharMatcher matcher) {
+    return stringLStrip(stringRStrip(self, matcher), matcher);
   }
 
   @StarlarkMethod(
@@ -235,8 +234,9 @@ final class StringModule implements StarlarkValue {
             defaultValue = "None")
       })
   public String lstrip(String self, Object charsOrNone) {
-    String chars = charsOrNone != Starlark.NONE ? (String) charsOrNone : LATIN1_WHITESPACE;
-    return stringLStrip(self, chars);
+    CharMatcher matcher =
+        charsOrNone != Starlark.NONE ? CharMatcher.anyOf((String) charsOrNone) : LATIN1_WHITESPACE;
+    return stringLStrip(self, matcher);
   }
 
   @StarlarkMethod(
@@ -260,8 +260,9 @@ final class StringModule implements StarlarkValue {
             defaultValue = "None")
       })
   public String rstrip(String self, Object charsOrNone) {
-    String chars = charsOrNone != Starlark.NONE ? (String) charsOrNone : LATIN1_WHITESPACE;
-    return stringRStrip(self, chars);
+    CharMatcher matcher =
+        charsOrNone != Starlark.NONE ? CharMatcher.anyOf((String) charsOrNone) : LATIN1_WHITESPACE;
+    return stringRStrip(self, matcher);
   }
 
   @StarlarkMethod(
@@ -286,8 +287,9 @@ final class StringModule implements StarlarkValue {
             defaultValue = "None")
       })
   public String strip(String self, Object charsOrNone) {
-    String chars = charsOrNone != Starlark.NONE ? (String) charsOrNone : LATIN1_WHITESPACE;
-    return stringStrip(self, chars);
+    CharMatcher matcher =
+        charsOrNone != Starlark.NONE ? CharMatcher.anyOf((String) charsOrNone) : LATIN1_WHITESPACE;
+    return stringStrip(self, matcher);
   }
 
   @StarlarkMethod(
