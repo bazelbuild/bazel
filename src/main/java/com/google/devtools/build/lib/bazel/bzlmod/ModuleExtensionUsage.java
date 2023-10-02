@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
@@ -26,6 +28,8 @@ import net.starlark.java.syntax.Location;
 /**
  * Represents one usage of a module extension in one MODULE.bazel file. This class records all the
  * information pertinent to the proxy object returned from the {@code use_extension} call.
+ *
+ * <p>When adding new fields, make sure to update {@link #trimForEvaluation()} as well.
  */
 @AutoValue
 @GenerateTypeAdapter
@@ -84,6 +88,26 @@ public abstract class ModuleExtensionUsage {
 
   public static Builder builder() {
     return new AutoValue_ModuleExtensionUsage.Builder();
+  }
+
+  /**
+   * Returns a new usage with all information removed that does not influence the evaluation of the
+   * extension.
+   */
+  ModuleExtensionUsage trimForEvaluation() {
+    // We start with the full usage and selectively remove information that does not influence the
+    // evaluation of the extension. Compared to explicitly copying over the parts that do, this
+    // preserves correctness in case new fields are added without updating this code.
+    return toBuilder()
+        .setTags(getTags().stream().map(Tag::trimForEvaluation).collect(toImmutableList()))
+        // Locations are only used for error reporting and thus don't influence whether the
+        // evaluation of the extension is successful and what its result is in case of success.
+        .setLocation(Location.BUILTIN)
+        // Extension implementation functions do not see the imports, they are only validated
+        // against the set of generated repos in a validation step that comes afterward.
+        .setImports(ImmutableBiMap.of())
+        .setDevImports(ImmutableSet.of())
+        .build();
   }
 
   /** Builder for {@link ModuleExtensionUsage}. */
