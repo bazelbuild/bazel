@@ -49,14 +49,23 @@ import java.util.Optional;
  * <p>For details, see <a href="https://bazel.build/external/registry">the docs</a>
  */
 public class IndexRegistry implements Registry {
+
+  /** The unresolved version of the url. Ex: has %workspace% placeholder */
+  private final String unresolvedUri;
+
   private final URI uri;
   private final DownloadManager downloadManager;
   private final Map<String, String> clientEnv;
   private final Gson gson;
   private volatile Optional<BazelRegistryJson> bazelRegistryJson;
 
-  public IndexRegistry(URI uri, DownloadManager downloadManager, Map<String, String> clientEnv) {
+  public IndexRegistry(
+      URI uri,
+      String unresolvedUri,
+      DownloadManager downloadManager,
+      Map<String, String> clientEnv) {
     this.uri = uri;
+    this.unresolvedUri = unresolvedUri;
     this.downloadManager = downloadManager;
     this.clientEnv = clientEnv;
     this.gson =
@@ -67,7 +76,7 @@ public class IndexRegistry implements Registry {
 
   @Override
   public String getUrl() {
-    return uri.toString();
+    return unresolvedUri;
   }
 
   private String constructUrl(String base, String... segments) {
@@ -98,7 +107,7 @@ public class IndexRegistry implements Registry {
       throws IOException, InterruptedException {
     String url =
         constructUrl(
-            getUrl(), "modules", key.getName(), key.getVersion().toString(), "MODULE.bazel");
+            uri.toString(), "modules", key.getName(), key.getVersion().toString(), "MODULE.bazel");
     return grabFile(url, eventHandler).map(content -> ModuleFile.create(content, url));
   }
 
@@ -149,12 +158,16 @@ public class IndexRegistry implements Registry {
     Optional<SourceJson> sourceJson =
         grabJson(
             constructUrl(
-                getUrl(), "modules", key.getName(), key.getVersion().toString(), "source.json"),
+                uri.toString(),
+                "modules",
+                key.getName(),
+                key.getVersion().toString(),
+                "source.json"),
             SourceJson.class,
             eventHandler);
     if (sourceJson.isEmpty()) {
       throw new FileNotFoundException(
-          String.format("Module %s's source information not found in registry %s", key, getUrl()));
+          String.format("Module %s's source information not found in registry %s", key, uri));
     }
 
     String type = sourceJson.get().type;
@@ -177,7 +190,7 @@ public class IndexRegistry implements Registry {
         if (bazelRegistryJson == null) {
           bazelRegistryJson =
               grabJson(
-                  constructUrl(getUrl(), "bazel_registry.json"),
+                  constructUrl(uri.toString(), "bazel_registry.json"),
                   BazelRegistryJson.class,
                   eventHandler);
         }
@@ -259,7 +272,7 @@ public class IndexRegistry implements Registry {
       for (Map.Entry<String, String> entry : sourceJson.get().patches.entrySet()) {
         remotePatches.put(
             constructUrl(
-                getUrl(),
+                unresolvedUri,
                 "modules",
                 key.getName(),
                 key.getVersion().toString(),
@@ -286,7 +299,7 @@ public class IndexRegistry implements Registry {
       throws IOException, InterruptedException {
     Optional<MetadataJson> metadataJson =
         grabJson(
-            constructUrl(getUrl(), "modules", moduleName, "metadata.json"),
+            constructUrl(uri.toString(), "modules", moduleName, "metadata.json"),
             MetadataJson.class,
             eventHandler);
     if (metadataJson.isEmpty()) {

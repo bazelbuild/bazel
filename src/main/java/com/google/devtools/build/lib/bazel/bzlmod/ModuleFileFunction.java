@@ -391,9 +391,7 @@ public class ModuleFileFunction implements SkyFunction {
     List<Registry> registryObjects = new ArrayList<>(registries.size());
     for (String registryUrl : registries) {
       try {
-        registryObjects.add(
-            registryFactory.getRegistryWithUrl(
-                registryUrl.replace("%workspace%", workspaceRoot.getPathString())));
+        registryObjects.add(registryFactory.getRegistryWithUrl(registryUrl));
       } catch (URISyntaxException e) {
         throw errorf(Code.INVALID_REGISTRY_URL, e, "Invalid registry URL");
       }
