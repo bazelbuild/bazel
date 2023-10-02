@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.UnrecoverableHttpException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.vfs.Path;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
@@ -60,9 +61,11 @@ public class IndexRegistryTest extends FoundationTestCase {
 
   @Before
   public void setUp() throws Exception {
+    Path workspaceRoot = scratch.dir("/ws");
     downloadManager = new DownloadManager(new RepositoryCache(), new HttpDownloader());
     registryFactory =
-        new RegistryFactoryImpl(downloadManager, Suppliers.ofInstance(ImmutableMap.of()));
+        new RegistryFactoryImpl(
+            workspaceRoot, downloadManager, Suppliers.ofInstance(ImmutableMap.of()));
   }
 
   @Test
