@@ -83,6 +83,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:caffeine",
         "//third_party:gson",
@@ -94,6 +95,8 @@ java_library(
     name = "bazel_lockfile_module",
     srcs = ["BazelLockFileModule.java"],
     deps = [
+        ":common",
+        ":exception",
         ":resolution",
         ":resolution_impl",
         "//src/main/java/com/google/devtools/build/lib:runtime",

@@ -1046,6 +1046,229 @@ class BazelLockfileTest(test_base.TestBase):
       self.assertNotIn(added_key, extension_map)
       self.assertEqual(len(extension_map), 1)
 
+  def testExtensionEvaluationOnlyRerunOnRelevantUsagesChanges(self):
+    self.main_registry.createCcModule('aaa', '1.0')
+
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext_1 = use_extension("extension.bzl", "ext_1")',
+            'ext_1.tag()',
+            'use_repo(ext_1, ext_1_dep = "dep")',
+            'ext_2 = use_extension("extension.bzl", "ext_2")',
+            'ext_2.tag()',
+            'use_repo(ext_2, ext_2_dep = "dep")',
+            'ext_3 = use_extension("extension.bzl", "ext_3")',
+            'use_repo(ext_3, ext_3_dep = "dep")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("WORKSPACE")',
+            '    ctx.file("BUILD", "exports_files([\\"data.txt\\"])")',
+            '    ctx.file("data.txt", ctx.attr.value)',
+            '    print(ctx.attr.value)',
+            '',
+            'repo_rule = repository_rule(',
+            '    implementation=_repo_rule_impl,',
+            '    attrs = {"value": attr.string()},)',
+            '',
+            'def _ext_1_impl(ctx):',
+            '    print("Ext 1 is being evaluated")',
+            '    num_tags = len([',
+            '        tag for mod in ctx.modules for tag in mod.tags.tag',
+            '    ])',
+            '    repo_rule(name="dep", value="Ext 1 saw %s tags" % num_tags)',
+            '',
+            'ext_1 = module_extension(',
+            '    implementation=_ext_1_impl,',
+            '    tag_classes={"tag": tag_class()}',
+            ')',
+            '',
+            'def _ext_2_impl(ctx):',
+            '    print("Ext 2 is being evaluated")',
+            '    num_tags = len([',
+            '        tag for mod in ctx.modules for tag in mod.tags.tag',
+            '    ])',
+            '    repo_rule(name="dep", value="Ext 2 saw %s tags" % num_tags)',
+            '',
+            'ext_2 = module_extension(',
+            '    implementation=_ext_2_impl,',
+            '    tag_classes={"tag": tag_class()}',
+            ')',
+            '',
+            'def _ext_3_impl(ctx):',
+            '    print("Ext 3 is being evaluated")',
+            '    num_tags = len([',
+            '        tag for mod in ctx.modules for tag in mod.tags.tag',
+            '    ])',
+            '    repo_rule(name="dep", value="Ext 3 saw %s tags" % num_tags)',
+            '',
+            'ext_3 = module_extension(',
+            '    implementation=_ext_3_impl,',
+            '    tag_classes={"tag": tag_class()}',
+            ')',
+        ],
+    )
+
+    # Trigger evaluation of all extensions.
+    _, _, stderr = self.RunBazel(
+        ['build', '@ext_1_dep//:all', '@ext_2_dep//:all', '@ext_3_dep//:all']
+    )
+    stderr = '\n'.join(stderr)
+
+    self.assertIn('Ext 1 is being evaluated', stderr)
+    self.assertIn('Ext 1 saw 1 tags', stderr)
+    self.assertIn('Ext 2 is being evaluated', stderr)
+    self.assertIn('Ext 2 saw 1 tags', stderr)
+    self.assertIn('Ext 3 is being evaluated', stderr)
+    self.assertIn('Ext 3 saw 0 tags', stderr)
+    ext_1_key = '//:extension.bzl%ext_1'
+    ext_2_key = '//:extension.bzl%ext_2'
+    ext_3_key = '//:extension.bzl%ext_3'
+    with open('MODULE.bazel.lock', 'r') as json_file:
+      lockfile = json.load(json_file)
+    self.assertIn(ext_1_key, lockfile['moduleExtensions'])
+    self.assertIn(
+        'Ext 1 saw 1 tags',
+        lockfile['moduleExtensions'][ext_1_key]['general'][
+            'generatedRepoSpecs'
+        ]['dep']['attributes']['value'],
+    )
+    self.assertIn(ext_2_key, lockfile['moduleExtensions'])
+    self.assertIn(
+        'Ext 2 saw 1 tags',
+        lockfile['moduleExtensions'][ext_2_key]['general'][
+            'generatedRepoSpecs'
+        ]['dep']['attributes']['value'],
+    )
+    self.assertIn(ext_3_key, lockfile['moduleExtensions'])
+    self.assertIn(
+        'Ext 3 saw 0 tags',
+        lockfile['moduleExtensions'][ext_3_key]['general'][
+            'generatedRepoSpecs'
+        ]['dep']['attributes']['value'],
+    )
+
+    # Shut down bazel to empty the cache, modify the MODULE.bazel
+    # file in a way that does not affect the resolution of ext_1,
+    # but requires rerunning module resolution and removes ext_3, then
+    # trigger module resolution without evaluating any of the extensions.
+    self.RunBazel(['shutdown'])
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            '# Added a dep to force rerunning module resolution.',
+            'bazel_dep(name = "aaa", version = "1.0")',
+            (
+                '# The usage of ext_1 is unchanged except for locations and'
+                ' imports.'
+            ),
+            'ext_1 = use_extension("extension.bzl", "ext_1")',
+            'ext_1.tag()',
+            'use_repo(ext_1, ext_1_dep_new_name = "dep")',
+            '# The usage of ext_2 has a new tag.',
+            'ext_2 = use_extension("extension.bzl", "ext_2")',
+            'ext_2.tag()',
+            'ext_2.tag()',
+            'use_repo(ext_2, ext_2_dep = "dep")',
+            '# The usage of ext_3 has been removed.',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['build', '//:all'])
+    stderr = '\n'.join(stderr)
+
+    self.assertNotIn('Ext 1 is being evaluated', stderr)
+    self.assertNotIn('Ext 2 is being evaluated', stderr)
+    self.assertNotIn('Ext 3 is being evaluated', stderr)
+    with open('MODULE.bazel.lock', 'r') as json_file:
+      lockfile = json.load(json_file)
+    # The usages of ext_1 did not change.
+    self.assertIn(ext_1_key, lockfile['moduleExtensions'])
+    self.assertIn(
+        'Ext 1 saw 1 tags',
+        lockfile['moduleExtensions'][ext_1_key]['general'][
+            'generatedRepoSpecs'
+        ]['dep']['attributes']['value'],
+    )
+    # The usages of ext_2 changed, but the extension is not re-evaluated,
+    # so its previous, now stale resolution result must have been removed.
+    self.assertNotIn(ext_2_key, lockfile['moduleExtensions'])
+    # The only usage of ext_3 was removed.
+    self.assertNotIn(ext_3_key, lockfile['moduleExtensions'])
+
+    # Trigger evaluation of all remaining extensions.
+    _, _, stderr = self.RunBazel(
+        ['build', '@ext_1_dep_new_name//:all', '@ext_2_dep//:all']
+    )
+    stderr = '\n'.join(stderr)
+
+    self.assertNotIn('Ext 1 is being evaluated', stderr)
+    self.assertIn('Ext 2 is being evaluated', stderr)
+    self.assertIn('Ext 2 saw 2 tags', stderr)
+    ext_1_key = '//:extension.bzl%ext_1'
+    ext_2_key = '//:extension.bzl%ext_2'
+    with open('MODULE.bazel.lock', 'r') as json_file:
+      lockfile = json.load(json_file)
+    self.assertIn(ext_1_key, lockfile['moduleExtensions'])
+    self.assertIn(
+        'Ext 1 saw 1 tags',
+        lockfile['moduleExtensions'][ext_1_key]['general'][
+            'generatedRepoSpecs'
+        ]['dep']['attributes']['value'],
+    )
+    self.assertIn(ext_2_key, lockfile['moduleExtensions'])
+    self.assertIn(
+        'Ext 2 saw 2 tags',
+        lockfile['moduleExtensions'][ext_2_key]['general'][
+            'generatedRepoSpecs'
+        ]['dep']['attributes']['value'],
+    )
+    self.assertNotIn(ext_3_key, lockfile['moduleExtensions'])
+
+  def testLockfileWithNoUserSpecificPath(self):
+    self.my_registry = BazelRegistry(os.path.join(self._test_cwd, 'registry'))
+    patch_file = self.ScratchFile(
+        'ss.patch',
+        [
+            '--- a/aaa.cc',
+            '+++ b/aaa.cc',
+            '@@ -1,6 +1,6 @@',
+            ' #include <stdio.h>',
+            ' #include "aaa.h"',
+            ' void hello_aaa(const std::string& caller) {',
+            '-    std::string lib_name = "aaa@1.1-1";',
+            '+    std::string lib_name = "aaa@1.1-1 (remotely patched)";',
+            '     printf("%s => %s\\n", caller.c_str(), lib_name.c_str());',
+            ' }',
+        ],
+    )
+    self.my_registry.createCcModule(
+        'ss', '1.3-1', patches=[patch_file], patch_strip=1
+    )
+
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "ss", version = "1.3-1")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel', ['filegroup(name = "lala")'])
+    self.RunBazel(
+        ['build', '--registry=file:///%workspace%/registry', '//:lala']
+    )
+
+    with open('MODULE.bazel.lock', 'r') as json_file:
+      lockfile = json.load(json_file)
+    remote_patches = lockfile['moduleDepGraph']['ss@1.3-1']['repoSpec'][
+        'attributes'
+    ]['remote_patches']
+    for key in remote_patches.keys():
+      self.assertIn('%workspace%', key)
+
 
 if __name__ == '__main__':
   unittest.main()
