@@ -62,10 +62,10 @@ DIST_DEPS = {
         ],
     },
     "rules_java": {
-        "archive": "rules_java-6.3.2.tar.gz",
-        "sha256": "7c82d4412fb837a40e049deea352cfc019d2a247ab9639aa7df12381fb39de60",
+        "archive": "rules_java-5.5.1.tar.gz",
+        "sha256": "73b88f34dc251bce7bc6c472eb386a6c2b312ed5b473c81fe46855c248f792e0",
         "urls": [
-            "https://github.com/bazelbuild/rules_java/releases/download/6.3.2/rules_java-6.3.2.tar.gz",
+            "https://github.com/bazelbuild/rules_java/releases/download/5.5.1/rules_java-5.5.1.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
