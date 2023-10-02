@@ -84,7 +84,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
     private final String hostname;
 
     private static final DateTimeFormatter TIME_FORMAT =
-        DateTimeFormatter.ofPattern("yyyy MMM d HH mm ss EEE");
+        DateTimeFormatter.ofPattern("yyyy MMM dd HH mm ss EEE");
 
     private static String format(long timestamp) {
       return Instant.ofEpochMilli(timestamp).atZone(ZoneOffset.UTC).format(TIME_FORMAT);
