@@ -13,7 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import com.google.common.base.Joiner;
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -124,6 +125,9 @@ public abstract class JavaHelper {
   /**
    * De-tokenizes a collection of {@code javac} options into a {@link NestedSet}.
    *
+   * <p>Each option is shell-escaped to get back the original option as-is when we tokenize the
+   * depset.
+   *
    * @param javacOpts the {@code javac} options to detokenize
    * @return A {@link NestedSet} of the supplied options concatenated into a single string separated
    *     by ' '.
@@ -132,7 +136,9 @@ public abstract class JavaHelper {
     if (javacOpts.isEmpty()) {
       return NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     }
-    return NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, Joiner.on(' ').join(javacOpts));
+    return NestedSetBuilder.create(
+        Order.NAIVE_LINK_ORDER,
+        javacOpts.stream().map(ShellUtils::shellEscape).collect(joining(" ")));
   }
 
   public static PathFragment getJavaResourcePath(

@@ -130,12 +130,22 @@ public class JavaUtilTest {
   @Test
   public void testDetokenization() {
     ImmutableList<String> options =
-        ImmutableList.of("-source", "8", "-target", "8", "-Xmx1G", "--arg=val");
+        ImmutableList.of(
+            "-source",
+            "8",
+            "-target",
+            "8",
+            "-Xmx1G",
+            "--arg=val",
+            "-XepExcludedPaths:.*/\\\\$$?\\\\$$?AutoValue(Gson)?_.*\\.java");
 
     NestedSet<String> detokenized = JavaHelper.detokenizeJavaOptions(options);
     ImmutableList<String> retokenized = JavaHelper.tokenizeJavaOptions(detokenized);
 
-    assertThat(detokenized.toList()).containsExactly("-source 8 -target 8 -Xmx1G --arg=val");
+    assertThat(detokenized.toList())
+        .containsExactly(
+            "-source 8 -target 8 -Xmx1G '--arg=val'"
+                + " '-XepExcludedPaths:.*/\\\\$$?\\\\$$?AutoValue(Gson)?_.*\\.java'");
     assertThat(retokenized).isEqualTo(options);
   }
 }

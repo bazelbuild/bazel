@@ -119,7 +119,8 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   public JavaConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
     JavaOptions javaOptions = buildOptions.get(JavaOptions.class);
-    this.commandLineJavacFlags = JavaHelper.detokenizeJavaOptions(javaOptions.javacOpts);
+    this.commandLineJavacFlags =
+        JavaHelper.detokenizeJavaOptions(JavaHelper.tokenizeJavaOptions(javaOptions.javacOpts));
     this.javaLauncherLabel = javaOptions.javaLauncher;
     this.useIjars = javaOptions.useIjars;
     this.useHeaderCompilation = javaOptions.headerCompilation;
