@@ -26,6 +26,9 @@ import net.starlark.java.eval.StarlarkInt;
  * an {@code http_archive} repo rule call.
  */
 public class ArchiveRepoSpecBuilder {
+
+  public static final String HTTP_ARCHIVE_PATH = "@bazel_tools//tools/build_defs/repo:http.bzl";
+
   private final ImmutableMap.Builder<String, Object> attrBuilder;
 
   public ArchiveRepoSpecBuilder() {
@@ -96,7 +99,7 @@ public class ArchiveRepoSpecBuilder {
 
   public RepoSpec build() {
     return RepoSpec.builder()
-        .setBzlFile("@bazel_tools//tools/build_defs/repo:http.bzl")
+        .setBzlFile(HTTP_ARCHIVE_PATH)
         .setRuleClassName("http_archive")
         .setAttributes(AttributeValues.create(attrBuilder.buildOrThrow()))
         .build();

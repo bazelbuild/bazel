@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.vfs.Path;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
@@ -25,19 +26,23 @@ import java.util.function.Supplier;
 
 /** Prod implementation of {@link RegistryFactory}. */
 public class RegistryFactoryImpl implements RegistryFactory {
+  private final Path workspacePath;
   private final DownloadManager downloadManager;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
   private final Cache<String, Registry> registries = Caffeine.newBuilder().build();
 
   public RegistryFactoryImpl(
-      DownloadManager downloadManager, Supplier<Map<String, String>> clientEnvironmentSupplier) {
+      Path workspacePath,
+      DownloadManager downloadManager,
+      Supplier<Map<String, String>> clientEnvironmentSupplier) {
+    this.workspacePath = workspacePath;
     this.downloadManager = downloadManager;
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
   }
 
   @Override
-  public Registry getRegistryWithUrl(String url) throws URISyntaxException {
-    URI uri = new URI(url);
+  public Registry getRegistryWithUrl(String unresolvedUrl) throws URISyntaxException {
+    URI uri = new URI(unresolvedUrl.replace("%workspace%", workspacePath.getPathString()));
     if (uri.getScheme() == null) {
       throw new URISyntaxException(
           uri.toString(), "Registry URL has no scheme -- did you mean to use file://?");
@@ -47,8 +52,10 @@ public class RegistryFactoryImpl implements RegistryFactory {
       case "https":
       case "file":
         return registries.get(
-            url,
-            unused -> new IndexRegistry(uri, downloadManager, clientEnvironmentSupplier.get()));
+            unresolvedUrl,
+            unused ->
+                new IndexRegistry(
+                    uri, unresolvedUrl, downloadManager, clientEnvironmentSupplier.get()));
       default:
         throw new URISyntaxException(uri.toString(), "Unrecognized registry URL protocol");
     }

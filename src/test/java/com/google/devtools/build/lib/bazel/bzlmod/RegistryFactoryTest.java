@@ -22,6 +22,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
+import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.vfs.Path;
 import java.net.URISyntaxException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -29,12 +31,14 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link RegistryFactory}. */
 @RunWith(JUnit4.class)
-public class RegistryFactoryTest {
+public class RegistryFactoryTest extends FoundationTestCase {
 
   @Test
   public void badSchemes() throws Exception {
+    Path workspaceRoot = scratch.dir("/ws");
     RegistryFactory registryFactory =
         new RegistryFactoryImpl(
+            workspaceRoot,
             new DownloadManager(new RepositoryCache(), new HttpDownloader()),
             Suppliers.ofInstance(ImmutableMap.of()));
     assertThrows(URISyntaxException.class, () -> registryFactory.getRegistryWithUrl("/home/www"));
