@@ -18,7 +18,7 @@ load(":common/java/java_common.bzl", "java_common")
 load(":common/java/java_info.bzl", "JavaInfo", _merge_private_for_builtins = "merge")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/java/proto/java_proto_library.bzl", "JavaProtoAspectInfo", "java_compile_for_protos")
-load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo", proto_common = "proto_common_do_not_use")
+load(":common/proto/proto_common.bzl", "toolchains", proto_common = "proto_common_do_not_use")
 load(":common/proto/proto_info.bzl", "ProtoInfo")
 
 PROTO_TOOLCHAIN_ATTR = "_aspect_proto_toolchain_for_javalite"
@@ -40,7 +40,11 @@ def _aspect_impl(target, ctx):
 
     deps = [dep[JavaInfo] for dep in ctx.rule.attr.deps]
     exports = [exp[JavaInfo] for exp in ctx.rule.attr.exports]
-    proto_toolchain_info = ctx.attr._aspect_proto_toolchain_for_javalite[ProtoLangToolchainInfo]
+    proto_toolchain_info = toolchains.find_toolchain(
+        ctx,
+        "_aspect_proto_toolchain_for_javalite",
+        semantics.JAVA_LITE_PROTO_TOOLCHAIN,
+    )
     source_jar = None
 
     if proto_common.experimental_should_generate_code(target[ProtoInfo], proto_toolchain_info, "java_lite_proto_library", target.label):
@@ -74,15 +78,16 @@ def _aspect_impl(target, ctx):
 java_lite_proto_aspect = aspect(
     implementation = _aspect_impl,
     attr_aspects = ["deps", "exports"],
-    attrs = {
+    attrs = toolchains.if_legacy_toolchain({
         PROTO_TOOLCHAIN_ATTR: attr.label(
             default = configuration_field(fragment = "proto", name = "proto_toolchain_for_java_lite"),
         ),
-    },
+    }),
     fragments = ["java"],
     required_providers = [ProtoInfo],
     provides = [JavaInfo, JavaProtoAspectInfo],
-    toolchains = [semantics.JAVA_TOOLCHAIN],
+    toolchains = [semantics.JAVA_TOOLCHAIN] +
+                 toolchains.use_toolchain(semantics.JAVA_LITE_PROTO_TOOLCHAIN),
 )
 
 def _rule_impl(ctx):
@@ -98,7 +103,11 @@ def _rule_impl(ctx):
       ([JavaInfo, DefaultInfo, OutputGroupInfo, ProguardSpecProvider])
     """
 
-    proto_toolchain_info = ctx.attr._aspect_proto_toolchain_for_javalite[ProtoLangToolchainInfo]
+    proto_toolchain_info = toolchains.find_toolchain(
+        ctx,
+        "_aspect_proto_toolchain_for_javalite",
+        semantics.JAVA_LITE_PROTO_TOOLCHAIN,
+    )
     for dep in ctx.attr.deps:
         proto_common.check_collocated(ctx.label, dep[ProtoInfo], proto_toolchain_info)
 
@@ -131,9 +140,11 @@ java_lite_proto_library = rule(
     implementation = _rule_impl,
     attrs = {
         "deps": attr.label_list(providers = [ProtoInfo], aspects = [java_lite_proto_aspect]),
+    } | toolchains.if_legacy_toolchain({
         PROTO_TOOLCHAIN_ATTR: attr.label(
             default = configuration_field(fragment = "proto", name = "proto_toolchain_for_java_lite"),
         ),
-    },
+    }),
     provides = [JavaInfo],
+    toolchains = toolchains.use_toolchain(semantics.JAVA_LITE_PROTO_TOOLCHAIN),
 )

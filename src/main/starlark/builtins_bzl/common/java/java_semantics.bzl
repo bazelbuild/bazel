@@ -74,4 +74,5 @@ semantics = struct(
     compatible_javac_options = _compatible_javac_options,
     LAUNCHER_FLAG_LABEL = Label("@bazel_tools//tools/jdk:launcher_flag_alias"),
     JAVA_PROTO_TOOLCHAIN = "@rules_java//java/proto:toolchain_type",
+    JAVA_LITE_PROTO_TOOLCHAIN = "@rules_java//java/proto:lite_toolchain_type",
 )
