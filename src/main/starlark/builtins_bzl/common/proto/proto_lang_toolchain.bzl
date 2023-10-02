@@ -38,23 +38,23 @@ def _rule_impl(ctx):
         proto_compiler = ctx.attr._proto_compiler.files_to_run
         protoc_opts = ctx.fragments.proto.experimental_protoc_opts
 
+    proto_lang_toolchain_info = ProtoLangToolchainInfo(
+        out_replacement_format_flag = flag,
+        output_files = ctx.attr.output_files,
+        plugin_format_flag = ctx.attr.plugin_format_flag,
+        plugin = plugin,
+        runtime = ctx.attr.runtime,
+        provided_proto_sources = provided_proto_sources,
+        proto_compiler = proto_compiler,
+        protoc_opts = protoc_opts,
+        progress_message = ctx.attr.progress_message,
+        mnemonic = ctx.attr.mnemonic,
+    )
     return [
-        DefaultInfo(
-            files = depset(),
-            runfiles = ctx.runfiles(),
-        ),
-        ProtoLangToolchainInfo(
-            out_replacement_format_flag = flag,
-            output_files = ctx.attr.output_files,
-            plugin_format_flag = ctx.attr.plugin_format_flag,
-            plugin = plugin,
-            runtime = ctx.attr.runtime,
-            provided_proto_sources = provided_proto_sources,
-            proto_compiler = proto_compiler,
-            protoc_opts = protoc_opts,
-            progress_message = ctx.attr.progress_message,
-            mnemonic = ctx.attr.mnemonic,
-        ),
+        DefaultInfo(files = depset(), runfiles = ctx.runfiles()),
+        _builtins.toplevel.platform_common.ToolchainInfo(proto = proto_lang_toolchain_info),
+        # TODO(b/300592942): remove when --incompatible_enable_proto_toolchains is flipped and removed
+        proto_lang_toolchain_info,
     ]
 
 proto_lang_toolchain = rule(
