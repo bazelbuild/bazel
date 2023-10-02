@@ -87,6 +87,8 @@ public class DefaultToolsSetup implements ToolsSetup {
       }
     }
 
+    lines.add("common --noenable_bzlmod");
+
     context.write(".bazelrc", lines);
   }
 }

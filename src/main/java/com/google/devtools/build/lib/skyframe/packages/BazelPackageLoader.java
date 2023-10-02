@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.bazel.BazelRepositoryModule;
+import com.google.devtools.build.lib.bazel.bzlmod.*;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
@@ -98,7 +100,23 @@ public class BazelPackageLoader extends AbstractPackageLoader {
               RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
           PrecomputedValue.injected(
               RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
-              RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY));
+              RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
+          PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
+          PrecomputedValue.injected(
+              RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_CONFIGURING,
+              RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
+          PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, ImmutableList.of()),
+          PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
+          PrecomputedValue.injected(
+              BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
+              RepositoryOptions.CheckDirectDepsMode.OFF),
+          PrecomputedValue.injected(
+              BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
+              RepositoryOptions.BazelCompatibilityMode.OFF),
+          PrecomputedValue.injected(
+              BazelLockFileFunction.LOCKFILE_MODE, RepositoryOptions.LockfileMode.OFF),
+          PrecomputedValue.injected(
+              YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, ImmutableList.of()));
     }
 
     @Override
@@ -107,6 +125,17 @@ public class BazelPackageLoader extends AbstractPackageLoader {
       RepositoryCache repositoryCache = new RepositoryCache();
       HttpDownloader httpDownloader = new HttpDownloader();
       DownloadManager downloadManager = new DownloadManager(repositoryCache, httpDownloader);
+      RegistryFactory registryFactory =
+          new RegistryFactoryImpl(downloadManager, Suppliers.ofInstance(ImmutableMap.of()));
+
+      // Allow tests to override SkyFunctions.MODULE_FILE to use fake registry
+      if (!this.extraSkyFunctions.containsKey(SkyFunctions.MODULE_FILE)) {
+        addExtraSkyFunctions(ImmutableMap.of(
+            SkyFunctions.MODULE_FILE,
+            new ModuleFileFunction(registryFactory, directories.getWorkspace(), ImmutableMap.of())
+        ));
+      }
+
       addExtraSkyFunctions(
           ImmutableMap.<SkyFunctionName, SkyFunction>builder()
               .put(
@@ -129,6 +158,8 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                       ImmutableMap::of,
                       directories,
                       EXTERNAL_PACKAGE_HELPER))
+              .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
+              .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
               .build());
 
       return new BazelPackageLoader(this);

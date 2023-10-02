@@ -98,13 +98,15 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
                     PathFragment.create(ADDITIONAL_IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING)))
             .build();
     SkyframeExecutorTestHelper.process(skyframeExecutor);
+    BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
+    buildLanguageOptions.enableBzlmod = false;
     skyframeExecutor.preparePackageLoading(
         new PathPackageLocator(
             outputBase,
             ImmutableList.of(Root.fromPath(rootDirectory)),
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
         Options.getDefaults(PackageOptions.class),
-        Options.getDefaults(BuildLanguageOptions.class),
+        buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
         QuiescingExecutorsImpl.forTesting(),

@@ -465,13 +465,15 @@ public class IncrementalLoadingTest {
               PrecomputedValue.injected(
                   RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
                   Optional.empty())));
+      BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
+      buildLanguageOptions.enableBzlmod = false;
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(
               outputBase,
               ImmutableList.of(Root.fromPath(workspace)),
               BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
           packageOptions,
-          Options.getDefaults(BuildLanguageOptions.class),
+          buildLanguageOptions,
           UUID.randomUUID(),
           ImmutableMap.of(),
           QuiescingExecutorsImpl.forTesting(),
@@ -556,13 +558,15 @@ public class IncrementalLoadingTest {
       packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
       packageOptions.showLoadingProgress = true;
       packageOptions.globbingThreads = 7;
+      BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
+      buildLanguageOptions.enableBzlmod = false;
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(
               outputBase,
               ImmutableList.of(Root.fromPath(workspace)),
               BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
           packageOptions,
-          Options.getDefaults(BuildLanguageOptions.class),
+          buildLanguageOptions,
           UUID.randomUUID(),
           ImmutableMap.of(),
           QuiescingExecutorsImpl.forTesting(),

@@ -133,6 +133,7 @@ class TestBase(absltest.TestCase):
         if TestBase.IsDarwin():
           # For reducing SSD usage on our physical Mac machines.
           f.write('common --experimental_repository_cache_hardlinks\n')
+      f.write('common --noenable_bzlmod\n')
     os.chdir(self._test_cwd)
 
   def tearDown(self):

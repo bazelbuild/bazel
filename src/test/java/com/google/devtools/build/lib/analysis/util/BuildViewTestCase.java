@@ -556,6 +556,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     if (!analysisMock.isThisBazel()) {
       parser.parse("--experimental_google_legacy_api"); // For starlark java_binary;
     }
+    parser.parse("--noenable_bzlmod");
     parser.parse(options);
     return parser.getOptions(BuildLanguageOptions.class);
   }

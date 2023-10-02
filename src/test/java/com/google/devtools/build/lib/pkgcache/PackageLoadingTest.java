@@ -140,6 +140,7 @@ public class PackageLoadingTest extends FoundationTestCase {
             .optionsClasses(PackageOptions.class, BuildLanguageOptions.class)
             .build();
     parser.parse("--default_visibility=public");
+    parser.parse("--noenable_bzlmod");
     parser.parse(options);
 
     return parser;

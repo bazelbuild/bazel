@@ -43,6 +43,8 @@ class BzlmodCredentialsTest(test_base.TestBase):
             'common --allow_yanked_versions=all',
         ],
     )
+    with open(self._test_bazelrc, 'at') as f:
+        f.write("common --enable_bzlmod\n")
     self.ScratchFile('WORKSPACE')
     # The existence of WORKSPACE.bzlmod prevents WORKSPACE prefixes or suffixes
     # from being used; this allows us to test built-in modules actually work

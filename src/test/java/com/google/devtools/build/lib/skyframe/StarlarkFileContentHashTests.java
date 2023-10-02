@@ -164,6 +164,8 @@ public class StarlarkFileContentHashTests extends BuildViewTestCase {
     packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
+    BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
+    buildLanguageOptions.enableBzlmod = false;
     getSkyframeExecutor()
         .preparePackageLoading(
             new PathPackageLocator(
@@ -171,7 +173,7 @@ public class StarlarkFileContentHashTests extends BuildViewTestCase {
                 ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageOptions,
-            Options.getDefaults(BuildLanguageOptions.class),
+            buildLanguageOptions,
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
             QuiescingExecutorsImpl.forTesting(),
