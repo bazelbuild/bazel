@@ -14,12 +14,12 @@
 
 """A Starlark implementation of the java_lite_proto_library rule."""
 
-load(":common/proto/proto_info.bzl", "ProtoInfo")
-load(":common/java/java_semantics.bzl", "semantics")
-load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo", proto_common = "proto_common_do_not_use")
-load(":common/java/proto/java_proto_library.bzl", "JavaProtoAspectInfo", "bazel_java_proto_library_rule", "java_compile_for_protos")
-load(":common/java/java_info.bzl", "JavaInfo")
 load(":common/java/java_common.bzl", "java_common")
+load(":common/java/java_info.bzl", "JavaInfo", _merge_private_for_builtins = "merge")
+load(":common/java/java_semantics.bzl", "semantics")
+load(":common/java/proto/java_proto_library.bzl", "JavaProtoAspectInfo", "java_compile_for_protos")
+load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo", proto_common = "proto_common_do_not_use")
+load(":common/proto/proto_info.bzl", "ProtoInfo")
 
 PROTO_TOOLCHAIN_ATTR = "_aspect_proto_toolchain_for_javalite"
 
@@ -109,15 +109,21 @@ def _rule_impl(ctx):
     else:
         proguard_provider_specs = ProguardSpecProvider(depset())
 
-    java_info, DefaultInfo, OutputGroupInfo = bazel_java_proto_library_rule(ctx)
+    java_info = _merge_private_for_builtins([dep[JavaInfo] for dep in ctx.attr.deps], merge_java_outputs = False)
+
+    transitive_src_and_runtime_jars = depset(transitive = [dep[JavaProtoAspectInfo].jars for dep in ctx.attr.deps])
+    transitive_runtime_jars = depset(transitive = [java_info.transitive_runtime_jars])
 
     if hasattr(java_common, "add_constraints"):
         java_info = java_common.add_constraints(java_info, constraints = ["android"])
 
     return [
         java_info,
-        DefaultInfo,
-        OutputGroupInfo,
+        DefaultInfo(
+            files = transitive_src_and_runtime_jars,
+            runfiles = ctx.runfiles(transitive_files = transitive_runtime_jars),
+        ),
+        OutputGroupInfo(default = depset()),
         proguard_provider_specs,
     ]
 
