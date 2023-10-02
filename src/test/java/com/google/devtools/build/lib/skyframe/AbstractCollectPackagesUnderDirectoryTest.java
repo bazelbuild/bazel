@@ -275,6 +275,8 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
             directories.getOutputBase(), ImmutableList.of(root), getBuildFileNamesByPriority());
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
     packageOptions.packagePath = ImmutableList.of(getWorkspacePathString());
+    BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
+    buildLanguageOptions.enableBzlmod = false;
     scratch.file("tools/BUILD");
     scratch.file("tools/empty_prelude.bzl");
     ruleClassProvider =
@@ -316,7 +318,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
         /* repoEnvOption= */ ImmutableMap.of(),
         new TimestampGranularityMonitor(BlazeClock.instance()),
         QuiescingExecutorsImpl.forTesting(),
-        FakeOptions.builder().put(packageOptions).putDefaults(BuildLanguageOptions.class).build());
+        FakeOptions.builder().put(packageOptions).put(buildLanguageOptions).build());
     evaluator = skyframeExecutor.getEvaluator();
   }
 

@@ -3731,7 +3731,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         .isEqualTo("external/dep~4.5");
     assertThat(eval(module, "Label('@@//foo:bar').workspace_root")).isEqualTo("");
 
-    assertThat(eval(module, "str(Label('@//foo:bar'))")).isEqualTo("@//foo:bar");
+    assertThat(eval(module, "str(Label('@@//foo:bar'))")).isEqualTo("@@//foo:bar");
     assertThat(
             assertThrows(
                 EvalException.class, () -> eval(module, "Label('@//foo:bar').workspace_name")))

@@ -130,6 +130,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
+    buildLanguageOptions.enableBzlmod = false;
     getSkyframeExecutor()
         .preparePackageLoading(
             new PathPackageLocator(
@@ -485,6 +486,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
+    BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
+    buildLanguageOptions.enableBzlmod = false;
     getSkyframeExecutor()
         .preparePackageLoading(
             new PathPackageLocator(
@@ -492,7 +495,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
                 ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageOptions,
-            Options.getDefaults(BuildLanguageOptions.class),
+            buildLanguageOptions,
             UUID.randomUUID(),
             ImmutableMap.of(),
             QuiescingExecutorsImpl.forTesting(),

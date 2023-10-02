@@ -1385,10 +1385,12 @@ public final class LoadingPhaseRunnerTest {
               PrecomputedValue.injected(
                   RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
                   Optional.empty())));
+      BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
+      buildLanguageOptions.enableBzlmod = false;
       skyframeExecutor.preparePackageLoading(
           pkgLocator,
           packageOptions,
-          Options.getDefaults(BuildLanguageOptions.class),
+          buildLanguageOptions,
           UUID.randomUUID(),
           ImmutableMap.of(),
           QuiescingExecutorsImpl.forTesting(),

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.ENABLE_BZLMOD;
 import static com.google.devtools.build.lib.skyframe.SkyframeExecutor.DEFAULT_THREAD_COUNT;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 import static org.junit.Assert.assertThrows;
@@ -239,7 +240,7 @@ public class FileFunctionTest {
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING.set(
         differencer, RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY);
-    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
+    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.builder().setBool(ENABLE_BZLMOD, false).build());
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.empty());
     return evaluator;

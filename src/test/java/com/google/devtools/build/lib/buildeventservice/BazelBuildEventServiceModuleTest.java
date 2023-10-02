@@ -265,6 +265,7 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
         runtimeWrapper.getRuntime().getBlazeModule(BazelBuildEventServiceModule.class);
     runtimeWrapper.addOptions("--bes_backend=does.not.exist:1234");
     runtimeWrapper.addOptions("--spawn_strategy=standalone");
+    runtimeWrapper.addOptions("--noenable_bzlmod");
     runtimeWrapper.executeBuild(ImmutableList.of());
     assertThat(besModule.getBepTransports()).isEmpty();
   }

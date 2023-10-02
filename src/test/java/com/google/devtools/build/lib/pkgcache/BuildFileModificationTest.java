@@ -104,8 +104,10 @@ public class BuildFileModificationTest extends FoundationTestCase {
         OptionsParser.builder()
             .optionsClasses(PackageOptions.class, BuildLanguageOptions.class)
             .build();
+    BuildLanguageOptions buildLanguageOptions = parser.getOptions(BuildLanguageOptions.class);
+    buildLanguageOptions.enableBzlmod = false;
     setUpSkyframe(
-        parser.getOptions(PackageOptions.class), parser.getOptions(BuildLanguageOptions.class));
+        parser.getOptions(PackageOptions.class), buildLanguageOptions);
   }
 
   private void setUpSkyframe(

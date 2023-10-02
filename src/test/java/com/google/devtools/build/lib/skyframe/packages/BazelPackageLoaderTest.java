@@ -79,6 +79,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
 
   private void createWorkspaceFile(String content) throws Exception {
     file("WORKSPACE", getDefaultWorkspaceContent(), content);
+    file("MODULE.bazel", "");
   }
 
   private static void mockEmbeddedTools(Path embeddedBinaries) throws IOException {

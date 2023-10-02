@@ -110,6 +110,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     // which does the same setup. But that's explicitly documented as not supported command
     // invocations, which is exactly what we we need here.
     params.addAll(TestConstants.PRODUCT_SPECIFIC_FLAGS);
+    params.add("--noenable_bzlmod");
     params.add("//test:buildme");
     params.add("--nobuild"); // Execution phase isn't necessary to collect configurations.
     Collections.addAll(params, args);
@@ -126,6 +127,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     // which does the same setup. But that's explicitly documented as not supported command
     // invocations, which is exactly what we we need here.
     params.addAll(TestConstants.PRODUCT_SPECIFIC_FLAGS);
+    params.add("--noenable_bzlmod");
     params.add("//test:buildme_with_transition");
     params.add("--nobuild"); // Execution phase isn't necessary to collect configurations.
     Collections.addAll(params, args);
@@ -139,6 +141,7 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
    */
   private RecordingOutErr callConfigCommand(String... args) throws Exception {
     List<String> params = Lists.newArrayList("config");
+    params.add("--noenable_bzlmod");
     params.add("--output=json");
     Collections.addAll(params, args);
     RecordingOutErr recordingOutErr = new RecordingOutErr();

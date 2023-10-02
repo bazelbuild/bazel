@@ -149,13 +149,15 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     packageOptions.defaultVisibility = defaultVisibility;
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = GLOBBING_THREADS;
+    BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
+    buildLanguageOptions.enableBzlmod = false;
     skyframeExecutor.preparePackageLoading(
         new PathPackageLocator(
             outputBase,
             ImmutableList.of(Root.fromPath(rootDirectory)),
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
         packageOptions,
-        Options.getDefaults(BuildLanguageOptions.class),
+        buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
         QuiescingExecutorsImpl.forTesting(),
@@ -197,6 +199,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
       throws Exception {
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
+    parser.parse("--noenable_bzlmod");
     parser.parse(options);
     return parser.getOptions(BuildLanguageOptions.class);
   }

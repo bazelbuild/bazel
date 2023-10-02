@@ -352,6 +352,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     }
     if (defaultFlags().contains(Flag.ENABLE_BZLMOD)) {
       optionsParser.parse("--enable_bzlmod");
+    } else {
+      optionsParser.parse("--noenable_bzlmod");
     }
     optionsParser.parse(args);
 
