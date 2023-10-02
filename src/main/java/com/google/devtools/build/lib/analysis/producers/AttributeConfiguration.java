@@ -17,7 +17,7 @@ import com.google.auto.value.AutoOneOf;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.PackageGroup;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 
 @AutoOneOf(AttributeConfiguration.Kind.class)
 abstract class AttributeConfiguration {

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skyframe;
+package com.google.devtools.build.lib.skyframe.config;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.server.FailureDetails.TargetPatterns.Code.DEPENDENCY_NOT_FOUND;
@@ -40,7 +40,10 @@ import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.PlatformMappingValue.NativeAndStarlarkFlags;
+import com.google.devtools.build.lib.skyframe.PackageValue;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
+import com.google.devtools.build.lib.skyframe.config.PlatformMappingValue.NativeAndStarlarkFlags;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -63,11 +66,11 @@ import net.starlark.java.syntax.Location;
  * <p>Note that this class only parses the mapping-file specific format, parsing (and validation) of
  * flags contained therein is left to the invocation of {@link PlatformMappingValue#map}.
  */
-final class PlatformMappingFunction implements SkyFunction {
+public final class PlatformMappingFunction implements SkyFunction {
 
   private final ImmutableSet<Class<? extends FragmentOptions>> optionsClasses;
 
-  PlatformMappingFunction(ImmutableSet<Class<? extends FragmentOptions>> optionsClasses) {
+  public PlatformMappingFunction(ImmutableSet<Class<? extends FragmentOptions>> optionsClasses) {
     this.optionsClasses = checkNotNull(optionsClasses);
   }
 
@@ -212,7 +215,7 @@ final class PlatformMappingFunction implements SkyFunction {
 
   /**
    * Lets {@link StarlarkOptionsParser} convert flag names to {@link Target}s through a Skyframe
-   * {@link PackageFunction} lookup.
+   * {@link PackageValue} lookup.
    */
   private static class SkyframeTargetLoader implements StarlarkOptionsParser.BuildSettingLoader {
     private final Environment env;
