@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -89,5 +90,24 @@ public final class SelectorValue implements StarlarkValue, HasBinary {
   @Override
   public void repr(Printer printer) {
     printer.append("select(").repr(dictionary).append(")");
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    SelectorValue that = (SelectorValue) o;
+    return Objects.equal(dictionary, that.dictionary)
+        && Objects.equal(type, that.type)
+        && Objects.equal(noMatchError, that.noMatchError);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(dictionary, type, noMatchError);
   }
 }
