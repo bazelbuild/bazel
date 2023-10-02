@@ -17,7 +17,7 @@ Definition of proto_library rule.
 """
 
 load(":common/paths.bzl", "paths")
-load(":common/proto/proto_common.bzl", proto_common = "proto_common_do_not_use")
+load(":common/proto/proto_common.bzl", "toolchains", proto_common = "proto_common_do_not_use")
 load(":common/proto/proto_info.bzl", "ProtoInfo")
 load(":common/proto/proto_semantics.bzl", "semantics")
 
@@ -208,8 +208,8 @@ def _write_descriptor_set(ctx, proto_info, deps, exports, descriptor_set):
                 map_each = proto_common.get_import_path,
                 join_with = ":",
             )
-    if semantics.INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION:
-        toolchain = ctx.toolchains[semantics.PROTO_TOOLCHAIN_TYPE]
+    if toolchains.INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION:
+        toolchain = ctx.toolchains[semantics.PROTO_TOOLCHAIN]
         if not toolchain:
             fail("Protocol compiler toolchain could not be resolved.")
         proto_lang_toolchain_info = toolchain.proto
@@ -256,7 +256,7 @@ proto_library = rule(
             flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
         ),
         "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
-    } | ({} if semantics.INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION else {
+    } | toolchains.if_legacy_toolchain({
         "_proto_compiler": attr.label(
             cfg = "exec",
             executable = True,
@@ -267,5 +267,5 @@ proto_library = rule(
     fragments = ["proto"] + semantics.EXTRA_FRAGMENTS,
     provides = [ProtoInfo],
     exec_groups = semantics.EXEC_GROUPS,
-    toolchains = semantics.PROTO_TOOLCHAIN,
+    toolchains = toolchains.use_toolchain(semantics.PROTO_TOOLCHAIN),
 )
