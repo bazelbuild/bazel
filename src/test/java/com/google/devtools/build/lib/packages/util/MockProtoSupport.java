@@ -40,9 +40,10 @@ public final class MockProtoSupport {
 
   private static void registerProtoToolchain(MockToolsConfig config) throws IOException {
     config.append("WORKSPACE", "register_toolchains('tools/proto/toolchains:all')");
-    config.append(
+    config.create(
         "tools/proto/toolchains/BUILD",
         TestConstants.LOAD_PROTO_TOOLCHAIN,
+        TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
         "proto_toolchain(name = 'protoc_sources',"
             + "proto_compiler = '"
             + ProtoConstants.DEFAULT_PROTOC_LABEL
@@ -220,6 +221,7 @@ public final class MockProtoSupport {
         "toolchain_type(name = 'toolchain_type', visibility = ['//visibility:public'])");
     config.create(
         "third_party/bazel_rules/rules_proto/proto/defs.bzl",
+        "load(':proto_lang_toolchain.bzl', _proto_lang_toolchain = 'proto_lang_toolchain')",
         "def _add_tags(kargs):",
         "    if 'tags' in kargs:",
         "        kargs['tags'] += ['__PROTO_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__']",
@@ -228,7 +230,7 @@ public final class MockProtoSupport {
         "    return kargs",
         "",
         "def proto_library(**kargs): native.proto_library(**_add_tags(kargs))",
-        "def proto_lang_toolchain(**kargs): native.proto_lang_toolchain(**_add_tags(kargs))");
+        "def proto_lang_toolchain(**kargs): _proto_lang_toolchain(**_add_tags(kargs))");
     config.create(
         "third_party/bazel_rules/rules_proto/proto/proto_toolchain.bzl",
         "load(':proto_toolchain_rule.bzl', _proto_toolchain_rule = 'proto_toolchain')",
@@ -282,5 +284,17 @@ public final class MockProtoSupport {
         "  provides = [platform_common.ToolchainInfo],",
         "  fragments = ['proto'],",
         ")");
+    config.create(
+        "third_party/bazel_rules/rules_proto/proto/proto_lang_toolchain.bzl",
+        "def proto_lang_toolchain(*, name, toolchain_type = None, exec_compatible_with = [],",
+        "         target_compatible_with = [], **attrs):",
+        "  native.proto_lang_toolchain(name = name, **attrs)",
+        "  if toolchain_type:",
+        "    native.toolchain(",
+        "      name = name + '_toolchain',",
+        "      toolchain_type = toolchain_type,",
+        "      exec_compatible_with = exec_compatible_with,",
+        "      target_compatible_with = target_compatible_with,",
+        "      toolchain = name)");
   }
 }
