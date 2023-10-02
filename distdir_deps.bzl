@@ -62,12 +62,12 @@ DIST_DEPS = {
         ],
     },
     "rules_java": {
-        "archive": "7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
-        "sha256": "bc81f1ba47ef5cc68ad32225c3d0e70b8c6f6077663835438da8d5733f917598",
-        "strip_prefix": "rules_java-7cf3cefd652008d0a64a419c34c13bdca6c8f178",
+        "archive": "096c88ff2bdcd1fdcf8cf751f04c975d88e0401e.zip",
+        "sha256": "36ebb5906a99e467c3d625f7cbd835a427233742b735d07a7276db1408f270b9",
+        "strip_prefix": "rules_java-096c88ff2bdcd1fdcf8cf751f04c975d88e0401e",
         "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
-            "https://github.com/bazelbuild/rules_java/archive/7cf3cefd652008d0a64a419c34c13bdca6c8f178.zip",
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_java/archive/096c88ff2bdcd1fdcf8cf751f04c975d88e0401e.zip",
+            "https://github.com/bazelbuild/rules_java/archive/096c88ff2bdcd1fdcf8cf751f04c975d88e0401e.zip",
         ],
         "used_in": [
             "additional_distfiles",
