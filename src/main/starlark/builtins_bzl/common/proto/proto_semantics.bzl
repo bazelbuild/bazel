@@ -19,18 +19,8 @@ Proto Semantics
 def _preprocess(ctx):
     pass
 
-_PROTO_TOOLCHAIN_TYPE = "@rules_proto//proto:toolchain_type"
-
-def _get_proto_toolchain():
-    if _builtins.toplevel.proto_common.incompatible_enable_proto_toolchain_resolution():
-        return [_builtins.toplevel.config_common.toolchain_type(_PROTO_TOOLCHAIN_TYPE, mandatory = False)]
-    else:
-        return []
-
 semantics = struct(
-    PROTO_TOOLCHAIN_TYPE = _PROTO_TOOLCHAIN_TYPE,
-    PROTO_TOOLCHAIN = _get_proto_toolchain(),
-    INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION = _builtins.toplevel.proto_common.incompatible_enable_proto_toolchain_resolution(),
+    PROTO_TOOLCHAIN = "@rules_proto//proto:toolchain_type",
     PROTO_COMPILER_LABEL = "@bazel_tools//tools/proto:protoc",
     EXTRA_ATTRIBUTES = {
         "import_prefix": attr.string(),

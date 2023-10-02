@@ -14,7 +14,7 @@
 
 """A Starlark implementation of the proto_lang_toolchain rule."""
 
-load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo")
+load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo", "toolchains")
 load(":common/proto/proto_semantics.bzl", "semantics")
 
 ProtoInfo = _builtins.toplevel.ProtoInfo
@@ -31,9 +31,9 @@ def _rule_impl(ctx):
     if ctx.attr.plugin != None:
         plugin = ctx.attr.plugin[DefaultInfo].files_to_run
 
-    if semantics.INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION:
-        proto_compiler = ctx.toolchains[semantics.PROTO_TOOLCHAIN_TYPE].proto.proto_compiler
-        protoc_opts = ctx.toolchains[semantics.PROTO_TOOLCHAIN_TYPE].proto.protoc_opts
+    if toolchains.INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION:
+        proto_compiler = ctx.toolchains[semantics.PROTO_TOOLCHAIN].proto.proto_compiler
+        protoc_opts = ctx.toolchains[semantics.PROTO_TOOLCHAIN].proto.protoc_opts
     else:
         proto_compiler = ctx.attr._proto_compiler.files_to_run
         protoc_opts = ctx.fragments.proto.experimental_protoc_opts
@@ -74,7 +74,7 @@ proto_lang_toolchain = rule(
             "blacklisted_protos": attr.label_list(
                 providers = [ProtoInfo],
             ),
-        } | ({} if semantics.INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION else {
+        } | ({} if toolchains.INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION else {
             "_proto_compiler": attr.label(
                 cfg = "exec",
                 executable = True,
@@ -84,5 +84,5 @@ proto_lang_toolchain = rule(
         }),
     provides = [ProtoLangToolchainInfo],
     fragments = ["proto"],
-    toolchains = semantics.PROTO_TOOLCHAIN,  # Used to obtain protoc
+    toolchains = toolchains.use_toolchain(semantics.PROTO_TOOLCHAIN),  # Used to obtain protoc
 )
