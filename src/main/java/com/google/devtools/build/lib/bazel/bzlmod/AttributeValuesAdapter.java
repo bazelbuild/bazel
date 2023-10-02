@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
@@ -39,13 +40,16 @@ import net.starlark.java.eval.StarlarkList;
 /** Helps serialize/deserialize {@link AttributeValues}, which contains Starlark values. */
 public class AttributeValuesAdapter extends TypeAdapter<AttributeValues> {
 
+  private final Gson gson = new Gson();
+
   @Override
   public void write(JsonWriter out, AttributeValues attributeValues) throws IOException {
-    JsonObject jsonObject = new JsonObject();
+    out.beginObject();
     for (Map.Entry<String, Object> entry : attributeValues.attributes().entrySet()) {
-      jsonObject.add(entry.getKey(), serializeObject(entry.getValue()));
+      out.name(entry.getKey());
+      gson.toJson(serializeObject(entry.getValue()), out);
     }
-    out.jsonValue(jsonObject.toString());
+    out.endObject();
   }
 
   @Override
