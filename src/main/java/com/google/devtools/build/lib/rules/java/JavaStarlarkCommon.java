@@ -53,7 +53,6 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
-import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -308,13 +307,6 @@ public class JavaStarlarkCommon
             .getAnalysisEnvironment()
             .getBuildInfo(
                 isStampingEnabled, JavaBuildInfoFactory.KEY, ruleContext.getConfiguration()));
-  }
-
-  @Override
-  public boolean getExperimentalJavaProtoLibraryDefaultHasServices(
-      StarlarkSemantics starlarkSemantics) throws EvalException {
-    return starlarkSemantics.getBool(
-        BuildLanguageOptions.EXPERIMENTAL_JAVA_PROTO_LIBRARY_DEFAULT_HAS_SERVICES);
   }
 
   @Override

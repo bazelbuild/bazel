@@ -217,14 +217,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean experimentalIsolatedExtensionUsages;
 
   @Option(
-      name = "experimental_java_proto_library_default_has_services",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
-      help = "The default value of java_proto_library.has_services.")
-  public boolean experimentalJavaProtoLibraryDefaultHasServices;
-
-  @Option(
       name = "incompatible_existing_rules_immutable_view",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -729,9 +721,6 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(ENABLE_BZLMOD, enableBzlmod)
             .setBool(EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, experimentalIsolatedExtensionUsages)
             .setBool(
-                EXPERIMENTAL_JAVA_PROTO_LIBRARY_DEFAULT_HAS_SERVICES,
-                experimentalJavaProtoLibraryDefaultHasServices)
-            .setBool(
                 INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW, incompatibleExistingRulesImmutableView)
             .setBool(EXPERIMENTAL_ACTION_RESOURCE_SET, experimentalActionResourceSet)
             .setBool(EXPERIMENTAL_GOOGLE_LEGACY_API, experimentalGoogleLegacyApi)
@@ -835,8 +824,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String ENABLE_BZLMOD = "-enable_bzlmod";
   public static final String EXPERIMENTAL_ISOLATED_EXTENSION_USAGES =
       "-experimental_isolated_extension_usages";
-  public static final String EXPERIMENTAL_JAVA_PROTO_LIBRARY_DEFAULT_HAS_SERVICES =
-      "+experimental_java_proto_library_default_has_services";
   public static final String INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW =
       "+incompatible_existing_rules_immutable_view";
   public static final String EXPERIMENTAL_GOOGLE_LEGACY_API = "-experimental_google_legacy_api";
