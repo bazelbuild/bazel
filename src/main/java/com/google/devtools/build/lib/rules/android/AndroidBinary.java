@@ -996,6 +996,15 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       filterSplitValidations = true;
     }
 
+    AndroidPreDexJarProvider androidPreDexJarProvider =
+        ruleContext.getPrerequisite("application_resources", AndroidPreDexJarProvider.PROVIDER);
+
+    if (androidPreDexJarProvider != null) {
+      builder.addNativeDeclaredProvider(androidPreDexJarProvider);
+    } else {
+      builder.addNativeDeclaredProvider(new AndroidPreDexJarProvider(jarToDex));
+    }
+
     return builder
         .setFilesToBuild(filesToBuild)
         .addProvider(
@@ -1017,7 +1026,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 signingKeys,
                 signingLineage,
                 keyRotationMinSdk))
-        .addNativeDeclaredProvider(new AndroidPreDexJarProvider(jarToDex))
         .addNativeDeclaredProvider(
             AndroidFeatureFlagSetProvider.create(
                 AndroidFeatureFlagSetProvider.getAndValidateFlagMapFromRuleContext(ruleContext)))
