@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.rules.apple;
+package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -20,7 +20,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
+import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.XcodeConfigInfoApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
@@ -134,8 +136,6 @@ public class XcodeConfigInfo extends NativeInfo
   /** Provider for class {@link XcodeConfigInfo} objects. */
   private static class XcodeConfigProvider extends BuiltinProvider<XcodeConfigInfo>
       implements XcodeConfigProviderApi {
-    XcodeConfigInfo xcodeConfigInfo;
-
     private XcodeConfigProvider() {
       super(STARLARK_NAME, XcodeConfigInfo.class);
     }

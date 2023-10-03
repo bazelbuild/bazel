@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.rules.apple;
+package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.stream.Collectors.joining;
@@ -33,7 +33,13 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.XcodeConfigEvent;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo.Availability;
+import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.AvailableXcodesInfo;
+import com.google.devtools.build.lib.rules.apple.DottedVersion;
+import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
+import com.google.devtools.build.lib.rules.apple.XcodeVersionRuleData;
+import com.google.devtools.build.lib.rules.objc.XcodeConfigInfo.Availability;
 import com.google.devtools.build.lib.xcode.proto.XcodeConfig.XcodeConfigRuleInfo;
 import com.google.devtools.build.lib.xcode.proto.XcodeConfig.XcodeVersionInfo;
 import java.util.List;
@@ -527,6 +533,6 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
   public static XcodeConfigInfo getXcodeConfigInfo(RuleContext ruleContext) {
     return ruleContext.getPrerequisite(
         XcodeConfigRule.XCODE_CONFIG_ATTR_NAME,
-        com.google.devtools.build.lib.rules.apple.XcodeConfigInfo.PROVIDER);
+        XcodeConfigInfo.PROVIDER);
   }
 }
