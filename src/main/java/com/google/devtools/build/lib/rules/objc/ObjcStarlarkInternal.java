@@ -16,24 +16,19 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.LocationExpander;
-import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
+import com.google.devtools.build.lib.analysis.Expander;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
 import com.google.devtools.build.lib.rules.objc.IntermediateArtifacts.AlwaysLink;
-import com.google.devtools.build.lib.shell.ShellUtils;
-import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.ArrayList;
-import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -82,8 +77,9 @@ public class ObjcStarlarkInternal implements StarlarkValue {
         builder, starlarkRuleContext.getRuleContext());
     if (starlarkRuleContext.getRuleContext().attributes().has("copts")) {
       Sequence<String> copts =
-          expandToolchainAndRuleContextVariables(
+          expandAndTokenize(
               starlarkRuleContext,
+              "copts",
               StarlarkList.immutableCopyOf(
                   starlarkRuleContext
                       .getRuleContext()
@@ -98,68 +94,47 @@ public class ObjcStarlarkInternal implements StarlarkValue {
     return builder.build();
   }
 
+  /**
+   * Run variable expansion and shell tokenization on a sequence of flags.
+   *
+   * <p>When expanding path variables (e.g. $(execpath ...)), the label can refer to any of which in
+   * the {@code srcs}, {@code non_arc_srcs}, {@code hdrs} or {@code data} attributes or an output of
+   * the target.
+   *
+   * @param starlarkRuleContext The rule context of the expansion.
+   * @param attributeName The attribute of the rule tied to the expansion. Used for error reporting
+   *     only.
+   * @param flags The sequence of flags to expand.
+   */
   @StarlarkMethod(
-      name = "expand_toolchain_and_ctx_variables",
+      name = "expand_and_tokenize",
       documented = false,
       parameters = {
         @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "attr", positional = false, named = true),
         @Param(name = "flags", positional = false, defaultValue = "[]", named = true),
       })
-  public Sequence<String> expandToolchainAndRuleContextVariables(
-      StarlarkRuleContext starlarkRuleContext, Sequence<?> flags)
+  public Sequence<String> expandAndTokenize(
+      StarlarkRuleContext starlarkRuleContext, String attributeName, Sequence<?> flags)
       throws EvalException, InterruptedException {
     if (flags.isEmpty()) {
-      return Sequence.cast(flags, String.class, "flags");
+      return Sequence.cast(flags, String.class, attributeName);
     }
-    ImmutableMap<String, String> toolchainMap =
+    Expander expander =
         starlarkRuleContext
             .getRuleContext()
-            .getPrerequisite("$cc_toolchain", TemplateVariableInfo.PROVIDER)
-            .getVariables();
-    ImmutableMap<String, String> starlarkRuleContextMap =
-        ImmutableMap.<String, String>builder().putAll(starlarkRuleContext.var()).buildOrThrow();
-    List<String> expandedFlags = new ArrayList<>();
-    for (String flag : Sequence.cast(flags, String.class, "flags")) {
-
-      String expandedFlag =
-          LocationExpander.withExecPaths(
-                  starlarkRuleContext.getRuleContext(),
-                  StarlarkRuleContext.makeLabelMap(
-                      ImmutableSet.copyOf(
-                          Iterables.concat(
-                              starlarkRuleContext.getRuleContext().getPrerequisites("srcs"),
-                              starlarkRuleContext.getRuleContext().getPrerequisites("non_arc_srcs"),
-                              starlarkRuleContext.getRuleContext().getPrerequisites("hdrs"),
-                              starlarkRuleContext.getRuleContext().getPrerequisites("data")))))
-              .expand(flag);
-      expandedFlag = expandFlag(expandedFlag, toolchainMap, starlarkRuleContextMap);
-      try {
-        ShellUtils.tokenize(expandedFlags, expandedFlag);
-      } catch (TokenizationException e) {
-        throw new EvalException(e);
-      }
-    }
+            .getExpander(
+                StarlarkRuleContext.makeLabelMap(
+                    ImmutableSet.copyOf(
+                        Iterables.concat(
+                            starlarkRuleContext.getRuleContext().getPrerequisites("srcs"),
+                            starlarkRuleContext.getRuleContext().getPrerequisites("non_arc_srcs"),
+                            starlarkRuleContext.getRuleContext().getPrerequisites("hdrs"),
+                            starlarkRuleContext.getRuleContext().getPrerequisites("data")))))
+            .withDataExecLocations();
+    ImmutableList<String> expandedFlags =
+        expander.tokenized(attributeName, Sequence.cast(flags, String.class, attributeName));
     return StarlarkList.immutableCopyOf(expandedFlags);
-  }
-
-  private String expandFlag(
-      String flag,
-      ImmutableMap<String, String> toolchainMap,
-      ImmutableMap<String, String> contextMap) {
-    if (!flag.contains("$(")) {
-      return flag;
-    }
-    int beginning = flag.indexOf("$(");
-    int end = flag.indexOf(')', beginning);
-    String variable = flag.substring(beginning + 2, end);
-    String expandedVariable;
-    if (toolchainMap.containsKey(variable)) {
-      expandedVariable = toolchainMap.get(variable);
-    } else {
-      expandedVariable = contextMap.get(variable);
-    }
-    String expandedFlag = flag.replace("$(" + variable + ")", expandedVariable);
-    return expandFlag(expandedFlag, toolchainMap, contextMap);
   }
 
   @StarlarkMethod(

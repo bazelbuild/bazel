@@ -17,7 +17,7 @@
 load("@_builtins//:common/objc/semantics.bzl", "semantics")
 load(":common/cc/cc_info.bzl", "CcInfo")
 
-# Private attribute required by `objc_internal.expand_toolchain_and_ctx_variables`
+# Private attribute required by `objc_internal.expand_and_tokenize`
 _CC_TOOLCHAIN_RULE = {
     "_cc_toolchain": attr.label(
         default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain",

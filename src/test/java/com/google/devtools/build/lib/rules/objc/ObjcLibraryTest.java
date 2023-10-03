@@ -2197,6 +2197,22 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testCoptsLocationWhenNotExpanded_throwsAssertionError() throws Exception {
+    scratch.file(
+        "bin/BUILD",
+        "objc_library(",
+        "    name = 'lib',",
+        "    copts = ['$(execpath lib2.m)'],",
+        "    srcs = ['lib1.m'],",
+        "    hdrs = ['header.h'],",
+        ")");
+
+    useConfiguration("--apple_platform_type=ios", "--cpu=ios_x86_64");
+
+    assertThrows(AssertionError.class, () -> compileAction("//bin:lib", "lib1.o"));
+  }
+
+  @Test
   public void testEnableCoveragePropagatesSupportFiles() throws Exception {
     scratch.file(
         "a/BUILD",

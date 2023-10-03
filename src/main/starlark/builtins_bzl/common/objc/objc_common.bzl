@@ -110,7 +110,7 @@ def _create_context_and_provider(
     all_non_sdk_linkopts = []
     non_sdk_linkopts = _add_linkopts(
         sdk_linking_info,
-        objc_internal.expand_toolchain_and_ctx_variables(ctx = ctx, flags = attr_linkopts),
+        objc_internal.expand_and_tokenize(ctx = ctx, attr = "linkopts", flags = attr_linkopts),
     )
     all_non_sdk_linkopts.extend(non_sdk_linkopts)
 
