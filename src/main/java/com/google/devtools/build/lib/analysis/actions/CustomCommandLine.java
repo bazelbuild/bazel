@@ -18,7 +18,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
@@ -31,8 +30,8 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
-import com.google.devtools.build.lib.actions.PathStripper;
-import com.google.devtools.build.lib.actions.PathStripper.PathMapper;
+import com.google.devtools.build.lib.actions.CommandLineItem.ExceptionlessMapFn;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -395,8 +394,23 @@ public class CustomCommandLine extends CommandLine {
           PathMapper pathMapper)
           throws CommandLineExpansionException, InterruptedException {
         final List<String> mutatedValues;
-        CommandLineItem.MapFn<Object> mapFn =
-            hasMapEach ? (CommandLineItem.MapFn<Object>) arguments.get(argi++) : null;
+        CommandLineItem.MapFn<Object> mapFn;
+        if (hasMapEach) {
+          mapFn = (CommandLineItem.MapFn<Object>) arguments.get(argi++);
+        } else if (!pathMapper.isNoop() && !isNestedSet) {
+          // Allow the PathMapper to apply a map function to string arguments depending on the
+          // previous argument (e.g. to modify exec paths obtained in string form from location
+          // expansion).
+          String previousArg;
+          if (argi > 0 && arguments.get(argi - 1) instanceof String) {
+            previousArg = (String) arguments.get(argi - 1);
+          } else {
+            previousArg = null;
+          }
+          mapFn = pathMapper.getMapFn(previousArg);
+        } else {
+          mapFn = null;
+        }
         if (isNestedSet) {
           NestedSet<Object> values = (NestedSet<Object>) arguments.get(argi++);
           ImmutableList<Object> list = values.toList();
@@ -732,32 +746,6 @@ public class CustomCommandLine extends CommandLine {
     // always either ArgvFragments or objects whose desired string representations are just their
     // toString() results.
     private final List<Object> arguments = new ArrayList<>();
-
-    private boolean stripOutputPaths = false;
-
-    private PathFragment outputRoot = null;
-
-    /**
-     * Strip output path config prefixes from the command line.
-     *
-     * <p>This offers better executor caching. But it's only safe for actions that don't vary when
-     * {@code /x86-fastbuild/} (or equivalent) changes in the executor's action key. This only
-     * affects {@link #addExecPath} and {@link #addPath(PathFragment)} entries. Output paths
-     * embedded in larger strings and added via {@link #add(String)} or other variants must be
-     * handled separately.
-     *
-     * <p>See {@link PathStripper} for details.
-     *
-     * @param outputRoot the output tree's root fragment (i.e. "bazel-out")
-     */
-    @CanIgnoreReturnValue
-    public Builder stripOutputPaths(PathFragment outputRoot) {
-      Preconditions.checkArgument(!stripOutputPaths);
-      Preconditions.checkArgument(this.outputRoot == null);
-      this.stripOutputPaths = true;
-      this.outputRoot = outputRoot;
-      return this;
-    }
 
     /**
      * Adds a constant-value string.
@@ -1118,14 +1106,7 @@ public class CustomCommandLine extends CommandLine {
     }
 
     public CustomCommandLine build() {
-      Object[] args = arguments.toArray();
-      return stripOutputPaths
-          ? new PathStrippingCustomCommandline(
-              args,
-              Verify.verifyNotNull(
-                  outputRoot,
-                  "path stripping needs an output root ('bazel-out') to identify output paths"))
-          : new CustomCommandLine(args);
+      return new CustomCommandLine(arguments.toArray());
     }
 
     @CanIgnoreReturnValue
@@ -1232,37 +1213,6 @@ public class CustomCommandLine extends CommandLine {
     return Collections.unmodifiableList(Arrays.asList(arguments));
   }
 
-  protected PathMapper getPathStripper() {
-    return PathMapper.NOOP;
-  }
-
-  /**
-   * {@link CustomCommandLine} that strips config prefixes from output paths. See {@link
-   * PathStripper}.
-   *
-   * <p>We use inheritance vs. a {@code stripOutputPaths} field in {@link CustomCommandLine} because
-   * Java-heavy builds keep many {@link CustomCommandLine} objects in memory. So we need to minimize
-   * each one's memory footprint.
-   */
-  private static final class PathStrippingCustomCommandline extends CustomCommandLine {
-    private final PathMapper pathMapper;
-
-    private PathStrippingCustomCommandline(Object[] arguments, PathFragment outputRoot) {
-      super(arguments);
-      // TODO(https://github.com/bazelbuild/bazel/issues/6526): outputRoot is just an indirect
-      // reference to "bazel-out". Java-heavy builds keep enough CustomCommandLine objects in memory
-      // such that each additional reference contributes observable extra memory on the host
-      //  machine. Find a way to consolidate this into a single global reference.
-      this.pathMapper =
-          PathStripper.createForAction(/* stripOutputPaths= */ true, null, outputRoot);
-    }
-
-    @Override
-    protected PathMapper getPathStripper() {
-      return pathMapper;
-    }
-  }
-
   /**
    * Given the list of {@link TreeFileArtifact}s, returns another CustomCommandLine that replaces
    * their parent TreeArtifacts with the TreeFileArtifacts in all {@link
@@ -1277,53 +1227,71 @@ public class CustomCommandLine extends CommandLine {
   @Override
   public ImmutableList<String> arguments()
       throws CommandLineExpansionException, InterruptedException {
-    return argumentsInternal(null);
+    return arguments(null, PathMapper.NOOP);
   }
 
+  /**
+   * @param pathMapper a {@link PathMapper} that rewrites the config parts of artifact paths to
+   *     improve caching. This only affects {@link Builder#addExecPath} and {@link
+   *     Builder#addPath(PathFragment)} entries. Output paths embedded in larger strings and added
+   *     via {@link Builder#add(String)} or other variants must be handled separately.
+   */
   @Override
-  public ImmutableList<String> arguments(@Nullable ArtifactExpander artifactExpander)
-      throws CommandLineExpansionException, InterruptedException {
-    return argumentsInternal(artifactExpander);
-  }
-
-  private ImmutableList<String> argumentsInternal(@Nullable ArtifactExpander artifactExpander)
+  public ImmutableList<String> arguments(
+      @Nullable ArtifactExpander artifactExpander, PathMapper pathMapper)
       throws CommandLineExpansionException, InterruptedException {
     ImmutableList.Builder<String> builder = ImmutableList.builder();
     List<Object> arguments = rawArgsAsList();
     int count = arguments.size();
+    // Track the last scalar, non-path argument (e.g. "--javacopts") so that the PathMapper can
+    // heuristically map subsequent argument collections that contain paths.
+    String previousFlag = null;
     for (int i = 0; i < count; ) {
       Object arg = arguments.get(i++);
       if (arg instanceof TreeFileArtifactArgvFragment) {
         arg = substituteTreeFileArtifactArgvFragment((TreeFileArtifactArgvFragment) arg);
       }
       if (arg instanceof NestedSet) {
-        evalSimpleVectorArg(((NestedSet<?>) arg).toList(), builder);
+        evalSimpleVectorArg(((NestedSet<?>) arg).toList(), builder, pathMapper, previousFlag);
       } else if (arg instanceof Iterable) {
-        evalSimpleVectorArg((Iterable<?>) arg, builder);
+        evalSimpleVectorArg((Iterable<?>) arg, builder, pathMapper, previousFlag);
       } else if (arg instanceof ArgvFragment) {
         if (artifactExpander != null && arg instanceof TreeArtifactExpansionArgvFragment) {
           TreeArtifactExpansionArgvFragment expansionArg = (TreeArtifactExpansionArgvFragment) arg;
           expansionArg.eval(builder, artifactExpander);
         } else {
-          i = ((ArgvFragment) arg).eval(arguments, i, builder, getPathStripper());
+          i = ((ArgvFragment) arg).eval(arguments, i, builder, pathMapper);
         }
       } else if (arg instanceof ActionInput) {
-        builder.add(getPathStripper().getMappedExecPathString((ActionInput) arg));
+        builder.add(pathMapper.getMappedExecPathString((ActionInput) arg));
       } else if (arg instanceof PathFragment) {
-        builder.add(getPathStripper().map((PathFragment) arg).getPathString());
+        builder.add(pathMapper.map((PathFragment) arg).getPathString());
       } else {
         builder.add(CommandLineItem.expandToCommandLine(arg));
+      }
+      // Track the last scalar string argument (e.g. "--javacopts") so that the PathMapper can
+      // heuristically map subsequent argument collections that contain paths.
+      if (arg instanceof String) {
+        previousFlag = (String) arg;
+      } else {
+        previousFlag = null;
       }
     }
     return builder.build();
   }
 
-  private void evalSimpleVectorArg(Iterable<?> arg, ImmutableList.Builder<String> builder) {
+  private void evalSimpleVectorArg(
+      Iterable<?> arg,
+      ImmutableList.Builder<String> builder,
+      PathMapper pathMapper,
+      String previousFlag) {
+    ExceptionlessMapFn<Object> mapFn = pathMapper.getMapFn(previousFlag);
     for (Object value : arg) {
-      builder.add(
-          value instanceof ActionInput
-              ? getPathStripper().getMappedExecPathString((ActionInput) value)
-              : CommandLineItem.expandToCommandLine(value));
+      if (value instanceof ActionInput) {
+        builder.add(pathMapper.getMappedExecPathString((ActionInput) value));
+      } else {
+        mapFn.expandToCommandLine(value, builder::add);
+      }
     }
   }
 
@@ -1341,8 +1309,7 @@ public class CustomCommandLine extends CommandLine {
   public void addToFingerprint(
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
-      Fingerprint fingerprint,
-      PathMapper pathMapper)
+      Fingerprint fingerprint)
       throws CommandLineExpansionException, InterruptedException {
     List<Object> arguments = rawArgsAsList();
     int count = arguments.size();

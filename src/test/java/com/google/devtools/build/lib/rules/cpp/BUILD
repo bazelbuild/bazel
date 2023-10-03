@@ -574,6 +574,7 @@ java_test(
     srcs = ["LinkCommandLineTest.java"],
     deps = [
         ":CcToolchainTestHelper",
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/util",

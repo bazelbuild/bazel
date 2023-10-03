@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -1135,7 +1136,10 @@ public final class CppLinkActionTest extends BuildViewTestCase {
       CppLinkAction linkAction = builder.build();
       assertThat(
               ImmutableList.copyOf(
-                  linkAction.getLinkCommandLineForTesting().paramCmdLine().arguments(expander)))
+                  linkAction
+                      .getLinkCommandLineForTesting()
+                      .paramCmdLine()
+                      .arguments(expander, PathMapper.NOOP)))
           .containsAtLeast(
               library0.getExecPathString(),
               library1.getExecPathString(),

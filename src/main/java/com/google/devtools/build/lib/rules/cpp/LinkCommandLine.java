@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -196,11 +197,12 @@ public final class LinkCommandLine extends CommandLine {
     return new CommandLine() {
       @Override
       public Iterable<String> arguments() throws CommandLineExpansionException {
-        return arguments(/* artifactExpander= */ null);
+        return arguments(/* artifactExpander= */ null, PathMapper.NOOP);
       }
 
       @Override
-      public Iterable<String> arguments(ArtifactExpander artifactExpander)
+      public ImmutableList<String> arguments(
+          ArtifactExpander artifactExpander, PathMapper pathMapper)
           throws CommandLineExpansionException {
         if (paramFile == null) {
           return ImmutableList.copyOf(getRawLinkArgv(artifactExpander));
@@ -250,7 +252,7 @@ public final class LinkCommandLine extends CommandLine {
     }
 
     @Override
-    public Iterable<String> arguments(ArtifactExpander expander)
+    public Iterable<String> arguments(ArtifactExpander expander, PathMapper pathMapper)
         throws CommandLineExpansionException {
       List<String> argv =
           getRawLinkArgv(
@@ -375,7 +377,7 @@ public final class LinkCommandLine extends CommandLine {
   }
 
   @Override
-  public Iterable<String> arguments(ArtifactExpander artifactExpander)
+  public List<String> arguments(ArtifactExpander artifactExpander, PathMapper pathMapper)
       throws CommandLineExpansionException {
     return getRawLinkArgv(artifactExpander);
   }

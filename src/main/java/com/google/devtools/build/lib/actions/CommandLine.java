@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.PathStripper.PathMapper;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -46,14 +45,9 @@ public abstract class CommandLine {
    * artifact expansion. Subclasses should override this method if they contain TreeArtifacts and
    * need to expand them for proper argument evaluation.
    */
-  public Iterable<String> arguments(ArtifactExpander artifactExpander)
-      throws CommandLineExpansionException, InterruptedException {
-    return arguments();
-  }
-
   public Iterable<String> arguments(ArtifactExpander artifactExpander, PathMapper pathMapper)
       throws CommandLineExpansionException, InterruptedException {
-    return arguments(artifactExpander);
+    return arguments();
   }
 
   /**
@@ -67,8 +61,7 @@ public abstract class CommandLine {
   public void addToFingerprint(
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
-      Fingerprint fingerprint,
-      PathMapper pathMapper)
+      Fingerprint fingerprint)
       throws CommandLineExpansionException, InterruptedException {
     for (String s : arguments()) {
       fingerprint.addString(s);
@@ -109,9 +102,10 @@ public abstract class CommandLine {
     }
 
     @Override
-    public Iterable<String> arguments(ArtifactExpander artifactExpander)
+    public Iterable<String> arguments(ArtifactExpander artifactExpander, PathMapper pathMapper)
         throws CommandLineExpansionException, InterruptedException {
-      return IterablesChain.concat(commandLine.arguments(artifactExpander), executableArgs);
+      return IterablesChain.concat(
+          commandLine.arguments(artifactExpander, pathMapper), executableArgs);
     }
   }
 

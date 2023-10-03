@@ -32,16 +32,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.errorprone.annotations.Keep;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
-import java.io.IOException;
 import javax.annotation.Nullable;
 
 /** An executable tool that is part of {@code java_toolchain}. */
@@ -64,17 +54,13 @@ public abstract class JavaToolchainTool {
    * Cache for the {@link CustomCommandLine} for a given tool.
    *
    * <p>Practically, every {@link JavaToolchainTool} is used with only 1 {@link
-   * JavaToolchainProvider} hence the initial capacity of 2 (path stripping on/off).
+   * JavaToolchainProvider}, hence the initial capacity of 1.
    *
    * <p>Using soft values since the main benefit is to share the command line between different
    * actions, in which case the {@link CustomCommandLine} object remains strongly reachable anyway.
    */
-  private final transient LoadingCache<Pair<JavaToolchainProvider, PathFragment>, CustomCommandLine>
-      commandLineCache =
-          Caffeine.newBuilder()
-              .initialCapacity(2)
-              .softValues()
-              .build(key -> extractCommandLine(key.first, key.second));
+  private final transient LoadingCache<JavaToolchainProvider, CustomCommandLine> commandLineCache =
+      Caffeine.newBuilder().initialCapacity(1).softValues().build(this::extractCommandLine);
 
   @Nullable
   static JavaToolchainTool fromRuleContext(
@@ -124,15 +110,12 @@ public abstract class JavaToolchainTool {
    * well as any JVM flags.
    *
    * @param toolchain {@code java_toolchain} for the action being constructed
-   * @param stripOutputPath output tree root fragment to use for path stripping or null if disabled.
    */
-  CustomCommandLine getCommandLine(
-      JavaToolchainProvider toolchain, @Nullable PathFragment stripOutputPath) {
-    return commandLineCache.get(Pair.of(toolchain, stripOutputPath));
+  CustomCommandLine getCommandLine(JavaToolchainProvider toolchain) {
+    return commandLineCache.get(toolchain);
   }
 
-  private CustomCommandLine extractCommandLine(
-      JavaToolchainProvider toolchain, @Nullable PathFragment stripOutputPath) {
+  private CustomCommandLine extractCommandLine(JavaToolchainProvider toolchain) {
     CustomCommandLine.Builder command = CustomCommandLine.builder();
 
     Artifact executable = tool().getExecutable();
@@ -147,10 +130,6 @@ public abstract class JavaToolchainTool {
           .addPath(executable.getExecPath());
     }
 
-    if (stripOutputPath != null) {
-      command.stripOutputPaths(stripOutputPath);
-    }
-
     return command.build();
   }
 
@@ -162,30 +141,6 @@ public abstract class JavaToolchainTool {
       inputs.addTransitive(tool().getFilesToRun());
     } else {
       inputs.add(executable).addTransitive(toolchain.getJavaRuntime().javaBaseInputs());
-    }
-  }
-
-  @Keep // Accessed reflectively.
-  private static class Codec implements ObjectCodec<JavaToolchainTool> {
-    @Override
-    public Class<JavaToolchainTool> getEncodedClass() {
-      return JavaToolchainTool.class;
-    }
-
-    @Override
-    public void serialize(
-        SerializationContext context, JavaToolchainTool obj, CodedOutputStream codedOut)
-        throws SerializationException, IOException {
-      context.serialize(obj.tool(), codedOut);
-      context.serialize(obj.data(), codedOut);
-      context.serialize(obj.jvmOpts(), codedOut);
-    }
-
-    @Override
-    public JavaToolchainTool deserialize(DeserializationContext context, CodedInputStream codedIn)
-        throws SerializationException, IOException {
-      return create(
-          context.deserialize(codedIn), context.deserialize(codedIn), context.deserialize(codedIn));
     }
   }
 }

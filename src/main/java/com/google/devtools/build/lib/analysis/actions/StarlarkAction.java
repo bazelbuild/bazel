@@ -16,10 +16,8 @@ package com.google.devtools.build.lib.analysis.actions;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
@@ -34,15 +32,13 @@ import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.PathStripper;
-import com.google.devtools.build.lib.actions.PathStripper.PathMapper;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -77,7 +73,7 @@ public class StarlarkAction extends SpawnAction {
       CharSequence progressMessage,
       RunfilesSupplier runfilesSupplier,
       String mnemonic,
-      boolean stripOutputPaths) {
+      OutputPathsMode outputPathsMode) {
     super(
         owner,
         tools,
@@ -90,7 +86,7 @@ public class StarlarkAction extends SpawnAction {
         progressMessage,
         runfilesSupplier,
         mnemonic,
-        stripOutputPaths);
+        outputPathsMode);
   }
 
   @VisibleForTesting
@@ -164,7 +160,7 @@ public class StarlarkAction extends SpawnAction {
                     unusedInputsList.get().getExecPathString())
                 .buildOrThrow();
       }
-      boolean stripOutputPaths = stripOutputPaths(mnemonic, inputsAndTools, outputs, configuration);
+      OutputPathsMode outputPathsMode = PathMappers.getOutputPathsMode(configuration);
       return unusedInputsList.isPresent() || shadowedAction.isPresent()
           ? new EnhancedStarlarkAction(
               owner,
@@ -178,7 +174,7 @@ public class StarlarkAction extends SpawnAction {
               progressMessage,
               runfilesSupplier,
               mnemonic,
-              stripOutputPaths,
+              outputPathsMode,
               unusedInputsList,
               shadowedAction)
           : new StarlarkAction(
@@ -193,50 +189,7 @@ public class StarlarkAction extends SpawnAction {
               progressMessage,
               runfilesSupplier,
               mnemonic,
-              stripOutputPaths);
-    }
-
-    /**
-     * Should we strip output paths for this action?
-     *
-     * <p>Since we don't currently have a proper Starlark API for this, we hard-code support for
-     * specific actions we're interested in.
-     *
-     * <p>The difference between this and {@link PathMapper#mapCustomStarlarkArgs} is this triggers
-     * Bazel's standard path stripping logic for chosen mnemonics while {@link
-     * PathMapper#mapCustomStarlarkArgs} custom-adjusts certain command line parameters the standard
-     * logic can't handle. For example, Starlark rules that only set {@code
-     * ctx.actions.args().add(file_handle)} need an entry here but not in {@link
-     * PathMapper#mapCustomStarlarkArgs} because standard path stripping logic handles that
-     * interface.
-     */
-    private static boolean stripOutputPaths(
-        String mnemonic,
-        NestedSet<Artifact> inputs,
-        ImmutableSet<Artifact> outputs,
-        BuildConfigurationValue configuration) {
-      ImmutableList<String> qualifyingMnemonics =
-          ImmutableList.of(
-              "AndroidLint",
-              "ParseAndroidResources",
-              "MergeAndroidAssets",
-              "LinkAndroidResources",
-              "CompileAndroidResources",
-              "StarlarkMergeCompiledAndroidResources",
-              "MergeManifests",
-              "StarlarkRClassGenerator",
-              "StarlarkAARGenerator",
-              "Desugar",
-              "Jetify",
-              "DeJetify",
-              "JetifySrcs",
-              "DejetifySrcs",
-              "DexBuilder");
-      CoreOptions coreOptions = configuration.getOptions().get(CoreOptions.class);
-      return coreOptions.outputPathsMode == OutputPathsMode.STRIP
-          && qualifyingMnemonics.contains(mnemonic)
-          && PathStripper.isPathStrippable(
-              inputs, Iterables.get(outputs, 0).getExecPath().subFragment(0, 1));
+              outputPathsMode);
     }
   }
 
@@ -263,7 +216,7 @@ public class StarlarkAction extends SpawnAction {
         CharSequence progressMessage,
         RunfilesSupplier runfilesSupplier,
         String mnemonic,
-        boolean stripOutputPaths,
+        OutputPathsMode outputPathsMode,
         Optional<Artifact> unusedInputsList,
         Optional<Action> shadowedAction) {
       super(
@@ -280,7 +233,7 @@ public class StarlarkAction extends SpawnAction {
           progressMessage,
           runfilesSupplier,
           mnemonic,
-          stripOutputPaths);
+          outputPathsMode);
       this.allStarlarkActionInputs = inputs;
       this.unusedInputsList = unusedInputsList;
       this.shadowedAction = shadowedAction;
@@ -383,7 +336,9 @@ public class StarlarkAction extends SpawnAction {
 
     @Override
     protected void afterExecute(
-        ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults)
+        ActionExecutionContext actionExecutionContext,
+        List<SpawnResult> spawnResults,
+        PathMapper pathMapper)
         throws ExecException {
       if (unusedInputsList.isEmpty()) {
         return;
@@ -392,9 +347,9 @@ public class StarlarkAction extends SpawnAction {
       // Get all the action's inputs after execution which will include the shadowed action
       // discovered inputs
       NestedSet<Artifact> allInputs = getInputs();
-      Map<String, Artifact> usedInputs = new HashMap<>();
+      Map<String, Artifact> usedInputsByMappedPath = new HashMap<>();
       for (Artifact input : allInputs.toList()) {
-        usedInputs.put(input.getExecPathString(), input);
+        usedInputsByMappedPath.put(pathMapper.getMappedExecPathString(input), input);
       }
       try (BufferedReader br =
           new BufferedReader(
@@ -406,14 +361,14 @@ public class StarlarkAction extends SpawnAction {
           if (line.isEmpty()) {
             continue;
           }
-          usedInputs.remove(line);
+          usedInputsByMappedPath.remove(line);
         }
       } catch (IOException e) {
         throw new EnvironmentalExecException(
             e,
             createFailureDetail("Unused inputs read failure", Code.UNUSED_INPUT_LIST_READ_FAILURE));
       }
-      updateInputs(NestedSetBuilder.wrap(Order.STABLE_ORDER, usedInputs.values()));
+      updateInputs(NestedSetBuilder.wrap(Order.STABLE_ORDER, usedInputsByMappedPath.values()));
     }
 
     @Override
