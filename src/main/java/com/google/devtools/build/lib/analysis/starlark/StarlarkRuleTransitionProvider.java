@@ -103,6 +103,7 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
     for (Attribute attribute : rule.getAttributes()) {
       Object val = attributeMapper.getRawAttributeValue(rule, attribute);
       boolean shouldResolveSelect = true;
+      boolean validationExceptionCaught = false;
       // TODO @aranguyen b/296918741
       boolean isValidConfigConditions = configConditions != null && !configConditions.isEmpty();
       if (val instanceof BuildType.SelectorList && isValidConfigConditions) {
@@ -115,16 +116,29 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
           }
         }
         if (shouldResolveSelect) {
-          val =
-              configuredAttributeMapper.get(
+          ConfiguredAttributeMapper.AttributeResolutionResult<?> result =
+              configuredAttributeMapper.getResolvedAttribute(
                   attribute.getName(),
                   configuredAttributeMapper.getAttributeType(attribute.getName()));
+          if (result
+              .getType()
+              .equals(
+                  ConfiguredAttributeMapper.AttributeResolutionResult.AttributeResolutionResultType
+                      .FAILURE)) {
+            validationExceptionCaught = true;
+          } else {
+            val = result.getSuccess().orElse(null);
+          }
         } else {
           continue;
         }
       }
-      attributes.put(
-          Attribute.getStarlarkName(attribute.getPublicName()), Attribute.valueToStarlark(val));
+
+      // handle to not throw exception due to unresolvable select prior to applying rule transition
+      if (!validationExceptionCaught) {
+        attributes.put(
+            Attribute.getStarlarkName(attribute.getPublicName()), Attribute.valueToStarlark(val));
+      }
     }
     StructImpl attrObject =
         StructProvider.STRUCT.create(

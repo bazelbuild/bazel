@@ -275,4 +275,147 @@ EOF
   expect_log "No attribute 'apply_transition'. Either this attribute does not exist for this rule or the attribute was not resolved because it is set by a select that reads flags the transition may set."
 }
 
+function test_unresolvable_select_does_not_error_out_before_applying_rule_transition() {
+  local -r pkg="${FUNCNAME[0]}"
+
+  # create transition definition
+  mkdir -p "${pkg}"
+  cat > "${pkg}/def.bzl" <<EOF
+
+load("//third_party/bazel_skylib/rules:common_settings.bzl", "BuildSettingInfo")
+
+example_package = "${pkg}"
+
+# transition that sets cpu so that unresolvable selects before rule transition
+# becomes resolvable after rule transition
+def _transition_impl(settings, attr):
+    return {"//command_line_option:cpu": "ios_x86_64"}
+
+example_transition = transition(
+    implementation = _transition_impl,
+    inputs = [],
+    outputs = ["//command_line_option:cpu"],
+)
+
+def _rule_impl(ctx):
+    print("Hello")
+
+transition_attached = rule(
+    implementation = _rule_impl,
+    cfg = example_transition,
+    attrs = {
+        "cpu_name": attr.string(),
+        "_allowlist_function_transition": attr.label(
+            default = "//tools/allowlists/function_transition_allowlist:function_transition_allowlist",
+        ),
+    },
+)
+EOF
+
+  # create rules with transition attached
+  cat > "${pkg}/BUILD" <<EOF
+load(
+    "//${pkg}:def.bzl",
+    "transition_attached",
+)
+
+config_setting(
+  name = "ios_x86_64",
+  values = {
+        "cpu": "ios_x86_64",
+  },
+)
+
+config_setting(
+  name = "darwin",
+  values = {
+        "cpu": "darwin",
+  },
+)
+
+transition_attached(
+    name = "top_level",
+    cpu_name = select(
+        {
+            ":ios_x86_64": "ios_x86_64",
+            ":darwin": "darwin",
+        },
+    ),
+)
+EOF
+  bazel build "//${pkg}:top_level" &> $TEST_log || fail "Build failed"
+}
+
+function test_unresolvable_select_error_out_after_applying_rule_transition() {
+  local -r pkg="${FUNCNAME[0]}"
+
+  # create transition definition
+  mkdir -p "${pkg}"
+  cat > "${pkg}/def.bzl" <<EOF
+
+load("//third_party/bazel_skylib/rules:common_settings.bzl", "BuildSettingInfo")
+
+example_package = "${pkg}"
+
+# dummy transition that does not set anything and we expect to see BUILD ERROR
+# for unresolvable select after applying rule transition
+def _transition_impl(settings, attr):
+    return {}
+
+example_transition = transition(
+    implementation = _transition_impl,
+    inputs = [],
+    outputs = [],
+)
+
+def _rule_impl(ctx):
+    print("Hello")
+
+transition_attached = rule(
+    implementation = _rule_impl,
+    cfg = example_transition,
+    attrs = {
+        "cpu_name": attr.string(),
+        "_allowlist_function_transition": attr.label(
+            default = "//tools/allowlists/function_transition_allowlist:function_transition_allowlist",
+        ),
+    },
+)
+EOF
+
+  # create rules with transition attached
+  cat > "${pkg}/BUILD" <<EOF
+load(
+    "//${pkg}:def.bzl",
+    "transition_attached",
+)
+
+config_setting(
+  name = "ios_x86_64",
+  values = {
+        "cpu": "ios_x86_64",
+  },
+)
+
+config_setting(
+  name = "darwin",
+  values = {
+        "cpu": "darwin",
+  },
+)
+
+transition_attached(
+    name = "top_level",
+    cpu_name = select(
+        {
+            ":ios_x86_64": "ios_x86_64",
+            ":darwin": "darwin",
+        },
+    ),
+)
+EOF
+  bazel build "//${pkg}:top_level" &> $TEST_log && fail "Build did NOT complete successfully"
+  expect_log "configurable attribute \"cpu_name\" in //test_unresolvable_select_error_out_after_applying_rule_transition:top_level doesn't match this configuration. Would a default condition help?"
+}
+
 run_suite "rule transition tests"
