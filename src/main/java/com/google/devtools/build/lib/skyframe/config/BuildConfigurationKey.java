@@ -42,7 +42,8 @@ public final class BuildConfigurationKey implements SkyKey {
   public static BuildConfigurationKey withPlatformMapping(
       PlatformMappingValue platformMappingValue, BuildOptions options)
       throws OptionsParsingException {
-    return platformMappingValue.map(withoutPlatformMapping(options));
+    BuildOptions mappedOptions = platformMappingValue.map(options);
+    return BuildConfigurationKey.withoutPlatformMapping(mappedOptions);
   }
 
   /**

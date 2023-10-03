@@ -48,8 +48,8 @@ import java.util.concurrent.CompletionException;
 import javax.annotation.Nullable;
 
 /**
- * Stores contents of a platforms/flags mapping file for transforming one {@link
- * BuildConfigurationKey} into another.
+ * Stores contents of a platforms/flags mapping file for transforming one {@link BuildOptions} into
+ * another.
  *
  * <p>See <a href=https://docs.google.com/document/d/1Vg_tPgiZbSrvXcJ403vZVAGlsWhH9BUDrAxMOYnO0Ls>
  * the design</a> for more details on how the mapping can be defined and the desired logic on how it
@@ -146,7 +146,7 @@ public final class PlatformMappingValue implements SkyValue {
   private final ImmutableMap<ImmutableSet<String>, Label> flagsToPlatforms;
   private final ImmutableSet<Class<? extends FragmentOptions>> optionsClasses;
   private final LoadingCache<NativeAndStarlarkFlags, OptionsParsingResult> parserCache;
-  private final LoadingCache<BuildConfigurationKey, BuildConfigurationKey> mappingCache;
+  private final LoadingCache<BuildOptions, BuildOptions> mappingCache;
   private final RepositoryMapping mainRepositoryMapping;
 
   /**
@@ -177,7 +177,7 @@ public final class PlatformMappingValue implements SkyValue {
   }
 
   /**
-   * Maps one {@link BuildConfigurationKey} to another by way of mappings provided in a file.
+   * Maps one {@link BuildOptions} to another by way of mappings provided in a file.
    *
    * <p>The <a href=https://docs.google.com/document/d/1Vg_tPgiZbSrvXcJ403vZVAGlsWhH9BUDrAxMOYnO0Ls>
    * full design</a> contains the details for the mapping logic but in short:
@@ -196,7 +196,7 @@ public final class PlatformMappingValue implements SkyValue {
    * @throws IllegalArgumentException if the original does not contain a {@link PlatformOptions}
    *     fragment
    */
-  public BuildConfigurationKey map(BuildConfigurationKey original) throws OptionsParsingException {
+  public BuildOptions map(BuildOptions original) throws OptionsParsingException {
     try {
       return mappingCache.get(original);
     } catch (CompletionException e) {
@@ -205,13 +205,11 @@ public final class PlatformMappingValue implements SkyValue {
     }
   }
 
-  private BuildConfigurationKey computeMapping(BuildConfigurationKey original)
-      throws OptionsParsingException {
-    BuildOptions originalOptions = original.getOptions();
+  private BuildOptions computeMapping(BuildOptions originalOptions) throws OptionsParsingException {
 
     if (originalOptions.hasNoConfig()) {
       // The empty configuration (produced by NoConfigTransition) is terminal: it'll never change.
-      return original;
+      return originalOptions;
     }
 
     checkArgument(
@@ -228,7 +226,7 @@ public final class PlatformMappingValue implements SkyValue {
       if (!platformsToFlags.containsKey(targetPlatform)) {
         // This can happen if the user has set the platform and any other flags that would normally
         // be mapped from it on the command line instead of relying on the mapping.
-        return original;
+        return originalOptions;
       }
 
       modifiedOptions =
@@ -254,7 +252,7 @@ public final class PlatformMappingValue implements SkyValue {
       }
     }
 
-    return BuildConfigurationKey.withoutPlatformMapping(modifiedOptions);
+    return modifiedOptions;
   }
 
   private OptionsParsingResult parseWithCache(NativeAndStarlarkFlags args)

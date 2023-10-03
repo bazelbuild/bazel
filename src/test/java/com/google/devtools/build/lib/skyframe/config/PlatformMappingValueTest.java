@@ -62,12 +62,9 @@ public final class PlatformMappingValueTest {
         new PlatformMappingValue(
             platformsToFlags, flagsToPlatforms, BUILD_CONFIG_PLATFORM_OPTIONS, REPO_MAPPING);
 
-    BuildConfigurationKey key =
-        BuildConfigurationKey.withoutPlatformMapping(DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
+    BuildOptions mapped = mappingValue.map(DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
 
-    BuildConfigurationKey mapped = mappingValue.map(key);
-
-    assertThat(mapped.getOptions().get(PlatformOptions.class).platforms)
+    assertThat(mapped.get(PlatformOptions.class).platforms)
         .containsExactly(DEFAULT_TARGET_PLATFORM);
   }
 
@@ -87,9 +84,9 @@ public final class PlatformMappingValueTest {
     BuildOptions modifiedOptions = DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
 
-    BuildConfigurationKey mapped = mappingValue.map(keyForOptions(modifiedOptions));
+    BuildOptions mapped = mappingValue.map(modifiedOptions);
 
-    assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
+    assertThat(mapped.get(CoreOptions.class).cpu).isEqualTo("one");
   }
 
   @Test
@@ -106,9 +103,9 @@ public final class PlatformMappingValueTest {
     modifiedOptions.get(CoreOptions.class).cpu = "one";
     modifiedOptions.get(CoreOptions.class).compilationMode = CompilationMode.DBG;
 
-    BuildConfigurationKey mapped = mappingValue.map(keyForOptions(modifiedOptions));
+    BuildOptions mapped = mappingValue.map(modifiedOptions);
 
-    assertThat(mapped.getOptions().get(PlatformOptions.class).platforms).containsExactly(PLATFORM1);
+    assertThat(mapped.get(PlatformOptions.class).platforms).containsExactly(PLATFORM1);
   }
 
   @Test
@@ -126,9 +123,9 @@ public final class PlatformMappingValueTest {
     BuildOptions modifiedOptions = DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.clone();
     modifiedOptions.get(CoreOptions.class).cpu = "foo";
 
-    BuildConfigurationKey mapped = mappingValue.map(keyForOptions(modifiedOptions));
+    BuildOptions mapped = mappingValue.map(modifiedOptions);
 
-    assertThat(mapped.getOptions().get(PlatformOptions.class).platforms).containsExactly(PLATFORM2);
+    assertThat(mapped.get(PlatformOptions.class).platforms).containsExactly(PLATFORM2);
   }
 
   @Test
@@ -144,9 +141,9 @@ public final class PlatformMappingValueTest {
     BuildOptions modifiedOptions = DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.clone();
     modifiedOptions.get(CoreOptions.class).cpu = "bar";
 
-    BuildConfigurationKey mapped = mappingValue.map(keyForOptions(modifiedOptions));
+    BuildOptions mapped = mappingValue.map(modifiedOptions);
 
-    assertThat(mapped.getOptions().get(PlatformOptions.class).platforms)
+    assertThat(mapped.get(PlatformOptions.class).platforms)
         .containsExactly(DEFAULT_TARGET_PLATFORM);
   }
 
@@ -162,7 +159,7 @@ public final class PlatformMappingValueTest {
 
     BuildOptions options = BuildOptions.of(ImmutableList.of());
 
-    assertThrows(IllegalArgumentException.class, () -> mappingValue.map(keyForOptions(options)));
+    assertThrows(IllegalArgumentException.class, () -> mappingValue.map(options));
   }
 
   @Test
@@ -186,9 +183,9 @@ public final class PlatformMappingValueTest {
             BUILD_CONFIG_PLATFORM_OPTIONS,
             RepositoryMapping.ALWAYS_FALLBACK);
 
-    BuildConfigurationKey mapped = mappingValue.map(keyForOptions(modifiedOptions));
+    BuildOptions mapped = mappingValue.map(modifiedOptions);
 
-    assertThat(keyForOptions(modifiedOptions)).isEqualTo(mapped);
+    assertThat(modifiedOptions).isEqualTo(mapped);
   }
 
   @Test
@@ -205,9 +202,9 @@ public final class PlatformMappingValueTest {
         new PlatformMappingValue(
             platformsToFlags, flagsToPlatforms, BUILD_CONFIG_PLATFORM_OPTIONS, REPO_MAPPING);
 
-    BuildConfigurationKey mapped = mappingValue.map(keyForOptions(modifiedOptions));
+    BuildOptions mapped = mappingValue.map(modifiedOptions);
 
-    assertThat(keyForOptions(modifiedOptions)).isEqualTo(mapped);
+    assertThat(modifiedOptions).isEqualTo(mapped);
   }
 
   @Test
@@ -225,9 +222,5 @@ public final class PlatformMappingValueTest {
 
     assertThat(key.getWorkspaceRelativeMappingPath()).isEqualTo(PathFragment.create("my/path"));
     assertThat(key.wasExplicitlySetByUser()).isTrue();
-  }
-
-  private static BuildConfigurationKey keyForOptions(BuildOptions modifiedOptions) {
-    return BuildConfigurationKey.withoutPlatformMapping(modifiedOptions);
   }
 }

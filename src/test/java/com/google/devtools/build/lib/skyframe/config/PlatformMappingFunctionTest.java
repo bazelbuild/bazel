@@ -88,11 +88,9 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(null));
 
-    BuildConfigurationKey key = BuildConfigurationKey.withoutPlatformMapping(defaultBuildOptions);
+    BuildOptions mapped = platformMappingValue.map(defaultBuildOptions);
 
-    BuildConfigurationKey mapped = platformMappingValue.map(key);
-
-    assertThat(mapped.getOptions().get(PlatformOptions.class).platforms)
+    assertThat(mapped.get(PlatformOptions.class).platforms)
         .containsExactly(DEFAULT_TARGET_PLATFORM);
   }
 
@@ -121,9 +119,9 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     BuildOptions modifiedOptions = defaultBuildOptions.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
 
-    BuildConfigurationKey mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
 
-    assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
+    assertThat(mapped.get(CoreOptions.class).cpu).isEqualTo("one");
   }
 
   @Test
@@ -143,9 +141,9 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     BuildOptions modifiedOptions = defaultBuildOptions.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
 
-    BuildConfigurationKey mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
 
-    assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
+    assertThat(mapped.get(CoreOptions.class).cpu).isEqualTo("one");
   }
 
   @Test
@@ -169,9 +167,9 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     BuildOptions modifiedOptions = defaultBuildOptions.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
 
-    BuildConfigurationKey mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
 
-    assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
+    assertThat(mapped.get(CoreOptions.class).cpu).isEqualTo("one");
   }
 
   @Test
@@ -190,9 +188,9 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     BuildOptions modifiedOptions = defaultBuildOptions.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
 
-    BuildConfigurationKey mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
 
-    assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
+    assertThat(mapped.get(CoreOptions.class).cpu).isEqualTo("one");
   }
 
   @Test
@@ -216,9 +214,9 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     BuildOptions modifiedOptions = defaultBuildOptions.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
 
-    BuildConfigurationKey mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
 
-    assertThat(mapped.getOptions().get(CoreOptions.class).cpu).isEqualTo("one");
+    assertThat(mapped.get(CoreOptions.class).cpu).isEqualTo("one");
   }
 
   // Internal flags (OptionMetadataTag.INTERNAL) cannot be set from the command-line, but
@@ -237,9 +235,9 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     BuildOptions modifiedOptions = defaultBuildOptions.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
 
-    BuildConfigurationKey mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
 
-    assertThat(mapped.getOptions().get(DummyTestFragment.DummyTestOptions.class).internalFoo)
+    assertThat(mapped.get(DummyTestFragment.DummyTestOptions.class).internalFoo)
         .isEqualTo("something_new");
   }
 
@@ -269,9 +267,9 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     BuildOptions modifiedOptions = defaultBuildOptions.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
-    BuildConfigurationKey mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
 
-    assertThat(mapped.getOptions().getStarlarkOptions())
+    assertThat(mapped.getStarlarkOptions())
         .containsExactly(Label.parseCanonical("//test:my_string_flag"), "mapped_value");
   }
 
@@ -387,9 +385,5 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
       throw result.getError(key).getException();
     }
     return result.get(key);
-  }
-
-  private static BuildConfigurationKey keyForOptions(BuildOptions modifiedOptions) {
-    return BuildConfigurationKey.withoutPlatformMapping(modifiedOptions);
   }
 }
