@@ -198,4 +198,5 @@ semantics = struct(
     get_coverage_env = _get_coverage_env,
     get_proto_aspects = _get_proto_aspects,
     incompatible_disable_objc_library_transition = _incompatible_disable_objc_library_transition,
+    CC_PROTO_TOOLCHAIN = "@rules_cc//cc/proto:toolchain_type",
 )

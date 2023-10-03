@@ -15,7 +15,8 @@
 """Starlark implementation of cc_proto_library"""
 
 load(":common/cc/cc_helper.bzl", "cc_helper")
-load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo", proto_common = "proto_common_do_not_use")
+load(":common/proto/proto_common.bzl", "toolchains", "ProtoLangToolchainInfo", proto_common = "proto_common_do_not_use")
+load(":common/cc/semantics.bzl", "semantics")
 
 ProtoInfo = _builtins.toplevel.ProtoInfo
 CcInfo = _builtins.toplevel.CcInfo
@@ -24,15 +25,15 @@ cc_common = _builtins.toplevel.cc_common
 ProtoCcFilesInfo = provider(fields = ["files"], doc = "Provide cc proto files.")
 ProtoCcHeaderInfo = provider(fields = ["headers"], doc = "Provide cc proto headers.")
 
-def _are_srcs_excluded(ctx, target):
-    return not proto_common.experimental_should_generate_code(target[ProtoInfo], ctx.attr._aspect_cc_proto_toolchain[ProtoLangToolchainInfo], "cc_proto_library", target.label)
+def _are_srcs_excluded(proto_toolchain, target):
+    return not proto_common.experimental_should_generate_code(target[ProtoInfo], proto_toolchain, "cc_proto_library", target.label)
 
-def _get_feature_configuration(ctx, target, cc_toolchain, proto_info):
+def _get_feature_configuration(ctx, target, cc_toolchain, proto_info, proto_toolchain):
     requested_features = list(ctx.features)
     unsupported_features = list(ctx.disabled_features)
     unsupported_features.append("parse_headers")
     unsupported_features.append("layering_check")
-    if not _are_srcs_excluded(ctx, target) and len(proto_info.direct_sources) != 0:
+    if not _are_srcs_excluded(proto_toolchain, target) and len(proto_info.direct_sources) != 0:
         requested_features.append("header_modules")
     else:
         unsupported_features.append("header_modules")
@@ -78,12 +79,13 @@ def _get_strip_include_prefix(ctx, proto_info):
 
 def _aspect_impl(target, ctx):
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
+    proto_toolchain = toolchains.find_toolchain(ctx, "_aspect_cc_proto_toolchain", semantics.CC_PROTO_TOOLCHAIN)
     proto_info = target[ProtoInfo]
-    feature_configuration = _get_feature_configuration(ctx, target, cc_toolchain, proto_info)
+    feature_configuration = _get_feature_configuration(ctx, target, cc_toolchain, proto_info, proto_toolchain)
     proto_configuration = ctx.fragments.proto
 
     deps = []
-    runtime = ctx.attr._aspect_cc_proto_toolchain[ProtoLangToolchainInfo].runtime
+    runtime = proto_toolchain.runtime
     if runtime != None:
         deps.append(runtime)
     deps.extend(getattr(ctx.rule.attr, "deps", []))
@@ -100,7 +102,7 @@ def _aspect_impl(target, ctx):
     textual_hdrs = []
     additional_exported_hdrs = []
 
-    if _are_srcs_excluded(ctx, target):
+    if _are_srcs_excluded(proto_toolchain, target):
         header_provider = None
 
         # Hack: This is a proto_library for descriptor.proto or similar.
@@ -155,7 +157,7 @@ def _aspect_impl(target, ctx):
     proto_common.compile(
         actions = ctx.actions,
         proto_info = proto_info,
-        proto_lang_toolchain_info = ctx.attr._aspect_cc_proto_toolchain[ProtoLangToolchainInfo],
+        proto_lang_toolchain_info = proto_toolchain,
         generated_files = outputs,
         experimental_output_files = "multiple",
     )
@@ -250,12 +252,11 @@ cc_proto_aspect = aspect(
     required_providers = [ProtoInfo],
     provides = [CcInfo],
     attrs = {
-        "_aspect_cc_proto_toolchain": attr.label(
-            default = configuration_field(fragment = "proto", name = "proto_toolchain_for_cc"),
-        ),
         "_cc_toolchain": attr.label(default = "@bazel_tools//tools/cpp:current_cc_toolchain"),
-    },
-    toolchains = cc_helper.use_cpp_toolchain(),
+    } | toolchains.if_legacy_toolchain({"_aspect_cc_proto_toolchain": attr.label(
+        default = configuration_field(fragment = "proto", name = "proto_toolchain_for_cc"),
+    )}),
+    toolchains = cc_helper.use_cpp_toolchain() + toolchains.use_toolchain(semantics.CC_PROTO_TOOLCHAIN),
 )
 
 def _impl(ctx):
@@ -283,4 +284,5 @@ cc_proto_library = rule(
         ),
     },
     provides = [CcInfo],
+    toolchains = toolchains.use_toolchain(semantics.CC_PROTO_TOOLCHAIN),
 )
