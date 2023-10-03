@@ -876,6 +876,23 @@ sh_test(
     ],
 )
 
+sh_test(
+    name = "config_stripped_outputs_test",
+    size = "medium",
+    srcs = ["config_stripped_outputs_test.sh"],
+    data = [
+        ":config_stripped_outputs_lib",
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_library(
+    name = "config_stripped_outputs_lib",
+    testonly = 1,
+    srcs = ["config_stripped_outputs_lib.sh"],
+)
+
 ########################################################################
 # Test suites.
 
