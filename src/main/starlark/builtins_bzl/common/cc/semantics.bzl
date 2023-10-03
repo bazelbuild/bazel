@@ -200,4 +200,5 @@ semantics = struct(
     get_experimental_link_static_libraries_once = _get_experimental_link_static_libraries_once,
     check_cc_shared_library_tags = _check_cc_shared_library_tags,
     BUILD_INFO_TRANLATOR_LABEL = "@bazel_tools//tools/build_defs/build_info:cc_build_info",
+    CC_PROTO_TOOLCHAIN = "@rules_cc//cc/proto:toolchain_type",
 )
