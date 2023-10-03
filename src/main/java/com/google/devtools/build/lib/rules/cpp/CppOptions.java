@@ -989,17 +989,6 @@ public class CppOptions extends FragmentOptions {
   public boolean useArgsParamsFile;
 
   @Option(
-      name = "experimental_cpp_compile_argv_ignore_param_file",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {
-        OptionMetadataTag.EXPERIMENTAL,
-      },
-      help = "This flag is a noop and scheduled for removal.")
-  public boolean ignoreParamFile;
-
-  @Option(
       name = "experimental_unsupported_and_brittle_include_scanning",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
@@ -1178,7 +1167,6 @@ public class CppOptions extends FragmentOptions {
     exec.validateTopLevelHeaderInclusions = validateTopLevelHeaderInclusions;
     exec.strictSystemIncludes = strictSystemIncludes;
     exec.useArgsParamsFile = useArgsParamsFile;
-    exec.ignoreParamFile = ignoreParamFile;
     exec.experimentalIncludeScanning = experimentalIncludeScanning;
     exec.enableCcTestFeature = enableCcTestFeature;
     exec.useCppCompileHeaderMnemonic = useCppCompileHeaderMnemonic;
