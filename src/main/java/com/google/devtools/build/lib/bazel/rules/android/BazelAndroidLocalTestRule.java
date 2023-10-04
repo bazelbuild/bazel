@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses.TestBaseRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
@@ -94,13 +95,14 @@ public class BazelAndroidLocalTestRule implements RuleDefinition {
 
   @Override
   public Metadata getMetadata() {
-    return RuleDefinition.Metadata.builder()
+    return Metadata.builder()
         .name("android_local_test")
         .type(RuleClassType.TEST)
         .ancestors(
             AndroidLocalTestBaseRule.class,
             BaseJavaBinaryRule.class,
-            BaseRuleClasses.TestBaseRule.class)
+            TestBaseRule.class,
+            BazelSdkToolchainRule.class)
         .factoryClass(BazelAndroidLocalTest.class)
         .build();
   }
