@@ -13,11 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.producers;
 
-import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimaps;
-import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
@@ -28,15 +24,9 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.Transi
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
-import com.google.devtools.build.lib.skyframe.config.PlatformMappingValue;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
-import com.google.devtools.common.options.OptionsParsingException;
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -47,13 +37,8 @@ import javax.annotation.Nullable;
  */
 final class TransitionApplier
     implements StateMachine, StateMachine.ValueOrExceptionSink<TransitionException> {
-  interface ResultSink {
-    void acceptTransitionedConfigurations(
-        ImmutableMap<String, BuildConfigurationKey> transitionedOptions);
-
+  interface ResultSink extends BuildConfigurationKeyProducer.ResultSink {
     void acceptTransitionError(TransitionException e);
-
-    void acceptTransitionError(OptionsParsingException e);
   }
 
   // -------------------- Input --------------------
@@ -96,7 +81,9 @@ final class TransitionApplier
       return runAfter;
     }
     if (!doesStarlarkTransition) {
-      return new PlatformMappingApplier(
+      return new BuildConfigurationKeyProducer(
+          this.sink,
+          this.runAfter,
           transition.apply(
               TransitionUtil.restrict(transition, fromConfiguration.getOptions()), eventHandler));
     }
@@ -142,73 +129,6 @@ final class TransitionApplier
       sink.acceptTransitionError(e);
       return runAfter;
     }
-    return new PlatformMappingApplier(transitionedOptions);
-  }
-
-  /**
-   * Applies the platform mapping to each option.
-   *
-   * <p>The output preserves the iteration order of the input.
-   */
-  private class PlatformMappingApplier implements StateMachine {
-    // -------------------- Input --------------------
-    private final Map<String, BuildOptions> options;
-
-    // -------------------- Internal State --------------------
-    private final Map<String, PlatformMappingValue> platformMappingValues = new HashMap<>();
-
-    private PlatformMappingApplier(Map<String, BuildOptions> options) {
-      this.options = options;
-    }
-
-    @Override
-    public StateMachine step(Tasks tasks) {
-      // Deduplicates the platform mapping paths and collates the transition keys.
-      ImmutableListMultimap<Optional<PathFragment>, String> index =
-          Multimaps.index(
-              options.keySet(),
-              transitionKey ->
-                  Optional.ofNullable(getPlatformMappingsPath(options.get(transitionKey))));
-      for (Map.Entry<Optional<PathFragment>, Collection<String>> entry : index.asMap().entrySet()) {
-        Collection<String> transitionKeys = entry.getValue();
-        tasks.lookUp(
-            PlatformMappingValue.Key.create(entry.getKey().orElse(null)),
-            rawValue -> {
-              var value = (PlatformMappingValue) rawValue;
-              // Maps the value from all transition keys with the same platform mappings path.
-              for (String key : transitionKeys) {
-                platformMappingValues.put(key, value);
-              }
-            });
-      }
-      return this::applyMappings;
-    }
-
-    private StateMachine applyMappings(Tasks tasks) {
-      var result =
-          ImmutableMap.<String, BuildConfigurationKey>builderWithExpectedSize(options.size());
-      for (Map.Entry<String, BuildOptions> entry : options.entrySet()) {
-        String transitionKey = entry.getKey();
-        BuildConfigurationKey newConfigurationKey;
-        try {
-          newConfigurationKey =
-              BuildConfigurationKey.withPlatformMapping(
-                  platformMappingValues.get(transitionKey), entry.getValue());
-        } catch (OptionsParsingException e) {
-          sink.acceptTransitionError(e);
-          return runAfter;
-        }
-        result.put(transitionKey, newConfigurationKey);
-      }
-      sink.acceptTransitionedConfigurations(result.buildOrThrow());
-      return runAfter;
-    }
-  }
-
-  @Nullable
-  private static PathFragment getPlatformMappingsPath(BuildOptions fromOptions) {
-    return fromOptions.hasNoConfig()
-        ? null
-        : fromOptions.get(PlatformOptions.class).platformMappings;
+    return new BuildConfigurationKeyProducer(this.sink, this.runAfter, transitionedOptions);
   }
 }
