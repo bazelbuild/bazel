@@ -148,6 +148,15 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         ")");
   }
 
+  public void overwriteModuleDotBazel(String... lines) throws Exception {
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        new ImmutableList.Builder<String>()
+            .addAll(ImmutableList.copyOf(lines))
+            .addAll(analysisMock.getModuleDotBazelContents(mockToolsConfig))
+            .build());
+  }
+
   @Test
   public void basicFunctionality() throws Exception {
     scratch.file(
@@ -389,7 +398,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
   public void originKeyFileAndModuleInfoFileLabels_forBzlFileInBzlmodModule_areDisplayForm()
       throws Exception {
     setBuildLanguageOptions("--enable_bzlmod");
-    scratch.overwriteFile("MODULE.bazel", "bazel_dep(name='origin_repo', version='0.1')");
+    overwriteModuleDotBazel("bazel_dep(name='origin_repo', version='0.1')");
     registry.addModule(
         BzlmodTestUtil.createModuleKey("origin_repo", "0.1"),
         "module(name='origin_repo', version='0.1')");
@@ -965,9 +974,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
   @Test
   public void repoName_inMainBzlmodModule() throws Exception {
     setBuildLanguageOptions("--enable_bzlmod");
-    scratch.overwriteFile(
-        "MODULE.bazel", //
-        "module(name = 'my_module', repo_name = 'legacy_internal_repo_name')");
+    overwriteModuleDotBazel("module(name = 'my_module', repo_name = 'legacy_internal_repo_name')");
     scratch.file(
         "foo.bzl", //
         "def my_macro(arg = Label('//target:target')): pass",
@@ -1054,8 +1061,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
   @Test
   public void repoName_inBzlmodDep() throws Exception {
     setBuildLanguageOptions("--enable_bzlmod");
-    scratch.overwriteFile(
-        "MODULE.bazel", "module(name = 'my_module')", "bazel_dep(name='dep_mod', version='0.1')");
+    overwriteModuleDotBazel("module(name = 'my_module')", "bazel_dep(name='dep_mod', version='0.1')");
     registry.addModule(
         BzlmodTestUtil.createModuleKey("dep_mod", "0.1"), "module(name='dep_mod', version='0.1')");
     Path depModRepoPath = moduleRoot.getRelative("dep_mod~0.1");

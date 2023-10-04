@@ -363,7 +363,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//:aspect.bzl"), "StructImpl");
     StructImpl info = (StructImpl) aspectValue.get(key);
     assertThat(((Depset) info.getValue("labels")).getSet(String.class).toList())
-        .containsExactly("@//:suite", "@//:test_b");
+        .containsExactly("@@//:suite", "@@//:test_b");
   }
 
   @Test

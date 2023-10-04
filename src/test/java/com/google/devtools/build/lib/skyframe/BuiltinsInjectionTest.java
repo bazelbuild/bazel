@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.analysis.util.MockRuleDefaults;
@@ -74,6 +75,12 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
    */
   private static final MockRule SANDWICH_RULE =
       () -> MockRule.factory(SandwichFactory.class).define("sandwich_rule");
+
+  @Override
+  protected AnalysisMock getAnalysisMock() {
+    // Make sure we don't have built-in modules affecting the dependency graph.
+    return new AnalysisMockWithoutBuiltinModules();
+  }
 
   // Must be public due to reflective construction of rule factories.
   /** Factory for SANDWICH_RULE. (Javadoc'd to pacify linter.) */
@@ -351,7 +358,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
         "exported_rules = {}",
         "exported_to_java = {}");
     writePkgBuild();
-    writePkgBzl("load('@_builtins//:exports.bzl', 'exported_toplevels')");
+    writePkgBzl("load('@@_builtins//:exports.bzl', 'exported_toplevels')");
 
     buildAndAssertFailure();
     assertContainsEvent("The repository '@_builtins' could not be resolved");
@@ -487,6 +494,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
 
   @Test
   public void workspaceLoadedBzlUsesInjectionButNotWORKSPACE() throws Exception {
+    setBuildLanguageOptionsWithBuiltinsStaging("--noenable_bzlmod");
     writeExportsBzl(
         "exported_toplevels = {'overridable_symbol': 'new_value'}",
         "exported_rules = {'overridable_rule': 'new_rule'}",

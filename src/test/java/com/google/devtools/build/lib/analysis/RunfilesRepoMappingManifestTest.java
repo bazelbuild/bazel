@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
@@ -76,9 +77,10 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
         new RepositoryDirectoryDirtinessChecker());
   }
 
-  @Before
-  public void enableBzlmod() throws Exception {
-    setBuildLanguageOptions("--enable_bzlmod");
+  @Override
+  protected AnalysisMock getAnalysisMock() {
+    // Make sure we don't have built-in modules affecting the dependency graph.
+    return new AnalysisMockWithoutBuiltinModules();
   }
 
   /**
@@ -269,6 +271,7 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
         "bazel_dep(name='bare_rule',version='1.0')");
     scratch.overwriteFile(
         "BUILD", "load('@bare_rule//:defs.bzl', 'bare_binary')", "bare_binary(name='aaa')");
+    invalidatePackages();
 
     RepoMappingManifestAction actionBeforeChange = getRepoMappingManifestActionForTarget("//:aaa");
 
@@ -288,6 +291,7 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
         "bazel_dep(name='bare_rule',version='1.0')");
     scratch.overwriteFile(
         "BUILD", "load('@bare_rule//:defs.bzl', 'bare_binary')", "bare_binary(name='aaa')");
+    invalidatePackages();
 
     RepoMappingManifestAction actionBeforeChange = getRepoMappingManifestActionForTarget("//:aaa");
 
@@ -320,6 +324,7 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
     scratch.overwriteFile(moduleRoot.getRelative("bbb~1.0").getRelative("BUILD").getPathString());
     scratch.overwriteFile(
         moduleRoot.getRelative("bbb~1.0").getRelative("def.bzl").getPathString(), "BBB = '1'");
+    invalidatePackages();
 
     RepoMappingManifestAction actionBeforeChange = getRepoMappingManifestActionForTarget("//:aaa");
 
@@ -391,6 +396,7 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
         moduleRoot.getRelative("ddd~1.0/BUILD").getPathString(),
         "load('@bare_rule//:defs.bzl', 'bare_binary')",
         "bare_binary(name='ddd')");
+    invalidatePackages();
 
     RunfilesSupport runfilesSupport = getRunfilesSupport("@aaa~1.0//:aaa");
     ImmutableList<String> runfilesPaths =

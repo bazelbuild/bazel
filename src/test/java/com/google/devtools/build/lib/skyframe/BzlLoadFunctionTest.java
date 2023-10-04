@@ -118,11 +118,6 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE));
   }
 
-  @Before
-  public void setUpForBzlmod() throws Exception {
-    scratch.file("MODULE.bazel");
-  }
-
   @Test
   public void testBzlLoadLabels() throws Exception {
     scratch.file("pkg1/BUILD");
@@ -1095,7 +1090,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   @Test
   public void testLoadBzlFileFromBzlmod() throws Exception {
     setBuildLanguageOptions("--enable_bzlmod", "--experimental_enable_scl_dialect");
-    scratch.overwriteFile("MODULE.bazel", "bazel_dep(name='foo',version='1.0')");
+    scratch.appendFile("MODULE.bazel", "bazel_dep(name='foo',version='1.0')");
     registry
         .addModule(
             createModuleKey("foo", "1.0"),

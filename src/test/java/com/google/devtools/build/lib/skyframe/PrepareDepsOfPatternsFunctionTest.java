@@ -20,6 +20,7 @@ import static com.google.devtools.build.skyframe.WalkableGraphUtils.exists;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
@@ -55,10 +56,10 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
   private Path moduleRoot;
   private FakeRegistry registry;
 
-  @Before
-  public void setUpForBzlmod() throws Exception {
-    scratch.file("MODULE.bazel");
-    setBuildLanguageOptions("--enable_bzlmod");
+  @Override
+  protected AnalysisMock getAnalysisMock() {
+    // Make sure we don't have built-in modules affecting the dependency graph.
+    return new AnalysisMockWithoutBuiltinModules();
   }
 
   private static SkyKey getKeyForLabel(Label label) {
@@ -216,7 +217,6 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
   @Test
   public void testFunctionLoadsTargetFromExternalRepo() throws Exception {
     writeBzlmodFiles();
-
     // Given a target pattern sequence consisting of a single-target pattern for "//rinne",
     ImmutableList<String> patternSequence = ImmutableList.of("//rinne");
 
@@ -354,6 +354,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     scratch.file(moduleRoot.getRelative("repo~1.0/WORKSPACE").getPathString(), "");
     scratch.file(
         moduleRoot.getRelative("repo~1.0/a/BUILD").getPathString(), "exports_files(['x'])");
+    invalidatePackages();
   }
 
   private static void assertValidValue(WalkableGraph graph, SkyKey key)

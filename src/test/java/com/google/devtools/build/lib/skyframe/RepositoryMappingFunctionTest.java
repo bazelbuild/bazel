@@ -63,16 +63,10 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
     getSkyframeExecutor()
         .invalidateFilesUnderPathForTesting(
             reporter,
-            ModifiedFileSet.builder().modify(PathFragment.create("WORKSPACE")).build(),
+            ModifiedFileSet.builder().modify(PathFragment.create("WORKSPACE")).modify(PathFragment.create("MODULE.bazel")).build(),
             Root.fromPath(rootDirectory));
     return SkyframeExecutorTestUtils.evaluate(
         getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
-  }
-
-  @Before
-  public void setUpForBzlmod() throws Exception {
-    setBuildLanguageOptions("--enable_bzlmod");
-    scratch.file("MODULE.bazel");
   }
 
   @Override
@@ -94,22 +88,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
   @Override
   protected AnalysisMock getAnalysisMock() {
     // Make sure we don't have built-in modules affecting the dependency graph.
-    return new AnalysisMock.Delegate(super.getAnalysisMock()) {
-      @Override
-      public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(
-          BlazeDirectories directories) {
-        return ImmutableMap.<SkyFunctionName, SkyFunction>builder()
-            .putAll(
-                Maps.filterKeys(
-                    super.getSkyFunctions(directories),
-                    fnName -> !fnName.equals(SkyFunctions.MODULE_FILE)))
-            .put(
-                SkyFunctions.MODULE_FILE,
-                new ModuleFileFunction(
-                    FakeRegistry.DEFAULT_FACTORY, directories.getWorkspace(), ImmutableMap.of()))
-            .buildOrThrow();
-      }
-    };
+    return new AnalysisMockWithoutBuiltinModules();
   }
 
   private static RepositoryMappingValue valueForWorkspace(

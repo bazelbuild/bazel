@@ -340,7 +340,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
   @Test
   public void testRegisteredExecutionPlatforms_bzlmod() throws Exception {
     setBuildLanguageOptions("--enable_bzlmod");
-    scratch.overwriteFile(
+    scratch.appendFile(
         "MODULE.bazel",
         "register_execution_platforms('//:plat')",
         "register_execution_platforms('//:dev_plat',dev_dependency=True)",

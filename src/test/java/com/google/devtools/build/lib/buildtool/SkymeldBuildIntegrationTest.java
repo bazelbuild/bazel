@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.TestConstants.WORKSPACE_NAME;
+import static com.google.devtools.build.lib.testutil.TestConstants.WORKSPACE_NAME_BZLMOD;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -177,10 +177,10 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     assertThat(eventsSubscriber.getTopLevelEntityAnalysisConcludedEvents()).hasSize(2);
     assertSingleAnalysisPhaseCompleteEventWithLabels("//foo:foo", "//foo:bar");
 
-    assertThat(directories.getOutputPath(WORKSPACE_NAME).getRelative("build-info.txt").isFile())
+    assertThat(directories.getOutputPath(WORKSPACE_NAME_BZLMOD).getRelative("build-info.txt").isFile())
         .isTrue();
     assertThat(
-            directories.getOutputPath(WORKSPACE_NAME).getRelative("build-changelist.txt").isFile())
+            directories.getOutputPath(WORKSPACE_NAME_BZLMOD).getRelative("build-changelist.txt").isFile())
         .isTrue();
   }
 
@@ -203,10 +203,10 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     assertSingleOutputBuilt("//foo:foo");
     assertSingleOutputBuilt("//foo:bar");
 
-    assertThat(directories.getOutputPath(WORKSPACE_NAME).getRelative("build-info.txt").isFile())
+    assertThat(directories.getOutputPath(WORKSPACE_NAME_BZLMOD).getRelative("build-info.txt").isFile())
         .isTrue();
     assertThat(
-        directories.getOutputPath(WORKSPACE_NAME).getRelative("build-changelist.txt").isFile())
+        directories.getOutputPath(WORKSPACE_NAME_BZLMOD).getRelative("build-changelist.txt").isFile())
         .isTrue();
   }
 

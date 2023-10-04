@@ -957,7 +957,6 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   private QueryOutput getQueryResult(String queryString, String... flags) throws Exception {
     Collections.addAll(options, flags);
     runtimeWrapper.resetOptions();
-    runtimeWrapper.addOptions("--noenable_bzlmod");
     runtimeWrapper.addOptions(options);
     runtimeWrapper.addOptions(queryString);
     CommandEnvironment env = runtimeWrapper.newCommand(QueryCommand.class);

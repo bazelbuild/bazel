@@ -472,7 +472,7 @@ public abstract class BuildIntegrationTestCase {
    * that may not have been initialized yet.
    */
   protected PathFragment getDesiredWorkspaceRelative() {
-    return PathFragment.create(TestConstants.WORKSPACE_NAME);
+    return PathFragment.create(TestConstants.WORKSPACE_NAME_BZLMOD);
   }
 
   protected InternalTestExecutionMode getInternalTestExecutionMode() {
@@ -648,12 +648,10 @@ public abstract class BuildIntegrationTestCase {
     runtimeWrapper.addOptions(TestConstants.PRODUCT_SPECIFIC_FLAGS);
     // TODO(rosica): Remove this once g3 is migrated.
     runtimeWrapper.addOptions("--noincompatible_use_specific_tool_files");
-    runtimeWrapper.addOptions("--noenable_bzlmod");
   }
 
   protected void resetOptions() {
     runtimeWrapper.resetOptions();
-    runtimeWrapper.addOptions("--noenable_bzlmod");
   }
 
   public void addOptions(String... args) {

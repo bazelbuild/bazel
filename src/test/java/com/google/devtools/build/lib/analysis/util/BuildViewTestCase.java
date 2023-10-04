@@ -24,12 +24,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
+import com.google.common.collect.*;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -106,7 +101,8 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.analysis.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.*;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -246,6 +242,27 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
 
+  public static final class AnalysisMockWithoutBuiltinModules extends AnalysisMock.Delegate {
+    public AnalysisMockWithoutBuiltinModules() {
+      super(AnalysisMock.get());
+    }
+
+    @Override
+    public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(
+        BlazeDirectories directories) {
+      return ImmutableMap.<SkyFunctionName, SkyFunction>builder()
+          .putAll(
+              Maps.filterKeys(
+                  super.getSkyFunctions(directories),
+                  fnName -> !fnName.equals(SkyFunctions.MODULE_FILE)))
+          .put(
+              SkyFunctions.MODULE_FILE,
+              new ModuleFileFunction(
+                  FakeRegistry.DEFAULT_FACTORY, directories.getWorkspace(), ImmutableMap.of()))
+          .buildOrThrow();
+    }
+  }
+
   @After
   public final void cleanupInterningPools() {
     skyframeExecutor.getEvaluator().cleanupInterningPools();
@@ -291,6 +308,18 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
                     PrecomputedValue.STARLARK_SEMANTICS, StarlarkSemantics.DEFAULT))
             .add(PrecomputedValue.injected(PrecomputedValue.REPO_ENV, ImmutableMap.of()))
             .add(PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()))
+            .add(PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, ImmutableList.of()))
+                .add(PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false))
+                .add(PrecomputedValue.injected(
+                    BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
+                    RepositoryOptions.CheckDirectDepsMode.OFF))
+                .add(PrecomputedValue.injected(
+                    BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
+                    RepositoryOptions.BazelCompatibilityMode.OFF))
+                .add(PrecomputedValue.injected(
+                    BazelLockFileFunction.LOCKFILE_MODE, RepositoryOptions.LockfileMode.OFF))
+                .add(PrecomputedValue.injected(
+                        YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, ImmutableList.of()))
             .add(
                 PrecomputedValue.injected(
                     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()))
@@ -556,7 +585,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     if (!analysisMock.isThisBazel()) {
       parser.parse("--experimental_google_legacy_api"); // For starlark java_binary;
     }
-    parser.parse("--noenable_bzlmod");
+//    parser.parse("--noenable_bzlmod");
     parser.parse(options);
     return parser.getOptions(BuildLanguageOptions.class);
   }
@@ -1166,6 +1195,16 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .addAll(ImmutableList.copyOf(lines))
             .build());
 
+    invalidatePackages();
+  }
+
+  public void rewriteModuleDotBazel(String... lines) throws Exception {
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        new ImmutableList.Builder<String>()
+            .addAll(ImmutableList.copyOf(lines))
+            .addAll(analysisMock.getModuleDotBazelContents(mockToolsConfig))
+            .build());
     invalidatePackages();
   }
 

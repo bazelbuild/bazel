@@ -70,6 +70,7 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   protected void setupOptions() throws Exception {
     super.setupOptions();
     addOptions(
+        "--noenable_bzlmod",
         "--spawn_strategy=standalone",
         "--nouse_action_cache",
         "--rewind_lost_inputs",

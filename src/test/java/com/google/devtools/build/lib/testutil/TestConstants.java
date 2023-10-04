@@ -58,6 +58,11 @@ public class TestConstants {
   public static final String WORKSPACE_NAME = "__main__";
 
   /**
+   * Default workspace name when Bzlmod is enabled.
+   */
+  public static final String WORKSPACE_NAME_BZLMOD = "_main";
+
+  /**
    * Name of a class with an INSTANCE field of type AnalysisMock to be used for analysis tests.
    */
   public static final String TEST_ANALYSIS_MOCK =

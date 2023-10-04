@@ -110,7 +110,8 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
   private MemoizingEvaluator evaluator;
 
   @Before
-  public void createEnvironment() {
+  public void createEnvironment() throws Exception {
+    setBuildLanguageOptions("--noenable_bzlmod");
     AnalysisMock analysisMock = AnalysisMock.get();
     AtomicReference<PathPackageLocator> pkgLocator =
         new AtomicReference<>(

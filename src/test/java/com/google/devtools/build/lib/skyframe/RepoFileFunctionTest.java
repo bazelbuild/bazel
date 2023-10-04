@@ -88,8 +88,6 @@ public class RepoFileFunctionTest extends BuildViewTestCase {
 
   @Test
   public void repoFileInAnExternalRepo() throws Exception {
-    setBuildLanguageOptions("--enable_bzlmod");
-    scratch.overwriteFile("MODULE.bazel", "bazel_dep(name='foo',version='1.0')");
     scratch.overwriteFile("abc/def/BUILD", "filegroup(name='what')");
     registry.addModule(createModuleKey("foo", "1.0"), "module(name='foo',version='1.0')");
     scratch.overwriteFile(moduleRoot.getRelative("foo~1.0/WORKSPACE.bazel").getPathString());
@@ -98,6 +96,8 @@ public class RepoFileFunctionTest extends BuildViewTestCase {
         "repo(default_deprecation='EVERYTHING IS DEPRECATED')");
     scratch.overwriteFile(
         moduleRoot.getRelative("foo~1.0/abc/def/BUILD").getPathString(), "filegroup(name='what')");
+
+    rewriteModuleDotBazel("bazel_dep(name='foo',version='1.0')");
 
     assertThat(
             getRuleContext(getConfiguredTarget("//abc/def:what"))

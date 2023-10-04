@@ -171,6 +171,15 @@ public abstract class AbstractQueryTest<T> {
             .build());
   }
 
+  public void overwriteModuleDotBazel(String... lines) throws Exception {
+    overwriteFile(
+        "MODULE.bazel",
+        new ImmutableList.Builder<String>()
+            .addAll(ImmutableList.copyOf(lines))
+            .addAll(analysisMock.getModuleDotBazelContents(mockToolsConfig))
+            .build());
+  }
+
   protected void assertContainsEvent(String expectedMessage) {
     helper.assertContainsEvent(expectedMessage);
   }
@@ -1539,8 +1548,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testSlashSlashDotDotDot() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
-    writeFile("MODULE.bazel");
     writeFile("a/BUILD", "sh_library(name = 'a', srcs = ['a.sh'])");
     assertThat(eval("//...")).isEqualTo(eval("//a"));
   }
@@ -1620,6 +1627,8 @@ public abstract class AbstractQueryTest<T> {
     helper.writeFile("/workspace/embedded_tools/WORKSPACE");
     helper.writeFile(
         "/workspace/embedded_tools/MODULE.bazel", "module(name = \"bazel_tools\", version = \"\")");
+    helper.writeFile("/workspace/local_config_platform_workspace/WORKSPACE");
+    helper.writeFile("/workspace/local_config_platform_workspace/MODULE.bazel", "module(name='local_config_platform')", "bazel_dep(name='platforms')");
     helper.writeFile("/workspace/platforms_workspace/BUILD");
     helper.writeFile("/workspace/platforms_workspace/WORKSPACE");
     helper.writeFile(
@@ -1630,6 +1639,8 @@ public abstract class AbstractQueryTest<T> {
     helper.writeFile(
         "/workspace/rules_java_workspace/MODULE.bazel",
         "module(name = \"rules_java\", version = \"\")");
+    helper.writeFile("WORKSPACE");
+    overwriteModuleDotBazel();
   }
 
   @Test
@@ -1674,8 +1685,6 @@ public abstract class AbstractQueryTest<T> {
 
   public void simpleVisibilityTest(String visibility, boolean expectVisible) throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
-    writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
         "b/BUILD", "filegroup(name = 'b', srcs = ['b.txt'], visibility = ['" + visibility + "'])");
@@ -1715,8 +1724,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testVisible_private_same_package() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
-    writeFile("MODULE.bazel");
     writeFile(
         "a/BUILD",
         "filegroup(name = 'a', srcs = [':b'], visibility = ['//visibility:private'])",
@@ -1727,8 +1734,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testVisible_package_group() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
-    writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
         "b/BUILD",
@@ -1740,8 +1745,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testVisible_package_group_invisible() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
-    writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
         "b/BUILD",
@@ -1754,8 +1757,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testVisible_package_group_include() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
-    writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
         "b/BUILD",
@@ -1769,8 +1770,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testVisible_java_javatests() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
-    writeFile("MODULE.bazel");
     writeFile(
         "java/com/google/a/BUILD",
         "filegroup(name = 'a', srcs = ['a.txt'], visibility = ['//visibility:private'])");
@@ -1788,8 +1787,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testVisible_java_javatests_different_package() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
-    writeFile("MODULE.bazel");
     writeFile(
         "java/com/google/a/BUILD",
         "filegroup(name = 'a', srcs = ['a.txt'], visibility = ['//visibility:private'])");
@@ -1808,8 +1805,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testVisible_javatests_java() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
-    writeFile("MODULE.bazel");
     writeFile(
         "javatests/com/google/a/BUILD",
         "filegroup(name = 'a', srcs = ['a.txt'], visibility = ['//visibility:private'])");
@@ -1827,8 +1822,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testVisible_default_private() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
-    writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b'])");
     writeFile(
         "b/BUILD",
@@ -1840,8 +1833,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testVisible_default_public() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
-    writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b'])");
     writeFile(
         "b/BUILD",
@@ -1853,8 +1844,6 @@ public abstract class AbstractQueryTest<T> {
   @Test
   public void testPackageGroupAllBeneath() throws Exception {
     useReducedSetOfRules();
-    writeFile("WORKSPACE");
-    writeFile("MODULE.bazel");
     writeFile("a/BUILD", "filegroup(name = 'a', srcs = ['//b:b'])");
     writeFile(
         "b/BUILD",
@@ -2284,8 +2273,7 @@ public abstract class AbstractQueryTest<T> {
   }
 
   protected void writeBzlmodBuildFiles() throws Exception {
-    helper.overwriteFile(
-        "MODULE.bazel", "bazel_dep(name= 'repo', version='1.0', repo_name='my_repo')");
+    overwriteModuleDotBazel("bazel_dep(name= 'repo', version='1.0', repo_name='my_repo')");
     helper.overwriteFile(
         "BUILD",
         "sh_binary(",

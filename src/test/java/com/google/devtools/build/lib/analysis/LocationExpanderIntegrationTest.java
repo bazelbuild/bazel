@@ -262,6 +262,6 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
     assertThat(expander.expand("foo $(rlocationpaths :foo) bar"))
         .isEqualTo(
             "foo __main__/expansion/bar.txt __main__/expansion/foo.txt bar"
-                .replace("__main__", TestConstants.WORKSPACE_NAME));
+                .replace("__main__", TestConstants.WORKSPACE_NAME_BZLMOD));
   }
 }
