@@ -82,6 +82,15 @@ public interface AndroidOptimizationInfoApi<FileT extends FileApi> extends Struc
   FileT getConfig();
 
   @StarlarkMethod(
+      name = "usage",
+      structField = true,
+      doc = "Returns the proguard usage.",
+      allowReturnNones = true,
+      documented = false)
+  @Nullable
+  FileT getUsage();
+
+  @StarlarkMethod(
       name = "proto_mapping",
       structField = true,
       doc = "Returns the proguard proto mapping.",
@@ -222,6 +231,15 @@ public interface AndroidOptimizationInfoApi<FileT extends FileApi> extends Struc
               doc = "The proguard config.",
               defaultValue = "None"),
           @Param(
+              name = "usage",
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
+              named = true,
+              doc = "The proguard usage.",
+              defaultValue = "None"),
+          @Param(
               name = "proto_mapping",
               allowedTypes = {
                 @ParamType(type = FileApi.class),
@@ -311,6 +329,7 @@ public interface AndroidOptimizationInfoApi<FileT extends FileApi> extends Struc
         Object seeds,
         Object libraryJar,
         Object config,
+        Object usage,
         Object protoMapping,
         Object rewrittenStartupProfile,
         Object rewrittenMergedBaselineProfile,

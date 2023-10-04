@@ -36,6 +36,7 @@ public class AndroidOptimizationInfo extends NativeInfo
   @Nullable private final Artifact seeds;
   @Nullable private final Artifact libraryJar;
   @Nullable private final Artifact config;
+  @Nullable private final Artifact usage;
   @Nullable private final Artifact protoMapping;
   @Nullable private final Artifact rewrittenStartupProfile;
   @Nullable private final Artifact rewrittenMergedBaselineProfile;
@@ -52,6 +53,7 @@ public class AndroidOptimizationInfo extends NativeInfo
       Artifact seeds,
       Artifact libraryJar,
       Artifact config,
+      Artifact usage,
       Artifact protoMapping,
       Artifact rewrittenStartupProfile,
       Artifact rewrittenMergedBaselineProfile,
@@ -66,6 +68,7 @@ public class AndroidOptimizationInfo extends NativeInfo
     this.seeds = seeds;
     this.libraryJar = libraryJar;
     this.config = config;
+    this.usage = usage;
     this.protoMapping = protoMapping;
     this.rewrittenStartupProfile = rewrittenStartupProfile;
     this.rewrittenMergedBaselineProfile = rewrittenMergedBaselineProfile;
@@ -110,6 +113,12 @@ public class AndroidOptimizationInfo extends NativeInfo
   @Nullable
   public Artifact getConfig() {
     return config;
+  }
+
+  @Override
+  @Nullable
+  public Artifact getUsage() {
+    return usage;
   }
 
   @Override
@@ -185,6 +194,7 @@ public class AndroidOptimizationInfo extends NativeInfo
         Object seeds,
         Object libraryJar,
         Object config,
+        Object usage,
         Object protoMapping,
         Object rewrittenStartupProfile,
         Object rewrittenMergedBaselineProfile,
@@ -201,6 +211,7 @@ public class AndroidOptimizationInfo extends NativeInfo
           fromNoneable(seeds, Artifact.class),
           fromNoneable(libraryJar, Artifact.class),
           fromNoneable(config, Artifact.class),
+          fromNoneable(usage, Artifact.class),
           fromNoneable(protoMapping, Artifact.class),
           fromNoneable(rewrittenStartupProfile, Artifact.class),
           fromNoneable(rewrittenMergedBaselineProfile, Artifact.class),
