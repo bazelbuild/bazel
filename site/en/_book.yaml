@@ -361,6 +361,8 @@ upper_tabs:
         path: /community/sig
       - title: Bazel experts
         path: /community/experts/
+      - title: Bazel partners
+        path: /community/partners/
       - title: Bazel users
         path: /community/users
       - title: Nominate a recommended rule
