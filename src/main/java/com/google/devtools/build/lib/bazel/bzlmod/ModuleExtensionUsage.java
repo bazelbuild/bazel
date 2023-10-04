@@ -19,9 +19,12 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
+import java.util.Map;
 import java.util.Optional;
 import net.starlark.java.syntax.Location;
 
@@ -91,10 +94,23 @@ public abstract class ModuleExtensionUsage {
   }
 
   /**
+   * Turns the given collection of usages for a particular extension into an object that can be
+   * compared for equality with another object obtained in this way and compares equal only if the
+   * two original collections of usages are equivalent for the purpose of evaluating the extension.
+   */
+  static ImmutableList<Map.Entry<ModuleKey, ModuleExtensionUsage>> trimForEvaluation(
+      ImmutableMap<ModuleKey, ModuleExtensionUsage> usages) {
+    // ImmutableMap#equals doesn't compare the order of entries, but it matters for the evaluation
+    // of the extension.
+    return ImmutableList.copyOf(
+        Maps.transformValues(usages, ModuleExtensionUsage::trimForEvaluation).entrySet());
+  }
+
+  /**
    * Returns a new usage with all information removed that does not influence the evaluation of the
    * extension.
    */
-  ModuleExtensionUsage trimForEvaluation() {
+  private ModuleExtensionUsage trimForEvaluation() {
     // We start with the full usage and selectively remove information that does not influence the
     // evaluation of the extension. Compared to explicitly copying over the parts that do, this
     // preserves correctness in case new fields are added without updating this code.
