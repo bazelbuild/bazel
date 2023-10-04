@@ -66,6 +66,8 @@ public abstract class BazelDepGraphValue implements SkyValue {
    * usage occurs. For each extension identifier ID, extensionUsagesTable[ID][moduleKey] is the
    * ModuleExtensionUsage of ID in the module keyed by moduleKey.
    */
+  // Note: Equality of BazelDepGraphValue does not check for equality of the order of the rows of
+  // this table, but it is tracked implicitly via the order of the abridged modules.
   public abstract ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>
       getExtensionUsagesTable();
 
