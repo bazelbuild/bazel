@@ -304,7 +304,10 @@ def _cc_library_impl(ctx):
         data_runfiles = data_runfiles,
     ))
 
-    debug_context = cc_helper.merge_cc_debug_contexts(compilation_outputs, cc_helper.get_providers(ctx.attr.deps, CcInfo))
+    debug_context = cc_helper.merge_cc_debug_contexts(
+        compilation_outputs,
+        cc_helper.get_providers(ctx.attr.deps + ctx.attr.implementation_deps, CcInfo),
+    )
     cc_info = CcInfo(
         compilation_context = compilation_context,
         linking_context = linking_context,
