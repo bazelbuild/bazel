@@ -157,6 +157,67 @@ class BazelFetchTest(test_base.TestBase):
         'ERROR: Only one fetch option should be provided for fetch command.',
         stderr,
     )
+    exit_code, _, stderr = self.RunBazel(
+        ['fetch', '--all', '--repo=@hello'], allow_failure=True
+    )
+    self.AssertExitCode(exit_code, 2, stderr)
+    self.assertIn(
+        'ERROR: Only one fetch option should be provided for fetch command.',
+        stderr,
+    )
+
+  def testFetchRepo(self):
+    self.main_registry.createCcModule('aaa', '1.0').createCcModule(
+        'bbb', '1.0', {'aaa': '1.0'}
+    ).createCcModule('ccc', '1.0')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "bbb", version = "1.0")',
+            'bazel_dep(name = "ccc", version = "1.0", repo_name = "my_repo")',
+            'local_path_override(module_name="bazel_tools", path="tools_mock")',
+            'local_path_override(module_name="local_config_platform", ',
+            'path="platforms_mock")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    # Test canonical/apparent repo names & multiple repos
+    self.RunBazel(['fetch', '--repo=@@bbb~1.0', '--repo=@my_repo'])
+    _, stdout, _ = self.RunBazel(['info', 'output_base'])
+    repos_fetched = os.listdir(stdout[0] + '/external')
+    self.assertIn('bbb~1.0', repos_fetched)
+    self.assertIn('ccc~1.0', repos_fetched)
+    self.assertNotIn('aaa~1.0', repos_fetched)
+
+  def testFetchInvalidRepo(self):
+    # Invalid repo name (not canonical or apparent)
+    exit_code, _, stderr = self.RunBazel(
+        ['fetch', '--repo=hello'], allow_failure=True
+    )
+    self.AssertExitCode(exit_code, 8, stderr)
+    self.assertIn(
+        'ERROR: Invalid repo name: The repo value has to be either apparent'
+        " '@repo' or canonical '@@repo' repo name",
+        stderr,
+    )
+    # Repo does not exist
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'local_path_override(module_name="bazel_tools", path="tools_mock")',
+            'local_path_override(module_name="local_config_platform", ',
+            'path="platforms_mock")',
+        ],
+    )
+    exit_code, _, stderr = self.RunBazel(
+        ['fetch', '--repo=@@nono', '--repo=@nana'], allow_failure=True
+    )
+    self.AssertExitCode(exit_code, 8, stderr)
+    self.assertIn(
+        "ERROR: Fetching repos failed with errors: Repository '@nono' is not "
+        "defined; No repository visible as '@nana' from main repository",
+        stderr,
+    )
 
 
 if __name__ == '__main__':

@@ -17,6 +17,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import java.util.List;
 
 /** Defines the options specific to Bazel's sync command */
 public class FetchOptions extends OptionsBase {
@@ -36,12 +37,22 @@ public class FetchOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
       help =
-          "Only fetch repositories marked as 'configure' for system-configuration purpose. Only"
+          "Only fetches repositories marked as 'configure' for system-configuration purpose. Only"
               + " works when --enable_bzlmod is on.")
   public boolean configure;
 
+  @Option(
+      name = "repo",
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help =
+          "Only fetches the specified repository, which can be either {@apparent_repo_name} or"
+              + " {@@canonical_repo_name}. Only works when --enable_bzlmod is on.")
+  public List<String> repos;
+
   /*TODO(salmasamy) add more options:
-   * repo: to fetch a specific repo
    * force: to force fetch even if a repo exists
    */
 }
