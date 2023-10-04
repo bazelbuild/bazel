@@ -19,10 +19,10 @@ the generating actions, so that the runfiles symlink tree is staged for the depl
 """
 
 load(":common/cc/cc_helper.bzl", "cc_helper")
-load(":common/java/java_semantics.bzl", "semantics")
 load(":common/cc/semantics.bzl", cc_semantics = "semantics")
-load(":common/java/java_helper.bzl", "helper")
 load(":common/java/java_common.bzl", "java_common")
+load(":common/java/java_helper.bzl", "helper")
+load(":common/java/java_semantics.bzl", "semantics")
 
 InstrumentedFilesInfo = _builtins.toplevel.InstrumentedFilesInfo
 
@@ -218,6 +218,8 @@ def create_deploy_archive(
 
     if hermetic:
         runtime = semantics.find_java_runtime_toolchain(ctx)
+        if not runtime.lib_modules:
+            runtime = ctx.toolchains["@//tools/jdk:fallback_hermetic_runtime_toolchain_type"].java_runtime
         if runtime.lib_modules != None:
             java_home = runtime.java_home
             lib_modules = runtime.lib_modules
@@ -259,12 +261,13 @@ def _implicit_outputs(binary):
         "unstrippeddeployjar": "%s_deploy.jar.unstripped" % binary_name,
     }
 
-def make_deploy_jars_rule(implementation, *, create_executable = True):
+def make_deploy_jars_rule(implementation, *, create_executable = True, extra_toolchains = []):
     """Creates the deploy jar auxiliary rule for java_binary
 
     Args:
         implementation: (Function) The rule implementation function
         create_executable: (bool) The value of the create_executable attribute of java_binary
+        extra_toolchains: (list[String]) Additional toolchains
 
     Returns:
         The deploy jar rule class
@@ -272,6 +275,7 @@ def make_deploy_jars_rule(implementation, *, create_executable = True):
     toolchains = [semantics.JAVA_TOOLCHAIN] + cc_helper.use_cpp_toolchain()
     if create_executable:
         toolchains.append(semantics.JAVA_RUNTIME_TOOLCHAIN)
+    toolchains.extend(extra_toolchains)
     return rule(
         implementation = implementation,
         attrs = {
