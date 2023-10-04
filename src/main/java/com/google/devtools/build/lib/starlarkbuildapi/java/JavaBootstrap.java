@@ -32,6 +32,7 @@ public class JavaBootstrap implements Bootstrap {
           PackageIdentifier.createUnchecked("_builtins", ""),
           PackageIdentifier.createUnchecked("bazel_tools", ""),
           PackageIdentifier.createUnchecked("rules_java", ""),
+          PackageIdentifier.createUnchecked("rules_java_builtin", ""),
           PackageIdentifier.createUnchecked("", "tools/build_defs/java"));
 
   public JavaBootstrap(
