@@ -58,6 +58,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -78,8 +79,12 @@ public final class IncrementalArtifactConflictFinder {
   private final AtomicBoolean conflictFound = new AtomicBoolean(false);
   private Set<ActionLookupKey> globalVisited = Sets.newConcurrentHashSet();
 
-  @GuardedBy("exclusivePool")
+  @GuardedBy("exclusivePortionLock")
   private CountDownLatch nextSignalToWaitFor = null;
+
+  // The common lock for the portions of the process where top level targets need to be processed
+  // exclusively.
+  private final Object exclusivePortionLock = new Object();
 
   public IncrementalArtifactConflictFinder(
       MutableActionGraph threadSafeMutableActionGraph, WalkableGraph walkableGraph) {
@@ -241,7 +246,7 @@ public final class IncrementalArtifactConflictFinder {
     // Only allow 1 top-level target to do ALV collection at a time.
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.CONFLICT_CHECK, "ALV collection")) {
-      synchronized (exclusivePool) {
+      synchronized (exclusivePortionLock) {
         if (!inRerun) {
           toWaitFor = nextSignalToWaitFor;
           mySignal = new CountDownLatch(1);
@@ -356,7 +361,7 @@ public final class IncrementalArtifactConflictFinder {
 
   void shutdown() {
     try {
-      synchronized (exclusivePool) {
+      synchronized (exclusivePortionLock) {
         exclusivePool.awaitQuiescence(true);
       }
     } catch (InterruptedException e) {
@@ -565,14 +570,12 @@ public final class IncrementalArtifactConflictFinder {
                   pathFragmentTrieRoot,
                   strictConflictChecks,
                   badActionMap);
-      synchronized (freeForAllPool) {
+      try {
+        var actionCheckingFuture = freeForAllPool.submit(goThroughActions);
+        actionCheckingFutures.add(actionCheckingFuture);
+      } catch (RejectedExecutionException e) {
         // Some other thread shut down the executor, exit now. This can happen in the case of an
         // analysis error.
-        if (freeForAllPool.isShutdown()) {
-          return;
-        }
-        // This should be fast, we're only submitting the task here.
-        actionCheckingFutures.add(freeForAllPool.submit(goThroughActions));
       }
     }
   }
