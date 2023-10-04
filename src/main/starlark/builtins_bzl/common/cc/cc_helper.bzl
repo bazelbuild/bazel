@@ -14,11 +14,11 @@
 
 """Utility functions for C++ rules."""
 
+load(":common/cc/cc_common.bzl", "cc_common")
+load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/objc/objc_common.bzl", "objc_common")
 load(":common/objc/semantics.bzl", objc_semantics = "semantics")
 load(":common/paths.bzl", "paths")
-load(":common/cc/cc_info.bzl", "CcInfo")
-load(":common/cc/cc_common.bzl", "cc_common")
-load(":common/objc/objc_common.bzl", "objc_common")
 
 cc_internal = _builtins.internal.cc_internal
 CcNativeLibraryInfo = _builtins.internal.CcNativeLibraryInfo
@@ -285,6 +285,7 @@ def _build_output_groups_for_emitting_compile_providers(
     )
     output_groups_builder["compilation_outputs"] = files_to_compile
     output_groups_builder["compilation_prerequisites_INTERNAL_"] = _collect_compilation_prerequisites(ctx = ctx, compilation_context = compilation_context)
+    output_groups_builder["module_files"] = depset(compilation_outputs.module_files())
 
     if generate_hidden_top_level_group:
         output_groups_builder["_hidden_top_level_INTERNAL_"] = _collect_library_hidden_top_level_artifacts(

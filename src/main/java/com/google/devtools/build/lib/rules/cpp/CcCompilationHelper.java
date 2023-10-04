@@ -1626,6 +1626,9 @@ public final class CcCompilationHelper {
       if (gcnoFile != null) {
         result.addPicGcnoFile(gcnoFile);
       }
+      if (outputCategory == ArtifactCategory.CPP_MODULE) {
+        result.addModuleFile(picAction.getPrimaryOutput());
+      }
     }
 
     if (generateNoPicAction) {
@@ -1698,6 +1701,9 @@ public final class CcCompilationHelper {
       }
       if (gcnoFile != null) {
         result.addGcnoFile(gcnoFile);
+      }
+      if (outputCategory == ArtifactCategory.CPP_MODULE) {
+        result.addModuleFile(compileAction.getPrimaryOutput());
       }
     }
     return directOutputs.build();

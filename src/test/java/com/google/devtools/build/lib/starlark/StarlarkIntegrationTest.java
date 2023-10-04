@@ -359,7 +359,8 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
             OutputGroupInfo.COMPILATION_PREREQUISITES,
             OutputGroupInfo.FILES_TO_COMPILE,
             OutputGroupInfo.TEMP_FILES,
-            OutputGroupInfo.VALIDATION);
+            OutputGroupInfo.VALIDATION,
+            "module_files");
   }
 
   @Test
