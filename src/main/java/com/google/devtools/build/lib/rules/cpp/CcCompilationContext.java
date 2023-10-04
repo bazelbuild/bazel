@@ -1281,35 +1281,37 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
    * The transitive collection can be iterated without materialization in memory.
    */
   @Immutable
-  private static final class HeaderInfo {
+  static final class HeaderInfo {
+    // This class has non-private visibility testing and HeaderInfoCodec.
+
     /**
      * The modules built for this context. If null, then no module is being compiled for this
      * context.
      */
-    private final DerivedArtifact headerModule;
+    final DerivedArtifact headerModule;
 
-    private final DerivedArtifact picHeaderModule;
+    final DerivedArtifact picHeaderModule;
 
     /** All public header files that are compiled into this module. */
-    private final ImmutableList<Artifact> modularPublicHeaders;
+    final ImmutableList<Artifact> modularPublicHeaders;
 
     /** All private header files that are compiled into this module. */
-    private final ImmutableList<Artifact> modularPrivateHeaders;
+    final ImmutableList<Artifact> modularPrivateHeaders;
 
     /** All header files that are compiled into this module. */
     private final ImmutableList<Artifact> modularHeaders;
 
     /** All textual header files that are contained in this module. */
-    private final ImmutableList<Artifact> textualHeaders;
+    final ImmutableList<Artifact> textualHeaders;
 
     /** Headers that can be compiled into a separate, smaller module for performance reasons. */
-    private final ImmutableList<Artifact> separateModuleHeaders;
+    final ImmutableList<Artifact> separateModuleHeaders;
 
-    private final DerivedArtifact separateModule;
-    private final DerivedArtifact separatePicModule;
+    final DerivedArtifact separateModule;
+    final DerivedArtifact separatePicModule;
 
     /** HeaderInfos of direct dependencies of C++ target represented by this context. */
-    private final ImmutableList<HeaderInfo> deps;
+    final ImmutableList<HeaderInfo> deps;
 
     /** Collection representing the memoized form of transitive information, set by flatten(). */
     private TransitiveHeaderCollection memo = null;

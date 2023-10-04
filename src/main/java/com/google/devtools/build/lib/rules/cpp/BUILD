@@ -22,13 +22,28 @@ INTERFACE_SOURCES = [
     "IncludeScannable.java",
 ]
 
+CODEC_SOURCES = ["HeaderInfoCodec.java"]
+
+java_library(
+    name = "header_info_codec",
+    srcs = CODEC_SOURCES,
+    deps = [
+        ":cpp",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//third_party:guava",
+        "//third_party/protobuf:protobuf_java",
+    ],
+)
+
 # Description:
 #   C++ rule support
 java_library(
     name = "cpp",
     srcs = glob(
         ["*.java"],
-        exclude = INTERFACE_SOURCES,
+        exclude = INTERFACE_SOURCES + CODEC_SOURCES,
     ),
     deps = [
         ":cpp_interface",
