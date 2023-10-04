@@ -1989,7 +1989,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             transition.patch(
                 new BuildOptionsView(fromConfig.getOptions(), transition.requiresOptionFragments()),
                 eventCollector));
-      } catch (OptionsParsingException | InvalidConfigurationException e) {
+      } catch (InvalidConfigurationException e) {
         throw new AssertionError(e);
       }
     }

@@ -1726,6 +1726,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return (BuildConfigurationValue)
         evaluateSkyKeys(eventHandler, ImmutableList.of(configurationKey)).get(configurationKey);
   }
+
   /**
    * Returns the configurations corresponding to the given sets of build options. Output order is
    * the same as input order.
@@ -1737,14 +1738,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ExtendedEventHandler eventHandler, BuildOptions buildOptions, boolean keepGoing)
       throws InvalidConfigurationException {
     // Prepare the Skyframe inputs.
-
-    PlatformMappingValue platformMappingValue = getPlatformMappingValue(eventHandler, buildOptions);
-
-    SkyKey configSkyKey = toConfigurationKey(platformMappingValue, buildOptions);
+    BuildConfigurationKey buildConfigurationKey =
+        createBuildConfigurationKey(eventHandler, buildOptions);
 
     // Skyframe-evaluate the configurations and throw errors if any.
     EvaluationResult<SkyValue> evalResult =
-        evaluateSkyKeys(eventHandler, ImmutableList.of(configSkyKey), keepGoing);
+        evaluateSkyKeys(eventHandler, ImmutableList.of(buildConfigurationKey), keepGoing);
     if (evalResult.hasError()) {
       Map.Entry<SkyKey, ErrorInfo> firstError = Iterables.get(evalResult.errorMap().entrySet(), 0);
       ErrorInfo error = firstError.getValue();
@@ -1765,7 +1764,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
 
     // Prepare and return the results.
-    return (BuildConfigurationValue) evalResult.get(configSkyKey);
+    return (BuildConfigurationValue) evalResult.get(buildConfigurationKey);
   }
 
   public Map<BuildConfigurationKey, BuildConfigurationValue> getConfigurations(
@@ -1784,13 +1783,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         .collect(toImmutableList());
   }
 
-  private PlatformMappingValue getPlatformMappingValue(
-      ExtendedEventHandler eventHandler, BuildOptions referenceBuildOptions)
+  private BuildConfigurationKey createBuildConfigurationKey(
+      ExtendedEventHandler eventHandler, BuildOptions buildOptions)
       throws InvalidConfigurationException {
+    // Determine the platform mapping to use.
     PathFragment platformMappingPath =
-        referenceBuildOptions.hasNoConfig()
+        buildOptions.hasNoConfig()
             ? null
-            : referenceBuildOptions.get(PlatformOptions.class).platformMappings;
+            : buildOptions.get(PlatformOptions.class).platformMappings;
 
     PlatformMappingValue.Key platformMappingKey =
         PlatformMappingValue.Key.create(platformMappingPath);
@@ -1800,14 +1800,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       throw new InvalidConfigurationException(
           Code.PLATFORM_MAPPING_EVALUATION_FAILURE, evaluationResult.getError().getException());
     }
-    return (PlatformMappingValue) evaluationResult.get(platformMappingKey);
-  }
+    PlatformMappingValue platformMappingValue =
+        (PlatformMappingValue) evaluationResult.get(platformMappingKey);
 
-  private static BuildConfigurationKey toConfigurationKey(
-      PlatformMappingValue platformMappingValue, BuildOptions toOption)
-      throws InvalidConfigurationException {
+    // Create the build configuration key.
     try {
-      return BuildConfigurationKey.withPlatformMapping(platformMappingValue, toOption);
+      return BuildConfigurationKey.withPlatformMapping(platformMappingValue, buildOptions);
     } catch (OptionsParsingException e) {
       throw new InvalidConfigurationException(Code.INVALID_BUILD_OPTIONS, e);
     }
@@ -3689,17 +3687,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @VisibleForTesting
   public BuildConfigurationValue getConfigurationForTesting(
       ExtendedEventHandler eventHandler, BuildOptions options)
-      throws InterruptedException, OptionsParsingException, InvalidConfigurationException {
-    SkyKey key =
-        BuildConfigurationKey.withPlatformMapping(
-            getPlatformMappingValue(eventHandler, options), options);
+      throws InterruptedException, InvalidConfigurationException {
+    BuildConfigurationKey buildConfigurationKey =
+        createBuildConfigurationKey(eventHandler, options);
     return (BuildConfigurationValue)
         evaluate(
-                ImmutableList.of(key),
+                ImmutableList.of(buildConfigurationKey),
                 /* keepGoing= */ false,
                 /* numThreads= */ DEFAULT_THREAD_COUNT,
                 eventHandler)
-            .get(key);
+            .get(buildConfigurationKey);
   }
 
   /** Returns a particular configured target. */
