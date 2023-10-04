@@ -2061,7 +2061,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testImplementationDepsFailsWithoutFlag() throws Exception {
+  public void testImplementationDepsSucceedsWithoutFlag() throws Exception {
     if (!analysisMock.isThisBazel()) {
       return;
     }
@@ -2077,9 +2077,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "    srcs = ['implementation_dep.cc'],",
         "    hdrs = ['implementation_dep.h'],",
         ")");
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//foo:lib");
-    assertContainsEvent("requires --experimental_cc_implementation_deps");
+    assertThat(getConfiguredTarget("//foo:lib")).isNotNull();
+    ;
+    assertDoesNotContainEvent("requires --experimental_cc_implementation_deps");
   }
 
   @Test

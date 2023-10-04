@@ -1031,7 +1031,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "experimental_cc_implementation_deps",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
         OptionEffectTag.LOADING_AND_ANALYSIS,
