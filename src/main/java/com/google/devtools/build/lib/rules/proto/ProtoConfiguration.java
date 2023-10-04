@@ -148,7 +148,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
         defaultValue = ".pb.h",
         documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-        help = "Sets the prefixes of header files that a cc_proto_library creates.",
+        help = "Sets the suffixes of header files that a cc_proto_library creates.",
         converter = Converters.CommaSeparatedOptionSetConverter.class)
     public List<String> ccProtoLibraryHeaderSuffixes;
 
@@ -157,7 +157,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
         defaultValue = ".pb.cc",
         documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-        help = "Sets the prefixes of source files that a cc_proto_library creates.",
+        help = "Sets the suffixes of source files that a cc_proto_library creates.",
         converter = Converters.CommaSeparatedOptionSetConverter.class)
     public List<String> ccProtoLibrarySourceSuffixes;
 
