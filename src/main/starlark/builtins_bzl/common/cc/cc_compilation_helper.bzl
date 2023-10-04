@@ -75,7 +75,15 @@ def _compute_public_headers(
                 strip_driver_length = 3
             strip_prefix = strip_prefix[strip_driver_length:]
         else:
+            # paths.normalize differs from Java normalize call in a way
+            # that if string to be normalized is "." Starlark version returns ".",
+            # while Java version returns an empty string "".
+            # Because of this if label.package is an empty string and strip_prefix
+            # is "." paths.get_relative("", ".") returns "." instead of "".
             strip_prefix = paths.get_relative(label.package, strip_prefix)
+            if strip_prefix == ".":
+                strip_prefix = ""
+
     elif include_prefix:
         strip_prefix = label.package
     else:

@@ -923,6 +923,21 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testEmptyPackageStripPrefix() throws Exception {
+    if (!AnalysisMock.get().isThisBazel()) {
+      return;
+    }
+    scratch.file(
+        "BUILD",
+        "licenses(['notice'])",
+        "cc_library(name='a', hdrs=['b.h'], strip_include_prefix='.')");
+    CcCompilationContext ccContext =
+        getConfiguredTarget("//:a").get(CcInfo.PROVIDER).getCcCompilationContext();
+    assertThat(ActionsTestUtil.prettyArtifactNames(ccContext.getDeclaredIncludeSrcs()))
+        .containsExactly("b.h");
+  }
+
+  @Test
   public void testArtifactNotUnderStripPrefix() throws Exception {
     scratch.file("third_party/a/BUILD",
         "licenses(['notice'])",
