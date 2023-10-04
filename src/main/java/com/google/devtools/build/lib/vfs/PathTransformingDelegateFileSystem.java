@@ -14,6 +14,7 @@
 //
 package com.google.devtools.build.lib.vfs;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,6 +36,11 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   public PathTransformingDelegateFileSystem(FileSystem delegateFs) {
     super(Preconditions.checkNotNull(delegateFs, "delegateFs").getDigestFunction());
     this.delegateFs = delegateFs;
+  }
+
+  @VisibleForTesting
+  public FileSystem getDelegateFs() {
+    return delegateFs;
   }
 
   @Override

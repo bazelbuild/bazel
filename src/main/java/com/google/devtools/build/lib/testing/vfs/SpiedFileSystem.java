@@ -56,4 +56,9 @@ public class SpiedFileSystem extends DelegateFileSystem {
   public boolean createWritableDirectory(PathFragment path) throws IOException {
     return super.createWritableDirectory(path);
   }
+
+  @Override
+  public void chmod(PathFragment path, int mode) throws IOException {
+    super.chmod(path, mode);
+  }
 }

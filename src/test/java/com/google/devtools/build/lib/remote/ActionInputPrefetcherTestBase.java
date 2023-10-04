@@ -21,19 +21,21 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_AC
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.createTreeArtifactWithGeneratingAction;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -55,18 +57,26 @@ import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testing.vfs.SpiedFileSystem;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.DelegateFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -76,6 +86,31 @@ import org.junit.Test;
 /** Base test class for {@link AbstractActionInputPrefetcher} implementations. */
 public abstract class ActionInputPrefetcherTestBase {
   protected static final DigestHashFunction HASH_FUNCTION = DigestHashFunction.SHA256;
+
+  private static class DelayedChmodFileSystem extends DelegateFileSystem {
+
+    private Duration chmodDelay = Duration.ZERO;
+
+    DelayedChmodFileSystem(FileSystem delegateFs) {
+      super(delegateFs);
+    }
+
+    @Override
+    public void chmod(PathFragment path, int mode) throws IOException {
+      if (!chmodDelay.isZero()) {
+        try {
+          Thread.sleep(chmodDelay.toMillis());
+        } catch (InterruptedException e) {
+          throw new RuntimeException(e);
+        }
+      }
+      super.chmod(path, mode);
+    }
+
+    void setChmodDelay(Duration chmodDelay) {
+      this.chmodDelay = chmodDelay;
+    }
+  }
 
   protected SpiedFileSystem fs;
   protected Path execRoot;
@@ -90,7 +125,9 @@ public abstract class ActionInputPrefetcherTestBase {
     when(action.getMnemonic()).thenReturn("DummyAction");
     when(action.getOwner()).thenReturn(NULL_ACTION_OWNER);
 
-    fs = SpiedFileSystem.createInMemorySpy();
+    fs =
+        SpiedFileSystem.createSpy(
+            new DelayedChmodFileSystem(new InMemoryFileSystem(DigestHashFunction.SHA256)));
     execRoot = fs.getPath("/exec");
     execRoot.createDirectoryAndParents();
     artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "root");
@@ -139,12 +176,10 @@ public abstract class ActionInputPrefetcherTestBase {
       Map<String, String> remoteContentMap,
       @Nullable PathFragment materializationExecPath,
       Map<ActionInput, FileArtifactValue> metadata,
-      Map<HashCode, byte[]> cas)
+      Map<HashCode, byte[]> cas,
+      boolean isActionTemplateExpansion)
       throws IOException {
     SpecialArtifact parent = createTreeArtifactWithGeneratingAction(artifactRoot, pathFragment);
-
-    parent.getPath().createDirectoryAndParents();
-    parent.getPath().chmod(0555);
 
     TreeArtifactValue.Builder treeBuilder = TreeArtifactValue.newBuilder(parent);
     for (Map.Entry<String, String> entry : localContentMap.entrySet()) {
@@ -160,8 +195,14 @@ public abstract class ActionInputPrefetcherTestBase {
       cas.put(hashCode, contents);
     }
     for (Map.Entry<String, String> entry : remoteContentMap.entrySet()) {
+      PathFragment parentRelativePath = PathFragment.create(entry.getKey());
       TreeFileArtifact child =
-          TreeFileArtifact.createTreeOutput(parent, PathFragment.create(entry.getKey()));
+          isActionTemplateExpansion
+              ? TreeFileArtifact.createTemplateExpansionOutput(
+                  parent,
+                  parentRelativePath,
+                  ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER)
+              : TreeFileArtifact.createTreeOutput(parent, parentRelativePath);
       byte[] contents = entry.getValue().getBytes(UTF_8);
       HashCode hashCode = HASH_FUNCTION.getHashFunction().hashBytes(contents);
       RemoteFileArtifactValue childValue =
@@ -197,7 +238,44 @@ public abstract class ActionInputPrefetcherTestBase {
         remoteContentMap,
         /* materializationExecPath= */ null,
         metadata,
-        cas);
+        cas,
+        /* isActionTemplateExpansion= */ false);
+  }
+
+  protected Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> createRemoteTreeArtifact(
+      String pathFragment,
+      Map<String, String> localContentMap,
+      Map<String, String> remoteContentMap,
+      @Nullable PathFragment materializationExecPath,
+      Map<ActionInput, FileArtifactValue> metadata,
+      Map<HashCode, byte[]> cas)
+      throws IOException {
+    return createRemoteTreeArtifact(
+        pathFragment,
+        localContentMap,
+        remoteContentMap,
+        materializationExecPath,
+        metadata,
+        cas,
+        /* isActionTemplateExpansion= */ false);
+  }
+
+  protected Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>>
+      createRemoteTreeArtifactForActionTemplateExpansion(
+          String pathFragment,
+          Map<String, String> localContentMap,
+          Map<String, String> remoteContentMap,
+          Map<ActionInput, FileArtifactValue> metadata,
+          Map<HashCode, byte[]> cas)
+          throws IOException {
+    return createRemoteTreeArtifact(
+        pathFragment,
+        localContentMap,
+        remoteContentMap,
+        /* materializationExecPath= */ null,
+        metadata,
+        cas,
+        /* isActionTemplateExpansion= */ true);
   }
 
   protected abstract AbstractActionInputPrefetcher createPrefetcher(Map<HashCode, byte[]> cas);
@@ -371,6 +449,38 @@ public abstract class ActionInputPrefetcherTestBase {
   }
 
   @Test
+  public void prefetchFiles_downloadRemoteTrees_forActionTemplateExpansion() throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
+        createRemoteTreeArtifactForActionTemplateExpansion(
+            "dir",
+            /* localContentMap= */ ImmutableMap.of(),
+            /* remoteContentMap= */ ImmutableMap.of(
+                "subdir/file1", "content1", "subdir/file2", "content2"),
+            metadata,
+            cas);
+    SpecialArtifact tree = treeAndChildren.getFirst();
+    ImmutableList<TreeFileArtifact> children = treeAndChildren.getSecond();
+    Artifact firstChild = children.get(0);
+    Artifact secondChild = children.get(1);
+
+    AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
+
+    wait(
+        prefetcher.prefetchFiles(
+            action, ImmutableList.of(firstChild), metadata::get, Priority.MEDIUM));
+
+    assertTreeReadableWritableAndExecutable(tree.getPath());
+
+    wait(
+        prefetcher.prefetchFiles(
+            action, ImmutableList.of(secondChild), metadata::get, Priority.MEDIUM));
+
+    assertTreeReadableWritableAndExecutable(tree.getPath());
+  }
+
+  @Test
   public void prefetchFiles_missingFiles_fails() throws Exception {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Artifact a = createRemoteArtifact("file1", "hello world", metadata, /* cas= */ new HashMap<>());
@@ -445,18 +555,81 @@ public abstract class ActionInputPrefetcherTestBase {
             metadata,
             cas);
     SpecialArtifact tree = treeAndChildren.getFirst();
+    PathFragment root = tree.getPath().asFragment();
+    PathFragment subdir = tree.getPath().getChild("subdir").asFragment();
     ImmutableList<TreeFileArtifact> children = treeAndChildren.getSecond();
     Artifact firstChild = children.get(0);
     Artifact secondChild = children.get(1);
 
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
 
+    reset(fs);
+
     wait(
         prefetcher.prefetchFiles(
             action, ImmutableList.of(firstChild, secondChild), metadata::get, Priority.MEDIUM));
 
-    verify(fs, times(1)).createWritableDirectory(tree.getPath().asFragment());
-    verify(fs, times(1)).createWritableDirectory(tree.getPath().getChild("subdir").asFragment());
+    verify(fs).createWritableDirectory(root);
+    verify(fs).createWritableDirectory(subdir);
+    verify(fs).chmod(root, 0555);
+    verify(fs).chmod(subdir, 0555);
+
+    reset(fs);
+
+    wait(
+        prefetcher.prefetchFiles(
+            action, ImmutableList.of(firstChild, secondChild), metadata::get, Priority.MEDIUM));
+
+    verify(fs, never()).createWritableDirectory(root);
+    verify(fs, never()).createWritableDirectory(subdir);
+    verify(fs, never()).chmod(root, 0555);
+    verify(fs, never()).chmod(subdir, 0555);
+  }
+
+  @Test
+  public void prefetchFiles_treeFiles_multipleThreads_waitForPermissionsToBeSet() throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
+        createRemoteTreeArtifact(
+            "dir",
+            /* localContentMap= */ ImmutableMap.of(),
+            /* remoteContentMap= */ ImmutableMap.of("subdir/file", "content"),
+            metadata,
+            cas);
+    SpecialArtifact tree = treeAndChildren.getFirst();
+    Artifact child = Iterables.getOnlyElement(treeAndChildren.getSecond());
+
+    AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
+
+    // Prefetch the same tree artifact in two concurrent calls.
+    // Verify that the second waits until the download operation completes *and* sets the output
+    // permissions on the entire tree artifact before returning.
+    // Delay the chmod() calls to make it much more likely that we'd catch a bug where the second
+    // call returns after the download completes but before the permissions have been set.
+    // Regression test for b/299934607.
+
+    ((DelayedChmodFileSystem) fs.getDelegateFs()).setChmodDelay(Duration.ofMillis(100));
+
+    ThreadPoolExecutor pool = new ThreadPoolExecutor(2, 2, 0, SECONDS, new LinkedBlockingQueue<>());
+
+    Callable<Void> prefetch =
+        () -> {
+          wait(
+              prefetcher.prefetchFiles(
+                  action, ImmutableList.of(child), metadata::get, Priority.MEDIUM));
+          assertTreeReadableNonWritableAndExecutable(tree.getPath());
+          return null;
+        };
+
+    Future<Void> f1 = pool.submit(prefetch);
+    Future<Void> f2 = pool.submit(prefetch);
+
+    pool.shutdown();
+    pool.awaitTermination(10, SECONDS);
+
+    f1.get();
+    f2.get();
   }
 
   @Test
@@ -699,6 +872,22 @@ public abstract class ActionInputPrefetcherTestBase {
     for (Dirent dirent : path.readdir(Symlinks.NOFOLLOW)) {
       if (dirent.getType().equals(Dirent.Type.DIRECTORY)) {
         assertTreeReadableNonWritableAndExecutable(path.getChild(dirent.getName()));
+      }
+    }
+  }
+
+  private void assertReadableWritableAndExecutable(Path path) throws IOException {
+    assertWithMessage(path + " should be readable").that(path.isReadable()).isTrue();
+    assertWithMessage(path + " should be writable").that(path.isWritable()).isTrue();
+    assertWithMessage(path + " should be executable").that(path.isExecutable()).isTrue();
+  }
+
+  private void assertTreeReadableWritableAndExecutable(Path path) throws IOException {
+    checkState(path.isDirectory());
+    assertReadableWritableAndExecutable(path);
+    for (Dirent dirent : path.readdir(Symlinks.NOFOLLOW)) {
+      if (dirent.getType().equals(Dirent.Type.DIRECTORY)) {
+        assertTreeReadableWritableAndExecutable(path.getChild(dirent.getName()));
       }
     }
   }

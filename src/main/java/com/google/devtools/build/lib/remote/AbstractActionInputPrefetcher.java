@@ -56,10 +56,8 @@ import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Single;
 import java.io.IOException;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Deque;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -86,79 +84,63 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   private final ActionOutputDirectoryHelper outputDirectoryHelper;
 
-  private static final Object dummyValue = new Object();
-
-  /**
-   * Tracks output directories temporarily made writable for prefetching. Since concurrent calls may
-   * write to the same directory, it's not safe to make it non-writable until no other ongoing
-   * prefetcher calls are writing to it.
-   */
-  private final ConcurrentHashMap<Path, DirectoryState> temporarilyWritableDirectories =
-      new ConcurrentHashMap<>();
-
-  /** The state of a single temporarily writable directory. */
-  private static final class DirectoryState {
-    /** The number of ongoing prefetcher calls touching this directory. */
-    int numCalls;
-    /** Whether the output permissions must be set on the directory when prefetching completes. */
-    boolean mustSetOutputPermissions;
+  /** The state of a directory tracked by {@link DirectoryTracker}, as explained below. */
+  enum DirectoryState {
+    PERMANENTLY_WRITABLE,
+    TEMPORARILY_WRITABLE,
+    OUTPUT_PERMISSIONS
   }
 
   /**
-   * Tracks output directories written to by a single prefetcher call.
+   * Tracks directory permissions to minimize filesystem operations.
    *
-   * <p>This makes it possible to set the output permissions on directories touched by the
-   * prefetcher call all at once, so that files prefetched within the same call don't repeatedly set
-   * output permissions on the same directory.
+   * <p>Throughout the prefetcher, {@link Path#setWritable} and {@link Path#chmod} calls on output
+   * directories must go through the methods in this class.
    */
-  private final class DirectoryContext {
-    private final ConcurrentHashMap<Path, Object> dirs = new ConcurrentHashMap<>();
+  private final class DirectoryTracker {
+    private final ConcurrentHashMap<Path, DirectoryState> directoryStateMap =
+        new ConcurrentHashMap<>();
 
     /**
-     * Makes a directory temporarily writable for the remainder of the prefetcher call associated
-     * with this context.
+     * Marks a directory as temporarily writable.
      *
-     * @param setOutputPermissions Whether the output permissions should be set on the directory
-     *     when this context is closed.
+     * <p>A temporarily writable directory may have its output permissions set by a later call to
+     * {@link #setOutputPermissions}, unless {@link #setPermanentlyWritable} is called in the
+     * interim.
      */
-    void ensureWritable(Path dir, boolean setOutputPermissions) throws IOException {
-      checkArgument(dir.startsWith(execRoot));
+    void setTemporarilyWritable(Path dir) throws IOException {
+      setWritable(dir, DirectoryState.TEMPORARILY_WRITABLE);
+    }
 
+    /**
+     * Marks a directory as permanently writable.
+     *
+     * <p>A permanently writable directory will never have its output permissions set by a later
+     * call to {@link #setOutputPermissions}.
+     */
+    void setPermanentlyWritable(Path dir) throws IOException {
+      setWritable(dir, DirectoryState.PERMANENTLY_WRITABLE);
+    }
+
+    private void setWritable(Path dir, DirectoryState newState) throws IOException {
       AtomicReference<IOException> caughtException = new AtomicReference<>();
 
-      dirs.compute(
+      directoryStateMap.compute(
           dir,
-          (outerUnused, previousValue) -> {
-            if (previousValue != null) {
-              return previousValue;
+          (unusedKey, oldState) -> {
+            if (oldState == DirectoryState.TEMPORARILY_WRITABLE
+                || oldState == DirectoryState.PERMANENTLY_WRITABLE) {
+              // Already writable, but must potentially upgrade from temporary to permanent.
+              return newState == DirectoryState.PERMANENTLY_WRITABLE ? newState : oldState;
             }
-
-            temporarilyWritableDirectories.compute(
-                dir,
-                (innerUnused, state) -> {
-                  if (state == null) {
-                    state = new DirectoryState();
-
-                    try {
-                      outputDirectoryHelper.createOutputDirectory(dir, execRoot);
-                      dir.setWritable(true);
-                    } catch (IOException e) {
-                      caughtException.set(e);
-                      return null;
-                    }
-                  }
-
-                  ++state.numCalls;
-                  state.mustSetOutputPermissions |= setOutputPermissions;
-
-                  return state;
-                });
-
-            if (caughtException.get() != null) {
-              return null;
+            try {
+              outputDirectoryHelper.createOutputDirectory(dir, execRoot);
+              dir.setWritable(true);
+            } catch (IOException e) {
+              caughtException.set(e);
+              return oldState;
             }
-
-            return dummyValue;
+            return newState;
           });
 
       if (caughtException.get() != null) {
@@ -167,43 +149,40 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
 
     /**
-     * Signals that the prefetcher call associated with this context has finished.
+     * Sets the output permissions on a directory.
      *
-     * <p>If this is the last remaining call temporarily making a directory writable, and setting
-     * output permissions on it was requested, the permissions will be set.
+     * <p>If {@link #setPermanentlyWritable} has been previously called on this directory, or if no
+     * {@link #setTemporarilyWritable} call has intervened since the last call to {@link
+     * #setOutputPermissions}, this is a no-op. Otherwise, the output permissions are set.
      */
-    void close() throws IOException {
+    void setOutputPermissions(Path dir) throws IOException {
       AtomicReference<IOException> caughtException = new AtomicReference<>();
 
-      for (Path dir : dirs.keySet()) {
-        temporarilyWritableDirectories.compute(
-            dir,
-            (unused, state) -> {
-              checkState(state != null);
-              if (--state.numCalls == 0) {
-                if (state.mustSetOutputPermissions) {
-                  try {
-                    dir.chmod(outputPermissions.getPermissionsMode());
-                  } catch (IOException e) {
-                    // Store caught exceptions, but keep cleaning up the map.
-                    if (caughtException.get() == null) {
-                      caughtException.set(e);
-                    } else {
-                      caughtException.get().addSuppressed(e);
-                    }
-                  }
-                }
-              }
-              return state.numCalls > 0 ? state : null;
-            });
-      }
-      dirs.clear();
+      directoryStateMap.compute(
+          dir,
+          (unusedKey, oldState) -> {
+            if (oldState == DirectoryState.OUTPUT_PERMISSIONS
+                || oldState == DirectoryState.PERMANENTLY_WRITABLE) {
+              // Either the output permissions have already been set, or we're not changing the
+              // permissions ever again.
+              return oldState;
+            }
+            try {
+              dir.chmod(outputPermissions.getPermissionsMode());
+            } catch (IOException e) {
+              caughtException.set(e);
+              return oldState;
+            }
+            return DirectoryState.OUTPUT_PERMISSIONS;
+          });
 
       if (caughtException.get() != null) {
         throw caughtException.get();
       }
     }
   }
+
+  private final DirectoryTracker directoryTracker = new DirectoryTracker();
 
   /** A symlink in the output tree. */
   @AutoValue
@@ -304,23 +283,40 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       files.add(input);
     }
 
-    DirectoryContext dirCtx = new DirectoryContext();
-
-    Flowable<TransferResult> transfers =
-        Flowable.fromIterable(files)
-            .flatMapSingle(
-                input -> prefetchFile(action, dirCtx, metadataSupplier, input, priority));
+    // Collect the set of directories whose output permissions must be set at the end of this call.
+    // This responsibility cannot lie with the downloading of an individual file, because multiple
+    // files may be concurrently downloaded into the same directory within a single call to
+    // prefetchFiles, and two concurrent calls to prefetchFiles may prefetch the same file. In the
+    // latter case, the second call will have its downloads deduplicated against the first call, but
+    // it must still synchronize on the output permissions having been set.
+    Set<Path> dirsWithOutputPermissions = Sets.newConcurrentHashSet();
 
     Completable prefetch =
-        Completable.using(
-            () -> dirCtx, ctx -> mergeBulkTransfer(transfers), DirectoryContext::close);
+        mergeBulkTransfer(
+                Flowable.fromIterable(files)
+                    .flatMapSingle(
+                        input ->
+                            prefetchFile(
+                                action,
+                                dirsWithOutputPermissions,
+                                metadataSupplier,
+                                input,
+                                priority)))
+            .doOnComplete(
+                // Set output permissions on tree artifact subdirectories, matching the behavior of
+                // SkyframeActionExecutor#checkOutputs for artifacts produced by local actions.
+                () -> {
+                  for (Path dir : dirsWithOutputPermissions) {
+                    directoryTracker.setOutputPermissions(dir);
+                  }
+                });
 
     return toListenableFuture(prefetch);
   }
 
   private Single<TransferResult> prefetchFile(
       ActionExecutionMetadata action,
-      DirectoryContext dirCtx,
+      Set<Path> dirsWithOutputPermissions,
       MetadataSupplier metadataSupplier,
       ActionInput input,
       Priority priority) {
@@ -350,9 +346,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       Completable result =
           downloadFileNoCheckRx(
               action,
-              dirCtx,
               execRoot.getRelative(execPath),
               treeRootExecPath != null ? execRoot.getRelative(treeRootExecPath) : null,
+              dirsWithOutputPermissions,
               input,
               metadata,
               priority);
@@ -455,9 +451,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   private Completable downloadFileNoCheckRx(
       ActionExecutionMetadata action,
-      DirectoryContext dirCtx,
       Path path,
       @Nullable Path treeRoot,
+      Set<Path> dirsWithOutputPermissions,
       ActionInput actionInput,
       FileArtifactValue metadata,
       Priority priority) {
@@ -477,7 +473,21 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       return Completable.error(e);
     }
 
-    Path finalTreeRoot = treeRoot;
+    if (actionInput instanceof Artifact && ((Artifact) actionInput).isChildOfDeclaredDirectory()) {
+      // Arrange for the output permissions to be set on every directory inside the tree artifact.
+      // This must be done at assembly time to ensure that the permissions are set before the
+      // prefetchFiles call returns, even when the actual downloads are deduplicated against a
+      // concurrent call. See finalizeDownload for why we don't do so in other cases.
+      checkNotNull(treeRoot);
+      for (Path dir = path.getParentDirectory();
+          dir.startsWith(treeRoot);
+          dir = dir.getParentDirectory()) {
+        if (!dirsWithOutputPermissions.add(dir)) {
+          break;
+        }
+      }
+    }
+
     Path finalPath = path;
 
     Completable download =
@@ -495,7 +505,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                         directExecutor())
                     .doOnComplete(
                         () -> {
-                          finalizeDownload(dirCtx, finalTreeRoot, tempPath, finalPath);
+                          finalizeDownload(tempPath, finalPath, dirsWithOutputPermissions);
                           alreadyDeleted.set(true);
                         })
                     .doOnError(
@@ -516,44 +526,32 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
             }));
   }
 
-  private void finalizeDownload(
-      DirectoryContext dirCtx, @Nullable Path treeRoot, Path tmpPath, Path finalPath)
+  private void finalizeDownload(Path tmpPath, Path finalPath, Set<Path> dirsWithOutputPermissions)
       throws IOException {
     Path parentDir = checkNotNull(finalPath.getParentDirectory());
 
     // Ensure the parent directory exists and is writable. We cannot rely on this precondition to be
     // have been established by the execution of the owning action in a previous invocation, since
     // the output tree may have been externally modified in between invocations.
-    if (treeRoot != null) {
-      checkState(parentDir.startsWith(treeRoot));
-
-      // Collect the set of intermediate tree artifact directories.
-      // Avoid repeatedly traversing common prefixes on large tree artifacts.
-      Deque<Path> dirs = new ArrayDeque<>();
-      for (Path dir = parentDir; ; dir = dir.getParentDirectory()) {
-        dirs.push(dir);
-        // The very last pushed directory already exists, but we still need to make it writable
-        // in case we previously prefetched into it and made it nonwritable.
-        if (dir.equals(treeRoot) || dir.exists()) {
-          break;
-        }
-      }
-      while (!dirs.isEmpty()) {
-        Path dir = dirs.pop();
-        // Set output permissions on tree subdirectories, matching the behavior of
-        // SkyframeActionExecutor#checkOutputs for artifacts produced by local
-        // actions.
-        dirCtx.ensureWritable(dir, /* setOutputPermissions= */ true);
-      }
+    if (dirsWithOutputPermissions.contains(parentDir)) {
+      // The file belongs to a tree artifact created by an action that declared an output directory
+      // (as opposed to an action template expansion). The output permissions should be set on the
+      // parent directory after prefetching.
+      directoryTracker.setTemporarilyWritable(parentDir);
     } else {
-      // Create the parent directory.
-      // We don't know with certainty that this directory does not belong to a tree artifact; it can
-      // happen if the fetched file is a non-tree artifact nested inside a tree artifact (when
-      // --incompatible_strict_conflict_checks is disabled) or a tree artifact inside a fileset
-      // (see b/254844173). In such cases, we won't set the output permissions on the tree artifact
-      // subdirectory after prefetching. It's difficult to do better; we must be able to operate on
-      // an arbitrary filesystem state, so we can't take a hint from preexisting permissions.
-      dirCtx.ensureWritable(parentDir, /* setOutputPermissions= */ false);
+      // There are three cases:
+      //   (1) The file does not belong to a tree artifact.
+      //   (2) The file belongs to a tree artifact created by an action template expansion.
+      //   (3) The file belongs to a tree artifact but we don't know it. This can occur when the
+      //       file is a non-tree artifact nested inside a tree artifact (which can only happen if
+      //       --incompatible_strict_conflict_checks is disabled) or a tree artifact inside a
+      //       fileset (see b/254844173).
+      // In case (1), the parent directory is a package or a subdirectory of a package, and should
+      // remain writable. In cases (2) and (3), even though we arguably ought to set the output
+      // permissions on the parent directory to match the outcome of a locally executed action, we
+      // choose not to do it and avoid the additional implementation complexity required to detect a
+      // race condition between concurrent calls touching the same directory.
+      directoryTracker.setPermanentlyWritable(parentDir);
     }
 
     // Set output permissions on files, matching the behavior of SkyframeActionExecutor#checkOutputs
