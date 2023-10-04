@@ -646,6 +646,52 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     events.assertNoWarnings();
   }
 
+  // Regression test for b/301289073.
+  @Test
+  public void conflictCheck_doesNotTimeout() throws Exception {
+    addOptions("--keep_going");
+    write(
+        "foo/BUILD",
+        "BASE_SIZE = 500",
+        "TOP_SIZE = 100",
+        "genrule(",
+        "    name = 'base_0',",
+        "    outs = ['base_0.txt'],",
+        "    cmd = 'touch $@',",
+        ")",
+        "[genrule(",
+        "    name = 'base_%s' % x,",
+        "    srcs = ['base_%s.txt' % (x - 1)],",
+        "    outs = ['base_%s.txt' % x],",
+        "    cmd = 'touch $@',",
+        ") for x in range(1, BASE_SIZE)]",
+        "[genrule(",
+        "    name = 'level_%s' % y,",
+        "    srcs = ['base_%s.txt' % (",
+        "        x,",
+        "    ) for x in range(0, BASE_SIZE)],",
+        "    outs = ['level_%s.txt' % y],",
+        "    cmd = 'touch $@',",
+        ") for y in range(0, TOP_SIZE)]",
+        "genrule(",
+        "    name = 'conflict',",
+        "    outs = ['conflict'],",
+        "    cmd = 'touch $@',",
+        ")");
+    write(
+        "foo/conflict/BUILD",
+        "genrule(",
+        "    name = 'conflict',",
+        "    outs = ['conflict'],",
+        "    cmd = 'touch $@',",
+        ")");
+
+    // Building a set of targets with recursive dependencies that would trivially finish in time
+    // with memoization and time out without.
+    assertThrows(BuildFailedException.class, () -> buildTarget("//foo/..."));
+    events.assertContainsError("is a prefix of the other");
+  }
+
   private void assertSingleAnalysisPhaseCompleteEventWithLabels(String... labels) {
     assertThat(eventsSubscriber.getAnalysisPhaseCompleteEvents()).hasSize(1);
     AnalysisPhaseCompleteEvent analysisPhaseCompleteEvent =

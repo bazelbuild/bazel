@@ -76,7 +76,7 @@ public final class IncrementalArtifactConflictFinder {
   private final ListeningExecutorService freeForAllPool;
   private final WalkableGraph walkableGraph;
   private final AtomicBoolean conflictFound = new AtomicBoolean(false);
-  private final Set<ActionLookupKey> globalVisited = Sets.newConcurrentHashSet();
+  private Set<ActionLookupKey> globalVisited = Sets.newConcurrentHashSet();
 
   @GuardedBy("exclusivePool")
   private CountDownLatch nextSignalToWaitFor = null;
@@ -232,7 +232,8 @@ public final class IncrementalArtifactConflictFinder {
     ConcurrentMap<ActionAnalysisMetadata, ConflictException> temporaryBadActionMap =
         new ConcurrentHashMap<>();
 
-    List<ListenableFuture<Void>> futures = Collections.synchronizedList(new ArrayList<>());
+    List<ListenableFuture<Void>> actionCheckingFutures =
+        Collections.synchronizedList(new ArrayList<>());
 
     CountDownLatch toWaitFor = null;
     CountDownLatch mySignal = null;
@@ -248,7 +249,12 @@ public final class IncrementalArtifactConflictFinder {
         }
         exclusivePool.execute(
             new CheckForConflictsUnderKey(
-                actionLookupKey, futures, temporaryBadActionMap, inRerun, strictConflictChecks));
+                actionLookupKey,
+                actionCheckingFutures,
+                temporaryBadActionMap,
+                // While rerunning, we only keep a local set of visited ALKs.
+                /* dedupSet= */ inRerun ? Sets.newConcurrentHashSet() : globalVisited,
+                strictConflictChecks));
         exclusivePool.awaitQuiescenceWithoutShutdown(true);
       }
     }
@@ -256,13 +262,15 @@ public final class IncrementalArtifactConflictFinder {
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.CONFLICT_CHECK, "Go through actions")) {
       try {
-        Futures.whenAllComplete(futures).call(() -> null, directExecutor()).get();
+        Futures.whenAllSucceed(actionCheckingFutures).call(() -> null, directExecutor()).get();
       } catch (ExecutionException e) {
         throw new IllegalStateException("Unexpected exception", e);
       }
 
       if (!temporaryBadActionMap.isEmpty()) {
         conflictFound.set(true);
+        // We can drop the globalVisited set now.
+        globalVisited = Sets.newConcurrentHashSet();
       }
     }
 
@@ -340,7 +348,7 @@ public final class IncrementalArtifactConflictFinder {
     }
     // Now wait on the futures.
     try {
-      Futures.whenAllComplete(futures).call(() -> null, directExecutor()).get();
+      Futures.whenAllSucceed(futures).call(() -> null, directExecutor()).get();
     } catch (ExecutionException e) {
       throw new IllegalStateException("Unexpected exception", e);
     }
@@ -489,29 +497,25 @@ public final class IncrementalArtifactConflictFinder {
     return (Artifact) nodeIter;
   }
 
-  private boolean shouldVisit(ActionLookupKey actionLookupKey, boolean inRerun) {
-    // When in a rerun, visit every node to make sure a conflict is not missed because of pruning.
-    return inRerun || globalVisited.add(actionLookupKey);
-  }
-
   /** Visit the transitive closure of {@code key} and check for conflicts among the actions. */
   private final class CheckForConflictsUnderKey implements Runnable {
     private final ActionLookupKey key;
-    private final List<ListenableFuture<Void>> futures;
+    private final List<ListenableFuture<Void>> actionCheckingFutures;
     private final ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap;
-    private final boolean inRerun;
+
+    private final Set<ActionLookupKey> dedupSet;
     private final boolean strictConflictChecks;
 
     private CheckForConflictsUnderKey(
         ActionLookupKey key,
-        List<ListenableFuture<Void>> futures,
+        List<ListenableFuture<Void>> actionCheckingFutures,
         ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap,
-        boolean inRerun,
+        Set<ActionLookupKey> dedupSet,
         boolean strictConflictChecks) {
       this.key = key;
-      this.futures = futures;
+      this.actionCheckingFutures = actionCheckingFutures;
       this.badActionMap = badActionMap;
-      this.inRerun = inRerun;
+      this.dedupSet = dedupSet;
       this.strictConflictChecks = strictConflictChecks;
     }
 
@@ -542,10 +546,10 @@ public final class IncrementalArtifactConflictFinder {
           continue;
         }
         ActionLookupKey depKey = (ActionLookupKey) dep;
-        if (shouldVisit(depKey, inRerun)) {
+        if (dedupSet.add(depKey)) {
           exclusivePool.execute(
               new CheckForConflictsUnderKey(
-                  depKey, futures, badActionMap, inRerun, strictConflictChecks));
+                  depKey, actionCheckingFutures, badActionMap, dedupSet, strictConflictChecks));
         }
       }
       var finalValue = value;
@@ -568,7 +572,7 @@ public final class IncrementalArtifactConflictFinder {
           return;
         }
         // This should be fast, we're only submitting the task here.
-        futures.add(freeForAllPool.submit(goThroughActions));
+        actionCheckingFutures.add(freeForAllPool.submit(goThroughActions));
       }
     }
   }
