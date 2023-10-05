@@ -254,8 +254,9 @@ EOF
   link_file "${PWD}/src/MODULE.tools" "${BAZEL_TOOLS_REPO}/MODULE.bazel"
   new_hash=$(shasum -a 256 "${BAZEL_TOOLS_REPO}/MODULE.bazel" | awk '{print $1}')
   sed -i.bak "/\"bazel_tools\":/s/\"[a-f0-9]*\"/\"$new_hash\"/" MODULE.bazel.lock
-  # TODO: Temporary hack for lockfile version mismatch, remove these two lines after updating to 6.4.0
-  sed -i.bak 's/"lockFileVersion": 1/"lockFileVersion": 2/' MODULE.bazel.lock
+  # TODO: Temporary hack for lockfile version mismatch, remove these lines after updating to 6.4.0
+  sed -i.bak 's/"lockFileVersion": 1/"lockFileVersion": 3/' MODULE.bazel.lock
+  sed -i.bak 's/"--/"/g' MODULE.bazel.lock
   sed -i.bak 's/"moduleExtensions":/"moduleExtensions-old":/' MODULE.bazel.lock
   rm MODULE.bazel.lock.bak
 

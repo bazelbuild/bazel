@@ -15,8 +15,11 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
@@ -40,7 +43,7 @@ import net.starlark.java.eval.StarlarkList;
 /** Helps serialize/deserialize {@link AttributeValues}, which contains Starlark values. */
 public class AttributeValuesAdapter extends TypeAdapter<AttributeValues> {
 
-  private final Gson gson = new Gson();
+  private final Gson gson = new GsonBuilder().disableHtmlEscaping().create();
 
   @Override
   public void write(JsonWriter out, AttributeValues attributeValues) throws IOException {
@@ -129,32 +132,51 @@ public class AttributeValuesAdapter extends TypeAdapter<AttributeValues> {
     }
   }
 
+  @VisibleForTesting static final String STRING_ESCAPE_SEQUENCE = "'";
+
   /**
-   * Serializes an object (Label or String) to String A label is converted to a String as it is. A
-   * String is being modified with a delimiter to be easily differentiated from the label when
-   * deserializing.
+   * Serializes an object (Label or String) to String. A label is converted to a String as it is. A
+   * String that looks like a label is escaped so that it can be differentiated from a label when
+   * deserializing, otherwise it is emitted as is.
    *
    * @param obj String or Label
    * @return serialized object
    */
   private String serializeObjToString(Object obj) {
     if (obj instanceof Label) {
-      return ((Label) obj).getUnambiguousCanonicalForm();
+      String labelString = ((Label) obj).getUnambiguousCanonicalForm();
+      Preconditions.checkState(labelString.startsWith("@@"));
+      return labelString;
     }
-    return "--" + obj;
+    String string = (String) obj;
+    // Strings that start with "@@" need to be escaped to avoid being interpreted as a label. We
+    // escape by wrapping the string in the escape sequence and strip one layer of this sequence
+    // during deserialization, so strings that happen to already start and end with the escape
+    // sequence also have to be escaped.
+    if (string.startsWith("@@")
+        || (string.startsWith(STRING_ESCAPE_SEQUENCE) && string.endsWith(STRING_ESCAPE_SEQUENCE))) {
+      return STRING_ESCAPE_SEQUENCE + string + STRING_ESCAPE_SEQUENCE;
+    }
+    return string;
   }
 
   /**
-   * Deserializes a string to either a label or a String depending on the prefix. A string will have
-   * a delimiter at the start, else it is converted to a label.
+   * Deserializes a string to either a label or a String depending on the prefix and presence of the
+   * escape sequence.
    *
    * @param value String to be deserialized
    * @return Object of type String of Label
    */
   private Object deserializeStringToObject(String value) {
-    if (value.startsWith("--")) {
-      return value.substring(2);
+    // A string represents a label if and only if it starts with "@@".
+    if (value.startsWith("@@")) {
+      return Label.parseCanonicalUnchecked(value);
     }
-    return Label.parseCanonicalUnchecked(value);
+    // Strings that start and end with the escape sequence always require one layer to be stripped.
+    if (value.startsWith(STRING_ESCAPE_SEQUENCE) && value.endsWith(STRING_ESCAPE_SEQUENCE)) {
+      return value.substring(
+          STRING_ESCAPE_SEQUENCE.length(), value.length() - STRING_ESCAPE_SEQUENCE.length());
+    }
+    return value;
   }
 }
