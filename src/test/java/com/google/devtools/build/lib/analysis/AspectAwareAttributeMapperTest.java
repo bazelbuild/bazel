@@ -69,7 +69,7 @@ public class AspectAwareAttributeMapperTest extends BuildViewTestCase {
 
   @Test
   public void getName() throws Exception {
-    assertThat(mapper.getName()).isEqualTo(rule.getName());
+    assertThat(mapper.getLabel().getName()).isEqualTo(rule.getName());
   }
 
   @Test

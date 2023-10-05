@@ -42,11 +42,6 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public String getName() {
-    return ruleLabel.getName();
-  }
-
-  @Override
   public Label getLabel() {
     return ruleLabel;
   }

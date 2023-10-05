@@ -31,11 +31,6 @@ public class DelegatingAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public String getName() {
-    return delegate.getName();
-  }
-
-  @Override
   public Label getLabel() {
     return delegate.getLabel();
   }

@@ -37,11 +37,6 @@ public class FakeAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public String getName() {
-    return "name";
-  }
-
-  @Override
   public Label getLabel() {
     return Label.parseCanonicalUnchecked("//fake:rule");
   }
