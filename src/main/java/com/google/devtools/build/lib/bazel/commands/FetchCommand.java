@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -91,9 +92,8 @@ public final class FetchCommand implements BlazeCommand {
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     PackageOptions pkgOptions = options.getOptions(PackageOptions.class);
     if (!pkgOptions.fetch) {
-      String errorMessage = "You cannot run fetch with --fetch=false";
-      env.getReporter().handle(Event.error(null, errorMessage));
-      return createFailedBlazeCommandResult(Code.OPTIONS_INVALID, errorMessage);
+      return createFailedBlazeCommandResult(
+          env.getReporter(), Code.OPTIONS_INVALID, "You cannot run fetch with --fetch=false");
     }
     FetchOptions fetchOptions = options.getOptions(FetchOptions.class);
     int optionsCount =
@@ -103,9 +103,10 @@ public final class FetchCommand implements BlazeCommand {
             !fetchOptions.repos.isEmpty(),
             !options.getResidue().isEmpty());
     if (optionsCount > 1) {
-      String errorMessage = "Only one fetch option should be provided for fetch command.";
-      env.getReporter().handle(Event.error(null, errorMessage));
-      return createFailedBlazeCommandResult(Code.OPTIONS_INVALID, errorMessage);
+      return createFailedBlazeCommandResult(
+          env.getReporter(),
+          Code.OPTIONS_INVALID,
+          "Only one fetch option should be provided for fetch command.");
     }
     LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
 
@@ -138,11 +139,9 @@ public final class FetchCommand implements BlazeCommand {
       LoadingPhaseThreadsOption threadsOption,
       boolean configureEnabled) {
     if (!options.getOptions(BuildLanguageOptions.class).enableBzlmod) {
-      String errorMessage =
-          "Bzlmod has to be enabled for fetch --all to work, run with --enable_bzlmod";
-      env.getReporter().handle(Event.error(null, errorMessage));
-      return BlazeCommandResult.detailedExitCode(
-          InterruptedFailureDetails.detailedExitCode(errorMessage));
+      return createFailedBlazeCommandResult(
+          env.getReporter(),
+          "Bzlmod has to be enabled for fetch --all to work, run with --enable_bzlmod");
     }
 
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
@@ -159,22 +158,18 @@ public final class FetchCommand implements BlazeCommand {
               ImmutableSet.of(BazelFetchAllValue.key(configureEnabled)), evaluationContext);
       if (evaluationResult.hasError()) {
         Exception e = evaluationResult.getError().getException();
-        String errorMessage =
-            e != null ? e.getMessage() : "Unexpected error during fetching all external deps.";
-        env.getReporter().handle(Event.error(errorMessage));
-        return BlazeCommandResult.detailedExitCode(
-            InterruptedFailureDetails.detailedExitCode(errorMessage));
+        return createFailedBlazeCommandResult(
+            env.getReporter(),
+            e != null ? e.getMessage() : "Unexpected error during fetching all external deps.");
       }
       // Everything is fetched successfully!
       return BlazeCommandResult.success();
     } catch (AbruptExitException e) {
-      env.getReporter().handle(Event.error(null, "Unknown error: " + e.getMessage()));
-      return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
+      return createFailedBlazeCommandResult(
+          env.getReporter(), "Unknown error:: " + e.getMessage(), e.getDetailedExitCode());
     } catch (InterruptedException e) {
-      String errorMessage = "Fetch interrupted: " + e.getMessage();
-      env.getReporter().handle(Event.error(errorMessage));
-      return BlazeCommandResult.detailedExitCode(
-          InterruptedFailureDetails.detailedExitCode(errorMessage));
+      return createFailedBlazeCommandResult(
+          env.getReporter(), "Fetch interrupted: " + e.getMessage());
     }
   }
 
@@ -200,11 +195,9 @@ public final class FetchCommand implements BlazeCommand {
           skyframeExecutor.prepareAndGet(repoDelegatorKeys.build(), evaluationContext);
       if (evaluationResult.hasError()) {
         Exception e = evaluationResult.getError().getException();
-        String errorMessage =
-            e != null ? e.getMessage() : "Unexpected error during repository fetching.";
-        env.getReporter().handle(Event.error(errorMessage));
-        return BlazeCommandResult.detailedExitCode(
-            InterruptedFailureDetails.detailedExitCode(errorMessage));
+        return createFailedBlazeCommandResult(
+            env.getReporter(),
+            e != null ? e.getMessage() : "Unexpected error during repository fetching.");
       }
       String notFoundRepos =
           repoDelegatorKeys.build().stream()
@@ -213,30 +206,24 @@ public final class FetchCommand implements BlazeCommand {
               .map(key -> ((RepositoryDirectoryValue) evaluationResult.get(key)).getErrorMsg())
               .collect(joining("; "));
       if (!notFoundRepos.isEmpty()) {
-        String errorMessage = "Fetching repos failed with errors: " + notFoundRepos;
-        env.getReporter().handle(Event.error(errorMessage));
-        return BlazeCommandResult.detailedExitCode(
-            InterruptedFailureDetails.detailedExitCode(errorMessage));
+        return createFailedBlazeCommandResult(
+            env.getReporter(), "Fetching repos failed with errors: " + notFoundRepos);
       }
 
       // Everything has been fetched successfully!
       return BlazeCommandResult.success();
     } catch (AbruptExitException e) {
-      env.getReporter().handle(Event.error(null, "Unknown error: " + e.getMessage()));
-      return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
+      return createFailedBlazeCommandResult(
+          env.getReporter(), "Unknown error: " + e.getMessage(), e.getDetailedExitCode());
     } catch (InterruptedException e) {
-      String errorMessage = "Fetch interrupted: " + e.getMessage();
-      env.getReporter().handle(Event.error(errorMessage));
-      return BlazeCommandResult.detailedExitCode(
-          InterruptedFailureDetails.detailedExitCode(errorMessage));
+      return createFailedBlazeCommandResult(
+          env.getReporter(), "Fetch interrupted: " + e.getMessage());
     } catch (LabelSyntaxException | EvalException | IllegalArgumentException e) {
-      String errorMessage = "Invalid repo name: " + e.getMessage();
-      env.getReporter().handle(Event.error(null, errorMessage));
-      return BlazeCommandResult.detailedExitCode(
-          InterruptedFailureDetails.detailedExitCode(errorMessage));
+      return createFailedBlazeCommandResult(
+          env.getReporter(), "Invalid repo name: " + e.getMessage());
     } catch (RepositoryMappingResolutionException e) {
-      env.getReporter().handle(Event.error(e.getMessage()));
-      return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
+      return createFailedBlazeCommandResult(
+          env.getReporter(), "Invalid repo name: " + e.getMessage(), e.getDetailedExitCode());
     }
   }
 
@@ -245,12 +232,12 @@ public final class FetchCommand implements BlazeCommand {
       OptionsParsingResult options,
       LoadingPhaseThreadsOption threadsOption) {
     if (options.getResidue().isEmpty()) {
-      String errorMessage =
+      return createFailedBlazeCommandResult(
+          env.getReporter(),
+          Code.EXPRESSION_MISSING,
           String.format(
               "missing fetch expression. Type '%s help fetch' for syntax and help",
-              env.getRuntime().getProductName());
-      env.getReporter().handle(Event.error(errorMessage));
-      return createFailedBlazeCommandResult(Code.EXPRESSION_MISSING, errorMessage);
+              env.getRuntime().getProductName()));
     }
 
     boolean keepGoing = options.getOptions(KeepGoingOption.class).keepGoing;
@@ -264,16 +251,14 @@ public final class FetchCommand implements BlazeCommand {
       mainRepoTargetParser =
           new Parser(env.getRelativeWorkingDirectory(), RepositoryName.MAIN, repoMapping);
     } catch (RepositoryMappingResolutionException e) {
-      env.getReporter().handle(Event.error(e.getMessage()));
-      return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
+      return createFailedBlazeCommandResult(
+          env.getReporter(), e.getMessage(), e.getDetailedExitCode());
     } catch (InterruptedException e) {
-      String errorMessage = "Fetch interrupted: " + e.getMessage();
-      env.getReporter().handle(Event.error(errorMessage));
-      return BlazeCommandResult.detailedExitCode(
-          InterruptedFailureDetails.detailedExitCode(errorMessage));
+      return createFailedBlazeCommandResult(
+          env.getReporter(), "Fetch interrupted: " + e.getMessage());
     } catch (AbruptExitException e) {
-      env.getReporter().handle(Event.error(null, "Unknown error: " + e.getMessage()));
-      return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
+      return createFailedBlazeCommandResult(
+          env.getReporter(), "Unknown error: " + e.getMessage(), e.getDetailedExitCode());
     }
 
     // Querying for all of the dependencies of the targets has the side-effect of populating the
@@ -302,11 +287,11 @@ public final class FetchCommand implements BlazeCommand {
     try {
       expr = QueryExpression.parse(query, queryEnv);
     } catch (QuerySyntaxException e) {
-      String errorMessage =
+      return createFailedBlazeCommandResult(
+          env.getReporter(),
+          Code.QUERY_PARSE_ERROR,
           String.format(
-              "Error while parsing '%s': %s", QueryExpression.truncate(query), e.getMessage());
-      env.getReporter().handle(Event.error(null, errorMessage));
-      return createFailedBlazeCommandResult(Code.QUERY_PARSE_ERROR, errorMessage);
+              "Error while parsing '%s': %s", QueryExpression.truncate(query), e.getMessage()));
     }
 
     env.getReporter()
@@ -339,12 +324,12 @@ public final class FetchCommand implements BlazeCommand {
           InterruptedFailureDetails.detailedExitCode(e.getMessage()));
     } catch (QueryException e) {
       // Keep consistent with reportBuildFileError()
-      env.getReporter().handle(Event.error(e.getMessage()));
       env.getReporter()
           .post(
               new NoBuildRequestFinishedEvent(
                   ExitCode.COMMAND_LINE_ERROR, env.getRuntime().getClock().currentTimeMillis()));
-      return createFailedBlazeCommandResult(Code.QUERY_PARSE_ERROR, e.getMessage());
+      return createFailedBlazeCommandResult(
+          env.getReporter(), Code.QUERY_PARSE_ERROR, e.getMessage());
     } catch (IOException e) {
       // Should be impossible since our OutputFormatterCallback doesn't throw IOException.
       throw new IllegalStateException(e);
@@ -361,6 +346,7 @@ public final class FetchCommand implements BlazeCommand {
     return queryEvalResult.getSuccess()
         ? BlazeCommandResult.success()
         : createFailedBlazeCommandResult(
+            env.getReporter(),
             Code.QUERY_EVALUATION_ERROR,
             String.format(
                 "Evaluation of query \"%s\" failed but --keep_going specified, ignoring errors",
@@ -391,13 +377,27 @@ public final class FetchCommand implements BlazeCommand {
   }
 
   private static BlazeCommandResult createFailedBlazeCommandResult(
-      Code fetchCommandCode, String message) {
-    return BlazeCommandResult.detailedExitCode(
+      Reporter reporter, Code fetchCommandCode, String message) {
+    return createFailedBlazeCommandResult(
+        reporter,
+        message,
         DetailedExitCode.of(
             FailureDetail.newBuilder()
                 .setMessage(message)
                 .setFetchCommand(
                     FailureDetails.FetchCommand.newBuilder().setCode(fetchCommandCode).build())
                 .build()));
+  }
+
+  private static BlazeCommandResult createFailedBlazeCommandResult(
+      Reporter reporter, String errorMessage) {
+    return createFailedBlazeCommandResult(
+        reporter, errorMessage, InterruptedFailureDetails.detailedExitCode(errorMessage));
+  }
+
+  private static BlazeCommandResult createFailedBlazeCommandResult(
+      Reporter reporter, String message, DetailedExitCode exitCode) {
+    reporter.handle(Event.error(message));
+    return BlazeCommandResult.detailedExitCode(exitCode);
   }
 }
