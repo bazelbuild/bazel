@@ -68,6 +68,11 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     setBuildLanguageOptions("--experimental_google_legacy_api");
   }
 
+  @Before
+  public void disableBzlmod() throws Exception {
+    setBuildLanguageOptions("--noenable_bzlmod");
+  }
+
   /** Override this to trigger platform-based Android toolchain resolution. */
   protected boolean platformBasedToolchains() {
     return false;
