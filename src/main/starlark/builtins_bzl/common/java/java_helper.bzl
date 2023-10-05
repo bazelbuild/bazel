@@ -376,20 +376,36 @@ def _shell_escape(s):
     return s
 
 def _tokenize_javacopts(ctx, opts):
-    """Tokenizes a depset of options to a list.
+    """Tokenizes a list or depset of options to a list.
 
     Args:
         ctx: (RuleContext) the rule context
-        opts: (depset[str]) the javac options to tokenize
+        opts: (depset[str]|[str]) the javac options to tokenize
 
     Returns:
         [str] list of tokenized options
     """
+    if hasattr(opts, "to_list"):
+        opts = opts.to_list()
     return [
         token
-        for opt in opts.to_list()
+        for opt in opts
         for token in ctx.tokenize(opt)
     ]
+
+def _detokenize_javacopts(opts):
+    """Detokenizes a list of options to a depset.
+
+    Args:
+        opts: (depset[str]) the javac options to tokenize
+
+    Returns:
+        (depset[str]) depset of detokenized options
+    """
+    return depset(
+        [" ".join([_shell_escape(opt) for opt in opts])],
+        order = "preorder",
+    )
 
 helper = struct(
     collect_all_targets_as_deps = _collect_all_targets_as_deps,
@@ -415,4 +431,5 @@ helper = struct(
     create_single_jar = _create_single_jar,
     shell_escape = _shell_escape,
     tokenize_javacopts = _tokenize_javacopts,
+    detokenize_javacopts = _detokenize_javacopts,
 )

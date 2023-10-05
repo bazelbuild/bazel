@@ -177,7 +177,7 @@ def compile(
     ))
 
     # detokenize target's javacopts, it will be tokenized before compilation
-    all_javac_opts.append(depset([" ".join(javac_opts)], order = "preorder"))
+    all_javac_opts.append(helper.detokenize_javacopts(helper.tokenize_javacopts(ctx, javac_opts)))
 
     all_javac_opts = depset(order = "preorder", transitive = all_javac_opts)
 
