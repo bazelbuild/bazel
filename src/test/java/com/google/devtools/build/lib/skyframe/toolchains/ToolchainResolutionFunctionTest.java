@@ -813,6 +813,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
   public void errorProperlyReportedWhenInvalidConfigurationConfiguration() throws Exception {
     // It would be absolutely insane for a user to have a toolchain w/ a config_setting that reads a
     // config_feature_flag; however, should still test the InvalidConfigurationException codepath.
+    setBuildLanguageOptions("--noenable_bzlmod");
     rewriteWorkspace(
         "register_toolchains('//strange:strange_toolchain')",
         "register_execution_platforms('//platforms:mac', '//platforms:linux')");
