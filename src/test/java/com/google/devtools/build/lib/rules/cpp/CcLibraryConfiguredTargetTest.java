@@ -2196,7 +2196,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "-Xlinker",
             "-rpath",
             "-Xlinker",
-            "$ORIGIN/main.runfiles/" + TestConstants.WORKSPACE_NAME + "/_solib_k8/")
+            "$ORIGIN/main.runfiles/" + TestConstants.WORKSPACE_NAME_BZLMOD + "/_solib_k8/")
         .inOrder();
     assertThat(linkArgv)
         .contains("-L" + TestConstants.PRODUCT_NAME + "-out/k8-fastbuild/bin/_solib_k8");
@@ -2267,7 +2267,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "-Xlinker",
             "-rpath",
             "-Xlinker",
-            "$ORIGIN/main.runfiles/" + TestConstants.WORKSPACE_NAME + "/_solib_k8/")
+            "$ORIGIN/main.runfiles/" + TestConstants.WORKSPACE_NAME_BZLMOD + "/_solib_k8/")
         .inOrder();
     assertThat(Joiner.on(" ").join(linkArgv))
         .contains("-Xlinker -rpath -Xlinker $ORIGIN/../../../k8-fastbuild-ST-");
