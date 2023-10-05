@@ -1507,7 +1507,7 @@ public final class Attribute implements Comparable<Attribute> {
       Preconditions.checkState(
           lookupTable.containsKey(key),
           "Error in rule '%s': precomputed value missing for dependencies: %s. Available keys: %s.",
-          rule.getLabel(),
+          rule.describeRule(),
           Iterables.toString(key),
           Iterables.toString(lookupTable.keySet()));
       return lookupTable.get(key);

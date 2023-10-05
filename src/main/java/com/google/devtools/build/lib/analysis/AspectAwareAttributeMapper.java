@@ -63,9 +63,10 @@ class AspectAwareAttributeMapper implements AttributeMap {
     } else {
       Attribute attribute = aspectAttributes.get(attributeName);
       if (attribute == null) {
-        throw new IllegalArgumentException(String.format(
-            "no attribute '%s' in either %s or its aspects",
-            attributeName, ruleAttributes.getLabel()));
+        throw new IllegalArgumentException(
+            String.format(
+                "no attribute '%s' in either %s or its aspects",
+                attributeName, ruleAttributes.describeRule()));
       } else if (attribute.getType() != type) {
         throw new IllegalArgumentException(String.format(
             "attribute %s has type %s, not expected type %s",

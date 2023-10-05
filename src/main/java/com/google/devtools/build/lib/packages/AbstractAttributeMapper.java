@@ -42,6 +42,11 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   }
 
   @Override
+  public String describeRule() {
+    return String.format("%s %s", this.rule.getRuleClass(), getLabel());
+  }
+
+  @Override
   public Label getLabel() {
     return ruleLabel;
   }

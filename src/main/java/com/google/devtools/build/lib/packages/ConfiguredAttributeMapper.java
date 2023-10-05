@@ -58,21 +58,6 @@ import javax.annotation.Nullable;
  */
 public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
 
-  private final Map<Label, ConfigMatchingProvider> configConditions;
-  private final String configHash;
-  private final boolean alwaysSucceed;
-
-  private ConfiguredAttributeMapper(
-      Rule rule,
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      String configHash,
-      boolean alwaysSucceed) {
-    super(Preconditions.checkNotNull(rule));
-    this.configConditions = configConditions;
-    this.configHash = configHash;
-    this.alwaysSucceed = alwaysSucceed;
-  }
-
   /**
    * "Manual" constructor that requires the caller to pass the set of configurability conditions
    * that trigger this rule's configurable attributes.
@@ -101,7 +86,27 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
       BuildConfigurationValue configuration) {
     boolean alwaysSucceed =
         configuration.getOptions().get(CoreOptions.class).debugSelectsAlwaysSucceed;
-    return of(rule, configConditions, configuration.checksum(), alwaysSucceed);
+    return of(rule, configConditions, configuration.shortId(), alwaysSucceed);
+  }
+
+  private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
+  private final String configHash;
+  private final boolean alwaysSucceed;
+
+  private ConfiguredAttributeMapper(
+      Rule rule,
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      String configHash,
+      boolean alwaysSucceed) {
+    super(Preconditions.checkNotNull(rule));
+    this.configConditions = configConditions;
+    this.configHash = configHash;
+    this.alwaysSucceed = alwaysSucceed;
+  }
+
+  @Override
+  public String describeRule() {
+    return String.format("%s (%s)", super.describeRule(), this.configHash.substring(0, 6));
   }
 
   /**
