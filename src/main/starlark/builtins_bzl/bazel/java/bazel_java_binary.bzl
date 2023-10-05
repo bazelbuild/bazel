@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load(":common/rule_util.bzl", "merge_attrs")
-load(":common/java/java_semantics.bzl", "semantics")
 load(":common/cc/cc_helper.bzl", "cc_helper")
-load(":common/java/java_helper.bzl", "helper")
 load(":common/java/java_binary.bzl", "BASE_TEST_ATTRIBUTES", "BASIC_JAVA_BINARY_ATTRIBUTES", "basic_java_binary")
-load(":common/paths.bzl", "paths")
+load(":common/java/java_helper.bzl", "helper")
 load(":common/java/java_info.bzl", "JavaInfo")
+load(":common/java/java_semantics.bzl", "semantics")
+load(":common/paths.bzl", "paths")
+load(":common/rule_util.bzl", "merge_attrs")
 
 def _bazel_java_binary_impl(ctx):
     return _bazel_base_binary_impl(ctx, is_test_rule_class = False) + helper.executable_providers(ctx)
@@ -68,7 +68,7 @@ def _bazel_base_binary_impl(ctx, is_test_rule_class):
             fail("cannot determine test class")
         jvm_flags.extend([
             "-ea",
-            "-Dbazel.test_suite=" + helper.shell_quote(test_class),
+            "-Dbazel.test_suite=" + helper.shell_escape(test_class),
         ])
 
     java_attrs = providers["InternalDeployJarInfo"].java_attrs
@@ -222,7 +222,7 @@ def _create_stub(ctx, java_attrs, launcher, executable, jvm_flags, main_class, c
             "%set_jacoco_metadata%": "",
             "%set_jacoco_main_class%": "export JACOCO_MAIN_CLASS=" + coverage_main_class if coverage_enabled else "",
             "%set_jacoco_java_runfiles_root%": "export JACOCO_JAVA_RUNFILES_ROOT=${JAVA_RUNFILES}/" + workspace_prefix if coverage_enabled else "",
-            "%java_start_class%": helper.shell_quote(main_class),
+            "%java_start_class%": helper.shell_escape(main_class),
             "%jvm_flags%": " ".join(jvm_flags),
         },
         computed_substitutions = td,

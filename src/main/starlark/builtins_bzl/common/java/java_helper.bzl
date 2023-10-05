@@ -352,8 +352,28 @@ def _create_single_jar(
     return output
 
 # TODO(hvd): use skylib shell.quote()
-def _shell_quote(s):
-    return "'" + s.replace("'", "'\\''") + "'"
+def _shell_escape(s):
+    """Shell-escape a string
+
+    Quotes a word so that it can be used, without further quoting, as an argument
+    (or part of an argument) in a shell command.
+
+    Args:
+        s: (str) the string to escape
+
+    Returns:
+        (str) the shell-escaped string
+    """
+    if not s:
+        # Empty string is a special case: needs to be quoted to ensure that it
+        # gets treated as a separate argument.
+        return "''"
+    for c in s.elems():
+        # We do this positively so as to be sure we don't inadvertently forget
+        # any unsafe characters.
+        if not c.isalnum() and c not in "@%-_+:,./":
+            return "'" + s.replace("'", "'\\''") + "'"
+    return s
 
 def _tokenize_javacopts(ctx, opts):
     """Tokenizes a depset of options to a list.
@@ -393,6 +413,6 @@ helper = struct(
     test_providers = _test_providers,
     executable_providers = _executable_providers,
     create_single_jar = _create_single_jar,
-    shell_quote = _shell_quote,
+    shell_escape = _shell_escape,
     tokenize_javacopts = _tokenize_javacopts,
 )
