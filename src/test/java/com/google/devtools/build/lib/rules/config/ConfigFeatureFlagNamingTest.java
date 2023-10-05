@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -38,6 +39,11 @@ public final class ConfigFeatureFlagNamingTest extends BuildViewTestCase {
         new ConfiguredRuleClassProvider.Builder().addRuleDefinition(new FeatureFlagSetterRule());
     TestRuleClassProvider.addStandardRules(builder);
     return builder.build();
+  }
+
+  @Before
+  public void disableBzlmod() throws Exception {
+    setBuildLanguageOptions("--noenable_bzlmod");
   }
 
   @Test

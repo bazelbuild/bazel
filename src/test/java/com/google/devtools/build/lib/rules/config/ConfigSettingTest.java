@@ -40,6 +40,8 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParser;
 import java.util.Map;
 import java.util.Set;
+
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -106,6 +108,11 @@ public class ConfigSettingTest extends BuildViewTestCase {
               /*visibleWithinToolsPackage=*/ false,
               /*errorMessage=*/ "For very important reasons."));
     }
+  }
+
+  @Before
+  public void disableBzlmod() throws Exception {
+    setBuildLanguageOptions("--noenable_bzlmod");
   }
 
   /** Test fragment. */

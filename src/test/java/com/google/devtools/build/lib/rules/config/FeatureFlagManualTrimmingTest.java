@@ -48,6 +48,11 @@ import org.junit.runners.JUnit4;
 public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
 
   @Before
+  public void disableBzlmod() throws Exception {
+    setBuildLanguageOptions("--noenable_bzlmod");
+  }
+
+  @Before
   public void enableManualTrimming() throws Exception {
     enableManualTrimmingAnd();
   }

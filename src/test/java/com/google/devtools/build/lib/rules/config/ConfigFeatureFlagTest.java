@@ -48,6 +48,11 @@ public final class ConfigFeatureFlagTest extends BuildViewTestCase {
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
   }
 
+  @Before
+  public void disableBzlmod() throws Exception {
+    setBuildLanguageOptions("--noenable_bzlmod");
+  }
+
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder =
