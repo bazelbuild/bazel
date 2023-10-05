@@ -605,11 +605,11 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
     getConfiguredTarget("//bar:simple");
 
     assertContainsEvent(
-        "The 'srcs' attribute of '@//third_party/x:mixed' contains protos for which 'MyRule'"
+        "The 'srcs' attribute of '@@//third_party/x:mixed' contains protos for which 'MyRule'"
             + " shouldn't generate code (third_party/x/metadata.proto,"
             + " third_party/x/descriptor.proto), in addition to protos for which it should"
             + " (third_party/x/something.proto).\n"
-            + "Separate '@//third_party/x:mixed' into 2 proto_library rules.");
+            + "Separate '@@//third_party/x:mixed' into 2 proto_library rules.");
   }
 
   /** Verifies <code>proto_common.declare_generated_files</code> call. */
@@ -676,8 +676,8 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
     getConfiguredTarget("//test:simple");
 
     assertContainsEvent(
-        "lang_proto_library '@//test:simple' may only be created in the same package as"
-            + " proto_library '@//proto:proto'");
+        "lang_proto_library '@@//test:simple' may only be created in the same package as"
+            + " proto_library '@@//proto:proto'");
   }
 
   @Test
@@ -698,8 +698,8 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
     getConfiguredTarget("//notallowed:simple");
 
     assertContainsEvent(
-        "lang_proto_library '@//notallowed:simple' may only be created in the same package as"
-            + " proto_library '@//x:foo'");
+        "lang_proto_library '@@//notallowed:simple' may only be created in the same package as"
+            + " proto_library '@@//x:foo'");
   }
 
   @Test
