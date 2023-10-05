@@ -22,6 +22,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -54,6 +55,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -367,20 +369,39 @@ public class SpawnInputExpanderTest {
     fakeCache.put(file1, FileArtifactValue.createForTesting(file1));
     fakeCache.put(file2, FileArtifactValue.createForTesting(file2));
 
+    PathMapper pathMapper =
+        execPath -> {
+          // Replace the config segment "k8-opt" in "bazel-bin/k8-opt/bin" with a hash of the full
+          // path to verify that the new paths are constructed by appending the child paths to the
+          // mapped parent path, not by mapping the child paths directly.
+          PathFragment runfilesPath = execPath.subFragment(3);
+          String runfilesPathHash =
+              DigestHashFunction.SHA256
+                  .getHashFunction()
+                  .hashString(runfilesPath.getPathString(), StandardCharsets.UTF_8)
+                  .toString();
+          return execPath
+              .subFragment(0, 1)
+              .getRelative(runfilesPathHash.substring(0, 8))
+              .getRelative(execPath.subFragment(2));
+        };
+
     expander.addRunfilesToInputs(
         inputMappings,
         supplier,
         fakeCache,
         artifactExpander,
-        execPath -> PathFragment.create(execPath.getPathString().replace("k8-opt/", "")),
+        pathMapper,
         PathFragment.EMPTY_FRAGMENT);
     assertThat(inputMappings).hasSize(2);
     assertThat(inputMappings)
         .containsEntry(
-            PathFragment.create("bazel-out/bin/foo.runfiles/workspace/treeArtifact/file1"), file1);
+            PathFragment.create("bazel-out/2c26b46b/bin/foo.runfiles/workspace/treeArtifact/file1"),
+            file1);
     assertThat(inputMappings)
         .containsEntry(
-            PathFragment.create("bazel-out/bin/foo.runfiles/workspace/treeArtifact/file2"), file2);
+            PathFragment.create("bazel-out/2c26b46b/bin/foo.runfiles/workspace/treeArtifact/file2"),
+            file2);
   }
 
   @Test
