@@ -285,8 +285,6 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
 
   @Test
   public void transitionOutput_otherRepo() throws Exception {
-    setBuildLanguageOptions("--enable_bzlmod");
-
     scratch.appendFile("MODULE.bazel", "bazel_dep(name='foo',version='1.0')");
     registry.addModule(createModuleKey("foo", "1.0"), "module(name='foo', version='1.0')");
     scratch.file("modules/foo~1.0/WORKSPACE");
@@ -336,6 +334,7 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
         "label_flag(name = 'my_flag2', build_setting_default = ':first_rule')",
         "filegroup(name = 'first_rule')",
         "rule_with_transition(name = 'buildme')");
+    invalidatePackages();
     assertThat(getConfiguredTarget("//test:buildme")).isNotNull();
     assertNoEvents();
   }
