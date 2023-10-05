@@ -147,6 +147,7 @@ public class SpawnInputExpander {
                     ? null
                     : artifactExpander.getArchivedTreeArtifact((SpecialArtifact) localArtifact);
             if (archivedTreeArtifact != null) {
+              // TODO(bazel-team): Add path mapping support for archived tree artifacts.
               addMapping(inputMap, location, localArtifact, baseDirectory);
             } else {
               List<ActionInput> expandedInputs =
@@ -170,6 +171,7 @@ public class SpawnInputExpander {
             } catch (MissingExpansionException e) {
               throw new IllegalStateException(e);
             }
+            // TODO(bazel-team): Add path mapping support for filesets.
             addFilesetManifest(location, localArtifact, filesetLinks, inputMap, baseDirectory);
           } else {
             if (strict) {
@@ -241,6 +243,7 @@ public class SpawnInputExpander {
           value == null
               ? VirtualActionInput.EMPTY_MARKER
               : ActionInputHelper.fromPath(execRoot.getRelative(value).asFragment());
+      // TODO(bazel-team): Add path mapping support for filesets.
       addMapping(inputMappings, mapping.getKey(), artifact, baseDirectory);
       }
   }
