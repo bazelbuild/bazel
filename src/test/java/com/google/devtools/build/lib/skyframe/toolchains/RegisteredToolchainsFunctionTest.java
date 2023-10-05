@@ -304,13 +304,6 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
 
   @Test
   public void testRegisteredToolchains_bzlmod() throws Exception {
-    setBuildLanguageOptions("--enable_bzlmod");
-    rewriteModuleDotBazel(
-        "register_toolchains('//:tool')",
-        "register_toolchains('//:dev_tool',dev_dependency=True)",
-        "bazel_dep(name='bbb',version='1.0')",
-        "bazel_dep(name='ccc',version='1.1')",
-        "bazel_dep(name='toolchain_def',version='1.0')");
     registry
         .addModule(
             createModuleKey("bbb", "1.0"),
@@ -384,6 +377,12 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         "declare_toolchain(name='tool')",
         "declare_toolchain(name='wstool')");
     rewriteWorkspace("register_toolchains('//:wstool')");
+    rewriteModuleDotBazel(
+        "register_toolchains('//:tool')",
+        "register_toolchains('//:dev_tool',dev_dependency=True)",
+        "bazel_dep(name='bbb',version='1.0')",
+        "bazel_dep(name='ccc',version='1.1')",
+        "bazel_dep(name='toolchain_def',version='1.0')");
 
     SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey);
     EvaluationResult<RegisteredToolchainsValue> result =
