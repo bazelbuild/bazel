@@ -189,7 +189,8 @@ public final class OutputGroupInfo extends StructImpl
   }
 
   /**
-   * Merges output groups from two output providers. The set of output groups must be disjoint.
+   * Merges output groups from two output providers. The set of output groups must be disjoint,
+   * except for the special validation output group, which is always merged.
    *
    * @param providers providers to merge {@code this} with.
    */
@@ -207,12 +208,26 @@ public final class OutputGroupInfo extends StructImpl
     Set<String> seenGroups = new HashSet<>();
     for (OutputGroupInfo provider : providers) {
       for (String outputGroup : provider.outputGroups.keySet()) {
+        if (outputGroup.equals(VALIDATION)) {
+          continue;
+        }
         if (!seenGroups.add(outputGroup)) {
           throw new DuplicateException(
               "Output group " + outputGroup + " provided twice");
         }
 
         resultBuilder.put(outputGroup, provider.getOutputGroup(outputGroup));
+      }
+    }
+    // Allow both an aspect and the rule to use validation actions.
+    NestedSetBuilder<Artifact> validationOutputs = NestedSetBuilder.stableOrder();
+    for (OutputGroupInfo provider : providers) {
+      try {
+        validationOutputs.addTransitive(provider.getOutputGroup(VALIDATION));
+      } catch (IllegalArgumentException e) {
+        // Thrown if nested set orders aren't compatible.
+        throw new DuplicateException(
+            "Output group " + VALIDATION + " provided twice with incompatible depset orders");
       }
     }
     return new OutputGroupInfo(resultBuilder.buildOrThrow());
