@@ -511,4 +511,54 @@ function test_validation_actions_flags() {
   expect_log "Target //validation_actions:foo0 up-to-date:"
 }
 
+function test_validation_actions_in_rule_and_aspect() {
+  setup_test_project
+
+  mkdir -p aspect
+  cat > aspect/BUILD <<'EOF'
+exports_files(["aspect_validation_tool"])
+EOF
+  cat > aspect/def.bzl <<'EOF'
+def _validation_aspect_impl(target, ctx):
+  validation_output = ctx.actions.declare_file(ctx.rule.attr.name + ".aspect_validation")
+  ctx.actions.run(
+      outputs = [validation_output],
+      executable = ctx.executable._validation_tool,
+      arguments = [validation_output.path])
+  return [
+    OutputGroupInfo(_validation = depset([validation_output])),
+  ]
+
+validation_aspect = aspect(
+  implementation = _validation_aspect_impl,
+  attrs = {
+    "_validation_tool": attr.label(
+        allow_single_file = True,
+        default = Label(":aspect_validation_tool"),
+        executable = True,
+        cfg = "exec"),
+  },
+)
+EOF
+  cat > aspect/aspect_validation_tool <<'EOF'
+#!/bin/bash
+echo "aspect validation output" > $1
+EOF
+  chmod +x aspect/aspect_validation_tool
+  setup_passing_validation_action
+
+  bazel build --run_validations --aspects=//aspect:def.bzl%validation_aspect \
+      //validation_actions:foo0 >& "$TEST_log" || fail "Expected build to succeed"
+
+  cat > aspect/aspect_validation_tool <<'EOF'
+#!/bin/bash
+echo "aspect validation failed!"
+exit 1
+EOF
+
+  bazel build --run_validations --aspects=//aspect:def.bzl%validation_aspect \
+      //validation_actions:foo0 >& "$TEST_log" && fail "Expected build to fail"
+  expect_log "aspect validation failed!"
+}
+
 run_suite "Validation actions integration tests"

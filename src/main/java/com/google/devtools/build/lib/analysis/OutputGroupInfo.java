@@ -175,7 +175,7 @@ public abstract class OutputGroupInfo extends StructImpl
 
   /**
    * Merges output groups from a list of output providers. The set of output groups must be
-   * disjoint.
+   * disjoint, except for the special validation output group, which is always merged.
    */
   @Nullable
   public static OutputGroupInfo merge(List<OutputGroupInfo> providers) throws DuplicateException {
@@ -189,9 +189,23 @@ public abstract class OutputGroupInfo extends StructImpl
     Map<String, NestedSet<Artifact>> outputGroups = new TreeMap<>();
     for (OutputGroupInfo provider : providers) {
       for (String group : provider) {
+        if (group.equals(VALIDATION)) {
+          continue;
+        }
         if (outputGroups.put(group, provider.getOutputGroup(group)) != null) {
           throw new DuplicateException("Output group " + group + " provided twice");
         }
+      }
+    }
+    // Allow both an aspect and the rule to use validation actions.
+    NestedSetBuilder<Artifact> validationOutputs = NestedSetBuilder.stableOrder();
+    for (OutputGroupInfo provider : providers) {
+      try {
+        validationOutputs.addTransitive(provider.getOutputGroup(VALIDATION));
+      } catch (IllegalArgumentException e) {
+        // Thrown if nested set orders aren't compatible.
+        throw new DuplicateException(
+            "Output group " + VALIDATION + " provided twice with incompatible depset orders");
       }
     }
     return createInternal(ImmutableMap.copyOf(outputGroups));
