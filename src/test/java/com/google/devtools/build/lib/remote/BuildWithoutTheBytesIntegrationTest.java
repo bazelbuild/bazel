@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.standalone.StandaloneModule;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import org.junit.After;
@@ -679,5 +680,50 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         "a/bar.out",
         "file-inside" + lineSeparator() + "updated bar" + lineSeparator(),
         /* isLocal= */ true);
+  }
+
+  @Test
+  public void downloadTopLevel_genruleSymlinkToOutput() throws Exception {
+    // Disable test on Windows.
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+
+    setDownloadToplevel();
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'gen',",
+        "  outs = ['foo', 'foo-link'],",
+        "  cmd = 'cd $(RULEDIR) && echo hello > foo && ln -s foo foo-link',",
+        // In Blaze, heuristic label expansion defaults to True and will cause `foo` to be expanded
+        // into `blaze-out/.../bin/foo` in the genrule command line.
+        "  heuristic_label_expansion = False,",
+        ")");
+
+    buildTarget("//:gen");
+
+    assertSymlink("foo-link", PathFragment.create("foo"));
+    assertValidOutputFile("foo-link", "hello\n");
+
+    // Delete link, re-plant symlink
+    getOutputPath("foo").delete();
+    buildTarget("//:gen");
+
+    assertSymlink("foo-link", PathFragment.create("foo"));
+    assertValidOutputFile("foo-link", "hello\n");
+
+    // Delete target, re-download it
+    getOutputPath("foo").delete();
+
+    buildTarget("//:gen");
+
+    assertSymlink("foo-link", PathFragment.create("foo"));
+    assertValidOutputFile("foo-link", "hello\n");
+  }
+
+  protected void assertSymlink(String binRelativeLinkPath, PathFragment targetPath)
+      throws Exception {
+    Path output = getOutputPath(binRelativeLinkPath);
+    assertThat(output.isSymbolicLink()).isTrue();
+    assertThat(output.readSymbolicLink()).isEqualTo(targetPath);
   }
 }
