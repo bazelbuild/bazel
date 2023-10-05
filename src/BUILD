@@ -94,7 +94,6 @@ JAVA_TOOLS = [
                "//src/conditions:embedded_tools",
                "//src/main/cpp/util:embedded_tools",
                "//src/main/native:embedded_tools",
-               "//src/main/protobuf:srcs",
                "//src/tools/android/java/com/google/devtools/build/android:embedded_tools",
                "//src/tools/launcher:srcs",
                "//third_party:gpl-srcs",
