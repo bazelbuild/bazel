@@ -108,7 +108,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "def _impl(ctx):",
         "  pass",
         "my_rule = rule(implementation = _impl,",
-        "    attrs = { 'dep' : attr.label_list(default=[\"@r//:t\"]) })");
+        "    attrs = { 'dep' : attr.label_list(default=[\"@@r//:t\"]) })");
 
     // We are only interested in whether the label string in the default value can be converted
     // to a proper Label without an exception (see GitHub issue #1442).
@@ -271,6 +271,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void sanityCheckUserDefinedTestRule() throws Exception {
+    setBuildLanguageOptions("--noenable_bzlmod");
     scratch.file(
         "test/starlark/test_rule.bzl",
         "def _impl(ctx):",
@@ -1576,7 +1577,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
     getConfiguredTarget("//test/starlark:cr");
     assertContainsEvent("output function cr");
-    assertContainsEvent("implementation @//test/starlark:cr");
+    assertContainsEvent("implementation @@//test/starlark:cr");
   }
 
   @Test

@@ -2678,6 +2678,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
   @Test
   public void testConfigurationField_doesNotChangeFragmentAccess() throws Exception {
+    setBuildLanguageOptions("--noenable_bzlmod");
     scratch.file(
         "test/main_rule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",

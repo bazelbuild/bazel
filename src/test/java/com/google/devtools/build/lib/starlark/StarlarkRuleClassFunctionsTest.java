@@ -2819,7 +2819,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
                     Label.parseCanonical("//initializer_testing:b.bzl"), "MyInfo"));
 
     assertThat((List<String>) info.getValue("srcs")).containsExactly("initializer_testing/a.ml");
-    assertThat((List<String>) info.getValue("deps")).containsExactly("@//:initial", "@//:added");
+    assertThat((List<String>) info.getValue("deps")).containsExactly("@@//:initial", "@@//:added");
   }
 
   @Test
@@ -2878,7 +2878,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
                 new StarlarkProvider.Key(
                     Label.parseCanonical("//initializer_testing:b.bzl"), "MyInfo"));
 
-    assertThat((List<String>) info.getValue("deps")).containsExactly("@//:initializer_default");
+    assertThat((List<String>) info.getValue("deps")).containsExactly("@@//:initializer_default");
   }
 
   @Test
@@ -2913,7 +2913,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
                 new StarlarkProvider.Key(
                     Label.parseCanonical("//initializer_testing:b.bzl"), "MyInfo"));
 
-    assertThat((List<String>) info.getValue("deps")).containsExactly("@//:attr_default");
+    assertThat((List<String>) info.getValue("deps")).containsExactly("@@//:attr_default");
   }
 
   @Test
