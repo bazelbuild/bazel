@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import com.sun.tools.javac.api.JavacTool;
-import com.sun.tools.javac.util.Context;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -21,13 +19,19 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.lang.reflect.Method;
+import java.net.URI;
+import java.nio.file.DirectoryStream;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.EnumSet;
 import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Map;
@@ -38,16 +42,11 @@ import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
-import javax.tools.JavaFileManager;
-import javax.tools.JavaFileObject;
-import javax.tools.JavaFileObject.Kind;
-import javax.tools.StandardJavaFileManager;
-import javax.tools.StandardLocation;
 
 /**
  * Output a jar file containing all classes on the platform classpath of the given JDK release.
  *
- * <p>usage: DumpPlatformClassPath <release version> <output jar> <path to target JDK>?
+ * <p>usage: {@code DumpPlatformClassPath <output jar> <path to target JDK>}
  */
 public class DumpPlatformClassPath {
 
@@ -90,7 +89,7 @@ public class DumpPlatformClassPath {
     // * --release takes a language level (e.g. '9') and uses the API information baked in to
     //     the host JDK (in lib/ct.sym).
 
-    // Since --system only supports JDK >= 9, first check of the target JDK defines a JDK 8
+    // Since --system only supports JDK >= 9, first check if the target JDK defines a JDK 8
     // bootclasspath.
     List<Path> bootClassPathJars = getBootClassPathJars(targetJavabase);
     if (!bootClassPathJars.isEmpty()) {
@@ -98,50 +97,35 @@ public class DumpPlatformClassPath {
       return true;
     }
 
-    // Initialize a FileManager to process the --system argument, and then read the
-    // initialized bootclasspath data back out.
-
-    Context context = new Context();
-    try {
-      JavacTool.create()
-          .getTask(
-              /* out = */ null,
-              /* fileManager = */ null,
-              /* diagnosticListener = */ null,
-              /* options = */ Arrays.asList("--system", String.valueOf(targetJavabase)),
-              /* classes = */ null,
-              /* compilationUnits = */ null,
-              context);
-    } catch (IllegalArgumentException e) {
-      throw new IllegalArgumentException(
-          String.format(
-              "Failed to collect system class path. Please ensure that the configured Java runtime"
-                  + " ('%s') is a complete JDK. There are known issues with Homebrew versions of"
-                  + " the Java runtime.",
-              targetJavabase.toRealPath()),
-          e);
+    // Read the bootclasspath data using the JRT filesystem
+    Map<String, byte[]> entries = new TreeMap<>();
+    Map<String, String> env = new TreeMap<>();
+    env.put("java.home", String.valueOf(targetJavabase));
+    try (FileSystem fileSystem = FileSystems.newFileSystem(URI.create("jrt:/"), env)) {
+      Path modules = fileSystem.getPath("/modules");
+      try (DirectoryStream<Path> ms = Files.newDirectoryStream(modules)) {
+        for (Path m : ms) {
+          Files.walkFileTree(
+              m,
+              new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+                    throws IOException {
+                  if (file.getFileName().toString().endsWith(".class")) {
+                    entries.put(m.relativize(file).toString(), Files.readAllBytes(file));
+                  }
+                  return super.visitFile(file, attrs);
+                }
+              });
+        }
+      }
+      writeEntries(output, entries);
     }
-    StandardJavaFileManager fileManager =
-        (StandardJavaFileManager) context.get(JavaFileManager.class);
-
-    SortedMap<String, InputStream> entries = new TreeMap<>();
-    for (JavaFileObject fileObject :
-        fileManager.list(
-            StandardLocation.PLATFORM_CLASS_PATH,
-            "",
-            EnumSet.of(Kind.CLASS),
-            /* recurse= */ true)) {
-      String binaryName =
-          fileManager.inferBinaryName(StandardLocation.PLATFORM_CLASS_PATH, fileObject);
-      entries.put(binaryName.replace('.', '/') + ".class", fileObject.openInputStream());
-    }
-    writeEntries(output, entries);
     return true;
   }
 
   /** Writes the given entry names and data to a jar archive at the given path. */
-  private static void writeEntries(Path output, Map<String, InputStream> entries)
-      throws IOException {
+  private static void writeEntries(Path output, Map<String, byte[]> entries) throws IOException {
     if (!entries.containsKey("java/lang/Object.class")) {
       throw new AssertionError(
           "\nCould not find java.lang.Object on bootclasspath; something has gone terribly wrong.\n"
@@ -168,14 +152,14 @@ public class DumpPlatformClassPath {
     for (Path path : paths) {
       jars.add(new JarFile(path.toFile()));
     }
-    SortedMap<String, InputStream> entries = new TreeMap<>();
+    SortedMap<String, byte[]> entries = new TreeMap<>();
     for (JarFile jar : jars) {
       jar.stream()
           .filter(p -> p.getName().endsWith(".class"))
           .forEachOrdered(
               entry -> {
                 try {
-                  entries.put(entry.getName(), jar.getInputStream(entry));
+                  entries.put(entry.getName(), toByteArray(jar.getInputStream(entry)));
                 } catch (IOException e) {
                   throw new UncheckedIOException(e);
                 }
@@ -214,12 +198,10 @@ public class DumpPlatformClassPath {
    * Add a jar entry to the given {@link JarOutputStream}, normalizing the entry timestamps to
    * ensure deterministic build output.
    */
-  private static void addEntry(JarOutputStream jos, String name, InputStream input)
-      throws IOException {
+  private static void addEntry(JarOutputStream jos, String name, byte[] bytes) throws IOException {
     JarEntry je = new JarEntry(name);
     je.setTime(FIXED_TIMESTAMP);
     je.setMethod(ZipEntry.STORED);
-    byte[] bytes = toByteArray(input);
     // When targeting JDK >= 10, patch the major version so it will be accepted by javac 9
     // TODO(cushon): remove this after updating javac
     if (bytes[7] > 53) {
