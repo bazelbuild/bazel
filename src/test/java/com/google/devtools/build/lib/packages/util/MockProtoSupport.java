@@ -212,9 +212,18 @@ public final class MockProtoSupport {
           "    name = 'rules_proto',",
           "    path = 'third_party/bazel_rules/rules_proto',",
           ")");
+      config.append(
+        "MODULE.bazel",
+        "local_path_override(",
+          "    module_name = 'rules_proto',",
+          "    path = 'third_party/bazel_rules/rules_proto',",
+          ")"
+      );
+      config.append("embedded_tools/MODULE.bazel", "bazel_dep(name='rules_proto')");
     }
 
     config.create("third_party/bazel_rules/rules_proto/WORKSPACE");
+    config.create("third_party/bazel_rules/rules_proto/MODULE.bazel", "module(name='rules_proto')");
     config.create(
         "third_party/bazel_rules/rules_proto/proto/BUILD",
         "licenses(['notice'])",

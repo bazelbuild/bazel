@@ -497,7 +497,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     assertContainsEvent(
         Pattern.compile(
-            ".* objc_library rule \\'//app:no_tag_dep\\' is misplaced here \\(Only J2ObjC JRE"
+            ".* objc_library rule \\'@//app:no_tag_dep\\' is misplaced here \\(Only J2ObjC JRE"
                 + " libraries are allowed\\)"));
   }
 

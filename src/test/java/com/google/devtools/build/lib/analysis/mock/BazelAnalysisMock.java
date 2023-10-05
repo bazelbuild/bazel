@@ -658,7 +658,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create("embedded_tools/MODULE.bazel", "module(name='bazel_tools')",
         "bazel_dep(name='rules_java')",
         "bazel_dep(name='build_bazel_apple_support')",
-        "bazel_dep(name='platforms')"
+        "bazel_dep(name='platforms')",
+        "bazel_dep(name='com_google_protobuf')"
     );
     config.create("embedded_tools/tools/build_defs/repo/BUILD");
     config.create(
