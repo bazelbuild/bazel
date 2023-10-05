@@ -3001,7 +3001,15 @@ public abstract class CcModule
                 compilationInputs.getSet(Artifact.class),
                 /* nonCodeInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
                 inputsForValidation.getSet(Artifact.class),
-                ruleContext.getBuildInfo(CppBuildInfo.KEY),
+                AnalysisUtils.isStampingEnabled(ruleContext, ruleContext.getConfiguration())
+                    ? ccToolchain
+                        .getCcBuildInfoTranslator()
+                        .getOutputGroup("non_redacted_build_info_files")
+                        .toList()
+                    : ccToolchain
+                        .getCcBuildInfoTranslator()
+                        .getOutputGroup("redacted_build_info_files")
+                        .toList(),
                 /* additionalLinkstampDefines= */ ImmutableList.of(),
                 ccToolchain,
                 ruleContext.getConfiguration().isCodeCoverageEnabled(),
@@ -3015,18 +3023,6 @@ public abstract class CcModule
                 labelReplacement,
                 outputReplacement,
                 getSemantics()));
-  }
-
-  @StarlarkMethod(
-      name = "get_build_info",
-      documented = false,
-      parameters = {@Param(name = "ctx")},
-      useStarlarkThread = true)
-  public Sequence<Artifact> getBuildInfo(StarlarkRuleContext ruleContext, StarlarkThread thread)
-      throws EvalException, InterruptedException {
-    isCalledFromStarlarkCcCommon(thread);
-    return StarlarkList.immutableCopyOf(
-        ruleContext.getRuleContext().getBuildInfo(CppBuildInfo.KEY));
   }
 
   @StarlarkMethod(

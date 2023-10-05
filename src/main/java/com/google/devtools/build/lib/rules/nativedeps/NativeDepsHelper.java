@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
-import com.google.devtools.build.lib.rules.cpp.CppBuildInfo;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
@@ -189,12 +188,15 @@ public abstract class NativeDepsHelper {
     List<Artifact> buildInfoArtifacts =
         linkstamps.isEmpty()
             ? ImmutableList.<Artifact>of()
-            : ruleContext
-                .getAnalysisEnvironment()
-                .getBuildInfo(
-                    AnalysisUtils.isStampingEnabled(ruleContext, configuration),
-                    CppBuildInfo.KEY,
-                    configuration);
+            : AnalysisUtils.isStampingEnabled(ruleContext, configuration)
+                ? toolchain
+                    .getCcBuildInfoTranslator()
+                    .getOutputGroup("non_redacted_build_info_files")
+                    .toList()
+                : toolchain
+                    .getCcBuildInfoTranslator()
+                    .getOutputGroup("redacted_build_info_files")
+                    .toList();
 
     ImmutableSortedSet.Builder<String> requestedFeaturesBuilder =
         ImmutableSortedSet.<String>naturalOrder()
