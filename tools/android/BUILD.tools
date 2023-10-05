@@ -233,18 +233,8 @@ filegroup(
 
 genrule(
     name = "desugar_java8_legacy_libs",
-    srcs = ["@android_tools//:desugar_jdk_libs.jar", "full_desugar_jdk_libs.json", ":android_jar"],
     outs = ["desugared_java8_legacy_libs.jar"],
-    message = "Desugaring java8 legacy libs with the D8 desugarer",
-    cmd = (
-        "$(location //src/tools/android/java/com/google/devtools/build/android/r8:core_library_desugar)" +
-        " --input $(location @android_tools//:desugar_jdk_libs.jar)" +
-        " --output $@" +
-        " --bootclasspath_entry $(location :android_jar)" +
-        " --desugar_supported_core_libs" +
-        " --desugared_lib_config $(location full_desugar_jdk_libs.json)"
-    ),
-    tools = ["//src/tools/android/java/com/google/devtools/build/android/r8:core_library_desugar"],
+    cmd = "echo > $@"
 )
 
 # No-one should depend on this but :desugared_java8_legacy_libs above
