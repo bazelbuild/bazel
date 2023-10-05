@@ -64,22 +64,28 @@ public class StrippingPathMapperTest extends BuildViewTestCase {
     Spawn spawn = action.getSpawn(new ActionExecutionContextBuilder().build());
 
     assertThat(spawn.getPathMapper().isNoop()).isFalse();
+    String outDir = analysisMock.getProductName() + "-out";
     assertThat(
             spawn.getArguments().stream()
                 .filter(arg -> arg.contains("java/com/google/test/"))
                 .collect(toImmutableList()))
         .containsExactly(
             "java/com/google/test/A.java",
-            "bazel-out/bin/java/com/google/test/B.java",
-            "bazel-out/bin/java/com/google/test/C.java",
-            "bazel-out/bin/java/com/google/test/liba-hjar.jar",
-            "bazel-out/bin/java/com/google/test/liba-hjar.jdeps",
-            "-XepOpt:foo:bar=bazel-out/bin/java/com/google/test/B.java",
-            "-XepOpt:baz=bazel-out/bin/java/com/google/test/C.java,bazel-out/bin/java/com/google/test/B.java");
+            outDir + "/bin/java/com/google/test/B.java",
+            outDir + "/bin/java/com/google/test/C.java",
+            outDir + "/bin/java/com/google/test/liba-hjar.jar",
+            outDir + "/bin/java/com/google/test/liba-hjar.jdeps",
+            "-XepOpt:foo:bar=" + outDir + "/bin/java/com/google/test/B.java",
+            "-XepOpt:baz="
+                + outDir
+                + "/bin/java/com/google/test/C.java,"
+                + outDir
+                + "/bin/java"
+                + "/com/google/test/B.java");
   }
 
   private void addStarlarkRule(Dict<String, String> executionRequirements) throws IOException {
-    scratch.file("defs/BUILD.bazel");
+    scratch.file("defs/BUILD");
     scratch.file(
         "defs/defs.bzl",
         "def _my_rule_impl(ctx):",
@@ -148,12 +154,13 @@ public class StrippingPathMapperTest extends BuildViewTestCase {
     Spawn spawn = action.getSpawn(new ActionExecutionContextBuilder().build());
 
     assertThat(spawn.getPathMapper().isNoop()).isFalse();
+    String outDir = analysisMock.getProductName() + "-out";
     assertThat(spawn.getArguments().stream().collect(toImmutableList()))
         .containsExactly(
-            "bazel-out/bin/tool/tool",
-            "bazel-out/bin/pkg/out.bin",
+            outDir + "/bin/tool/tool",
+            outDir + "/bin/pkg/out.bin",
             "-source",
-            "<bazel-out/bin/pkg/gen_src.txt>",
+            "<" + outDir + "/bin/pkg/gen_src.txt>",
             "-source",
             "<pkg/source.txt>")
         .inOrder();
@@ -173,12 +180,13 @@ public class StrippingPathMapperTest extends BuildViewTestCase {
     Spawn spawn = action.getSpawn(new ActionExecutionContextBuilder().build());
 
     assertThat(spawn.getPathMapper().isNoop()).isFalse();
+    String outDir = analysisMock.getProductName() + "-out";
     assertThat(spawn.getArguments().stream().collect(toImmutableList()))
         .containsExactly(
-            "bazel-out/bin/tool/tool",
-            "bazel-out/bin/pkg/out.bin",
+            outDir + "/bin/tool/tool",
+            outDir + "/bin/pkg/out.bin",
             "-source",
-            "<bazel-out/bin/pkg/gen_src.txt>",
+            "<" + outDir + "/bin/pkg/gen_src.txt>",
             "-source",
             "<pkg/source.txt>")
         .inOrder();
