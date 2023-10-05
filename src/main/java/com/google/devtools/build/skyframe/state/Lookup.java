@@ -19,6 +19,7 @@ import com.google.devtools.build.skyframe.SkyFunction.LookupEnvironment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import com.google.errorprone.annotations.ForOverride;
 import java.util.function.Consumer;
 
 /** Captures information about a lookup requested by a state machine. */
@@ -48,22 +49,24 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
 
   @Override
   public final void acceptValue(SkyKey unusedKey, SkyValue value) {
-    acceptValue(value);
+    acceptValueInternal(value);
     parent.signalChildDoneAndEnqueueIfReady();
   }
 
-  abstract void acceptValue(SkyValue value);
+  @ForOverride
+  protected abstract void acceptValueInternal(SkyValue value);
 
   @Override
   public final boolean tryHandleException(SkyKey unusedKey, Exception exception) {
-    boolean handled = tryHandleException(exception);
+    boolean handled = tryHandleExceptionInternal(exception);
     if (handled) {
       parent.signalChildDoneAndEnqueueIfReady();
     }
     return handled;
   }
 
-  abstract boolean tryHandleException(Exception exception);
+  @ForOverride
+  protected abstract boolean tryHandleExceptionInternal(Exception exception);
 
   static final class ConsumerLookup extends Lookup {
     private final Consumer<SkyValue> sink;
@@ -84,12 +87,12 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
     }
 
     @Override
-    void acceptValue(SkyValue value) {
+    protected void acceptValueInternal(SkyValue value) {
       sink.accept(value);
     }
 
     @Override
-    boolean tryHandleException(Exception unusedException) {
+    protected boolean tryHandleExceptionInternal(Exception unusedException) {
       return false;
     }
   }
@@ -120,7 +123,7 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
         if (e instanceof InterruptedException) {
           throw (InterruptedException) e;
         }
-        if (!tryHandleException(e)) {
+        if (!tryHandleException(key, e)) {
           throw new IllegalArgumentException("Unexpected exception for " + key(), e);
         }
       }
@@ -128,12 +131,12 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
     }
 
     @Override
-    void acceptValue(SkyValue value) {
+    protected void acceptValueInternal(SkyValue value) {
       sink.acceptValueOrException(value, /* exception= */ null);
     }
 
     @Override
-    boolean tryHandleException(Exception exception) {
+    protected boolean tryHandleExceptionInternal(Exception exception) {
       if (exceptionClass.isInstance(exception)) {
         sink.acceptValueOrException(/* value= */ null, exceptionClass.cast(exception));
         return true;
@@ -172,7 +175,7 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
         if (e instanceof InterruptedException) {
           throw (InterruptedException) e;
         }
-        if (!tryHandleException(e)) {
+        if (!tryHandleException(key, e)) {
           throw new IllegalArgumentException("Unexpected exception for " + key(), e);
         }
       }
@@ -180,12 +183,12 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
     }
 
     @Override
-    void acceptValue(SkyValue value) {
+    protected void acceptValueInternal(SkyValue value) {
       sink.acceptValueOrException2(value, /* e1= */ null, /* e2= */ null);
     }
 
     @Override
-    boolean tryHandleException(Exception exception) {
+    protected boolean tryHandleExceptionInternal(Exception exception) {
       if (exceptionClass1.isInstance(exception)) {
         sink.acceptValueOrException2(
             /* value= */ null, exceptionClass1.cast(exception), /* e2= */ null);
@@ -235,7 +238,7 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
         if (e instanceof InterruptedException) {
           throw (InterruptedException) e;
         }
-        if (!tryHandleException(e)) {
+        if (!tryHandleException(key, e)) {
           throw new IllegalArgumentException("Unexpected exception for " + key(), e);
         }
       }
@@ -243,12 +246,12 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
     }
 
     @Override
-    void acceptValue(SkyValue value) {
+    protected void acceptValueInternal(SkyValue value) {
       sink.acceptValueOrException3(value, /* e1= */ null, /* e2= */ null, /* e3= */ null);
     }
 
     @Override
-    boolean tryHandleException(Exception exception) {
+    protected boolean tryHandleExceptionInternal(Exception exception) {
       if (exceptionClass1.isInstance(exception)) {
         sink.acceptValueOrException3(
             /* value= */ null, exceptionClass1.cast(exception), /* e2= */ null, /* e3= */ null);

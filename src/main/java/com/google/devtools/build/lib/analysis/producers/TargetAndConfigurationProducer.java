@@ -444,12 +444,26 @@ public final class TargetAndConfigurationProducer
       return DONE;
     }
 
+    @Override
+    public void acceptConfigConditions(ConfigConditions configConditions) {
+      this.configConditions = configConditions;
+    }
+
+    @Override
+    public void acceptConfigConditionsError(ConfiguredValueCreationException e) {
+      emitTransitionErrorMessage(e.getMessage());
+    }
+
     public StateMachine computeTransition(Tasks tasks) {
+      if (configConditions == null) {
+        return DONE;
+      }
+
       // logic to compute transition with ConfigConditions
       var transitionData =
           RuleTransitionData.create(
               target.getAssociatedRule(),
-              configConditions != null ? configConditions.asProviders() : null,
+              configConditions.asProviders(),
               preRuleTransitionKey.getConfigurationKey().getOptionsChecksum());
 
       ConfigurationTransition transition = null;
@@ -504,16 +518,6 @@ public final class TargetAndConfigurationProducer
     @Override
     public void acceptTransitionError(OptionsParsingException e) {
       emitTransitionErrorMessage(e.getMessage());
-    }
-
-    @Override
-    public void acceptConfigConditionsError(ConfiguredValueCreationException e) {
-      emitTransitionErrorMessage(e.getMessage());
-    }
-
-    @Override
-    public void acceptConfigConditions(ConfigConditions configConditions) {
-      this.configConditions = configConditions;
     }
 
     @Override

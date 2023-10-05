@@ -402,6 +402,11 @@ public final class StateMachineTest {
   private static class StringOrExceptionProducer
       extends ValueOrExceptionProducer<StringValue, SomeErrorException>
       implements SkyKeyComputeState {
+    // Static boolean isProcessValueOrExceptionCalled is added to verify StateMachine chained after
+    // `step()` is invoked regardless of KEY_A1 looks up ends with a value or an exception.
+    // See b/290998109#comment6.
+    public static boolean isProcessValueOrExceptionCalled = false;
+
     @Override
     public StateMachine step(Tasks tasks) {
       tasks.lookUp(
@@ -414,7 +419,10 @@ public final class StateMachineTest {
             }
             setException(e);
           });
-      return DONE;
+      return t -> {
+        isProcessValueOrExceptionCalled = true;
+        return DONE;
+      };
     }
   }
 
@@ -437,6 +445,7 @@ public final class StateMachineTest {
               return DONE_VALUE;
             });
     assertThat(eval(ROOT_KEY, /* keepGoing= */ false).get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+    assertThat(StringOrExceptionProducer.isProcessValueOrExceptionCalled).isTrue();
   }
 
   @Test
@@ -470,6 +479,7 @@ public final class StateMachineTest {
       assertThat(result.get(ROOT_KEY)).isNull();
       assertThatEvaluationResult(result).hasSingletonErrorThat(KEY_A1);
     }
+    assertThat(StringOrExceptionProducer.isProcessValueOrExceptionCalled).isTrue();
   }
 
   /**
@@ -637,6 +647,121 @@ public final class StateMachineTest {
     }
   }
 
+  /**
+   * {@link #valueOrException2Producer_singleLookup_propagatesValuesAndInvokesRunAfter} and {@link
+   * #valueOrException2Producer_singleLookup_propagatesExceptionsAndInvokesRunAfter} are added in
+   * order to verify that if looking up the SkyKey throws an exception, the runAfter {@link
+   * StateMachine} defined as the return of {@link StringOrException2ProducerWithSingleLookup#step}
+   * is invoked.
+   *
+   * <p>These tests are designed not to be integrated into {@link
+   * #valueOrException2Producer_propagatesValues} and {@link
+   * #valueOrException2Producer_propagatesExceptions}. The reason is that only when {@link
+   * Driver#drive} looks up **one** newly added {@link SkyKey}, will {@link Lookup#doLookup} be
+   * called. And these tests aim at covering calling this method.
+   *
+   * <p>Similar tests for {@link ValueOrException3Producer} are also added below.
+   *
+   * <p>See b/290998109#comment6 for more details.
+   */
+  private static class StringOrException2ProducerWithSingleLookup
+      extends ValueOrException2Producer<StringValue, SomeErrorException1, SomeErrorException2>
+      implements SkyKeyComputeState {
+    public static boolean isProcessValueOrExceptionCalled = false;
+
+    @Override
+    public StateMachine step(Tasks tasks) {
+      tasks.lookUp(
+          KEY_A1,
+          SomeErrorException1.class,
+          SomeErrorException2.class,
+          (v, e1, e2) -> {
+            if (v != null) {
+              setValue((StringValue) v);
+            }
+            if (e1 != null) {
+              setException1(new SomeErrorException1(e1.getMessage()));
+            }
+            if (e2 != null) {
+              setException2(new SomeErrorException2(e2.getMessage()));
+            }
+          });
+      return t -> {
+        if (getException1() == null && getException2() == null) {
+          setValue(SUCCESS_VALUE);
+        }
+        isProcessValueOrExceptionCalled = true;
+        return DONE;
+      };
+    }
+  }
+
+  @Test
+  public void valueOrException2Producer_singleLookup_propagatesValuesAndInvokesRunAfter()
+      throws InterruptedException {
+    tester
+        .getOrCreate(ROOT_KEY)
+        .setBuilder(
+            (k, env) -> {
+              var producer = env.getState(StringOrException2ProducerWithSingleLookup::new);
+              SkyValue value;
+              try {
+                if ((value = producer.tryProduceValue(env)) == null) {
+                  return null;
+                }
+                assertThat(value).isEqualTo(SUCCESS_VALUE);
+              } catch (SomeErrorException e) {
+                fail("Unexpecteded exception: " + e);
+              }
+              return DONE_VALUE;
+            });
+    assertThat(eval(ROOT_KEY, /* keepGoing= */ false).get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+    assertThat(StringOrException2ProducerWithSingleLookup.isProcessValueOrExceptionCalled).isTrue();
+  }
+
+  @Test
+  public void valueOrException2Producer_singleLookup_propagatesExceptionsAndInvokesRunAfter(
+      @TestParameter boolean trueForException1) throws InterruptedException {
+    var hasRestarted = new AtomicBoolean(false);
+    tester
+        .getOrCreate(KEY_A1)
+        .unsetConstantValue()
+        .setBuilder(
+            (k, env) -> {
+              throw new ExceptionWrapper(
+                  trueForException1
+                      ? new SomeErrorException1("Exception 1")
+                      : new SomeErrorException2("Exception 2"));
+            });
+
+    tester
+        .getOrCreate(ROOT_KEY)
+        .setBuilder(
+            (k, env) -> {
+              var producer = env.getState(StringOrException2ProducerWithSingleLookup::new);
+              if (!hasRestarted.getAndSet(true)) {
+                try {
+                  assertThat(producer.tryProduceValue(env)).isNull();
+                } catch (SomeErrorException e) {
+                  fail("Unexpecteded exception: " + e);
+                }
+                return null;
+              }
+              if (trueForException1) {
+                assertThrows(SomeErrorException1.class, () -> producer.tryProduceValue(env));
+              } else {
+                assertThrows(SomeErrorException2.class, () -> producer.tryProduceValue(env));
+              }
+              return DONE_VALUE;
+            });
+
+    var result = eval(ROOT_KEY, /* keepGoing= */ false);
+
+    assertThat(result.get(ROOT_KEY)).isNull();
+    assertThatEvaluationResult(result).hasSingletonErrorThat(KEY_A1);
+    assertThat(StringOrException2ProducerWithSingleLookup.isProcessValueOrExceptionCalled).isTrue();
+  }
+
   private static class StringOrException3Producer
       extends ValueOrException3Producer<
           StringValue, SomeErrorException1, SomeErrorException2, SomeErrorException3>
@@ -761,6 +886,125 @@ public final class StateMachineTest {
       assertThat(result.get(ROOT_KEY)).isNull();
       assertThatEvaluationResult(result).hasSingletonErrorThat(errorKey);
     }
+  }
+
+  /** See the comments above {@link StringOrException2ProducerWithSingleLookup} for more details. */
+  private static class StringOrException3ProducerWithSingleLookup
+      extends ValueOrException3Producer<
+          StringValue, SomeErrorException1, SomeErrorException2, SomeErrorException3>
+      implements SkyKeyComputeState {
+    public static boolean isProcessValueOrExceptionCalled = false;
+
+    @Override
+    public StateMachine step(Tasks tasks) {
+      tasks.lookUp(
+          KEY_A1,
+          SomeErrorException1.class,
+          SomeErrorException2.class,
+          SomeErrorException3.class,
+          (v, e1, e2, e3) -> {
+            if (v != null) {
+              setValue((StringValue) v);
+            }
+            if (e1 != null) {
+              setException1(new SomeErrorException1(e1.getMessage()));
+            }
+            if (e2 != null) {
+              setException2(new SomeErrorException2(e2.getMessage()));
+            }
+            if (e3 != null) {
+              setException3(new SomeErrorException3(e3.getMessage()));
+            }
+          });
+      return t -> {
+        if (getException1() == null && getException2() == null && getException3() == null) {
+          setValue(SUCCESS_VALUE);
+        }
+        isProcessValueOrExceptionCalled = true;
+        return DONE;
+      };
+    }
+  }
+
+  @Test
+  public void valueOrException3Producer_singleLookup_propagatesValues()
+      throws InterruptedException {
+    tester
+        .getOrCreate(ROOT_KEY)
+        .setBuilder(
+            (k, env) -> {
+              var producer = env.getState(StringOrException3ProducerWithSingleLookup::new);
+              SkyValue value;
+              try {
+                if ((value = producer.tryProduceValue(env)) == null) {
+                  return null;
+                }
+                assertThat(value).isEqualTo(SUCCESS_VALUE);
+              } catch (SomeErrorException e) {
+                fail("Unexpecteded exception: " + e);
+              }
+              return DONE_VALUE;
+            });
+    assertThat(eval(ROOT_KEY, /* keepGoing= */ false).get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+    assertThat(StringOrException3ProducerWithSingleLookup.isProcessValueOrExceptionCalled).isTrue();
+  }
+
+  @Test
+  public void valueOrException3Producer_singleLookup_propagatesExceptionsAndExecuteRunAfter(
+      @TestParameter ValueOrException3ExceptionCase exceptionCase) throws InterruptedException {
+    var hasRestarted = new AtomicBoolean(false);
+    tester
+        .getOrCreate(KEY_A1)
+        .unsetConstantValue()
+        .setBuilder(
+            (k, env) -> {
+              Exception exception = null;
+              switch (exceptionCase) {
+                case ONE:
+                  exception = new SomeErrorException1("Exception 1");
+                  break;
+                case TWO:
+                  exception = new SomeErrorException2("Exception 2");
+                  break;
+                case THREE:
+                  exception = new SomeErrorException3("Exception 3");
+                  break;
+              }
+              throw new ExceptionWrapper(exception);
+            });
+
+    tester
+        .getOrCreate(ROOT_KEY)
+        .setBuilder(
+            (k, env) -> {
+              var producer = env.getState(StringOrException3ProducerWithSingleLookup::new);
+              if (!hasRestarted.getAndSet(true)) {
+                try {
+                  assertThat(producer.tryProduceValue(env)).isNull();
+                } catch (SomeErrorException e) {
+                  fail("Unexpecteded exception: " + e);
+                }
+                return null;
+              }
+              switch (exceptionCase) {
+                case ONE:
+                  assertThrows(SomeErrorException1.class, () -> producer.tryProduceValue(env));
+                  break;
+                case TWO:
+                  assertThrows(SomeErrorException2.class, () -> producer.tryProduceValue(env));
+                  break;
+                case THREE:
+                  assertThrows(SomeErrorException3.class, () -> producer.tryProduceValue(env));
+                  break;
+              }
+              return DONE_VALUE;
+            });
+
+    var result = eval(ROOT_KEY, /* keepGoing= */ false);
+
+    assertThat(result.get(ROOT_KEY)).isNull();
+    assertThatEvaluationResult(result).hasSingletonErrorThat(KEY_A1);
+    assertThat(StringOrException3ProducerWithSingleLookup.isProcessValueOrExceptionCalled).isTrue();
   }
 
   @Test
