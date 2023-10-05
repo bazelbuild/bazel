@@ -68,9 +68,12 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     setBuildLanguageOptions("--experimental_google_legacy_api");
   }
 
-  @Before
-  public void disableBzlmod() throws Exception {
-    setBuildLanguageOptions("--noenable_bzlmod");
+  // Disable Bzlmod for Andorid tests
+  @Override
+  protected void setBuildLanguageOptions(String... options) throws Exception {
+    ImmutableList.Builder<String> optionsBuilder = ImmutableList.builder();
+    optionsBuilder.add(options).add("--noenable_bzlmod");
+    super.setBuildLanguageOptions(optionsBuilder.build().toArray(new String[0]));
   }
 
   /** Override this to trigger platform-based Android toolchain resolution. */
