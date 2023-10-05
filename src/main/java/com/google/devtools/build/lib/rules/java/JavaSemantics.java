@@ -128,13 +128,14 @@ public interface JavaSemantics {
           });
 
   @SerializationConstant
-  LabelListLateBoundDefault<JavaConfiguration> LOCAL_JAVA_OPTIMIZATION_CONFIGURATION =
-      LabelListLateBoundDefault.fromTargetConfiguration(
+  LabelLateBoundDefault<JavaConfiguration> LOCAL_JAVA_OPTIMIZATION_CONFIGURATION =
+      LabelLateBoundDefault.fromTargetConfiguration(
           JavaConfiguration.class,
+          null,
           (rule, attributes, javaConfig) -> {
             // Don't bother adding the configuration dep if we're not going to use it.
             if (!javaConfig.runLocalJavaOptimizations()) {
-              return ImmutableList.of();
+              return null;
             }
             return javaConfig.getLocalJavaOptimizationConfiguration();
           });

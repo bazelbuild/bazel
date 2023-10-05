@@ -378,7 +378,7 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
                 .value(JavaSemantics.BYTECODE_OPTIMIZER)
                 .exec())
         .add(
-            attr(":local_java_optimization_configuration", LABEL_LIST)
+            attr(":local_java_optimization_configuration", LABEL)
                 .cfg(ExecutionTransitionFactory.createFactory())
                 .value(JavaSemantics.LOCAL_JAVA_OPTIMIZATION_CONFIGURATION))
         .build();

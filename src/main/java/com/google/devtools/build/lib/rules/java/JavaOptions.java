@@ -325,13 +325,12 @@ public class JavaOptions extends FragmentOptions {
    */
   @Option(
       name = "experimental_local_java_optimization_configuration",
-      allowMultiple = true,
       defaultValue = "null",
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Do not use.")
-  public List<Label> localJavaOptimizationConfiguration;
+  public Label localJavaOptimizationConfiguration;
 
   // TODO(b/237004872) Remove this after rollout of bytecode_optimization_pass_actions.
   /** If true, the OPTIMIZATION stage of the bytecode optimizer will be split across two actions. */
