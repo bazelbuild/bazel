@@ -20,6 +20,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -84,7 +85,13 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
               ImmutableMap::of,
               directories,
               BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
-      return ImmutableMap.of(SkyFunctions.REPOSITORY_DIRECTORY, function);
+
+      return ImmutableMap.<SkyFunctionName, SkyFunction>builder()
+          .putAll(Maps.filterKeys(
+              super.getSkyFunctions(directories),
+              fnName -> !fnName.equals(SkyFunctions.REPOSITORY_DIRECTORY)))
+          .put(SkyFunctions.REPOSITORY_DIRECTORY, function)
+          .buildOrThrow();
     }
   }
 
@@ -404,6 +411,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testLoadDoesNotHideWorkspaceFunction() throws Exception {
+    setBuildLanguageOptions("--noenable_bzlmod");
     scratch.file("def.bzl", "def macro():", "  print('bleh')");
     scratch.overwriteFile(
         rootDirectory.getRelative("WORKSPACE").getPathString(),
