@@ -245,7 +245,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
         getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo");
 
     assertThat(provider).isNotNull();
-    assertThat(provider.getValue("result")).isEqualTo("called in: @//subrule_testing:foo");
+    assertThat(provider.getValue("result")).isEqualTo("called in: @@//subrule_testing:foo");
   }
 
   @Test
