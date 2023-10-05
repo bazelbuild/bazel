@@ -33,7 +33,15 @@ import javax.annotation.Nullable;
  * part (e.g. "k8-fastbuild") from exec paths to allow for cross-configuration cache hits.
  */
 public interface PathMapper {
-  /** Returns the exec path with the path mapping applied. */
+  /**
+   * Returns the exec path with the path mapping applied.
+   *
+   * <p>Path mappers may return paths with different roots for two paths that have the same root
+   * (e.g., they may map an artifact at {@code bazel-out/k8-fastbuild/bin/pkg/foo} to {@code
+   * bazel-out/<hash of the file>/bin/pkg/foo}). Paths of artifacts that should share the same
+   * parent directory, such as runfiles or tree artifact files, should thus be derived from the
+   * mapped path of their parent.
+   */
   PathFragment map(PathFragment execPath);
 
   /** Returns the exec path of the input with the path mapping applied. */
@@ -78,6 +86,17 @@ public interface PathMapper {
    */
   default boolean isNoop() {
     return this == NOOP;
+  }
+
+  /**
+   * Returns an opaque object whose equality class should encode all information that goes into the
+   * behavior of the {@link #map(PathFragment)} function of this path mapper. This is used as a key
+   * for in-memory caches.
+   *
+   * <p>The default implementation returns the {@link Class} of the path mapper.
+   */
+  default Object cacheKey() {
+    return this.getClass();
   }
 
   /** A {@link PathMapper} that doesn't change paths. */

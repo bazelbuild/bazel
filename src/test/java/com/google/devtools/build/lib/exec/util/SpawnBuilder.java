@@ -61,7 +61,7 @@ public final class SpawnBuilder {
 
   private RunfilesSupplier runfilesSupplier = EmptyRunfilesSupplier.INSTANCE;
   private ResourceSet resourceSet = ResourceSet.ZERO;
-  private PathMapper pathMapper;
+  private PathMapper pathMapper = PathMapper.NOOP;
   private boolean builtForToolConfiguration;
 
   /**

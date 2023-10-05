@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -2081,12 +2082,21 @@ public class RemoteExecutionServiceTest {
     verify(service, times(6)).uncachedBuildMerkleTreeVisitor(any(), any(), any());
     assertThat(service.getMerkleTreeCache().asMap().keySet())
         .containsExactly(
-            ImmutableList.of(ImmutableMap.of(), PathFragment.EMPTY_FRAGMENT), // fileset mapping
-            ImmutableList.of(EmptyRunfilesSupplier.INSTANCE, PathFragment.EMPTY_FRAGMENT),
-            ImmutableList.of(tree, PathFragment.EMPTY_FRAGMENT),
-            ImmutableList.of(nodeRoot1.toNode(), PathFragment.EMPTY_FRAGMENT),
-            ImmutableList.of(nodeFoo1.toNode(), PathFragment.EMPTY_FRAGMENT),
-            ImmutableList.of(nodeBar.toNode(), PathFragment.EMPTY_FRAGMENT));
+            ImmutableList.of(
+                ImmutableMap.of(),
+                PathFragment.EMPTY_FRAGMENT,
+                PathMapper.NOOP.getClass()), // fileset mapping
+            ImmutableList.of(
+                EmptyRunfilesSupplier.INSTANCE,
+                PathFragment.EMPTY_FRAGMENT,
+                PathMapper.NOOP.getClass()),
+            ImmutableList.of(tree, PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()),
+            ImmutableList.of(
+                nodeRoot1.toNode(), PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()),
+            ImmutableList.of(
+                nodeFoo1.toNode(), PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()),
+            ImmutableList.of(
+                nodeBar.toNode(), PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()));
 
     // act second time
     service.buildRemoteAction(spawn2, context2);
@@ -2095,14 +2105,25 @@ public class RemoteExecutionServiceTest {
     verify(service, times(6 + 2)).uncachedBuildMerkleTreeVisitor(any(), any(), any());
     assertThat(service.getMerkleTreeCache().asMap().keySet())
         .containsExactly(
-            ImmutableList.of(ImmutableMap.of(), PathFragment.EMPTY_FRAGMENT), // fileset mapping
-            ImmutableList.of(EmptyRunfilesSupplier.INSTANCE, PathFragment.EMPTY_FRAGMENT),
-            ImmutableList.of(tree, PathFragment.EMPTY_FRAGMENT),
-            ImmutableList.of(nodeRoot1.toNode(), PathFragment.EMPTY_FRAGMENT),
-            ImmutableList.of(nodeRoot2.toNode(), PathFragment.EMPTY_FRAGMENT),
-            ImmutableList.of(nodeFoo1.toNode(), PathFragment.EMPTY_FRAGMENT),
-            ImmutableList.of(nodeFoo2.toNode(), PathFragment.EMPTY_FRAGMENT),
-            ImmutableList.of(nodeBar.toNode(), PathFragment.EMPTY_FRAGMENT));
+            ImmutableList.of(
+                ImmutableMap.of(),
+                PathFragment.EMPTY_FRAGMENT,
+                PathMapper.NOOP.getClass()), // fileset mapping
+            ImmutableList.of(
+                EmptyRunfilesSupplier.INSTANCE,
+                PathFragment.EMPTY_FRAGMENT,
+                PathMapper.NOOP.getClass()),
+            ImmutableList.of(tree, PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()),
+            ImmutableList.of(
+                nodeRoot1.toNode(), PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()),
+            ImmutableList.of(
+                nodeRoot2.toNode(), PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()),
+            ImmutableList.of(
+                nodeFoo1.toNode(), PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()),
+            ImmutableList.of(
+                nodeFoo2.toNode(), PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()),
+            ImmutableList.of(
+                nodeBar.toNode(), PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()));
   }
 
   @Test
