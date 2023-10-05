@@ -1966,7 +1966,6 @@ public abstract class CcModule
       Sequence<?> additionalInputs, // <Artifact> expected
       boolean disallowStaticLibraries,
       boolean disallowDynamicLibraries,
-      Object grepIncludes,
       Object variablesExtension,
       Object stamp,
       Object linkedDllNameSuffix,
@@ -2430,18 +2429,6 @@ public abstract class CcModule
             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             defaultValue = "unbound"),
         @Param(
-            name = "grep_includes",
-            positional = false,
-            named = true,
-            doc =
-                "DO NOT USE - DEPRECATED. grep_includes is now part of cc_toolchain and there is no"
-                    + " need to specify it from the rule itself.",
-            defaultValue = "None",
-            allowedTypes = {
-              @ParamType(type = FileApi.class),
-              @ParamType(type = NoneType.class),
-            }),
-        @Param(
             name = "copts_filter",
             documented = false,
             positional = false,
@@ -2499,7 +2486,6 @@ public abstract class CcModule
       Object variablesExtension,
       Object languageObject,
       Object purposeObject,
-      Object grepIncludesObject,
       Object coptsFilterObject,
       Object separateModuleHeadersObject,
       Object nonCompilationAdditionalInputsObject,
@@ -2745,7 +2731,6 @@ public abstract class CcModule
       boolean linkDepsStatically,
       StarlarkInt stamp,
       Object additionalInputs,
-      Object grepIncludes,
       Object linkedArtifactNameSuffixObject,
       Object neverLinkObject,
       Object alwaysLinkObject,
@@ -2953,14 +2938,6 @@ public abstract class CcModule
             doc = "<code>feature_configuration</code> to be queried.",
             positional = false,
             named = true),
-        @Param(
-            name = "grep_includes",
-            doc =
-                "DO NOT USE - DEPRECATED. grep_includes is now part of cc_toolchain and there is no"
-                    + " need to specify it from the rule itself.",
-            positional = false,
-            named = true,
-            defaultValue = "None"),
         @Param(name = "source_file", documented = false, positional = false, named = true),
         @Param(name = "output_file", documented = false, positional = false, named = true),
         @Param(name = "compilation_inputs", documented = false, positional = false, named = true),
@@ -2976,7 +2953,6 @@ public abstract class CcModule
       StarlarkActionFactory starlarkActionFactoryApi,
       CcToolchainProvider ccToolchain,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
-      Object grepIncludes,
       Artifact sourceFile,
       Artifact outputFile,
       Depset compilationInputs,
