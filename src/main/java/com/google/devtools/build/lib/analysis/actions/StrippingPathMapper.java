@@ -176,11 +176,6 @@ public final class StrippingPathMapper {
         }
         return MapFn.DEFAULT;
       }
-
-      @Override
-      public Object cacheKey() {
-        return GUID;
-      }
     };
   }
 
