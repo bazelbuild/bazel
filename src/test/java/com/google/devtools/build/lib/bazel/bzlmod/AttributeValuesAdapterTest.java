@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.bazel.bzlmod.AttributeValuesAdapter.STRING_ESCAPE_SEQUENCE;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -43,7 +44,23 @@ public class AttributeValuesAdapterTest extends FoundationTestCase {
     Label l2 = Label.parseCanonicalUnchecked("@//foo:tar");
     dict.put("Integer", StarlarkInt.of(56));
     dict.put("Boolean", false);
-    dict.put("String", "Hello");
+    dict.put("String", "Hello String");
+    dict.put("StringWithAngleBrackets", "<Hello>");
+    dict.put(
+        "LabelLikeString",
+        StarlarkList.of(Mutability.IMMUTABLE, "@//foo:bar", ":baz", "@@//baz:quz"));
+    dict.put(
+        "StringsWithEscapeSequence",
+        StarlarkList.of(
+            Mutability.IMMUTABLE,
+            "@@//foo:bar" + STRING_ESCAPE_SEQUENCE,
+            STRING_ESCAPE_SEQUENCE + "@@//foo:bar",
+            STRING_ESCAPE_SEQUENCE + "@@//foo:bar" + STRING_ESCAPE_SEQUENCE,
+            STRING_ESCAPE_SEQUENCE
+                + STRING_ESCAPE_SEQUENCE
+                + "@@//foo:bar"
+                + STRING_ESCAPE_SEQUENCE
+                + STRING_ESCAPE_SEQUENCE));
     dict.put("Label", l1);
     dict.put(
         "ListOfInts", StarlarkList.of(Mutability.IMMUTABLE, StarlarkInt.of(1), StarlarkInt.of(2)));
@@ -66,6 +83,10 @@ public class AttributeValuesAdapterTest extends FoundationTestCase {
       attributeValues = attrAdapter.read(new JsonReader(stringReader));
     }
 
+    // Verify that the JSON string does not contain any escaped angle brackets.
+    assertThat(jsonString).doesNotContain("\\u003c");
+    // Verify that the String "Hello String" is preserved as is, without any additional escaping.
+    assertThat(jsonString).contains(":\"Hello String\"");
     assertThat((Map<?, ?>) attributeValues.attributes()).containsExactlyEntriesIn(builtDict);
   }
 }
