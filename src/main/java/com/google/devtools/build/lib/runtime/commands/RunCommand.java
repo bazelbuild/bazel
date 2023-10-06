@@ -142,6 +142,14 @@ public class RunCommand implements BlazeCommand {
                 + " '%{product} run //foo' in that the %{product} lock is released and the"
                 + " executable is connected to the terminal's stdin.")
     public PathFragment scriptPath;
+
+    @Option(
+        name = "run",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "If false, skip running the command line constructed for the built target.")
+    public boolean runBuiltTarget;
   }
 
   private static final String NO_TARGET_MESSAGE = "No targets found to run";
@@ -276,13 +284,21 @@ public class RunCommand implements BlazeCommand {
         return reportAndCreateFailureResult(env, message, Code.SCRIPT_WRITE_FAILURE);
       }
     }
-
-    env.getReporter()
-        .handle(
-            Event.info(
-                null,
-                "Running command line: "
-                    + ShellEscaper.escapeJoinAll(runCommandLine.prettyPrintArgs)));
+    if (runOptions.runBuiltTarget) {
+      env.getReporter()
+          .handle(
+              Event.info(
+                  null,
+                  "Running command line: "
+                      + ShellEscaper.escapeJoinAll(runCommandLine.prettyPrintArgs)));
+    } else {
+      env.getReporter()
+          .handle(
+              Event.info(
+                  null,
+                  "Runnable command line: "
+                      + ShellEscaper.escapeJoinAll(runCommandLine.prettyPrintArgs)));
+    }
 
     // In --batch, prioritize original client env-var values over those added by the c++ launcher.
     // Only necessary in --batch since the command runs as a subprocess of the java server.
@@ -305,7 +321,8 @@ public class RunCommand implements BlazeCommand {
               runEnv.buildOrThrow(),
               ENV_VARIABLES_TO_CLEAR,
               builtTargets.configuration,
-              builtTargets.stopTime);
+              builtTargets.stopTime,
+              runOptions.runBuiltTarget);
       env.getReporter()
           .post(
               new ExecRequestEvent(
@@ -316,7 +333,8 @@ public class RunCommand implements BlazeCommand {
                           env,
                           runCommandLine.argsWithoutResidue,
                           builtTargets.configuration,
-                          builtTargets.stopTime)));
+                          builtTargets.stopTime),
+                  runOptions.runBuiltTarget));
       return BlazeCommandResult.execute(execRequest);
     } catch (RunCommandException e) {
       return e.result;
@@ -780,7 +798,8 @@ public class RunCommand implements BlazeCommand {
       ImmutableSortedMap<String, String> runEnv,
       ImmutableList<String> runEnvToClear,
       BuildConfigurationValue configuration,
-      long stopTime)
+      long stopTime,
+      boolean runBuiltTarget)
       throws RunCommandException {
     ExecRequest.Builder execDescription =
         ExecRequest.newBuilder()
@@ -798,6 +817,7 @@ public class RunCommand implements BlazeCommand {
         runEnvToClear.stream()
             .map(s -> ByteString.copyFrom(s, ISO_8859_1))
             .collect(toImmutableList()));
+    execDescription.setShouldExec(runBuiltTarget);
     return execDescription.build();
   }
 

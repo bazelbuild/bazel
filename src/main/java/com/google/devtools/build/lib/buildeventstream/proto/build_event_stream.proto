@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// LINT: LEGACY_NAMES
+
 syntax = "proto3";
 
 package build_event_stream;
@@ -1244,6 +1246,7 @@ message ExecRequestConstructed {
   repeated bytes argv = 2;
   repeated EnvironmentVariable environment_variable = 3;
   repeated bytes environment_variable_to_clear = 4;
+  bool should_exec = 5;
 }
 
 // An environment variable provided by a run command after a successful build.

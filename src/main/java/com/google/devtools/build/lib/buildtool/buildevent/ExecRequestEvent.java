@@ -36,10 +36,13 @@ public class ExecRequestEvent implements BuildEvent {
   private final ExecRequest execRequest;
 
   private final ImmutableList<ByteString> argv;
+  private final boolean runBuiltTarget;
 
-  public ExecRequestEvent(ExecRequest execRequest, ImmutableList<ByteString> argv) {
+  public ExecRequestEvent(
+      ExecRequest execRequest, ImmutableList<ByteString> argv, boolean runBuiltTarget) {
     this.execRequest = execRequest;
     this.argv = argv;
+    this.runBuiltTarget = runBuiltTarget;
   }
 
   @Override
@@ -58,6 +61,7 @@ public class ExecRequestEvent implements BuildEvent {
     for (ByteString envVarToClear : execRequest.getEnvironmentVariableToClearList()) {
       builder.addEnvironmentVariableToClear(envVarToClear);
     }
+    builder.setShouldExec(runBuiltTarget);
     return GenericBuildEvent.protoChaining(this).setExecRequest(builder.build()).build();
   }
 

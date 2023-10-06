@@ -1946,7 +1946,8 @@ unsigned int BlazeServer::Communicate(
         << "\nServer finished RPC without an explicit exit code (log file: '"
         << process_info_.jvm_log_file_.AsPrintablePath() << "')\n";
     return GetExitCodeForAbruptExit(output_base_);
-  } else if (final_response.has_exec_request()) {
+  } else if (final_response.has_exec_request() &&
+             final_response.exec_request().should_exec()) {
     const command_server::ExecRequest &request = final_response.exec_request();
     if (request.argv_size() < 1) {
       BAZEL_LOG(USER)
