@@ -10,6 +10,8 @@ Cherry picks:
    + 5b7da83d94d94204d1d95cbe3ed361ec742f8acb:
      Bazel release process: Fix broken "git push" by setting direct
      push j… (#19747)
+   + 2bf83ab8e58b96df994e59ffbe93d6d28a0f7897:
+     Release 7.0.0-pre.20230926.1 (2023-10-06)
 ```
 
 This release contains contributions from many people at Google, as well as .
