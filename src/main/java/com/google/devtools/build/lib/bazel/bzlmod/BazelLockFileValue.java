@@ -37,7 +37,7 @@ import java.util.Map;
 @GenerateTypeAdapter
 public abstract class BazelLockFileValue implements SkyValue, Postable {
 
-  public static final int LOCK_FILE_VERSION = 2;
+  public static final int LOCK_FILE_VERSION = 3;
 
   @SerializationConstant public static final SkyKey KEY = () -> SkyFunctions.BAZEL_LOCK_FILE;
 

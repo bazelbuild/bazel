@@ -1255,6 +1255,11 @@ public class RemoteExecutionService {
     if (remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
       return true;
     }
+    // An output materialized as a symlink might point to one of the other outputs.
+    if (!result.getOutputSymlinks().isEmpty() || !result.getOutputFileSymlinks().isEmpty()
+        || !result.getOutputDirectorySymlinks().isEmpty()) {
+      return true;
+    }
     // In case the action failed, download all outputs. It might be helpful for debugging and there
     // is no point in injecting output metadata of a failed action.
     if (result.getExitCode() != 0) {
