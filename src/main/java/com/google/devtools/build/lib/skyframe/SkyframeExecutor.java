@@ -1786,6 +1786,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private BuildConfigurationKey createBuildConfigurationKey(
       ExtendedEventHandler eventHandler, BuildOptions buildOptions)
       throws InvalidConfigurationException {
+    // Logic here must be kept in sync with BuildConfigurationKeyProducer.
+
     // Determine the platform mapping to use.
     PathFragment platformMappingPath =
         buildOptions.hasNoConfig()

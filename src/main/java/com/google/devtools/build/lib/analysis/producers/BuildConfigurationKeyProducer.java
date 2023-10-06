@@ -35,8 +35,10 @@ import java.util.Optional;
  *
  * <p>The output preserves the iteration order of the input.
  */
-class BuildConfigurationKeyProducer implements StateMachine {
-  interface ResultSink {
+// Logic here must be kept in sync with SkyframeExecutor.createBuildConfigurationKey.
+public class BuildConfigurationKeyProducer implements StateMachine {
+  /** Interface for clients to accept results of this computation. */
+  public interface ResultSink {
 
     void acceptTransitionError(OptionsParsingException e);
 
@@ -52,7 +54,7 @@ class BuildConfigurationKeyProducer implements StateMachine {
   // -------------------- Internal State --------------------
   private final Map<String, PlatformMappingValue> platformMappingValues = new HashMap<>();
 
-  BuildConfigurationKeyProducer(
+  public BuildConfigurationKeyProducer(
       ResultSink sink, StateMachine runAfter, Map<String, BuildOptions> options) {
     this.sink = sink;
     this.runAfter = runAfter;
