@@ -112,7 +112,7 @@ public final class AnalysisUtils {
    * Returns the list of declared providers of the specified Starlark key from a set of transitive
    * info collections.
    */
-  public static <T extends Info> ImmutableList<T> getProviders(
+  public static <T> ImmutableList<T> getProviders(
       Iterable<? extends TransitiveInfoCollection> prerequisites,
       final StarlarkProviderWrapper<T> starlarkKey)
       throws RuleErrorException {

@@ -154,8 +154,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
     ImmutableList<JavaPackageConfigurationProvider> packageConfiguration =
         ImmutableList.copyOf(
             ruleContext.getPrerequisites(
-                "package_configuration",
-                JavaPackageConfigurationProvider.class));
+                "package_configuration", JavaPackageConfigurationProvider.PROVIDER));
 
     FilesToRunProvider jacocoRunner = ruleContext.getExecutablePrerequisite("jacocorunner");
 

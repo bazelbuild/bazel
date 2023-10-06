@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Sequence;
@@ -42,7 +43,8 @@ abstract class AndroidLintTool implements StarlarkValue {
   abstract ImmutableList<JavaPackageConfigurationProvider> packageConfiguration();
 
   @Nullable
-  static AndroidLintTool fromRuleContext(RuleContext ruleContext) throws InterruptedException {
+  static AndroidLintTool fromRuleContext(RuleContext ruleContext)
+      throws InterruptedException, RuleErrorException {
     JavaToolchainTool tool =
         JavaToolchainTool.fromRuleContext(
             ruleContext, "android_lint_runner", "android_lint_data", "android_lint_jvm_opts");
@@ -63,7 +65,7 @@ abstract class AndroidLintTool implements StarlarkValue {
     ImmutableList<JavaPackageConfigurationProvider> packageConfiguration =
         ImmutableList.copyOf(
             ruleContext.getPrerequisites(
-                "android_lint_package_configuration", JavaPackageConfigurationProvider.class));
+                "android_lint_package_configuration", JavaPackageConfigurationProvider.PROVIDER));
     return create(tool, options, packageConfiguration);
   }
 

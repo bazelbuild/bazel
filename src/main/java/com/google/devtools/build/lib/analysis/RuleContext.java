@@ -957,7 +957,7 @@ public final class RuleContext extends TargetContext
    * Returns all the declared Starlark wrapped providers for the specified constructor under the
    * specified attribute of this target in the BUILD file.
    */
-  public <T extends Info> ImmutableList<T> getPrerequisites(
+  public <T> ImmutableList<T> getPrerequisites(
       String attributeName, StarlarkProviderWrapper<T> starlarkKey) throws RuleErrorException {
     return AnalysisUtils.getProviders(getPrerequisites(attributeName), starlarkKey);
   }

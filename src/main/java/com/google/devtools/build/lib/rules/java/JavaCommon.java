@@ -259,7 +259,7 @@ public class JavaCommon {
 
   /** Computes javacopts for the current rule. */
   private ImmutableList<String> computeJavacOpts(Collection<String> extraRuleJavacOpts)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
     ImmutableList.Builder<String> javacOpts =
         ImmutableList.<String>builder()
             .addAll(javaToolchain.getJavacOptionsAsList(ruleContext))
@@ -284,7 +284,7 @@ public class JavaCommon {
 
   /** Returns the per-package configured javacopts. */
   public static ImmutableList<String> computePerPackageJavacOpts(
-      RuleContext ruleContext, JavaToolchainProvider toolchain) {
+      RuleContext ruleContext, JavaToolchainProvider toolchain) throws RuleErrorException {
     // Do not use streams here as they create excessive garbage.
     ImmutableList.Builder<String> result = ImmutableList.builder();
     for (JavaPackageConfigurationProvider provider : toolchain.packageConfiguration()) {
@@ -297,7 +297,7 @@ public class JavaCommon {
 
   /** Returns the per-package configured runfiles. */
   public static NestedSet<Artifact> computePerPackageData(
-      RuleContext ruleContext, JavaToolchainProvider toolchain) {
+      RuleContext ruleContext, JavaToolchainProvider toolchain) throws RuleErrorException {
     // Do not use streams here as they create excessive garbage.
     NestedSetBuilder<Artifact> data = NestedSetBuilder.naiveLinkOrder();
     for (JavaPackageConfigurationProvider provider : toolchain.packageConfiguration()) {

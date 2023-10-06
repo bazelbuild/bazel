@@ -211,7 +211,7 @@ public final class JavaCompilationHelper {
     return builder.build();
   }
 
-  public void createCompileAction(JavaCompileOutputs<Artifact> outputs) {
+  public void createCompileAction(JavaCompileOutputs<Artifact> outputs) throws RuleErrorException {
     if (outputs.genClass() != null) {
       createGenJarAction(
           outputs.output(),

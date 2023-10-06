@@ -19,7 +19,8 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses.EmptyRuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses.NativeBuildRule;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -28,7 +29,11 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
-/** Rule definition for {@code java_package_configuration} */
+/**
+ * Rule definition for {@code java_package_configuration}
+ *
+ * <p>This rule is implemented in Starlark. This class remains only for doc-gen purposes.
+ */
 public class JavaPackageConfigurationRule implements RuleDefinition {
 
   @Override
@@ -58,10 +63,10 @@ public class JavaPackageConfigurationRule implements RuleDefinition {
 
   @Override
   public Metadata getMetadata() {
-    return RuleDefinition.Metadata.builder()
+    return Metadata.builder()
         .name("java_package_configuration")
-        .ancestors(BaseRuleClasses.NativeBuildRule.class)
-        .factoryClass(JavaPackageConfiguration.class)
+        .ancestors(NativeBuildRule.class)
+        .factoryClass(EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
 }
