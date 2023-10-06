@@ -262,8 +262,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
             } else {
               for (BuildOptions options : resolvedTransition.options()) {
                 BuildConfigurationEvent buildConfigurationEvent =
-                    getConfiguration(BuildConfigurationKey.withoutPlatformMapping(options))
-                        .toBuildEvent();
+                    getConfiguration(BuildConfigurationKey.create(options)).toBuildEvent();
                 int configurationId = configurationCache.getId(buildConfigurationEvent);
 
                 targetBuilder

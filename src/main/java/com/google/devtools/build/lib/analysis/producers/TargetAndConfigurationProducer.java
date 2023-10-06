@@ -405,7 +405,7 @@ public final class TargetAndConfigurationProducer
               new BuildOptionsView(
                   buildOptions, toolchainTaggedTrimmingTransition.requiresOptionFragments()),
               eventHandler);
-      return BuildConfigurationKey.withoutPlatformMapping(toolchainOptions);
+      return BuildConfigurationKey.create(toolchainOptions);
     }
 
     private ImmutableSet<Label> getExecutionPlatformConstraints(

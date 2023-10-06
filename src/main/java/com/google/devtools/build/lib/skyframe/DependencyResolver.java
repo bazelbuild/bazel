@@ -876,7 +876,7 @@ public final class DependencyResolver {
                 configuration.getOptions(),
                 toolchainTaggedTrimmingTransition.requiresOptionFragments()),
             listener);
-    return BuildConfigurationKey.withoutPlatformMapping(toolchainOptions);
+    return BuildConfigurationKey.create(toolchainOptions);
   }
 
   private static DependencyEvaluationException handleDependencyRootCauseError(

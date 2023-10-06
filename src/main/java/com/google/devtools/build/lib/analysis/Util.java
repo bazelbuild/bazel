@@ -105,8 +105,7 @@ public abstract class Util {
         maybeImplicitDeps.add(
             ConfiguredTargetKey.builder()
                 .setLabel(platformConfiguration.getTargetPlatform())
-                .setConfigurationKey(
-                    BuildConfigurationKey.withoutPlatformMapping(CommonOptions.EMPTY_OPTIONS))
+                .setConfigurationKey(BuildConfigurationKey.create(CommonOptions.EMPTY_OPTIONS))
                 .build());
       }
     }

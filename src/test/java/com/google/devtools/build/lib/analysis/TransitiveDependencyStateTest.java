@@ -191,25 +191,25 @@ public final class TransitiveDependencyStateTest {
         ConfiguredTargetKey.builder().setLabel(label1).build(),
         ConfiguredTargetKey.builder()
             .setLabel(label1)
-            .setConfigurationKey(BuildConfigurationKey.withoutPlatformMapping(FIRST_OPTIONS))
+            .setConfigurationKey(BuildConfigurationKey.create(FIRST_OPTIONS))
             .build(),
         ConfiguredTargetKey.builder()
             .setLabel(label1)
-            .setConfigurationKey(BuildConfigurationKey.withoutPlatformMapping(SECOND_OPTIONS))
-            .build(),
-        ConfiguredTargetKey.builder()
-            .setLabel(label1)
-            .setExecutionPlatformLabel(platformLabel)
+            .setConfigurationKey(BuildConfigurationKey.create(SECOND_OPTIONS))
             .build(),
         ConfiguredTargetKey.builder()
             .setLabel(label1)
             .setExecutionPlatformLabel(platformLabel)
-            .setConfigurationKey(BuildConfigurationKey.withoutPlatformMapping(FIRST_OPTIONS))
             .build(),
         ConfiguredTargetKey.builder()
             .setLabel(label1)
             .setExecutionPlatformLabel(platformLabel)
-            .setConfigurationKey(BuildConfigurationKey.withoutPlatformMapping(SECOND_OPTIONS))
+            .setConfigurationKey(BuildConfigurationKey.create(FIRST_OPTIONS))
+            .build(),
+        ConfiguredTargetKey.builder()
+            .setLabel(label1)
+            .setExecutionPlatformLabel(platformLabel)
+            .setConfigurationKey(BuildConfigurationKey.create(SECOND_OPTIONS))
             .build(),
         ConfiguredTargetKey.builder().setLabel(label2).build());
   }

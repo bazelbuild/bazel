@@ -38,7 +38,7 @@ public final class TargetSummaryEventTest {
   private static final String TARGET_NAME = "name";
 
   private static final BuildConfigurationKey CONFIGURATION_KEY =
-      BuildConfigurationKey.withoutPlatformMapping(BuildOptions.builder().build());
+      BuildConfigurationKey.create(BuildOptions.builder().build());
 
   private static final String CHECKSUM = CONFIGURATION_KEY.getOptions().checksum();
 

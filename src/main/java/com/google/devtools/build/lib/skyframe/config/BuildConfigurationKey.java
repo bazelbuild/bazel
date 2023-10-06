@@ -32,13 +32,10 @@ public final class BuildConfigurationKey implements SkyKey {
   /**
    * Returns the key for a requested configuration.
    *
-   * <p>Callers are responsible for applying the platform mapping or ascertaining that a platform
-   * mapping is not required.
-   *
    * @param options the {@link BuildOptions} object the {@link BuildOptions} should be rebuilt from
    */
   @AutoCodec.Instantiator
-  public static BuildConfigurationKey withoutPlatformMapping(BuildOptions options) {
+  public static BuildConfigurationKey create(BuildOptions options) {
     return interner.intern(new BuildConfigurationKey(options));
   }
 

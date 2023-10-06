@@ -116,8 +116,7 @@ final class PlatformInfoProducer
     ConfiguredTargetKey platformKey =
         ConfiguredTargetKey.builder()
             .setLabel(platformLabel)
-            .setConfigurationKey(
-                BuildConfigurationKey.withoutPlatformMapping(CommonOptions.EMPTY_OPTIONS))
+            .setConfigurationKey(BuildConfigurationKey.create(CommonOptions.EMPTY_OPTIONS))
             .build();
     tasks.lookUp(
         platformKey, ConfiguredValueCreationException.class, this::acceptPlatformValueOrError);

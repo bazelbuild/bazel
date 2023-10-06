@@ -349,7 +349,7 @@ public class BuildConfigurationValue
    * again.
    */
   public BuildConfigurationKey getKey() {
-    return BuildConfigurationKey.withoutPlatformMapping(buildOptions);
+    return BuildConfigurationKey.create(buildOptions);
   }
 
   /** Retrieves the {@link BuildOptionDetails} containing data on this configuration's options. */
