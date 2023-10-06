@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.common.options.OptionsParsingException;
 
 /**
  * {@link SkyKey} for {@link com.google.devtools.build.lib.analysis.config.BuildConfigurationValue}.
@@ -29,22 +28,6 @@ import com.google.devtools.common.options.OptionsParsingException;
 public final class BuildConfigurationKey implements SkyKey {
 
   private static final SkyKeyInterner<BuildConfigurationKey> interner = SkyKey.newInterner();
-
-  /**
-   * Creates a new configuration key based on the given options, after applying a platform mapping
-   * transformation.
-   *
-   * @param platformMappingValue sky value that can transform a configuration key based on a
-   *     platform mapping
-   * @param options the desired configuration
-   * @throws OptionsParsingException if the platform mapping cannot be parsed
-   */
-  public static BuildConfigurationKey withPlatformMapping(
-      PlatformMappingValue platformMappingValue, BuildOptions options)
-      throws OptionsParsingException {
-    BuildOptions mappedOptions = platformMappingValue.map(options);
-    return BuildConfigurationKey.withoutPlatformMapping(mappedOptions);
-  }
 
   /**
    * Returns the key for a requested configuration.

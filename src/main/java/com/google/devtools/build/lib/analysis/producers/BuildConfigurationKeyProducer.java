@@ -89,9 +89,9 @@ public class BuildConfigurationKeyProducer implements StateMachine {
       String transitionKey = entry.getKey();
       BuildConfigurationKey newConfigurationKey;
       try {
-        newConfigurationKey =
-            BuildConfigurationKey.withPlatformMapping(
-                platformMappingValues.get(transitionKey), entry.getValue());
+        PlatformMappingValue mappingValue = platformMappingValues.get(transitionKey);
+        BuildOptions mappedOptions = mappingValue.map(entry.getValue());
+        newConfigurationKey = BuildConfigurationKey.withoutPlatformMapping(mappedOptions);
       } catch (OptionsParsingException e) {
         sink.acceptTransitionError(e);
         return runAfter;

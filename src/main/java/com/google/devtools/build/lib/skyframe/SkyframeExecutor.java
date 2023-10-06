@@ -1807,7 +1807,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     // Create the build configuration key.
     try {
-      return BuildConfigurationKey.withPlatformMapping(platformMappingValue, buildOptions);
+      BuildOptions mappedOptions = platformMappingValue.map(buildOptions);
+      return BuildConfigurationKey.withoutPlatformMapping(mappedOptions);
     } catch (OptionsParsingException e) {
       throw new InvalidConfigurationException(Code.INVALID_BUILD_OPTIONS, e);
     }
