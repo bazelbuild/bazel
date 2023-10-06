@@ -230,6 +230,11 @@ public class SandboxHelpersTest {
   public void atomicallyWriteVirtualInput_writesArbitraryVirtualInput() throws Exception {
     VirtualActionInput input = ActionsTestUtil.createVirtualActionInput("file", "hello");
 
+    // Store an existing directory at the location where atomicallyWriteTo()
+    // writes its temporary file. It should be removed prior to the creation of
+    // the temporary file.
+    scratch.resolve("/outputs/file-1234").createDirectoryAndParents();
+
     input.atomicallyWriteRelativeTo(scratch.resolve("/outputs"), "-1234");
 
     assertThat(scratch.resolve("/outputs").readdir(Symlinks.NOFOLLOW))
