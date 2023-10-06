@@ -1,3 +1,23 @@
+## Release 7.0.0-pre.20230926.1 (2023-10-06)
+
+```
+Baseline: ea4ab7d8e696f48253fd172fcfbd37661e4710d5
+
+Cherry picks:
+
+   + 3453d035bb335a0e792fb379807dbdb812065619:
+     Keep leading zero in formatted date
+   + 5b7da83d94d94204d1d95cbe3ed361ec742f8acb:
+     Bazel release process: Fix broken "git push" by setting direct
+     push j… (#19747)
+   + 2bf83ab8e58b96df994e59ffbe93d6d28a0f7897:
+     Release 7.0.0-pre.20230926.1 (2023-10-06)
+   + 0cc1b4e0aa2d3937bd47ca8d7506f4ca88453a26:
+     Release 7.0.0-pre.20230926.1 (2023-10-06)
+```
+
+This release contains contributions from many people at Google, as well as .
+
 ## Release 7.0.0-pre.20230926.1 (2023-10-05)
 
 ```
