@@ -203,7 +203,7 @@ public final class AndroidSdkProvider extends NativeInfo
   private static boolean usingDummyToolchain(
       RuleContext ruleContext, AndroidSdkProvider androidSdkProvider) {
 
-    if (Strings.isNullOrEmpty(androidSdkProvider.getBuildToolsVersion())) {
+    if (androidSdkProvider.getAndroidJar().getFilename().matches("dummy\\.jar$")) {
       // This is an invalid SDK, and probably due to a default configuration.
       ruleContext.ruleError(
           String.format(
