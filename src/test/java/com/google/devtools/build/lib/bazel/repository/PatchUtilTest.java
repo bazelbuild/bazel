@@ -340,6 +340,65 @@ public final class PatchUtilTest {
   }
 
   @Test
+  // regression test for https://github.com/bazelbuild/bazel/issues/17897#issuecomment-1749389613
+  public void testMultipleChunks() throws IOException, PatchFailedException {
+    Path foo =
+        scratch.file(
+            "/root/foo",
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9",
+            "10",
+            "11",
+            "12",
+            "13",
+            "14",
+            "15",
+            "16",
+            "17",
+            "18");
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            "diff --git a/foo b/foo",
+            "index c20ab12..b83bdb1 100644",
+            "--- a/foo",
+            "+++ b/foo",
+            "@@ -1,12 +1,5 @@",
+            " 1",
+            " 2",
+            "-3",
+            "-4",
+            "-5",
+            "-6",
+            "-7",
+            "-8",
+            "-9",
+            " 10",
+            " 11",
+            " 12",
+            "@@ -15,4 +8,7 @@",
+            " 15",
+            " 16",
+            " 17",
+            "+a",
+            "+b",
+            "+c",
+            " 18");
+    PatchUtil.apply(patchFile, 1, root);
+    ImmutableList<String> newFoo =
+        ImmutableList.of(
+            "1", "2", "10", "11", "12", "13", "14", "15", "16", "17", "a", "b", "c", "18");
+    assertThat(FileSystemUtils.readLines(foo, UTF_8)).isEqualTo(newFoo);
+  }
+
+  @Test
   public void testMultipleChunksWithDifferentOffset() throws IOException, PatchFailedException {
     Path foo =
         scratch.file("/root/foo", "1", "3", "4", "5", "6", "7", "8", "9", "10", "11", "13", "14");

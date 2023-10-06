@@ -377,7 +377,7 @@ public final class StarlarkRepositoryContextTest {
           .isEqualTo(
               "Error applying patch /outputDir/my.patch: in patch applied to "
                   + "/outputDir/foo: could not apply patch due to"
-                  + " CONTENT_DOES_NOT_MATCH_TARGET");
+                  + " CONTENT_DOES_NOT_MATCH_TARGET, error applying change near line 1");
     }
   }
 

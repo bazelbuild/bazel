@@ -17,12 +17,14 @@ package com.google.devtools.build.lib.bazel.repository;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.github.difflib.UnifiedDiffUtils;
+import com.github.difflib.patch.AbstractDelta;
 import com.github.difflib.patch.Patch;
 import com.github.difflib.patch.PatchFailedException;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -212,13 +214,20 @@ public class PatchUtil {
       }
     }
 
-    List<String> newContent;
-    try {
-      // By using applyFuzzy, the patch also applies when there is an offset.
-      newContent = patch.applyFuzzy(oldContent, 0);
-    } catch (PatchFailedException e) {
-      throw new PatchFailedException(
-          String.format("in patch applied to %s: %s", oldFile, e.getMessage()));
+    List<String> newContent = new ArrayList<>(oldContent);
+    // Apply the chunks separately and in reverse order to workaround an issue in applyFuzzy.
+    // See https://github.com/java-diff-utils/java-diff-utils/pull/125#issuecomment-1749385825
+    for (AbstractDelta<String> delta : Lists.reverse(patch.getDeltas())) {
+      Patch<String> tmpPatch = new Patch<>();
+      tmpPatch.addDelta(delta);
+      try {
+        newContent = tmpPatch.applyFuzzy(newContent, 0);
+      } catch (PatchFailedException | IndexOutOfBoundsException e) {
+        throw new PatchFailedException(
+            String.format(
+                "in patch applied to %s: %s, error applying change near line %s",
+                oldFile, e.getMessage(), delta.getSource().getPosition() + 1));
+      }
     }
 
     // The file we should write newContent to.
