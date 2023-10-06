@@ -1,3 +1,61 @@
+## Release 7.0.0-pre.20230926.1 (2023-10-06)
+
+```
+Baseline: ea4ab7d8e696f48253fd172fcfbd37661e4710d5
+
+Cherry picks:
+
+   + 3453d035bb335a0e792fb379807dbdb812065619:
+     Keep leading zero in formatted date
+   + 5b7da83d94d94204d1d95cbe3ed361ec742f8acb:
+     Bazel release process: Fix broken "git push" by setting direct
+     push j… (#19747)
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 7.0.0-pre.20230926.1 (2023-10-05)
+
+```
+Baseline: ea4ab7d8e696f48253fd172fcfbd37661e4710d5
+
+Cherry picks:
+
+   + 3453d035bb335a0e792fb379807dbdb812065619:
+     Keep leading zero in formatted date
+   + b63af1ec3c09d50e7b96dd496874c98ca2907209:
+     Release 7.0.0-pre.20230926.1 (2023-10-05)
+   + dc23c2fbc5ae5ef14d59afbedd3e0d29d2ee3d6b:
+     Release 7.0.0-pre.20230926.1 (2023-10-05)
+```
+
+Incompatible changes:
+
+  - proto_compiler attribute removed from proto_lang_toolchain
+    (it was recently introduced, and there is no evidence of use)
+  - --experimental_genquery_use_graphless_query is made to be a NO-OP.
+
+Important changes:
+
+  - The new `--consistent_labels` option on `query`, `cquery`, and
+    `aquery` can be used to force consistent label formatting across
+    all output modes that is also compatible with `str(Label(...))`
+    in Starlark.
+
+This release contains contributions from many people at Google, as well as Alexander Grund, Fabian Meumertzheim, Joseph Lisee, Patrick Balestra, Son Luong Ngoc, Zheng Wei Tan.
+
+## Release  (2023-10-05)
+
+```
+Error: Not a release branch.
+```
+
+## Release  (2023-10-05)
+
+```
+Error: Not a release branch.
+```
+
 ## Release 7.0.0-pre.20230917.3 (2023-09-22)
 
 ```
