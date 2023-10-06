@@ -59,7 +59,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -927,18 +926,18 @@ public final class CcCompilationHelper {
    * </ol>
    */
   private ImmutableMap<Artifact, String> calculateOutputNameMap(
-      NestedSet<Artifact> sourceArtifacts, String prefixDir) {
+      ImmutableSet<Artifact> sourceArtifacts, String prefixDir) {
     ImmutableMap.Builder<Artifact, String> builder = ImmutableMap.builder();
 
     HashMap<String, Integer> count = new LinkedHashMap<>();
     HashMap<String, Integer> number = new LinkedHashMap<>();
-    for (Artifact source : sourceArtifacts.toList()) {
+    for (Artifact source : sourceArtifacts) {
       String outputName =
           FileSystemUtils.removeExtension(source.getRootRelativePath()).getBaseName();
       count.put(outputName.toLowerCase(), count.getOrDefault(outputName.toLowerCase(), 0) + 1);
     }
 
-    for (Artifact source : sourceArtifacts.toList()) {
+    for (Artifact source : sourceArtifacts) {
       String outputName =
           FileSystemUtils.removeExtension(source.getRootRelativePath()).getBaseName();
       if (count.getOrDefault(outputName.toLowerCase(), 0) > 1) {
@@ -976,14 +975,14 @@ public final class CcCompilationHelper {
     return builder.buildOrThrow();
   }
 
-  private NestedSet<Artifact> getSourceArtifactsByType(
+  private ImmutableSet<Artifact> getSourceArtifactsByType(
       Map<Artifact, CppSource> sources, CppSource.Type type) {
-    NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
-    result.addAll(
-        sources.values().stream()
-            .filter(source -> source.getType().equals(type))
-            .map(CppSource::getSource)
-            .collect(Collectors.toList()));
+    ImmutableSet.Builder<Artifact> result = ImmutableSet.builder();
+    for (CppSource source : sources.values()) {
+      if (source.getType().equals(type)) {
+        result.add(source.getSource());
+      }
+    }
     return result.build();
   }
 
