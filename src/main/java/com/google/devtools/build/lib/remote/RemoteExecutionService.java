@@ -511,7 +511,7 @@ public class RemoteExecutionService {
       final MerkleTree merkleTree = buildInputMerkleTree(spawn, context, toolSignature);
 
       // Get the remote platform properties.
-      Platform platform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
+      Platform platform;
       if (toolSignature != null) {
         platform =
             PlatformUtils.getPlatformProto(
