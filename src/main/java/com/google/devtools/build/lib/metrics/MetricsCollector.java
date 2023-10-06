@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TimingMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerPoolMetrics;
 import com.google.devtools.build.lib.buildtool.BuildPrecompleteEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochConverter;
@@ -99,7 +100,6 @@ class MetricsCollector {
   // TopLevelTargetExecutionStartedEvent. This AtomicBoolean is so that we only account for the
   // build once.
   private final AtomicBoolean buildAccountedFor;
-  private long executionStartMillis;
 
   @CanIgnoreReturnValue
   private MetricsCollector(
@@ -158,9 +158,6 @@ class MetricsCollector {
     }
   }
 
-  private void markExecutionPhaseStarted() {
-    executionStartMillis = BlazeClock.instance().currentTimeMillis();
-  }
 
   @SuppressWarnings("unused")
   @Subscribe
@@ -180,7 +177,6 @@ class MetricsCollector {
   @SuppressWarnings("unused")
   @Subscribe
   public synchronized void logExecutionStartingEvent(ExecutionStartingEvent event) {
-    markExecutionPhaseStarted();
     numBuilds.getAndIncrement();
   }
 
@@ -190,9 +186,13 @@ class MetricsCollector {
   public synchronized void handleExecutionPhaseStart(
       @SuppressWarnings("unused") TopLevelTargetPendingExecutionEvent event) {
     if (buildAccountedFor.compareAndSet(/*expectedValue=*/ false, /*newValue=*/ true)) {
-      markExecutionPhaseStarted();
       numBuilds.getAndIncrement();
     }
+  }
+
+  @Subscribe
+  public void handleExecutionPhaseComplete(ExecutionPhaseCompleteEvent event) {
+    timingMetrics.setExecutionPhaseTimeInMs(event.getTimeInMs());
   }
 
   @Subscribe
@@ -264,8 +264,6 @@ class MetricsCollector {
   @SuppressWarnings("unused")
   @Subscribe
   public void onExecutionComplete(ExecutionFinishedEvent event) {
-    timingMetrics.setExecutionPhaseTimeInMs(
-        BlazeClock.instance().currentTimeMillis() - executionStartMillis);
     artifactMetrics
         .setSourceArtifactsRead(event.sourceArtifactsRead())
         .setOutputArtifactsSeen(event.outputArtifactsSeen())
