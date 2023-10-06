@@ -7,6 +7,30 @@ Cherry picks:
 
    + 3453d035bb335a0e792fb379807dbdb812065619:
      Keep leading zero in formatted date
+   + 8893f2ee0efbdeb0816b13e7cb57c69d70b941c6:
+     Bazel release process: Fix broken "git push" by setting direct
+     push justification.
+   + 3f8e0964f4525cee71f8b7051e6996a906dd78d0:
+     Bazel release process: Fix push justification. (#19754)
+   + 95296e81853a4c93a47fba1812e1f849b6b16480:
+     Release 7.0.0-pre.20230926.1 (2023-10-06)
+   + fbcc487642c567a63f6503670d6d4f46f98308c1:
+     Release 7.0.0-pre.20230926.1 (2023-10-06)
+   + 3f9dc1c789e4bb2523fcd5236f53db8b3edb4733:
+     Release 7.0.0-pre.20230926.1 (2023-10-06)
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 7.0.0-pre.20230926.1 (2023-10-06)
+
+```
+Baseline: ea4ab7d8e696f48253fd172fcfbd37661e4710d5
+
+Cherry picks:
+
+   + 3453d035bb335a0e792fb379807dbdb812065619:
+     Keep leading zero in formatted date
    + 5b7da83d94d94204d1d95cbe3ed361ec742f8acb:
      Bazel release process: Fix broken "git push" by setting direct
      push j… (#19747)
