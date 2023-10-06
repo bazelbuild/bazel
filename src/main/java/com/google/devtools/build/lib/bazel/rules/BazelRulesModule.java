@@ -45,37 +45,6 @@ public final class BazelRulesModule extends BlazeModule {
   @SuppressWarnings("deprecation") // These fields have no JavaDoc by design
   public static class BuildGraveyardOptions extends OptionsBase {
     @Option(
-        name = "incompatible_genquery_use_graphless_query",
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        expansion = {
-          "--experimental_genquery_use_graphless_query=auto",
-        },
-        effectTags = {
-          OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS
-        },
-        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "Deprecated. No-op.")
-    public Void incompatibleUseGraphlessQuery;
-
-    @Option(
-        name = "noincompatible_genquery_use_graphless_query",
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        expansion = {
-          "--experimental_genquery_use_graphless_query=false",
-        },
-        effectTags = {
-          OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS
-        },
-        help = "Deprecated. No-op.")
-    public Void noincompatibleUseGraphlessQuery;
-
-    @Option(
         name = "experimental_genquery_use_graphless_query",
         defaultValue = "auto",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
