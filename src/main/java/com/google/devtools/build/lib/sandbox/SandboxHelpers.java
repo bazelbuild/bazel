@@ -552,10 +552,10 @@ public final class SandboxHelpers {
   @AutoValue
   public abstract static class SandboxOutputs {
 
-    /** A map from output file exec paths to paths in the sandbox. **/
+    /** A map from output file exec paths to paths in the sandbox. */
     public abstract ImmutableMap<PathFragment, PathFragment> files();
 
-    /** A map from output directory exec paths to paths in the sandbox. **/
+    /** A map from output directory exec paths to paths in the sandbox. */
     public abstract ImmutableMap<PathFragment, PathFragment> dirs();
 
     private static final SandboxOutputs EMPTY_OUTPUTS =
