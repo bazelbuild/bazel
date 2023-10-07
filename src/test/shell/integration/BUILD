@@ -877,6 +877,8 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    # Bazel test requires sandboxing
+    tags = ["no_windows"],
 )
 
 sh_library(

@@ -58,29 +58,11 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 source "$(rlocation "io_bazel/src/test/shell/integration/config_stripped_outputs_lib.sh")" \
   || { echo "config_stripped_outputs_lib.sh not found!" >&2; exit 1; }
 
-
-case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*|cygwin*)
-  declare -r is_windows=true
-  ;;
-*)
-  declare -r is_windows=false
-  ;;
-esac
-
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
-add_to_bazelrc "test --notest_loasd"
 add_to_bazelrc "build --package_path=%workspace%"
 
 # This is what triggers config path stripping.
 add_to_bazelrc "build --experimental_output_paths=strip"
 
-# Remove this check when Bazel supports path mapping. This requires a complying
-# executor. See https://github.com/bazelbuild/bazel/pull/18155.
 function is_bazel() {
   output_path=$(bazel info | grep '^output_path:')
   bazel_out="${output_path##*/}"
@@ -92,12 +74,16 @@ function is_bazel() {
   fi
 }
 
+# TODO: Remove this check when Javac actions use multiplex worker sandboxing by default.
+if is_bazel; then
+  add_to_bazelrc "build --strategy=Javac=worker"
+  add_to_bazelrc "build --worker_sandboxing"
+  add_to_bazelrc "build --noexperimental_worker_multiplex"
+fi
+
 # Tests built-in Java support for stripping config path prefixes from
 # platform-independent actions.
 function test_builtin_java_support() {
-  # TODO(https://github.com/bazelbuild/bazel/pull/18155): support Bazel.
-  if is_bazel; then return; fi
-
   local -r pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg"
   cat > "$pkg/BUILD" <<EOF
@@ -180,9 +166,6 @@ EOF
 }
 
 function test_inmemory_jdeps_support() {
-  # TODO(https://github.com/bazelbuild/bazel/pull/18155): support Bazel.
-  if is_bazel; then return; fi
-
   local -r pkg="${FUNCNAME[0]}"
   write_java_classpath_reduction_files "$pkg"
 
@@ -199,7 +182,139 @@ function test_inmemory_jdeps_support() {
   assert_paths_stripped "$TEST_log" "bin/$pkg/java/hello/libb-hjar.jar"
 }
 
-# TODO(b/191411472): add a test for actions that would be stripped but aren't
-# because they have inputs from multiple configurations.
+function test_multiple_configs() {
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg/rules"
+  cat > $pkg/rules/defs.bzl <<EOF
+LocationInfo = provider(fields = ["location"])
+
+def _location_setting_impl(ctx):
+    return LocationInfo(location = ctx.build_setting_value)
+
+location_setting = rule(
+    implementation = _location_setting_impl,
+    build_setting = config.string(),
+)
+
+def _location_transition_impl(settings, attr):
+    return {"//$pkg/rules:location": attr.location}
+
+_location_transition = transition(
+    implementation = _location_transition_impl,
+    inputs = [],
+    outputs = ["//$pkg/rules:location"],
+)
+
+def _bazelcon_greeting_impl(ctx):
+    content = """
+package com.example.{package};
+
+import com.example.BaseLib;
+
+public class Lib {{
+  public static String getGreeting() {{
+    return BaseLib.getGreeting("{location}");
+  }}
+}}
+""".format(
+        package = ctx.attr.name,
+        location = ctx.attr.location,
+    )
+    file = ctx.actions.declare_file("Lib.java")
+    ctx.actions.write(file, content)
+    return [
+        DefaultInfo(files = depset([file])),
+    ]
+
+bazelcon_greeting = rule(
+    _bazelcon_greeting_impl,
+    cfg = _location_transition,
+    attrs = {
+        "_allowlist_function_transition": attr.label(default = "@bazel_tools//tools/allowlists/function_transition_allowlist"),
+        "location": attr.string(),
+    },
+)
+EOF
+  cat > $pkg/rules/BUILD << 'EOF'
+load(":defs.bzl", "location_setting")
+
+location_setting(
+    name = "location",
+    build_setting_default = "",
+)
+EOF
+
+  mkdir -p $pkg/java
+  cat > $pkg/java/BUILD <<EOF
+load("//$pkg/rules:defs.bzl", "bazelcon_greeting")
+java_binary(
+    name = "Main",
+    srcs = ["Main.java"],
+    deps = [":lib"],
+)
+java_library(
+    name = "lib",
+    srcs = [
+        ":munich",
+        ":new_york",
+    ],
+    deps = [":base_lib"],
+)
+bazelcon_greeting(
+    name = "munich",
+    location = "Munich",
+)
+bazelcon_greeting(
+    name = "new_york",
+    location = "New York",
+)
+java_library(
+    name = "base_lib",
+    srcs = ["BaseLib.java"],
+)
+EOF
+  cat > $pkg/java/Main.java <<'EOF'
+package com.example;
+public class Main {
+  public static void main(String[] args) {
+    System.out.println(com.example.new_york.Lib.getGreeting());
+    System.out.println(com.example.munich.Lib.getGreeting());
+  }
+}
+EOF
+  cat > $pkg/java/BaseLib.java <<'EOF'
+package com.example;
+public class BaseLib {
+  public static String getGreeting(String location) {
+    return "Hello from " + location;
+  }
+}
+EOF
+
+  bazel clean
+  bazel build --experimental_java_classpath=bazel  \
+    --experimental_output_paths=strip \
+    --experimental_inmemory_jdeps_files \
+    //$pkg/java:Main -s 2>"$TEST_log" \
+    || fail "Expected success"
+
+  # java_binary compilation
+  assert_paths_stripped "$TEST_log" "bin/$pkg/java/Main.jar"
+  # base_lib .jar compilation
+  assert_paths_stripped "$TEST_log" "$pkg/java/libbase_lib.jar-0.params"
+  # base_lib header jar compilation
+  assert_paths_stripped "$TEST_log" "bin/$pkg/java/libbase_lib-hjar.jar"
+  # lib .jar compilation should not be stripped due to conflicting paths
+  assert_contains "\(bazel\|blaze\)-out/[^/]\+-fastbuild/bin/$pkg/java/liblib.jar-0.params" "$TEST_log"
+  # lib header jar compilation should not be stripped due to conflicting paths
+  assert_contains "--output \(bazel\|blaze\)-out/[^/]\+-fastbuild/bin/$pkg/java/liblib-hjar.jar" "$TEST_log"
+  # lib full jdeps proto should not be stripped due to conflicting paths
+  if is_bazel; then
+    bazel_bin="bazel-bin"
+  else
+    bazel_bin="blaze-bin"
+  fi
+  assert_contains "\(bazel\|blaze\)-out/[^/]\+-fastbuild/bin/$pkg/java/libbase_lib-hjar.jar" ${bazel_bin}/$pkg/java/liblib.jdeps
+}
 
 run_suite "Tests stripping config prefixes from output paths for better action caching"
