@@ -153,7 +153,7 @@ class NestedSetSerializationCache {
   /**
    * Ensures that a fingerprint ⟺ contents association is cached in both directions.
    *
-   * <p>If the given fingerprint and array are already <em>fully<em> cached, returns the existing
+   * <p>If the given fingerprint and array are already <em>fully</em> cached, returns the existing
    * {@link FingerprintComputationResult}. Otherwise returns {@code null}.
    *
    * <p>If the given fingerprint is only <em>partially</em> cached (meaning that {@link
