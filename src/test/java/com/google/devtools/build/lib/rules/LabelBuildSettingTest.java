@@ -341,9 +341,6 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
 
   @Test
   public void testInvisibleRepoInLabelResultsInEarlyError() throws Exception {
-    setBuildLanguageOptions("--enable_bzlmod");
-
-    scratch.file("MODULE.bazel");
     scratch.file(
         "test/defs.bzl",
         "def _setting_impl(ctx):",
