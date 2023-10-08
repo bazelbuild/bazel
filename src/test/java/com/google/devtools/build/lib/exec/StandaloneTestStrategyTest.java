@@ -199,6 +199,11 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
   private final StoredEventHandler storedEvents = new StoredEventHandler();
 
   @Before
+  public void disableBzlmod() throws Exception {
+    setBuildLanguageOptions("--noenable_bzlmod");
+  }
+
+  @Before
   public void setUp() throws Exception {
     when(spawnStrategy.canExec(any(), any())).thenReturn(true);
   }
