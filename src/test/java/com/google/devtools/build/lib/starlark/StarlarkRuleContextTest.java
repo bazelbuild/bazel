@@ -1021,6 +1021,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testWorkspaceName() throws Exception {
+    setBuildLanguageOptions("--noenable_bzlmod");
     assertThat(ruleClassProvider.getRunfilesPrefix()).isNotNull();
     assertThat(ruleClassProvider.getRunfilesPrefix()).isNotEmpty();
     setRuleContext(createRuleContext("//foo:foo"));
