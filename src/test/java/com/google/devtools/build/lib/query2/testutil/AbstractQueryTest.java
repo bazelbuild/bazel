@@ -172,6 +172,18 @@ public abstract class AbstractQueryTest<T> {
             .build());
   }
 
+  public ImmutableList<String> getReducedModuleDotBazelContents(MockToolsConfig config) {
+    String bazelToolWorkspace = config.getPath("embedded_tools").getPathString();
+    String bazelPlatformsWorkspace = config.getPath("platforms_workspace").getPathString();
+    String localConfigPlatformWorkspace =
+        config.getPath("local_config_platform_workspace").getPathString();
+    return ImmutableList.of(
+        "local_path_override(module_name = 'bazel_tools', path = '" + bazelToolWorkspace + "')",
+        "local_path_override(module_name = 'local_config_platform', path = '" + localConfigPlatformWorkspace + "')",
+        "local_path_override(module_name = 'platforms', path = '" + bazelPlatformsWorkspace + "')"
+    );
+  }
+
   public void overwriteModuleDotBazel(String... lines) throws Exception {
     overwriteFile(
         "MODULE.bazel",
@@ -179,6 +191,15 @@ public abstract class AbstractQueryTest<T> {
             .addAll(ImmutableList.copyOf(lines))
             .addAll(analysisMock.getModuleDotBazelContents(mockToolsConfig))
             .addAll(MockProtoSupport.getModuleDotBazelContents())
+            .build());
+  }
+
+  public void overwriteModuleDotBazelWithReducedBuiltinModules(String... lines) throws Exception {
+    overwriteFile(
+        "MODULE.bazel",
+        new ImmutableList.Builder<String>()
+            .addAll(ImmutableList.copyOf(lines))
+            .addAll(getReducedModuleDotBazelContents(mockToolsConfig))
             .build());
   }
 
@@ -1641,8 +1662,12 @@ public abstract class AbstractQueryTest<T> {
     helper.writeFile(
         "/workspace/rules_java_workspace/MODULE.bazel",
         "module(name = \"rules_java\", version = \"\")");
+    helper.writeFile("/workspace/third_party/bazel_rules/rules_proto/WORKSPACE");
+    helper.writeFile(
+        "/workspace/third_party/bazel_rules/rules_proto/MODULE.bazel",
+        "module(name = \"rules_proto\", version = \"\")");
     helper.writeFile("WORKSPACE");
-    overwriteModuleDotBazel();
+    overwriteModuleDotBazelWithReducedBuiltinModules();
   }
 
   @Test
@@ -2275,7 +2300,8 @@ public abstract class AbstractQueryTest<T> {
   }
 
   protected void writeBzlmodBuildFiles() throws Exception {
-    overwriteModuleDotBazel("bazel_dep(name= 'repo', version='1.0', repo_name='my_repo')");
+    useReducedSetOfRules();
+    overwriteModuleDotBazelWithReducedBuiltinModules("bazel_dep(name= 'repo', version='1.0', repo_name='my_repo')");
     helper.overwriteFile(
         "BUILD",
         "sh_binary(",
