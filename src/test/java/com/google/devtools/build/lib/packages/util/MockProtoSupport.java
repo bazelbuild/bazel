@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages.util;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.rules.proto.ProtoConstants;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
@@ -51,6 +52,15 @@ public final class MockProtoSupport {
             + "proto_compiler = '"
             + ProtoConstants.DEFAULT_PROTOC_LABEL
             + "')");
+  }
+
+  public static ImmutableList<String> getModuleDotBazelContents() {
+    return ImmutableList.of(
+        "local_path_override(",
+        "    module_name = 'rules_proto',",
+        "    path = 'third_party/bazel_rules/rules_proto',",
+        ")"
+    );
   }
 
   /** Create a dummy "net/proto2 compiler and proto APIs for all languages and versions. */
