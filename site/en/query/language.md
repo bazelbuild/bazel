@@ -85,7 +85,7 @@ tokens:
   and the special characters `*/@.-_:$~[]` (asterisk, forward slash, at, period,
   hyphen, underscore, colon, dollar sign, tilde, left square brace, right square
   brace). However, unquoted words may not start with a hyphen `-` or asterisk `*`
-  even though relative [target names][(/concepts/labels#target-names) may start
+  even though relative [target names](/concepts/labels#target-names) may start
   with those characters.
 
   Unquoted words also may not include the characters plus sign `+` or equals
