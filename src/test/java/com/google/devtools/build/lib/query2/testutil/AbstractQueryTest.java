@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.query2.engine.DigraphQueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
@@ -190,7 +189,6 @@ public abstract class AbstractQueryTest<T> {
         new ImmutableList.Builder<String>()
             .addAll(ImmutableList.copyOf(lines))
             .addAll(analysisMock.getModuleDotBazelContents(mockToolsConfig))
-            .addAll(MockProtoSupport.getModuleDotBazelContents())
             .build());
   }
 
@@ -2300,8 +2298,7 @@ public abstract class AbstractQueryTest<T> {
   }
 
   protected void writeBzlmodBuildFiles() throws Exception {
-    useReducedSetOfRules();
-    overwriteModuleDotBazelWithReducedBuiltinModules("bazel_dep(name= 'repo', version='1.0', repo_name='my_repo')");
+    overwriteModuleDotBazel("bazel_dep(name= 'repo', version='1.0', repo_name='my_repo')");
     helper.overwriteFile(
         "BUILD",
         "sh_binary(",

@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
@@ -145,6 +146,17 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
   protected boolean testConfigurableAttributes() {
     // ConfiguredTargetQuery knows the actual configuration, so it doesn't falsely overapproximate.
     return false;
+  }
+
+  @Override
+  public void overwriteModuleDotBazel(String... lines) throws Exception {
+    overwriteFile(
+        "MODULE.bazel",
+        new ImmutableList.Builder<String>()
+            .addAll(ImmutableList.copyOf(lines))
+            .addAll(analysisMock.getModuleDotBazelContents(mockToolsConfig))
+            .addAll(MockProtoSupport.getModuleDotBazelContents())
+            .build());
   }
 
   @Override
