@@ -94,6 +94,8 @@ public abstract class AnalysisMock extends LoadingMock {
   /** Returns the contents of WORKSPACE. */
   public abstract ImmutableList<String> getWorkspaceContents(MockToolsConfig config);
 
+  public abstract ImmutableList<String> getModuleDotBazelContents(MockToolsConfig config);
+
   /** Returns the repos defined in the contents of WORKSPACE above. */
   public abstract ImmutableList<String> getWorkspaceRepos();
 
@@ -183,6 +185,12 @@ public abstract class AnalysisMock extends LoadingMock {
     public ImmutableList<String> getWorkspaceContents(MockToolsConfig mockToolsConfig) {
       return delegate.getWorkspaceContents(mockToolsConfig);
     }
+
+    @Override
+    public ImmutableList<String> getModuleDotBazelContents(MockToolsConfig mockToolsConfig) {
+      return delegate.getModuleDotBazelContents(mockToolsConfig);
+    }
+
 
     @Override
     public ImmutableList<String> getWorkspaceRepos() {
