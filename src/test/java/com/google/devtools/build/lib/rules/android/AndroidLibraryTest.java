@@ -1139,6 +1139,7 @@ public abstract class AndroidLibraryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testFileLocation() throws Exception {
+    setBuildLanguageOptions("--noenable_bzlmod");
     scratch.file(
         "java/android/BUILD",
         "android_library(",
