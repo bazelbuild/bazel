@@ -135,7 +135,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
   public static final class Builder {
 
     private static final ParamFileInfo PARAM_FILE_INFO =
-        ParamFileInfo.builder(UNQUOTED).setCharset(ISO_8859_1).build();
+        ParamFileInfo.builder(UNQUOTED).setCharset(ISO_8859_1).setUseAlways(true).build();
 
     private final RuleContext ruleContext;
 
@@ -452,14 +452,21 @@ public final class JavaHeaderCompileAction extends SpawnAction {
         }
       }
 
-      ImmutableMap<String, String> executionInfo =
-          TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation());
+      ImmutableMap.Builder<String, String> executionInfoBuilder = ImmutableMap.builder();
+      executionInfoBuilder.putAll(
+          TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
       if (javaConfiguration.inmemoryJdepsFiles()) {
-        executionInfo =
-            ImmutableMap.of(
-                ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
-                outputDepsProto.getExecPathString());
+        executionInfoBuilder.put(
+            ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
+            outputDepsProto.getExecPathString());
       }
+      if (javaToolchain.getHeaderCompilerSupportsWorkers()) {
+        executionInfoBuilder.putAll(ExecutionRequirements.WORKER_MODE_ENABLED);
+      }
+      if (javaToolchain.getHeaderCompilerSupportsMultiplexWorkers()) {
+        executionInfoBuilder.putAll(ExecutionRequirements.WORKER_MULTIPLEX_MODE_ENABLED);
+      }
+      ImmutableMap<String, String> executionInfo = executionInfoBuilder.build();
       if (useDirectClasspath) {
         NestedSet<Artifact> classpath;
         if (!directJars.isEmpty() || classpathEntries.isEmpty()) {
@@ -478,7 +485,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
         ruleContext.registerAction(
             new JavaHeaderCompileAction(
                 /* owner= */ ruleContext.getActionOwner(),
-                /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+                /* tools= */ headerCompiler.tool().getFilesToRun(),
                 /* inputs= */ allInputs,
                 /* outputs= */ outputs.build(),
                 /* resourceSetOrBuilder= */ AbstractAction.DEFAULT_RESOURCE_SET,

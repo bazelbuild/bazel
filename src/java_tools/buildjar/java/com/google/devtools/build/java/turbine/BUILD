@@ -7,12 +7,16 @@ package(
 
 java_binary(
     name = "turbine_direct_binary",
-    main_class = "com.google.turbine.main.Main",
+    main_class = "com.google.devtools.build.java.turbine.TurbineWorkerWrapper",
+    srcs = ["TurbineWorkerWrapper.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/worker:work_request_handlers",
+        "//third_party:turbine",
+    ],
     runtime_deps = [
         "//src/main/protobuf:deps_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party:turbine",
     ],
 )
 

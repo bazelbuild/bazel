@@ -102,6 +102,8 @@ public final class JavaToolchainProvider extends NativeInfo
       boolean javacSupportsWorkers,
       boolean javacSupportsMultiplexWorkers,
       boolean javacSupportsWorkerCancellation,
+      boolean headerCompilerSupportsWorkers,
+      boolean headerCompilerSupportsMultiplexWorkers,
       BootClassPathInfo bootclasspath,
       NestedSet<Artifact> tools,
       JavaToolchainTool javaBuilder,
@@ -156,6 +158,8 @@ public final class JavaToolchainProvider extends NativeInfo
         javacSupportsWorkers,
         javacSupportsMultiplexWorkers,
         javacSupportsWorkerCancellation,
+        headerCompilerSupportsWorkers,
+        headerCompilerSupportsMultiplexWorkers,
         packageConfiguration,
         jacocoRunner,
         proguardAllowlister,
@@ -192,6 +196,8 @@ public final class JavaToolchainProvider extends NativeInfo
   private final boolean javacSupportsWorkers;
   private final boolean javacSupportsMultiplexWorkers;
   private final boolean javacSupportsWorkerCancellation;
+  private final boolean headerCompilerSupportsWorkers;
+  private final boolean headerCompilerSupportsMultiplexWorkers;
   private final ImmutableList<JavaPackageConfigurationProvider> packageConfiguration;
   private final FilesToRunProvider jacocoRunner;
   private final FilesToRunProvider proguardAllowlister;
@@ -226,6 +232,8 @@ public final class JavaToolchainProvider extends NativeInfo
       boolean javacSupportsWorkers,
       boolean javacSupportsMultiplexWorkers,
       boolean javacSupportsWorkerCancellation,
+      boolean headerCompilerSupportsWorkers,
+      boolean headerCompilerSupportsMultiplexWorkers,
       ImmutableList<JavaPackageConfigurationProvider> packageConfiguration,
       FilesToRunProvider jacocoRunner,
       FilesToRunProvider proguardAllowlister,
@@ -264,6 +272,8 @@ public final class JavaToolchainProvider extends NativeInfo
     this.javacSupportsWorkers = javacSupportsWorkers;
     this.javacSupportsMultiplexWorkers = javacSupportsMultiplexWorkers;
     this.javacSupportsWorkerCancellation = javacSupportsWorkerCancellation;
+    this.headerCompilerSupportsWorkers = headerCompilerSupportsWorkers;
+    this.headerCompilerSupportsMultiplexWorkers = headerCompilerSupportsMultiplexWorkers;
     this.packageConfiguration = packageConfiguration;
     this.jacocoRunner = jacocoRunner;
     this.proguardAllowlister = proguardAllowlister;
@@ -483,6 +493,16 @@ public final class JavaToolchainProvider extends NativeInfo
   /** Returns whether JavaBuilders supports running persistent workers in multiplex mode */
   public boolean getJavacSupportsMultiplexWorkers() {
     return javacSupportsMultiplexWorkers;
+  }
+
+  /** Returns whether JavaHeaderCompiler supports running as a persistent worker or not. */
+  public boolean getHeaderCompilerSupportsWorkers() {
+    return headerCompilerSupportsWorkers;
+  }
+
+  /** Returns whether JavaHeaderCompiler supports running persistent workers in multiplex mode */
+  public boolean getHeaderCompilerSupportsMultiplexWorkers() {
+    return headerCompilerSupportsMultiplexWorkers;
   }
 
   /** Returns whether JavaBuilders supports running persistent workers with cancellation */
