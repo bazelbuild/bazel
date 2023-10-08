@@ -117,6 +117,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void otherPathExpansion() throws Exception {
+    setBuildLanguageOptions("--noenable_bzlmod");
     scratch.file(
         "expansion/BUILD",
         "genrule(name='foo', outs=['foo.txt'], cmd='never executed')",

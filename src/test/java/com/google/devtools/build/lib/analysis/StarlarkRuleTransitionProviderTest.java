@@ -1320,9 +1320,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
   @Test
   public void successfulTypeConversionOfNativeListOption_unambiguousLabels() throws Exception {
-    setBuildLanguageOptions("--enable_bzlmod", "--incompatible_unambiguous_label_stringification");
-
-    scratch.overwriteFile("MODULE.bazel", "bazel_dep(name='rules_x',version='1.0')");
+    setBuildLanguageOptions("--incompatible_unambiguous_label_stringification");
     registry.addModule(createModuleKey("rules_x", "1.0"), "module(name='rules_x', version='1.0')");
     scratch.file("modules/rules_x~1.0/WORKSPACE");
     scratch.file("modules/rules_x~1.0/BUILD");
@@ -1357,6 +1355,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         "load('@rules_x//:defs.bzl', 'my_rule')",
         "platform(name = 'my_platform')",
         "my_rule(name = 'test')");
+    rewriteModuleDotBazel("bazel_dep(name='rules_x',version='1.0')");
 
     getConfiguredTarget("//test");
     assertNoEvents();
