@@ -136,6 +136,10 @@ class TestBase(absltest.TestCase):
       # f.write('common --noenable_bzlmod\n')
     os.chdir(self._test_cwd)
 
+  def disableBzlmod(self):
+    with open(self._test_bazelrc, 'wt') as f:
+      f.write('common --noenable_bzlmod\n')
+
   def tearDown(self):
     self.RunBazel(['shutdown'])
     super(TestBase, self).tearDown()
