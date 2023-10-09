@@ -30,6 +30,7 @@ ProtoLangToolchainInfo = provider(
         protoc_opts = "(list[str]) Options to pass to proto compiler.",
         progress_message = "(str) Progress message to set on the proto compiler action.",
         mnemonic = "(str) Mnemonic to set on the proto compiler action.",
+        toolchain_type = """(Label) Toolchain type that was used to obtain this info""",
     ),
 )
 
@@ -154,6 +155,7 @@ def _compile(
         use_default_shell_env = True,
         resource_set = resource_set,
         exec_group = experimental_exec_group,
+        toolchain = getattr(proto_lang_toolchain_info, "toolchain_type", None),
     )
 
 _BAZEL_TOOLS_PREFIX = "external/bazel_tools/"
@@ -290,7 +292,6 @@ toolchains = struct(
     use_toolchain = _use_toolchain,
     find_toolchain = _find_toolchain,
     if_legacy_toolchain = _if_legacy_toolchain,
-    INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION = _builtins.toplevel.proto_common.incompatible_enable_proto_toolchain_resolution(),
 )
 
 proto_common_do_not_use = struct(
@@ -299,4 +300,6 @@ proto_common_do_not_use = struct(
     experimental_should_generate_code = _experimental_should_generate_code,
     experimental_filter_sources = _experimental_filter_sources,
     ProtoLangToolchainInfo = ProtoLangToolchainInfo,
+    INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION = _builtins.toplevel.proto_common.incompatible_enable_proto_toolchain_resolution(),
+    INCOMPATIBLE_PASS_TOOLCHAIN_TYPE = True,
 )
