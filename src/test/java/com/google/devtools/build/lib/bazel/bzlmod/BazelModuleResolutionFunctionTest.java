@@ -440,4 +440,40 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
                 + " compatibility level 3 which is different");
     assertDoesNotContainEvent("hello from yanked version");
   }
+
+  @Test
+  public void overrideOnNonexistentModule() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='mod', version='1.0')",
+        "bazel_dep(name = 'a', version = '1.0')",
+        "bazel_dep(name = 'b', version = '1.1')",
+        "local_path_override(module_name='d', path='whatevs')");
+
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/bar")
+            .addModule(
+                createModuleKey("a", "1.0"),
+                "module(name='a', version='1.0')",
+                "bazel_dep(name='b', version='1.0')")
+            .addModule(createModuleKey("c", "1.0"), "module(name='c', version='1.0')")
+            .addModule(createModuleKey("c", "1.1"), "module(name='c', version='1.1')")
+            .addModule(
+                createModuleKey("b", "1.0"),
+                "module(name='b', version='1.0')",
+                "bazel_dep(name='c', version='1.1')")
+            .addModule(
+                createModuleKey("b", "1.1"),
+                "module(name='b', version='1.1')",
+                "bazel_dep(name='c', version='1.0')");
+
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    EvaluationResult<BazelModuleResolutionValue> result =
+        evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
+
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().toString())
+        .contains("the root module specifies overrides on nonexistent module(s): d");
+  }
 }

@@ -17,12 +17,14 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.bazel.BazelVersion;
 import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
@@ -44,6 +46,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -119,6 +122,8 @@ public class BazelModuleResolutionFunction implements SkyFunction {
       return null;
     }
 
+    verifyAllOverridesAreOnExistentModules(initialDepGraph, root.getOverrides());
+
     Selection.Result selectionResult;
     try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.BZLMOD, "selection")) {
       selectionResult = Selection.run(initialDepGraph, root.getOverrides());
@@ -150,6 +155,23 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     }
 
     return selectionResult;
+  }
+
+  private static void verifyAllOverridesAreOnExistentModules(
+      ImmutableMap<ModuleKey, InterimModule> initialDepGraph,
+      ImmutableMap<String, ModuleOverride> overrides)
+      throws BazelModuleResolutionFunctionException {
+    ImmutableSet<String> existentModules =
+        initialDepGraph.values().stream().map(InterimModule::getName).collect(toImmutableSet());
+    Set<String> nonexistentModules = Sets.difference(overrides.keySet(), existentModules);
+    if (!nonexistentModules.isEmpty()) {
+      throw new BazelModuleResolutionFunctionException(
+          ExternalDepsException.withMessage(
+              Code.BAD_MODULE,
+              "the root module specifies overrides on nonexistent module(s): %s",
+              Joiner.on(", ").join(nonexistentModules)),
+          Transience.PERSISTENT);
+    }
   }
 
   private static void verifyRootModuleDirectDepsAreAccurate(
