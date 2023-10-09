@@ -339,4 +339,48 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
     assertThat(getConfiguredTarget("//test:buildme")).isNotNull();
     assertNoEvents();
   }
+
+  @Test
+  public void testInvisibleRepoInLabelResultsInEarlyError() throws Exception {
+    setBuildLanguageOptions("--enable_bzlmod");
+
+    scratch.file("MODULE.bazel");
+    scratch.file(
+        "test/defs.bzl",
+        "def _setting_impl(ctx):",
+        "  return []",
+        "string_flag = rule(",
+        "  implementation = _setting_impl,",
+        "  build_setting = config.string(flag=True),",
+        ")",
+        "def _transition_impl(settings, attr):",
+        "  return {'//test:formation': 'mesa'}",
+        "formation_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = ['@foobar//test:formation'],", // invalid repo name
+        "  outputs = ['//test:formation'],",
+        ")",
+        "def _impl(ctx):",
+        "  return []",
+        "state = rule(",
+        "  implementation = _impl,",
+        "  cfg = formation_transition,",
+        "  attrs = {",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  })");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'state', 'string_flag')",
+        "state(name = 'arizona')",
+        "string_flag(name = 'formation', build_setting_default = 'canyon')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:arizona");
+
+    assertContainsEvent(
+        "Error in transition: invalid transition input '@[unknown repo 'foobar' requested from @]"
+            + "//test:formation': no repo visible as @foobar from main repository");
+  }
 }
