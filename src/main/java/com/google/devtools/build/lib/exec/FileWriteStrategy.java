@@ -38,7 +38,6 @@ import java.time.Duration;
  * com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction}.
  */
 public final class FileWriteStrategy implements FileWriteActionContext {
-  public static final Class<FileWriteStrategy> TYPE = FileWriteStrategy.class;
   private static final Duration MIN_LOGGING = Duration.ofMillis(100);
 
   @Override
