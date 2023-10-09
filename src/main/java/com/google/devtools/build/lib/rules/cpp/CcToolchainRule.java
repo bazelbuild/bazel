@@ -17,7 +17,6 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
-import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
@@ -62,28 +61,6 @@ public final class CcToolchainRule implements RuleDefinition {
         .requiresConfigurationFragments(CppConfiguration.class, PlatformConfiguration.class)
         .advertiseProvider(TemplateVariableInfo.class)
         .add(attr("output_licenses", LICENSE))
-        /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(cpu) -->
-         Deprecated. Use toolchain_identifier attribute instead. It will be a noop after
-         <a href="https://github.com/bazelbuild/bazel/issues/5380">CROSSTOOL migration to Starlark
-         </a>, and will be removed by
-         <a href="https://github.com/bazelbuild/bazel/issues/7075">#7075</a>.
-
-         <p>When set, it will be used to perform crosstool_config.toolchain selection. It will take
-         precedence over --cpu Bazel option.</p>
-        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("cpu", STRING).nonconfigurable("Used in configuration creation"))
-        /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(compiler) -->
-         Deprecated. Use <code>toolchain_identifier</code> attribute instead. It will be a noop
-         after
-         <a href="https://github.com/bazelbuild/bazel/issues/5380">
-           CROSSTOOL migration to Starlark
-         </a>, and will be removed by
-         <a href="https://github.com/bazelbuild/bazel/issues/7075">#7075</a>.
-
-         <p>When set, it will be used to perform crosstool_config.toolchain selection. It will take
-         precedence over --cpu Bazel option.</p>
-        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("compiler", STRING).nonconfigurable("Used in configuration creation"))
         /* <!-- #BLAZE_RULE(cc_toolchain).ATTRIBUTE(all_files) -->
         Collection of all cc_toolchain artifacts. These artifacts will be added as inputs to all
         rules_cc related actions (with the exception of actions that are using more precise sets of
