@@ -1084,7 +1084,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "experimental_use_scheduling_middlemen",
-      defaultValue = "true",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
