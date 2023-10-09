@@ -295,6 +295,7 @@ message RemoteOptions {
     CREDENTIALS_WRITE_FAILURE = 3 [(metadata) = { exit_code: 36 }];
     DOWNLOADER_WITHOUT_GRPC_CACHE = 4 [(metadata) = { exit_code: 2 }];
     EXECUTION_WITH_INVALID_CACHE = 5 [(metadata) = { exit_code: 2 }];
+    EXECUTION_WITH_SCRUBBING = 6 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;

@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.Scrubber.SpawnScrubber;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -223,12 +224,18 @@ public class MerkleTree {
       InputMetadataProvider inputMetadataProvider,
       Path execRoot,
       ArtifactPathResolver artifactPathResolver,
+      @Nullable SpawnScrubber spawnScrubber,
       DigestUtil digestUtil)
       throws IOException {
     try (SilentCloseable c = Profiler.instance().profile("MerkleTree.build(ActionInput)")) {
       DirectoryTree tree =
           DirectoryTreeBuilder.fromActionInputs(
-              inputs, inputMetadataProvider, execRoot, artifactPathResolver, digestUtil);
+              inputs,
+              inputMetadataProvider,
+              execRoot,
+              artifactPathResolver,
+              spawnScrubber,
+              digestUtil);
       return build(tree, digestUtil);
     }
   }
@@ -250,6 +257,7 @@ public class MerkleTree {
       InputMetadataProvider inputMetadataProvider,
       Path execRoot,
       ArtifactPathResolver artifactPathResolver,
+      @Nullable SpawnScrubber spawnScrubber,
       DigestUtil digestUtil)
       throws IOException {
     try (SilentCloseable c = Profiler.instance().profile("MerkleTree.build(ActionInput)")) {
@@ -260,6 +268,7 @@ public class MerkleTree {
               inputMetadataProvider,
               execRoot,
               artifactPathResolver,
+              spawnScrubber,
               digestUtil);
       return build(tree, digestUtil);
     }

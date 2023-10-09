@@ -87,6 +87,7 @@ import com.google.devtools.build.lib.exec.Protos.CacheSalt;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
+import com.google.devtools.build.lib.remote.RemoteScrubbing.Config;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
@@ -94,6 +95,7 @@ import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
@@ -2079,7 +2081,7 @@ public class RemoteExecutionServiceTest {
     service.buildRemoteAction(spawn1, context1);
 
     // assert first time
-    verify(service, times(6)).uncachedBuildMerkleTreeVisitor(any(), any(), any());
+    verify(service, times(6)).uncachedBuildMerkleTreeVisitor(any(), any(), any(), any());
     assertThat(service.getMerkleTreeCache().asMap().keySet())
         .containsExactly(
             ImmutableList.of(
@@ -2102,7 +2104,7 @@ public class RemoteExecutionServiceTest {
     service.buildRemoteAction(spawn2, context2);
 
     // assert second time
-    verify(service, times(6 + 2)).uncachedBuildMerkleTreeVisitor(any(), any(), any());
+    verify(service, times(6 + 2)).uncachedBuildMerkleTreeVisitor(any(), any(), any(), any());
     assertThat(service.getMerkleTreeCache().asMap().keySet())
         .containsExactly(
             ImmutableList.of(
@@ -2201,6 +2203,67 @@ public class RemoteExecutionServiceTest {
                         .setValue(
                             "997337de8dc20123cd7c8fcaed2c9c79cd8138831f9fbbf119f37d0859c9e83a"))
                 .build());
+  }
+
+  @Test
+  public void buildRemoteActionWithScrubbing() throws Exception {
+    var keptInput = ActionsTestUtil.createArtifact(artifactRoot, "kept_input");
+    fakeFileCache.createScratchInput(keptInput, "kept");
+    var scrubbedInput = ActionsTestUtil.createArtifact(artifactRoot, "scrubbed_input");
+    fakeFileCache.createScratchInput(scrubbedInput, "scrubbed");
+
+    Spawn spawn =
+        new SpawnBuilder("some/path/cmd")
+            .withInputs(keptInput, scrubbedInput)
+            .withExecutionInfo(ExecutionRequirements.NO_REMOTE_EXEC, "")
+            .build();
+
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    remoteOptions.scrubber =
+        new Scrubber(
+            Config.newBuilder()
+                .addRules(
+                    Config.Rule.newBuilder()
+                        .setTransform(
+                            Config.Transform.newBuilder()
+                                .setSalt("NaCl")
+                                .addOmittedInputs(".*scrubbed.*")
+                                .addArgReplacements(
+                                    Config.Replacement.newBuilder()
+                                        .setSource("some/path")
+                                        .setTarget("another/dir"))))
+                .build());
+    RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
+
+    RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
+
+    MerkleTree merkleTree = remoteAction.getMerkleTree();
+    Directory actualRootDir =
+        merkleTree.getDirectoryByDigest(merkleTree.getRootProto().getDirectories(0).getDigest());
+
+    Directory expectedRootDir =
+        Directory.newBuilder()
+            .addFiles(
+                FileNode.newBuilder()
+                    .setName("kept_input")
+                    .setDigest(
+                        Digest.newBuilder()
+                            .setHash(
+                                "79f076abdd19a752db7267bfff2f9022161d120dea919fdaca2ffdfc24ca8c96")
+                            .setSizeBytes(4))
+                    .setIsExecutable(true))
+            .build();
+
+    assertThat(actualRootDir).isEqualTo(expectedRootDir);
+
+    assertThat(remoteAction.getCommand().getArgumentsList()).containsExactly("another/dir/cmd");
+
+    assertThat(remoteAction.getAction().getSalt())
+        .isEqualTo(
+            CacheSalt.newBuilder()
+                .setScrubSalt(CacheSalt.ScrubSalt.newBuilder().setSalt("NaCl"))
+                .build()
+                .toByteString());
   }
 
   private Spawn newSpawnFromResult(RemoteActionResult result) {

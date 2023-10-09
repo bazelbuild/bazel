@@ -3281,4 +3281,60 @@ EOF
       //:x  &> $TEST_log || fail "expected success"
 }
 
+function test_cache_key_scrubbing() {
+  echo foo > foo
+  echo bar > bar
+  cat<<'EOF' > BUILD
+exports_files(["foo", "bar"])
+
+label_flag(
+  name = "src",
+  build_setting_default = "//missing:target",
+)
+
+genrule(
+  name = "gen",
+  srcs = [":src"],
+  outs = ["out"],
+  cmd = "echo built > $@",
+)
+EOF
+  cat<<'EOF' > scrubbing.cfg
+rules {
+  transform {
+    omitted_inputs: "^(foo|bar)$"
+  }
+}
+EOF
+
+  # First build without a cache. Even though the remote cache keys can be
+  # scrubbed, Bazel still considers the actions distinct.
+
+  bazel build --experimental_remote_scrubbing_config=scrubbing.cfg \
+        --//:src=//:foo :gen &> $TEST_log \
+        || fail "failed to build with input foo and no cache"
+    expect_log "2 processes: 1 internal, 1 .*-sandbox"
+
+  bazel build --experimental_remote_scrubbing_config=scrubbing.cfg \
+      --//:src=//:bar :gen &> $TEST_log \
+      || fail "failed to build with input bar and no cache"
+  expect_log "2 processes: 1 internal, 1 .*-sandbox"
+
+  # Now build with a cache. Even though Bazel considers the actions distinct,
+  # they will be looked up in the remote cache using the scrubbed key, so one
+  # can serve as a cache hit for the other.
+
+  CACHEDIR=$(mktemp -d)
+
+  bazel build --experimental_remote_scrubbing_config=scrubbing.cfg \
+        --disk_cache=$CACHEDIR --//:src=//:foo :gen &> $TEST_log \
+        || fail "failed to build with input foo and a cache"
+  expect_log "2 processes: 1 internal, 1 .*-sandbox"
+
+  bazel build --experimental_remote_scrubbing_config=scrubbing.cfg \
+      --disk_cache=$CACHEDIR --//:src=//:bar :gen &> $TEST_log \
+      || fail "failed to build with input bar and a cache"
+  expect_log "2 processes: 1 disk cache hit, 1 internal"
+}
+
 run_suite "Remote execution and remote cache tests"

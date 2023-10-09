@@ -19,11 +19,13 @@ import build.bazel.remote.execution.v2.Platform.Property;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.remote.Scrubber;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.AssignmentConverter;
 import com.google.devtools.common.options.EnumConverter;
@@ -31,6 +33,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
 import java.time.Duration;
@@ -708,6 +711,47 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + " build by sending `FindMissingBlobs` calls periodically to remote cache. The"
               + " frequency is based on the value of `--experimental_remote_cache_ttl`.")
   public boolean remoteCacheLeaseExtension;
+
+  @Option(
+      name = "experimental_remote_scrubbing_config",
+      converter = ScrubberConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Enables remote cache key scrubbing with the supplied configuration file, which must be a"
+              + " ScrubbingConfig protocol buffer in text format.\n\n"
+              + "This feature is intended to facilitate sharing a remote/disk cache between actions"
+              + " executing on different platforms but targeting the same platform. It should be"
+              + " used with extreme care, as improper settings may cause accidental sharing of"
+              + " cache entries and result in incorrect builds.\n\n"
+              + "Scrubbing does not affect how an action is executed, only how its remote/disk"
+              + " cache key is computed for the purpose of retrieving or storing an action result."
+              + " It cannot be used in conjunction with remote execution. Modifying the scrubbing"
+              + " configuration does not invalidate outputs present in the local filesystem or"
+              + " internal caches; a clean build is required to reexecute affected actions.\n\n"
+              + "In order to successfully use this feature, you likely want to set a custom"
+              + " --host_platform together with --experimental_platform_in_output_dir (to normalize"
+              + " output prefixes) and --incompatible_strict_action_env (to normalize environment"
+              + " variables).")
+  public Scrubber scrubber;
+
+  private static final class ScrubberConverter extends Converter.Contextless<Scrubber> {
+
+    @Override
+    public Scrubber convert(String path) throws OptionsParsingException {
+      try {
+        return Scrubber.parse(path);
+      } catch (Scrubber.ConfigParseException e) {
+        throw new OptionsParsingException("Failed to parse ScrubbingConfig: " + e.getMessage(), e);
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "Converts to a Scrubber";
+    }
+  }
 
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.

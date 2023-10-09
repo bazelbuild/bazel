@@ -202,4 +202,13 @@ message CacheSalt {
   // Requires the execution service do NOT share caches across different
   // workspace.
   string workspace = 2;
+
+  message ScrubSalt {
+    // A unique value used to bust the cache for scrubbed actions.
+    string salt = 1;
+  }
+
+  // Ensures that a scrubbed action can never collide with a non-scrubbed one.
+  // See the documentation for the --experimental_remote_scrub_config flag.
+  ScrubSalt scrub_salt = 3;
 }

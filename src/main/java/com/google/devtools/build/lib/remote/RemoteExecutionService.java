@@ -87,6 +87,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.DirectoryMetadata;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.FileMetadata;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.SymlinkMetadata;
+import com.google.devtools.build.lib.remote.Scrubber.SpawnScrubber;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
@@ -179,6 +180,8 @@ public class RemoteExecutionService {
 
   @Nullable private final RemoteOutputChecker remoteOutputChecker;
 
+  @Nullable private final Scrubber scrubber;
+
   public RemoteExecutionService(
       Executor executor,
       Reporter reporter,
@@ -210,6 +213,7 @@ public class RemoteExecutionService {
     if (remoteOptions.remoteMerkleTreeCacheSize != 0) {
       merkleTreeCacheBuilder.maximumSize(remoteOptions.remoteMerkleTreeCacheSize);
     }
+    this.scrubber = remoteOptions.scrubber;
     this.merkleTreeCache = merkleTreeCacheBuilder.build();
 
     this.tempPathGenerator = tempPathGenerator;
@@ -219,12 +223,13 @@ public class RemoteExecutionService {
     this.remoteOutputChecker = remoteOutputChecker;
   }
 
-  static Command buildCommand(
+  private Command buildCommand(
       Collection<? extends ActionInput> outputs,
       List<String> arguments,
       ImmutableMap<String, String> env,
       @Nullable Platform platform,
-      RemotePathResolver remotePathResolver) {
+      RemotePathResolver remotePathResolver,
+      @Nullable SpawnScrubber spawnScrubber) {
     Command.Builder command = Command.newBuilder();
     ArrayList<String> outputFiles = new ArrayList<>();
     ArrayList<String> outputDirectories = new ArrayList<>();
@@ -249,6 +254,9 @@ public class RemoteExecutionService {
       command.setPlatform(platform);
     }
     for (String arg : arguments) {
+      if (spawnScrubber != null) {
+        arg = spawnScrubber.transformArgument(arg);
+      }
       command.addArguments(decodeBytestringUtf8(arg));
     }
     // Sorting the environment pairs by variable name.
@@ -349,15 +357,18 @@ public class RemoteExecutionService {
   }
 
   private MerkleTree buildInputMerkleTree(
-      Spawn spawn, SpawnExecutionContext context, ToolSignature toolSignature)
+      Spawn spawn,
+      SpawnExecutionContext context,
+      ToolSignature toolSignature,
+      @Nullable SpawnScrubber spawnScrubber)
       throws IOException, ForbiddenActionInputException {
     // Add output directories to inputs so that they are created as empty directories by the
     // executor. The spec only requires the executor to create the parent directory of an output
     // directory, which differs from the behavior of both local and sandboxed execution.
     SortedMap<PathFragment, ActionInput> outputDirMap = buildOutputDirMap(spawn);
     boolean useMerkleTreeCache = remoteOptions.remoteMerkleTreeCache;
-    if (toolSignature != null) {
-      // Marking tool files is not yet supported in conjunction with the merkle tree cache.
+    if (toolSignature != null || spawnScrubber != null) {
+      // The Merkle tree cache is not yet compatible with scrubbing or marking tool files.
       useMerkleTreeCache = false;
     }
     if (useMerkleTreeCache) {
@@ -366,11 +377,14 @@ public class RemoteExecutionService {
       remotePathResolver.walkInputs(
           spawn,
           context,
-          (Object nodeKey, InputWalker walker) -> {
-            subMerkleTrees.add(
-                buildMerkleTreeVisitor(
-                    nodeKey, walker, inputMetadataProvider, context.getPathResolver()));
-          });
+          (Object nodeKey, InputWalker walker) ->
+              subMerkleTrees.add(
+                  buildMerkleTreeVisitor(
+                      nodeKey,
+                      walker,
+                      inputMetadataProvider,
+                      context.getPathResolver(),
+                      spawnScrubber)));
       if (!outputDirMap.isEmpty()) {
         subMerkleTrees.add(
             MerkleTree.build(
@@ -378,6 +392,7 @@ public class RemoteExecutionService {
                 inputMetadataProvider,
                 execRoot,
                 context.getPathResolver(),
+                /* spawnScrubber= */ null,
                 digestUtil));
       }
       return MerkleTree.merge(subMerkleTrees, digestUtil);
@@ -399,6 +414,7 @@ public class RemoteExecutionService {
           context.getInputMetadataProvider(),
           execRoot,
           context.getPathResolver(),
+          spawnScrubber,
           digestUtil);
     }
   }
@@ -407,7 +423,8 @@ public class RemoteExecutionService {
       Object nodeKey,
       InputWalker walker,
       InputMetadataProvider inputMetadataProvider,
-      ArtifactPathResolver artifactPathResolver)
+      ArtifactPathResolver artifactPathResolver,
+      @Nullable SpawnScrubber spawnScrubber)
       throws IOException, ForbiddenActionInputException {
     // Deduplicate concurrent computations for the same node. It's not possible to use
     // MerkleTreeCache#get(key, loader) because the loading computation may cause other nodes to be
@@ -419,7 +436,8 @@ public class RemoteExecutionService {
       // No preexisting cache entry, so we must do the computation ourselves.
       try {
         freshFuture.complete(
-            uncachedBuildMerkleTreeVisitor(walker, inputMetadataProvider, artifactPathResolver));
+            uncachedBuildMerkleTreeVisitor(
+                walker, inputMetadataProvider, artifactPathResolver, spawnScrubber));
       } catch (Exception e) {
         freshFuture.completeExceptionally(e);
       }
@@ -443,7 +461,8 @@ public class RemoteExecutionService {
   public MerkleTree uncachedBuildMerkleTreeVisitor(
       InputWalker walker,
       InputMetadataProvider inputMetadataProvider,
-      ArtifactPathResolver artifactPathResolver)
+      ArtifactPathResolver artifactPathResolver,
+      @Nullable SpawnScrubber scrubber)
       throws IOException, ForbiddenActionInputException {
     ConcurrentLinkedQueue<MerkleTree> subMerkleTrees = new ConcurrentLinkedQueue<>();
     subMerkleTrees.add(
@@ -452,18 +471,18 @@ public class RemoteExecutionService {
             inputMetadataProvider,
             execRoot,
             artifactPathResolver,
+            scrubber,
             digestUtil));
     walker.visitNonLeaves(
-        (Object subNodeKey, InputWalker subWalker) -> {
-          subMerkleTrees.add(
-              buildMerkleTreeVisitor(
-                  subNodeKey, subWalker, inputMetadataProvider, artifactPathResolver));
-        });
+        (Object subNodeKey, InputWalker subWalker) ->
+            subMerkleTrees.add(
+                buildMerkleTreeVisitor(
+                    subNodeKey, subWalker, inputMetadataProvider, artifactPathResolver, scrubber)));
     return MerkleTree.merge(subMerkleTrees, digestUtil);
   }
 
   @Nullable
-  private static ByteString buildSalt(Spawn spawn) {
+  private static ByteString buildSalt(Spawn spawn, @Nullable SpawnScrubber spawnScrubber) {
     CacheSalt.Builder saltBuilder =
         CacheSalt.newBuilder().setMayBeExecutedRemotely(Spawns.mayBeExecutedRemotely(spawn));
 
@@ -471,6 +490,11 @@ public class RemoteExecutionService {
         spawn.getExecutionInfo().get(ExecutionRequirements.DIFFERENTIATE_WORKSPACE_CACHE);
     if (workspace != null) {
       saltBuilder.setWorkspace(workspace);
+    }
+
+    if (spawnScrubber != null) {
+      saltBuilder.setScrubSalt(
+          CacheSalt.ScrubSalt.newBuilder().setSalt(spawnScrubber.getSalt()).build());
     }
 
     return saltBuilder.build().toByteString();
@@ -508,7 +532,9 @@ public class RemoteExecutionService {
     remoteActionBuildingSemaphore.acquire();
     try {
       ToolSignature toolSignature = getToolSignature(spawn, context);
-      final MerkleTree merkleTree = buildInputMerkleTree(spawn, context, toolSignature);
+      SpawnScrubber spawnScrubber = scrubber != null ? scrubber.forSpawn(spawn) : null;
+      final MerkleTree merkleTree =
+          buildInputMerkleTree(spawn, context, toolSignature, spawnScrubber);
 
       // Get the remote platform properties.
       Platform platform;
@@ -526,7 +552,8 @@ public class RemoteExecutionService {
               spawn.getArguments(),
               spawn.getEnvironment(),
               platform,
-              remotePathResolver);
+              remotePathResolver,
+              spawnScrubber);
       Digest commandHash = digestUtil.compute(command);
       Action action =
           Utils.buildAction(
@@ -535,7 +562,7 @@ public class RemoteExecutionService {
               platform,
               context.getTimeout(),
               Spawns.mayBeCachedRemotely(spawn),
-              buildSalt(spawn));
+              buildSalt(spawn, spawnScrubber));
 
       ActionKey actionKey = digestUtil.computeActionKey(action);
 
@@ -1414,7 +1441,8 @@ public class RemoteExecutionService {
         Spawn spawn = action.getSpawn();
         SpawnExecutionContext context = action.getSpawnExecutionContext();
         ToolSignature toolSignature = getToolSignature(spawn, context);
-        merkleTree = buildInputMerkleTree(spawn, context, toolSignature);
+        SpawnScrubber spawnScrubber = scrubber != null ? scrubber.forSpawn(spawn) : null;
+        merkleTree = buildInputMerkleTree(spawn, context, toolSignature, spawnScrubber);
       }
 
       remoteExecutionCache.ensureInputsPresent(

@@ -1,5 +1,5 @@
-load("@rules_python//python:proto.bzl", "py_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@rules_python//python:proto.bzl", "py_proto_library")
 load("//third_party/grpc:build_defs.bzl", "java_grpc_library")
 load("//third_party/grpc/bazel:cc_grpc_library.bzl", "cc_grpc_library")
 load("//tools/build_rules:utilities.bzl", "java_library_srcs")
@@ -222,6 +222,21 @@ java_library_srcs(
 )
 
 proto_library(
+    name = "remote_scrubbing_proto",
+    srcs = ["remote_scrubbing.proto"],
+)
+
+java_proto_library(
+    name = "remote_scrubbing_java_proto",
+    deps = [":remote_scrubbing_proto"],
+)
+
+java_library_srcs(
+    name = "remote_scrubbing_java_proto_srcs",
+    deps = [":remote_scrubbing_java_proto"],
+)
+
+proto_library(
     name = "spawn_proto",
     srcs = ["spawn.proto"],
     deps = [
@@ -276,6 +291,7 @@ filegroup(
         ":option_filters_java_proto_srcs",
         ":profile_java_proto_srcs",
         ":remote_execution_log_java_proto_srcs",
+        ":remote_scrubbing_java_proto_srcs",
         ":spawn_java_proto_srcs",
         ":xcode_java_proto_srcs",
     ],
