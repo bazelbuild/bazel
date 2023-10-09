@@ -25,4 +25,4 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 # --- end runfiles.bash initialization v2 ---
 
 echo "Hello Bash Bar!"
-echo "rloc=$(rlocation "foo_ws/bar/bar-sh-data.txt")"
+echo "rloc=$(rlocation "_main/bar/bar-sh-data.txt")"

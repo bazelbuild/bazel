@@ -20,6 +20,6 @@ public class Bar {
   public static void main(String[] args) throws IOException {
     System.out.println("Hello Java Bar!");
     Runfiles r = Runfiles.create();
-    System.out.println("rloc=" + r.rlocation("foo_ws/bar/bar-java-data.txt"));
+    System.out.println("rloc=" + r.rlocation("_main/bar/bar-java-data.txt"));
   }
 }
