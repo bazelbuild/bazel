@@ -91,7 +91,7 @@ public class ModuleFileFunction implements SkyFunction {
           + " MODULE.bazel.\n"
           + "#\n"
           + "# For more details, please check https://github.com/bazelbuild/bazel/issues/18958\n"
-          + "###############################################################################";
+          + "###############################################################################\n";
 
   /**
    * @param builtinModules A list of "built-in" modules that are treated as implicit dependencies of
