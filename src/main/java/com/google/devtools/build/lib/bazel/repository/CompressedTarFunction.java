@@ -15,8 +15,10 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import static com.google.devtools.build.lib.bazel.repository.StripPrefixedPath.maybeDeprefixSymlink;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.base.Optional;
+import com.google.auto.service.AutoService;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -25,16 +27,33 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CharsetEncoder;
+import java.nio.charset.CoderResult;
+import java.nio.charset.spi.CharsetProvider;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 
 /**
  * Common code for unarchiving a compressed TAR file.
+ *
+ * <p>TAR file entries commonly use one of two formats: PAX, which uses UTF-8 encoding for all
+ * strings, and USTAR, which does not specify an encoding. This class interprets USTAR headers as
+ * latin-1, thus preserving the original bytes of the header without enforcing any particular
+ * encoding. Internally, for file system operations, all strings are converted into Bazel's internal
+ * representation of raw bytes stored as latin-1 strings.
  */
 public abstract class CompressedTarFunction implements Decompressor {
   protected abstract InputStream getDecompressorStream(DecompressorDescriptor descriptor)
@@ -54,20 +73,23 @@ public abstract class CompressedTarFunction implements Decompressor {
     Map<Path, PathFragment> symlinks = new HashMap<>();
 
     try (InputStream decompressorStream = getDecompressorStream(descriptor)) {
-      TarArchiveInputStream tarStream = new TarArchiveInputStream(decompressorStream);
+      // USTAR tar headers use an unspecified encoding whereas PAX tar headers always use UTF-8.
+      // We can specify the encoding to use for USTAR headers, but the Charset used for PAX headers
+      // is fixed to UTF-8. We thus specify a custom Charset for the former so that we can
+      // distinguish between the two.
+      TarArchiveInputStream tarStream =
+          new TarArchiveInputStream(decompressorStream, MarkedIso88591Charset.NAME);
       TarArchiveEntry entry;
       while ((entry = tarStream.getNextTarEntry()) != null) {
-        String entryName = entry.getName();
+        String entryName = toRawBytesString(entry.getName());
         entryName = renameFiles.getOrDefault(entryName, entryName);
-        StripPrefixedPath entryPath = StripPrefixedPath.maybeDeprefix(entryName, prefix);
+        StripPrefixedPath entryPath =
+            StripPrefixedPath.maybeDeprefix(entryName.getBytes(ISO_8859_1), prefix);
         foundPrefix = foundPrefix || entryPath.foundPrefix();
 
         if (prefix.isPresent() && !foundPrefix) {
-          Optional<String> suggestion =
-              CouldNotFindPrefixException.maybeMakePrefixSuggestion(entryPath.getPathFragment());
-          if (suggestion.isPresent()) {
-            availablePrefixes.add(suggestion.get());
-          }
+          CouldNotFindPrefixException.maybeMakePrefixSuggestion(entryPath.getPathFragment())
+              .ifPresent(availablePrefixes::add);
         }
 
         if (entryPath.skip()) {
@@ -80,8 +102,11 @@ public abstract class CompressedTarFunction implements Decompressor {
           filePath.createDirectoryAndParents();
         } else {
           if (entry.isSymbolicLink() || entry.isLink()) {
-            PathFragment targetName = PathFragment.create(entry.getLinkName());
-            targetName = maybeDeprefixSymlink(targetName, prefix, descriptor.destinationPath());
+            PathFragment targetName =
+                maybeDeprefixSymlink(
+                    toRawBytesString(entry.getLinkName()).getBytes(ISO_8859_1),
+                    prefix,
+                    descriptor.destinationPath());
             if (entry.isSymbolicLink()) {
               symlinks.put(filePath, targetName);
             } else {
@@ -134,5 +159,101 @@ public abstract class CompressedTarFunction implements Decompressor {
     }
 
     return descriptor.destinationPath();
+  }
+
+  /**
+   * Returns a string that contains the raw bytes of the given string encoded in ISO-8859-1,
+   * assuming that the given string was encoded with either UTF-8 or the special {@link
+   * MarkedIso88591Charset}.
+   */
+  private static String toRawBytesString(String name) {
+    // Marked strings are already encoded in ISO-8859-1. Other strings originate from PAX headers
+    // and are thus encoded in UTF-8, which we decode to the raw bytes and then re-encode trivially
+    // in ISO-8859-1.
+    return MarkedIso88591Charset.getRawBytesStringIfMarked(name)
+        .orElseGet(() -> new String(name.getBytes(UTF_8), ISO_8859_1));
+  }
+
+  /** A provider of {@link MarkedIso88591Charset}s. */
+  @AutoService(CharsetProvider.class)
+  public static class MarkedIso88591CharsetProvider extends CharsetProvider {
+    private static final Charset CHARSET = new MarkedIso88591Charset();
+
+    @Override
+    public Iterator<Charset> charsets() {
+      // This charset is only meant for internal use within CompressedTarFunction and thus should
+      // not be discoverable.
+      return Collections.emptyIterator();
+    }
+
+    @Override
+    public Charset charsetForName(String charsetName) {
+      return MarkedIso88591Charset.NAME.equals(charsetName) ? CHARSET : null;
+    }
+  }
+
+  /**
+   * A charset that decodes ISO-8859-1, i.e., produces a String that contains the raw decoded bytes,
+   * and appends a marker to the end of the string to indicate that it was decoded with this
+   * charset.
+   */
+  private static class MarkedIso88591Charset extends Charset {
+    // The name
+    // * must not collide with the name of any other charset.
+    // * must not appear in archive entry names by chance.
+    // * is internal to CompressedTarFunction.
+    // This is best served by a cryptographically random UUID, generated at startup.
+    private static final String NAME = UUID.randomUUID().toString();
+
+    private MarkedIso88591Charset() {
+      super(NAME, new String[0]);
+    }
+
+    public static Optional<String> getRawBytesStringIfMarked(String s) {
+      // Check for the marker in all positions as TarArchiveInputStream manipulates the raw name in
+      // certain cases (for example, appending a '/' to directory names).
+      if (s.contains(NAME)) {
+        return Optional.of(s.replaceAll(NAME, ""));
+      }
+      return Optional.empty();
+    }
+
+    @Override
+    public CharsetDecoder newDecoder() {
+      return new CharsetDecoder(this, 1, 1) {
+        @Override
+        protected CoderResult decodeLoop(ByteBuffer in, CharBuffer out) {
+          // A simple unoptimized ISO-8859-1 decoder.
+          while (in.hasRemaining()) {
+            if (!out.hasRemaining()) {
+              return CoderResult.OVERFLOW;
+            }
+            out.put((char) (in.get() & 0xFF));
+          }
+          return CoderResult.UNDERFLOW;
+        }
+
+        @Override
+        protected CoderResult implFlush(CharBuffer out) {
+          // Append the marker to the end of the buffer to indicate that it was decoded with this
+          // charset.
+          if (out.remaining() < NAME.length()) {
+            return CoderResult.OVERFLOW;
+          }
+          out.put(NAME);
+          return CoderResult.UNDERFLOW;
+        }
+      };
+    }
+
+    @Override
+    public CharsetEncoder newEncoder() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean contains(Charset cs) {
+      return false;
+    }
   }
 }
