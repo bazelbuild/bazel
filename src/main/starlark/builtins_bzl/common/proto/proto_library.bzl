@@ -208,7 +208,7 @@ def _write_descriptor_set(ctx, proto_info, deps, exports, descriptor_set):
                 map_each = proto_common.get_import_path,
                 join_with = ":",
             )
-    if toolchains.INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION:
+    if proto_common.INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION:
         toolchain = ctx.toolchains[semantics.PROTO_TOOLCHAIN]
         if not toolchain:
             fail("Protocol compiler toolchain could not be resolved.")

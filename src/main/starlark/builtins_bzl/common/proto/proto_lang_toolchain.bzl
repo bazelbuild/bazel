@@ -14,7 +14,7 @@
 
 """A Starlark implementation of the proto_lang_toolchain rule."""
 
-load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo", "toolchains")
+load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo", "toolchains", proto_common = "proto_common_do_not_use")
 load(":common/proto/proto_info.bzl", "ProtoInfo")
 load(":common/proto/proto_semantics.bzl", "semantics")
 
@@ -32,7 +32,7 @@ def _rule_impl(ctx):
     if ctx.attr.plugin != None:
         plugin = ctx.attr.plugin[DefaultInfo].files_to_run
 
-    if toolchains.INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION:
+    if proto_common.INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION:
         proto_compiler = ctx.toolchains[semantics.PROTO_TOOLCHAIN].proto.proto_compiler
         protoc_opts = ctx.toolchains[semantics.PROTO_TOOLCHAIN].proto.protoc_opts
     else:
@@ -51,6 +51,7 @@ def _rule_impl(ctx):
         progress_message = ctx.attr.progress_message,
         mnemonic = ctx.attr.mnemonic,
         allowlist_different_package = ctx.attr.allowlist_different_package,
+        toolchain_type = ctx.attr.toolchain_type.label if ctx.attr.toolchain_type else None,
     )
     return [
         DefaultInfo(files = depset(), runfiles = ctx.runfiles()),
@@ -81,7 +82,8 @@ proto_lang_toolchain = rule(
                 cfg = "exec",
                 providers = [PackageSpecificationInfo],
             ),
-        } | ({} if toolchains.INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION else {
+            "toolchain_type": attr.label(),
+        } | ({} if proto_common.INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION else {
             "_proto_compiler": attr.label(
                 cfg = "exec",
                 executable = True,
