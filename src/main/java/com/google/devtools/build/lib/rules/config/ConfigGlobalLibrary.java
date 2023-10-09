@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransi
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.Settings;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigGlobalLibraryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import java.util.HashSet;
@@ -53,10 +54,10 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
     StarlarkSemantics semantics = thread.getSemantics();
     List<String> inputsList = Sequence.cast(inputs, String.class, "inputs");
     List<String> outputsList = Sequence.cast(outputs, String.class, "outputs");
-    validateBuildSettingKeys(inputsList, Settings.INPUTS);
-    validateBuildSettingKeys(outputsList, Settings.OUTPUTS);
     BazelModuleContext moduleContext =
         BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
+    validateBuildSettingKeys(inputsList, Settings.INPUTS, moduleContext.packageContext());
+    validateBuildSettingKeys(outputsList, Settings.OUTPUTS, moduleContext.packageContext());
     Location location = thread.getCallerLocation();
     return StarlarkDefinedConfigTransition.newRegularTransition(
         implementation,
@@ -76,15 +77,17 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
       throws EvalException {
     Map<String, Object> changedSettingsMap =
         Dict.cast(changedSettings, String.class, Object.class, "changed_settings dict");
-    validateBuildSettingKeys(changedSettingsMap.keySet(), Settings.OUTPUTS);
     BazelModuleContext moduleContext =
         BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
+    validateBuildSettingKeys(
+        changedSettingsMap.keySet(), Settings.OUTPUTS, moduleContext.packageContext());
     Location location = thread.getCallerLocation();
     return StarlarkDefinedConfigTransition.newAnalysisTestTransition(
         changedSettingsMap, moduleContext.repoMapping(), moduleContext.label(), location);
   }
 
-  private void validateBuildSettingKeys(Iterable<String> optionKeys, Settings keyErrorDescriptor)
+  private void validateBuildSettingKeys(
+      Iterable<String> optionKeys, Settings keyErrorDescriptor, Label.PackageContext packageContext)
       throws EvalException {
 
     HashSet<String> processedOptions = Sets.newHashSet();
@@ -93,8 +96,16 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
     for (String optionKey : optionKeys) {
       if (!optionKey.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
         try {
-          Label.parseAbsoluteUnchecked(optionKey);
-        } catch (IllegalArgumentException e) {
+          Label label = Label.parseWithRepoContext(optionKey, packageContext);
+          if (!label.getRepository().isVisible()) {
+            throw Starlark.errorf(
+                "invalid transition %s '%s': no repo visible as @%s from %s",
+                singularErrorDescriptor,
+                label,
+                label.getRepository().getName(),
+                label.getRepository().getOwnerRepoDisplayString());
+          }
+        } catch (LabelSyntaxException e) {
           throw Starlark.errorf(
               "invalid transition %s '%s'. If this is intended as a native option, "
                   + "it must begin with //command_line_option: %s",
