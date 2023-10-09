@@ -68,6 +68,7 @@ def _build_common_variables(
         has_module_map = has_module_map,
         attr_linkopts = attr_linkopts,
         direct_cc_compilation_contexts = direct_cc_compilation_contexts,
+        includes = cc_helper.system_include_dirs(ctx, {}) if hasattr(ctx.attr, "includes") else [],
     )
 
     return struct(
@@ -130,9 +131,6 @@ def _compile(
         purpose,
         generate_module_map):
     objc_compilation_context = common_variables.objc_compilation_context
-    includes = []
-    includes.extend(priority_headers)
-    includes.extend(objc_compilation_context.includes)
 
     user_compile_flags = []
     user_compile_flags.extend(_get_compile_rule_copts(common_variables))

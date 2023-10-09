@@ -1525,10 +1525,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * "foo.o".
    */
   protected final Artifact getBinArtifact(String packageRelativePath, ConfiguredTarget owner) {
-    return getPackageRelativeDerivedArtifact(
-        packageRelativePath,
-        getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
-        ConfiguredTargetKey.fromConfiguredTarget(owner));
+    try {
+      return getPackageRelativeDerivedArtifact(
+          packageRelativePath,
+          getRuleContext(owner).getBinDirectory(),
+          ConfiguredTargetKey.fromConfiguredTarget(owner));
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   /**
@@ -1560,15 +1564,19 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       ConfiguredTarget owner,
       AspectClass creatingAspectFactory,
       AspectParameters parameters) {
-    return getPackageRelativeDerivedArtifact(
-        packageRelativePath,
-        getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
-        AspectKeyCreator.createAspectKey(
-            AspectDescriptor.of(creatingAspectFactory, parameters),
-            ConfiguredTargetKey.builder()
-                .setLabel(owner.getLabel())
-                .setConfiguration(getConfiguration(owner))
-                .build()));
+    try {
+      return getPackageRelativeDerivedArtifact(
+          packageRelativePath,
+          getRuleContext(owner).getBinDirectory(),
+          AspectKeyCreator.createAspectKey(
+              AspectDescriptor.of(creatingAspectFactory, parameters),
+              ConfiguredTargetKey.builder()
+                  .setLabel(owner.getLabel())
+                  .setConfiguration(getConfiguration(owner))
+                  .build()));
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   /**
@@ -1693,10 +1701,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * @param owner the artifact's owner.
    */
   protected Artifact getSharedArtifact(String rootRelativePath, ConfiguredTarget owner) {
-    return getDerivedArtifact(
-        PathFragment.create(rootRelativePath),
-        targetConfig.getBinDirectory(RepositoryName.MAIN),
-        ConfiguredTargetKey.fromConfiguredTarget(owner));
+    try {
+      return getDerivedArtifact(
+          PathFragment.create(rootRelativePath),
+          getRuleContext(owner).getBinDirectory(),
+          ConfiguredTargetKey.fromConfiguredTarget(owner));
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   protected Action getGeneratingActionForLabel(String label) throws Exception {

@@ -135,11 +135,6 @@ def _create_context_and_provider(
             compilation_attributes.textual_hdrs.to_list(),
         )
         objc_compilation_context_kwargs["defines"].extend(compilation_attributes.defines)
-        objc_compilation_context_kwargs["includes"].extend(
-            compilation_attributes.header_search_paths(
-                genfiles_dir = ctx.genfiles_dir.path,
-            ).to_list(),
-        )
         objc_compilation_context_kwargs["includes"].extend(sdk_includes)
 
     if compilation_artifacts != None:
