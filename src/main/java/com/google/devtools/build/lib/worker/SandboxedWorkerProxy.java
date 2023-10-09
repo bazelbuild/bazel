@@ -79,8 +79,7 @@ public class SandboxedWorkerProxy extends WorkerProxy {
         inputsToCreate,
         dirsToCreate,
         Iterables.concat(inputFiles.getFiles().keySet(), inputFiles.getSymlinks().keySet()),
-        outputs.files(),
-        outputs.dirs());
+        outputs);
     SandboxHelpers.cleanExisting(
         sandboxDir.getParentDirectory(), inputFiles, inputsToCreate, dirsToCreate, sandboxDir);
     // Finally, create anything that is still missing. This is non-strict only for historical

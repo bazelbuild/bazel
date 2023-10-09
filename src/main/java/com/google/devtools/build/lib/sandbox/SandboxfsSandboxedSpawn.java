@@ -136,10 +136,10 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
     this.arguments = arguments;
     this.environment = environment;
     this.inputs = inputs;
-    for (PathFragment path : outputs.files()) {
+    for (PathFragment path : outputs.files().values()) {
       checkArgument(!path.isAbsolute(), "outputs %s must be relative", path);
     }
-    for (PathFragment path : outputs.dirs()) {
+    for (PathFragment path : outputs.dirs().values()) {
       checkArgument(!path.isAbsolute(), "outputs %s must be relative", path);
     }
     this.outputs = outputs;
@@ -203,10 +203,10 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
     sandboxScratchDir.createDirectory();
 
     Set<PathFragment> dirsToCreate = new HashSet<>(writableDirs);
-    for (PathFragment output : outputs.files()) {
+    for (PathFragment output : outputs.files().values()) {
       dirsToCreate.add(output.getParentDirectory());
     }
-    dirsToCreate.addAll(outputs.dirs());
+    dirsToCreate.addAll(outputs.dirs().values());
     for (PathFragment dir : dirsToCreate) {
       sandboxScratchDir.getRelative(dir).createDirectoryAndParents();
     }

@@ -154,8 +154,7 @@ public class WorkerMultiplexer {
           inputsToCreate,
           dirsToCreate,
           workerFiles,
-          SandboxOutputs.getEmptyInstance().files(),
-          SandboxOutputs.getEmptyInstance().dirs());
+          SandboxOutputs.getEmptyInstance());
       SandboxHelpers.cleanExisting(
           workDir.getParentDirectory(), inputFiles, inputsToCreate, dirsToCreate, workDir);
       SandboxHelpers.createDirectories(dirsToCreate, workDir, /* strict=*/ false);
