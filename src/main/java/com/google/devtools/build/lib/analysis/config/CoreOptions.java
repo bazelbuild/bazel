@@ -768,7 +768,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help =
           "Which model to use for where in the output tree rules write their outputs, particularly "
               + "for multi-platform / multi-configuration builds. This is highly experimental. See "
-              + "https://github.com/bazelbuild/bazel/issues/6526 for details.")
+              + "https://github.com/bazelbuild/bazel/issues/6526 for details. Starlark actions can"
+              + "opt into path mapping by adding the key 'supports-path-mapping' to the "
+              + "'execution_requirements' dict.")
   public OutputPathsMode outputPathsMode;
 
   @Option(

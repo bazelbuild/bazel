@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.CommandLineLimits;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -25,6 +27,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -64,16 +67,20 @@ public final class PathMappers {
    * sets and thus can't result in memory regressions.
    *
    * @param mnemonic the mnemonic of the action
+   * @param executionInfo the execution info of the action
    * @param outputPathsMode the value of {@link CoreOptions#outputPathsMode}
    * @param fingerprint the fingerprint to add to
    */
   public static void addToFingerprint(
-      String mnemonic, OutputPathsMode outputPathsMode, Fingerprint fingerprint) {
+      String mnemonic,
+      Map<String, String> executionInfo,
+      OutputPathsMode outputPathsMode,
+      Fingerprint fingerprint) {
     // Creating a new PathMapper instance can be expensive, but isn't needed here: Whether and
     // how path mapping applies to the action only depends on the output paths mode and the action
     // inputs, which are already part of the action key.
     OutputPathsMode effectiveOutputPathsMode =
-        getEffectiveOutputPathsMode(outputPathsMode, mnemonic);
+        getEffectiveOutputPathsMode(outputPathsMode, mnemonic, executionInfo);
     if (effectiveOutputPathsMode == OutputPathsMode.STRIP) {
       fingerprint.addString(StrippingPathMapper.GUID);
     }
@@ -85,14 +92,14 @@ public final class PathMappers {
    * <p>The returned {@link PathMapper} has to be passed to {@link
    * com.google.devtools.build.lib.actions.CommandLine#arguments(ArtifactExpander, PathMapper)},
    * {@link com.google.devtools.build.lib.actions.CommandLines#expand(ArtifactExpander,
-   * PathFragment, PathMapper, CommandLineLimits)} or any other variants of these functions. The
+   * PathFragment, PathMapper, CommandLineLimits)} )} or any other variants of these functions. The
    * same instance should also be passed to the {@link Spawn} constructor so that the executor can
    * obtain it via {@link Spawn#getPathMapper()}.
    *
    * <p>Note: This method flattens nested sets and should thus not be called from methods that are
    * executed in the analysis phase.
    *
-   * <p>Actions calling this method should also call {@link #addToFingerprint(String,
+   * <p>Actions calling this method should also call {@link #addToFingerprint(String, Map,
    * OutputPathsMode, Fingerprint)} from {@link Action#getKey(ActionKeyContext, ArtifactExpander)}
    * to ensure correct incremental builds.
    *
@@ -102,7 +109,8 @@ public final class PathMappers {
    *     PathMapper#NOOP} if path mapping is not applicable to the action.
    */
   public static PathMapper create(Action action, OutputPathsMode outputPathsMode) {
-    if (getEffectiveOutputPathsMode(outputPathsMode, action.getMnemonic())
+    if (getEffectiveOutputPathsMode(
+            outputPathsMode, action.getMnemonic(), action.getExecutionInfo())
         != OutputPathsMode.STRIP) {
       return PathMapper.NOOP;
     }
@@ -111,7 +119,8 @@ public final class PathMappers {
 
   public static PathMapper createPathMapperForTesting(
       Action action, OutputPathsMode outputPathsMode) {
-    if (getEffectiveOutputPathsMode(outputPathsMode, action.getMnemonic())
+    if (getEffectiveOutputPathsMode(
+            outputPathsMode, action.getMnemonic(), action.getExecutionInfo())
         != OutputPathsMode.STRIP) {
       return PathMapper.NOOP;
     }
@@ -134,11 +143,13 @@ public final class PathMappers {
   }
 
   private static OutputPathsMode getEffectiveOutputPathsMode(
-      OutputPathsMode outputPathsMode, String mnemonic) {
-    if (outputPathsMode != OutputPathsMode.STRIP || !SUPPORTED_MNEMONICS.contains(mnemonic)) {
-      return OutputPathsMode.OFF;
+      OutputPathsMode outputPathsMode, String mnemonic, Map<String, String> executionInfo) {
+    if (outputPathsMode == OutputPathsMode.STRIP
+        && (SUPPORTED_MNEMONICS.contains(mnemonic)
+            || executionInfo.containsKey(ExecutionRequirements.SUPPORTS_PATH_MAPPING))) {
+      return OutputPathsMode.STRIP;
     }
-    return OutputPathsMode.STRIP;
+    return OutputPathsMode.OFF;
   }
 
   private PathMappers() {}
