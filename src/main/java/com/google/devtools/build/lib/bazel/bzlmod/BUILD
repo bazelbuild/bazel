@@ -25,6 +25,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:auto_value",
@@ -195,6 +196,7 @@ java_library(
         ":module_extension",
         ":module_extension_metadata",
         ":registry",
+        ":repo_rule_creator",
         ":resolution",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib:runtime",

@@ -35,6 +35,12 @@ public abstract class ModuleExtensionId {
               ModuleExtensionId::getIsolationKey,
               emptiesFirst(IsolationKey.LEXICOGRAPHIC_COMPARATOR));
 
+  /**
+   * The "magical" name of innate extensions, which are fabricated extensions that modules with
+   * usages of {@code use_repo_rule} have.
+   */
+  public static final String INNATE_EXTENSION_NAME = "_repo_rules";
+
   /** A unique identifier for a single isolated usage of a fixed module extension. */
   @AutoValue
   abstract static class IsolationKey {
@@ -73,6 +79,10 @@ public abstract class ModuleExtensionId {
   public static ModuleExtensionId create(
       Label bzlFileLabel, String extensionName, Optional<IsolationKey> isolationKey) {
     return new AutoValue_ModuleExtensionId(bzlFileLabel, extensionName, isolationKey);
+  }
+
+  public final boolean isInnate() {
+    return getExtensionName().equals(INNATE_EXTENSION_NAME);
   }
 
   public String asTargetString() {

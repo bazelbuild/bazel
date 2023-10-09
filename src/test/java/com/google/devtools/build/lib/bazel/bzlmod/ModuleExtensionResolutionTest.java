@@ -2387,4 +2387,73 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "Conflict between 'foo' tag at /ws/MODULE.bazel:2:8 and 'foo' tag at /ws/MODULE.bazel:3:8",
         ImmutableSet.of(EventKind.DEBUG));
   }
+
+  @Test
+  public void innate() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name='foo',version='1.0')",
+        "data_repo = use_repo_rule('@foo//:repo.bzl', 'data_repo')",
+        "data_repo(name='data', data='get up at 6am.')");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@data//:data.bzl', self_data='data')",
+        "load('@foo//:data.bzl', foo_data='data')",
+        "data=self_data+' '+foo_data");
+
+    registry.addModule(
+        createModuleKey("foo", "1.0"),
+        "module(name='foo',version='1.0')",
+        "data_repo = use_repo_rule('//:repo.bzl', 'data_repo')",
+        "data_repo(name='data', data='go to bed at 11pm.')");
+    scratch.file(modulesRoot.getRelative("foo~1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("foo~1.0/BUILD").getPathString());
+    scratch.file(
+        modulesRoot.getRelative("foo~1.0/data.bzl").getPathString(),
+        "load('@data//:data.bzl',repo_data='data')",
+        "data=repo_data");
+    scratch.file(
+        modulesRoot.getRelative("foo~1.0/repo.bzl").getPathString(),
+        "def _data_repo_impl(ctx):",
+        "  ctx.file('BUILD.bazel')",
+        "  ctx.file('data.bzl', 'data='+json.encode(ctx.attr.data))",
+        "data_repo = repository_rule(",
+        "  implementation=_data_repo_impl, attrs={'data':attr.string()})");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThat(result.get(skyKey).getModule().getGlobal("data"))
+        .isEqualTo("get up at 6am. go to bed at 11pm.");
+  }
+
+  @Test
+  public void innate_noSuchRepoRule() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "data_repo = use_repo_rule('//:repo.bzl', 'data_repo')",
+        "data_repo(name='data', data='get up at 6am.')");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@data//:data.bzl', self_data='data')",
+        "data=self_data");
+    scratch.file(
+        workspaceRoot.getRelative("repo.bzl").getPathString(), "data_repo = 3  # not a repo rule");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<BzlLoadValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getException())
+        .hasMessageThat()
+        .contains(
+            "//:repo.bzl does not export a repository_rule called data_repo, yet its use is"
+                + " requested at /ws/MODULE.bazel");
+  }
 }

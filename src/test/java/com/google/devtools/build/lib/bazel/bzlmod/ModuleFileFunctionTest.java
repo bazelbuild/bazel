@@ -835,6 +835,84 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   }
 
   @Test
+  public void testModuleExtensions_innate() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "repo = use_repo_rule('//:repo.bzl','repo')",
+        "repo(name='repo_name', value='something')",
+        "http_archive = use_repo_rule('@bazel_tools//:http.bzl','http_archive')",
+        "http_archive(name='guava',url='guava.com')",
+        "http_archive(name='vuaga',url='vuaga.com',dev_dependency=True)");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of());
+
+    SkyKey skyKey = ModuleFileValue.KEY_FOR_ROOT_MODULE;
+    EvaluationResult<ModuleFileValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    ModuleFileValue moduleFileValue = result.get(skyKey);
+    assertThat(moduleFileValue.getModule())
+        .isEqualTo(
+            InterimModuleBuilder.create("", "")
+                .setKey(ModuleKey.ROOT)
+                .addExtensionUsage(
+                    ModuleExtensionUsage.builder()
+                        .setExtensionBzlFile("//:MODULE.bazel")
+                        .setExtensionName("_repo_rules")
+                        .setIsolationKey(Optional.empty())
+                        .setUsingModule(ModuleKey.ROOT)
+                        .setLocation(Location.fromFile("/workspace/MODULE.bazel"))
+                        .setImports(
+                            ImmutableBiMap.of(
+                                "repo_name", "repo_name", "guava", "guava", "vuaga", "vuaga"))
+                        .setDevImports(ImmutableSet.of("vuaga"))
+                        .setHasDevUseExtension(true)
+                        .setHasNonDevUseExtension(true)
+                        .addTag(
+                            Tag.builder()
+                                .setTagName("//:repo.bzl%repo")
+                                .setAttributeValues(
+                                    AttributeValues.create(
+                                        Dict.<String, Object>builder()
+                                            .put("name", "repo_name")
+                                            .put("value", "something")
+                                            .buildImmutable()))
+                                .setDevDependency(false)
+                                .setLocation(
+                                    Location.fromFileLineColumn("/workspace/MODULE.bazel", 2, 5))
+                                .build())
+                        .addTag(
+                            Tag.builder()
+                                .setTagName("@bazel_tools//:http.bzl%http_archive")
+                                .setAttributeValues(
+                                    AttributeValues.create(
+                                        Dict.<String, Object>builder()
+                                            .put("name", "guava")
+                                            .put("url", "guava.com")
+                                            .buildImmutable()))
+                                .setDevDependency(false)
+                                .setLocation(
+                                    Location.fromFileLineColumn("/workspace/MODULE.bazel", 4, 13))
+                                .build())
+                        .addTag(
+                            Tag.builder()
+                                .setTagName("@bazel_tools//:http.bzl%http_archive")
+                                .setAttributeValues(
+                                    AttributeValues.create(
+                                        Dict.<String, Object>builder()
+                                            .put("name", "vuaga")
+                                            .put("url", "vuaga.com")
+                                            .buildImmutable()))
+                                .setDevDependency(true)
+                                .setLocation(
+                                    Location.fromFileLineColumn("/workspace/MODULE.bazel", 5, 13))
+                                .build())
+                        .build())
+                .build());
+  }
+
+  @Test
   public void testModuleFileExecute_syntaxError() throws Exception {
     scratch.file(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),

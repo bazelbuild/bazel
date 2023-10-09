@@ -24,9 +24,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.NonRootModuleFileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.DotBazelFileSyntaxChecker;
@@ -43,7 +41,6 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -350,15 +347,11 @@ public class ModuleFileFunction implements SkyFunction {
       if (env.getValue(FileValue.key(moduleFilePath)) == null) {
         return null;
       }
-      Label moduleFileLabel =
-          Label.createUnvalidated(
-              PackageIdentifier.create(key.getCanonicalRepoName(), PathFragment.EMPTY_FRAGMENT),
-              LabelConstants.MODULE_DOT_BAZEL_FILE_NAME.getBaseName());
       GetModuleFileResult result = new GetModuleFileResult();
       result.moduleFile =
           ModuleFile.create(
               readModuleFile(moduleFilePath.asPath()),
-              moduleFileLabel.getUnambiguousCanonicalForm());
+              key.moduleFileLabel().getUnambiguousCanonicalForm());
       return result;
     }
 
