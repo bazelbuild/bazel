@@ -18,7 +18,6 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import static com.google.common.base.StandardSystemProperty.OS_ARCH;
 import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Maps.transformValues;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
@@ -273,13 +272,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
 
     // Check extension data in lockfile is still valid, disregarding usage information that is not
     // relevant for the evaluation of the extension.
-    var trimmedLockedUsages =
-        ImmutableMap.copyOf(
-            transformValues(lockedExtensionUsages, ModuleExtensionUsage::trimForEvaluation));
-    var trimmedUsages =
-        ImmutableMap.copyOf(
-            transformValues(
-                usagesValue.getExtensionUsages(), ModuleExtensionUsage::trimForEvaluation));
+    var trimmedLockedUsages = ModuleExtensionUsage.trimForEvaluation(lockedExtensionUsages);
+    var trimmedUsages = ModuleExtensionUsage.trimForEvaluation(usagesValue.getExtensionUsages());
     if (!filesChanged
         && Arrays.equals(bzlTransitiveDigest, lockedExtension.getBzlTransitiveDigest())
         && trimmedUsages.equals(trimmedLockedUsages)

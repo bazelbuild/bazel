@@ -11,8 +11,8 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/lib/remote/circuitbreaker:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/downloader:srcs",
-        "//src/test/java/com/google/devtools/build/lib/remote/http:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/grpc:srcs",
+        "//src/test/java/com/google/devtools/build/lib/remote/http:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/logging:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/merkletree:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/options:srcs",
@@ -169,6 +169,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/standalone",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/remote/util:integration_test_utils",
         "//third_party:guava",
         "//third_party:junit4",

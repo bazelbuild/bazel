@@ -37,7 +37,7 @@ import java.util.Map;
 @GenerateTypeAdapter
 public abstract class BazelLockFileValue implements SkyValue, Postable {
 
-  public static final int LOCK_FILE_VERSION = 2;
+  public static final int LOCK_FILE_VERSION = 3;
 
   @SerializationConstant public static final SkyKey KEY = () -> SkyFunctions.BAZEL_LOCK_FILE;
 
@@ -126,8 +126,8 @@ public abstract class BazelLockFileValue implements SkyValue, Postable {
       byte[] transitiveDigest,
       boolean filesChanged,
       ImmutableMap<String, String> envVariables,
-      ImmutableMap<ModuleKey, ModuleExtensionUsage> extensionUsages,
-      ImmutableMap<ModuleKey, ModuleExtensionUsage> lockedExtensionUsages) {
+      ImmutableList<Map.Entry<ModuleKey, ModuleExtensionUsage>> extensionUsages,
+      ImmutableList<Map.Entry<ModuleKey, ModuleExtensionUsage>> lockedExtensionUsages) {
 
     ImmutableList.Builder<String> extDiff = new ImmutableList.Builder<>();
     if (!Arrays.equals(transitiveDigest, lockedExtension.getBzlTransitiveDigest())) {
