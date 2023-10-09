@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static com.google.devtools.build.lib.rules.cpp.SolibSymlinkAction.MAX_FILENAME_LENGTH;
 import static org.junit.Assert.assertThrows;
 
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
@@ -83,11 +85,6 @@ import org.junit.runners.JUnit4;
 /** Unit tests for the {@code cc_common} Starlark module. */
 @RunWith(JUnit4.class)
 public class StarlarkCcCommonTest extends BuildViewTestCase {
-
-  private static final String REDACTED_ARTIFACT_PATH =
-      "tools/build_defs/build_info/redacted_file.h";
-  private static final String NON_REDACTED_ARTIFACT_PATH =
-      "tools/build_defs/build_info/volatile_file.h";
 
   @Before
   public void setUp() throws Exception {
@@ -6064,23 +6061,16 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     return linkstampCompileAction;
   }
 
-  public String getBuildInfoFile(String commonPath) {
-    if (AnalysisMock.get().isThisBazel()) {
-      return getRelativeOutputPath() + "/k8-fastbuild/bin/external/bazel_tools/" + commonPath;
-    } else {
-      return getRelativeOutputPath() + "/k8-fastbuild/bin/" + commonPath;
-    }
-  }
-
   private void assertStampEnabled(CppCompileAction linkstampAction)
       throws CommandLineExpansionException {
     assertThat(linkstampAction.getArguments())
-        .contains(getBuildInfoFile(NON_REDACTED_ARTIFACT_PATH));
+        .contains(getRelativeOutputPath() + "/k8-fastbuild/include/build-info-volatile.h");
   }
 
   private void assertStampDisabled(CppCompileAction linkstampAction)
       throws CommandLineExpansionException {
-    assertThat(linkstampAction.getArguments()).contains(getBuildInfoFile(REDACTED_ARTIFACT_PATH));
+    assertThat(linkstampAction.getArguments())
+        .contains(getRelativeOutputPath() + "/k8-fastbuild/include/build-info-redacted.h");
   }
 
   @Test
@@ -8071,6 +8061,56 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
 
     assertThat(e).hasMessageThat().contains("cannot use private API");
+  }
+
+  @Test
+  public void testGetBuildInfoArtifactsIsPrivateApi() throws Exception {
+    scratch.file(
+        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  cc_common.get_build_info(ctx)",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        ")");
+    invalidatePackages();
+
+    AssertionError e =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
+
+    assertThat(e).hasMessageThat().contains("cannot use private API");
+  }
+
+  @Test
+  public void testBuildInfoArtifacts() throws Exception {
+    scratch.file(
+        "bazel_internal/test_rules/cc/rule.bzl",
+        "def _impl(ctx):",
+        "  artifacts = cc_common.get_build_info(ctx)",
+        "  return [DefaultInfo(files = depset(artifacts))]",
+        "build_info_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {'stamp': attr.int()},",
+        ")");
+    scratch.file(
+        "bazel_internal/test_rules/cc/BUILD",
+        "load(':rule.bzl', 'build_info_rule')",
+        "build_info_rule(name = 'stamped', stamp = 1,)",
+        "build_info_rule(name = 'unstamped', stamp = 0,)");
+    assertThat(
+            prettyArtifactNames(
+                getConfiguredTarget("//bazel_internal/test_rules/cc:stamped")
+                    .getProvider(FileProvider.class)
+                    .getFilesToBuild()))
+        .containsExactly("build-info-nonvolatile.h", "build-info-volatile.h");
+    assertThat(
+            prettyArtifactNames(
+                getConfiguredTarget("//bazel_internal/test_rules/cc:unstamped")
+                    .getProvider(FileProvider.class)
+                    .getFilesToBuild()))
+        .containsExactly("build-info-redacted.h");
   }
 
   @Test

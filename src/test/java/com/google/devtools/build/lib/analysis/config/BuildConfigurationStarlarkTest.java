@@ -73,7 +73,9 @@ public final class BuildConfigurationStarlarkTest extends BuildViewTestCase {
 
     AssertionError e =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//example:custom"));
-    assertThat(e).hasMessageThat().contains("file '//example:rule.bzl' cannot use private API");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("file '//example:rule.bzl' cannot use private @_builtins API");
   }
 
   @Test
