@@ -39,11 +39,11 @@ class LauncherTest(test_base.TestBase):
       self.AssertRunfilesManifestContains(
           os.path.join(bazel_bin,
                        'foo/foo%s.runfiles/MANIFEST' % binary_suffix),
-          '__main__/bar/bar.txt')
+          '_main/bar/bar.txt')
     else:
       self.assertTrue(
           os.path.islink(
-              os.path.join(bazel_bin, 'foo/foo.runfiles/__main__/bar/bar.txt')))
+              os.path.join(bazel_bin, 'foo/foo.runfiles/_main/bar/bar.txt')))
 
     _, stdout, _ = self.RunProgram([main_binary])
     self.assertEqual(len(stdout), 4)
@@ -101,23 +101,23 @@ class LauncherTest(test_base.TestBase):
       self.AssertRunfilesManifestContains(
           os.path.join(bazel_bin,
                        'foo/bin1.sh%s.runfiles/MANIFEST' % bin1_suffix),
-          '__main__/bar/bar.txt')
+          '_main/bar/bar.txt')
       self.AssertRunfilesManifestContains(
           os.path.join(bazel_bin, 'foo/bin2.cmd.runfiles/MANIFEST'),
-          '__main__/bar/bar.txt')
+          '_main/bar/bar.txt')
     else:
       self.assertTrue(
           os.path.islink(
               os.path.join(bazel_bin,
-                           'foo/bin1.sh.runfiles/__main__/bar/bar.txt')))
+                           'foo/bin1.sh.runfiles/_main/bar/bar.txt')))
       self.assertTrue(
           os.path.islink(
               os.path.join(bazel_bin,
-                           'foo/bin2.cmd.runfiles/__main__/bar/bar.txt')))
+                           'foo/bin2.cmd.runfiles/_main/bar/bar.txt')))
       self.assertTrue(
           os.path.islink(
               os.path.join(bazel_bin,
-                           'foo/bin3.bat.runfiles/__main__/bar/bar.txt')))
+                           'foo/bin3.bat.runfiles/_main/bar/bar.txt')))
 
     _, stdout, _ = self.RunProgram([bin1])
     self.assertEqual(len(stdout), 3)
@@ -157,11 +157,11 @@ class LauncherTest(test_base.TestBase):
       self.AssertRunfilesManifestContains(
           os.path.join(bazel_bin,
                        'foo/foo%s.runfiles/MANIFEST' % binary_suffix),
-          '__main__/bar/bar.txt')
+          '_main/bar/bar.txt')
     else:
       self.assertTrue(
           os.path.islink(
-              os.path.join(bazel_bin, 'foo/foo.runfiles/__main__/bar/bar.txt')))
+              os.path.join(bazel_bin, 'foo/foo.runfiles/_main/bar/bar.txt')))
 
     # Try to run the built py_binary.
     _, stdout, _ = self.RunProgram([foo_bin])
