@@ -60,7 +60,7 @@ import net.starlark.java.eval.StarlarkValue;
     category = DocCategory.BUILTIN,
     doc =
         "A BUILD target identifier."
-            + "<p>For every <code>Label<code> instance <code>l</code>, the string representation"
+            + "<p>For every <code>Label</code> instance <code>l</code>, the string representation"
             + " <code>str(l)</code> has the property that <code>Label(str(l)) == l</code>,"
             + " regardless of where the <code>Label()</code> call occurs.")
 @AutoCodec
