@@ -897,9 +897,7 @@ abstract class AbstractParallelEvaluator {
                 key);
 
         if (childEntry.markDirty(DirtyType.REWIND) != null) {
-          evaluatorContext
-              .getProgressReceiver()
-              .invalidated(childToRestart, EvaluationProgressReceiver.InvalidationState.DIRTY);
+          evaluatorContext.getProgressReceiver().dirtied(childToRestart, DirtyType.REWIND);
         }
       }
     }

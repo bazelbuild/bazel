@@ -230,6 +230,7 @@ import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.NodeEntry;
+import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -2807,11 +2808,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     private Map<GlobDescriptor, ImmutableList<GlobDescriptor>> globDeps = new ConcurrentHashMap<>();
 
     @Override
-    public void invalidated(SkyKey skyKey, InvalidationState state) {
+    public void dirtied(SkyKey skyKey, DirtyType dirtyType) {
       if (ignoreInvalidations) {
         return;
       }
-      skyframeBuildView.getProgressReceiver().invalidated(skyKey, state);
+      skyframeBuildView.getProgressReceiver().dirtied(skyKey, dirtyType);
+    }
+
+    @Override
+    public void deleted(SkyKey skyKey) {
+      if (ignoreInvalidations) {
+        return;
+      }
+      skyframeBuildView.getProgressReceiver().deleted(skyKey);
     }
 
     @Override

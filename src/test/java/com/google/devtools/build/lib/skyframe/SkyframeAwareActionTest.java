@@ -44,9 +44,9 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.ErrorInfo;
-import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.GroupedDeps;
+import com.google.devtools.build.skyframe.InvalidationProgressReceiver;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
@@ -83,7 +83,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
   }
 
   private static final class TrackingEvaluationProgressReceiver
-      implements EvaluationProgressReceiver {
+      extends InvalidationProgressReceiver {
 
     public static final class InvalidatedKey {
       public final SkyKey skyKey;
@@ -161,7 +161,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     }
 
     @Override
-    public void invalidated(SkyKey skyKey, InvalidationState state) {
+    protected void invalidated(SkyKey skyKey, InvalidationState state) {
       invalidated.add(new InvalidatedKey(skyKey, state));
     }
 

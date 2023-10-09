@@ -106,6 +106,7 @@ import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.GroupedDeps;
+import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -1371,8 +1372,8 @@ public final class SkyframeBuildView {
     private final AtomicInteger configuredTargetActionCount = new AtomicInteger();
 
     @Override
-    public void invalidated(SkyKey skyKey, InvalidationState state) {
-      if (skyKey instanceof ActionLookupKey && state != InvalidationState.DELETED) {
+    public void dirtied(SkyKey skyKey, DirtyType dirtyType) {
+      if (skyKey instanceof ActionLookupKey) {
         // If the value was just dirtied and not deleted, then it may not be truly invalid, since
         // it may later get re-validated. Therefore adding the key to dirtiedConfiguredTargetKeys
         // is provisional--if the key is later evaluated and the value found to be clean, then we

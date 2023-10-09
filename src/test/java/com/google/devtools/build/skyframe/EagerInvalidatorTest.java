@@ -16,6 +16,7 @@ package com.google.devtools.build.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.GraphTester.CONCATENATE;
 import static com.google.devtools.build.skyframe.GraphTester.NODE_TYPE;
+import static com.google.devtools.build.skyframe.GraphTester.skyKey;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Preconditions;
@@ -70,7 +71,7 @@ public class EagerInvalidatorTest {
   // The following three methods should be abstract, but junit4 does not allow us to run inner
   // classes in an abstract outer class. Thus, we provide implementations. These methods will never
   // be run because only the inner classes, annotated with @RunWith, will actually be executed.
-  EvaluationProgressReceiver.InvalidationState expectedState() {
+  InvalidationProgressReceiver.InvalidationState expectedState() {
     throw new UnsupportedOperationException();
   }
 
@@ -81,7 +82,9 @@ public class EagerInvalidatorTest {
     throw new UnsupportedOperationException();
   }
 
-  boolean gcExpected() { throw new UnsupportedOperationException(); }
+  boolean gcExpected() {
+    throw new UnsupportedOperationException();
+  }
 
   private boolean isInvalidated(SkyKey key) {
     NodeEntry entry = graph.get(null, Reason.OTHER, key);
@@ -155,8 +158,8 @@ public class EagerInvalidatorTest {
     return evaluator.eval(ImmutableList.copyOf(keys));
   }
 
-  protected void invalidateWithoutError(DirtyTrackingProgressReceiver progressReceiver,
-      SkyKey... keys) throws InterruptedException {
+  private void invalidateWithoutError(
+      DirtyTrackingProgressReceiver progressReceiver, SkyKey... keys) throws InterruptedException {
     invalidate(graph, progressReceiver, keys);
     assertThat(state.isEmpty()).isTrue();
   }
@@ -165,11 +168,7 @@ public class EagerInvalidatorTest {
     tester.set(name, new StringValue(value));
   }
 
-  protected SkyKey skyKey(String name) {
-    return GraphTester.toSkyKeys(name).get(0);
-  }
-
-  protected void assertValueValue(String name, String expectedValue) throws InterruptedException {
+  private void assertValueValue(String name, String expectedValue) throws InterruptedException {
     StringValue value = (StringValue) eval(false, skyKey(name));
     assertThat(value.getValue()).isEqualTo(expectedValue);
   }
@@ -181,13 +180,12 @@ public class EagerInvalidatorTest {
 
   @Test
   public void receiverWorks() throws Exception {
-    final Set<SkyKey> invalidated = Sets.newConcurrentHashSet();
+    Set<SkyKey> invalidated = Sets.newConcurrentHashSet();
     DirtyTrackingProgressReceiver receiver =
         new DirtyTrackingProgressReceiver(
-            new EvaluationProgressReceiver() {
+            new InvalidationProgressReceiver() {
               @Override
-              public void invalidated(
-                  SkyKey skyKey, EvaluationProgressReceiver.InvalidationState state) {
+              protected void invalidated(SkyKey skyKey, InvalidationState state) {
                 Preconditions.checkState(state == expectedState());
                 invalidated.add(skyKey);
               }
@@ -211,12 +209,12 @@ public class EagerInvalidatorTest {
 
   @Test
   public void receiverIsNotifiedAboutNodesInError() throws Exception {
-    final Set<SkyKey> invalidated = Sets.newConcurrentHashSet();
+    Set<SkyKey> invalidated = Sets.newConcurrentHashSet();
     DirtyTrackingProgressReceiver receiver =
         new DirtyTrackingProgressReceiver(
-            new EvaluationProgressReceiver() {
+            new InvalidationProgressReceiver() {
               @Override
-              public void invalidated(SkyKey skyKey, InvalidationState state) {
+              protected void invalidated(SkyKey skyKey, InvalidationState state) {
                 Preconditions.checkState(state == expectedState());
                 invalidated.add(skyKey);
               }
@@ -242,12 +240,12 @@ public class EagerInvalidatorTest {
 
   @Test
   public void invalidateValuesNotInGraph() throws Exception {
-    final Set<SkyKey> invalidated = Sets.newConcurrentHashSet();
+    Set<SkyKey> invalidated = Sets.newConcurrentHashSet();
     DirtyTrackingProgressReceiver receiver =
         new DirtyTrackingProgressReceiver(
-            new EvaluationProgressReceiver() {
+            new InvalidationProgressReceiver() {
               @Override
-              public void invalidated(SkyKey skyKey, InvalidationState state) {
+              protected void invalidated(SkyKey skyKey, InvalidationState state) {
                 Preconditions.checkState(state == InvalidationState.DIRTY);
                 invalidated.add(skyKey);
               }
@@ -349,16 +347,16 @@ public class EagerInvalidatorTest {
       tester.getOrCreate(member).addDependency(family[i - 1]).setComputedValue(CONCATENATE);
       family[i] = member;
     }
-    SkyKey parent = GraphTester.skyKey("parent");
+    SkyKey parent = skyKey("parent");
     tester.getOrCreate(parent).addDependency(family[numValues - 1]).setComputedValue(CONCATENATE);
     eval(/*keepGoing=*/false, parent);
     Thread mainThread = Thread.currentThread();
     AtomicReference<SkyKey> badKey = new AtomicReference<>();
     DirtyTrackingProgressReceiver receiver =
         new DirtyTrackingProgressReceiver(
-            new EvaluationProgressReceiver() {
+            new InvalidationProgressReceiver() {
               @Override
-              public void invalidated(SkyKey skyKey, InvalidationState state) {
+              protected void invalidated(SkyKey skyKey, InvalidationState state) {
                 if (skyKey.equals(child)) {
                   // Interrupt on the very first invalidate
                   mainThread.interrupt();
@@ -385,14 +383,14 @@ public class EagerInvalidatorTest {
     assertThrows(InterruptedException.class, () -> invalidateWithoutError(receiver, child));
     assertThat(badKey.get()).isNull();
     assertThat(state.isEmpty()).isFalse();
-    final Set<SkyKey> invalidated = Sets.newConcurrentHashSet();
+    Set<SkyKey> invalidated = Sets.newConcurrentHashSet();
     assertThat(isInvalidated(parent)).isFalse();
     assertThat(graph.get(null, Reason.OTHER, parent).getValue()).isNotNull();
-    final DirtyTrackingProgressReceiver receiver2 =
+    DirtyTrackingProgressReceiver receiver2 =
         new DirtyTrackingProgressReceiver(
-            new EvaluationProgressReceiver() {
+            new InvalidationProgressReceiver() {
               @Override
-              public void invalidated(SkyKey skyKey, InvalidationState state) {
+              protected void invalidated(SkyKey skyKey, InvalidationState state) {
                 invalidated.add(skyKey);
               }
             });
@@ -418,11 +416,11 @@ public class EagerInvalidatorTest {
     for (int i = 0; i < depth; i++) {
       tester
           .getOrCreate(Integer.toString(i))
-          .addDependency(i + 1 == depth ? leafKey : GraphTester.skyKey(Integer.toString(i + 1)))
+          .addDependency(i + 1 == depth ? leafKey : skyKey(Integer.toString(i + 1)))
           .setComputedValue(CONCATENATE);
     }
     tester.set(leafKey, new StringValue("leaf"));
-    eval(/*keepGoing=*/ false, GraphTester.skyKey(Integer.toString(0)));
+    eval(/* keepGoing= */ false, skyKey(Integer.toString(0)));
     invalidateWithoutError(new DirtyTrackingProgressReceiver(null), leafKey);
   }
 
@@ -500,19 +498,20 @@ public class EagerInvalidatorTest {
         InterruptedException.class,
         () ->
             invalidateWithoutError(
-                new DirtyTrackingProgressReceiver(null) {
-                  @Override
-                  public void invalidated(SkyKey skyKey, InvalidationState state) {
-                    mainThread.interrupt();
-                    // Wait for the main thread to be interrupted uninterruptibly, because the
-                    // main thread is going to interrupt us, and we don't want to get into an
-                    // interrupt fight. Only if we get interrupted without the main thread also
-                    // being interrupted will this throw an InterruptedException.
-                    TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
-                        visitor.get().getInterruptionLatchForTestingOnly(),
-                        "Main thread was not interrupted");
-                  }
-                },
+                new DirtyTrackingProgressReceiver(
+                    new InvalidationProgressReceiver() {
+                      @Override
+                      protected void invalidated(SkyKey skyKey, InvalidationState state) {
+                        mainThread.interrupt();
+                        // Wait for the main thread to be interrupted uninterruptibly, because the
+                        // main thread is going to interrupt us, and we don't want to get into an
+                        // interrupt fight. Only if we get interrupted without the main thread also
+                        // being interrupted will this throw an InterruptedException.
+                        TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(
+                            visitor.get().getInterruptionLatchForTestingOnly(),
+                            "Main thread was not interrupted");
+                      }
+                    }),
                 toDelete));
     invalidateWithoutError(new DirtyTrackingProgressReceiver(null));
     eval(/*keepGoing=*/ false, toDelete);
@@ -547,9 +546,9 @@ public class EagerInvalidatorTest {
           run == tries
               ? new DirtyTrackingProgressReceiver(null)
               : new DirtyTrackingProgressReceiver(
-                  new EvaluationProgressReceiver() {
+                  new InvalidationProgressReceiver() {
                     @Override
-                    public void invalidated(SkyKey skyKey, InvalidationState state) {
+                    protected void invalidated(SkyKey skyKey, InvalidationState state) {
                       countDownToInterrupt.countDown();
                       if (countDownToInterrupt.getCount() == 0) {
                         mainThread.interrupt();
@@ -582,7 +581,7 @@ public class EagerInvalidatorTest {
     eval(/*keepGoing=*/false, values);
   }
 
-  protected void setupInvalidatableGraph() throws Exception {
+  void setupInvalidatableGraph() throws Exception {
     graph = new InMemoryGraphImpl();
     SkyKey aKey = GraphTester.nonHermeticKey("a");
     tester.set(aKey, new StringValue("a"));
@@ -592,12 +591,9 @@ public class EagerInvalidatorTest {
     tester.set(aKey, new StringValue("c"));
   }
 
-  private static class HeavyValue implements SkyValue {
-  }
+  private static class HeavyValue implements SkyValue {}
 
-  /**
-   * Test suite for the deleting invalidator.
-   */
+  /** Test suite for the deleting invalidator. */
   @RunWith(JUnit4.class)
   public static class DeletingInvalidatorTest extends EagerInvalidatorTest {
     @Override
@@ -619,8 +615,8 @@ public class EagerInvalidatorTest {
     }
 
     @Override
-    EvaluationProgressReceiver.InvalidationState expectedState() {
-      return EvaluationProgressReceiver.InvalidationState.DELETED;
+    InvalidationProgressReceiver.InvalidationState expectedState() {
+      return InvalidationProgressReceiver.InvalidationState.DELETED;
     }
 
     @Override
@@ -689,8 +685,8 @@ public class EagerInvalidatorTest {
     }
 
     @Override
-    EvaluationProgressReceiver.InvalidationState expectedState() {
-      return EvaluationProgressReceiver.InvalidationState.DIRTY;
+    InvalidationProgressReceiver.InvalidationState expectedState() {
+      return InvalidationProgressReceiver.InvalidationState.DIRTY;
     }
 
     @Override

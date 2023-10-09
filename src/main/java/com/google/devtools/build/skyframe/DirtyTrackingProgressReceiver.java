@@ -15,6 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import java.util.Set;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -41,22 +42,20 @@ public class DirtyTrackingProgressReceiver implements EvaluationProgressReceiver
   }
 
   @Override
-  public void invalidated(SkyKey skyKey, InvalidationState state) {
+  public void dirtied(SkyKey skyKey, DirtyType dirtyType) {
     if (progressReceiver != null) {
-      progressReceiver.invalidated(skyKey, state);
+      progressReceiver.dirtied(skyKey, dirtyType);
     }
+    addToDirtySet(skyKey);
+  }
 
-    switch (state) {
-      case DELETED:
-        // This key was removed from the graph, so no longer needs to be marked as dirty.
-        removeFromDirtySet(skyKey);
-        break;
-      case DIRTY:
-        addToDirtySet(skyKey);
-        break;
-      default:
-        throw new IllegalStateException(state.toString());
+  @Override
+  public void deleted(SkyKey skyKey) {
+    if (progressReceiver != null) {
+      progressReceiver.deleted(skyKey);
     }
+    // This key was removed from the graph, so no longer needs to be marked as dirty.
+    removeFromDirtySet(skyKey);
   }
 
   @Override
@@ -87,7 +86,7 @@ public class DirtyTrackingProgressReceiver implements EvaluationProgressReceiver
    * Called when a node was requested to be enqueued but wasn't because either an interrupt or an
    * error (in nokeep_going mode) had occurred.
    */
-  protected void enqueueAfterError(SkyKey skyKey) {
+  void enqueueAfterError(SkyKey skyKey) {
     enqueueing(skyKey, true);
   }
 
@@ -145,7 +144,7 @@ public class DirtyTrackingProgressReceiver implements EvaluationProgressReceiver
    * collection, where we would not want to remove dirty nodes that are needed for evaluation (in
    * the downward transitive closure of the set of the evaluation's top level nodes).
    */
-  protected Set<SkyKey> getUnenqueuedDirtyKeys() {
+  Set<SkyKey> getUnenqueuedDirtyKeys() {
     return ImmutableSet.copyOf(dirtyKeys);
   }
 

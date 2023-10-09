@@ -84,6 +84,7 @@ import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -230,9 +231,9 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
   /** A {@link SkyframeProgressReceiver} tracks dirty {@link FileValue.Key}s. */
   protected class SequencedSkyframeProgressReceiver extends SkyframeProgressReceiver {
     @Override
-    public void invalidated(SkyKey skyKey, InvalidationState state) {
-      super.invalidated(skyKey, state);
-      if (state == InvalidationState.DIRTY && skyKey instanceof FileValue.Key) {
+    public void dirtied(SkyKey skyKey, DirtyType dirtyType) {
+      super.dirtied(skyKey, dirtyType);
+      if (skyKey instanceof FileValue.Key) {
         incrementalBuildMonitor.reportInvalidatedFileValue();
       }
     }

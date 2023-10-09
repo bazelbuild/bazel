@@ -85,6 +85,7 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.GroupedDeps;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -479,7 +480,12 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     }
 
     @Override
-    public void invalidated(SkyKey skyKey, InvalidationState state) {
+    public void dirtied(SkyKey skyKey, DirtyType dirtyType) {
+      invalidations.add(skyKey);
+    }
+
+    @Override
+    public void deleted(SkyKey skyKey) {
       invalidations.add(skyKey);
     }
 
