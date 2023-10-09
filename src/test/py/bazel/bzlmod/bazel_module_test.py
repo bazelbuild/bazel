@@ -447,6 +447,28 @@ class BazelModuleTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', ':a'])
     self.assertIn('I LUV U!', '\n'.join(stderr))
 
+  def testNoModuleDotBazelAndFallbackToWorkspace(self):
+    if os.path.exists(self.Path('MODULE.bazel')):
+      os.remove(self.Path('MODULE.bazel'))
+    os.remove(self.Path('WORKSPACE.bzlmod'))
+    self.ScratchFile(
+        'WORKSPACE',
+        [
+            'local_repository(name="hello", path="hello")',
+            'load("@hello//:world.bzl", "message")',
+            'print(message)',
+        ],
+    )
+    self.ScratchFile('BUILD', ['filegroup(name="a")'])
+    self.ScratchFile('hello/WORKSPACE')
+    self.ScratchFile('hello/BUILD')
+    self.ScratchFile('hello/world.bzl', ['message="I LUV U!"'])
+
+    _, _, stderr = self.RunBazel(['build', ':a'])
+    self.assertIn('I LUV U!', '\n'.join(stderr))
+    # MODULE.bazel file should be generated automatically
+    self.assertTrue(os.path.exists(self.Path('MODULE.bazel')))
+
   def testArchiveWithArchiveType(self):
     # make the archive without the .zip extension
     self.main_registry.createCcModule(

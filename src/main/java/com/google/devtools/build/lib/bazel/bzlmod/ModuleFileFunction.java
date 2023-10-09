@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -82,6 +83,15 @@ public class ModuleFileFunction implements SkyFunction {
   private final RegistryFactory registryFactory;
   private final Path workspaceRoot;
   private final ImmutableMap<String, NonRegistryOverride> builtinModules;
+
+  private static final String BZLMOD_REMINDER =
+      "###############################################################################\n"
+          + "# Bazel now uses Bzlmod by default to manage external dependencies.\n"
+          + "# Please consider migrating your external dependencies from WORKSPACE to"
+          + " MODULE.bazel.\n"
+          + "#\n"
+          + "# For more details, please check https://github.com/bazelbuild/bazel/issues/18958\n"
+          + "###############################################################################";
 
   /**
    * @param builtinModules A list of "built-in" modules that are treated as implicit dependencies of
@@ -207,7 +217,21 @@ public class ModuleFileFunction implements SkyFunction {
     if (env.getValue(FileValue.key(moduleFilePath)) == null) {
       return null;
     }
-    byte[] moduleFileContents = readModuleFile(moduleFilePath.asPath());
+    byte[] moduleFileContents;
+    if (moduleFilePath.asPath().exists()) {
+      moduleFileContents = readModuleFile(moduleFilePath.asPath());
+    } else {
+      moduleFileContents = BZLMOD_REMINDER.getBytes(UTF_8);
+      createModuleFile(moduleFilePath.asPath(), moduleFileContents);
+      env.getListener()
+          .handle(
+              Event.warn(
+                  "--enable_bzlmod is set, but no MODULE.bazel file was found at the workspace"
+                      + " root. Bazel will create an empty MODULE.bazel file. Please consider"
+                      + " migrating your external dependencies from WORKSPACE to MODULE.bazel. For"
+                      + " more details, please refer to"
+                      + " https://github.com/bazelbuild/bazel/issues/18958."));
+    }
     String moduleFileHash = new Fingerprint().addBytes(moduleFileContents).hexDigestAndReset();
     ModuleFileGlobals moduleFileGlobals =
         execModuleFile(
@@ -419,7 +443,23 @@ public class ModuleFileFunction implements SkyFunction {
     try {
       return FileSystemUtils.readWithKnownFileSize(path, path.getFileSize());
     } catch (IOException e) {
-      throw errorf(Code.MODULE_NOT_FOUND, "MODULE.bazel expected but not found at %s", path);
+      throw errorf(
+          Code.MODULE_NOT_FOUND,
+          "MODULE.bazel expected but not found at %s: %s",
+          path,
+          e.getMessage());
+    }
+  }
+
+  private static void createModuleFile(Path path, byte[] bytes) throws ModuleFileFunctionException {
+    try {
+      FileSystemUtils.writeContent(path, bytes);
+    } catch (IOException e) {
+      throw errorf(
+          Code.EXTERNAL_DEPS_UNKNOWN,
+          "MODULE.bazel cannot be created at %s: %s",
+          path,
+          e.getMessage());
     }
   }
 
