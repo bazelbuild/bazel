@@ -14,7 +14,6 @@ sh_test(
     srcs = ["verify_default_lock_file.sh"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
     data = [
-        "//src/test/shell/bazel:test-deps",
         "//src:bazel",
         ":MODULE.bazel.lock",
     ]

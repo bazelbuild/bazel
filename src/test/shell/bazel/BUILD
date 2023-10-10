@@ -34,7 +34,6 @@ filegroup(
     visibility = [
         "//src/main/starlark/tests/builtins_bzl:__subpackages__",
         "//src/test/shell:__subpackages__",
-        "//src/test/tools/bzlmod:__subpackages__",
     ],
 )
 

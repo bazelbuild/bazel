@@ -586,5 +586,5 @@ filegroup(
         "@remotejdk%s_%s//:WORKSPACE" % (version, os)
         for version in ("17", "20")
         for os in ("macos", "macos_aarch64", "linux", "win")
-    ],
+    ] + ["@bazel_tools_repo_cache//:files"],
 )

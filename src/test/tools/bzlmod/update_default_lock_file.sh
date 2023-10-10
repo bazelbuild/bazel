@@ -36,7 +36,6 @@ function generate_lock_file() {
 
   cd "${tmpdir}"
   touch WORKSPACE
-  touch MODULE.bazel
   bazel=$(rlocation io_bazel/src/bazel)
 
   echo "Running: $bazel mod deps"

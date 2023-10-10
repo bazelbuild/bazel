@@ -258,6 +258,7 @@ class RunfilesTest(test_base.TestBase):
       self.assertEqual(lines[0], "mock %s data" % lang[0])
 
   def testLegacyExternalRunfilesOption(self):
+    self.disableBzlmod()
     self.ScratchDir("A")
     self.ScratchFile("A/WORKSPACE")
     self.ScratchFile("A/BUILD", [

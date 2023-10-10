@@ -133,12 +133,12 @@ class TestBase(absltest.TestCase):
         if TestBase.IsDarwin():
           # For reducing SSD usage on our physical Mac machines.
           f.write('common --experimental_repository_cache_hardlinks\n')
-      # f.write('common --noenable_bzlmod\n')
+
     self.CopyFile(self.Rlocation('io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock'), "MODULE.bazel.lock")
     os.chdir(self._test_cwd)
 
   def disableBzlmod(self):
-    with open(self._test_bazelrc, 'wt') as f:
+    with open(self._test_bazelrc, 'at') as f:
       f.write('common --noenable_bzlmod\n')
 
   def tearDown(self):
