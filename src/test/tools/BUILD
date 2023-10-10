@@ -7,7 +7,9 @@ package(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//src/test/tools/bzlmod:srcs",
+    ],
     visibility = ["//src:__subpackages__"],
 )
 

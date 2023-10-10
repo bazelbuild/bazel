@@ -26,18 +26,15 @@ source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/
 { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
 # --- end runfiles.bash initialization v3 ---
 
-function verify_lock_file() {
-  tmpdir=$(mktemp -d -t bazel.XXXXXX)
-  trap 'cleanup $tmpdir' EXIT
-  echo "$tmpdir"
+source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
+  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-  cd "${tmpdir}"
+function test_verify_lock_file() {
   touch WORKSPACE
+  rm -f MODULE.bazel
   cp $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) MODULE.bazel.lock
-
-  bazel=$(rlocation io_bazel/src/bazel)
-  echo "Running: $bazel mod deps --lockfile_mode=error"
-  $bazel mod deps --lockfile_mode=error
+  echo "Running: bazel mod deps --lockfile_mode=error" >& "$TEST_log"
+  bazel mod deps --lockfile_mode=error >& "$TEST_log" || fail "Default lock file is not in sync with MODULE.tools. Please run \"bazel run //src/test/tools/bzlmod:update_default_lock_file\""
 }
 
-verify_lock_file
+run_suite "test_verify_lock_file"
