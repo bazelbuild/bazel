@@ -25,6 +25,8 @@ import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
@@ -39,6 +41,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.concurrent.Uninterruptibles;
@@ -66,6 +69,7 @@ import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptio
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryConsumingOutputHandler;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.rewinding.RewindableGraphInconsistencyReceiver;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -93,6 +97,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.time.Duration;
@@ -644,7 +649,17 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
   @Override
   public void handleAnalysisInvalidatingChange() {
     super.handleAnalysisInvalidatingChange();
-    deleteAnalysisNodes();
+    memoizingEvaluator.delete(this::shouldDeleteOnAnalysisInvalidatingChange);
+  }
+
+  // Also remove ActionLookupData since all such nodes depend on ActionLookupKey nodes and deleting
+  // en masse is cheaper than deleting via graph traversal (b/192863968).
+  @ForOverride
+  protected boolean shouldDeleteOnAnalysisInvalidatingChange(SkyKey k) {
+    return k instanceof ArtifactNestedSetKey
+        || k instanceof ActionLookupKey
+        || k instanceof BuildConfigurationKey
+        || k instanceof ActionLookupData;
   }
 
   /**

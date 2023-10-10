@@ -110,7 +110,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
@@ -1024,11 +1023,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         : GlobbingStrategy.NON_SKYFRAME;
   }
 
-  @ForOverride
-  protected boolean shouldDeleteActionNodesWhenDroppingAnalysis() {
-    return true;
-  }
-
   /**
    * If not null, this is the only source root in the build, corresponding to the single element in
    * a single-element package path. Such a single-source-root build need not plant the execroot
@@ -1201,28 +1195,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ImmutableSet<ConfiguredTarget> topLevelTargets, ImmutableSet<AspectKey> topLevelAspects);
 
   protected abstract void dropConfiguredTargetsNow(final ExtendedEventHandler eventHandler);
-
-  protected final void deleteAnalysisNodes() {
-    memoizingEvaluator.delete(
-        shouldDeleteActionNodesWhenDroppingAnalysis()
-            ? SkyframeExecutor::analysisInvalidatingPredicateWithActions
-            : SkyframeExecutor::analysisInvalidatingPredicate);
-  }
-
-  // We delete any value that can hold an action -- all subclasses of ActionLookupKey.
-  // Also remove ArtifactNestedSetValues to prevent memory leak (b/143940221).
-  // Also BuildConfigurationKey to prevent memory leak (b/191875929).
-  private static boolean analysisInvalidatingPredicate(SkyKey key) {
-    return key instanceof ArtifactNestedSetKey
-        || key instanceof ActionLookupKey
-        || key instanceof BuildConfigurationKey;
-  }
-
-  // Also remove ActionLookupData since all such nodes depend on ActionLookupKey nodes and deleting
-  // en masse is cheaper than deleting via graph traversal (b/192863968).
-  private static boolean analysisInvalidatingPredicateWithActions(SkyKey key) {
-    return analysisInvalidatingPredicate(key) || key instanceof ActionLookupData;
-  }
 
   private WorkspaceStatusAction makeWorkspaceStatusAction(String workspaceName) {
     WorkspaceStatusAction.Environment env =
