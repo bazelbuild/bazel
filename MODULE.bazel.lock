@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 1,
-  "moduleFileHash": "9e7451d0248602aa78c43523f210fb2c69d30feeb32d6be221d4797896002fcb",
+  "moduleFileHash": "d74b979a0d1f2f2a2e3968f8e67eee0a4bbee294ace422debf2ca527231eb8d4",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -155,7 +155,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 300,
+                "line": 301,
                 "column": 22
               }
             }
@@ -268,6 +268,7 @@
           },
           "imports": {
             "bootstrap_repo_cache": "bootstrap_repo_cache",
+            "bazel_tools_repo_cache": "bazel_tools_repo_cache",
             "debian_cc_deps": "debian_cc_deps",
             "openjdk_linux_aarch64_vanilla": "openjdk_linux_aarch64_vanilla",
             "openjdk_linux_ppc64le_vanilla": "openjdk_linux_ppc64le_vanilla",
@@ -289,7 +290,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 262,
+            "line": 263,
             "column": 29
           },
           "imports": {
@@ -306,7 +307,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 269,
+            "line": 270,
             "column": 32
           },
           "imports": {
@@ -325,7 +326,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 277,
+            "line": 278,
             "column": 31
           },
           "imports": {
@@ -342,7 +343,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 280,
+            "line": 281,
             "column": 48
           },
           "imports": {
@@ -359,7 +360,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 322,
+            "line": 323,
             "column": 35
           },
           "imports": {
@@ -376,7 +377,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 325,
+            "line": 326,
             "column": 42
           },
           "imports": {
@@ -1608,7 +1609,7 @@
   },
   "moduleExtensions": {
     "//:extensions.bzl%bazel_android_deps": {
-      "bzlTransitiveDigest": "v47So0tAYUylbZiWQcJMHXOMGV2psDTpmpADB+Q6mlA=",
+      "bzlTransitiveDigest": "BzXN0pLsnZzknk8gNvfDS61dtTRL0eruqpOsIKzjzlM=",
       "accumulatedFileDigests": {},
       "envVariables": {},
       "generatedRepoSpecs": {
@@ -1620,14 +1621,21 @@
       }
     },
     "//:extensions.bzl%bazel_build_deps": {
-      "bzlTransitiveDigest": "v47So0tAYUylbZiWQcJMHXOMGV2psDTpmpADB+Q6mlA=",
-      "accumulatedFileDigests": {},
+      "bzlTransitiveDigest": "BzXN0pLsnZzknk8gNvfDS61dtTRL0eruqpOsIKzjzlM=",
+      "accumulatedFileDigests": {
+        "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "e08da247a1b4200186a5118fcb0de3b1a39e8a402446607abfaaf420e543936f"
+      },
       "envVariables": {},
       "generatedRepoSpecs": {
         "openjdk_macos_aarch64_vanilla": {
           "bzlFile": "@@//tools/build_defs/repo:http.bzl",
           "ruleClassName": "http_file",
           "attributes": {"name":"--_main~bazel_build_deps~openjdk_macos_aarch64_vanilla","sha256":"--2a7a99a3ea263dbd8d32a67d1e6e363ba8b25c645c826f5e167a02bbafaff1fa","urls":["--https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu21.28.85-ca-jdk21.0.0-macosx_aarch64.tar.gz","--https://cdn.azul.com/zulu/bin/zulu21.28.85-ca-jdk21.0.0-macosx_aarch64.tar.gz"],"downloaded_file_path":"--zulu-macos-aarch64-vanilla.tar.gz"}
+        },
+        "bazel_tools_repo_cache": {
+          "bzlFile": "@@//:distdir.bzl",
+          "ruleClassName": "repo_cache_tar",
+          "attributes": {"name":"--_main~bazel_build_deps~bazel_tools_repo_cache","repos":["--rules_cc~0.0.9","--rules_java~6.3.1","--rules_license~0.0.7","--rules_proto~4.0.0","--rules_python~0.4.0","--platforms","--protobuf~3.19.6","--zlib~1.3","--apple_support~1.5.0","--bazel_skylib~1.3.0"],"lockfile":"@@//src/test/tools/bzlmod:MODULE.bazel.lock"}
         },
         "openjdk_linux_vanilla": {
           "bzlFile": "@@//tools/build_defs/repo:http.bzl",
@@ -1692,7 +1700,7 @@
       }
     },
     "//:extensions.bzl%bazel_test_deps": {
-      "bzlTransitiveDigest": "v47So0tAYUylbZiWQcJMHXOMGV2psDTpmpADB+Q6mlA=",
+      "bzlTransitiveDigest": "BzXN0pLsnZzknk8gNvfDS61dtTRL0eruqpOsIKzjzlM=",
       "accumulatedFileDigests": {},
       "envVariables": {},
       "generatedRepoSpecs": {
