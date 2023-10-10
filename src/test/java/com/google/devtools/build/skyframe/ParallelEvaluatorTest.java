@@ -108,8 +108,8 @@ public class ParallelEvaluatorTest {
 
   private final StoredEventHandler reportedEvents = new StoredEventHandler();
 
-  private DirtyTrackingProgressReceiver revalidationReceiver =
-      new DirtyTrackingProgressReceiver(null);
+  private DirtyAndInflightTrackingProgressReceiver revalidationReceiver =
+      new DirtyAndInflightTrackingProgressReceiver(EvaluationProgressReceiver.NULL);
 
   @Before
   public void configureTesterUseLookup() {
@@ -494,7 +494,7 @@ public class ParallelEvaluatorTest {
     }
     Set<SkyKey> receivedValues = Sets.newConcurrentHashSet();
     revalidationReceiver =
-        new DirtyTrackingProgressReceiver(
+        new DirtyAndInflightTrackingProgressReceiver(
             new EvaluationProgressReceiver() {
               @Override
               public void evaluated(

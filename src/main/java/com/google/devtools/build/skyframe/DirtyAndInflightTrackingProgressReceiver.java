@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
@@ -21,45 +23,40 @@ import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
- * A delegating {@link EvaluationProgressReceiver} that tracks inflight nodes, nodes which
- * are being evaluated or scheduled for evaluation, and dirty nodes.
+ * A delegating {@link InflightTrackingProgressReceiver} that tracks both inflight and dirty keys.
  */
-public class DirtyTrackingProgressReceiver implements EvaluationProgressReceiver {
+public class DirtyAndInflightTrackingProgressReceiver implements InflightTrackingProgressReceiver {
 
-  @Nullable protected final EvaluationProgressReceiver progressReceiver;
+  protected final EvaluationProgressReceiver progressReceiver;
   private final Set<SkyKey> dirtyKeys = Sets.newConcurrentHashSet();
   private Set<SkyKey> inflightKeys = Sets.newConcurrentHashSet();
 
-  public DirtyTrackingProgressReceiver(@Nullable EvaluationProgressReceiver progressReceiver) {
-    this.progressReceiver = progressReceiver;
+  public DirtyAndInflightTrackingProgressReceiver(EvaluationProgressReceiver progressReceiver) {
+    this.progressReceiver = checkNotNull(progressReceiver);
   }
 
-  /** Called when a node is injected into the graph, and not evaluated. */
-  protected void injected(SkyKey skyKey) {
-    // This node was never evaluated, but is now clean and need not be re-evaluated
+  @Override
+  public final void injected(SkyKey skyKey) {
+    // This node was never evaluated, but is now clean and need not be re-evaluated.
     inflightKeys.remove(skyKey);
     removeFromDirtySet(skyKey);
   }
 
   @Override
-  public void dirtied(SkyKey skyKey, DirtyType dirtyType) {
-    if (progressReceiver != null) {
-      progressReceiver.dirtied(skyKey, dirtyType);
-    }
+  public final void dirtied(SkyKey skyKey, DirtyType dirtyType) {
+    progressReceiver.dirtied(skyKey, dirtyType);
     addToDirtySet(skyKey);
   }
 
   @Override
-  public void deleted(SkyKey skyKey) {
-    if (progressReceiver != null) {
-      progressReceiver.deleted(skyKey);
-    }
+  public final void deleted(SkyKey skyKey) {
+    progressReceiver.deleted(skyKey);
     // This key was removed from the graph, so no longer needs to be marked as dirty.
     removeFromDirtySet(skyKey);
   }
 
   @Override
-  public void enqueueing(SkyKey skyKey) {
+  public final void enqueueing(SkyKey skyKey) {
     enqueueing(skyKey, false);
   }
 
@@ -74,7 +71,7 @@ public class DirtyTrackingProgressReceiver implements EvaluationProgressReceiver
       // up after being in-flight when an error happens in nokeep_going mode or in the event of an
       // interrupt. In any of these cases, they won't be dirty anymore.
       removeFromDirtySet(skyKey);
-      if (progressReceiver != null && !afterError) {
+      if (!afterError) {
         // Only tell the external listener the node was enqueued if no there was neither an error
         // or interrupt.
         progressReceiver.enqueueing(skyKey);
@@ -86,36 +83,31 @@ public class DirtyTrackingProgressReceiver implements EvaluationProgressReceiver
    * Called when a node was requested to be enqueued but wasn't because either an interrupt or an
    * error (in nokeep_going mode) had occurred.
    */
-  void enqueueAfterError(SkyKey skyKey) {
+  @Override
+  public final void enqueueAfterError(SkyKey skyKey) {
     enqueueing(skyKey, true);
   }
 
   @Override
-  public void stateStarting(SkyKey skyKey, NodeState nodeState) {
-    if (progressReceiver != null) {
-      progressReceiver.stateStarting(skyKey, nodeState);
-    }
+  public final void stateStarting(SkyKey skyKey, NodeState nodeState) {
+    progressReceiver.stateStarting(skyKey, nodeState);
   }
 
   @Override
-  public void stateEnding(SkyKey skyKey, NodeState nodeState) {
-    if (progressReceiver != null) {
-      progressReceiver.stateEnding(skyKey, nodeState);
-    }
+  public final void stateEnding(SkyKey skyKey, NodeState nodeState) {
+    progressReceiver.stateEnding(skyKey, nodeState);
   }
 
   @Override
-  public void evaluated(
+  public final void evaluated(
       SkyKey skyKey,
       @Nullable SkyValue newValue,
       @Nullable ErrorInfo newError,
       Supplier<EvaluationSuccessState> evaluationSuccessState,
       EvaluationState state,
       @Nullable GroupedDeps directDeps) {
-    if (progressReceiver != null) {
-      progressReceiver.evaluated(
-          skyKey, newValue, newError, evaluationSuccessState, state, directDeps);
-    }
+    progressReceiver.evaluated(
+        skyKey, newValue, newError, evaluationSuccessState, state, directDeps);
 
     // This key was either built or marked clean, so we can remove it from both the dirty and
     // inflight nodes.
@@ -124,16 +116,18 @@ public class DirtyTrackingProgressReceiver implements EvaluationProgressReceiver
   }
 
   /** Returns if the key is enqueued for evaluation. */
-  final boolean isInflight(SkyKey skyKey) {
+  @Override
+  public final boolean isInflight(SkyKey skyKey) {
     return inflightKeys.contains(skyKey);
   }
 
-  final void removeFromInflight(SkyKey skyKey) {
+  @Override
+  public final void removeFromInflight(SkyKey skyKey) {
     inflightKeys.remove(skyKey);
   }
 
-  /** Returns the set of all keys that are enqueued for evaluation, and resets the set to empty. */
-  public Set<SkyKey> getAndClearInflightKeys() {
+  @Override
+  public final Set<SkyKey> getAndClearInflightKeys() {
     Set<SkyKey> keys = inflightKeys;
     inflightKeys = Sets.newConcurrentHashSet();
     return keys;
@@ -144,15 +138,15 @@ public class DirtyTrackingProgressReceiver implements EvaluationProgressReceiver
    * collection, where we would not want to remove dirty nodes that are needed for evaluation (in
    * the downward transitive closure of the set of the evaluation's top level nodes).
    */
-  Set<SkyKey> getUnenqueuedDirtyKeys() {
+  final ImmutableSet<SkyKey> getUnenqueuedDirtyKeys() {
     return ImmutableSet.copyOf(dirtyKeys);
   }
 
-  protected void addToDirtySet(SkyKey skyKey) {
+  private void addToDirtySet(SkyKey skyKey) {
     dirtyKeys.add(skyKey);
   }
 
-  protected void removeFromDirtySet(SkyKey skyKey) {
+  private void removeFromDirtySet(SkyKey skyKey) {
     dirtyKeys.remove(skyKey);
   }
 }

@@ -185,15 +185,14 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   /** Create a ParallelBuilder with a DatabaseDependencyChecker using the specified ActionCache. */
   protected BuilderWithResult createBuilder(
       ActionCache actionCache, int threadCount, boolean keepGoing) throws Exception {
-    return createBuilder(
-        actionCache, threadCount, keepGoing, /* evaluationProgressReceiver= */ null);
+    return createBuilder(actionCache, threadCount, keepGoing, EvaluationProgressReceiver.NULL);
   }
 
   protected BuilderWithResult createBuilder(
       ActionCache actionCache,
       int threadCount,
       boolean keepGoing,
-      @Nullable EvaluationProgressReceiver evaluationProgressReceiver)
+      EvaluationProgressReceiver evaluationProgressReceiver)
       throws Exception {
     AtomicReference<PathPackageLocator> pkgLocator =
         new AtomicReference<>(
@@ -216,13 +215,13 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
     ActionExecutionStatusReporter statusReporter =
         ActionExecutionStatusReporter.create(new StoredEventHandler(), eventBus);
-    final SkyframeActionExecutor skyframeActionExecutor =
+    SkyframeActionExecutor skyframeActionExecutor =
         new SkyframeActionExecutor(
             actionKeyContext,
             MetadataConsumerForMetrics.NO_OP,
             MetadataConsumerForMetrics.NO_OP,
             new AtomicReference<>(statusReporter),
-            /*sourceRootSupplier=*/ ImmutableList::of,
+            /* sourceRootSupplier= */ ImmutableList::of,
             SyscallCache.NO_CACHE,
             k -> ThreadStateReceiver.NULL_INSTANCE);
 
@@ -236,7 +235,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     skyframeActionExecutor.configure(
         cache, ActionInputPrefetcher.NONE, DiscoveredModulesPruner.DEFAULT);
 
-    final InMemoryMemoizingEvaluator evaluator =
+    InMemoryMemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
                 .put(

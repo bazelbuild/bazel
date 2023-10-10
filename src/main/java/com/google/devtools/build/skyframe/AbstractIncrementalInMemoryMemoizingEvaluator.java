@@ -46,7 +46,7 @@ public abstract class AbstractIncrementalInMemoryMemoizingEvaluator
   private static final Duration MIN_TIME_TO_LOG_DELETION = Duration.ofMillis(10);
 
   protected final ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions;
-  protected final DirtyTrackingProgressReceiver progressReceiver;
+  protected final DirtyAndInflightTrackingProgressReceiver progressReceiver;
 
   // State related to invalidation and deletion.
   protected Set<SkyKey> valuesToDelete = new LinkedHashSet<>();
@@ -75,14 +75,14 @@ public abstract class AbstractIncrementalInMemoryMemoizingEvaluator
   protected AbstractIncrementalInMemoryMemoizingEvaluator(
       ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
       Differencer differencer,
-      DirtyTrackingProgressReceiver dirtyTrackingProgressReceiver,
+      DirtyAndInflightTrackingProgressReceiver progressReceiver,
       EventFilter eventFilter,
       EmittedEventState emittedEventState,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       boolean keepEdges) {
     this.skyFunctions = checkNotNull(skyFunctions);
     this.differencer = checkNotNull(differencer);
-    this.progressReceiver = checkNotNull(dirtyTrackingProgressReceiver);
+    this.progressReceiver = checkNotNull(progressReceiver);
     this.emittedEventState = checkNotNull(emittedEventState);
     this.eventFilter = checkNotNull(eventFilter);
     this.graphInconsistencyReceiver = checkNotNull(graphInconsistencyReceiver);

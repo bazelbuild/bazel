@@ -43,7 +43,7 @@ class ParallelEvaluatorContext {
   private final EmittedEventState emittedEventState;
   private final NestedSetVisitor<Reportable> replayingNestedSetEventVisitor;
   private final boolean keepGoing;
-  private final DirtyTrackingProgressReceiver progressReceiver;
+  private final InflightTrackingProgressReceiver progressReceiver;
   private final EventFilter storedEventFilter;
   private final ErrorInfoManager errorInfoManager;
   private final GraphInconsistencyReceiver graphInconsistencyReceiver;
@@ -71,7 +71,7 @@ class ParallelEvaluatorContext {
       ExtendedEventHandler reporter,
       EmittedEventState emittedEventState,
       boolean keepGoing,
-      DirtyTrackingProgressReceiver progressReceiver,
+      InflightTrackingProgressReceiver progressReceiver,
       EventFilter storedEventFilter,
       ErrorInfoManager errorInfoManager,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
@@ -146,7 +146,7 @@ class ParallelEvaluatorContext {
     return visitorSupplier.get();
   }
 
-  DirtyTrackingProgressReceiver getProgressReceiver() {
+  InflightTrackingProgressReceiver getProgressReceiver() {
     return progressReceiver;
   }
 

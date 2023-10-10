@@ -90,13 +90,15 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
       };
 
   protected final GraphT graph;
-  protected final DirtyTrackingProgressReceiver progressReceiver;
+  protected final DirtyAndInflightTrackingProgressReceiver progressReceiver;
   // Aliased to InvalidationState.pendingVisitations.
   protected final Set<Pair<SkyKey, InvalidationType>> pendingVisitations;
   protected final QuiescingExecutor executor;
 
   protected InvalidatingNodeVisitor(
-      GraphT graph, DirtyTrackingProgressReceiver progressReceiver, InvalidationState state) {
+      GraphT graph,
+      DirtyAndInflightTrackingProgressReceiver progressReceiver,
+      InvalidationState state) {
     this.executor =
         new AbstractQueueVisitor(
             /* parallelism= */ DEFAULT_THREAD_COUNT,
@@ -112,7 +114,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
 
   protected InvalidatingNodeVisitor(
       GraphT graph,
-      DirtyTrackingProgressReceiver progressReceiver,
+      DirtyAndInflightTrackingProgressReceiver progressReceiver,
       InvalidationState state,
       ForkJoinPool forkJoinPool) {
     this.executor = ForkJoinQuiescingExecutor.newBuilder()
@@ -251,7 +253,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
 
     DeletingNodeVisitor(
         InMemoryGraph graph,
-        DirtyTrackingProgressReceiver progressReceiver,
+        DirtyAndInflightTrackingProgressReceiver progressReceiver,
         DeletingInvalidationState state,
         boolean traverseGraph) {
       super(
@@ -441,7 +443,7 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
 
     DirtyingNodeVisitor(
         QueryableGraph graph,
-        DirtyTrackingProgressReceiver progressReceiver,
+        DirtyAndInflightTrackingProgressReceiver progressReceiver,
         InvalidationState state) {
       super(graph, progressReceiver, state);
     }

@@ -66,7 +66,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       EventFilter storedEventFilter,
       ErrorInfoManager errorInfoManager,
       boolean keepGoing,
-      DirtyTrackingProgressReceiver progressReceiver,
+      InflightTrackingProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       QuiescingExecutor executor,
       CycleDetector cycleDetector,
@@ -585,7 +585,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       Map<SkyKey, Delta> injectionMap,
       Version version,
       ProcessableGraph graph,
-      DirtyTrackingProgressReceiver progressReceiver)
+      InflightTrackingProgressReceiver progressReceiver)
       throws InterruptedException {
     NodeBatch prevNodeEntries =
         graph.createIfAbsentBatch(null, Reason.OTHER, injectionMap.keySet());

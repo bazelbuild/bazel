@@ -43,7 +43,8 @@ class NodeEntryVisitor {
   private final QuiescingExecutor quiescingExecutor;
   private final AtomicBoolean preventNewEvaluations = new AtomicBoolean(false);
   private final Set<RuntimeException> crashes = Sets.newConcurrentHashSet();
-  private final DirtyTrackingProgressReceiver progressReceiver;
+  private final InflightTrackingProgressReceiver progressReceiver;
+
   /**
    * Function that allows this visitor to execute the appropriate {@link Runnable} when given a
    * {@link SkyKey} to evaluate.
@@ -115,7 +116,7 @@ class NodeEntryVisitor {
 
   NodeEntryVisitor(
       QuiescingExecutor quiescingExecutor,
-      DirtyTrackingProgressReceiver progressReceiver,
+      InflightTrackingProgressReceiver progressReceiver,
       RunnableMaker runnableMaker,
       Cache<SkyKey, SkyKeyComputeState> stateCache) {
     this.quiescingExecutor = quiescingExecutor;

@@ -53,8 +53,8 @@ public final class StateMachineTest {
   private final GraphTester tester = new GraphTester();
 
   private final StoredEventHandler reportedEvents = new StoredEventHandler();
-  private final DirtyTrackingProgressReceiver revalidationReceiver =
-      new DirtyTrackingProgressReceiver(null);
+  private final DirtyAndInflightTrackingProgressReceiver revalidationReceiver =
+      new DirtyAndInflightTrackingProgressReceiver(EvaluationProgressReceiver.NULL);
 
   private static final Version VERSION = IntVersion.of(0);
 
@@ -126,7 +126,7 @@ public final class StateMachineTest {
    * <p>The function always has key {@link ROOT_KEY} and value {@link DONE_VALUE}. State machine
    * internals can be observed with consumers.
    *
-   * @return an counter that stores the restart count.
+   * @return a counter that stores the restart count.
    */
   private AtomicInteger defineRootMachine(Supplier<StateMachine> rootMachineSupplier) {
     var restartCount = new AtomicInteger();
@@ -389,7 +389,7 @@ public final class StateMachineTest {
       assertThat(result.get(ROOT_KEY)).isEqualTo(DONE_VALUE);
       assertThat(result.hasError()).isFalse();
     } else {
-      // In nokeepGoing mode, the error is procesed in error bubbling, but the function does not
+      // In nokeepGoing mode, the error is processed in error bubbling, but the function does not
       // complete and the error is still propagated to the top level.
       assertThat(result.get(ROOT_KEY)).isNull();
       assertThatEvaluationResult(result).hasSingletonErrorThat(KEY_A1);

@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.skyframe.Differencer.Diff;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
-import javax.annotation.Nullable;
 
 /**
  * An in-memory {@link MemoizingEvaluator} that uses the eager invalidation strategy. This class is,
@@ -42,13 +41,13 @@ public final class InMemoryMemoizingEvaluator
 
   public InMemoryMemoizingEvaluator(
       Map<SkyFunctionName, SkyFunction> skyFunctions, Differencer differencer) {
-    this(skyFunctions, differencer, /*progressReceiver=*/ null);
+    this(skyFunctions, differencer, EvaluationProgressReceiver.NULL);
   }
 
   public InMemoryMemoizingEvaluator(
       Map<SkyFunctionName, SkyFunction> skyFunctions,
       Differencer differencer,
-      @Nullable EvaluationProgressReceiver progressReceiver) {
+      EvaluationProgressReceiver progressReceiver) {
     this(
         skyFunctions,
         differencer,
@@ -63,7 +62,7 @@ public final class InMemoryMemoizingEvaluator
   public InMemoryMemoizingEvaluator(
       Map<SkyFunctionName, SkyFunction> skyFunctions,
       Differencer differencer,
-      @Nullable EvaluationProgressReceiver progressReceiver,
+      EvaluationProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       EventFilter eventFilter,
       EmittedEventState emittedEventState,
@@ -72,7 +71,7 @@ public final class InMemoryMemoizingEvaluator
     super(
         ImmutableMap.copyOf(skyFunctions),
         differencer,
-        new DirtyTrackingProgressReceiver(progressReceiver),
+        new DirtyAndInflightTrackingProgressReceiver(progressReceiver),
         eventFilter,
         emittedEventState,
         graphInconsistencyReceiver,

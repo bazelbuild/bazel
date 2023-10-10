@@ -38,7 +38,7 @@ public class NodeEntryVisitorTest {
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();
 
   @Mock private MultiThreadPoolsQuiescingExecutor executor;
-  @Mock private DirtyTrackingProgressReceiver receiver;
+  @Mock private InflightTrackingProgressReceiver receiver;
   @Mock private RunnableMaker runnableMaker;
   @Mock private Cache<SkyKey, SkyKeyComputeState> stateCache;
 
