@@ -407,6 +407,35 @@ def _detokenize_javacopts(opts):
         order = "preorder",
     )
 
+def _derive_output_file(ctx, base_file, *, name_suffix = "", extension = None, extension_suffix = ""):
+    """Declares a new file whose name is derived from the given file
+
+    This method allows appending a suffix to the name (before extension), changing
+    the extension or appending a suffix after the extension. The new file is declared
+    as a sibling of the given base file. At least one of the three options must be
+    specified. It is an error to specify both `extension` and `extension_suffix`.
+
+    Args:
+        ctx: (RuleContext) the rule context.
+        base_file: (File) the file from which to derive the resultant file.
+        name_suffix: (str) Optional. The suffix to append to the name before the
+        extension.
+        extension: (str) Optional. The new extension to use (without '.'). By default,
+        the base_file's extension is used.
+        extension_suffix: (str) Optional. The suffix to append to the base_file's extension
+
+    Returns:
+        (File) the derived file
+    """
+    if not name_suffix and not extension_suffix and not extension:
+        fail("At least one of name_suffix, extension or extension_suffix is required")
+    if extension and extension_suffix:
+        fail("only one of extension or extension_suffix can be specified")
+    if extension == None:
+        extension = base_file.extension
+    new_basename = paths.replace_extension(base_file.basename, name_suffix + "." + extension + extension_suffix)
+    return ctx.actions.declare_file(new_basename, sibling = base_file)
+
 helper = struct(
     collect_all_targets_as_deps = _collect_all_targets_as_deps,
     filter_launcher_for_target = _filter_launcher_for_target,
@@ -432,4 +461,5 @@ helper = struct(
     shell_escape = _shell_escape,
     tokenize_javacopts = _tokenize_javacopts,
     detokenize_javacopts = _detokenize_javacopts,
+    derive_output_file = _derive_output_file,
 )
