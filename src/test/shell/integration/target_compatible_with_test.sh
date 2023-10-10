@@ -558,7 +558,7 @@ genrule(
     name = "genrule_foo1",
     target_compatible_with = [":foo1"],
     outs = ["foo1.sh"],
-    cmd = "echo 'Should not be executed' &>2; exit 1",
+    cmd = "echo 'Should not be executed' >&2; exit 1",
 )
 
 sh_binary(
