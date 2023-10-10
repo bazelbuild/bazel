@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.constraints.PlatformRestrictionsResult;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -301,9 +302,14 @@ public class BuildView {
                 bugReporter,
                 Preconditions.checkNotNull(resourceManager), // non-null for skymeld.
                 Preconditions.checkNotNull(buildResultListener), // non-null for skymeld.
-                (configuredTargets, allTargetsToTest) ->
+                (configuredTargets, allTargetsToTest, hostPlatformInfo) ->
                     memoizedGetCoverageArtifactsHelper(
-                        configuredTargets, allTargetsToTest, eventHandler, eventBus, loadingResult),
+                        configuredTargets,
+                        allTargetsToTest,
+                        hostPlatformInfo,
+                        eventHandler,
+                        eventBus,
+                        loadingResult),
                 keepGoing,
                 skipIncompatibleExplicitTargets,
                 targetOptions.get(CoreOptions.class).strictConflictChecks,
@@ -538,7 +544,7 @@ public class BuildView {
     // Coverage
     artifactsToBuild.addAll(
         memoizedGetCoverageArtifactsHelper(
-            configuredTargets, allTargetsToTest, eventHandler, eventBus, loadingResult));
+            configuredTargets, allTargetsToTest, null, eventHandler, eventBus, loadingResult));
 
     // TODO(cparsons): If extra actions are ever removed, this filtering step can probably be
     //  removed as well: the only concern would be action conflicts involving coverage artifacts,
@@ -835,6 +841,7 @@ public class BuildView {
   private ImmutableSet<Artifact> memoizedGetCoverageArtifactsHelper(
       Set<ConfiguredTarget> configuredTargets,
       Set<ConfiguredTarget> allTargetsToTest,
+      PlatformInfo hostPlatformInfo,
       EventHandler eventHandler,
       EventBus eventBus,
       TargetPatternPhaseValue loadingResult)
@@ -854,6 +861,7 @@ public class BuildView {
               eventBus,
               directories,
               allTargetsToTest,
+              hostPlatformInfo,
               baselineCoverageArtifacts,
               getArtifactFactory(),
               skyframeExecutor.getActionKeyContext(),

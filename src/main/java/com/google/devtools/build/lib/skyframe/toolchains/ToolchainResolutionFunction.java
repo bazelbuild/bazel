@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.HostPlatformInfoEvent;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.toolchains.ConstraintValueLookupUtil.InvalidConstraintValueException;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
@@ -286,12 +287,14 @@ public class ToolchainResolutionFunction implements SkyFunction {
             .build();
 
     // Load the host and target platforms early, to check for errors.
-    var unused =
+    var hostAndTargetPlatform =
         PlatformLookupUtil.getPlatformInfo(
             ImmutableList.of(hostPlatformKey, targetPlatformKey), environment);
     if (environment.valuesMissing()) {
       throw new ValueMissingException();
     }
+    PlatformInfo hostPlatformInfo = hostAndTargetPlatform.get(hostPlatformKey);
+    environment.getListener().post(HostPlatformInfoEvent.create(hostPlatformInfo));
 
     ImmutableList<ConfiguredTargetKey> executionPlatformKeys =
         loadExecutionPlatformKeys(

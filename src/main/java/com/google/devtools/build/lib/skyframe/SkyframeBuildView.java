@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationException;
 import com.google.devtools.build.lib.analysis.test.CoverageActionFinishedEvent;
 import com.google.devtools.build.lib.analysis.test.CoverageArtifactsKnownEvent;
@@ -726,7 +727,9 @@ public final class SkyframeBuildView {
         // combined report that matters.
         ImmutableSet<Artifact> coverageArtifacts =
             coverageReportActionsWrapperSupplier.getCoverageArtifacts(
-                buildResultListener.getAnalyzedTargets(), buildResultListener.getAnalyzedTests());
+                buildResultListener.getAnalyzedTargets(),
+                buildResultListener.getAnalyzedTests(),
+                buildResultListener.getHostPlatformInfo());
         eventBus.post(CoverageArtifactsKnownEvent.create(coverageArtifacts));
         additionalArtifactsResult =
             skyframeExecutor.evaluateSkyKeys(
@@ -1443,7 +1446,9 @@ public final class SkyframeBuildView {
   @FunctionalInterface
   public interface CoverageReportActionsWrapperSupplier {
     ImmutableSet<Artifact> getCoverageArtifacts(
-        Set<ConfiguredTarget> configuredTargets, Set<ConfiguredTarget> allTargetsToTest)
+        Set<ConfiguredTarget> configuredTargets,
+        Set<ConfiguredTarget> allTargetsToTest,
+        PlatformInfo hostPlatformInfo)
         throws InterruptedException;
   }
 

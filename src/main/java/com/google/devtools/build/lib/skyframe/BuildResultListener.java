@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -20,6 +21,7 @@ import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectAnalyzedEvent;
@@ -28,9 +30,12 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedE
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetBuiltEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetSkippedEvent;
+
+import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Listens to the various status events of the top level targets/aspects.
@@ -49,6 +54,7 @@ public class BuildResultListener {
   // Also includes test targets.
   private final Set<ConfiguredTargetKey> builtTargets = ConcurrentHashMap.newKeySet();
   private final Set<AspectKey> builtAspects = ConcurrentHashMap.newKeySet();
+  private final AtomicReference<PlatformInfo> hostPlatformInfo = new AtomicReference<>();
 
   @Subscribe
   @AllowConcurrentEvents
@@ -86,6 +92,12 @@ public class BuildResultListener {
     builtAspects.add(event.aspectKey());
   }
 
+  @Subscribe
+  @AllowConcurrentEvents
+  public void setHostPlatformInfo(HostPlatformInfoEvent hostPlatformInfoEvent) {
+    hostPlatformInfo.compareAndSet(null, hostPlatformInfoEvent.hostPlatformInfo());
+  }
+
   public ImmutableSet<ConfiguredTarget> getAnalyzedTargets() {
     return ImmutableSet.copyOf(analyzedTargets);
   }
@@ -104,6 +116,10 @@ public class BuildResultListener {
 
   public ImmutableSet<ConfiguredTargetKey> getBuiltTargets() {
     return ImmutableSet.copyOf(builtTargets);
+  }
+
+  public PlatformInfo getHostPlatformInfo() {
+    return Preconditions.checkNotNull(hostPlatformInfo.get());
   }
 
   public ImmutableSet<AspectKey> getBuiltAspects() {

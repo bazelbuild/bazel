@@ -918,9 +918,11 @@ java_library(
     deps = [
         ":aspect_key_creator",
         ":configured_target_key",
+        ":host_platform_info_event",
         ":top_level_status_events",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:guava",
     ],
@@ -2938,5 +2940,16 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "host_platform_info_event",
+    srcs = ["HostPlatformInfoEvent.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//third_party:auto_value",
     ],
 )

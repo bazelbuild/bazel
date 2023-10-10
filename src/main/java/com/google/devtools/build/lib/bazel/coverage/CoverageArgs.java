@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.bazel.coverage.CoverageReportActionBuilder.ArgsFunc;
 import com.google.devtools.build.lib.bazel.coverage.CoverageReportActionBuilder.LocationFunc;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -37,8 +38,13 @@ public abstract class CoverageArgs {
   public abstract ImmutableList<Artifact> coverageArtifacts();
   public abstract Artifact lcovArtifact();
   public abstract ArtifactFactory factory();
+
   public abstract ArtifactOwner artifactOwner();
+
+  public abstract PlatformInfo hostPlatformInfo();
+
   public abstract FilesToRunProvider reportGenerator();
+
   public abstract String workspaceName();
   public abstract boolean htmlReport();
   @Nullable
@@ -52,13 +58,22 @@ public abstract class CoverageArgs {
       Artifact lcovArtifact,
       ArtifactFactory factory,
       ArtifactOwner artifactOwner,
+      PlatformInfo hostPlatformInfo,
       FilesToRunProvider reportGenerator,
       String workspaceName,
       boolean htmlReport) {
-    return new AutoValue_CoverageArgs(directories, coverageArtifacts, lcovArtifact, factory,
-        artifactOwner, reportGenerator, workspaceName, htmlReport,
-        /*coverageDir=*/ null,
-        /*lcovOutput=*/ null);
+    return new AutoValue_CoverageArgs(
+        directories,
+        coverageArtifacts,
+        lcovArtifact,
+        factory,
+        artifactOwner,
+        hostPlatformInfo,
+        reportGenerator,
+        workspaceName,
+        htmlReport,
+        /* coverageDir= */ null,
+        /* lcovOutput= */ null);
   }
 
   public static CoverageArgs createCopyWithCoverageDirAndLcovOutput(
@@ -66,8 +81,16 @@ public abstract class CoverageArgs {
       PathFragment coverageDir,
       Artifact lcovOutput) {
     return new AutoValue_CoverageArgs(
-        args.directories(), args.coverageArtifacts(), args.lcovArtifact(),
-        args.factory(), args.artifactOwner(), args.reportGenerator(), args.workspaceName(),
-        args.htmlReport(), coverageDir, lcovOutput);
+        args.directories(),
+        args.coverageArtifacts(),
+        args.lcovArtifact(),
+        args.factory(),
+        args.artifactOwner(),
+        args.hostPlatformInfo(),
+        args.reportGenerator(),
+        args.workspaceName(),
+        args.htmlReport(),
+        coverageDir,
+        lcovOutput);
   }
 }

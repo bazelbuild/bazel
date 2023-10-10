@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -86,6 +87,7 @@ public class BazelCoverageReportModule extends BlazeModule {
           EventBus eventBus,
           BlazeDirectories directories,
           Collection<ConfiguredTarget> targetsToTest,
+          PlatformInfo hostPlatformInfo,
           NestedSet<Artifact> baselineCoverageArtifacts,
           ArtifactFactory artifactFactory,
           ActionKeyContext actionKeyContext,
@@ -101,6 +103,7 @@ public class BazelCoverageReportModule extends BlazeModule {
             eventHandler,
             directories,
             targetsToTest,
+            hostPlatformInfo,
             baselineCoverageArtifacts,
             artifactFactory,
             actionKeyContext,
@@ -108,7 +111,7 @@ public class BazelCoverageReportModule extends BlazeModule {
             workspaceName,
             this::getArgs,
             this::getLocationMessage,
-            /*htmlReport=*/ false);
+            /* htmlReport= */ false);
       }
 
       private ImmutableList<String> getArgs(CoverageArgs args) {

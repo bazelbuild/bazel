@@ -375,7 +375,7 @@ public class BuildRequestOptions extends OptionsBase {
    */
   @Option(
       name = "experimental_merged_skyframe_analysis_execution",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},

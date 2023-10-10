@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.CoverageReportValue;
@@ -85,6 +86,7 @@ public interface CoverageReportActionFactory {
       EventBus eventBus,
       BlazeDirectories directories,
       Collection<ConfiguredTarget> targetsToTest,
+      PlatformInfo hostPlatformInfo,
       NestedSet<Artifact> baselineCoverageArtifacts,
       ArtifactFactory artifactFactory,
       ActionKeyContext actionKeyContext,

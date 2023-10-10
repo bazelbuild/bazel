@@ -20,6 +20,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -48,6 +49,7 @@ import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.actions.Compression;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.test.CoverageReport;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
@@ -97,8 +99,6 @@ public final class CoverageReportActionBuilder {
 
   private static final ResourceSet LOCAL_RESOURCES =
       ResourceSet.createWithRamCpu(/* memoryMb= */ 750, /* cpuUsage= */ 1);
-
-  private static final ActionOwner ACTION_OWNER = ActionOwner.SYSTEM_ACTION_OWNER;
 
   // SpawnActions can't be used because they need the AnalysisEnvironment and this action is
   // created specially at the very end of the analysis phase when we don't have it anymore.
@@ -190,6 +190,7 @@ public final class CoverageReportActionBuilder {
       EventHandler reporter,
       BlazeDirectories directories,
       Collection<ConfiguredTarget> targetsToTest,
+      PlatformInfo hostPlatformInfo,
       NestedSet<Artifact> baselineCoverageArtifacts,
       ArtifactFactory factory,
       ActionKeyContext actionKeyContext,
@@ -225,15 +226,26 @@ public final class CoverageReportActionBuilder {
     ImmutableList<Artifact> coverageArtifacts = builder.build();
     if (!coverageArtifacts.isEmpty()) {
       PathFragment coverageDir = TestRunnerAction.COVERAGE_TMP_ROOT;
-      Artifact lcovArtifact = factory.getDerivedArtifact(
-          coverageDir.getRelative("lcov_files.tmp"),
-          directories.getBuildDataDirectory(workspaceName),
-          artifactOwner);
+      Artifact lcovArtifact =
+          factory.getDerivedArtifact(
+              coverageDir.getRelative("lcov_files.tmp"),
+              directories.getBuildDataDirectory(workspaceName),
+              artifactOwner);
       Action lcovFileAction = generateLcovFileWriteAction(lcovArtifact, coverageArtifacts);
-      Action coverageReportAction = generateCoverageReportAction(
-          CoverageArgs.create(directories, coverageArtifacts, lcovArtifact, factory, artifactOwner,
-              reportGenerator, workspaceName, htmlReport),
-          argsFunction, locationFunc);
+      Action coverageReportAction =
+          generateCoverageReportAction(
+              CoverageArgs.create(
+                  directories,
+                  coverageArtifacts,
+                  lcovArtifact,
+                  factory,
+                  artifactOwner,
+                  hostPlatformInfo,
+                  reportGenerator,
+                  workspaceName,
+                  htmlReport),
+              argsFunction,
+              locationFunc);
       return new CoverageReportActionsWrapper(
           lcovFileAction, coverageReportAction, actionKeyContext);
     } else {
@@ -250,7 +262,7 @@ public final class CoverageReportActionBuilder {
       filepaths.add(artifact.getExecPathString());
     }
     return FileWriteAction.create(
-        ACTION_OWNER,
+        ActionOwner.SYSTEM_ACTION_OWNER,
         lcovArtifact,
         Joiner.on('\n').join(filepaths),
         /* makeExecutable= */ false,
@@ -290,8 +302,17 @@ public final class CoverageReportActionBuilder {
     if (runfilesSupport != null) {
       inputsBuilder.add(runfilesSupport.getRunfilesMiddleman());
     }
+    ActionOwner actionOwner =
+        ActionOwner.create(
+            ActionOwner.SYSTEM_ACTION_OWNER.getLabel(),
+            ActionOwner.SYSTEM_ACTION_OWNER.getLocation(),
+            ActionOwner.SYSTEM_ACTION_OWNER.getTargetKind(),
+            ActionOwner.SYSTEM_ACTION_OWNER.getBuildConfigurationInfo(),
+            args.hostPlatformInfo(),
+            ActionOwner.SYSTEM_ACTION_OWNER.getAspectDescriptors(),
+            ActionOwner.SYSTEM_ACTION_OWNER.getExecProperties());
     return new CoverageReportAction(
-        ACTION_OWNER,
+        actionOwner,
         inputsBuilder.build(),
         ImmutableSet.of(lcovOutput),
         actionArgs,
