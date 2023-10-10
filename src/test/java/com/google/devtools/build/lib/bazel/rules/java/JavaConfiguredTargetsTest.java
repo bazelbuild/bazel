@@ -15,13 +15,18 @@
 package com.google.devtools.build.lib.bazel.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.TestConstants.TOOLS_REPOSITORY;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.io.MoreFiles;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -128,5 +133,37 @@ public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
 
     assertThat(compileActionsWithShardSize1).hasSize(3);
     assertThat(compileActionsWithShardSize2).hasSize(2);
+  }
+
+  // regression test for b/297356812#comment31
+  @Test
+  public void experimentalShardedJavaLibrary_allOutputsHaveUniqueNames() throws Exception {
+    setBuildLanguageOptions("--experimental_java_library_export");
+    scratch.file(
+        "foo/rule.bzl",
+        //
+        "java_library = experimental_java_library_export_do_not_use.sharded_java_library(",
+        "  default_shard_size = 1",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load(':rule.bzl', 'java_library')",
+        "",
+        "java_library(",
+        "  name = 'lib',",
+        "  srcs = ['1.java', '2.java', '3.java'],",
+        ")");
+
+    ImmutableList<Artifact> outputs =
+        getActions("//foo:lib", JavaCompileAction.class).stream()
+            .map(ActionAnalysisMetadata::getPrimaryOutput)
+            .collect(toImmutableList());
+    ImmutableSet<String> uniqueFilenamesWithoutExtension =
+        outputs.stream()
+            .map(file -> MoreFiles.getNameWithoutExtension(file.getPath().getPathFile().toPath()))
+            .collect(toImmutableSet());
+
+    assertThat(outputs).hasSize(3);
+    assertThat(uniqueFilenamesWithoutExtension).hasSize(3);
   }
 }

@@ -80,13 +80,13 @@ def experimental_sharded_javac(
     for shard_idx in range(shard_count):
         start = shard_idx * shard_size
         sources_for_shard = source_files[start:start + shard_size]
-        shard_output = ctx.actions.declare_file(output.basename + "_shard_%s" % shard_idx, sibling = output)
+        shard_output = helper.derive_output_file(ctx, output, name_suffix = "_shard_%s" % shard_idx)
         sharded_outputs.append(shard_output)
         _java_common_internal.create_compilation_action(
             ctx,
             java_toolchain,
             shard_output,
-            ctx.actions.declare_file(output.basename + "_shard_%s_manifest_proto" % shard_idx, sibling = output),  # manifest_proto
+            helper.derive_output_file(ctx, shard_output, extension_suffix = "_manifest_proto"),  # manifest_proto
             plugin_info,
             shard_compilation_classpath,
             shard_direct_jars,
@@ -98,13 +98,13 @@ def experimental_sharded_javac(
             sources = depset(sources_for_shard),
         )
     if resources or resource_jars or source_jars:
-        shard_output = ctx.actions.declare_file(output.basename + "_shard_resources", sibling = output)
+        shard_output = helper.derive_output_file(ctx, output, name_suffix = "_shard_resources")
         sharded_outputs.append(shard_output)
         _java_common_internal.create_compilation_action(
             ctx,
             java_toolchain,
             shard_output,
-            ctx.actions.declare_file(output.basename + "_shard_resources_manifest_proto", sibling = output),  # manifest_proto
+            helper.derive_output_file(ctx, shard_output, extension_suffix = "_manifest_proto"),  # manifest_proto
             plugin_info,
             shard_compilation_classpath,
             shard_direct_jars,
