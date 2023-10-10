@@ -69,7 +69,8 @@ toolchain_type(name = 'yolo')
 EOF
 
   cd platforms_can_be_overridden || fail "couldn't cd into workspace"
-  bazel build @platforms//:yolo &> $TEST_log || \
+  # platforms is one of the WELL_KNOWN_MODULES, so it cannot be overridden by a workspace repository.
+  bazel build --noenable_bzlmod @platforms//:yolo &> $TEST_log || \
     fail "Bazel failed to build @platforms"
 }
 
@@ -102,7 +103,7 @@ platform(
 EOF
 
   bazel build --experimental_platforms_api=true :a &> $TEST_log || fail "Build failed"
-  expect_log 'The label is: @//:my_platform'
+  expect_log 'The label is: @@//:my_platform'
 }
 
 run_suite "platform repo test"

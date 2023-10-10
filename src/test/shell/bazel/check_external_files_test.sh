@@ -56,6 +56,8 @@ if "$is_windows"; then
   export MSYS2_ARG_CONV_EXCL="*"
 fi
 
+disable_bzlmod
+
 function get_extrepourl() {
   if $is_windows; then
     echo "file:///$(cygpath -m $1)"

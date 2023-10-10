@@ -72,6 +72,7 @@ fi
 JAVA_TOOLS_ZIP_FILE_URL=${JAVA_TOOLS_ZIP_FILE_URL:-}
 JAVA_TOOLS_PREBUILT_ZIP_FILE_URL=${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL:-}
 
+disable_bzlmod
 
 function set_up() {
     cat >>WORKSPACE <<EOF
@@ -141,6 +142,7 @@ EOF
 }
 
 function test_incompatible_system_classpath() {
+  touch WORKSPACE.bzlmod
   mkdir -p pkg
   # This test defines a custom Java toolchain as it relies on the availability of a runtime that is
   # strictly newer than the one specified as the toolchain's java_runtime.
@@ -182,6 +184,7 @@ EOF
 }
 
 function test_incompatible_tool_system_classpath() {
+  touch WORKSPACE.bzlmod
   mkdir -p pkg
   # This test defines a custom Java toolchain as it relies on the availability of a runtime that is
   # strictly newer than the one specified as the toolchain's java_runtime.
@@ -221,6 +224,8 @@ EOF
     --tool_java_language_version=17 \
     --tool_java_runtime_version=remotejdk_20 \
     &>"${TEST_log}" && fail "Expected build to fail"
+
+    cat "${TEST_log}"
 
   expect_log "error: \[BazelJavaConfiguration\] The Java 17 runtime used to run javac is not " \
     "recent enough to compile for the Java 20 runtime in external/remotejdk20_[a-z0-9]*\. Either " \

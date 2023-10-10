@@ -612,6 +612,11 @@ register_toolchains("//tools/python/windows:py_toolchain")
 EOF
 }
 
+# Set up a lockfile to avoid accessing BCR for tests with a clean workspace.
+function write_default_lock_file() {
+  cp -f $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) ${1:-MODULE.bazel.lock}
+}
+
 workspaces=()
 # Set-up a new, clean workspace with only the tools installed.
 function create_new_workspace() {
@@ -625,8 +630,8 @@ function create_new_workspace() {
   copy_tools_directory
 
   write_workspace_file "WORKSPACE" "$WORKSPACE_NAME"
-  # Set up a lockfile to avoid accessing BCR for tests with a clean workspace.
-  cp -f $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) ./MODULE.bazel.lock
+
+  write_default_lock_file "MODULE.bazel.lock"
 
   maybe_setup_python_windows_tools
 }
@@ -663,7 +668,7 @@ function cleanup_workspace() {
       fi
     done
     write_workspace_file "WORKSPACE" "$WORKSPACE_NAME"
-    cp -f $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) ./MODULE.bazel.lock
+    write_default_lock_file "MODULE.bazel.lock"
   fi
   for i in "${workspaces[@]}"; do
     if [ "$i" != "${WORKSPACE_DIR:-}" ]; then

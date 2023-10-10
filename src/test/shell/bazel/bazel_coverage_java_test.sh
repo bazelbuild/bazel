@@ -403,7 +403,7 @@ import java.nio.channels.*;
 import java.net.InetAddress;
 public class CovTest extends TestCase {
   private static Process startSubprocess(String arg) throws Exception {
-   String path = System.getenv("TEST_SRCDIR") + "/main/java/cov/Cov_deploy.jar";
+   String path = System.getenv("TEST_SRCDIR") + "/_main/java/cov/Cov_deploy.jar";
     String[] command = {
       // Run the deploy jar by invoking JVM because the integration tests
       // cannot use the java launcher (b/29388516).
@@ -580,7 +580,7 @@ import java.nio.channels.*;
 import java.net.InetAddress;
 public class CovTest extends TestCase {
   private static Process startSubprocess(String arg) throws Exception {
-   String path = System.getenv("TEST_SRCDIR") + "/main/java/cov/Cov_deploy.jar";
+   String path = System.getenv("TEST_SRCDIR") + "/_main/java/cov/Cov_deploy.jar";
     String[] command = {
       // Run the deploy jar by invoking JVM because the integration tests
       // cannot use the java launcher (b/29388516).

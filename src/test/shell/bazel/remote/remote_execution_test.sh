@@ -1308,8 +1308,8 @@ EOF
   cat > test.sh <<'EOF'
 #!/bin/bash
 set -e
-[[ -f ${RUNFILES_DIR}/foo/data/hello ]]
-[[ -f ${RUNFILES_DIR}/foo/data/world ]]
+[[ -f ${RUNFILES_DIR}/_main/data/hello ]]
+[[ -f ${RUNFILES_DIR}/_main/data/world ]]
 exit 0
 EOF
   chmod 755 test.sh
@@ -1329,10 +1329,10 @@ EOF
   bazel test \
     --nobuild_runfile_links \
     --remote_executor=grpc://localhost:${worker_port} \
-    //:test || fail "Testing //:test failed"
+    //:test --verbose_failures || fail "Testing //:test failed"
 
-  [[ ! -f bazel-bin/test.runfiles/foo/data/hello ]] || fail "expected no runfile data/hello"
-  [[ ! -f bazel-bin/test.runfiles/foo/data/world ]] || fail "expected no runfile data/world"
+  [[ ! -f bazel-bin/test.runfiles/_main/data/hello ]] || fail "expected no runfile data/hello"
+  [[ ! -f bazel-bin/test.runfiles/_main/data/world ]] || fail "expected no runfile data/world"
   [[ ! -f bazel-bin/test.runfiles/MANIFEST ]] || fail "expected output manifest to exist"
 }
 
