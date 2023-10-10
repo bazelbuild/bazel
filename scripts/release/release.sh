@@ -159,7 +159,7 @@ function __create_release() {
 # Force push a ref $2 to repo $1 if exists
 function __push_if_exists() {
   if git show-ref -q "${2}"; then
-    git push -f "${1}" "+${2}"
+    git push -f -o push-justification=b/303672453 "${1}" "+${2}"
   fi
 }
 
@@ -183,7 +183,7 @@ function __cleanup_branches() {
   do
     echo "Deleting ${branch}"
     git branch -D "${branch}" &>/dev/null || true
-    git push -f "${RELEASE_REPOSITORY}" ":${branch}" &>/dev/null || true
+    git push -f -o push-justification=b/303672453 "${RELEASE_REPOSITORY}" ":${branch}" &>/dev/null || true
   done
 }
 
@@ -223,7 +223,7 @@ function __do_release() {
     trap - EXIT
 
     echo "Pushing the change to remote repositories"
-    git push "${MASTER_REPOSITORY}" +master
+    git push -o push-justification=b/303672453 "${MASTER_REPOSITORY}" +master
     __push_ref "refs/tags/${tag_name}"
   fi
 }
