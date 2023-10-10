@@ -440,8 +440,18 @@ register_toolchains(
     "//bar_tools:barc_windows_toolchain",
     # Target patterns are also permitted, so you could have also written:
     # "//bar_tools:all",
+    # or even
+    # "//bar_tools/...",
 )
 ```
+
+When using target patterns to register toolchains, the order in which the
+individual toolchains are registered is determined by the following rules:
+
+* The toolchains defined in a subpackage of a package are registered before the
+  toolchains defined in the package itself.
+* Within a package, toolchains are registered in the lexicographical order of
+  their names.
 
 Now when you build a target that depends on a toolchain type, an appropriate
 toolchain will be selected based on the target and execution platforms.
