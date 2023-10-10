@@ -281,6 +281,83 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
             Label.parseCanonicalUnchecked("//extra/more:more_toolchain_impl"));
   }
 
+  private void addSimpleToolchain(String packageName, String toolchainName) throws Exception {
+    addToolchain(packageName, toolchainName, ImmutableList.of(), ImmutableList.of(), "foo");
+  }
+
+  @Test
+  public void testRegisteredToolchains_targetPattern_order() throws Exception {
+    addSimpleToolchain("extra", "bbb");
+    addSimpleToolchain("extra", "ccc");
+    addSimpleToolchain("extra", "aaa");
+    addSimpleToolchain("extra/yyy", "bbb");
+    addSimpleToolchain("extra/yyy", "ccc");
+    addSimpleToolchain("extra/yyy", "aaa");
+    addSimpleToolchain("extra/xxx", "bbb");
+    addSimpleToolchain("extra/xxx", "ccc");
+    addSimpleToolchain("extra/xxx", "aaa");
+    addSimpleToolchain("extra/zzz", "bbb");
+    addSimpleToolchain("extra/zzz", "ccc");
+    addSimpleToolchain("extra/zzz", "aaa");
+    addSimpleToolchain("extra/yyy/yyy", "bbb");
+    addSimpleToolchain("extra/yyy/yyy", "ccc");
+    addSimpleToolchain("extra/yyy/yyy", "aaa");
+    addSimpleToolchain("extra/yyy/xxx", "bbb");
+    addSimpleToolchain("extra/yyy/xxx", "ccc");
+    addSimpleToolchain("extra/yyy/xxx", "aaa");
+    addSimpleToolchain("extra/yyy/zzz", "bbb");
+    addSimpleToolchain("extra/yyy/zzz", "ccc");
+    addSimpleToolchain("extra/yyy/zzz", "aaa");
+    addSimpleToolchain("extra/xxx/yyy", "bbb");
+    addSimpleToolchain("extra/xxx/yyy", "ccc");
+    addSimpleToolchain("extra/xxx/yyy", "aaa");
+    addSimpleToolchain("extra/xxx/xxx", "bbb");
+    addSimpleToolchain("extra/xxx/xxx", "ccc");
+    addSimpleToolchain("extra/xxx/xxx", "aaa");
+    addSimpleToolchain("extra/xxx/zzz", "bbb");
+    addSimpleToolchain("extra/xxx/zzz", "ccc");
+    addSimpleToolchain("extra/xxx/zzz", "aaa");
+    rewriteWorkspace("register_toolchains('//extra/...')");
+
+    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey);
+    EvaluationResult<RegisteredToolchainsValue> result =
+        requestToolchainsFromSkyframe(toolchainsKey);
+    assertThatEvaluationResult(result).hasNoError();
+    assertToolchainLabels(result.get(toolchainsKey), PackageIdentifier.createInMainRepo("extra"))
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//extra/xxx/xxx:aaa_impl"),
+            Label.parseCanonicalUnchecked("//extra/xxx/xxx:bbb_impl"),
+            Label.parseCanonicalUnchecked("//extra/xxx/xxx:ccc_impl"),
+            Label.parseCanonicalUnchecked("//extra/xxx/yyy:aaa_impl"),
+            Label.parseCanonicalUnchecked("//extra/xxx/yyy:bbb_impl"),
+            Label.parseCanonicalUnchecked("//extra/xxx/yyy:ccc_impl"),
+            Label.parseCanonicalUnchecked("//extra/xxx/zzz:aaa_impl"),
+            Label.parseCanonicalUnchecked("//extra/xxx/zzz:bbb_impl"),
+            Label.parseCanonicalUnchecked("//extra/xxx/zzz:ccc_impl"),
+            Label.parseCanonicalUnchecked("//extra/xxx:aaa_impl"),
+            Label.parseCanonicalUnchecked("//extra/xxx:bbb_impl"),
+            Label.parseCanonicalUnchecked("//extra/xxx:ccc_impl"),
+            Label.parseCanonicalUnchecked("//extra/yyy/xxx:aaa_impl"),
+            Label.parseCanonicalUnchecked("//extra/yyy/xxx:bbb_impl"),
+            Label.parseCanonicalUnchecked("//extra/yyy/xxx:ccc_impl"),
+            Label.parseCanonicalUnchecked("//extra/yyy/yyy:aaa_impl"),
+            Label.parseCanonicalUnchecked("//extra/yyy/yyy:bbb_impl"),
+            Label.parseCanonicalUnchecked("//extra/yyy/yyy:ccc_impl"),
+            Label.parseCanonicalUnchecked("//extra/yyy/zzz:aaa_impl"),
+            Label.parseCanonicalUnchecked("//extra/yyy/zzz:bbb_impl"),
+            Label.parseCanonicalUnchecked("//extra/yyy/zzz:ccc_impl"),
+            Label.parseCanonicalUnchecked("//extra/yyy:aaa_impl"),
+            Label.parseCanonicalUnchecked("//extra/yyy:bbb_impl"),
+            Label.parseCanonicalUnchecked("//extra/yyy:ccc_impl"),
+            Label.parseCanonicalUnchecked("//extra/zzz:aaa_impl"),
+            Label.parseCanonicalUnchecked("//extra/zzz:bbb_impl"),
+            Label.parseCanonicalUnchecked("//extra/zzz:ccc_impl"),
+            Label.parseCanonicalUnchecked("//extra:aaa_impl"),
+            Label.parseCanonicalUnchecked("//extra:bbb_impl"),
+            Label.parseCanonicalUnchecked("//extra:ccc_impl"))
+        .inOrder();
+  }
+
   @Test
   public void testRegisteredToolchains_reload() throws Exception {
     rewriteWorkspace("register_toolchains('//toolchain:toolchain_1')");
