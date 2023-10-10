@@ -264,6 +264,9 @@ build --incompatible_skip_genfiles_symlink=false
 
 build --incompatible_use_toolchain_resolution_for_java_rules
 
+# Enable Bzlmod in all shell integration tests
+common --enable_bzlmod
+
 ${EXTRA_BAZELRC:-}
 EOF
 
@@ -622,6 +625,9 @@ function create_new_workspace() {
   copy_tools_directory
 
   write_workspace_file "WORKSPACE" "$WORKSPACE_NAME"
+
+  # Set up a lockfile to avoid accessing BCR for tests with a clean workspace.
+  cp $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) ./MODULE.bazel.lock
 
   maybe_setup_python_windows_tools
 }

@@ -47,6 +47,7 @@ sh_library(
     ],
     data = [
         ":testenv.sh",
+        "//src/test/tools/bzlmod:MODULE.bazel.lock",
         "@bazel_tools//tools/bash/runfiles",
     ],
     visibility = ["//visibility:public"],
