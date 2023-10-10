@@ -220,6 +220,9 @@ public abstract class BootClassPathInfo implements Info {
   }
 
   public boolean isEmpty() {
-    return bootclasspath().isEmpty();
+    return bootclasspath().isEmpty()
+        && auxiliary().isEmpty()
+        && systemInputs().isEmpty()
+        && systemPath().isEmpty();
   }
 }
