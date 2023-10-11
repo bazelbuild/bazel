@@ -1,3 +1,6 @@
+# NOTE: When editing this file, also update the lockfile.
+#   bazel run //src/test/tools/bzlmod:update_default_lock_file
+
 module(name = "bazel_tools")
 
 bazel_dep(name = "rules_cc", version = "0.0.9")
