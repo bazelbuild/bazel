@@ -132,8 +132,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "  outs = ['d.txt'])",
         "java_library(name = 'jl',",
         "  srcs = ['a.java'])",
-        "android_library(name = 'androidlib',",
-        "  srcs = ['a.java'])",
         "java_import(name = 'asr',",
         "  jars = [ 'asr.jar' ],",
         "  srcjar = 'asr-src.jar',",
@@ -148,11 +146,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "           srcs = ['dummy.cc'],",
         "           features = ['f1', '-f3'],",
         ")");
-  }
-
-  @Before
-  public void setupStarlarkJavaBinary() throws Exception {
-    setBuildLanguageOptions("--experimental_google_legacy_api");
   }
 
   private void setRuleContext(StarlarkRuleContext ctx) throws Exception {
@@ -589,28 +582,56 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     ev.checkEvalErrorContains("attribute srcs: message", "fail(attr='srcs', msg='message')");
   }
 
+  private void writeToolUsingRule() throws Exception {
+    // Write a rule with an executable implicit attribute.
+    scratch.file(
+        "a/rule.bzl",
+        "def _impl(ctx):",
+        "    pass",
+        "sample = rule(",
+        "    implementation = _impl,",
+        "    attrs = {",
+        "        '_tool': attr.label(",
+        "            cfg = 'exec',",
+        "            executable = True,",
+        "            default = '//a:tool'),",
+        "    }",
+        ")");
+
+    // Use the rule.
+    scratch.file(
+        "a/BUILD",
+        "load('rule.bzl', 'sample')",
+        "cc_binary(name = 'tool')",
+        "sample(name = 'sample')");
+  }
+
   @Test
   public void testGetExecutablePrerequisite() throws Exception {
-    setRuleContext(createRuleContext("//foo:androidlib"));
-    Object result = ev.eval("ruleContext.executable._idlclass");
-    assertThat(((Artifact) result).getFilename()).matches("^IdlClass(\\.exe){0,1}$");
+    writeToolUsingRule();
+
+    setRuleContext(createRuleContext("//a:sample"));
+    Object result = ev.eval("ruleContext.executable._tool");
+    assertThat(((Artifact) result).getFilename()).matches("^tool(\\.exe)?$");
   }
 
   @Test
   public void testCreateSpawnActionArgumentsWithExecutableFilesToRunProvider() throws Exception {
-    StarlarkRuleContext ruleContext = createRuleContext("//foo:androidlib");
+    writeToolUsingRule();
+
+    StarlarkRuleContext ruleContext = createRuleContext("//a:sample");
     setRuleContext(ruleContext);
     ev.exec(
+        "output = ruleContext.actions.declare_file(ruleContext.attr.name + '_out')",
         "ruleContext.actions.run(",
-        "  inputs = ruleContext.files.srcs,",
-        "  outputs = ruleContext.files.srcs,",
+        "  outputs = [output],",
         "  arguments = ['--a','--b'],",
-        "  executable = ruleContext.executable._idlclass)");
+        "  executable = ruleContext.executable._tool)");
     StarlarkAction action =
         (StarlarkAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    assertThat(action.getCommandFilename()).matches("^.*/IdlClass(\\.exe){0,1}$");
+    assertThat(action.getCommandFilename()).matches("^.*/tool(\\.exe)?$");
   }
 
   @Test
