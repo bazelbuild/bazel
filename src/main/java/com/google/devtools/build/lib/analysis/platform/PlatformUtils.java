@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.platform;
 
 import build.bazel.remote.execution.v2.Platform;
 import build.bazel.remote.execution.v2.Platform.Property;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Ordering;
@@ -101,15 +100,11 @@ public final class PlatformUtils {
       Platform.Builder platformBuilder = Platform.newBuilder();
 
       String remoteExecutionProperties = spawn.getExecutionPlatform().remoteExecutionProperties();
-      if (remoteExecutionProperties.isEmpty()) {
-        for (Map.Entry<String, String> property : spawn.getExecutionPlatform().execProperties().entrySet()) {
-          properties.put(property.getKey(), property.getValue());
-        }
-      } else {
+      if (!remoteExecutionProperties.isEmpty()) {
         // Try and get the platform info from the execution properties.
         try {
-        TextFormat.getParser()
-                .merge(spawn.getExecutionPlatform().remoteExecutionProperties(), platformBuilder);
+          TextFormat.getParser()
+                  .merge(spawn.getExecutionPlatform().remoteExecutionProperties(), platformBuilder);
         } catch (ParseException e) {
           String message =
                   String.format(
@@ -122,8 +117,9 @@ public final class PlatformUtils {
         for (Property property : platformBuilder.getPropertiesList()) {
           properties.put(property.getName(), property.getValue());
         }
+      } else {
+        properties.putAll(spawn.getExecutionPlatform().execProperties());
       }
-
     } else {
       properties = defaultExecProperties;
     }

@@ -1339,7 +1339,7 @@ EOF
 function test_platform_default_properties_invalidation() {
   # Test that when changing values of --remote_default_platform_properties all actions are
   # invalidated.
-mkdir -p test
+  mkdir -p test
   cat > test/BUILD << 'EOF'
 genrule(
     name = "test",
@@ -1365,7 +1365,7 @@ EOF
   # caching and make it re-run the action.
   expect_log "2 processes: 1 internal, 1 remote"
 
-  bazel  build \
+  bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_default_exec_properties="build=88888" \
     //test:test >& $TEST_log || fail "Failed to build //a:remote"
@@ -1376,7 +1376,7 @@ EOF
 
   bazel shutdown
 
-  bazel  build \
+  bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_default_exec_properties="build=88888" \
     //test:test >& $TEST_log || fail "Failed to build //a:remote"
