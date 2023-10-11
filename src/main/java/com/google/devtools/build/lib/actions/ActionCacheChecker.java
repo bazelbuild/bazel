@@ -517,13 +517,8 @@ public class ActionCacheChecker {
     // are unnecessary. In other words, the only metadata we should check for them is file existence
     // itself.
 
-    MiddlemanType middlemanType = action.getActionType();
-    if (middlemanType.isMiddleman()) {
-      // Some types of middlemen are not checked because they should not
-      // propagate invalidation of their inputs.
-      if (middlemanType != MiddlemanType.SCHEDULING_DEPENDENCY_MIDDLEMAN) {
-        checkMiddlemanAction(action, handler, inputMetadataProvider, outputMetadataStore);
-      }
+    if (action.getActionType().isMiddleman()) {
+      checkMiddlemanAction(action, handler, inputMetadataProvider, outputMetadataStore);
       return null;
     }
     if (!cacheConfig.enabled()) {

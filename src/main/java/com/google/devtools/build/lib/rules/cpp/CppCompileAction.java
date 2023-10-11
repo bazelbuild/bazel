@@ -258,11 +258,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       ImmutableList<Artifact> additionalOutputs) {
     super(
         owner,
-        configuration.getFragment(CppConfiguration.class).useSchedulingMiddlemen()
-            ? NestedSetBuilder.fromNestedSet(mandatoryInputs)
-                .addTransitive(ccCompilationContext.getTransitiveCompilationPrerequisites())
-                .build()
-            : mandatoryInputs,
+        mandatoryInputs,
         collectOutputs(
             Preconditions.checkNotNull(outputFile, "outputFile"),
             dotdFile,
@@ -623,13 +619,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Override
   protected final NestedSet<Artifact> getOriginalInputs() {
-    if (cppConfiguration().useSchedulingMiddlemen()) {
-      return NestedSetBuilder.fromNestedSet(mandatoryInputs)
-          .addTransitive(ccCompilationContext.getTransitiveCompilationPrerequisites())
-          .build();
-    } else {
-      return mandatoryInputs;
-    }
+    return mandatoryInputs;
   }
 
   @Nullable
@@ -1207,9 +1197,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         Profiler.instance().profile(ProfilerTask.ACTION_UPDATE, this::describe)) {
       NestedSetBuilder<Artifact> inputsBuilder =
           NestedSetBuilder.<Artifact>stableOrder().addTransitive(mandatoryInputs);
-      if (cppConfiguration().useSchedulingMiddlemen()) {
-        inputsBuilder.addTransitive(ccCompilationContext.getTransitiveCompilationPrerequisites());
-      }
       if (discoveredInputs != null) {
         inputsBuilder.addTransitive(discoveredInputs);
       }
@@ -1256,9 +1243,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Override
   public NestedSet<Artifact> getSchedulingDependencies() {
-    return cppConfiguration().useSchedulingMiddlemen()
-        ? NestedSetBuilder.emptySet(Order.STABLE_ORDER)
-        : ccCompilationContext.getTransitiveCompilationPrerequisites();
+    return ccCompilationContext.getTransitiveCompilationPrerequisites();
   }
 
   @Override

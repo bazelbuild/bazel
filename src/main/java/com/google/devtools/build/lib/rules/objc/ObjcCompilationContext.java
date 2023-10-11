@@ -182,9 +182,7 @@ public final class ObjcCompilationContext implements StarlarkValue {
 
   @StarlarkMethod(name = "create_cc_compilation_context", documented = false)
   public CcCompilationContext createCcCompilationContext() {
-    CcCompilationContext.Builder builder =
-        CcCompilationContext.builder(
-            /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null);
+    CcCompilationContext.Builder builder = CcCompilationContext.builder();
     builder
         .addDefines(getDefines())
         .addDeclaredIncludeSrcs(getPublicHeaders())

@@ -20,20 +20,6 @@ public enum MiddlemanType {
   NORMAL,
 
   /**
-   * A middleman that denotes a scheduling dependency.
-   *
-   * <p>If an action has dependencies through scheduling dependency middleman, those dependencies
-   * will get built before the action is run and the build will error out if they cannot be built,
-   * but the dependencies will not be considered inputs of the action.
-   *
-   * <p>This is useful in cases when an action <em>might</em> need some inputs, but that is only
-   * found out right before it gets executed. The most salient case is C++ compilation where all
-   * files that can possibly be included need to be built before the action is executed, but if
-   * include scanning is used, only a subset of them will end up as inputs.
-   */
-  SCHEDULING_DEPENDENCY_MIDDLEMAN,
-
-  /**
    * A runfiles middleman, which is validated by the dependency checker, but is not expanded in
    * blaze. Instead, the runfiles manifest is sent to remote execution client, which performs the
    * expansion.

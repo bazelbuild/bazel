@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
-import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -2125,20 +2124,11 @@ public class RewindingTestsHelper {
             "Linking genheader/consumes_header", "Compiling genheader/consumes.cc"),
         /* completedRewound= */ ImmutableList.of("Executing genrule //genheader:gen_header"),
         /* failedRewound= */ ImmutableList.of(),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(
-            middlemanEvent ->
-                isSchedulingDepMiddlemanForTarget(
-                    middlemanEvent.getAction(), "//genheader:consumes_header")),
+        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
 
     assertOnlyActionsDirtied(dirtiedKeys);
     assertThat(dirtiedArtifactOwnerLabels(dirtiedKeys)).containsExactly("//genheader:gen_header");
-  }
-
-  static boolean isSchedulingDepMiddlemanForTarget(Action middlemanAction, String expectedTarget) {
-    return ActionEventRecorder.progressMessageOrPrettyPrint(middlemanAction)
-            .contains(expectedTarget)
-        && middlemanAction.getActionType().equals(MiddlemanType.SCHEDULING_DEPENDENCY_MIDDLEMAN);
   }
 
   public final void runGeneratedHeaderRewound_lostInActionExecution_spawnFailed() throws Exception {
@@ -2186,10 +2176,7 @@ public class RewindingTestsHelper {
         /* runOnce= */ ImmutableList.of("Linking genheader/consumes_header"),
         /* completedRewound= */ ImmutableList.of("Executing genrule //genheader:gen_header"),
         /* failedRewound= */ ImmutableList.of("Compiling genheader/consumes.cc"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(
-            middlemanEvent ->
-                isSchedulingDepMiddlemanForTarget(
-                    middlemanEvent.getAction(), "//genheader:consumes_header")),
+        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
 
     assertOnlyActionsDirtied(dirtiedKeys);
@@ -2289,13 +2276,7 @@ public class RewindingTestsHelper {
             "Linking genheader/consumes_header"),
         /* completedRewound= */ ImmutableList.of("Executing genrule //genheader:gen_header"),
         /* failedRewound= */ ImmutableList.of(),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(
-            middlemanEvent ->
-                isSchedulingDepMiddlemanForTarget(
-                    middlemanEvent.getAction(), "//genheader:consumes_header"),
-            middlemanEvent ->
-                isSchedulingDepMiddlemanForTarget(
-                    middlemanEvent.getAction(), "//genheader:intermediate")),
+        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
 
     assertOnlyActionsDirtied(dirtiedKeys);
@@ -2355,13 +2336,7 @@ public class RewindingTestsHelper {
             "Linking genheader/consumes_header", "Compiling genheader/intermediate.cc"),
         /* completedRewound= */ ImmutableList.of("Executing genrule //genheader:gen_header"),
         /* failedRewound= */ ImmutableList.of("Compiling genheader/consumes.cc"),
-        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(
-            middlemanEvent ->
-                isSchedulingDepMiddlemanForTarget(
-                    middlemanEvent.getAction(), "//genheader:consumes_header"),
-            middlemanEvent ->
-                isSchedulingDepMiddlemanForTarget(
-                    middlemanEvent.getAction(), "//genheader:intermediate")),
+        /* exactlyOneMiddlemanEventChecks= */ ImmutableList.of(),
         /* actionRewindingPostLostInputCounts= */ ImmutableList.of(1));
 
     assertOnlyActionsDirtied(dirtiedKeys);

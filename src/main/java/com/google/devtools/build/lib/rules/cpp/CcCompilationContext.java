@@ -16,20 +16,14 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.MiddlemanFactory;
-import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.bugreport.BugReport;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -66,9 +60,7 @@ import net.starlark.java.eval.Tuple;
 @Immutable
 public final class CcCompilationContext implements CcCompilationContextApi<Artifact, CppModuleMap> {
   /** An empty {@code CcCompilationContext}. */
-  public static final CcCompilationContext EMPTY =
-      builder(/* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null)
-          .build();
+  public static final CcCompilationContext EMPTY = builder().build();
 
   private final CommandLineCcCompilationContext commandLineCcCompilationContext;
 
@@ -723,11 +715,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   }
 
   /** Creates a new builder for a {@link CcCompilationContext} instance. */
-  public static Builder builder(
-      ActionConstructionContext actionConstructionContext,
-      BuildConfigurationValue configuration,
-      Label label) {
-    return new Builder(actionConstructionContext, configuration, label);
+  public static Builder builder() {
+    return new Builder();
   }
 
   /** Builder class for {@link CcCompilationContext}. */
@@ -758,21 +747,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     private final NestedSetBuilder<Tuple> virtualToOriginalHeaders = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
 
-    /** The rule that owns the context */
-    private final ActionConstructionContext actionConstructionContext;
-
-    private final BuildConfigurationValue configuration;
-    private final Label label;
-
     /** Creates a new builder for a {@link CcCompilationContext} instance. */
-    private Builder(
-        ActionConstructionContext actionConstructionContext,
-        BuildConfigurationValue configuration,
-        Label label) {
-      this.actionConstructionContext = actionConstructionContext;
-      this.configuration = configuration;
-      this.label = label;
-    }
+    private Builder() {}
 
     /**
      * Overrides the purpose of this context. This is useful if a Target needs more than one
@@ -781,7 +757,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
      *
      * @param purpose must be a string which is suitable for use as a filename. A single rule may
      *     have many middlemen with distinct purposes.
-     * @see MiddlemanFactory#createSchedulingDependencyMiddleman
      */
     @CanIgnoreReturnValue
     public Builder setPurpose(String purpose) {
@@ -1135,15 +1110,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
     /** Builds the {@link CcCompilationContext}. */
     public CcCompilationContext build() {
-      return build(
-          actionConstructionContext == null ? null : actionConstructionContext.getActionOwner(),
-          actionConstructionContext == null
-              ? null
-              : actionConstructionContext.getAnalysisEnvironment().getMiddlemanFactory());
-    }
-
-    @VisibleForTesting // productionVisibility = Visibility.PRIVATE
-    public CcCompilationContext build(ActionOwner owner, MiddlemanFactory middlemanFactory) {
       TransitiveSetHelper<String> allDefines = new TransitiveSetHelper<>();
       NestedSetBuilder<Artifact> transitiveModules = NestedSetBuilder.stableOrder();
       NestedSetBuilder<Artifact> transitivePicModules = NestedSetBuilder.stableOrder();
@@ -1161,7 +1127,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       allDefines.addAll(defines);
 
       HeaderInfo headerInfo = headerInfoBuilder.build();
-      NestedSet<Artifact> constructedPrereq = createMiddleman(owner, middlemanFactory);
+      NestedSet<Artifact> constructedPrereq = compilationPrerequisites.build();
 
       return new CcCompilationContext(
           new CommandLineCcCompilationContext(
@@ -1186,52 +1152,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
           headersCheckingMode,
           virtualToOriginalHeaders.build(),
           headerTokens.build());
-    }
-
-    /** Creates a middleman for the compilation prerequisites. */
-    private NestedSet<Artifact> createMiddleman(
-        ActionOwner owner, MiddlemanFactory middlemanFactory) {
-      if (middlemanFactory == null) {
-        // TODO(b/110873917): We don't have a middleman factory, therefore, we use the compilation
-        // prerequisites as they were passed to the builder, i.e. we use every header instead of a
-        // middle man.
-        return compilationPrerequisites.build();
-      }
-
-      if (compilationPrerequisites.isEmpty()) {
-        return compilationPrerequisites.build();
-      }
-
-      if (!configuration.getFragment(CppConfiguration.class).useSchedulingMiddlemen()) {
-        return compilationPrerequisites.build();
-      }
-
-      // Compilation prerequisites gathered in the compilationPrerequisites must be generated prior
-      // to executing a C++ compilation step that depends on them (since these prerequisites include
-      // all potential header files, etc that could be referenced during compilation). So there is a
-      // definite need to ensure a scheduling dependency. However, those prerequisites should have
-      // no effect on the decision whether C++ compilation should happen in the first place - only
-      // the CppCompileAction outputs (.o and .d files) and all files referenced by the .d file
-      // should be used to make that decision.
-      //
-      // If this action was never executed, then the .d file is missing, forcing compilation. If the
-      // .d file is present and has not changed then the only reason that would force us to
-      // re-compile would be change in one of the files referenced by the .d file, since no other
-      // files participated in the compilation.
-      //
-      // We also need to propagate errors through this dependency link. Therefore, we use a
-      // scheduling dependency middleman. Such a middleman will be ignored by the dependency checker
-      // yet still represents an edge in the action dependency graph - forcing proper execution
-      // order and error propagation.
-      String name = cppModuleMap != null ? cppModuleMap.getName() : label.toString();
-      Artifact prerequisiteStampFile =
-          middlemanFactory.createSchedulingDependencyMiddleman(
-              owner,
-              name,
-              purpose,
-              compilationPrerequisites.build(),
-              configuration.getMiddlemanDirectory(label.getRepository()));
-      return NestedSetBuilder.create(Order.STABLE_ORDER, prerequisiteStampFile);
     }
 
     /**

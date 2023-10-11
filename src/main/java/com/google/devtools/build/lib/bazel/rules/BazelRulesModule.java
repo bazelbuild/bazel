@@ -45,6 +45,18 @@ public final class BazelRulesModule extends BlazeModule {
   @SuppressWarnings("deprecation") // These fields have no JavaDoc by design
   public static class BuildGraveyardOptions extends OptionsBase {
     @Option(
+        name = "experimental_use_scheduling_middlemen",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS
+        },
+        help = "Deprecated. No-op.")
+    public boolean useSchedulingMiddlemen;
+
+    @Option(
         name = "experimental_genquery_use_graphless_query",
         defaultValue = "auto",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

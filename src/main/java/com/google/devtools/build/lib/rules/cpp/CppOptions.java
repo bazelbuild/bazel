@@ -1082,18 +1082,6 @@ public class CppOptions extends FragmentOptions {
               + " toolchain() resolution to choose a test runner.")
   public boolean experimentalPlatformCcTest;
 
-  @Option(
-      name = "experimental_use_scheduling_middlemen",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "Whether to use scheduling middlemen to depend on C++ compilation prerequisites. "
-              + "Scheduling middlemen are a legacy pre-Skyframe mechanism and this flag is a "
-              + "migration mechanism. This flag is not expected to cause any user-visible changes.")
-  public boolean useSchedulingMiddlemen;
-
   /** See {@link #targetLibcTopLabel} documentation. * */
   @Override
   public FragmentOptions getNormalized() {
@@ -1182,7 +1170,6 @@ public class CppOptions extends FragmentOptions {
     exec.hostLinkoptList = hostLinkoptList;
 
     exec.experimentalStarlarkCcImport = experimentalStarlarkCcImport;
-    exec.useSchedulingMiddlemen = useSchedulingMiddlemen;
 
     exec.macosSetInstallName = macosSetInstallName;
 

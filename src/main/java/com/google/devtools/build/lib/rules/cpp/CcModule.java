@@ -827,20 +827,7 @@ public abstract class CcModule
       throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
 
-    Label label = convertFromNoneable(labelForMiddlemanNameObject, null);
-    CcCompilationContext.Builder ccCompilationContext =
-        CcCompilationContext.builder(
-            /* actionConstructionContext= */ actionFactoryForMiddlemanOwnerAndConfiguration
-                    == Starlark.NONE
-                ? null
-                : ((StarlarkActionFactory) actionFactoryForMiddlemanOwnerAndConfiguration)
-                    .getActionConstructionContext(),
-            /* configuration= */ actionFactoryForMiddlemanOwnerAndConfiguration == Starlark.NONE
-                ? null
-                : ((StarlarkActionFactory) actionFactoryForMiddlemanOwnerAndConfiguration)
-                    .getActionConstructionContext()
-                    .getConfiguration(),
-            /* label= */ label);
+    CcCompilationContext.Builder ccCompilationContext = CcCompilationContext.builder();
 
     // Public parameters.
     ImmutableList<Artifact> headerList = toNestedSetOfArtifacts(headers, "headers").toList();
@@ -956,8 +943,7 @@ public abstract class CcModule
     if (compilationContexts.isEmpty() && nonExportedCompilationContexts.isEmpty()) {
       return CcCompilationContext.EMPTY;
     }
-    return CcCompilationContext.builder(
-            /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null)
+    return CcCompilationContext.builder()
         .addDependentCcCompilationContexts(
             Sequence.cast(compilationContexts, CcCompilationContext.class, "compilation_contexts"),
             Sequence.cast(
