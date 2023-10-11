@@ -2942,6 +2942,157 @@ public abstract class MemoizingEvaluatorTest {
     assertThatEvaluationResult(result).hasReverseDepsInGraphThat(bottom).containsExactly(mid);
   }
 
+  /**
+   * Tests that incompletely rewound nodes are properly handled during invalidation after an aborted
+   * evaluation.
+   *
+   * <p>Covers the concern described at b/149243918#comment9: without rewinding, we have an
+   * invariant that after an evaluation, a done node cannot depend on a dirty node. The invalidator
+   * leverges this invariant by short-circuiting when it visits a dirty node, under the assumption
+   * that any rdeps are either already dirty or present in the invalidation frontier.
+   *
+   * <p>In this test, a value propagates from {@code bottom} to {@code mid} to {@code goodTop}.
+   * However, after {@code goodTop} is done, {@code badTop} rewinds {@code mid}, and then the
+   * evaluation is aborted. On the incremental build, {@code bottom} changes. We must recompute
+   * {@code goodTop}, but the only path from {@code bottom} to {@code goodTop} goes through {@code
+   * mid}, which is dirty, and so the invalidator will never visit {@code goodTop}.
+   *
+   * <p>The solution: instead of relying on bottom-up invalidation, rewound nodes are treated like
+   * inflight nodes and deleted (along with their reverse transitive closure) prior to the next
+   * evaluation.
+   */
+  @Test
+  public void evaluationAbortedWithRewoundNodeOnInvalidationPath_dirty() throws Exception {
+    assume().that(resetSupported()).isTrue();
+    assume().that(incrementalitySupported()).isTrue();
+
+    var inconsistencyReceiver = recordInconsistencies();
+    CountDownLatch goodTopDone = new CountDownLatch(1);
+    SkyKey goodTop = skyKey("goodTop");
+    SkyKey badTop = skyKey("badTop");
+    SkyKey mid = skyKey("mid");
+    SkyKey bottom = nonHermeticKey("bottom");
+
+    injectGraphListenerForTesting(
+        (key, type, order, context) -> {
+          if (key.equals(goodTop) && type == EventType.SET_VALUE && order == Order.AFTER) {
+            goodTopDone.countDown();
+          }
+        },
+        /* deterministic= */ false);
+    tester.getOrCreate(goodTop).addDependency(mid).setComputedValue(COPY);
+    tester
+        .getOrCreate(badTop)
+        .setBuilder(
+            new SkyFunction() {
+              private boolean alreadyReset = false;
+
+              @Nullable
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+                if (alreadyReset) {
+                  throw new InterruptedException("Evaluation aborted");
+                }
+                if (env.getValue(mid) == null) {
+                  return null;
+                }
+                goodTopDone.await();
+                alreadyReset = true;
+                var rewindGraph = Reset.newRewindGraphFor(badTop);
+                rewindGraph.putEdge(badTop, mid);
+                return Reset.of(rewindGraph);
+              }
+            });
+    tester.getOrCreate(mid).addDependency(bottom).setComputedValue(COPY);
+    tester.getOrCreate(bottom).setConstantValue(new StringValue("val1"));
+
+    assertThrows(
+        InterruptedException.class, () -> tester.eval(/* keepGoing= */ false, goodTop, badTop));
+    assertThat(inconsistencyReceiver)
+        .containsExactly(
+            InconsistencyData.resetRequested(badTop),
+            InconsistencyData.rewind(badTop, ImmutableSet.of(mid)));
+
+    tester.set(bottom, new StringValue("val2"));
+    tester.invalidate();
+    var result = tester.eval(/* keepGoing= */ false, goodTop);
+
+    assertThatEvaluationResult(result).hasEntryThat(goodTop).isEqualTo(new StringValue("val2"));
+    assertThatEvaluationResult(result).hasDirectDepsInGraphThat(goodTop).containsExactly(mid);
+    assertThatEvaluationResult(result).hasReverseDepsInGraphThat(mid).containsExactly(goodTop);
+    assertThatEvaluationResult(result).hasDirectDepsInGraphThat(mid).containsExactly(bottom);
+    assertThatEvaluationResult(result).hasReverseDepsInGraphThat(bottom).containsExactly(mid);
+  }
+
+  /**
+   * Similar to {@link #evaluationAbortedWithRewoundNodeOnInvalidationPath_dirty} except that the
+   * rewound node is inflight when the evaluation is aborted, so this actually works without the
+   * special handling added for rewound nodes.
+   */
+  @Test
+  public void evaluationAbortedWithRewoundNodeOnInvalidationPath_inflight() throws Exception {
+    assume().that(resetSupported()).isTrue();
+    assume().that(incrementalitySupported()).isTrue();
+
+    var inconsistencyReceiver = recordInconsistencies();
+    CountDownLatch goodTopDone = new CountDownLatch(1);
+    AtomicBoolean rewindingInProgress = new AtomicBoolean(false);
+    SkyKey goodTop = skyKey("goodTop");
+    SkyKey badTop = skyKey("badTop");
+    SkyKey mid = nonHermeticKey("mid");
+    SkyKey bottom = nonHermeticKey("bottom");
+
+    injectGraphListenerForTesting(
+        (key, type, order, context) -> {
+          if (key.equals(goodTop) && type == EventType.SET_VALUE && order == Order.AFTER) {
+            goodTopDone.countDown();
+          }
+        },
+        /* deterministic= */ false);
+    tester.getOrCreate(goodTop).addDependency(mid).setComputedValue(COPY);
+    tester
+        .getOrCreate(badTop)
+        .setBuilder(
+            (skyKey, env) -> {
+              if (env.getValue(mid) == null) {
+                return null;
+              }
+              goodTopDone.await();
+              rewindingInProgress.set(true);
+              var rewindGraph = Reset.newRewindGraphFor(badTop);
+              rewindGraph.putEdge(badTop, mid);
+              return Reset.of(rewindGraph);
+            });
+    tester
+        .getOrCreate(mid)
+        .setBuilder(
+            (skyKey, env) -> {
+              if (rewindingInProgress.get()) {
+                throw new InterruptedException("Evaluation aborted");
+              }
+              return env.getValue(bottom);
+            });
+    tester.getOrCreate(bottom).setConstantValue(new StringValue("val1"));
+
+    assertThrows(
+        InterruptedException.class, () -> tester.eval(/* keepGoing= */ false, goodTop, badTop));
+    assertThat(inconsistencyReceiver)
+        .containsExactly(
+            InconsistencyData.resetRequested(badTop),
+            InconsistencyData.rewind(badTop, ImmutableSet.of(mid)));
+
+    rewindingInProgress.set(false);
+    tester.set(bottom, new StringValue("val2"));
+    tester.invalidate();
+    var result = tester.eval(/* keepGoing= */ false, goodTop);
+
+    assertThatEvaluationResult(result).hasEntryThat(goodTop).isEqualTo(new StringValue("val2"));
+    assertThatEvaluationResult(result).hasDirectDepsInGraphThat(goodTop).containsExactly(mid);
+    assertThatEvaluationResult(result).hasReverseDepsInGraphThat(mid).containsExactly(goodTop);
+    assertThatEvaluationResult(result).hasDirectDepsInGraphThat(mid).containsExactly(bottom);
+    assertThatEvaluationResult(result).hasReverseDepsInGraphThat(bottom).containsExactly(mid);
+  }
+
   private RecordingInconsistencyReceiver recordInconsistencies() {
     var inconsistencyReceiver = new RecordingInconsistencyReceiver();
     tester.setGraphInconsistencyReceiver(inconsistencyReceiver);

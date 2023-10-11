@@ -97,8 +97,10 @@ public final class InMemoryMemoizingEvaluator
     }
     setAndCheckEvaluateState(true, roots);
     try {
-      // Mark for removal any inflight nodes from the previous evaluation.
+      // Mark for removal inflight and rewound nodes from the previous evaluation. When the
+      // invalidator runs, it will delete the reverse transitive closure.
       valuesToDelete.addAll(progressReceiver.getAndClearInflightKeys());
+      valuesToDelete.addAll(progressReceiver.getAndClearRewindingKeys());
 
       // The RecordingDifferencer implementation is not quite working as it should be at this point.
       // It clears the internal data structures after getDiff is called and will not return

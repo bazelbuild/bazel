@@ -30,6 +30,7 @@ public class DirtyAndInflightTrackingProgressReceiver implements InflightTrackin
   protected final EvaluationProgressReceiver progressReceiver;
   private final Set<SkyKey> dirtyKeys = Sets.newConcurrentHashSet();
   private Set<SkyKey> inflightKeys = Sets.newConcurrentHashSet();
+  private Set<SkyKey> rewindingKeys = Sets.newConcurrentHashSet();
 
   public DirtyAndInflightTrackingProgressReceiver(EvaluationProgressReceiver progressReceiver) {
     this.progressReceiver = checkNotNull(progressReceiver);
@@ -45,7 +46,7 @@ public class DirtyAndInflightTrackingProgressReceiver implements InflightTrackin
   @Override
   public final void dirtied(SkyKey skyKey, DirtyType dirtyType) {
     progressReceiver.dirtied(skyKey, dirtyType);
-    addToDirtySet(skyKey);
+    addToDirtySet(skyKey, dirtyType);
   }
 
   @Override
@@ -134,6 +135,16 @@ public class DirtyAndInflightTrackingProgressReceiver implements InflightTrackin
   }
 
   /**
+   * Returns the set of all keys that were {@linkplain DirtyType#REWIND rewound} but not yet
+   * enqueued, and resets the set to empty.
+   */
+  public final Set<SkyKey> getAndClearRewindingKeys() {
+    Set<SkyKey> keys = rewindingKeys;
+    rewindingKeys = Sets.newConcurrentHashSet();
+    return keys;
+  }
+
+  /**
    * Returns the set of all dirty keys that have not been enqueued. This is useful for garbage
    * collection, where we would not want to remove dirty nodes that are needed for evaluation (in
    * the downward transitive closure of the set of the evaluation's top level nodes).
@@ -142,11 +153,20 @@ public class DirtyAndInflightTrackingProgressReceiver implements InflightTrackin
     return ImmutableSet.copyOf(dirtyKeys);
   }
 
-  private void addToDirtySet(SkyKey skyKey) {
-    dirtyKeys.add(skyKey);
+  private void addToDirtySet(SkyKey skyKey, DirtyType dirtyType) {
+    if (dirtyType == DirtyType.REWIND) {
+      rewindingKeys.add(skyKey);
+    } else {
+      dirtyKeys.add(skyKey);
+    }
   }
 
   private void removeFromDirtySet(SkyKey skyKey) {
-    dirtyKeys.remove(skyKey);
+    // A key will never be present in both sets because EvaluationProgressReceiver#dirtied is only
+    // called after successful NodeEntry#markDirty calls, i.e. a call that transitioned the node
+    // from done to dirty.
+    if (!dirtyKeys.remove(skyKey)) {
+      rewindingKeys.remove(skyKey);
+    }
   }
 }
