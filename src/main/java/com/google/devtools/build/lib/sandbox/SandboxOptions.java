@@ -354,7 +354,7 @@ public class SandboxOptions extends OptionsBase {
       name = "reuse_sandbox_directories",
       oldName = "experimental_reuse_sandbox_directories",
       oldNameWarning = false,
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
       help =
