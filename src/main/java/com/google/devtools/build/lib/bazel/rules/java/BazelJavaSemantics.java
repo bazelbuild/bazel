@@ -383,7 +383,8 @@ public class BazelJavaSemantics implements JavaSemantics {
   }
 
   @Override
-  public String addCoverageSupport(JavaCompilationHelper helper, Artifact executable) {
+  public String addCoverageSupport(JavaCompilationHelper helper, Artifact executable)
+      throws RuleErrorException {
     // This method can be called only for *_binary/*_test targets.
     Preconditions.checkNotNull(executable);
     helper.addCoverageSupport();

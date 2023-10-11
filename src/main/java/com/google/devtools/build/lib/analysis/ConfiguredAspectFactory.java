@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 
 /**
  * Creates the Skyframe node of an aspect.
@@ -38,7 +39,7 @@ public interface ConfiguredAspectFactory {
       RuleContext context,
       AspectParameters parameters,
       RepositoryName toolsRepository)
-      throws ActionConflictException, InterruptedException;
+      throws ActionConflictException, InterruptedException, RuleErrorException;
 
   /** Adds any aspect implementation-specific requirements to the given builder. */
   default void addAspectImplSpecificRequiredConfigFragments(

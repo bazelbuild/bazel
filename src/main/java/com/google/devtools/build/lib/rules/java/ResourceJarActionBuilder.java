@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
@@ -90,7 +91,8 @@ public class ResourceJarActionBuilder {
     return this;
   }
 
-  public void build(JavaSemantics semantics, RuleContext ruleContext, String execGroup) {
+  public void build(JavaSemantics semantics, RuleContext ruleContext, String execGroup)
+      throws RuleErrorException {
     checkNotNull(outputJar, "outputJar must not be null");
     checkNotNull(javaToolchain, "javaToolchain must not be null");
     checkNotNull(javaToolchain.getJavaRuntime(), "javabase must not be null");

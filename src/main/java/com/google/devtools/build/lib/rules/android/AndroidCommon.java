@@ -413,7 +413,7 @@ public class AndroidCommon {
   }
 
   private void packResourceSourceJar(JavaSemantics javaSemantics, Artifact resourcesJavaSrcJar)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
 
     resourceSourceJar =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_SOURCE_JAR);

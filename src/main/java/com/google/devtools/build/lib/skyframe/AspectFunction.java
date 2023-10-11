@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.Target;
@@ -771,6 +772,8 @@ final class AspectFunction implements SkyFunction {
         return null;
       } catch (ActionConflictException e) {
         throw new AspectFunctionException(e);
+      } catch (RuleErrorException e) {
+        throw new AspectFunctionException(e);
       } catch (InvalidExecGroupException e) {
         throw new AspectFunctionException(e);
       } finally {
@@ -829,6 +832,10 @@ final class AspectFunction implements SkyFunction {
     }
 
     public AspectFunctionException(ActionConflictException cause) {
+      super(cause, Transience.PERSISTENT);
+    }
+
+    public AspectFunctionException(RuleErrorException cause) {
       super(cause, Transience.PERSISTENT);
     }
   }

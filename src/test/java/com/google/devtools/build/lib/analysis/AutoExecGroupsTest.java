@@ -1104,6 +1104,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   public void
       javaCommonCompile_automaticExecGroupsEnabled_optimizationJarActionExecutesOnFirstPlatform()
           throws Exception {
+    scratch.file("java/com/google/optimizationtest/config.txt");
     scratch.file(
         "java/com/google/optimizationtest/BUILD",
         "java_binary(",
@@ -1150,6 +1151,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   public void
       javaCommonCompile_automaticExecGroupsDisabled_optimizationJarActionExecutesOnSecondPlatform()
           throws Exception {
+    scratch.file("java/com/google/optimizationtest/config.txt");
     scratch.file(
         "java/com/google/optimizationtest/BUILD",
         "java_binary(",

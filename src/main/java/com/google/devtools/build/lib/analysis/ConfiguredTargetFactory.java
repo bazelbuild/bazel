@@ -552,7 +552,10 @@ public final class ConfiguredTargetFactory {
       BuildConfigurationValue aspectConfiguration,
       @Nullable NestedSet<Package> transitivePackages,
       AspectKeyCreator.AspectKey aspectKey)
-      throws InterruptedException, ActionConflictException, InvalidExecGroupException {
+      throws InterruptedException,
+          ActionConflictException,
+          InvalidExecGroupException,
+          RuleErrorException {
     RuleContext ruleContext =
         new RuleContext.Builder(env, associatedTarget, aspectPath, aspectConfiguration)
             .setRuleClassProvider(ruleClassProvider)

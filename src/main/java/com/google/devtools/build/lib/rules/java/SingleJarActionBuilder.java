@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorAr
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import java.util.function.Consumer;
 
 /**
@@ -57,7 +58,8 @@ public final class SingleJarActionBuilder {
       NestedSet<Artifact> resources,
       NestedSet<Artifact> resourceJars,
       Artifact outputJar,
-      String execGroup) {
+      String execGroup)
+      throws RuleErrorException {
     createSourceJarAction(
         ruleContext,
         ruleContext,
@@ -87,7 +89,8 @@ public final class SingleJarActionBuilder {
       NestedSet<Artifact> resourceJars,
       Artifact outputJar,
       JavaToolchainProvider toolchainProvider,
-      String execGroup) {
+      String execGroup)
+      throws RuleErrorException {
     requireNonNull(resourceJars);
     requireNonNull(outputJar);
     if (!resources.isEmpty()) {

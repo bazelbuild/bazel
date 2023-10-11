@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
@@ -349,7 +350,7 @@ public final class ProguardHelper {
       @Nullable Artifact startupProfileIn,
       @Nullable Artifact baselineProfileIn,
       String baselineProfileDir)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
     Preconditions.checkArgument(!proguardSpecs.isEmpty());
     Artifact libraryJar = null;
 

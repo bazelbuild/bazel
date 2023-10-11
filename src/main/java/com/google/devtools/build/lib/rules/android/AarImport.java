@@ -266,7 +266,8 @@ public class AarImport implements RuleConfiguredTargetFactory {
    * Collect Proguard Specs from transitives and proguard.txt if it exists in the AAR file. In the
    * case the proguard.txt file does exists, we need to extract it from the AAR file
    */
-  private NestedSet<Artifact> extractProguardSpecs(RuleContext ruleContext, Artifact aar) {
+  private NestedSet<Artifact> extractProguardSpecs(RuleContext ruleContext, Artifact aar)
+      throws RuleErrorException {
 
     NestedSet<Artifact> proguardSpecs =
         new ProguardLibrary(ruleContext).collectProguardSpecs(ImmutableSet.of("deps", "exports"));
@@ -443,7 +444,8 @@ public class AarImport implements RuleConfiguredTargetFactory {
   }
 
   private static SpawnAction createAarJarsMergingActions(
-      RuleContext ruleContext, Artifact jarsTreeArtifact, Artifact mergedJar, Artifact paramFile) {
+      RuleContext ruleContext, Artifact jarsTreeArtifact, Artifact mergedJar, Artifact paramFile)
+      throws RuleErrorException {
     SpawnAction.Builder builder = new SpawnAction.Builder().useDefaultShellEnvironment();
     FilesToRunProvider singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
     return builder

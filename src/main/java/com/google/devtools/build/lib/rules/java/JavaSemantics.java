@@ -278,7 +278,7 @@ public interface JavaSemantics {
    * the {@code javacopts} attribute.
    */
   ImmutableList<String> getCompatibleJavacOptions(
-      RuleContext ruleContext, JavaToolchainProvider toolchain);
+      RuleContext ruleContext, JavaToolchainProvider toolchain) throws RuleErrorException;
 
   /** Add additional targets to be treated as direct dependencies. */
   void collectTargetsTreatedAsDeps(

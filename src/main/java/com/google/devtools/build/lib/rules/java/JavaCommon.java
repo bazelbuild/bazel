@@ -308,7 +308,8 @@ public class JavaCommon {
     return data.build();
   }
 
-  public static PathFragment getHostJavaExecutable(RuleContext ruleContext) {
+  public static PathFragment getHostJavaExecutable(RuleContext ruleContext)
+      throws RuleErrorException {
     return JavaRuntimeInfo.forHost(ruleContext).javaBinaryExecPathFragment();
   }
 

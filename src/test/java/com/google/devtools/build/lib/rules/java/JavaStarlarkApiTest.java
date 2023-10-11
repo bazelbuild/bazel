@@ -2936,7 +2936,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    ctx,",
         "    source_files = ctx.files.srcs,",
         "    output = output_jar,",
-        "    java_toolchain = ctx.attr._java_toolchain,",
+        "    java_toolchain = ctx.attr._java_toolchain[platform_common.ToolchainInfo],",
         "  )",
         "  return []",
         "jrule = rule(",
@@ -2953,7 +2953,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a:r");
-    assertContainsEvent("got value of type 'Target', want 'JavaToolchainInfo'");
+    assertContainsEvent("got value of type 'ToolchainInfo', want 'JavaToolchainInfo'");
   }
 
   @Test
@@ -3409,7 +3409,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    ctx,",
         "    output = ctx.actions.declare_file('output.jar'),",
         "    java_toolchain = java_toolchain,",
-        "    resource_jars = [java_toolchain.timezone_data()],",
+        "    resource_jars = ['foo.jar'],",
         "  )",
         "  return []",
         "java_custom_library = rule(",
@@ -3429,7 +3429,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     getConfiguredTarget("//foo:custom");
 
-    assertContainsEvent("file '//foo:custom_rule.bzl' cannot use private API");
+    assertContainsEvent("got unexpected keyword argument: resource_jars");
   }
 
   @Test

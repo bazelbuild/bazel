@@ -1266,7 +1266,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       JavaTargetAttributes attributes,
       boolean checkDesugarDeps,
       Function<Artifact, Artifact> derivedJarFunction)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
 
     Artifact deployJar =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_DEPLOY_JAR);
@@ -1311,7 +1311,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       @Nullable Artifact startupProfile,
       @Nullable Artifact baselineProfile,
       String baselineProfileDir)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
     Artifact proguardOutputJar =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_PROGUARD_JAR);
 
@@ -2029,7 +2029,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   }
 
   private static void createZipMergeAction(
-      RuleContext ruleContext, Artifact inputTree, Artifact outputZip) {
+      RuleContext ruleContext, Artifact inputTree, Artifact outputZip) throws RuleErrorException {
     CustomCommandLine args =
         CustomCommandLine.builder()
             .add("--normalize")
@@ -2327,7 +2327,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
   }
 
-  private static SpawnAction.Builder singleJarSpawnActionBuilder(RuleContext ruleContext) {
+  private static SpawnAction.Builder singleJarSpawnActionBuilder(RuleContext ruleContext)
+      throws RuleErrorException {
     FilesToRunProvider singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
     SpawnAction.Builder builder =
         createSpawnActionBuilder(ruleContext).useDefaultShellEnvironment();
@@ -2340,7 +2341,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
    * of the output.
    */
   private static void createCleanDexZipAction(
-      RuleContext ruleContext, Artifact inputZip, Artifact outputZip) {
+      RuleContext ruleContext, Artifact inputZip, Artifact outputZip) throws RuleErrorException {
     ruleContext.registerAction(
         singleJarSpawnActionBuilder(ruleContext)
             .setProgressMessage("Trimming %s", inputZip.getExecPath().getBaseName())

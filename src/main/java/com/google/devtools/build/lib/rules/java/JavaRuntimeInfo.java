@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaRuntimeInfoApi;
@@ -76,7 +77,7 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
 
   // Helper methods to access an instance of JavaRuntimeInfo.
 
-  public static JavaRuntimeInfo forHost(RuleContext ruleContext) {
+  public static JavaRuntimeInfo forHost(RuleContext ruleContext) throws RuleErrorException {
     return JavaToolchainProvider.from(ruleContext).getJavaRuntime();
   }
 

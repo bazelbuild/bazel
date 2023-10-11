@@ -470,7 +470,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       JavaCommon common,
       JavaCompilationHelper helper,
       JavaCompilationArtifacts javaCompilationArtifacts,
-      JavaTargetAttributes attributes) {
+      JavaTargetAttributes attributes)
+      throws RuleErrorException {
     common.setJavaCompilationArtifacts(javaCompilationArtifacts);
     common.setClassPathFragment(
         new ClasspathConfiguredFragment(
