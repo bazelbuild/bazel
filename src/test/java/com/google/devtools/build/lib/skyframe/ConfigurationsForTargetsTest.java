@@ -360,18 +360,50 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
 
   @Test
   public void splitDeps() throws Exception {
-    getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
+    // Write a simple rule with split dependencies.
+    scratch.overwriteFile(
+        "tools/allowlists/function_transition_allowlist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_allowlist',",
+        "    packages = [",
+        "        '//a/...',",
+        "    ],",
+        ")");
     scratch.file(
-        "java/a/BUILD",
+        "a/defs.bzl",
+        "def _transition_impl(settings, attr):",
+        "    return {",
+        "        'opt': {'//command_line_option:compilation_mode': 'opt'},",
+        "        'dbg': {'//command_line_option:compilation_mode': 'dbg'},",
+        "    }",
+        "split_transition = transition(",
+        "    implementation = _transition_impl,",
+        "    inputs = [],",
+        "    outputs = ['//command_line_option:compilation_mode'])",
+        "def _split_deps_rule_impl(ctx):",
+        "    pass",
+        "split_deps_rule = rule(",
+        "    implementation = _split_deps_rule_impl,",
+        "    attrs = {",
+        "        'dep': attr.label(cfg = split_transition),",
+        "        '_allowlist_function_transition': attr.label(",
+        "            default = '//tools/allowlists/function_transition_allowlist')",
+        "    })");
+    scratch.file(
+        "a/BUILD",
+        "load('//a:defs.bzl', 'split_deps_rule')",
         "cc_library(name = 'lib', srcs = ['lib.cc'])",
-        "android_binary(name='a', manifest = 'AndroidManifest.xml', deps = [':lib'])");
-    useConfiguration("--fat_apk_cpu=k8,armeabi-v7a", "--experimental_google_legacy_api");
-    ImmutableList<ConfiguredTargetAndData> deps = getConfiguredDepsWithData("//java/a:a", "deps");
+        "split_deps_rule(",
+        "    name = 'a',",
+        "    dep = ':lib')");
+
+    // Verify that the dependencies have different configurations.
+    ImmutableList<ConfiguredTargetAndData> deps = getConfiguredDepsWithData("//a:a", "dep");
     assertThat(deps).hasSize(2);
     ConfiguredTargetAndData dep1 = deps.get(0);
     ConfiguredTargetAndData dep2 = deps.get(1);
-    assertThat(ImmutableList.of(dep1.getConfiguration().getCpu(), dep2.getConfiguration().getCpu()))
-        .containsExactly("armeabi-v7a", "k8");
+    assertThat(dep1.getConfiguration().checksum()).isNotEqualTo(dep2.getConfiguration().checksum());
+
     // We don't care what order split deps are listed, but it must be deterministic.
     assertThat(SPLIT_DEP_ORDERING.compare(dep1, dep2)).isLessThan(0);
   }
