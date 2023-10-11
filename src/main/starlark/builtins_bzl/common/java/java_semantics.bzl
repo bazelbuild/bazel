@@ -75,4 +75,5 @@ semantics = struct(
     LAUNCHER_FLAG_LABEL = Label("@bazel_tools//tools/jdk:launcher_flag_alias"),
     JAVA_PROTO_TOOLCHAIN = "@rules_java//java/proto:toolchain_type",
     JAVA_LITE_PROTO_TOOLCHAIN = "@rules_java//java/proto:lite_toolchain_type",
+    PROGUARD_ALLOWLISTER_LABEL = "@bazel_tools//tools/jdk:proguard_whitelister",
 )

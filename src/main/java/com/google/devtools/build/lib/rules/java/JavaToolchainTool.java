@@ -14,29 +14,48 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.auto.value.AutoValue;
-import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.AliasProvider;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StructImpl;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /** An executable tool that is part of {@code java_toolchain}. */
 @AutoValue
 public abstract class JavaToolchainTool {
+
+  // avoid creating new instances every time the same toolchain provider instance is passed from
+  // Starlark to native (for example for registering compilation actions in JavaStarlarkCommon).
+  // This is important since each instance of this class has its own commandLineCache
+  private static final Interner<JavaToolchainTool> interner = BlazeInterners.newWeakInterner();
+
+  @Nullable
+  static JavaToolchainTool fromStarlark(@Nullable StructImpl struct) throws RuleErrorException {
+    if (struct == null) {
+      return null;
+    }
+    try {
+      JavaToolchainTool tool =
+          create(
+              struct.getValue("tool", FilesToRunProvider.class),
+              Depset.noneableCast(struct.getValue("data"), Artifact.class, "data"),
+              Depset.noneableCast(struct.getValue("jvm_opts"), String.class, "jvm_opts"));
+      return interner.intern(tool);
+    } catch (EvalException e) {
+      throw new RuleErrorException(e);
+    }
+  }
 
   /** The executable, possibly a {@code _deploy.jar}. */
   public abstract FilesToRunProvider tool();
@@ -62,41 +81,6 @@ public abstract class JavaToolchainTool {
   private final transient LoadingCache<JavaToolchainProvider, CustomCommandLine> commandLineCache =
       Caffeine.newBuilder().initialCapacity(1).softValues().build(this::extractCommandLine);
 
-  @Nullable
-  static JavaToolchainTool fromRuleContext(
-      RuleContext ruleContext, String toolAttribute, String dataAttribute, String jvmOptsAttribute)
-      throws InterruptedException {
-    FilesToRunProvider tool = ruleContext.getExecutablePrerequisite(toolAttribute);
-    if (tool == null) {
-      return null;
-    }
-    NestedSetBuilder<Artifact> dataArtifacts = NestedSetBuilder.stableOrder();
-    ImmutableMap.Builder<Label, ImmutableCollection<Artifact>> locations = ImmutableMap.builder();
-    for (TransitiveInfoCollection data : ruleContext.getPrerequisites(dataAttribute)) {
-      NestedSet<Artifact> files = data.getProvider(FileProvider.class).getFilesToBuild();
-      dataArtifacts.addTransitive(files);
-      locations.put(AliasProvider.getDependencyLabel(data), files.toList());
-    }
-    NestedSet<String> jvmOpts =
-        NestedSetBuilder.wrap(
-            Order.STABLE_ORDER,
-            ruleContext
-                .getExpander()
-                .withExecLocations(locations.buildOrThrow())
-                .list(jvmOptsAttribute));
-    return create(tool, dataArtifacts.build(), jvmOpts);
-  }
-
-  @Nullable
-  static JavaToolchainTool fromFilesToRunProvider(@Nullable FilesToRunProvider executable) {
-    if (executable == null) {
-      return null;
-    }
-    return create(
-        executable,
-        NestedSetBuilder.emptySet(STABLE_ORDER),
-        NestedSetBuilder.emptySet(STABLE_ORDER));
-  }
 
   private static JavaToolchainTool create(
       FilesToRunProvider tool, NestedSet<Artifact> data, NestedSet<String> jvmOpts) {
@@ -115,7 +99,8 @@ public abstract class JavaToolchainTool {
     return commandLineCache.get(toolchain);
   }
 
-  private CustomCommandLine extractCommandLine(JavaToolchainProvider toolchain) {
+  private CustomCommandLine extractCommandLine(JavaToolchainProvider toolchain)
+      throws RuleErrorException {
     CustomCommandLine.Builder command = CustomCommandLine.builder();
 
     Artifact executable = tool().getExecutable();
@@ -134,7 +119,8 @@ public abstract class JavaToolchainTool {
   }
 
   /** Adds its inputs for the tool to provided input builder. */
-  void addInputs(JavaToolchainProvider toolchain, NestedSetBuilder<Artifact> inputs) {
+  void addInputs(JavaToolchainProvider toolchain, NestedSetBuilder<Artifact> inputs)
+      throws RuleErrorException {
     inputs.addTransitive(data());
     Artifact executable = tool().getExecutable();
     if (!executable.getExtension().equals("jar")) {

@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.bazel.rules.java.BazelJavaPluginRule;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaSemantics;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaTestRule;
-import com.google.devtools.build.lib.bazel.rules.java.BazelJavaToolchain;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.extra.ActionListenerRule;
 import com.google.devtools.build.lib.rules.extra.ExtraActionRule;
@@ -73,7 +72,7 @@ public class JavaRules implements RuleSet {
     builder.addRuleDefinition(new BazelJavaImportRule());
     builder.addRuleDefinition(new BazelJavaTestRule());
     builder.addRuleDefinition(new BazelJavaPluginRule());
-    builder.addRuleDefinition(JavaToolchainRule.create(BazelJavaToolchain.class));
+    builder.addRuleDefinition(JavaToolchainRule.create());
     builder.addRuleDefinition(new JavaPackageConfigurationRule());
     builder.addRuleDefinition(new JavaRuntimeRule());
     builder.addRuleDefinition(new JavaPluginsFlagAliasRule());

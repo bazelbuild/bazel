@@ -24,7 +24,8 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST_DICT;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses.EmptyRuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses.NativeBuildRule;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -34,18 +35,18 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
 
-/** Rule definition for {@code java_toolchain} */
-public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDefinition {
+/**
+ * Rule definition for {@code java_toolchain}
+ *
+ * <p>This rule is implemented in Starlark. This class remains only for doc-gen purposes.
+ */
+public final class JavaToolchainRule implements RuleDefinition {
 
-  private final Class<C> ruleClass;
-
-  public static <C extends JavaToolchain> JavaToolchainRule<C> create(Class<C> ruleClass) {
-    return new JavaToolchainRule<C>(ruleClass);
+  public static JavaToolchainRule create() {
+    return new JavaToolchainRule();
   }
 
-  private JavaToolchainRule(Class<C> ruleClass) {
-    this.ruleClass = ruleClass;
-  }
+  private JavaToolchainRule() {}
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -370,24 +371,15 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
                 .allowedFileTypes()
                 .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class))
                 .undocumented("experimental"))
-        .add(
-            attr(":bytecode_optimizer", LABEL)
-                .cfg(ExecutionTransitionFactory.createFactory())
-                .value(JavaSemantics.BYTECODE_OPTIMIZER)
-                .exec())
-        .add(
-            attr(":local_java_optimization_configuration", LABEL)
-                .cfg(ExecutionTransitionFactory.createFactory())
-                .value(JavaSemantics.LOCAL_JAVA_OPTIMIZATION_CONFIGURATION))
         .build();
   }
 
   @Override
   public Metadata getMetadata() {
-    return RuleDefinition.Metadata.builder()
+    return Metadata.builder()
         .name("java_toolchain")
-        .ancestors(BaseRuleClasses.NativeBuildRule.class)
-        .factoryClass(ruleClass)
+        .ancestors(NativeBuildRule.class)
+        .factoryClass(EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
 }

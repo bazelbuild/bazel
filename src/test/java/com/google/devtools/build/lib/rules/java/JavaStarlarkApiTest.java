@@ -3568,10 +3568,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     "{module: java_config, api: use_header_compilation}",
     "{module: java_config, api: generate_java_deps}",
     "{module: java_config, api: reduce_java_classpath}",
-    "{module: java_toolchain, api: forcibly_disable_header_compilation}",
-    "{module: java_toolchain, api: has_header_compiler}",
-    "{module: java_toolchain, api: has_header_compiler_direct}",
-    "{module: java_toolchain, api: package_configuration}",
   })
   public void testNoArgsPrivateAPIsAreIndeedPrivate(String module, String api) throws Exception {
     setBuildLanguageOptions("--experimental_builtins_injection_override=+java_import");

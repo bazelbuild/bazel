@@ -800,7 +800,7 @@ JavaInfo, _new_javainfo = provider(
     init = _javainfo_init,
 )
 
-_JavaPluginDataInfo = provider(
+JavaPluginDataInfo = provider(
     doc = "Provider encapsulating information about a Java compatible plugin.",
     fields = {
         "processor_classes": "depset(str) The fully qualified classnames of entry points for the compiler",
@@ -809,7 +809,7 @@ _JavaPluginDataInfo = provider(
     },
 )
 
-_EMPTY_PLUGIN_DATA = _JavaPluginDataInfo(
+_EMPTY_PLUGIN_DATA = JavaPluginDataInfo(
     processor_classes = depset(),
     processor_jars = depset(),
     processor_data = depset(),
@@ -817,7 +817,7 @@ _EMPTY_PLUGIN_DATA = _JavaPluginDataInfo(
 
 def _create_plugin_data_info(*, processor_classes, processor_jars, processor_data):
     if processor_classes or processor_jars or processor_data:
-        return _JavaPluginDataInfo(
+        return JavaPluginDataInfo(
             processor_classes = processor_classes,
             processor_jars = processor_jars,
             processor_data = processor_data,

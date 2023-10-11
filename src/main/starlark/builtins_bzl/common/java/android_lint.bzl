@@ -52,7 +52,7 @@ def android_lint_action(ctx, source_files, source_jars, compilation_info):
 
     toolchain = semantics.find_java_toolchain(ctx)
     java_runtime = toolchain.java_runtime
-    linter = toolchain.android_linter()
+    linter = toolchain._android_linter
     if not linter:
         # TODO(hvd): enable after enabling in tests
         # fail("android linter not set in java_toolchain")
@@ -104,8 +104,8 @@ def android_lint_action(ctx, source_files, source_jars, compilation_info):
 
     for package_config in linter.package_config:
         if package_config.matches(ctx.label):
-            args.add_all(package_config.javac_opts())
-            transitive_inputs.append(package_config.data())
+            args.add_all(package_config.javac_opts(as_depset = False))
+            transitive_inputs.append(package_config.data)
 
     android_lint_out = ctx.actions.declare_file("%s_android_lint_output.xml" % ctx.label.name)
     args.add("--xml", android_lint_out)

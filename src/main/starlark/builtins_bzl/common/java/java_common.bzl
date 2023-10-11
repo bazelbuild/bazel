@@ -26,11 +26,11 @@ load(
     _java_info_set_annotation_processing = "set_annotation_processing",
 )
 load(":common/java/java_semantics.bzl", "semantics")
+load(":common/java/java_toolchain.bzl", "JavaToolchainInfo")
 load(":common/java/message_bundle_info.bzl", "MessageBundleInfo")
 load(":common/paths.bzl", "paths")
 
 _java_common_internal = _builtins.internal.java_common_internal_do_not_use
-JavaToolchainInfo = _java_common_internal.JavaToolchainInfo
 JavaRuntimeClasspathInfo = provider(
     "Provider for the runtime classpath contributions of a Java binary.",
     fields = ["runtime_classpath"],

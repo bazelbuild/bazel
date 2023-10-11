@@ -134,7 +134,7 @@ def compile(
             ["-Abazel.repository=" + ctx.label.workspace_name],
             order = "preorder",
         ))
-    for package_config in java_toolchain.package_configuration():
+    for package_config in java_toolchain._package_configuration:
         if package_config.matches(ctx.label):
             all_javac_opts.append(package_config.javac_opts(as_depset = True))
 
@@ -350,15 +350,15 @@ def compile(
 def _should_use_header_compilation(ctx, toolchain):
     if not ctx.fragments.java.use_header_compilation():
         return False
-    if toolchain.forcibly_disable_header_compilation():
+    if toolchain._forcibly_disable_header_compilation:
         return False
-    if not toolchain.has_header_compiler():
+    if not toolchain._header_compiler:
         fail(
             "header compilation was requested but it is not supported by the " +
             "current Java toolchain '" + str(toolchain.label) +
             "'; see the java_toolchain.header_compiler attribute",
         )
-    if not toolchain.has_header_compiler_direct():
+    if not toolchain._header_compiler_direct:
         fail(
             "header compilation was requested but it is not supported by the " +
             "current Java toolchain '" + str(toolchain.label) +

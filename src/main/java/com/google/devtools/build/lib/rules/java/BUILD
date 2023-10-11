@@ -24,7 +24,6 @@ java_library(
         "JavaRuntimeClasspathProvider.java",
         "JavaRuntimeRule.java",
         "JavaStarlarkCommon.java",
-        "JavaToolchain.java",
         "JavaToolchainRule.java",
         "ProguardLibrary.java",
         "ProguardLibraryRule.java",
@@ -69,7 +68,6 @@ java_library(
 java_library(
     name = "java-compilation",
     srcs = [
-        "AndroidLintTool.java",
         "BootClassPathInfo.java",
         "BuildInfoPropertiesTranslator.java",
         "ClasspathConfiguredFragment.java",

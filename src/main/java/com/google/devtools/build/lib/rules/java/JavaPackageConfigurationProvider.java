@@ -14,10 +14,8 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.devtools.build.lib.rules.java.JavaStarlarkCommon.checkPrivateAccess;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -29,13 +27,9 @@ import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupC
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.packages.StructImpl;
-import net.starlark.java.annot.Param;
-import net.starlark.java.annot.ParamType;
-import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** A provider for Java per-package configuration. */
@@ -99,42 +93,6 @@ public final class JavaPackageConfigurationProvider implements StarlarkValue {
     return false;
   }
 
-  @StarlarkMethod(
-      name = "matches",
-      documented = false,
-      parameters = {
-        @Param(
-            name = "label",
-            allowedTypes = {@ParamType(type = Label.class)})
-      },
-      useStarlarkThread = true)
-  public boolean starlarkMatches(Label label, StarlarkThread starlarkThread)
-      throws EvalException, RuleErrorException {
-    checkPrivateAccess(starlarkThread);
-    return matches(label);
-  }
-
-  @StarlarkMethod(
-      name = "javac_opts",
-      parameters = {@Param(name = "as_depset", defaultValue = "False", named = true)},
-      documented = false,
-      useStarlarkThread = true)
-  public Object starlarkJavacOpts(boolean asDepset, StarlarkThread starlarkThread)
-      throws EvalException, InterruptedException {
-    checkPrivateAccess(starlarkThread);
-    return Starlark.call(
-        starlarkThread,
-        underlying.getValue("javac_opts"),
-        ImmutableList.of(asDepset),
-        ImmutableMap.of());
-  }
-
-  @StarlarkMethod(name = "data", documented = false, useStarlarkThread = true)
-  public Depset starlarkData(StarlarkThread starlarkThread) throws EvalException {
-    checkPrivateAccess(starlarkThread);
-    return underlying.getValue("data", Depset.class);
-  }
-
   private static class Provider extends StarlarkProviderWrapper<JavaPackageConfigurationProvider> {
 
     private Provider() {
@@ -155,4 +113,12 @@ public final class JavaPackageConfigurationProvider implements StarlarkValue {
     }
   }
 
+  static ImmutableList<JavaPackageConfigurationProvider> wrapSequence(Sequence<StructImpl> sequence)
+      throws RuleErrorException {
+    ImmutableList.Builder<JavaPackageConfigurationProvider> builder = ImmutableList.builder();
+    for (StructImpl struct : sequence) {
+      builder.add(PROVIDER.wrap(struct));
+    }
+    return builder.build();
+  }
 }

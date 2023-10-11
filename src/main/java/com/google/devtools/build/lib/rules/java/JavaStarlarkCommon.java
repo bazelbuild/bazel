@@ -61,8 +61,6 @@ public class JavaStarlarkCommon
     implements JavaCommonApi<
         Artifact,
         JavaInfo,
-        JavaToolchainProvider,
-        BootClassPathInfo.Provider,
         ConstraintValueInfo,
         StarlarkRuleContext,
         StarlarkActionFactory> {
@@ -119,7 +117,7 @@ public class JavaStarlarkCommon
   @Override
   public void createHeaderCompilationAction(
       StarlarkRuleContext ctx,
-      JavaToolchainProvider toolchain,
+      Info toolchain,
       Artifact headerJar,
       Artifact headerDepsProto,
       Info pluginInfo,
@@ -159,7 +157,7 @@ public class JavaStarlarkCommon
             javaSemantics,
             JavaHelper.tokenizeJavaOptions(Depset.cast(javacOpts, String.class, "javac_opts")),
             attributesBuilder,
-            toolchain,
+            JavaToolchainProvider.PROVIDER.wrap(toolchain),
             Sequence.cast(additionalInputs, Artifact.class, "additional_inputs")
                 .getImmutableList());
     compilationHelper.enableDirectClasspath(enableDirectClasspath);
@@ -169,7 +167,7 @@ public class JavaStarlarkCommon
   @Override
   public void createCompilationAction(
       StarlarkRuleContext ctx,
-      JavaToolchainProvider javaToolchain,
+      Info javaToolchain,
       Artifact output,
       Artifact manifestProto,
       Info pluginInfo,
@@ -240,7 +238,7 @@ public class JavaStarlarkCommon
             javaSemantics,
             JavaHelper.tokenizeJavaOptions(Depset.cast(javacOpts, String.class, "javac_opts")),
             attributesBuilder,
-            javaToolchain,
+            JavaToolchainProvider.PROVIDER.wrap(javaToolchain),
             Sequence.cast(additionalInputs, Artifact.class, "additional_inputs")
                 .getImmutableList());
     compilationHelper.enableJspecify(enableJSpecify);
@@ -251,8 +249,10 @@ public class JavaStarlarkCommon
   @Override
   // TODO(b/78512644): migrate callers to passing explicit javacopts or using custom toolchains, and
   // delete
-  public StarlarkValue getDefaultJavacOpts(JavaToolchainProvider javaToolchain, boolean asDepset)
-      throws EvalException {
+  public StarlarkValue getDefaultJavacOpts(Info javaToolchainUnchecked, boolean asDepset)
+      throws EvalException, RuleErrorException {
+    JavaToolchainProvider javaToolchain =
+        JavaToolchainProvider.PROVIDER.wrap(javaToolchainUnchecked);
     // We don't have a rule context if the default_javac_opts.java_toolchain parameter is set
     if (asDepset) {
       return Depset.of(String.class, javaToolchain.getJavacOptions(/* ruleContext= */ null));
@@ -260,11 +260,6 @@ public class JavaStarlarkCommon
       return StarlarkList.immutableCopyOf(
           javaToolchain.getJavacOptionsAsList(/* ruleContext= */ null));
     }
-  }
-
-  @Override
-  public Provider getJavaToolchainProvider() {
-    return JavaToolchainProvider.PROVIDER;
   }
 
   @Override

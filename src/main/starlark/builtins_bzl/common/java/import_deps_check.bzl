@@ -36,7 +36,7 @@ def import_deps_check(
       (File) Output file of the created action.
     """
     java_toolchain = semantics.find_java_toolchain(ctx)
-    deps_checker = java_toolchain.deps_checker()
+    deps_checker = java_toolchain._deps_checker
     if deps_checker == None:
         return None
 

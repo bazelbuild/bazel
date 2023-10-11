@@ -183,7 +183,7 @@ EOF
   bazel cquery --output=build //:vanilla >& $TEST_log || fail "failed to query //:vanilla"
 
   expect_log 'jvm_opts = \[\]'
-  expect_log 'javabuilder = \["//:VanillaJavaBuilder"\]'
+  expect_log 'javabuilder = "//:VanillaJavaBuilder"'
 }
 
 # DEFAULT_TOOLCHAIN_CONFIGURATION shall use JavaBuilder and override Java 9+ internal compiler classes.

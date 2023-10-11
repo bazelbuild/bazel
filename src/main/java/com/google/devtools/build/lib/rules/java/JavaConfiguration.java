@@ -397,9 +397,28 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return runLocalJavaOptimizations;
   }
 
+  @StarlarkConfigurationField(
+      name = "java_toolchain_bytecode_optimizer",
+      documented = false,
+      defaultInToolRepository = true)
+  @Nullable
+  public Label getBytecodeOptimizerLabelForJavaToolchain() {
+    if (runLocalJavaOptimizations) {
+      return bytecodeOptimizer.label().orNull();
+    } else {
+      return null;
+    }
+  }
+
   /** Returns the optimization configuration for local Java optimizations if they are enabled. */
+  @StarlarkConfigurationField(name = "local_java_optimization_configuration", documented = false)
+  @Nullable
   public Label getLocalJavaOptimizationConfiguration() {
-    return localJavaOptimizationConfiguration;
+    if (runLocalJavaOptimizations) {
+      return localJavaOptimizationConfiguration;
+    } else {
+      return null;
+    }
   }
 
   /**

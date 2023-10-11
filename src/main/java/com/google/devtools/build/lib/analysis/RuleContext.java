@@ -890,6 +890,13 @@ public final class RuleContext extends TargetContext
     return prerequisite == null ? null : prerequisite.get(starlarkKey);
   }
 
+  @Nullable
+  public <T> T getPrerequisite(String attributeName, StarlarkProviderWrapper<T> key)
+      throws RuleErrorException {
+    TransitiveInfoCollection prerequisite = getPrerequisite(attributeName);
+    return prerequisite == null ? null : prerequisite.get(key);
+  }
+
   /**
    * For a given attribute, returns all declared provider provided by targets of that attribute.
    * Each declared provider is keyed by the {@link BuildConfigurationValue} under which the provider
