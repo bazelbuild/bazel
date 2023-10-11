@@ -120,6 +120,7 @@ _DEPLOY_JAR_RULE_ATTRS = {key: None for key in [
     "testonly",
     "tags",
     "compatible_with",
+    "target_compatible_with",
 ]}
 
 def _filtered_dict(input_dict, select_keys):
