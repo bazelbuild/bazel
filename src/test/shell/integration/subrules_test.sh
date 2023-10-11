@@ -80,10 +80,24 @@ my_rule = rule(
     },
     subrules = [my_subrule],
 )
+
+def _aspect_impl(target, ctx):
+  return []
+
+_my_aspect = aspect(implementation = _aspect_impl, subrules = [my_subrule])
+
+def _rule_with_aspect_impl(ctx):
+  return []
+
+my_rule_with_aspect = rule(
+    implementation = _rule_with_aspect_impl,
+    attrs = {"dep": attr.label(aspects = [_my_aspect])},
+)
 EOF
   cat > subrule_testing/BUILD <<EOF
-load(":rule.bzl", "my_rule")
+load(":rule.bzl", "my_rule", "my_rule_with_aspect")
 my_rule(name = 'foo')
+my_rule_with_aspect(name = 'foo_with_aspect', dep = '//some:label_2')
 EOF
 
   mkdir -p some
@@ -97,6 +111,12 @@ EOF
 
 function test_query_xml_outputs_subrule_implicit_deps() {
   bazel query --output xml //subrule_testing:foo &> $TEST_log || fail "query failed"
+  expect_log '<rule-input name="//some:label"/>'
+  expect_log '<rule-input name="//some:label_1"/>'
+}
+
+function test_query_xml_outputs_subrule_implicit_deps_via_aspect() {
+  bazel query --output xml --xml:default_values //subrule_testing:foo_with_aspect &> $TEST_log || fail "query failed"
   expect_log '<rule-input name="//some:label"/>'
   expect_log '<rule-input name="//some:label_1"/>'
 }

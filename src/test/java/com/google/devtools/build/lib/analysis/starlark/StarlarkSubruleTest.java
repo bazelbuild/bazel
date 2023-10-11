@@ -469,6 +469,46 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testSubruleAttrs_notVisibleInAspectCtx() throws Exception {
+    scratch.file("default/BUILD", "genrule(name = 'default', outs = ['a'], cmd = '')");
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "_my_subrule = subrule(",
+        "  implementation = lambda: None,",
+        "  attrs = {'_foo' : attr.label(default = '//default')},",
+        ")",
+        "MyInfo=provider()",
+        "def _aspect_impl(target, ctx):",
+        "  res = dir(ctx.attr)",
+        "  return MyInfo(result = res)",
+        "my_aspect = aspect(implementation = _aspect_impl, subrules = [_my_subrule])",
+        "def _rule_impl(ctx):",
+        "  return ctx.attr.dep[MyInfo]",
+        "my_rule = rule(",
+        "  implementation = _rule_impl,",
+        "  attrs = {'dep' : attr.label(aspects = [my_aspect])}",
+        ")");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo', dep = '//default')");
+
+    ImmutableList<String> attributes =
+        Sequence.cast(
+                getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo")
+                    .getValue("result"),
+                String.class,
+                "")
+            .getImmutableList();
+
+    assertThat(attributes)
+        .doesNotContain(
+            getRuleAttrName(
+                Label.parseCanonical("//subrule_testing:myrule.bzl"), "_my_subrule", "_foo"));
+  }
+
+  @Test
   public void testSubruleAttrs_overridingImplicitAttributeValueFails() throws Exception {
     scratch.file("default/BUILD", "genrule(name = 'default', outs = ['a'], cmd = '')");
     scratch.file(

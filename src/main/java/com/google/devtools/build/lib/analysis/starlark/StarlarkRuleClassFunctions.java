@@ -751,7 +751,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Boolean applyToGeneratingRules,
       Sequence<?> rawExecCompatibleWith,
       Object rawExecGroups,
-      Sequence<?> subrules,
+      Sequence<?> subrulesUnchecked,
       StarlarkThread thread)
       throws EvalException {
     LabelConverter labelConverter = LabelConverter.forBzlEvaluatingThread(thread);
@@ -776,6 +776,22 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
     ImmutableList<Pair<String, StarlarkAttrModule.Descriptor>> descriptors =
         attrObjectToAttributesList(attrs);
+
+    if (!subrulesUnchecked.isEmpty()) {
+      BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_SUBRULES);
+    }
+    ImmutableList<StarlarkSubrule> subrules =
+        Sequence.cast(subrulesUnchecked, StarlarkSubrule.class, "subrules").getImmutableList();
+    ImmutableList<Pair<String, Descriptor>> subruleAttributes =
+        StarlarkSubrule.discoverAttributesForRule(subrules);
+    if (!subruleAttributes.isEmpty()) {
+      descriptors =
+          ImmutableList.<Pair<String, Descriptor>>builder()
+              .addAll(descriptors)
+              .addAll(subruleAttributes)
+              .build();
+    }
+
     ImmutableList.Builder<Attribute> attributes = ImmutableList.builder();
     ImmutableSet.Builder<String> requiredParams = ImmutableSet.builder();
     for (Pair<String, Descriptor> nameDescriptorPair : descriptors) {
@@ -871,10 +887,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       }
     }
 
-    if (!subrules.isEmpty()) {
-      BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_SUBRULES);
-    }
-
     return new StarlarkDefinedAspect(
         implementation,
         Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString),
@@ -891,7 +903,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         applyToGeneratingRules,
         execCompatibleWith,
         execGroups,
-        ImmutableSet.copyOf(Sequence.cast(subrules, StarlarkSubruleApi.class, "subrules")));
+        ImmutableSet.copyOf(subrules));
   }
 
   /**
