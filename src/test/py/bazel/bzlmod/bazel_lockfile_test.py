@@ -60,6 +60,9 @@ class BazelLockfileTest(test_base.TestBase):
     # The existence of WORKSPACE.bzlmod prevents WORKSPACE prefixes or suffixes
     # from being used; this allows us to test built-in modules actually work
     self.ScratchFile('WORKSPACE.bzlmod')
+    # TODO(pcloudy): investigate why this is needed, MODULE.bazel.lock is not
+    # deterministic?
+    os.remove(self.Path('MODULE.bazel.lock'))
 
   def testChangeModuleInRegistryWithoutLockfile(self):
     # Add module 'sss' to the registry with dep on 'aaa'

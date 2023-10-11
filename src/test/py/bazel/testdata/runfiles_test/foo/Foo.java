@@ -26,7 +26,7 @@ public class Foo {
   public static void main(String[] args) throws IOException, InterruptedException {
     System.out.println("Hello Java Foo!");
     Runfiles r = Runfiles.create();
-    System.out.println("rloc=" + r.rlocation("foo_ws/foo/datadep/hello.txt"));
+    System.out.println("rloc=" + r.rlocation("_main/foo/datadep/hello.txt"));
 
     for (String lang : new String[] {"py", "java", "sh", "cc"}) {
       String path = r.rlocation(childBinaryName(lang));
@@ -57,9 +57,9 @@ public class Foo {
 
   private static String childBinaryName(String lang) {
     if (isWindows()) {
-      return "foo_ws/bar/bar-" + lang + ".exe";
+      return "_main/bar/bar-" + lang + ".exe";
     } else {
-      return "foo_ws/bar/bar-" + lang;
+      return "_main/bar/bar-" + lang;
     }
   }
 

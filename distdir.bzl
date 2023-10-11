@@ -20,9 +20,15 @@ load("//tools/build_defs/repo:http.bzl", "http_archive", "http_file", "http_jar"
 _BUILD = """
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 
+filegroup(
+  name="files",
+  srcs = {srcs},
+  visibility = ["//visibility:public"],
+)
+
 pkg_tar(
   name="archives",
-  srcs = {srcs},
+  srcs = [":files"],
   strip_prefix = "{strip_prefix}",
   package_dir = "{dirname}",
   visibility = ["//visibility:public"],

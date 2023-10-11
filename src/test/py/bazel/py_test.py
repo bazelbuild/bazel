@@ -58,10 +58,12 @@ class PyTest(test_base.TestBase):
     self.createSimpleFiles()
     self.RunBazel(['build', '//a:a'])
     self.assertTrue(os.path.isdir('bazel-bin/a/a.runfiles'))
-    self.assertTrue(os.readlink('bazel-bin/a/a.runfiles/__main__/a/a.py')
-                    .endswith('/a/a.py'))
-    self.assertTrue(os.readlink('bazel-bin/a/a.runfiles/__main__/a/b.py')
-                    .endswith('/a/b.py'))
+    self.assertTrue(
+        os.readlink('bazel-bin/a/a.runfiles/_main/a/a.py').endswith('/a/a.py')
+    )
+    self.assertTrue(
+        os.readlink('bazel-bin/a/a.runfiles/_main/a/b.py').endswith('/a/b.py')
+    )
 
 
 class TestInitPyFiles(test_base.TestBase):
@@ -93,22 +95,25 @@ class TestInitPyFiles(test_base.TestBase):
       self.assertTrue(os.path.exists('bazel-bin/src/a/a.zip'))
       with zipfile.ZipFile('bazel-bin/src/a/a.zip', 'r') as z:
         zip_contents = set(z.namelist())
-      self.assertIn('runfiles/__main__/src/__init__.py', zip_contents)
-      self.assertIn('runfiles/__main__/src/a/__init__.py', zip_contents)
+      self.assertIn('runfiles/_main/src/__init__.py', zip_contents)
+      self.assertIn('runfiles/_main/src/a/__init__.py', zip_contents)
     else:
       self.assertTrue(
-          os.path.exists('bazel-bin/src/a/a.runfiles/__main__/src/__init__.py'))
+          os.path.exists('bazel-bin/src/a/a.runfiles/_main/src/__init__.py')
+      )
       self.assertTrue(
-          os.path.exists(
-              'bazel-bin/src/a/a.runfiles/__main__/src/a/__init__.py'))
+          os.path.exists('bazel-bin/src/a/a.runfiles/_main/src/a/__init__.py')
+      )
 
   def testInitPyFilesNotCreatedWhenLegacyCreateInitIsSet(self):
     self.createSimpleFiles(create_init=False)
     self.RunBazel(['build', '//src/a:a'])
     self.assertFalse(
-        os.path.exists('bazel-bin/src/a/a.runfiles/__main__/src/__init__.py'))
+        os.path.exists('bazel-bin/src/a/a.runfiles/_main/src/__init__.py')
+    )
     self.assertFalse(
-        os.path.exists('bazel-bin/src/a/a.runfiles/__main__/src/a/__init__.py'))
+        os.path.exists('bazel-bin/src/a/a.runfiles/_main/src/a/__init__.py')
+    )
 
   # Regression test for https://github.com/bazelbuild/bazel/pull/10119
   def testBuildingZipFileWithTargetNameWithDot(self):

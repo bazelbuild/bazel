@@ -20,6 +20,10 @@ from src.test.py.bazel import test_base
 
 class BazelWorkspaceTest(test_base.TestBase):
 
+  def setUp(self):
+    test_base.TestBase.setUp(self)
+    self.DisableBzlmod()
+
   def testWorkspaceDotBazelFileInMainRepo(self):
     workspace_dot_bazel = self.ScratchFile("WORKSPACE.bazel")
     self.ScratchFile("BUILD", [

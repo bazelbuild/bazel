@@ -105,7 +105,8 @@ class RunfilesSandboxedTest(test_base.TestBase):
       if not stdout_lines[i * 2 + 1].startswith("rloc="):
         self._FailWithContents("wrong line for " + lang[1], stdout_lines)
       if not stdout_lines[i * 2 + 1].endswith(
-          "foo_ws/bar/bar-%s-data.txt" % lang[0]):
+          "_main/bar/bar-%s-data.txt" % lang[0]
+      ):
         self._FailWithContents("wrong line for " + lang[1], stdout_lines)
 
       # Assert the contents of bar-<language>-data.txt. This indicates that

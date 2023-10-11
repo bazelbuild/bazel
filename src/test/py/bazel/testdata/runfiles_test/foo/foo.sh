@@ -41,15 +41,15 @@ esac
 function child_binary_name() {
   local lang=$1
   if "$is_windows"; then
-    echo "foo_ws/bar/bar-${lang}.exe"
+    echo "_main/bar/bar-${lang}.exe"
   else
-    echo "foo_ws/bar/bar-${lang}"
+    echo "_main/bar/bar-${lang}"
   fi
 }
 
 function main() {
   echo "Hello Bash Foo!"
-  echo "rloc=$(rlocation "foo_ws/foo/datadep/hello.txt")"
+  echo "rloc=$(rlocation "_main/foo/datadep/hello.txt")"
 
   # Run a subprocess, propagate the runfiles envvar to it. The subprocess will
   # use this process's runfiles manifest or runfiles directory.

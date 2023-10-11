@@ -247,6 +247,7 @@ bazel_build_deps = use_extension("//:extensions.bzl", "bazel_build_deps")
 use_repo(
     bazel_build_deps,
     "bootstrap_repo_cache",
+    "bazel_tools_repo_cache",
     "debian_cc_deps",
     "openjdk_linux_aarch64_vanilla",
     "openjdk_linux_ppc64le_vanilla",

@@ -21,6 +21,7 @@ load("//:distdir_deps.bzl", "DIST_ARCHIVE_REPOS")
 load("//:repositories.bzl", "embedded_jdk_repositories")
 load("//src/main/res:winsdk_configure.bzl", "winsdk_configure")
 load("//src/test/shell/bazel:list_source_repository.bzl", "list_source_repository")
+load("//src/tools/bzlmod:utils.bzl", "parse_bazel_module_repos")
 load("//tools/distributions/debian:deps.bzl", "debian_deps")
 
 ### Dependencies for building Bazel
@@ -28,6 +29,8 @@ def _bazel_build_deps(_ctx):
     embedded_jdk_repositories()
     debian_deps()
     repo_cache_tar(name = "bootstrap_repo_cache", repos = DIST_ARCHIVE_REPOS, dirname = "derived/repository_cache")
+    BAZEL_TOOLS_DEPS_REPOS = parse_bazel_module_repos(_ctx, _ctx.path(Label("//src/test/tools/bzlmod:MODULE.bazel.lock")))
+    repo_cache_tar(name = "bazel_tools_repo_cache", repos = BAZEL_TOOLS_DEPS_REPOS, lockfile = "//src/test/tools/bzlmod:MODULE.bazel.lock")
 
 bazel_build_deps = module_extension(implementation = _bazel_build_deps)
 

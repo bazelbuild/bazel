@@ -765,6 +765,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.assertIn('clang-cl.exe', ''.join(stderr))
 
   def testBuildWithClangClByToolchainResolution(self):
+    self.DisableBzlmod()
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE', [
         'register_execution_platforms(',
         '  ":windows_clang"',

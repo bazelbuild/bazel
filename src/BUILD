@@ -372,6 +372,7 @@ filegroup(
         "//src/test/shell:srcs",
         "//src/test/testdata/test_tls_certificate",
         "//src/test/tools:srcs",
+        "//src/test/tools/bzlmod:srcs",
         "//src/tools/android:srcs",
         "//src/tools/android/java/com/google/devtools/build/android:srcs",
         "//src/tools/bzlmod:srcs",
@@ -586,5 +587,5 @@ filegroup(
         "@remotejdk%s_%s//:WORKSPACE" % (version, os)
         for version in ("17", "20")
         for os in ("macos", "macos_aarch64", "linux", "win")
-    ],
+    ] + ["@bazel_tools_repo_cache//:files"],
 )

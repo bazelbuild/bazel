@@ -206,7 +206,7 @@ class RunfilesTest(test_base.TestBase):
         # Runfiles manifests use forward slashes as path separators, even on
         # Windows.
         mock_bar_dep = mock_bar_dep.replace("\\", "/")
-      manifest_key = "foo_ws/bar/bar-%s-data.txt" % lang[0]
+      manifest_key = "_main/bar/bar-%s-data.txt" % lang[0]
       mock_manifest_line = manifest_key + " " + mock_bar_dep
       with open(manifest_path, "rt") as f:
         # Only rstrip newlines. Do not rstrip() completely, because that would
@@ -258,6 +258,7 @@ class RunfilesTest(test_base.TestBase):
       self.assertEqual(lines[0], "mock %s data" % lang[0])
 
   def testLegacyExternalRunfilesOption(self):
+    self.DisableBzlmod()
     self.ScratchDir("A")
     self.ScratchFile("A/WORKSPACE")
     self.ScratchFile("A/BUILD", [

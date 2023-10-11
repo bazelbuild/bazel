@@ -27,6 +27,7 @@ py_library(
     data = [
         ":default_repos_stanza.txt",
         ":test-deps",
+        "//src/test/tools/bzlmod:MODULE.bazel.lock",
     ],
     visibility = [
         "//src/test/py/bazel:__pkg__",

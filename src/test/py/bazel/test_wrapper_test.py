@@ -179,9 +179,9 @@ class TestWrapperTest(test_base.TestBase):
             'os.mkdir(os.path.join(root, "out2"))',
             'os.makedirs(os.path.join(root, "empty/sub"))',
             'r = runfiles.Create()',
-            'shutil.copyfile(r.Rlocation("__main__/foo/dummy.ico"),',
+            'shutil.copyfile(r.Rlocation("_main/foo/dummy.ico"),',
             '                os.path.join(root, "out1", "data1.ico"))',
-            'shutil.copyfile(r.Rlocation("__main__/foo/dummy.dat"),',
+            'shutil.copyfile(r.Rlocation("_main/foo/dummy.dat"),',
             '                os.path.join(root, "out2", "my data 2.dat"))',
         ],
         executable=True)
@@ -474,7 +474,7 @@ class TestWrapperTest(test_base.TestBase):
         arg0,
         os.path.join(bazel_bin,
                      'foo\\print_arg0_test.bat.runfiles\\'
-                     '__main__\\foo\\print_arg0_test.bat')
+                     '_main\\foo\\print_arg0_test.bat')
     )
 
   def _AssertTestArgs(self, flags):
