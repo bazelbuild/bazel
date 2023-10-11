@@ -96,25 +96,34 @@ public final class PlatformUtils {
       } else {
         properties = spawn.getCombinedExecProperties();
       }
-    } else if (spawn.getExecutionPlatform() != null
-        && !Strings.isNullOrEmpty(spawn.getExecutionPlatform().remoteExecutionProperties())) {
+    } else if (spawn.getExecutionPlatform() != null) {
       properties = new HashMap<>();
-      // Try and get the platform info from the execution properties.
-      try {
-        Platform.Builder platformBuilder = Platform.newBuilder();
+      Platform.Builder platformBuilder = Platform.newBuilder();
+
+      String remoteExecutionProperties = spawn.getExecutionPlatform().remoteExecutionProperties();
+      if (remoteExecutionProperties.isEmpty()) {
+        for (Map.Entry<String, String> property : spawn.getExecutionPlatform().execProperties().entrySet()) {
+          properties.put(property.getKey(), property.getValue());
+        }
+      } else {
+        // Try and get the platform info from the execution properties.
+        try {
         TextFormat.getParser()
-            .merge(spawn.getExecutionPlatform().remoteExecutionProperties(), platformBuilder);
+                .merge(spawn.getExecutionPlatform().remoteExecutionProperties(), platformBuilder);
+        } catch (ParseException e) {
+          String message =
+                  String.format(
+                          "Failed to parse remote_execution_properties from platform %s",
+                          spawn.getExecutionPlatform().label());
+          throw new UserExecException(
+                  e, createFailureDetail(message, Code.INVALID_REMOTE_EXECUTION_PROPERTIES));
+        }
+
         for (Property property : platformBuilder.getPropertiesList()) {
           properties.put(property.getName(), property.getValue());
         }
-      } catch (ParseException e) {
-        String message =
-            String.format(
-                "Failed to parse remote_execution_properties from platform %s",
-                spawn.getExecutionPlatform().label());
-        throw new UserExecException(
-            e, createFailureDetail(message, Code.INVALID_REMOTE_EXECUTION_PROPERTIES));
       }
+
     } else {
       properties = defaultExecProperties;
     }
