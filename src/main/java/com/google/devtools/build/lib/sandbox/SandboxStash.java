@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.exec.TreeDeleter;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -64,7 +65,7 @@ public class SandboxStash {
 
   private boolean takeStashedSandboxInternal(Path sandboxPath, String mnemonic) {
     try {
-      Path sandboxes = getSandboxStashDir(mnemonic);
+      Path sandboxes = getSandboxStashDir(mnemonic, sandboxPath.getFileSystem());
       if (sandboxes == null) {
         return false;
       }
@@ -106,7 +107,7 @@ public class SandboxStash {
   }
 
   private void stashSandboxInternal(Path path, String mnemonic) {
-    Path sandboxes = getSandboxStashDir(mnemonic);
+    Path sandboxes = getSandboxStashDir(mnemonic, path.getFileSystem());
     if (sandboxes == null) {
       return;
     }
@@ -132,10 +133,14 @@ public class SandboxStash {
    * Returns the sandbox stashing directory appropriate for this mnemonic. In order to maximize
    * reuse, we keep stashed sandboxes separated by mnemonic. May return null if there are errors, in
    * which case sandbox reuse also gets turned off.
+   *
+   * <p>TODO(bazel-team): Fix integration tests to instantiate FileSystem only once, so that passing
+   * it in here (to avoid the cross-filesystem precondition check in renameTo) is no longer
+   * necessary.
    */
   @Nullable
-  private Path getSandboxStashDir(String mnemonic) {
-    Path stashDir = getStashBase(this.outputBase);
+  private Path getSandboxStashDir(String mnemonic, FileSystem fileSystem) {
+    Path stashDir = getStashBase(fileSystem.getPath(this.outputBase.getPathString()));
     try {
       stashDir.createDirectory();
       if (!maybeClearExistingStash(stashDir)) {
