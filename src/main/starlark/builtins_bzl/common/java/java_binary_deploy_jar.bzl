@@ -285,7 +285,7 @@ def make_deploy_jars_rule(implementation, *, create_executable = True, extra_too
                 default = semantics.JAVA_TOOLCHAIN_LABEL,
                 providers = [java_common.JavaToolchainInfo],
             ),
-            "_cc_toolchain": attr.label(default = "@" + cc_semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
+            "_cc_toolchain": attr.label(default = "@" + cc_semantics.get_repo() + "//tools/cpp:optional_current_cc_toolchain"),
             "_java_toolchain_type": attr.label(default = semantics.JAVA_TOOLCHAIN_TYPE),
             "_build_info_translator": attr.label(
                 default = semantics.BUILD_INFO_TRANSLATOR_LABEL,

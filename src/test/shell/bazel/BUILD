@@ -195,6 +195,10 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    tags = [
+        # bzlmod usage requires network
+        "requires-network",
+    ],
 )
 
 sh_test(
