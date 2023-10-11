@@ -30,8 +30,10 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.StarlarkActionContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule.Descriptor;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
@@ -133,7 +135,7 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
         // this should never happen, we've already validated the type while evaluating the subrule
         throw new IllegalStateException("unexpected attribute type");
       }
-      namedArgs.put(attr.attrName, value);
+      namedArgs.put(attr.attrName, value == null ? Starlark.NONE : value);
     }
     SubruleContext subruleContext = new SubruleContext(ruleContext, runfilesFromDeps.build());
     ImmutableList<Object> positionals =
@@ -190,7 +192,8 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
   public void export(EventHandler handler, Label extensionLabel, String exportedName) {
     Preconditions.checkState(!isExported());
     this.exportedName = exportedName;
-    this.attributes = SubruleAttribute.transformOnExport(attributes, extensionLabel, exportedName);
+    this.attributes =
+        SubruleAttribute.transformOnExport(attributes, extensionLabel, exportedName, handler);
   }
 
   /**
@@ -358,21 +361,35 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
     }
 
     private static ImmutableList<SubruleAttribute> transformOnExport(
-        ImmutableList<SubruleAttribute> attributes, Label label, String exportedName) {
-      return attributes.stream()
-          .map(s -> s.copyWithRuleAttributeName(label, exportedName))
-          .collect(toImmutableList());
+        ImmutableList<SubruleAttribute> attributes,
+        Label label,
+        String exportedName,
+        EventHandler handler) {
+      ImmutableList.Builder<SubruleAttribute> builder = ImmutableList.builder();
+      for (SubruleAttribute attribute : attributes) {
+        try {
+          builder.add(attribute.copyWithRuleAttributeName(label, exportedName));
+        } catch (EvalException e) {
+          handler.handle(Event.error(e.getMessage()));
+        }
+      }
+      return builder.build();
     }
 
-    private SubruleAttribute copyWithRuleAttributeName(Label label, String exportedName) {
-      String ruleAttrName = getRuleAttrName(label, exportedName, attrName);
+    private SubruleAttribute copyWithRuleAttributeName(Label label, String exportedName)
+        throws EvalException {
+      String ruleAttrName =
+          getRuleAttrName(label, exportedName, attrName, descriptor.getValueSource());
       return new SubruleAttribute(attrName, descriptor, ruleAttrName);
     }
   }
 
   @VisibleForTesting
   // _foo -> $//pkg:label%my_subrule%_foo
-  static String getRuleAttrName(Label label, String exportedName, String attrName) {
-    return "$" + label.getCanonicalForm() + "%" + exportedName + "%" + attrName;
+  static String getRuleAttrName(
+      Label label, String exportedName, String attrName, AttributeValueSource valueSource)
+      throws EvalException {
+    return valueSource.convertToNativeName(
+        "_" + label.getCanonicalForm() + "%" + exportedName + "%" + attrName);
   }
 }

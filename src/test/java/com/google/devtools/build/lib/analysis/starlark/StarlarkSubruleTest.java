@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -465,7 +466,10 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
     assertThat(attributes)
         .doesNotContain(
             getRuleAttrName(
-                Label.parseCanonical("//subrule_testing:myrule.bzl"), "_my_subrule", "_foo"));
+                Label.parseCanonical("//subrule_testing:myrule.bzl"),
+                "_my_subrule",
+                "_foo",
+                AttributeValueSource.DIRECT));
   }
 
   @Test
@@ -505,7 +509,10 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
     assertThat(attributes)
         .doesNotContain(
             getRuleAttrName(
-                Label.parseCanonical("//subrule_testing:myrule.bzl"), "_my_subrule", "_foo"));
+                Label.parseCanonical("//subrule_testing:myrule.bzl"),
+                "_my_subrule",
+                "_foo",
+                AttributeValueSource.DIRECT));
   }
 
   @Test
@@ -648,6 +655,46 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
     assertThat(error)
         .hasMessageThat()
         .contains("Error in run: for 'executable', expected FilesToRunProvider, got File");
+  }
+
+  @Test
+  public void testSubruleAttrs_lateBoundDefaultsAreResolved() throws Exception {
+    scratch.file(
+        "my/BUILD",
+        //
+        "cc_binary(name = 'tool')");
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _subrule_impl(ctx, _tool):",
+        "  return _tool",
+        "_my_subrule = subrule(",
+        "  implementation = _subrule_impl,",
+        "  attrs = {'_tool' : attr.label(",
+        "         default = configuration_field(fragment = 'coverage', name = 'output_generator')",
+        "  )},",
+        ")",
+        "",
+        "MyInfo = provider()",
+        "def _rule_impl(ctx):",
+        "  res = _my_subrule()",
+        "  return MyInfo(result = res)",
+        "",
+        "my_rule = rule(implementation = _rule_impl, subrules = [_my_subrule])");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+    // TODO: b/293304174 - use a custom fragment instead of coverage
+    useConfiguration("--collect_code_coverage", "--coverage_output_generator=//my:tool");
+
+    StructImpl provider =
+        getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo");
+
+    assertThat(provider).isNotNull();
+    Object value = provider.getValue("result");
+    assertThat(value).isInstanceOf(ConfiguredTarget.class);
+    assertThat(((ConfiguredTarget) value).getLabel().toString()).isEqualTo("//my:tool");
   }
 
   @Test

@@ -1199,7 +1199,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     ImmutableMap<String, Descriptor> attrs =
         ImmutableMap.copyOf(Dict.cast(attrsUnchecked, String.class, Descriptor.class, "attrs"));
     for (Entry<String, Descriptor> attr : attrs.entrySet()) {
-      // TODO: b/293304174 - add support for late bound defaults (will require declaring fragments)
       // TODO: b/293304174 - do not permit split transitions?
       String attrName = attr.getKey();
       Descriptor descriptor = attr.getValue();
