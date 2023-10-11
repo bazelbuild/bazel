@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.starlark;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.starlark.StarlarkSubrule.getRuleAttrName;
 import static org.junit.Assert.assertThrows;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposed
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
@@ -478,21 +480,30 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
         "load('myrule.bzl', 'my_rule')",
         "my_rule(name = 'foo')");
 
-    ImmutableList<String> attributes =
+    ImmutableList<String> ruleClassAttributes =
+        getRuleContext(getConfiguredTarget("//subrule_testing:foo"))
+            .getRule()
+            .getRuleClassObject()
+            .getAttributes()
+            .stream()
+            .map(Attribute::getName)
+            .collect(toImmutableList());
+    ImmutableList<String> attributesVisibleToStarlark =
         Sequence.cast(
                 getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo")
                     .getValue("result"),
                 String.class,
                 "")
             .getImmutableList();
+    String ruleAttrName =
+        getRuleAttrName(
+            Label.parseCanonical("//subrule_testing:myrule.bzl"),
+            "_my_subrule",
+            "_foo",
+            AttributeValueSource.DIRECT);
 
-    assertThat(attributes)
-        .doesNotContain(
-            getRuleAttrName(
-                Label.parseCanonical("//subrule_testing:myrule.bzl"),
-                "_my_subrule",
-                "_foo",
-                AttributeValueSource.DIRECT));
+    assertThat(ruleClassAttributes).contains(ruleAttrName);
+    assertThat(attributesVisibleToStarlark).doesNotContain(ruleAttrName);
   }
 
   @Test
@@ -521,21 +532,33 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
         "load('myrule.bzl', 'my_rule')",
         "my_rule(name = 'foo', dep = '//default')");
 
-    ImmutableList<String> attributes =
+    ImmutableList<String> aspectClassAttributes =
+        getRuleContext(getConfiguredTarget("//subrule_testing:foo"))
+            .getRule()
+            .getRuleClassObject()
+            .getAttributeByName("dep")
+            .getAspectsDetails()
+            .get(0)
+            .getAspectAttributes()
+            .stream()
+            .map(Attribute::getName)
+            .collect(toImmutableList());
+    ImmutableList<String> attributesVisibleToStarlark =
         Sequence.cast(
                 getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo")
                     .getValue("result"),
                 String.class,
                 "")
             .getImmutableList();
+    String ruleAttrName =
+        getRuleAttrName(
+            Label.parseCanonical("//subrule_testing:myrule.bzl"),
+            "_my_subrule",
+            "_foo",
+            AttributeValueSource.DIRECT);
 
-    assertThat(attributes)
-        .doesNotContain(
-            getRuleAttrName(
-                Label.parseCanonical("//subrule_testing:myrule.bzl"),
-                "_my_subrule",
-                "_foo",
-                AttributeValueSource.DIRECT));
+    assertThat(aspectClassAttributes).contains(ruleAttrName);
+    assertThat(attributesVisibleToStarlark).doesNotContain(ruleAttrName);
   }
 
   @Test
