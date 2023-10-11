@@ -302,6 +302,7 @@ java_library(
         ":config/transition_factories",
         ":config/transitions/composing_transition_factory",
         ":config/transitions/configuration_transition",
+        ":config/transitions/no_transition",
         ":config/transitions/patch_transition",
         ":config/transitions/split_transition",
         ":config/transitions/starlark_exposed_rule_transition_factory",

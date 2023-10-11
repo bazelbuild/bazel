@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
@@ -59,6 +60,7 @@ import com.google.devtools.build.lib.packages.AllowlistChecker;
 import com.google.devtools.build.lib.packages.AspectsListBuilder.AspectDetails;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildSetting;
@@ -1199,9 +1201,14 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     ImmutableMap<String, Descriptor> attrs =
         ImmutableMap.copyOf(Dict.cast(attrsUnchecked, String.class, Descriptor.class, "attrs"));
     for (Entry<String, Descriptor> attr : attrs.entrySet()) {
-      // TODO: b/293304174 - do not permit split transitions?
       String attrName = attr.getKey();
       Descriptor descriptor = attr.getValue();
+      TransitionFactory<AttributeTransitionData> transitionFactory =
+          descriptor.getTransitionFactory();
+      if (!NoTransition.isInstance(transitionFactory) && !transitionFactory.isTool()) {
+        throw Starlark.errorf(
+            "bad cfg for attribute '%s': subrules may only have target/exec attributes.", attrName);
+      }
       checkAttributeName(attrName);
       Type<?> type = descriptor.getType();
       if (!attrName.startsWith("_")) {

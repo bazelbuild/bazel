@@ -394,6 +394,10 @@ public final class Attribute implements Comparable<Attribute> {
     public int hashCode() {
       return hashCode;
     }
+
+    public TransitionFactory<AttributeTransitionData> getTransitionFactory() {
+      return transitionFactory;
+    }
   }
 
   /**

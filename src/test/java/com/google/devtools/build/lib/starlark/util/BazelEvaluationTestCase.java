@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.rules.config.ConfigGlobalLibrary;
 import com.google.devtools.build.lib.rules.config.ConfigStarlarkCommon;
 import com.google.devtools.build.lib.rules.platform.PlatformCommon;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
@@ -168,6 +169,7 @@ public final class BazelEvaluationTestCase {
     predeclared.putAll(StarlarkGlobalsImpl.INSTANCE.getFixedBzlToplevels());
     predeclared.put("platform_common", new PlatformCommon());
     predeclared.put("config_common", new ConfigStarlarkCommon());
+    Starlark.addMethods(predeclared, new ConfigGlobalLibrary());
 
     // Return the module's client data. (This one uses dummy values for tests.)
     return BazelModuleContext.create(

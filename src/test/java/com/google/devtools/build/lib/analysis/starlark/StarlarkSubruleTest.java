@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -429,6 +430,28 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
         "subrule(",
         "  implementation = lambda: None,",
         "  attrs = {'_foo': attr.label()}",
+        ")");
+  }
+
+  @Test
+  public void testSubruleAttrs_cannotHaveStarlarkTransitions() throws Exception {
+    ev.checkEvalErrorContains(
+        "bad cfg for attribute '_foo': subrules may only have target/exec attributes.",
+        "my_transition = transition(implementation = lambda: None, inputs = [], outputs = [])",
+        "_my_subrule = subrule(",
+        "  implementation = lambda: None,",
+        "  attrs = {'_foo': attr.label(cfg = my_transition)}",
+        ")");
+  }
+
+  @Test
+  public void testSubruleAttrs_cannotHaveNativeTransitions() throws Exception {
+    ev.update("native_transition", (StarlarkExposedRuleTransitionFactory) data -> null);
+    ev.checkEvalErrorContains(
+        "bad cfg for attribute '_foo': subrules may only have target/exec attributes.",
+        "_my_subrule = subrule(",
+        "  implementation = lambda: None,",
+        "  attrs = {'_foo': attr.label(cfg = native_transition)}",
         ")");
   }
 

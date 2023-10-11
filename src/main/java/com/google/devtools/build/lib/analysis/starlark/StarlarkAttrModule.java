@@ -814,6 +814,10 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
     public int hashCode() {
       return Objects.hash(name, attributeFactory);
     }
+
+    TransitionFactory<AttributeTransitionData> getTransitionFactory() {
+      return attributeFactory.getTransitionFactory();
+    }
   }
 
   // Returns an immutable map from a list of alternating name/value pairs,
