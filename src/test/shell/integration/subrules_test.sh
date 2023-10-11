@@ -103,8 +103,8 @@ function test_query_xml_outputs_subrule_implicit_deps() {
 
 function test_query_xml_outputs_subrule_attributes() {
   bazel query --output xml --xml:default_values //subrule_testing:foo &> $TEST_log || fail "query failed"
-  expect_log '<label name="//subrule_testing:rule.bzl%my_subrule%_foo" value="//some:label"/>'
-  expect_log '<label name="//subrule_testing:rule.bzl%my_subrule%_bar" value="//some:label_1"/>'
+  expect_log '<label name="$//subrule_testing:rule.bzl%my_subrule%_foo" value="//some:label"/>'
+  expect_log '<label name="$//subrule_testing:rule.bzl%my_subrule%_bar" value="//some:label_1"/>'
 }
 
 # native.existing_rules skips all implicit attributes so this is trivially true

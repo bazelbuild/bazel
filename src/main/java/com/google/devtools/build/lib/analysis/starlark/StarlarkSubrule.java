@@ -371,8 +371,8 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
   }
 
   @VisibleForTesting
-  // _foo -> //pkg:label%my_subrule%_foo
+  // _foo -> $//pkg:label%my_subrule%_foo
   static String getRuleAttrName(Label label, String exportedName, String attrName) {
-    return label.getCanonicalForm() + "%" + exportedName + "%" + attrName;
+    return "$" + label.getCanonicalForm() + "%" + exportedName + "%" + attrName;
   }
 }
