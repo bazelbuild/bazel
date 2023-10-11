@@ -86,6 +86,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
           starlarkOptions,
           ImmutableList.builder()
               .add((Object[]) args)
+              .add("--noincompatible_enable_android_toolchain_resolution")
               .add("--noincompatible_enable_cc_toolchain_resolution")
               .build()
               .toArray(new String[0]));
@@ -113,9 +114,8 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
             String.format("    toolchain = '%s',", sdkLabel),
             ")");
         fullArgs.add("--extra_toolchains=//legacy_to_platform_sdk:custom_sdk_toolchain");
-      } else {
-        fullArgs.add(arg);
       }
+      fullArgs.add(arg);
 
       if (arg.startsWith("--platforms=") || arg.startsWith("--android_platforms=")) {
         hasPlatform = true;

@@ -1935,11 +1935,6 @@ public abstract class AndroidLibraryTest extends AndroidBuildViewTestCase {
             getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_LIBRARY_APK));
     assertThat(linkAction).isNotNull();
 
-    if (platformBasedToolchains()) {
-      // TODO(b/161709111): With platform, the call to sdk below produces a NullPointerException.
-      return;
-    }
-
     assertThat(linkAction.getInputs().toList())
         .containsAtLeast(
             sdk.get(AndroidSdkProvider.PROVIDER).getAndroidJar(),

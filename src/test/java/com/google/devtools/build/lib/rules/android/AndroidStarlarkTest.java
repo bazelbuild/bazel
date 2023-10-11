@@ -338,24 +338,9 @@ public abstract class AndroidStarlarkTest extends AndroidBuildViewTestCase {
         "load('//:foo_library.bzl', 'foo_library')",
         "filegroup(name = 'new_sdk')",
         "foo_library(name = 'lib')");
-    if (platformBasedToolchains()) {
-      // TODO(b/161709111): fails to find a matching Android toolchain.
-      if (true) {
-        return;
-      }
-      scratch.file(
-          "platform_toolchain_defs/BUILD",
-          "toolchain(",
-          "    name = 'new_sdk_toolchain',",
-          String.format("    toolchain_type = '%s',", TestConstants.ANDROID_TOOLCHAIN_TYPE_LABEL),
-          "toolchain = '//:new_sdk',",
-          ")");
-      useConfiguration(
-          "--extra_toolchains=//platform_toolchain_defs:new_sdk_toolchain",
-          "--android_sdk=//:new_sdk");
-    } else {
-      useConfiguration("--android_sdk=//:new_sdk");
-    }
+
+    // This test doesn't touch platforms, it directly reads the --android_sdk flag value.
+    useConfiguration("--android_sdk=//:new_sdk");
 
     ConfiguredTarget ct = getConfiguredTarget("//:lib");
     assertThat(getMyInfoFromTarget(ct).getValue("foo"))

@@ -381,6 +381,7 @@ platform(
 )
 EOF
 
+  add_to_bazelrc "build --platform_mappings=test_android_platforms/mappings"
   cat > test_android_platforms/mappings <<EOF
 platforms:
   //test_android_platforms:simple

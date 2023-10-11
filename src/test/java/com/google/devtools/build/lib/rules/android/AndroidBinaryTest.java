@@ -214,39 +214,36 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "java/android/res/values/strings.xml",
         "<resources><string name = 'hello'>Hello Android!</string></resources>");
     scratch.file("java/android/A.java", "package android; public class A {};");
-    if (platformBasedToolchains()) {
-      scratch.file(
-          "java/android/platforms/BUILD",
-          "platform(",
-          "    name = 'x86',",
-          "    parents = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "android:armeabi-v7a'],",
-          "    constraint_values = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_32'],",
-          ")",
-          "platform(",
-          "    name = 'armeabi-v7a',",
-          "    parents = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "android:armeabi-v7a'],",
-          "    constraint_values = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7'],",
-          ")");
-      scratch.file(
-          "/workspace/platform_mappings",
-          "platforms:",
-          "  //java/android/platforms:armeabi-v7a",
-          "    --cpu=armeabi-v7a",
-          "    --android_cpu=armeabi-v7a",
-          "    --crosstool_top=//android/crosstool:everything",
-          "  //java/android/platforms:x86",
-          "    --cpu=x86",
-          "    --android_cpu=x86",
-          "    --crosstool_top=//android/crosstool:everything",
-          "flags:",
-          "  --crosstool_top=//android/crosstool:everything",
-          "  --cpu=armeabi-v7a",
-          "    //java/android/platforms:armv7",
-          "  --crosstool_top=//android/crosstool:everything",
-          "  --cpu=x86",
-          "    //java/android/platforms:x86");
-      invalidatePackages(false);
-    }
+    scratch.file(
+        "java/android/platforms/BUILD",
+        "platform(",
+        "    name = 'x86',",
+        "    parents = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "android:armeabi-v7a'],",
+        "    constraint_values = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_32'],",
+        ")",
+        "platform(",
+        "    name = 'armeabi-v7a',",
+        "    parents = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "android:armeabi-v7a'],",
+        "    constraint_values = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7'],",
+        ")");
+    scratch.file(
+        "/workspace/platform_mappings",
+        "platforms:",
+        "  //java/android/platforms:armeabi-v7a",
+        "    --cpu=armeabi-v7a",
+        "    --android_cpu=armeabi-v7a",
+        "    --crosstool_top=//android/crosstool:everything",
+        "  //java/android/platforms:x86",
+        "    --cpu=x86",
+        "    --android_cpu=x86",
+        "    --crosstool_top=//android/crosstool:everything",
+        "flags:",
+        "  --crosstool_top=//android/crosstool:everything",
+        "  --cpu=armeabi-v7a",
+        "    //java/android/platforms:armv7",
+        "  --crosstool_top=//android/crosstool:everything",
+        "  --cpu=x86",
+        "    //java/android/platforms:x86");
     setBuildLanguageOptions("--experimental_google_legacy_api");
   }
 

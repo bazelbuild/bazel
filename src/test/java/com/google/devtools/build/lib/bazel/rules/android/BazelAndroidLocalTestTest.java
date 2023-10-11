@@ -34,13 +34,13 @@ public abstract class BazelAndroidLocalTestTest extends AndroidLocalTestTest {
   // TODO(b/161709111): With platforms, all tests fail with
   // "no attribute `$android_sdk_toolchain_type`" on AspectAwareAttributeMapper.
   /** Use platform-based toolchain resolution. */
-  /*  @RunWith(JUnit4.class)
-  public static class WithPlatforms extends GoogleAndroidLocalTestTest {
+  @RunWith(JUnit4.class)
+  public static class WithPlatforms extends BazelAndroidLocalTestTest {
     @Override
     protected boolean platformBasedToolchains() {
       return true;
     }
-  } */
+  }
 
   @Before
   @Override

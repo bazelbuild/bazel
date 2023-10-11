@@ -34,12 +34,7 @@ fail_if_no_android_sdk
 source "${CURRENT_DIR}/../../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-if [[ "$1" = '--with_platforms' ]]; then
-  # TODO(b/161709111): With platforms, the below fails with
-  # "no attribute `$android_sdk_toolchain_type`" on AspectAwareAttributeMapper.
-  echo "android_local_test_integration_test.sh does not support --with_platforms!" >&2
-  exit 0
-fi
+resolve_android_toolchains "$1"
 
 function setup_android_local_test_env() {
   mkdir -p java/com/bin/res/values

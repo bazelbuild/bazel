@@ -93,14 +93,15 @@ public class BazelAndroidLocalTestRule implements RuleDefinition {
   }
 
   @Override
-  public Metadata getMetadata() {
+  public RuleDefinition.Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("android_local_test")
         .type(RuleClassType.TEST)
         .ancestors(
             AndroidLocalTestBaseRule.class,
             BaseJavaBinaryRule.class,
-            BaseRuleClasses.TestBaseRule.class)
+            BaseRuleClasses.TestBaseRule.class,
+            BazelSdkToolchainRule.class)
         .factoryClass(BazelAndroidLocalTest.class)
         .build();
   }

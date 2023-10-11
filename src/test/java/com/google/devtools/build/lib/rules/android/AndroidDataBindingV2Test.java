@@ -1163,12 +1163,6 @@ public abstract class AndroidDataBindingV2Test extends AndroidBuildViewTestCase 
     writeDataBindingFiles();
     writeNonDataBindingLocalTestFiles();
 
-    if (platformBasedToolchains()) {
-      // TODO(b/161709111): With platforms, the below fails with
-      // "no attribute `$android_sdk_toolchain_type`" on AspectAwareAttributeMapper.
-      return;
-    }
-
     ConfiguredTarget testTarget =
         getConfiguredTarget("//javatests/android/test:databinding_enabled_test");
     Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(testTarget));
@@ -1199,12 +1193,6 @@ public abstract class AndroidDataBindingV2Test extends AndroidBuildViewTestCase 
       throws Exception {
     writeDataBindingFiles();
     writeDataBindingLocalTestFiles();
-
-    if (platformBasedToolchains()) {
-      // TODO(b/161709111): With platforms, the below fails with
-      // "no attribute `$android_sdk_toolchain_type`" on AspectAwareAttributeMapper.
-      return;
-    }
 
     ConfiguredTarget testTarget =
         getConfiguredTarget("//javatests/android/test:databinding_enabled_test");
