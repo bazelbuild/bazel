@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
-import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
@@ -30,6 +29,7 @@ import java.io.InputStream;
 import java.io.SequenceInputStream;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.zip.GZIPInputStream;
 import javax.annotation.WillCloseWhenClosed;
@@ -64,7 +64,7 @@ final class HttpStream extends FilterInputStream {
         Optional<Checksum> checksum,
         Reconnector reconnector)
         throws IOException {
-      return create(connection, originalUrl, checksum, reconnector, Optional.<String>absent());
+      return create(connection, originalUrl, checksum, reconnector, Optional.<String>empty());
     }
 
     @SuppressWarnings("resource")

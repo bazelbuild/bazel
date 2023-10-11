@@ -18,7 +18,6 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Ascii;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -77,6 +76,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -310,7 +310,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     }
 
     if (integrity.isEmpty()) {
-      return Optional.absent();
+      return Optional.empty();
     }
 
     try {
@@ -460,7 +460,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     try {
       checksum = validateChecksum(sha256, integrity, urls);
     } catch (RepositoryFunctionException e) {
-      checksum = Optional.<Checksum>absent();
+      checksum = Optional.<Checksum>empty();
       checksumValidation = e;
     }
 
@@ -486,7 +486,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
               authHeaders,
               checksum,
               canonicalId,
-              Optional.<String>absent(),
+              Optional.<String>empty(),
               outputPath.getPath(),
               env.getListener(),
               envVariables,
@@ -647,7 +647,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     try {
       checksum = validateChecksum(sha256, integrity, urls);
     } catch (RepositoryFunctionException e) {
-      checksum = Optional.absent();
+      checksum = Optional.empty();
       checksumValidation = e;
     }
 

@@ -169,11 +169,6 @@ public class GrpcRemoteDownloaderTest {
       GrpcRemoteDownloader downloader, URL url, Optional<Checksum> checksum)
       throws IOException, InterruptedException {
     final List<URL> urls = ImmutableList.of(url);
-    com.google.common.base.Optional<Checksum> guavaChecksum =
-        com.google.common.base.Optional.<Checksum>absent();
-    if (checksum.isPresent()) {
-      guavaChecksum = com.google.common.base.Optional.<Checksum>of(checksum.get());
-    }
 
     final String canonicalId = "";
     final ExtendedEventHandler eventHandler = mock(ExtendedEventHandler.class);
@@ -184,12 +179,12 @@ public class GrpcRemoteDownloaderTest {
     downloader.download(
         urls,
         StaticCredentials.EMPTY,
-        guavaChecksum,
+        checksum,
         canonicalId,
         destination,
         eventHandler,
         clientEnv,
-        com.google.common.base.Optional.<String>absent());
+        Optional.<String>empty());
 
     try (InputStream in = destination.getInputStream()) {
       return ByteStreams.toByteArray(in);
@@ -352,7 +347,7 @@ public class GrpcRemoteDownloaderTest {
                 new URL("http://example.com/a"),
                 new URL("http://example.com/b"),
                 new URL("file:/not/limited/to/http")),
-            com.google.common.base.Optional.<Checksum>of(
+            Optional.<Checksum>of(
                 Checksum.fromSubresourceIntegrity(
                     "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")),
             "canonical ID");
