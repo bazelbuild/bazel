@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.starlark;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.stream;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.truth.Truth8.assertThat;
@@ -51,6 +52,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -8639,6 +8641,65 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     assertThat(aspectA).isNotNull();
     String aspectAResult = (String) aspectA.get("aspect_result");
     assertThat(aspectAResult).isEqualTo("x from aspect = xyz, x from target = 4");
+  }
+
+  @Test
+  public void testAspectNotDependOnTargetDeps() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _a_impl(target, ctx):",
+        "  return []",
+        "a = aspect(",
+        "  implementation = _a_impl,",
+        "  attr_aspects = ['dep'],",
+        "  attrs = {",
+        "    '_tool': attr.label(default = '//test:tool'),",
+        "  },",
+        ")",
+        "",
+        "def _rule_impl(ctx):",
+        "  pass",
+        "r1 = rule(",
+        "  implementation = _rule_impl,",
+        "  attrs = {",
+        "    'dep': attr.label(),",
+        "    'another_dep': attr.label(),",
+        "    '_tool': attr.label(default = '//test:tool'),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'r1')",
+        "r1(name = 't1', dep = ':t2', another_dep = 't4')",
+        "r1(name = 't2', dep = ':t3')",
+        "r1(name = 't3')",
+        "r1(name = 't4')",
+        "sh_library(name = 'tool')");
+
+    AnalysisResult analysisResult = update(ImmutableList.of("//test:defs.bzl%a"), "//test:t1");
+
+    AspectKey key = Iterables.getOnlyElement(analysisResult.getAspectsMap().keySet());
+    var aspectNode =
+        skyframeExecutor.getEvaluator().getInMemoryGraph().getAllNodeEntries().stream()
+            .filter(n -> n.getKey().equals(key))
+            .findFirst()
+            .orElse(null);
+    assertThat(aspectNode).isNotNull();
+
+    ImmutableList<String> configuredTargetsDeps =
+        stream(Iterables.filter(aspectNode.getDirectDeps(), ConfiguredTargetKey.class))
+            .map(k -> k.getLabel().toString())
+            .collect(toImmutableList());
+    // aspect depends only on its target and its implicit dependencies not the dependencies of its
+    // target
+    assertThat(configuredTargetsDeps).containsExactly("//test:tool", "//test:t1");
+
+    ImmutableList<String> aspectsDeps =
+        stream(Iterables.filter(aspectNode.getDirectDeps(), AspectKey.class))
+            .map(k -> k.getLabel().toString())
+            .collect(toImmutableList());
+    // aspect depends on the result of its application on the target deps if it propagates to them
+    assertThat(aspectsDeps).containsExactly("//test:t2");
   }
 
   private ImmutableList<AspectKey> getAspectKeys(String targetLabel, String aspectLabel) {

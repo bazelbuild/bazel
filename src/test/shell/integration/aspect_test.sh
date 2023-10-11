@@ -1598,4 +1598,82 @@ EOF
   expect_log "aspect_a on target @//test:t2 can see: aspect_a on target @//test:t3"
 }
 
+function test_aspect_reruns_on_target_with_changed_dep() {
+  local package="test"
+  mkdir -p "${package}"
+
+  cat > "${package}/defs.bzl" <<EOF
+prov = provider()
+
+def _aspect_impl(target, ctx):
+  if hasattr(ctx.rule.attr, 'dep') and ctx.rule.attr.dep and ctx.rule.attr.dep[prov]:
+    print('aspect on {} can see its dep flag val = {}'.format(target.label, ctx.rule.attr.dep[prov].val))
+
+  return []
+
+my_aspect = aspect(
+    implementation = _aspect_impl,
+)
+
+def _r1_impl(ctx):
+  pass
+
+def _r2_impl(ctx):
+  return [prov(val = ctx.attr.param)]
+
+r1 = rule(
+   implementation = _r1_impl,
+   attrs = {
+     'dep' : attr.label(),
+   },
+)
+
+r2 = rule(
+   implementation = _r2_impl,
+   attrs = {
+     'param' : attr.string(),
+   },
+)
+
+EOF
+
+  cat > "${package}/BUILD" <<EOF
+load('//test:defs.bzl', 'r1', 'r2')
+r1(
+  name = 't1',
+  dep = ':t2',
+)
+r2(
+  name = 't2',
+  param = select({
+        ":flag_v1": 'v1',
+        ":flag_v2": 'v2',
+        "//conditions:default": 'default',
+    }),
+)
+
+config_setting(
+    name = "flag_v1",
+    define_values = {"flag": "v1"}
+)
+
+config_setting(
+    name = "flag_v2",
+    define_values = {"flag": "v2"}
+)
+
+EOF
+
+  bazel build "//${package}:t1" --aspects="//${package}:defs.bzl%my_aspect" \
+    --define=flag=v1 &> $TEST_log || fail "Build failed"
+
+  expect_log "aspect on @//test:t1 can see its dep flag val = v1"
+
+  # change configuration on the dependency //test:t2, my_aspect should be reevaluated on //test:t1
+    bazel build "//${package}:t1" --aspects="//${package}:defs.bzl%my_aspect" \
+    --define=flag=v2 &> $TEST_log || fail "Build failed"
+
+  expect_log "aspect on @//test:t1 can see its dep flag val = v2"
+}
+
 run_suite "Tests for aspects"

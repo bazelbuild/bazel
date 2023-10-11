@@ -109,7 +109,8 @@ final class ConfigConditionsProducer
               /* transitionKeys= */ ImmutableList.of(),
               transitiveState,
               (ConfiguredTargetAndDataProducer.ResultSink) this,
-              i));
+              i,
+              /* baseTargetPrerequisitesSupplier= */ null));
     }
     return this::constructConfigConditions;
   }

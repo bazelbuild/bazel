@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.producers;
 
-
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
@@ -24,6 +23,7 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.BaseTargetPrerequisitesSupplier;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
@@ -62,6 +62,13 @@ public final class ConfiguredTargetAndDataProducer
   private final ImmutableList<String> transitionKeys;
   private final TransitiveDependencyState transitiveState;
 
+  /**
+   * Cache for {@link ConfiguredTargetValue} and {@link BuildConfigurationValue}
+   *
+   * <p>Check {@link AspectFunction#baseTargetPrerequisitesSupplier} for more details
+   */
+  @Nullable private final BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier;
+
   // -------------------- Output --------------------
   private final ResultSink sink;
   private final int outputIndex;
@@ -77,27 +84,46 @@ public final class ConfiguredTargetAndDataProducer
       ImmutableList<String> transitionKeys,
       TransitiveDependencyState transitiveState,
       ResultSink sink,
-      int outputIndex) {
+      int outputIndex,
+      @Nullable BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier) {
     this.key = key;
     this.transitionKeys = transitionKeys;
     this.transitiveState = transitiveState;
     this.sink = sink;
     this.outputIndex = outputIndex;
+    this.baseTargetPrerequisitesSupplier = baseTargetPrerequisitesSupplier;
   }
 
   @Override
-  public StateMachine step(Tasks tasks) {
-    tasks.lookUp(
-        key,
-        ConfiguredValueCreationException.class,
-        NoSuchThingException.class,
-        InconsistentNullConfigException.class,
-        (ValueOrException3Sink<
-                ConfiguredValueCreationException,
-                NoSuchThingException,
-                InconsistentNullConfigException>)
-            this);
+  public StateMachine step(Tasks tasks) throws InterruptedException {
+    var cachedConfiguredTargetValue =
+        baseTargetPrerequisitesSupplier == null
+            ? null
+            : baseTargetPrerequisitesSupplier.getPrerequisite(key);
+    if (cachedConfiguredTargetValue != null) {
+      acceptValue(cachedConfiguredTargetValue);
+    } else {
+      tasks.lookUp(
+          key,
+          ConfiguredValueCreationException.class,
+          NoSuchThingException.class,
+          InconsistentNullConfigException.class,
+          (ValueOrException3Sink<
+                  ConfiguredValueCreationException,
+                  NoSuchThingException,
+                  InconsistentNullConfigException>)
+              this);
+    }
     return this::fetchConfigurationAndPackage;
+  }
+
+  private void acceptValue(ConfiguredTargetValue configuredTargetValue) {
+    this.configuredTarget = configuredTargetValue.getConfiguredTarget();
+    if (transitiveState.storeTransitivePackages()) {
+      transitiveState.updateTransitivePackages(
+          ConfiguredTargetKey.fromConfiguredTarget(configuredTarget),
+          configuredTargetValue.getTransitivePackages());
+    }
   }
 
   @Override
@@ -107,13 +133,7 @@ public final class ConfiguredTargetAndDataProducer
       @Nullable NoSuchThingException missingTargetError,
       @Nullable InconsistentNullConfigException visibilityError) {
     if (value != null) {
-      var configuredTargetValue = (ConfiguredTargetValue) value;
-      this.configuredTarget = configuredTargetValue.getConfiguredTarget();
-      if (transitiveState.storeTransitivePackages()) {
-        transitiveState.updateTransitivePackages(
-            ConfiguredTargetKey.fromConfiguredTarget(configuredTarget),
-            configuredTargetValue.getTransitivePackages());
-      }
+      acceptValue((ConfiguredTargetValue) value);
       return;
     }
     if (error != null) {
@@ -139,7 +159,13 @@ public final class ConfiguredTargetAndDataProducer
 
     var configurationKey = configuredTarget.getConfigurationKey();
     if (configurationKey != null) {
-      tasks.lookUp(configurationKey, (Consumer<SkyValue>) this);
+      this.configurationValue =
+          baseTargetPrerequisitesSupplier == null
+              ? null
+              : baseTargetPrerequisitesSupplier.getPrerequisiteConfiguration(configurationKey);
+      if (configurationValue == null) {
+        tasks.lookUp(configurationKey, (Consumer<SkyValue>) this);
+      }
     }
 
     // An alternative to this is to optimistically fetch the package using the label of the

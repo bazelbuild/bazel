@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolutionHelpers;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection;
@@ -57,7 +56,6 @@ import com.google.devtools.build.lib.analysis.producers.DependencyError;
 import com.google.devtools.build.lib.analysis.producers.DependencyMapProducer;
 import com.google.devtools.build.lib.analysis.producers.MissingEdgeError;
 import com.google.devtools.build.lib.analysis.producers.PrerequisiteParameters;
-import com.google.devtools.build.lib.analysis.producers.TargetAndConfigurationProducer;
 import com.google.devtools.build.lib.analysis.producers.UnloadedToolchainContextsInputs;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
@@ -394,7 +392,8 @@ public final class DependencyResolver {
               transitionCache,
               starlarkExecTransition.orElse(null),
               env,
-              listener);
+              listener,
+              /* baseTargetPrerequisitesSupplier= */ null);
       if (!transitiveRootCauses.isEmpty()) {
         NestedSet<Cause> causes = transitiveRootCauses.build();
         // TODO(bazel-team): consider reporting the error in this class vs. exporting it for
@@ -660,6 +659,9 @@ public final class DependencyResolver {
    * @param starlarkTransitionProvider the Starlark transition that implements exec transition
    *     logic, if specified. Null if Bazel uses native logic.
    * @param env the Skyframe environment
+   * @param baseTargetPrerequisitesSupplier not null only in case of aspect evaluation. It provides
+   *     a way to get the {@link ConfiguredTargetValue}s and {@link BuildConfigurationValue}s of the
+   *     underlying target dependencies without creating a dependency edge from the aspect to them.
    */
   // TODO(b/213351014): Make the control flow of this helper function more readable. This will
   //   involve making a corresponding change to State to match the control flow.
@@ -671,7 +673,8 @@ public final class DependencyResolver {
       StarlarkTransitionCache transitionCache,
       @Nullable StarlarkAttributeTransitionProvider starlarkTransitionProvider,
       LookupEnvironment env,
-      ExtendedEventHandler listener)
+      ExtendedEventHandler listener,
+      @Nullable BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier)
       throws DependencyEvaluationException,
           ConfiguredValueCreationException,
           AspectCreationException,
@@ -711,7 +714,8 @@ public final class DependencyResolver {
                         toolchainContexts,
                         dependencyLabels.attributeMap(),
                         state.transitiveState,
-                        state.storedEvents),
+                        state.storedEvents,
+                        baseTargetPrerequisitesSupplier),
                     dependencyLabels.labels(),
                     (DependencyMapProducer.ResultSink) state));
       }

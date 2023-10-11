@@ -93,6 +93,7 @@ java_library(
         ":aspect_completion_value",
         ":aspect_creation_exception",
         ":aspect_key_creator",
+        ":base_target_prerequisites_supplier",
         ":build_driver_function",
         ":build_driver_key",
         ":build_driver_value",
@@ -1883,6 +1884,18 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "base_target_prerequisites_supplier",
+    srcs = ["BaseTargetPrerequisitesSupplier.java"],
+    deps = [
+        ":configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//third_party:jsr305",
     ],
 )

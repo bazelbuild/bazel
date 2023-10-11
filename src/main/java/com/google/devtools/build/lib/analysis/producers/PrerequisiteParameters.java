@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.BaseTargetPrerequisitesSupplier;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import javax.annotation.Nullable;
@@ -48,6 +49,13 @@ public final class PrerequisiteParameters {
 
   private final ExtendedEventHandler eventHandler;
 
+  /**
+   * Cache for {@link ConfiguredTargetValue} and {@link BuildConfigurationValue}
+   *
+   * <p>Check {@link AspectFunction#baseTargetPrerequisitesSupplier} for more details.
+   */
+  @Nullable private final BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier;
+
   public PrerequisiteParameters(
       ConfiguredTargetKey configuredTargetKey,
       Target target,
@@ -57,7 +65,8 @@ public final class PrerequisiteParameters {
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       @Nullable ConfiguredAttributeMapper attributeMap,
       TransitiveDependencyState transitiveState,
-      ExtendedEventHandler eventHandler) {
+      ExtendedEventHandler eventHandler,
+      @Nullable BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier) {
     this.configuredTargetKey = configuredTargetKey;
     this.target = target;
     this.aspects = ImmutableList.copyOf(aspects);
@@ -67,6 +76,12 @@ public final class PrerequisiteParameters {
     this.attributeMap = attributeMap;
     this.transitiveState = transitiveState;
     this.eventHandler = eventHandler;
+    this.baseTargetPrerequisitesSupplier = baseTargetPrerequisitesSupplier;
+  }
+
+  @Nullable
+  public BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier() {
+    return baseTargetPrerequisitesSupplier;
   }
 
   public Label label() {

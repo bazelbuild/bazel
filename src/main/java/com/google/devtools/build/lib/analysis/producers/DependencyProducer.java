@@ -268,7 +268,28 @@ final class DependencyProducer
         executionPlatformLabel,
         configuration,
         propagatingAspects,
-        (PrerequisitesProducer.ResultSink) this);
+        (PrerequisitesProducer.ResultSink) this,
+        useBaseTargetPrerequisitesSupplier());
+  }
+
+  /**
+   * Returns true only during aspects evaluation for attribute dependencies not owned by an aspect
+   * to enable using the {@link BaseTargetPrerequisitesSupplier} to look up them.
+   *
+   * <p>Check {@link AspectFunction#baseTargetPrerequisitesSupplier} for more details.
+   */
+  private boolean useBaseTargetPrerequisitesSupplier() {
+    if (parameters.aspects().isEmpty()) {
+      return false;
+    }
+
+    if (DependencyKind.isAttribute(kind)) {
+      if (kind.getOwningAspect() == null) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   @Override

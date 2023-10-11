@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.skyframe.AspectCreationException;
+import com.google.devtools.build.lib.skyframe.BaseTargetPrerequisitesSupplier;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
@@ -78,6 +79,7 @@ final class PrerequisitesProducer
   private final Label executionPlatformLabel;
   private final AttributeConfiguration configuration;
   private final ImmutableList<Aspect> propagatingAspects;
+  private final boolean useBaseTargetPrerequisitesSupplier;
 
   // -------------------- Output --------------------
   private final ResultSink sink;
@@ -92,13 +94,15 @@ final class PrerequisitesProducer
       @Nullable Label executionPlatformLabel,
       AttributeConfiguration configuration,
       ImmutableList<Aspect> propagatingAspects,
-      ResultSink sink) {
+      ResultSink sink,
+      boolean useBaseTargetPrerequisitesSupplier) {
     this.parameters = parameters;
     this.label = label;
     this.executionPlatformLabel = executionPlatformLabel;
     this.configuration = configuration;
     this.propagatingAspects = propagatingAspects;
     this.sink = sink;
+    this.useBaseTargetPrerequisitesSupplier = useBaseTargetPrerequisitesSupplier;
 
     // size > 0 guaranteed by contract of SplitTransition.
     int size = configuration.count();
@@ -107,6 +111,8 @@ final class PrerequisitesProducer
 
   @Override
   public StateMachine step(Tasks tasks) {
+    BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier =
+        useBaseTargetPrerequisitesSupplier ? parameters.baseTargetPrerequisitesSupplier() : null;
     switch (configuration.kind()) {
       case VISIBILITY:
         tasks.enqueue(
@@ -115,7 +121,8 @@ final class PrerequisitesProducer
                 /* transitionKeys= */ ImmutableList.of(),
                 parameters.transitiveState(),
                 (ConfiguredTargetAndDataProducer.ResultSink) this,
-                /* outputIndex= */ 0));
+                /* outputIndex= */ 0,
+                baseTargetPrerequisitesSupplier));
         break;
       case NULL_TRANSITION_KEYS:
         tasks.enqueue(
@@ -124,7 +131,8 @@ final class PrerequisitesProducer
                 configuration.nullTransitionKeys(),
                 parameters.transitiveState(),
                 (ConfiguredTargetAndDataProducer.ResultSink) this,
-                /* outputIndex= */ 0));
+                /* outputIndex= */ 0,
+                baseTargetPrerequisitesSupplier));
         break;
       case UNARY:
         tasks.enqueue(
@@ -133,7 +141,8 @@ final class PrerequisitesProducer
                 /* transitionKeys= */ ImmutableList.of(),
                 parameters.transitiveState(),
                 (ConfiguredTargetAndDataProducer.ResultSink) this,
-                /* outputIndex= */ 0));
+                /* outputIndex= */ 0,
+                baseTargetPrerequisitesSupplier));
         break;
       case SPLIT:
         int index = 0;
@@ -144,7 +153,8 @@ final class PrerequisitesProducer
                   ImmutableList.of(entry.getKey()),
                   parameters.transitiveState(),
                   (ConfiguredTargetAndDataProducer.ResultSink) this,
-                  index));
+                  index,
+                  baseTargetPrerequisitesSupplier));
           ++index;
         }
         break;

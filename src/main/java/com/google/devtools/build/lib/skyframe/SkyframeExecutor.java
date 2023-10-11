@@ -101,7 +101,6 @@ import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintS
 import com.google.devtools.build.lib.analysis.producers.ConfiguredTargetAndDataProducer;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
-import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -638,7 +637,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         new AspectFunction(
             new BuildViewProvider(),
             shouldStoreTransitivePackagesInLoadingAndAnalysis(),
-            this::getExistingPackage));
+            this::getExistingPackage,
+            new BaseTargetPrerequisitesSupplierImpl()));
     map.put(SkyFunctions.TOP_LEVEL_ASPECTS, new ToplevelStarlarkAspectFunction());
     map.put(
         SkyFunctions.BUILD_TOP_LEVEL_ASPECTS_DETAILS, new BuildTopLevelAspectsDetailsFunction());
@@ -3734,7 +3734,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                   /* transitionKeys= */ ImmutableList.of(),
                   TransitiveDependencyState.createForTesting(),
                   sink,
-                  /* outputIndex= */ 0),
+                  /* outputIndex= */ 0,
+                  /* baseTargetPrerequisitesSupplier= */ null),
               memoizingEvaluator,
               getEvaluationContextForTesting(eventHandler));
     }
@@ -3761,5 +3762,22 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         .setParallelism(DEFAULT_THREAD_COUNT)
         .setEventHandler(eventHandler)
         .build();
+  }
+
+  private final class BaseTargetPrerequisitesSupplierImpl
+      implements BaseTargetPrerequisitesSupplier {
+    @Override
+    @Nullable
+    public ConfiguredTargetValue getPrerequisite(ConfiguredTargetKey key)
+        throws InterruptedException {
+      return (ConfiguredTargetValue) memoizingEvaluator.getExistingValue(key);
+    }
+
+    @Override
+    @Nullable
+    public BuildConfigurationValue getPrerequisiteConfiguration(BuildConfigurationKey key)
+        throws InterruptedException {
+      return (BuildConfigurationValue) memoizingEvaluator.getExistingValue(key);
+    }
   }
 }
