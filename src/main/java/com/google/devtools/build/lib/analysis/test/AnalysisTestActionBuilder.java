@@ -47,6 +47,8 @@ public class AnalysisTestActionBuilder {
     StringBuilder sb = new StringBuilder();
     if (ruleContext.isExecutedOnWindows()) {
       sb.append("@echo off\n");
+    } else {
+      sb.append("#!/bin/sh\n");
     }
     for (String line : Splitter.on("\n").split(escapedMessage)) {
       sb.append("echo ").append(line).append("\n");
