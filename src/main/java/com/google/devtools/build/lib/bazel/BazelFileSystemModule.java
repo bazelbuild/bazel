@@ -77,11 +77,7 @@ public class BazelFileSystemModule extends BlazeModule {
     if (OS.getCurrent() == OS.WINDOWS) {
       fs = new WindowsFileSystem(digestHashFunction, options.enableWindowsSymlinks);
     } else {
-      if (JniLoader.isJniAvailable()) {
-        fs = new UnixFileSystem(digestHashFunction, options.unixDigestHashAttributeName);
-      } else {
-        fs = new JavaIoFileSystem(digestHashFunction);
-      }
+      fs = new JavaIoFileSystem(digestHashFunction);
     }
     return ModuleFileSystem.create(fs);
   }
