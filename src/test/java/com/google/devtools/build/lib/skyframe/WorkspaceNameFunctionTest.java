@@ -60,7 +60,7 @@ public class WorkspaceNameFunctionTest extends BuildViewTestCase {
     scratch.overwriteFile("WORKSPACE", "workspace(name = 'good')");
     assertThatEvaluationResult(eval())
         .hasEntryThat(key)
-        .isEqualTo(WorkspaceNameValue.withName("_main"));
+        .isEqualTo(WorkspaceNameValue.withName(getRuleClassProvider().getRunfilesPrefix()));
   }
 
   @Test

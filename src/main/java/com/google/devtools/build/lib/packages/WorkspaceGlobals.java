@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
-import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.starlarkbuildapi.WorkspaceGlobalsApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -64,26 +63,12 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     if (errorMessage != null) {
       throw Starlark.errorf("%s", errorMessage);
     }
-    PackageFactory.getContext(thread).pkgBuilder.setWorkspaceName(name);
-    Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
-    RuleClass localRepositoryRuleClass = ruleClassMap.get("local_repository");
-    RuleClass bindRuleClass = ruleClassMap.get("bind");
-    ImmutableMap<String, Object> kwargs = ImmutableMap.of("name", name, "path", ".");
-    try {
-      // This effectively adds a "local_repository(name = "<ws>", path = ".")"
-      // definition to the WORKSPACE file.
-      WorkspaceFactoryHelper.createAndAddRepositoryRule(
-          builder,
-          localRepositoryRuleClass,
-          bindRuleClass,
-          kwargs,
-          thread.getCallStack());
-    } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
-      throw Starlark.errorf("%s", e.getMessage());
-    }
     // Add entry in repository map from "@name" --> "@" to avoid issue where bazel
     // treats references to @name as a separate external repo
-    builder.addRepositoryMappingEntry(RepositoryName.MAIN, name, RepositoryName.MAIN);
+    PackageFactory.getContext(thread)
+        .pkgBuilder
+        .setWorkspaceName(name)
+        .addRepositoryMappingEntry(RepositoryName.MAIN, name, RepositoryName.MAIN);
   }
 
   private static RepositoryName getRepositoryName(@Nullable Label label) {

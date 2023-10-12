@@ -492,7 +492,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             SkyFunctions.BZL_LOAD,
             BzlLoadFunction.create(
                 ruleClassProvider, directories, hashFunction, Caffeine.newBuilder().build()))
-        .put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction())
+        .put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction(ruleClassProvider))
         .put(
             WorkspaceFileValue.WORKSPACE_FILE,
             new WorkspaceFileFunction(

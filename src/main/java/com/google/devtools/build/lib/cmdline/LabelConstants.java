@@ -48,8 +48,6 @@ public class LabelConstants {
 
   public static final PathFragment MODULE_LOCKFILE_NAME = PathFragment.create("MODULE.bazel.lock");
 
-  public static final String DEFAULT_REPOSITORY_DIRECTORY = "__main__";
-
   // With this prefix, non-main repositories are symlinked under
   // $output_base/execution_root/__main__/external
   public static final PathFragment EXTERNAL_PATH_PREFIX = PathFragment.create("external");

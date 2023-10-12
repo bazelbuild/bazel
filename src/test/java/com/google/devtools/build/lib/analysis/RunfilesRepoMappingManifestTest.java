@@ -184,8 +184,8 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
 
     assertThat(getRepoMappingManifestForTarget("//:aaa"))
         .containsExactly(
-            ",aaa,_main",
-            ",aaa_ws,_main",
+            ",aaa," + getRuleClassProvider().getRunfilesPrefix(),
+            ",aaa_ws," + getRuleClassProvider().getRunfilesPrefix(),
             ",bbb,bbb~1.0",
             "bbb~1.0,bbb,bbb~1.0",
             "bbb~1.0,ddd,ddd~2.0",
@@ -254,7 +254,7 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
 
     assertThat(getRepoMappingManifestForTarget("//:tooled"))
         .containsExactly(
-            ",main,_main",
+            ",main," + getRuleClassProvider().getRunfilesPrefix(),
             "bare_rule~1.0,bare_rule,bare_rule~1.0",
             "tooled_rule~1.0,bare_rule,bare_rule~1.0")
         .inOrder();
@@ -404,8 +404,8 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
     assertThat(runfilesPaths)
         .containsExactly(
             "aaa~1.0/aaa",
-            "_main/external/aaa~1.0/aaa",
-            "_main/path/to/pkg/symlink",
+            getRuleClassProvider().getRunfilesPrefix() + "/external/aaa~1.0/aaa",
+            getRuleClassProvider().getRunfilesPrefix() + "/path/to/pkg/symlink",
             "symlinks~1.0/path/to/pkg/root_symlink",
             "_repo_mapping");
 
@@ -414,9 +414,8 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
             // @aaa~1.0 contributes the top-level executable to runfiles.
             "aaa~1.0,aaa,aaa~1.0",
             // The symlink is staged under the main repository's runfiles directory and aaa has a
-            // repo mapping entry
-            // for it.
-            "aaa~1.0,my_module,_main",
+            // repo mapping entry for it.
+            "aaa~1.0,my_module," + getRuleClassProvider().getRunfilesPrefix(),
             // @symlinks~1.0 appears as the first segment of a root symlink.
             "aaa~1.0,symlinks,symlinks~1.0",
             "symlinks~1.0,symlinks,symlinks~1.0")

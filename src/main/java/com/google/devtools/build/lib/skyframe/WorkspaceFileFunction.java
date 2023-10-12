@@ -290,9 +290,11 @@ public class WorkspaceFileFunction implements SkyFunction {
       repoMapping = repoMapping.composeWith(rootModuleMapping.getRepositoryMapping());
     }
 
+    // The default 'workspace name' is "__main__". Note that this is different from the "workspace
+    // name" returned by WorkspaceNameFunction, which is a fixed string when Bzlmod is enabled.
     Package.Builder builder =
         packageFactory.newExternalPackageBuilder(
-            workspaceFile, ruleClassProvider.getRunfilesPrefix(), repoMapping, starlarkSemantics);
+            workspaceFile, "__main__", repoMapping, starlarkSemantics);
 
     if (chunks.isEmpty()) {
       builder.setLoads(ImmutableList.of());

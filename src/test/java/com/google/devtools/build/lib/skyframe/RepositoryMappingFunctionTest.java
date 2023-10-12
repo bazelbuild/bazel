@@ -605,26 +605,6 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testDefaultMainRepoNameInMapping() throws Exception {
-    scratch.overwriteFile(
-        "WORKSPACE",
-        "local_repository(",
-        "    name = 'a_remote_repo',",
-        "    path = '/a_remote_repo',",
-        "    repo_mapping = {},",
-        ")");
-    RepositoryName name = RepositoryName.create("a_remote_repo");
-    SkyKey skyKey = RepositoryMappingValue.key(name);
-
-    assertThatEvaluationResult(eval(skyKey))
-        .hasEntryThat(skyKey)
-        .isEqualTo(
-            valueForWorkspace(
-                ImmutableMap.of(
-                    TestConstants.WORKSPACE_NAME, RepositoryName.MAIN, "", RepositoryName.MAIN)));
-  }
-
-  @Test
   public void testExplicitMainRepoNameInMapping() throws Exception {
     scratch.overwriteFile(
         "WORKSPACE",

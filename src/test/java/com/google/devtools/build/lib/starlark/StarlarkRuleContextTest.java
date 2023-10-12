@@ -1041,15 +1041,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testWorkspaceName() throws Exception {
-    assertThat(ruleClassProvider.getRunfilesPrefix()).isNotNull();
-    assertThat(ruleClassProvider.getRunfilesPrefix()).isNotEmpty();
-    setRuleContext(createRuleContext("//foo:foo"));
-    Object result = ev.eval("ruleContext.workspace_name");
-    assertThat(ruleClassProvider.getRunfilesPrefix()).isEqualTo(result);
-  }
-
-  @Test
   public void testDeriveArtifact() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     Object result = ev.eval("ruleContext.actions.declare_file('a/b.txt')");
