@@ -185,23 +185,23 @@ public final class SkyframeActionExecutor {
   // again.
   private ConcurrentMap<OwnerlessArtifactWrapper, ActionExecutionState> buildActionMap;
 
-  // We also keep track of actions which were reset this build from a previously-completed state.
+  // We also keep track of actions which were rewound this build from a previously-completed state.
   // When re-evaluated, these actions should not emit progress events, in order to not confuse the
   // downstream consumers of action-related event streams, which may (reasonably) have expected an
   // action to be executed at most once per build.
   //
-  // Note: actions which fail due to lost inputs, and get rewound, will not have any events
-  // suppressed during their second evaluation. Consumers of events which get emitted before
-  // execution (e.g. ActionStartedEvent, SpawnExecutedEvent) must support receiving more than one of
-  // those events per action.
-  private Set<OwnerlessArtifactWrapper> completedAndResetActions;
+  // Note: actions which fail due to lost inputs, and get reset (having not completed successfully),
+  // will not have any events suppressed during their second evaluation. Consumers of events which
+  // get emitted before execution (e.g. ActionStartedEvent, SpawnExecutedEvent) must support
+  // receiving more than one of those events per action.
+  private Set<OwnerlessArtifactWrapper> completedAndRewoundActions;
 
   // We also keep track of actions that failed due to lost discovered inputs. In some circumstances
   // the input discovery process will use a discovered input before requesting it as a dep. If that
-  // input was generated but is lost, and action rewinding resets it and its generating action, then
-  // the lost input's generating action must be rerun before the failed action tries input discovery
-  // again. A previously failed action satisfies that requirement by requesting the deps in this map
-  // at the start of its next attempt,
+  // input was generated but is lost, and its generating action is rewound, then the lost input's
+  // generating action must be rerun before the failed action tries input discovery again. A
+  // previously failed action satisfies that requirement by requesting the deps in this map at the
+  // start of its next attempt,
   private ConcurrentMap<OwnerlessArtifactWrapper, ImmutableList<SkyKey>> lostDiscoveredInputsMap;
 
   private ActionOutputDirectoryHelper outputDirectoryHelper;
@@ -293,7 +293,7 @@ public final class SkyframeActionExecutor {
 
     // Start with a new map each build so there's no issue with internal resizing.
     this.buildActionMap = Maps.newConcurrentMap();
-    this.completedAndResetActions = Sets.newConcurrentHashSet();
+    this.completedAndRewoundActions = Sets.newConcurrentHashSet();
     this.lostDiscoveredInputsMap = Maps.newConcurrentMap();
     this.hadExecutionError = false;
     this.actionCacheChecker = checkNotNull(actionCacheChecker);
@@ -399,7 +399,7 @@ public final class SkyframeActionExecutor {
     this.progressSuppressingEventHandler = null;
     this.outputService = null;
     this.buildActionMap = null;
-    this.completedAndResetActions = null;
+    this.completedAndRewoundActions = null;
     this.lostDiscoveredInputsMap = null;
     this.actionCacheChecker = null;
     this.outputDirectoryHelper = null;
@@ -418,11 +418,11 @@ public final class SkyframeActionExecutor {
   /**
    * Determines whether the action should have its progress events emitted.
    *
-   * <p>Returns {@code false} for completed and reset actions, indicating that their progress events
-   * should be suppressed.
+   * <p>Returns {@code false} for completed and rewound actions, indicating that their progress
+   * events should be suppressed.
    */
   boolean shouldEmitProgressEvents(Action action) {
-    return !completedAndResetActions.contains(
+    return !completedAndRewoundActions.contains(
         new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
   }
 
@@ -460,7 +460,7 @@ public final class SkyframeActionExecutor {
     if (actionExecutionState != null) {
       actionExecutionState.obsolete(failedKey, buildActionMap, ownerlessArtifactWrapper);
     }
-    completedAndResetActions.add(ownerlessArtifactWrapper);
+    completedAndRewoundActions.add(ownerlessArtifactWrapper);
     if (!actionFileSystemType().inMemoryFileSystem()) {
       outputDirectoryHelper.invalidateTreeArtifactDirectoryCreation(dep.getOutputs());
     }
@@ -994,7 +994,7 @@ public final class SkyframeActionExecutor {
       // progress events that are generated in the Action implementation are posted to
       // actionExecutionContext.getEventHandler. The reason for this is action rewinding, in which
       // case env.getListener may be a ProgressSuppressingEventHandler. See shouldEmitProgressEvents
-      // and completedAndResetActions.
+      // and completedAndRewoundActions.
       //
       // It is also unclear why we are posting anything directly to reporter. That probably
       // shouldn't happen.
