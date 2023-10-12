@@ -106,9 +106,10 @@ DIST_DEPS = {
             "rules_java_builtin",
             "rules_java_builtin_for_testing",
         ],
-        "archive": "rules_java-6.3.1.tar.gz",
-        "sha256": "117a1227cdaf813a20a1bba78a9f2d8fb30841000c33e2f2d2a640bd224c9282",
-        "urls": ["https://github.com/bazelbuild/rules_java/releases/download/6.3.1/rules_java-6.3.1.tar.gz"],
+        "archive": "94243ff435f13be7155f2e3ed9efc3c34b6d4019.tar.gz",
+        "sha256": "52d8bfb24c4300140f4d60711e285d0c5625eaecac55dca4b2e95971b821f9c0",
+        "strip_prefix": "rules_java-94243ff435f13be7155f2e3ed9efc3c34b6d4019",
+        "urls": ["https://github.com/bazelbuild/rules_java/archive/94243ff435f13be7155f2e3ed9efc3c34b6d4019.tar.gz"],
         "workspace_file_content": "",
         "used_in": [
             "additional_distfiles",
