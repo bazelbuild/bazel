@@ -379,24 +379,12 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     return toolchainTypes;
   }
 
-  @Override
-  public void attachToAspectsList(String baseAspectName, AspectsListBuilder aspectsList)
-      throws EvalException {
-
-    if (!this.isExported()) {
-      throw Starlark.errorf(
-          "Aspects should be top-level values in extension files that define them.");
-    }
-
-    for (StarlarkAspect requiredAspect : requiredAspects) {
-      requiredAspect.attachToAspectsList(this.getName(), aspectsList);
-    }
-
-    aspectsList.addAspect(this, baseAspectName);
-  }
-
   public ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> getRequiredProviders() {
     return requiredProviders;
+  }
+
+  public ImmutableSet<StarlarkAspect> getRequiredAspects() {
+    return requiredAspects;
   }
 
   @Override

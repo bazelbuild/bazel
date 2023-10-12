@@ -18,7 +18,6 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
-import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 
 /** A natively-defined aspect that is may be referenced by Starlark attribute definitions. */
@@ -29,12 +28,6 @@ public abstract class StarlarkNativeAspect extends NativeAspectClass implements 
   @Override
   public void repr(Printer printer) {
     printer.append("<native aspect>");
-  }
-
-  @Override
-  public void attachToAspectsList(String baseAspectName, AspectsListBuilder aspectsList)
-      throws EvalException {
-    aspectsList.addAspect(this, baseAspectName);
   }
 
   @Override

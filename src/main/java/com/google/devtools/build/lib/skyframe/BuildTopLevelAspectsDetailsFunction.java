@@ -132,7 +132,7 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
           return null;
         }
         try {
-          starlarkAspect.attachToAspectsList(/*baseAspectName=*/ null, aspectsList);
+          aspectsList.addAspect(starlarkAspect);
         } catch (EvalException e) {
           env.getListener().handle(Event.error(e.getMessage()));
           throw new BuildTopLevelAspectsDetailsFunctionException(
