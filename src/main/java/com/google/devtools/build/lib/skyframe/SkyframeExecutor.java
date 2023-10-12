@@ -2709,7 +2709,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           DetailedExitCode.of(
               FailureDetail.newBuilder()
                   .setExternalRepository(FailureDetails.ExternalRepository.getDefaultInstance())
-                  .setMessage("unknown error during computation of main repo mapping")
+                  .setMessage("error during computation of main repo mapping: " + e.getMessage())
                   .build()),
           e);
     }
