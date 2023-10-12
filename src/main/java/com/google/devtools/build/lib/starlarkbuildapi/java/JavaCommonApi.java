@@ -612,6 +612,14 @@ public interface JavaCommonApi<
       throws EvalException, RuleErrorException;
 
   @StarlarkMethod(
+      name = "JavaToolchainInfo",
+      doc =
+          "The key used to retrieve the provider that contains information about the Java "
+              + "toolchain being used.",
+      structField = true)
+  ProviderApi getJavaToolchainProvider();
+
+  @StarlarkMethod(
       name = "JavaRuntimeInfo",
       doc =
           "The key used to retrieve the provider that contains information about the Java "

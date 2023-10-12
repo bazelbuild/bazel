@@ -263,6 +263,12 @@ public class JavaStarlarkCommon
   }
 
   @Override
+  public ProviderApi getJavaToolchainProvider() {
+    // method exists solely for documentation
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public Provider getJavaRuntimeProvider() {
     return JavaRuntimeInfo.PROVIDER;
   }
