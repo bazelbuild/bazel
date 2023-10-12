@@ -1336,11 +1336,19 @@ EOF
   [[ ! -f bazel-bin/test.runfiles/MANIFEST ]] || fail "expected output manifest to exist"
 }
 
+# FIXME remove this comment
+#
+# - I run this test with: bazel test //src/test/shell/bazel/remote:remote_execution_test --test_filter=test_platform_default_properties_invalidation
+# - I do not understand how to set the platform yet
 function test_platform_default_properties_invalidation() {
   # Test that when changing values of --remote_default_platform_properties all actions are
   # invalidated.
   mkdir -p test
   cat > test/BUILD << 'EOF'
+platform(
+    name = "platform_without_any_exec_properties",
+)
+
 genrule(
     name = "test",
     srcs = [],
@@ -1350,25 +1358,29 @@ genrule(
 EOF
 
   bazel build \
+    --extra_execution_platforms=//test:platform_without_any_exec_properties \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_default_exec_properties="build=1234" \
-    //test:test >& $TEST_log || fail "Failed to build //a:remote"
+    //test:test >& $TEST_log || fail "Failed to build //test:test"
 
   expect_log "2 processes: 1 internal, 1 remote"
 
   bazel build \
+    --extra_execution_platforms=//test:platform_without_any_exec_properties \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_default_exec_properties="build=88888" \
-    //test:test >& $TEST_log || fail "Failed to build //a:remote"
+    //test:test >& $TEST_log || fail "Failed to build //test:test"
 
   # Changing --remote_default_platform_properties value should invalidate SkyFrames in-memory
   # caching and make it re-run the action.
   expect_log "2 processes: 1 internal, 1 remote"
+  # FIXME the above assert fails
 
   bazel build \
+    --extra_execution_platforms=//test:platform_without_any_exec_properties \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_default_exec_properties="build=88888" \
-    //test:test >& $TEST_log || fail "Failed to build //a:remote"
+    //test:test >& $TEST_log || fail "Failed to build //test:test"
 
   # The same value of --remote_default_platform_properties should NOT invalidate SkyFrames in-memory cache
   #  and make the action should not be re-run.
@@ -1377,15 +1389,17 @@ EOF
   bazel shutdown
 
   bazel build \
+    --extra_execution_platforms=//test:platform_without_any_exec_properties \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_default_exec_properties="build=88888" \
-    //test:test >& $TEST_log || fail "Failed to build //a:remote"
+    //test:test >& $TEST_log || fail "Failed to build //test:test"
 
-  # The same value of --remote_default_platform_properties should NOT invalidate SkyFrames od-disk cache
+  # The same value of --remote_default_platform_properties should NOT invalidate SkyFrames on-disk cache
   #  and the action should not be re-run.
   expect_log "1 process: 1 internal"
 
   bazel build\
+    --extra_execution_platforms=//test:platform_without_any_exec_properties \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_default_exec_properties="build=88888" \
     --remote_default_platform_properties='properties:{name:"build" value:"1234"}' \
