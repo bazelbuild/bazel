@@ -184,7 +184,7 @@ EOF
   test    -f MANIFEST
   test    -s MANIFEST
 
-  cd ${WORKSPACE_NAME}
+  cd _main
 
 
   cd $pkg
@@ -248,7 +248,7 @@ EOF
   # that accounts for everything
   cd ..
 
-  for i in $(find ${WORKSPACE_NAME} \! -type d); do
+  for i in $(find _main \! -type d); do
     target="$(readlink "$i" || true)"
     if [[ -z "$target" ]]; then
       echo "$i " >> ${TEST_TMPDIR}/MANIFEST2
@@ -293,7 +293,7 @@ EOF
   test    -f MANIFEST
   test    -s MANIFEST
 
-  cd ${WORKSPACE_NAME}
+  cd _main
 
   # these are real directories
   test \! -L $pkg
@@ -322,20 +322,20 @@ EOF
   # For shell binary, we build both `bin` and `bin.exe`, but on Linux we only build `bin`
   # That's why we have one more symlink on Windows.
   if "$is_windows"; then
-    assert_equals  4 $(find ${WORKSPACE_NAME} -type l | wc -l)
-    assert_equals  0 $(find ${WORKSPACE_NAME} -type f | wc -l)
-    assert_equals  5 $(find ${WORKSPACE_NAME} -type d | wc -l)
-    assert_equals  9 $(find ${WORKSPACE_NAME} | wc -l)
+    assert_equals  4 $(find _main -type l | wc -l)
+    assert_equals  0 $(find _main -type f | wc -l)
+    assert_equals  5 $(find _main -type d | wc -l)
+    assert_equals  9 $(find _main | wc -l)
     if [[ "$PRODUCT_NAME" == "bazel" ]]; then
       assert_equals  5 $(wc -l < MANIFEST)
     else
       assert_equals  4 $(wc -l < MANIFEST)
     fi
   else
-    assert_equals  3 $(find ${WORKSPACE_NAME} -type l | wc -l)
-    assert_equals  0 $(find ${WORKSPACE_NAME} -type f | wc -l)
-    assert_equals  5 $(find ${WORKSPACE_NAME} -type d | wc -l)
-    assert_equals  8 $(find ${WORKSPACE_NAME} | wc -l)
+    assert_equals  3 $(find _main -type l | wc -l)
+    assert_equals  0 $(find _main -type f | wc -l)
+    assert_equals  5 $(find _main -type d | wc -l)
+    assert_equals  8 $(find _main | wc -l)
     if [[ "$PRODUCT_NAME" == "bazel" ]]; then
       assert_equals  4 $(wc -l < MANIFEST)
     else
@@ -345,7 +345,7 @@ EOF
 
   rm -f ${TEST_TMPDIR}/MANIFEST
   rm -f ${TEST_TMPDIR}/MANIFEST2
-  for i in $(find ${WORKSPACE_NAME} \! -type d); do
+  for i in $(find _main \! -type d); do
     target="$(readlink "$i" || true)"
     if [[ -z "$target" ]]; then
       echo "$i " >> ${TEST_TMPDIR}/MANIFEST2
@@ -390,12 +390,12 @@ EOF
   cat > thing.cc <<EOF
 int main() { return 0; }
 EOF
-  bazel build //:thing $EXTRA_BUILD_FLAGS &> $TEST_log || fail "Build failed"
+  bazel build --noenable_bzlmod //:thing $EXTRA_BUILD_FLAGS &> $TEST_log || fail "Build failed"
   [[ -d ${PRODUCT_NAME}-bin/thing${EXT}.runfiles/foo ]] || fail "foo not found"
 
   # Change workspace name to bar.
   sed -ie 's,workspace(.*,workspace(name = "bar"),' WORKSPACE
-  bazel build //:thing $EXTRA_BUILD_FLAGS &> $TEST_log || fail "Build failed"
+  bazel build --noenable_bzlmod //:thing $EXTRA_BUILD_FLAGS &> $TEST_log || fail "Build failed"
   [[ -d ${PRODUCT_NAME}-bin/thing${EXT}.runfiles/bar ]] || fail "bar not found"
   [[ ! -d ${PRODUCT_NAME}-bin/thing${EXT}.runfiles/foo ]] \
     || fail "Old foo still found"

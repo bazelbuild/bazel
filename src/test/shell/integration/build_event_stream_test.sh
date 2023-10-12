@@ -1216,7 +1216,7 @@ filegroup(
   srcs = ["doesnotexist"],
 )
 EOF
-  (bazel build --build_event_text_file="${TEST_log}" :badfilegroup \
+  (bazel build --noenable_bzlmod --build_event_text_file="${TEST_log}" :badfilegroup \
     && fail "Expected failure") || :
   # There should be precisely one event with target_completed as event id type
   (echo 'g/^id/+1p'; echo 'q') | ed "${TEST_log}" 2>&1 | tail -n +2 > event_id_types
@@ -1226,7 +1226,7 @@ EOF
   [ `grep unconfigured_label event_id_types | wc -l` -eq 1 ] \
       || fail "not precisely one unconfigured_label event id"
 
-  (bazel build --build_event_text_file="${TEST_log}" :badfilegroup :doesnotexist \
+  (bazel build --noenable_bzlmod --build_event_text_file="${TEST_log}" :badfilegroup :doesnotexist \
     && fail "Expected failure") || :
   # There should be precisely two events with target_completed as event id type
   (echo 'g/^id/+1p'; echo 'q') | ed "${TEST_log}" 2>&1 | tail -n +2 > event_id_types
@@ -1480,8 +1480,8 @@ EOF
   expect_log "unsuccessful-because-of-BUILD-file-syntax-error.*invalid character: '@'"
   expect_log "Error in fail: bad"
 
-  # On this invocation, Bazel attempts to load exactly 5 packages.
-  expect_log_n "PROGRESS.*Loading package" 5
+  # On this invocation, Bazel attempts to load exactly 6 packages.
+  expect_log_n "PROGRESS.*Loading package" 6
   # This package is attempted to be loaded during the target parsing phase.
   expect_log "Loading package: successful"
   # This package is attempted to be loaded during the target parsing phase.

@@ -60,6 +60,8 @@ fi
 
 add_to_bazelrc "build --package_path=%workspace%"
 
+disable_bzlmod
+
 #### TESTS #############################################################
 
 function test_basic_query() {

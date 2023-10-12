@@ -373,7 +373,7 @@ EOF
   # The workspace name is initialized in testenv.sh; use that var rather than
   # hardcoding it here. The extra sed pass is so we can selectively expand that
   # one var while keeping the rest of the heredoc literal.
-  cat | sed "s/{{WORKSPACE_NAME}}/$WORKSPACE_NAME/" >> examples/genrule/tool.sh << 'EOF'
+  cat | sed "s/{{WORKSPACE_NAME}}/_main/" >> examples/genrule/tool.sh << 'EOF'
 #!/bin/sh
 
 set -e

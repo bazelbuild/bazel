@@ -310,7 +310,7 @@ genrule(
 )""",
 )
 EOF
-  write_default_lock_file "m/MODULE.bazel.lock"
+  write_default_lockfile "m/MODULE.bazel.lock"
   cd m
   bazel "$batch_flag" build @r//:fg &> $TEST_log || \
     fail "Expected build to succeed"
