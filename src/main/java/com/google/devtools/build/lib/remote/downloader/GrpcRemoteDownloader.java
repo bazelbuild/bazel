@@ -111,12 +111,12 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   public void download(
       List<URL> urls,
       Credentials credentials,
-      com.google.common.base.Optional<Checksum> checksum,
+      Optional<Checksum> checksum,
       String canonicalId,
       Path destination,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
-      com.google.common.base.Optional<String> type)
+      Optional<String> type)
       throws IOException, InterruptedException {
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "remote_downloader", null);
@@ -160,10 +160,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
 
   @VisibleForTesting
   static FetchBlobRequest newFetchBlobRequest(
-      String instanceName,
-      List<URL> urls,
-      com.google.common.base.Optional<Checksum> checksum,
-      String canonicalId) {
+      String instanceName, List<URL> urls, Optional<Checksum> checksum, String canonicalId) {
     FetchBlobRequest.Builder requestBuilder =
         FetchBlobRequest.newBuilder().setInstanceName(instanceName);
     for (URL url : urls) {
@@ -194,8 +191,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
         .withDeadlineAfter(options.remoteTimeout.getSeconds(), TimeUnit.SECONDS);
   }
 
-  private OutputStream newOutputStream(
-      Path destination, com.google.common.base.Optional<Checksum> checksum) throws IOException {
+  private OutputStream newOutputStream(Path destination, Optional<Checksum> checksum)
+      throws IOException {
     OutputStream out = destination.getOutputStream();
     if (checksum.isPresent()) {
       out = new HashOutputStream(out, checksum.get());

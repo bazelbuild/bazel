@@ -26,7 +26,6 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.google.common.base.Optional;
 import com.google.common.hash.Hashing;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
@@ -40,6 +39,7 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.SocketTimeoutException;
 import java.net.URL;
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.GZIPOutputStream;
@@ -106,7 +106,7 @@ public class HttpStreamTest {
   @Test
   public void noChecksum_readsOk() throws Exception {
     try (HttpStream stream =
-        streamFactory.create(connection, AURL, Optional.absent(), reconnector)) {
+        streamFactory.create(connection, AURL, Optional.empty(), reconnector)) {
       assertThat(toByteArray(stream)).isEqualTo(data);
     }
   }
@@ -162,7 +162,7 @@ public class HttpStreamTest {
     thrown.expect(SocketTimeoutException.class);
 
     try {
-      streamFactory.create(connection, AURL, GOOD_CHECKSUM, reconnector);
+      var unused = streamFactory.create(connection, AURL, GOOD_CHECKSUM, reconnector);
     } catch (Exception e) {
       assertThat(nRetries).isGreaterThan(3); // RetryingInputStream.MAX_RESUMES
       throw e;
@@ -263,7 +263,7 @@ public class HttpStreamTest {
     when(connection.getURL()).thenReturn(AURL);
     when(connection.getContentEncoding()).thenReturn("gzip");
     thrown.expect(ZipException.class);
-    streamFactory.create(connection, AURL, Optional.absent(), reconnector);
+    streamFactory.create(connection, AURL, Optional.empty(), reconnector);
   }
 
   @Test
@@ -272,7 +272,7 @@ public class HttpStreamTest {
     when(connection.getContentEncoding()).thenReturn("x-gzip");
     when(connection.getInputStream()).thenReturn(new ByteArrayInputStream(gzipData(data)));
     try (HttpStream stream =
-        streamFactory.create(connection, AURL, Optional.absent(), reconnector)) {
+        streamFactory.create(connection, AURL, Optional.empty(), reconnector)) {
       assertThat(toByteArray(stream)).isEqualTo(data);
     }
   }
@@ -284,7 +284,7 @@ public class HttpStreamTest {
     when(connection.getContentEncoding()).thenReturn("gzip");
     when(connection.getInputStream()).thenReturn(new ByteArrayInputStream(gzData));
     try (HttpStream stream =
-        streamFactory.create(connection, AURL, Optional.absent(), reconnector)) {
+        streamFactory.create(connection, AURL, Optional.empty(), reconnector)) {
       assertThat(toByteArray(stream)).isEqualTo(gzData);
     }
   }
@@ -298,7 +298,7 @@ public class HttpStreamTest {
               @Override
               public void run() {
                 try (HttpStream stream =
-                    streamFactory.create(connection, AURL, Optional.absent(), reconnector)) {
+                    streamFactory.create(connection, AURL, Optional.empty(), reconnector)) {
                   stream.read();
                   Thread.currentThread().interrupt();
                   stream.read();
@@ -331,8 +331,7 @@ public class HttpStreamTest {
     when(connection.getContentEncoding()).thenReturn("gzip");
     when(connection.getInputStream()).thenReturn(new ByteArrayInputStream(gzData));
     try (HttpStream stream =
-        streamFactory.create(
-            connection, AURL, Optional.absent(), reconnector, Optional.of("tgz"))) {
+        streamFactory.create(connection, AURL, Optional.empty(), reconnector, Optional.of("tgz"))) {
       assertThat(toByteArray(stream)).isEqualTo(gzData);
     }
   }
@@ -348,7 +347,7 @@ public class HttpStreamTest {
     when(connection.getInputStream()).thenReturn(new ByteArrayInputStream(gzData));
     try (HttpStream stream =
         streamFactory.create(
-            connection, AURL, Optional.absent(), reconnector, Optional.of("tar.gz"))) {
+            connection, AURL, Optional.empty(), reconnector, Optional.of("tar.gz"))) {
       assertThat(toByteArray(stream)).isEqualTo(gzData);
     }
   }
@@ -359,8 +358,7 @@ public class HttpStreamTest {
     when(connection.getContentEncoding()).thenReturn("gzip");
     when(connection.getInputStream()).thenReturn(new ByteArrayInputStream(gzipData(data)));
     try (HttpStream stream =
-        streamFactory.create(
-            connection, AURL, Optional.absent(), reconnector, Optional.of("tar"))) {
+        streamFactory.create(connection, AURL, Optional.empty(), reconnector, Optional.of("tar"))) {
       assertThat(toByteArray(stream)).isEqualTo(data);
     }
   }

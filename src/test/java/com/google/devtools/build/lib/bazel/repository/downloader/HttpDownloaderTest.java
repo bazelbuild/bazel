@@ -24,7 +24,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
@@ -47,6 +46,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -117,9 +117,9 @@ public class HttpDownloaderTest {
               Collections.singletonList(
                   new URL(String.format("http://localhost:%d/foo", server.getLocalPort()))),
               Collections.emptyMap(),
-              Optional.absent(),
+              Optional.empty(),
               "testCanonicalId",
-              Optional.absent(),
+              Optional.empty(),
               fs.getPath(workingDir.newFile().getAbsolutePath()),
               eventHandler,
               Collections.emptyMap(),
@@ -181,9 +181,9 @@ public class HttpDownloaderTest {
           downloadManager.download(
               urls,
               Collections.emptyMap(),
-              Optional.absent(),
+              Optional.empty(),
               "testCanonicalId",
-              Optional.absent(),
+              Optional.empty(),
               fs.getPath(workingDir.newFile().getAbsolutePath()),
               eventHandler,
               Collections.emptyMap(),
@@ -248,9 +248,9 @@ public class HttpDownloaderTest {
           downloadManager.download(
               urls,
               Collections.emptyMap(),
-              Optional.absent(),
+              Optional.empty(),
               "testCanonicalId",
-              Optional.absent(),
+              Optional.empty(),
               fs.getPath(workingDir.newFile().getAbsolutePath()),
               eventHandler,
               Collections.emptyMap(),
@@ -317,9 +317,9 @@ public class HttpDownloaderTest {
         downloadManager.download(
             urls,
             Collections.emptyMap(),
-            Optional.absent(),
+            Optional.empty(),
             "testCanonicalId",
-            Optional.absent(),
+            Optional.empty(),
             outputFile,
             eventHandler,
             Collections.emptyMap(),
@@ -372,12 +372,12 @@ public class HttpDownloaderTest {
           Collections.singletonList(
               new URL(String.format("http://localhost:%d/foo", server.getLocalPort()))),
           StaticCredentials.EMPTY,
-          Optional.absent(),
+          Optional.empty(),
           "testCanonicalId",
           destination,
           eventHandler,
           Collections.emptyMap(),
-          Optional.absent());
+          Optional.empty());
 
       assertThat(new String(readFile(destination), UTF_8)).isEqualTo("hello");
     }
@@ -411,12 +411,12 @@ public class HttpDownloaderTest {
                   Collections.singletonList(
                       new URL(String.format("http://localhost:%d/foo", server.getLocalPort()))),
                   StaticCredentials.EMPTY,
-                  Optional.absent(),
+                  Optional.empty(),
                   "testCanonicalId",
                   fs.getPath(workingDir.newFile().getAbsolutePath()),
                   eventHandler,
                   Collections.emptyMap(),
-                  Optional.absent()));
+                  Optional.empty()));
     }
   }
 
@@ -471,12 +471,12 @@ public class HttpDownloaderTest {
       httpDownloader.download(
           urls,
           StaticCredentials.EMPTY,
-          Optional.absent(),
+          Optional.empty(),
           "testCanonicalId",
           destination,
           eventHandler,
           Collections.emptyMap(),
-          Optional.absent());
+          Optional.empty());
 
       assertThat(new String(readFile(destination), UTF_8)).isEqualTo("content2");
     }
@@ -572,9 +572,9 @@ public class HttpDownloaderTest {
             downloadManager.download(
                 ImmutableList.of(new URL("http://localhost")),
                 ImmutableMap.of(),
-                Optional.absent(),
+                Optional.empty(),
                 "testCanonicalId",
-                Optional.absent(),
+                Optional.empty(),
                 fs.getPath(workingDir.newFile().getAbsolutePath()),
                 eventHandler,
                 ImmutableMap.of(),
@@ -611,9 +611,9 @@ public class HttpDownloaderTest {
         downloadManager.download(
             ImmutableList.of(new URL("http://localhost")),
             ImmutableMap.of(),
-            Optional.absent(),
+            Optional.empty(),
             "testCanonicalId",
-            Optional.absent(),
+            Optional.empty(),
             fs.getPath(workingDir.newFile().getAbsolutePath()),
             eventHandler,
             ImmutableMap.of(),

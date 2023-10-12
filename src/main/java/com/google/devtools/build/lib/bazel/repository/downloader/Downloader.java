@@ -15,13 +15,13 @@
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import com.google.auth.Credentials;
-import com.google.common.base.Optional;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.net.URL;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /** Interface for implementing the download of a file. */
 public interface Downloader {

@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 import com.google.auth.Credentials;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -35,6 +34,7 @@ import java.net.URLConnection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Class for establishing HTTP connections.
@@ -75,7 +75,7 @@ final class HttpConnectorMultiplexer {
   }
 
   public HttpStream connect(URL url, Optional<Checksum> checksum) throws IOException {
-    return connect(url, checksum, StaticCredentials.EMPTY, Optional.absent());
+    return connect(url, checksum, StaticCredentials.EMPTY, Optional.empty());
   }
 
   /**
