@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
@@ -97,7 +98,8 @@ public class AndroidIdlHelper {
    *     class files in the class jar.
    */
   public void addTransitiveInfoProviders(
-      RuleConfiguredTargetBuilder builder, Artifact classJar, Artifact manifestProtoOutput) {
+      RuleConfiguredTargetBuilder builder, Artifact classJar, Artifact manifestProtoOutput)
+      throws RuleErrorException {
     if (!translatedIdlSources.isEmpty()) {
       generateAndroidIdlCompilationActions(ruleContext, androidIdlProvider, translatedIdlSources);
       createIdlClassJarAction(
@@ -194,7 +196,8 @@ public class AndroidIdlHelper {
    * Returns a new list with the idl libs added to the given list if necessary, or the same list.
    */
   public static ImmutableList<TransitiveInfoCollection> maybeAddSupportLibs(
-      RuleContext ruleContext, ImmutableList<TransitiveInfoCollection> deps) {
+      RuleContext ruleContext, ImmutableList<TransitiveInfoCollection> deps)
+      throws RuleErrorException {
     if (!hasIdlSrcs(ruleContext)) {
       return deps;
     }
@@ -206,7 +209,8 @@ public class AndroidIdlHelper {
   }
 
   public static void maybeAddSupportLibProguardConfigs(
-      RuleContext ruleContext, NestedSetBuilder<Artifact> proguardConfigsBuilder) {
+      RuleContext ruleContext, NestedSetBuilder<Artifact> proguardConfigsBuilder)
+      throws RuleErrorException {
     if (!hasIdlSrcs(ruleContext)) {
       return;
     }
@@ -301,7 +305,8 @@ public class AndroidIdlHelper {
   private static void generateAndroidIdlCompilationActions(
       RuleContext ruleContext,
       AndroidIdlProvider transitiveIdlImportData,
-      Map<Artifact, Artifact> translatedIdlSources) {
+      Map<Artifact, Artifact> translatedIdlSources)
+      throws RuleErrorException {
     AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
     List<String> preprocessedArgs = new ArrayList<>();
 
@@ -390,7 +395,8 @@ public class AndroidIdlHelper {
       Artifact idl,
       NestedSet<Artifact> idlImports,
       Artifact output,
-      List<String> importArgs) {
+      List<String> importArgs)
+      throws RuleErrorException {
     AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
     ruleContext.registerAction(
         new SpawnAction.Builder()

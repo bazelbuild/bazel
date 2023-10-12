@@ -265,7 +265,8 @@ class DataBindingV2Context implements DataBindingContext {
   }
 
   @Override
-  public ImmutableList<Artifact> getAnnotationSourceFiles(RuleContext ruleContext) {
+  public ImmutableList<Artifact> getAnnotationSourceFiles(RuleContext ruleContext)
+      throws RuleErrorException {
     ImmutableList.Builder<Artifact> srcs = ImmutableList.builder();
 
     srcs.addAll(DataBinding.getAnnotationFile(ruleContext));
@@ -274,7 +275,8 @@ class DataBindingV2Context implements DataBindingContext {
     return srcs.build();
   }
 
-  private ImmutableList<Artifact> createBaseClasses(RuleContext ruleContext) {
+  private ImmutableList<Artifact> createBaseClasses(RuleContext ruleContext)
+      throws RuleErrorException {
     if (!AndroidResources.definesAndroidResources(ruleContext.attributes())) {
       return ImmutableList.of(); // no resource, no base classes or class info
     }

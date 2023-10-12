@@ -332,7 +332,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .build(ruleContext);
   }
 
-  private NestedSet<Artifact> getBootclasspath(RuleContext ruleContext) {
+  private NestedSet<Artifact> getBootclasspath(RuleContext ruleContext) throws RuleErrorException {
     if (AndroidCommon.getAndroidConfig(ruleContext).desugarJava8()) {
       return NestedSetBuilder.<Artifact>stableOrder()
           .addTransitive(

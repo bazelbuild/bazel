@@ -120,7 +120,8 @@ public final class AndroidSdkProvider extends NativeInfo
    * --incompatible_enable_android_toolchain_resolution=true, else, uses the legacy attribute..
    */
   @Nullable
-  public static AndroidSdkProvider fromRuleContext(RuleContext ruleContext) {
+  public static AndroidSdkProvider fromRuleContext(RuleContext ruleContext)
+      throws RuleErrorException {
     // Determine the toolchain type.
     Label toolchainType = getToolchainTypeFromAttribute(ruleContext);
     return fromRuleContext(ruleContext, ":android_sdk", toolchainType);
@@ -135,7 +136,8 @@ public final class AndroidSdkProvider extends NativeInfo
    */
   @Nullable
   public static AndroidSdkProvider fromRuleContext(
-      RuleContext ruleContext, String sdkAttribute, @Nullable Label toolchainType) {
+      RuleContext ruleContext, String sdkAttribute, @Nullable Label toolchainType)
+      throws RuleErrorException {
     BuildConfigurationValue configuration = ruleContext.getConfiguration();
     if (configuration == null
         || !configuration.hasFragment(AndroidConfiguration.class)
@@ -200,17 +202,16 @@ public final class AndroidSdkProvider extends NativeInfo
   }
 
   private static boolean usingDummyToolchain(
-      RuleContext ruleContext, AndroidSdkProvider androidSdkProvider) {
+      RuleContext ruleContext, AndroidSdkProvider androidSdkProvider) throws RuleErrorException {
 
     if (androidSdkProvider.getAndroidJar().getFilename().matches("dummy\\.jar$")) {
       // This is an invalid SDK, and probably due to a default configuration.
-      ruleContext.ruleError(
+      throw ruleContext.throwWithRuleError(
           String.format(
               "'%s' rule '%s' requested an android sdk via toolchain resolution but hasn't set an"
                   + " appropriate --android_platforms value: Either set"
                   + " --noincompatible_enable_android_toolchain_resolution or --android_platforms.",
               ruleContext.getRuleClassNameForLogging(), ruleContext.getLabel()));
-      return true;
     }
 
     return false;

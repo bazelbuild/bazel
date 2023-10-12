@@ -146,7 +146,8 @@ public interface AndroidSemantics {
       Artifact mainDexList)
       throws InterruptedException;
 
-  default AndroidDataContext makeContextForNative(RuleContext ruleContext) {
+  default AndroidDataContext makeContextForNative(RuleContext ruleContext)
+      throws RuleErrorException {
     return AndroidDataContext.forNative(ruleContext);
   }
 

@@ -63,7 +63,8 @@ public interface DataBindingContext {
    * <p>This triggers the annotation processor. Annotation processor settings are configured
    * separately in {@link #supplyJavaCoptsUsing(RuleContext, boolean, Consumer)}.
    */
-  ImmutableList<Artifact> getAnnotationSourceFiles(RuleContext ruleContext);
+  ImmutableList<Artifact> getAnnotationSourceFiles(RuleContext ruleContext)
+      throws RuleErrorException;
 
   /**
    * Adds the appropriate {@link UsesDataBindingProvider} for a rule if it should expose one.

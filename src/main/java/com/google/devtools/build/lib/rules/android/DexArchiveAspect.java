@@ -478,7 +478,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
   }
 
   @Nullable
-  private Artifact getAndroidJar(RuleContext ruleContext) {
+  private Artifact getAndroidJar(RuleContext ruleContext) throws RuleErrorException {
     Label toolchainType = Label.parseCanonicalUnchecked(toolsRepository + sdkToolchainLabel);
     AndroidSdkProvider androidSdk =
         AndroidSdkProvider.fromRuleContext(ruleContext, ":dex_archive_android_sdk", toolchainType);

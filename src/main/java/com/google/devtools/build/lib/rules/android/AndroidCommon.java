@@ -188,7 +188,8 @@ public class AndroidCommon {
       Artifact classesDex,
       List<String> dexOptions,
       int minSdkVersion,
-      Artifact mainDexList) {
+      Artifact mainDexList)
+      throws RuleErrorException {
     CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
     commandLine.add("--dex");
 
@@ -900,7 +901,8 @@ public class AndroidCommon {
       JavaSemantics semantics,
       DataBindingContext dataBindingContext,
       boolean isLibrary,
-      boolean shouldCompileJavaSrcs) {
+      boolean shouldCompileJavaSrcs)
+      throws RuleErrorException {
 
     ImmutableList<Artifact> ruleSources = ruleContext.getPrerequisiteArtifacts("srcs").list();
 

@@ -341,7 +341,8 @@ public class ApkActionsBuilder {
   }
 
   /** Uses the zipalign tool to align the zip boundaries for uncompressed resources by 4 bytes. */
-  private void zipalignApk(RuleContext ruleContext, Artifact inputApk, Artifact zipAlignedApk) {
+  private void zipalignApk(RuleContext ruleContext, Artifact inputApk, Artifact zipAlignedApk)
+      throws RuleErrorException {
     ruleContext.registerAction(
         createSpawnActionBuilder(ruleContext)
             .addInput(inputApk)
@@ -367,7 +368,8 @@ public class ApkActionsBuilder {
    * alignment cannot be performed after v2 signing without invalidating the signature.
    */
   private void signApk(
-      RuleContext ruleContext, Artifact unsignedApk, Artifact signedAndZipalignedApk) {
+      RuleContext ruleContext, Artifact unsignedApk, Artifact signedAndZipalignedApk)
+      throws RuleErrorException {
     ApkSigningMethod signingMethod =
         ruleContext.getFragment(AndroidConfiguration.class).getApkSigningMethod();
     SpawnAction.Builder actionBuilder =

@@ -387,7 +387,8 @@ public final class AndroidBinaryMobileInstall {
       Artifact resourceApk,
       Artifact apk,
       NativeLibs nativeLibs,
-      Artifact stubDataFile) {
+      Artifact stubDataFile)
+      throws RuleErrorException {
 
     FilesToRunProvider adb = AndroidSdkProvider.fromRuleContext(ruleContext).getAdb();
     SpawnAction.Builder builder =
@@ -437,7 +438,8 @@ public final class AndroidBinaryMobileInstall {
       Artifact argsArtifact,
       Artifact splitMainApk,
       NestedSet<Artifact> splitApks,
-      Artifact stubDataFile) {
+      Artifact stubDataFile)
+      throws RuleErrorException {
     FilesToRunProvider adb = AndroidSdkProvider.fromRuleContext(ruleContext).getAdb();
     SpawnAction.Builder builder =
         new InstallActionBuilder()
@@ -471,7 +473,7 @@ public final class AndroidBinaryMobileInstall {
       ProcessedAndroidManifest mainManifest,
       String splitName,
       boolean hasCode)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
     Artifact splitManifest =
         mainManifest.createSplitManifest(ruleContext, splitName, hasCode).getManifest();
     Artifact splitResources = getMobileInstallArtifact(ruleContext, "split_" + splitName + ".ap_");
