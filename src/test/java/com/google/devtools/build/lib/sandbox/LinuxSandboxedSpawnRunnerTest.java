@@ -239,8 +239,6 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
         commandEnvironment,
         sandboxBase,
         /*timeoutKillDelay=*/ Duration.ofSeconds(2),
-        /*sandboxfsProcess=*/ null,
-        /*sandboxfsMapSymlinkTargets=*/ false,
         treeDeleter);
   }
 

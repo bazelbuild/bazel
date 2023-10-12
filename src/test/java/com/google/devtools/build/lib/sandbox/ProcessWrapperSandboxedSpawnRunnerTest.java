@@ -64,8 +64,6 @@ public final class ProcessWrapperSandboxedSpawnRunnerTest extends SandboxedSpawn
             new SandboxHelpers(),
             commandEnvironment,
             sandboxBase,
-            /* sandboxfsProcess= */ null,
-            /* sandboxfsMapSymlinkTargets= */ false,
             treeDeleter);
 
     Spawn spawn = new SpawnBuilder("echo", "cooee").build();
@@ -120,8 +118,6 @@ public final class ProcessWrapperSandboxedSpawnRunnerTest extends SandboxedSpawn
             new SandboxHelpers(),
             commandEnvironment,
             sandboxBase,
-            /* sandboxfsProcess= */ null,
-            /* sandboxfsMapSymlinkTargets= */ false,
             treeDeleter);
 
     Spawn spawn =

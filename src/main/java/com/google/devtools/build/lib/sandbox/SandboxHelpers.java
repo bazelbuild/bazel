@@ -76,9 +76,6 @@ public final class SandboxHelpers {
   /**
    * Moves all given outputs from a root to another.
    *
-   * <p>This is a support function to help with the implementation of {@link
-   * SandboxfsSandboxedSpawn#copyOutputs(Path)}.
-   *
    * @param outputs outputs to move as relative paths to a root
    * @param sourceRoot source directory from which to resolve outputs
    * @param targetRoot target directory to which to move the resolved outputs from the source

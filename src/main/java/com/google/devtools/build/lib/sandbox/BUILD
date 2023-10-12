@@ -82,24 +82,6 @@ java_library(
 )
 
 java_library(
-    name = "sandboxfs_sandboxed_spawn",
-    srcs = [
-        "SandboxfsSandboxedSpawn.java",
-    ],
-    deps = [
-        ":sandbox_helpers",
-        ":sandboxed_spawns",
-        ":sandboxfs_process",
-        "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
     name = "sandbox_module",
     srcs = ["SandboxModule.java"],
     deps = [
@@ -111,7 +93,6 @@ java_library(
         ":sandbox_helpers",
         ":sandbox_options",
         ":sandboxed_spawns",
-        ":sandboxfs_process",
         ":tree_deleter",
         ":windows_sandbox",
         "//src/main/java/com/google/devtools/build/lib:runtime",
@@ -183,27 +164,6 @@ java_library(
 )
 
 java_library(
-    name = "sandboxfs_process",
-    srcs = [
-        "RealSandboxfs01Process.java",
-        "RealSandboxfs02Process.java",
-        "RealSandboxfsProcess.java",
-        "SandboxfsProcess.java",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/shell",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/build/lib/versioning",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:flogger",
-        "//third_party:gson",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
     name = "process_wrapper_sandbox",
     srcs = [
         "ProcessWrapperSandboxedSpawnRunner.java",
@@ -213,8 +173,6 @@ java_library(
         ":abstract_sandbox_spawn_runner",
         ":sandbox_helpers",
         ":sandboxed_spawns",
-        ":sandboxfs_process",
-        ":sandboxfs_sandboxed_spawn",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/exec:abstract_spawn_strategy",
@@ -226,7 +184,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -245,8 +202,6 @@ java_library(
         ":sandbox_helpers",
         ":sandbox_options",
         ":sandboxed_spawns",
-        ":sandboxfs_process",
-        ":sandboxfs_sandboxed_spawn",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -296,8 +251,6 @@ java_library(
         ":abstract_sandbox_spawn_runner",
         ":sandbox_helpers",
         ":sandboxed_spawns",
-        ":sandboxfs_process",
-        ":sandboxfs_sandboxed_spawn",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/exec:abstract_spawn_strategy",

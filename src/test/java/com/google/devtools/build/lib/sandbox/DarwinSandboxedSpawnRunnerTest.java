@@ -128,8 +128,6 @@ public final class DarwinSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTe
             new SandboxHelpers(),
             commandEnvironment,
             sandboxBase,
-            /* sandboxfsProcess= */ null,
-            /* sandboxfsMapSymlinkTargets= */ false,
             treeDeleter);
     doSimpleExecutionTest(runner);
   }
@@ -141,8 +139,6 @@ public final class DarwinSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTe
             new SandboxHelpers(),
             commandEnvironment,
             sandboxBase,
-            /* sandboxfsProcess= */ null,
-            /* sandboxfsMapSymlinkTargets= */ false,
             treeDeleter);
     Spawn spawn =
         new SpawnBuilder("cp", "params/param-file", "out")
@@ -168,23 +164,5 @@ public final class DarwinSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTe
           .asList()
           .containsExactly("--foo", "--bar");
     }
-  }
-
-  @Test
-  public void testSimpleExecutionWithSandboxfs() throws Exception {
-    Path mountPoint = commandEnvironment.getExecRoot().getRelative("mount");
-    mountPoint.createDirectoryAndParents();
-    SandboxfsProcess sandboxfsProcess = new FakeSandboxfsProcess(
-        mountPoint.getFileSystem(), mountPoint.asFragment());
-
-    DarwinSandboxedSpawnRunner runner =
-        new DarwinSandboxedSpawnRunner(
-            new SandboxHelpers(),
-            commandEnvironment,
-            sandboxBase,
-            sandboxfsProcess,
-            /* sandboxfsMapSymlinkTargets= */ false,
-            treeDeleter);
-    doSimpleExecutionTest(runner);
   }
 }

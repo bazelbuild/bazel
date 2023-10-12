@@ -97,10 +97,9 @@ public class SandboxOptions extends OptionsBase {
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
           "Enables debugging features for the sandboxing feature. This includes two things: first, "
-              + "the sandbox root contents are left untouched after a build (and if sandboxfs is "
-              + "in use, the file system is left mounted); and second, prints extra debugging "
-              + "information on execution. This can help developers of Bazel or Starlark rules "
-              + "with debugging failures due to missing input files, etc.")
+              + "the sandbox root contents are left untouched after a build; and second, prints "
+              + "extra debugging information on execution. This can help developers of Bazel or "
+              + "Starlark rules with debugging failures due to missing input files, etc.")
   public boolean sandboxDebug;
 
   @Option(
@@ -187,37 +186,11 @@ public class SandboxOptions extends OptionsBase {
   public List<ImmutableMap.Entry<String, String>> sandboxAdditionalMounts;
 
   @Option(
-      name = "experimental_use_sandboxfs",
-      converter = TriStateConverter.class,
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
-      help =
-          "Use sandboxfs to create the actions' execroot directories instead of building a symlink "
-              + "tree. If \"yes\", the binary provided by --experimental_sandboxfs_path must be "
-              + "valid and correspond to a supported version of sandboxfs. If \"auto\", the binary "
-              + "may be missing or not compatible.")
-  public TriState useSandboxfs;
-
-  @Option(
-      name = "experimental_sandboxfs_path",
-      defaultValue = "sandboxfs",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
-      help =
-          "Path to the sandboxfs binary to use when --experimental_use_sandboxfs is true. If a "
-              + "bare name, use the first binary of that name found in the PATH.")
-  public String sandboxfsPath;
-
-  @Option(
       name = "experimental_sandboxfs_map_symlink_targets",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
-      help =
-          "If true, maps the targets of symbolic links specified as action inputs into the "
-              + "sandbox. This feature exists purely to workaround buggy rules that do not do "
-              + "this on their own and should be removed once all such rules are fixed.")
+      help = "No-op")
   public boolean sandboxfsMapSymlinkTargets;
 
   @Option(
