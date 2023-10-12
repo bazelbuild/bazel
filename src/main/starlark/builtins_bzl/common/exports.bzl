@@ -41,6 +41,7 @@ load("@_builtins//:common/python/py_runtime_macro.bzl", "py_runtime")
 load(":common/java/java_common.bzl", "java_common")
 load(":common/java/java_info.bzl", "JavaInfo", "JavaPluginInfo")
 load(":common/java/java_package_configuration.bzl", "java_package_configuration")
+load(":common/java/java_runtime.bzl", "java_runtime")
 load(":common/java/java_toolchain.bzl", "java_toolchain")
 load(":common/objc/objc_common.bzl", "objc_common")
 
@@ -86,6 +87,7 @@ exported_rules = {
     "apple_cc_toolchain": apple_cc_toolchain,
     "java_package_configuration": java_package_configuration,
     "java_toolchain": java_toolchain,
+    "java_runtime": java_runtime,
 }
 
 # A list of Starlark functions callable from native rules implementation.

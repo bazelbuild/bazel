@@ -305,7 +305,8 @@ public class BazelJavaSemantics implements JavaSemantics {
       NestedSet<Artifact> classpath,
       String javaStartClass,
       List<String> jvmFlags,
-      Artifact javaLauncher) {
+      Artifact javaLauncher)
+      throws RuleErrorException {
     LaunchInfo launchInfo =
         LaunchInfo.builder()
             .addKeyValuePair("binary_type", "Java")

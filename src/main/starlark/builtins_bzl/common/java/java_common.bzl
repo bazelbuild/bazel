@@ -25,6 +25,7 @@ load(
     _java_info_merge = "merge",
     _java_info_set_annotation_processing = "set_annotation_processing",
 )
+load(":common/java/java_runtime.bzl", "JavaRuntimeInfo")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/java/java_toolchain.bzl", "JavaToolchainInfo")
 load(":common/java/message_bundle_info.bzl", "MessageBundleInfo")
@@ -300,7 +301,7 @@ def _make_java_common():
         "make_non_strict": _make_non_strict,
         "JavaPluginInfo": JavaPluginInfo,
         "JavaToolchainInfo": JavaToolchainInfo,
-        "JavaRuntimeInfo": _java_common_internal.JavaRuntimeInfo,
+        "JavaRuntimeInfo": JavaRuntimeInfo,
         "BootClassPathInfo": _java_common_internal.BootClassPathInfo,
         "JavaRuntimeClasspathInfo": JavaRuntimeClasspathInfo,
     }

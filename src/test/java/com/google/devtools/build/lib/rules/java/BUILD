@@ -138,19 +138,6 @@ java_test(
 )
 
 java_test(
-    name = "JavaRuntimeInfoTest",
-    srcs = ["JavaRuntimeInfoTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
-        "//third_party:guava-testlib",
-        "//third_party:junit4",
-    ],
-)
-
-java_test(
     name = "JavaRuntimeTest",
     srcs = ["JavaRuntimeTest.java"],
     deps = [
@@ -160,6 +147,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:provider_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:template_variable_info",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/main/java/net/starlark/java/eval",
         "//src/test/java/com/google/devtools/build/lib/actions/util",

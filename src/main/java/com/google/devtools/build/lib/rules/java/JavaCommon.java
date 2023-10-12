@@ -313,12 +313,13 @@ public class JavaCommon {
     return JavaRuntimeInfo.forHost(ruleContext).javaBinaryExecPathFragment();
   }
 
-  public static PathFragment getHostJavaExecutable(JavaRuntimeInfo javaRuntime) {
+  public static PathFragment getHostJavaExecutable(JavaRuntimeInfo javaRuntime)
+      throws RuleErrorException {
     return javaRuntime.javaBinaryExecPathFragment();
   }
 
   public static PathFragment getJavaExecutable(
-      RuleContext ruleContext, Label javaRuntimeToolchainType) {
+      RuleContext ruleContext, Label javaRuntimeToolchainType) throws RuleErrorException {
     return JavaRuntimeInfo.from(ruleContext, javaRuntimeToolchainType).javaBinaryExecPathFragment();
   }
 
@@ -327,7 +328,8 @@ public class JavaCommon {
    *
    * @param launcher if non-null, the cc_binary used to launch the Java Virtual Machine
    */
-  public String getJavaExecutableForStub(RuleContext ruleContext, @Nullable Artifact launcher) {
+  public String getJavaExecutableForStub(RuleContext ruleContext, @Nullable Artifact launcher)
+      throws RuleErrorException {
     Preconditions.checkState(ruleContext.getConfiguration().hasFragment(JavaConfiguration.class));
     PathFragment javaExecutable;
     JavaRuntimeInfo javaRuntime =
@@ -365,7 +367,8 @@ public class JavaCommon {
   }
 
   /** Returns the string that the stub should use to determine the JVM binary (java) path */
-  public String getJavaBinSubstitution(RuleContext ruleContext, @Nullable Artifact launcher) {
+  public String getJavaBinSubstitution(RuleContext ruleContext, @Nullable Artifact launcher)
+      throws RuleErrorException {
     return getJavaBinSubstitutionFromJavaExecutable(
         ruleContext, getJavaExecutableForStub(ruleContext, launcher));
   }

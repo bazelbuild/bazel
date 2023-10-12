@@ -334,7 +334,7 @@ public final class JavaToolchainProvider {
   }
 
   public JavaRuntimeInfo getJavaRuntime() throws RuleErrorException {
-    return getUnderlyingValue("java_runtime", JavaRuntimeInfo.class);
+    return JavaRuntimeInfo.PROVIDER.wrap(getUnderlyingValue("java_runtime", Info.class));
   }
 
   private <T> T getUnderlyingValue(String key, Class<T> type) throws RuleErrorException {

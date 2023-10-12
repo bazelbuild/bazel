@@ -21,7 +21,8 @@ import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
-import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses.EmptyRuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses.NativeBuildRule;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
@@ -30,7 +31,11 @@ import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
-/** Rule definition for {@code java_runtime} */
+/**
+ * Rule definition for {@code java_runtime}
+ *
+ * <p>This rule is implemented in Starlark. This class remains only for doc-gen purposes.
+ */
 public final class JavaRuntimeRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -92,10 +97,10 @@ public final class JavaRuntimeRule implements RuleDefinition {
 
   @Override
   public Metadata getMetadata() {
-    return RuleDefinition.Metadata.builder()
+    return Metadata.builder()
         .name("java_runtime")
-        .ancestors(BaseRuleClasses.NativeBuildRule.class)
-        .factoryClass(JavaRuntime.class)
+        .ancestors(NativeBuildRule.class)
+        .factoryClass(EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
 }
