@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.LinkOption;
@@ -198,7 +199,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     if (!file.exists()) {
       throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
     }
-    if (!file.setExecutable(executable) && executable) {
+    if (!file.setExecutable(executable, false) && executable) {
       throw new IOException(String.format("Failed to make %s executable", path));
     }
   }
@@ -259,7 +260,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     } catch (java.nio.file.FileAlreadyExistsException e) {
       // Files.createDirectories will handle this case normally, but if the existing
       // file is a symlink to a directory then it still throws. Swallow this.
-      if (!isDirectory(path, /*followSymlinks=*/ true)) {
+      if (!isDirectory(path, /* followSymlinks= */ true)) {
         throw e;
       }
     }
