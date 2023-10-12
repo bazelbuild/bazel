@@ -83,13 +83,12 @@ public final class PlatformUtils {
       return null;
     }
 
-    Map<String, String> properties;
+    Map<String, String> properties = new HashMap<>();
     if (!spawn.getCombinedExecProperties().isEmpty()) {
       // Apply default exec properties if the execution platform does not already set
       // exec_properties
       if (spawn.getExecutionPlatform() == null
           || spawn.getExecutionPlatform().execProperties().isEmpty()) {
-        properties = new HashMap<>();
         properties.putAll(defaultExecProperties);
         properties.putAll(spawn.getCombinedExecProperties());
       } else {
@@ -97,10 +96,9 @@ public final class PlatformUtils {
       }
     } else if (spawn.getExecutionPlatform() != null) {
       properties = new HashMap<>();
-      Platform.Builder platformBuilder = Platform.newBuilder();
-
       String remoteExecutionProperties = spawn.getExecutionPlatform().remoteExecutionProperties();
       if (!remoteExecutionProperties.isEmpty()) {
+        Platform.Builder platformBuilder = Platform.newBuilder();
         // Try and get the platform info from the execution properties.
         try {
           TextFormat.getParser()
@@ -117,10 +115,12 @@ public final class PlatformUtils {
         for (Property property : platformBuilder.getPropertiesList()) {
           properties.put(property.getName(), property.getValue());
         }
-      } else {
+      } else if (!spawn.getExecutionPlatform().execProperties().isEmpty()) {
         properties.putAll(spawn.getExecutionPlatform().execProperties());
       }
-    } else {
+    }
+
+    if (properties.isEmpty()) {
       properties = defaultExecProperties;
     }
 
