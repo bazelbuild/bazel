@@ -489,6 +489,11 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
           .insertDependencies(
               outputDepsProto,
               readFullOutputDeps(fallbackResults, actionExecutionContext, spawn.getPathMapper()));
+    } else if (!spawn.getPathMapper().isNoop()){
+      // As a side effect, readFullOutputDeps rewrites the on-disk .jdeps file from mapped to
+      // unmapped paths. To make path mapping fully transparent to consumers of this action's
+      // output, we ensure that the file always contains unmapped paths.
+      readFullOutputDeps(fallbackResults, actionExecutionContext, spawn.getPathMapper());
     }
     return ActionResult.create(
         ImmutableList.copyOf(Iterables.concat(primaryResults, fallbackResults)));

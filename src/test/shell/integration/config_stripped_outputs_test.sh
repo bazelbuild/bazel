@@ -74,11 +74,14 @@ function is_bazel() {
   fi
 }
 
-# TODO: Remove this check when Javac actions use multiplex worker sandboxing by default.
 if is_bazel; then
+  bazel_bin=bazel-bin
+  # TODO: Remove these lines when Javac actions use multiplex worker sandboxing by default in Bazel.
   add_to_bazelrc "build --strategy=Javac=worker"
   add_to_bazelrc "build --worker_sandboxing"
   add_to_bazelrc "build --noexperimental_worker_multiplex"
+else
+  bazel_bin=blaze-bin
 fi
 
 # Tests built-in Java support for stripping config path prefixes from
@@ -180,6 +183,15 @@ function test_inmemory_jdeps_support() {
   assert_paths_stripped "$TEST_log" "$pkg/java/hello/liba.jar-0.params"
   # java_library header jar compilation:
   assert_paths_stripped "$TEST_log" "bin/$pkg/java/hello/libb-hjar.jar"
+  # jdeps files should contain the original paths since they are read by downstream actions that may
+  # not use path mapping.
+  assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/hello/liba.jdeps"
+  assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/hello/libb.jdeps"
+  assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/hello/libb-hjar.jdeps"
+  assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/hello/libc.jdeps"
+  assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/hello/libc-hjar.jdeps"
+  assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/hello/libd.jdeps"
+  assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/hello/libd-hjar.jdeps"
 }
 
 function test_multiple_configs() {
@@ -308,13 +320,13 @@ EOF
   assert_contains "\(bazel\|blaze\)-out/[^/]\+-fastbuild/bin/$pkg/java/liblib.jar-0.params" "$TEST_log"
   # lib header jar compilation should not be stripped due to conflicting paths
   assert_contains "--output \(bazel\|blaze\)-out/[^/]\+-fastbuild/bin/$pkg/java/liblib-hjar.jar" "$TEST_log"
-  # lib full jdeps proto should not be stripped due to conflicting paths
-  if is_bazel; then
-    bazel_bin="bazel-bin"
-  else
-    bazel_bin="blaze-bin"
-  fi
-  assert_contains "\(bazel\|blaze\)-out/[^/]\+-fastbuild/bin/$pkg/java/libbase_lib-hjar.jar" ${bazel_bin}/$pkg/java/liblib.jdeps
+  # jdeps files should contain the original paths since they are read by downstream actions that may
+  # not use path mapping.
+  assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/Main.jdeps"
+  assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/liblib.jdeps"
+  assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/liblib-hjar.jdeps"
+  assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/libbase_lib.jdeps"
+  assert_contains_no_stripped_path "${bazel_bin}/$pkg/java/libbase_lib-hjar.jdeps"
 }
 
 run_suite "Tests stripping config prefixes from output paths for better action caching"

@@ -75,3 +75,15 @@ function assert_paths_stripped() {
 
   assert_equals 1 "$found_identifying_output"
 }
+
+# Asserts a file contains no stripped paths.
+#
+# Arguments:
+#   Path to the file.
+function assert_contains_no_stripped_path() {
+  # For "bazel-out/x86-fastbuild/bin/...", return "bazel-out".
+  output_path=$(bazel info | grep '^output_path:')
+  stripped_bin="${output_path##*/}/bin"
+
+  assert_not_contains "$stripped_bin" "$1" "Stripped path found in $1"
+}
