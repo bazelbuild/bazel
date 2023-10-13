@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.vfs.PathFragment.InvalidBaseNameException;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
 
@@ -191,9 +193,7 @@ public final class OutputPathMnemonicComputer {
 
     MnemonicContext ctx = new MnemonicContext(baselineOptions);
 
-    ctx.checkedAddToMnemonic(
-        buildCpuIdentifier(coreOptions, platformOptions), "CPU/Platform descriptor");
-    ctx.markAsExplicitInOutputPathFor("cpu");
+    handlePlatformCpuDescriptor(ctx, coreOptions, platformOptions);
 
     ctx.checkedAddToMnemonic(coreOptions.compilationMode.toString(), "Compilation mode");
     ctx.markAsExplicitInOutputPathFor("compilation_mode");
@@ -238,18 +238,51 @@ public final class OutputPathMnemonicComputer {
     return ctx.getMnemonic();
   }
 
-  private static String buildCpuIdentifier(
-      CoreOptions options, @Nullable PlatformOptions platformOptions) {
-    if (options.platformInOutputDir && platformOptions != null) {
-      Label targetPlatform = platformOptions.computeTargetPlatform();
-      // Only use non-default platforms.
-      if (!PlatformOptions.platformIsDefault(targetPlatform)) {
-        return targetPlatform.getName();
-      }
+  private static void handlePlatformCpuDescriptor(
+      MnemonicContext ctx, CoreOptions coreOptions, @Nullable PlatformOptions platformOptions)
+      throws InvalidMnemonicException {
+    if (!coreOptions.platformInOutputDir || platformOptions == null) {
+      ctx.checkedAddToMnemonic(coreOptions.cpu, "CPU/Platform descriptor");
+      ctx.markAsExplicitInOutputPathFor("cpu");
+      return;
     }
 
-    // Fall back to using the CPU.
-    return options.cpu;
+    if (platformOptions.platforms != null && platformOptions.platforms.size() > 1) {
+      ctx.checkedAddToMnemonic("multi-platform", "CPU/Platform descriptor");
+      // Intentionally not marking anything as explicit in output path so ST-hash used if needed.
+      return;
+    }
+
+    ctx.checkedAddToMnemonic(
+        computePlatformName(platformOptions.computeTargetPlatform(), coreOptions),
+        "CPU/Platform descriptor");
+    ctx.markAsExplicitInOutputPathFor("platforms");
+  }
+
+  private static String computePlatformName(Label platform, CoreOptions options) {
+    // As highest priority, use the last entry that matches in name override option.
+    Optional<String> overridePlatformName =
+        Streams.findLast(
+            options.overrideNamePlatformInOutputDirEntries.stream()
+                .filter(e -> e.getKey().equals(platform))
+                .map(Map.Entry::getValue));
+    if (overridePlatformName.isPresent()) {
+      return overridePlatformName.get();
+    }
+
+    // Handle legacy heuristic if enabled.
+    // Note that it is known this heuristic is not necessarily complete.
+    if (options.usePlatformsInOutputDirLegacyHeuristic) {
+      // Only use non-default platforms.
+
+      if (!PlatformOptions.platformIsDefault(platform)) {
+        return platform.getName();
+      }
+      // Fall back to using the CPU.
+      return options.cpu;
+    }
+    // As a last resort use hashCode of the unambiguous form of the label.
+    return String.format("platform-%X", platform.getUnambiguousCanonicalForm().hashCode());
   }
 
   /**

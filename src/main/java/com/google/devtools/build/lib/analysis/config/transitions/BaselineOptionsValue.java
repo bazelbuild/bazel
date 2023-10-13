@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.config.transitions;
 
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -23,6 +24,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.errorprone.annotations.CheckReturnValue;
+import javax.annotation.Nullable;
 
 /**
  * This contains the baseline options to compare against when constructing output paths.
@@ -50,8 +52,8 @@ public abstract class BaselineOptionsValue implements SkyValue {
     return new AutoValue_BaselineOptionsValue(toOptions);
   }
 
-  public static Key key(boolean afterExecTransition) {
-    return Key.create(afterExecTransition);
+  public static Key key(boolean afterExecTransition, @Nullable Label newPlatform) {
+    return Key.create(afterExecTransition, newPlatform);
   }
 
   /** {@link SkyKey} implementation used for {@link BaselineOptionsValue}. */
@@ -62,13 +64,16 @@ public abstract class BaselineOptionsValue implements SkyValue {
   public abstract static class Key implements SkyKey {
     public abstract boolean afterExecTransition();
 
+    @Nullable
+    public abstract Label newPlatform();
+
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.BASELINE_OPTIONS;
     }
 
-    static Key create(boolean afterExecTransition) {
-      return new AutoValue_BaselineOptionsValue_Key(afterExecTransition);
+    static Key create(boolean afterExecTransition, @Nullable Label newPlatform) {
+      return new AutoValue_BaselineOptionsValue_Key(afterExecTransition, newPlatform);
     }
   }
 }

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe.config;
 
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationValueEvent;
@@ -22,6 +23,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentFactory;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.BaselineOptionsValue;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -64,16 +66,29 @@ public final class BuildConfigurationFunction implements SkyFunction {
 
     BuildOptions targetOptions = key.getOptions();
     CoreOptions coreOptions = targetOptions.get(CoreOptions.class);
+    PlatformOptions platformOptions = null;
+    if (targetOptions.contains(PlatformOptions.class)) {
+      platformOptions = targetOptions.get(PlatformOptions.class);
+    }
 
     BuildOptions baselineOptions = null;
     if (coreOptions.useBaselineForOutputDirectoryNamingScheme()) {
-      boolean applyExecTransitionToBaseline =
+      boolean useDynamicBaseline =
           coreOptions.outputDirectoryNamingScheme.equals(
-                  CoreOptions.OutputDirectoryNamingScheme.DIFF_AGAINST_DYNAMIC_BASELINE)
-              && coreOptions.isExec;
+              CoreOptions.OutputDirectoryNamingScheme.DIFF_AGAINST_DYNAMIC_BASELINE);
+      boolean applyExecTransitionToBaseline = useDynamicBaseline && coreOptions.isExec;
+      // In practice, platforms should always be 'well-formed' and contain at most one Label.
+      Label newPlatform = null;
+      if (useDynamicBaseline
+          && coreOptions.platformInOutputDir
+          && platformOptions != null
+          && platformOptions.platforms != null // this may be overly defensive
+          && platformOptions.platforms.size() <= 1) {
+        newPlatform = platformOptions.computeTargetPlatform();
+      }
       var baselineOptionsValue =
           (BaselineOptionsValue)
-              env.getValue(BaselineOptionsValue.key(applyExecTransitionToBaseline));
+              env.getValue(BaselineOptionsValue.key(applyExecTransitionToBaseline, newPlatform));
       if (baselineOptionsValue == null) {
         return null;
       }

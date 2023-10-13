@@ -289,20 +289,77 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void testPlatformInOutputDir_defaultPlatform() throws Exception {
-    BuildConfigurationValue config = create("--experimental_platform_in_output_dir", "--cpu=k8");
+  public void testPlatformInOutputDir_legacy_defaultPlatform() throws Exception {
+    BuildConfigurationValue config =
+        create(
+            "--experimental_platform_in_output_dir",
+            "--experimental_use_platforms_in_output_dir_legacy_heuristic",
+            "--cpu=k8");
 
     assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(".*/[^/]+-out/k8-fastbuild");
   }
 
   @Test
-  public void testPlatformInOutputDir() throws Exception {
+  public void testPlatformInOutputDir_legacy_withPlatform() throws Exception {
     BuildConfigurationValue config =
-        create("--experimental_platform_in_output_dir", "--platforms=//platform:alpha");
+        create(
+            "--experimental_platform_in_output_dir",
+            "--experimental_use_platforms_in_output_dir_legacy_heuristic",
+            "--platforms=//platform:alpha");
 
     assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(".*/[^/]+-out/alpha-fastbuild");
+  }
+
+  @Test
+  public void testPlatformInOutputDir_defaultPlatform() throws Exception {
+    BuildConfigurationValue config =
+        create(
+            "--experimental_platform_in_output_dir",
+            "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
+            "--cpu=k8");
+    // See tests of these flags with platform_mappings for more realistic results.
+    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
+        .matches(".*/[^/]+-out/platform-\\w*-fastbuild");
+  }
+
+  @Test
+  public void testPlatformInOutputDir_withPlatform() throws Exception {
+    BuildConfigurationValue config =
+        create(
+            "--experimental_platform_in_output_dir",
+            "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
+            "--platforms=//platform:alpha");
+
+    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
+        .matches(".*/[^/]+-out/platform-\\w*-fastbuild");
+  }
+
+  @Test
+  public void testPlatformInOutputDir_withPlatformAndMatchingOverride() throws Exception {
+    BuildConfigurationValue config =
+        create(
+            "--experimental_platform_in_output_dir",
+            "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
+            "--experimental_override_name_platform_in_output_dir=//platform:alpha=alpha",
+            "--platforms=//platform:alpha");
+
+    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
+        .matches(".*/[^/]+-out/alpha-fastbuild");
+  }
+
+  @Test
+  public void testPlatformInOutputDir_withPlatformAndNonMatchingOverride() throws Exception {
+    BuildConfigurationValue config =
+        create(
+            "--experimental_platform_in_output_dir",
+            "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
+            "--experimental_override_name_platform_in_output_dir=//platform:beta=beta",
+            "--platforms=//platform:alpha");
+
+    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getRoot().toString())
+        .matches(".*/[^/]+-out/platform-\\w*-fastbuild");
   }
 
   @Test

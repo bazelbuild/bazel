@@ -1312,11 +1312,13 @@ java_library(
     ],
     deps = [
         ":config/build_options",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:auto_value",
         "//third_party:error_prone_annotations",
+        "//third_party:jsr305",
     ],
 )
 

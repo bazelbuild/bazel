@@ -19,6 +19,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelToStringEntryConverter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.Converter;
@@ -103,8 +104,42 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
-          "If true, the target platform is used in the output directory name instead of the CPU.")
+          "If true, a shortname for the target platform is used in the output directory name"
+              + " instead of the CPU. The exact scheme is experimental and subject to change:"
+              + " First, in the rare case the --platforms option does not have exactly one value, a"
+              + " hash of the platforms option is used. Next, if any shortname for the current"
+              + " platform was registered by --experimental_override_name_platform_in_output_dir,"
+              + " then that shortname is used. Then, if"
+              + " --experimental_use_platforms_in_output_dir_legacy_heuristic is set, use a"
+              + " shortname based off the current platform Label. Finally, a hash of the platform"
+              + " option is used as a last resort.")
   public boolean platformInOutputDir;
+
+  @Option(
+      name = "experimental_use_platforms_in_output_dir_legacy_heuristic",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Please only use this flag as part of a suggested migration or testing strategy. Note"
+              + " that the heuristic has known deficiencies and it is suggested to migrate to"
+              + " relying on just --experimental_override_name_platform_in_output_dir.")
+  public boolean usePlatformsInOutputDirLegacyHeuristic;
+
+  @Option(
+      name = "experimental_override_name_platform_in_output_dir",
+      converter = LabelToStringEntryConverter.class,
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Each entry should be of the form label=value where label refers to a platform and values"
+              + " is the desired shortname to use in the output path. Only used when"
+              + " --experimental_platform_in_output_dir is true. Has highest naming priority.")
+  public List<Map.Entry<Label, String>> overrideNamePlatformInOutputDirEntries;
 
   // Note: This value may contain conflicting duplicate values for the same define.
   // Use `getNormalizedCommandLineBuildVariables` if you wish for these to be deduplicated
@@ -909,16 +944,13 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public FragmentOptions getExec() {
     CoreOptions exec = (CoreOptions) getDefault();
 
-    exec.outputDirectoryNamingScheme = outputDirectoryNamingScheme;
     exec.compilationMode = hostCompilationMode;
     exec.isExec = false;
-    exec.execConfigurationDistinguisherScheme = execConfigurationDistinguisherScheme;
     exec.outputPathsMode = outputPathsMode;
     exec.enableRunfiles = enableRunfiles;
     exec.commandLineBuildVariables = commandLineBuildVariables;
     exec.enforceConstraints = enforceConstraints;
     exec.mergeGenfilesDirectory = mergeGenfilesDirectory;
-    exec.platformInOutputDir = platformInOutputDir;
     exec.cpu = hostCpu;
     exec.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;
     exec.debugSelectsAlwaysSucceed = debugSelectsAlwaysSucceed;
@@ -927,6 +959,13 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     exec.experimentalWritableOutputs = experimentalWritableOutputs;
     exec.strictConflictChecks = strictConflictChecks;
     exec.disallowUnsoundDirectoryOutputs = disallowUnsoundDirectoryOutputs;
+
+    // === Output path calculation
+    exec.outputDirectoryNamingScheme = outputDirectoryNamingScheme;
+    exec.execConfigurationDistinguisherScheme = execConfigurationDistinguisherScheme;
+    exec.platformInOutputDir = platformInOutputDir;
+    exec.usePlatformsInOutputDirLegacyHeuristic = usePlatformsInOutputDirLegacyHeuristic;
+    exec.overrideNamePlatformInOutputDirEntries = overrideNamePlatformInOutputDirEntries;
 
     // === Runfiles ===
     exec.buildRunfileManifests = buildRunfileManifests;
