@@ -478,7 +478,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             common.getJavaCompilationArtifacts(),
             attributes,
             false,
-            helper.getBootclasspathOrDefault()));
+            helper.getBootclasspathOrDefault().bootclasspath()));
   }
 
   private static void addJavaClassJarToArtifactsBuilder(

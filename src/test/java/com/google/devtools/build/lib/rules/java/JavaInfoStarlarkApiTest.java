@@ -1055,8 +1055,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
             .setRuntimeClasspath(runtimeClasspath)
             .setJavacOpts(ImmutableList.of("opt1", "opt2"))
             .setBootClasspath(
-                BootClassPathInfo.create(
-                    NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, bootClasspathArtifact)))
+                NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, bootClasspathArtifact))
             .build();
 
     JavaCompilationInfoProvider starlarkCompilationInfo =

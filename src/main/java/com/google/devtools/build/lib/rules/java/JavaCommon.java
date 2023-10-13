@@ -812,7 +812,7 @@ public class JavaCommon {
     return javacOpts;
   }
 
-  public BootClassPathInfo getBootClasspath() {
+  public NestedSet<Artifact> getBootClasspath() {
     return classpathFragment.getBootClasspath();
   }
 

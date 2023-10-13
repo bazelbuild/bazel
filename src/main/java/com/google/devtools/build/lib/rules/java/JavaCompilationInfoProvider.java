@@ -86,11 +86,10 @@ public abstract class JavaCompilationInfoProvider
                   Sequence.cast(info.getValue("javac_options"), String.class, "javac_options")
                       .getImmutableList())
               .setBootClasspath(
-                  BootClassPathInfo.create(
-                      NestedSetBuilder.wrap(
-                          Order.NAIVE_LINK_ORDER,
-                          Sequence.noneableCast(
-                              info.getValue("boot_classpath"), Artifact.class, "boot_classpath"))));
+                  NestedSetBuilder.wrap(
+                      Order.NAIVE_LINK_ORDER,
+                      Sequence.noneableCast(
+                          info.getValue("boot_classpath"), Artifact.class, "boot_classpath")));
       Object runtimeClasspath = info.getValue("runtime_classpath");
       if (runtimeClasspath != null) {
         builder.setRuntimeClasspath(
@@ -116,7 +115,7 @@ public abstract class JavaCompilationInfoProvider
     private ImmutableList<String> javacOpts = ImmutableList.of();
     private NestedSet<Artifact> runtimeClasspath;
     private NestedSet<Artifact> compilationClasspath;
-    private BootClassPathInfo bootClasspath = BootClassPathInfo.empty();
+    private NestedSet<Artifact> bootClasspath = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
 
     @CanIgnoreReturnValue
     public Builder setJavacOpts(@Nonnull ImmutableList<String> javacOpts) {
@@ -137,7 +136,7 @@ public abstract class JavaCompilationInfoProvider
     }
 
     @CanIgnoreReturnValue
-    public Builder setBootClasspath(BootClassPathInfo bootClasspath) {
+    public Builder setBootClasspath(NestedSet<Artifact> bootClasspath) {
       this.bootClasspath = Preconditions.checkNotNull(bootClasspath);
       return this;
     }
@@ -147,7 +146,7 @@ public abstract class JavaCompilationInfoProvider
           JavaCompilationHelper.internJavacOpts(javacOpts),
           runtimeClasspath,
           compilationClasspath,
-          bootClasspath.bootclasspath());
+          bootClasspath);
     }
   }
 

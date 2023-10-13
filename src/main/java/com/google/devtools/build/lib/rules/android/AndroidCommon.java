@@ -679,7 +679,7 @@ public class AndroidCommon {
             javaCommon.getJavaCompilationArtifacts(),
             attributes,
             asNeverLink,
-            helper.getBootclasspathOrDefault()));
+            helper.getBootclasspathOrDefault().bootclasspath()));
 
     transitiveNeverlinkLibraries =
         collectTransitiveNeverlinkLibraries(

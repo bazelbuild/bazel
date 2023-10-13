@@ -50,23 +50,19 @@ public class JavaCompilationInfoProviderTest {
     JavaCompilationInfoProvider empty2 = new JavaCompilationInfoProvider.Builder().build();
     JavaCompilationInfoProvider withBootCpNewNestedSet1 =
         new JavaCompilationInfoProvider.Builder()
-            .setBootClasspath(
-                BootClassPathInfo.create(NestedSetBuilder.create(Order.STABLE_ORDER, jar)))
+            .setBootClasspath(NestedSetBuilder.create(Order.STABLE_ORDER, jar))
             .build();
     JavaCompilationInfoProvider withBootCpNewNestedSet2 =
         new JavaCompilationInfoProvider.Builder()
-            .setBootClasspath(
-                BootClassPathInfo.create(NestedSetBuilder.create(Order.STABLE_ORDER, jar)))
+            .setBootClasspath(NestedSetBuilder.create(Order.STABLE_ORDER, jar))
             .build();
     JavaCompilationInfoProvider withBootCpNewEmptyNestedSet1 =
         new JavaCompilationInfoProvider.Builder()
-            .setBootClasspath(
-                BootClassPathInfo.create(NestedSetBuilder.emptySet(Order.STABLE_ORDER)))
+            .setBootClasspath(NestedSetBuilder.emptySet(Order.STABLE_ORDER))
             .build();
     JavaCompilationInfoProvider withBootCpNewEmptyNestedSet2 =
         new JavaCompilationInfoProvider.Builder()
-            .setBootClasspath(
-                BootClassPathInfo.create(NestedSetBuilder.emptySet(Order.STABLE_ORDER)))
+            .setBootClasspath(NestedSetBuilder.emptySet(Order.STABLE_ORDER))
             .build();
     JavaCompilationInfoProvider withCompileCpNewNestedSet1 =
         new JavaCompilationInfoProvider.Builder()
@@ -82,9 +78,9 @@ public class JavaCompilationInfoProviderTest {
         new JavaCompilationInfoProvider.Builder().setCompilationClasspath(fixedNestedSet).build();
 
     new EqualsTester()
-        .addEqualityGroup(empty1, empty2)
+        .addEqualityGroup(
+            empty1, empty2, withBootCpNewEmptyNestedSet1, withBootCpNewEmptyNestedSet2)
         .addEqualityGroup(withBootCpNewNestedSet1, withBootCpNewNestedSet2)
-        .addEqualityGroup(withBootCpNewEmptyNestedSet1, withBootCpNewEmptyNestedSet2)
         .addEqualityGroup(withCompileCpNewNestedSet1)
         .addEqualityGroup(withCompileCpNewNestedSet2)
         .addEqualityGroup(withCompileCpFixedNestedSet1, withCompileCpFixedNestedSet2)
