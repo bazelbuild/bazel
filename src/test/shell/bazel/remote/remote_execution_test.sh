@@ -1403,7 +1403,7 @@ function test_platform_default_properties_invalidation_with_platform_exec_proper
   mkdir -p test
   cat > test/BUILD << 'EOF'
 platform(
-    name = "platform_without_any_exec_properties",
+    name = "platform_with_exec__properties",
     exec_properties = {
         "foo": "bar",
     },
@@ -1418,7 +1418,7 @@ genrule(
 EOF
 
   bazel build \
-    --extra_execution_platforms=//test:platform_without_any_exec_properties \
+    --extra_execution_platforms=//test:platform_with_exec__properties \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_default_exec_properties="build=1234" \
     //test:test >& $TEST_log || fail "Failed to build //test:test"
@@ -1426,13 +1426,13 @@ EOF
   expect_log "2 processes: 1 internal, 1 remote"
 
   bazel build \
-    --extra_execution_platforms=//test:platform_without_any_exec_properties \
+    --extra_execution_platforms=//test:platform_with_exec__properties \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_default_exec_properties="build=88888" \
     //test:test >& $TEST_log || fail "Failed to build //test:test"
 
   # Changing --remote_default_platform_properties value does not invalidate SkyFrames
-  # given its is super-seeded by the platform exec_properties.
+  # given its is superseded by the platform exec_properties.
   expect_log "1 process: 1 internal."
 }
 
@@ -1442,7 +1442,7 @@ function test_platform_default_properties_invalidation_with_platform_remote_exec
   mkdir -p test
   cat > test/BUILD << 'EOF'
 platform(
-    name = "platform_without_any_exec_properties",
+    name = "platform_with_remote_execution_properties",
     remote_execution_properties = """properties: {name: "foo" value: "baz"}""",
 )
 
@@ -1455,7 +1455,7 @@ genrule(
 EOF
 
   bazel build \
-    --extra_execution_platforms=//test:platform_without_any_exec_properties \
+    --extra_execution_platforms=//test:platform_with_remote_execution_properties \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_default_exec_properties="build=1234" \
     //test:test >& $TEST_log || fail "Failed to build //test:test"
@@ -1463,13 +1463,13 @@ EOF
   expect_log "2 processes: 1 internal, 1 remote"
 
   bazel build \
-    --extra_execution_platforms=//test:platform_without_any_exec_properties \
+    --extra_execution_platforms=//test:platform_with_remote_execution_properties \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_default_exec_properties="build=88888" \
     //test:test >& $TEST_log || fail "Failed to build //test:test"
 
   # Changing --remote_default_platform_properties value does not invalidate SkyFrames
-  # given its is super-seeded by the platform remote_execution_properties.
+  # given its is superseded by the platform remote_execution_properties.
   expect_log "2 processes: 1 remote cache hit, 1 internal"
 }
 
