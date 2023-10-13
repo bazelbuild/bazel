@@ -80,24 +80,20 @@ public final class StarlarkRuleConfiguredTargetUtil {
    *
    * <p>Unchecked exception {@code UncheckedEvalException}s and {@code MissingDepException} may be
    * thrown.
+   *
+   * @param ruleContext the rule context
+   * @param ruleClass the rule class for which to evaluate the implementation function gets. This
+   *     serves extended rules, where for parent's implementation function needs to be evaluated.
    */
   // TODO(blaze-team): Legacy providers are preventing to change the return type to Sequence<Info>.
   @Nullable
-  public static Object evalRule(RuleContext ruleContext) throws InterruptedException {
-    RuleClass ruleClass = ruleContext.getRule().getRuleClassObject();
-    if (ruleClass.getRuleClassType().equals(RuleClass.Builder.RuleClassType.WORKSPACE)) {
-      ruleContext.ruleError(
-          "Found reference to a workspace rule in a context where a build"
-              + " rule was expected; probably a reference to a target in that external"
-              + " repository, properly specified as @reponame//path/to/package:target,"
-              + " should have been specified by the requesting rule.");
-      return null;
-    }
-
+  public static Object evalRule(RuleContext ruleContext, RuleClass ruleClass)
+      throws InterruptedException {
     // TODO(blaze-team): expect_failure attribute is special for all rule classes, but it should
     // be special only for analysis tests
     String expectFailure = ruleContext.attributes().get("expect_failure", Type.STRING);
     Object providersRaw;
+
     try {
       // call rule.implementation(ctx)
       providersRaw =

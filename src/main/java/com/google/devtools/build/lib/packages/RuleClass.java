@@ -750,6 +750,7 @@ public class RuleClass implements RuleClassData {
     private final String name;
     private ImmutableList<StarlarkThread.CallStackEntry> callstack = ImmutableList.of();
     private final RuleClassType type;
+    @Nullable private RuleClass starlarkParent = null;
     private final boolean starlark;
     private boolean starlarkTestable = false;
     private boolean documented;
@@ -800,22 +801,34 @@ public class RuleClass implements RuleClassData {
      * <p>The rule type affects the allowed names and the required attributes (see {@link
      * RuleClassType}).
      *
+     * @param parents There may be either multiple native {@code RuleClassType.ABSTRACT} rules or a
+     *     single Starlark rule.
      * @throws IllegalArgumentException if an attribute with the same name exists in more than one
      *     parent
      */
     public Builder(String name, RuleClassType type, boolean starlark, RuleClass... parents) {
+      Preconditions.checkArgument(
+          (parents.length == 1 && parents[0].isStarlark())
+              || Arrays.stream(parents).allMatch(rule -> !rule.isStarlark()));
       this.name = name;
       this.starlark = starlark;
       this.type = type;
       Preconditions.checkState(starlark || type != RuleClassType.PLACEHOLDER, name);
       this.documented = type != RuleClassType.ABSTRACT;
       addAttribute(NAME_ATTRIBUTE);
+      if (parents.length == 1
+          && parents[0].isStarlark()
+          && parents[0].getRuleClassType() != RuleClassType.ABSTRACT) {
+        // the condition removes {@link StarlarkRuleClasssFunctions.baseRule} and binaryBaseRule,
+        // which are marked as Starlark (because of Stardoc) && abstract at the same time
+        starlarkParent = parents[0];
+      }
       for (RuleClass parent : parents) {
         if (parent.getValidityPredicate() != PredicatesWithMessage.<Rule>alwaysTrue()) {
           setValidityPredicate(parent.getValidityPredicate());
         }
-        configurationFragmentPolicy
-            .includeConfigurationFragmentsFrom(parent.getConfigurationFragmentPolicy());
+        configurationFragmentPolicy.includeConfigurationFragmentsFrom(
+            parent.getConfigurationFragmentPolicy());
         supportsConstraintChecking = parent.supportsConstraintChecking;
 
         addToolchainTypes(parent.getToolchainTypes());
@@ -919,6 +932,7 @@ public class RuleClass implements RuleClassData {
           callstack,
           key,
           type,
+          starlarkParent,
           starlark,
           starlarkTestable,
           documented,
@@ -1562,6 +1576,7 @@ public class RuleClass implements RuleClassData {
   private final String targetKind;
 
   private final RuleClassType type;
+  @Nullable private final RuleClass starlarkParent;
   private final boolean isStarlark;
   private final boolean starlarkTestable;
   private final boolean documented;
@@ -1695,6 +1710,7 @@ public class RuleClass implements RuleClassData {
       ImmutableList<StarlarkThread.CallStackEntry> callstack,
       String key,
       RuleClassType type,
+      RuleClass starlarkParent,
       boolean isStarlark,
       boolean starlarkTestable,
       boolean documented,
@@ -1730,6 +1746,7 @@ public class RuleClass implements RuleClassData {
     this.callstack = callstack;
     this.key = key;
     this.type = type;
+    this.starlarkParent = starlarkParent;
     this.isStarlark = isStarlark;
     this.targetKind = name + Rule.targetKindSuffix();
     this.starlarkTestable = starlarkTestable;
@@ -1822,6 +1839,10 @@ public class RuleClass implements RuleClassData {
   @Override
   public String getName() {
     return name;
+  }
+
+  public RuleClass getStarlarkParent() {
+    return this.starlarkParent;
   }
 
   /**

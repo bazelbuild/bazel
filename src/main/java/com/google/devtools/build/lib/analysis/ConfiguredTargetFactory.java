@@ -358,13 +358,22 @@ public final class ConfiguredTargetFactory {
       final ConfiguredTarget target;
 
       if (ruleClass.isStarlark()) {
+        if (ruleClass.getRuleClassType().equals(RuleClass.Builder.RuleClassType.WORKSPACE)) {
+          ruleContext.ruleError(
+              "Found reference to a workspace rule in a context where a build"
+                  + " rule was expected; probably a reference to a target in that external"
+                  + " repository, properly specified as @reponame//path/to/package:target,"
+                  + " should have been specified by the requesting rule.");
+          return erroredConfiguredTarget(ruleContext, null);
+        }
+
         final Object rawProviders;
         final boolean isDefaultExecutableCreated;
         @Nullable final RequiredConfigFragmentsProvider requiredConfigFragmentsProvider;
         try {
           ruleContext.initStarlarkRuleContext();
           // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
-          rawProviders = StarlarkRuleConfiguredTargetUtil.evalRule(ruleContext);
+          rawProviders = StarlarkRuleConfiguredTargetUtil.evalRule(ruleContext, ruleClass);
         } finally {
           // TODO(b/268525292): isDefaultExecutableCreated is set to True when
           // ctx.outputs.executable

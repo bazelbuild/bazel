@@ -169,7 +169,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
   private static final ImmutableSet<AllowlistEntry> ALLOWLIST_INITIALIZER =
       ImmutableSet.of(allowlistEntry("", "initializer_testing"));
-  private static final ImmutableSet<AllowlistEntry> ALLOWLIST_EXTEND_RULE =
+  public static final ImmutableSet<AllowlistEntry> ALLOWLIST_EXTEND_RULE =
       ImmutableSet.of(allowlistEntry("", "extend_rule_testing"));
   private static final ImmutableSet<AllowlistEntry> ALLOWLIST_SUBRULES =
       ImmutableSet.of(allowlistEntry("", "subrule_testing"));

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
+import static com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.ALLOWLIST_EXTEND_RULE;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 
 import com.google.common.base.Optional;
@@ -65,9 +66,11 @@ import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
@@ -106,8 +109,8 @@ import net.starlark.java.eval.Tuple;
  * A Starlark API for the ruleContext.
  *
  * <p>"This object becomes featureless once the rule implementation function that it was created for
- * has completed. To achieve this, the {@link #nullify()} should be called once the evaluation of
- * the function is completed. The method both frees memory by deleting all significant fields of the
+ * has completed. To achieve this, the {@link #close()} should be called once the evaluation of the
+ * function is completed. The method both frees memory by deleting all significant fields of the
  * object and makes it impossible to accidentally use this object where it's not supposed to be used
  * (such attempts will result in {@link EvalException}s).
  */
@@ -133,10 +136,18 @@ public final class StarlarkRuleContext
   private final StarlarkActionFactory actionFactory;
 
   // The fields below are intended to be final except that they can be cleared by calling
-  // `nullify()` when the object becomes featureless (analogous to freezing).
+  // `close()` when the object becomes featureless (analogous to freezing).
   private RuleContext ruleContext;
   private FragmentCollection fragments;
   @Nullable private AspectDescriptor aspectDescriptor;
+
+  // The current rule class under evaluation (in case of extended rule this changes to parent when
+  // ctx.super is called)
+  private RuleClass ruleClassUnderEvaluation;
+
+  // Was super called in the context of current parent, it's set to false each time
+  // ruleClassUnderEvaluation changes, and it's expected to be set to true when ctx.super is called.
+  private boolean superCalled;
 
   /**
    * This variable is used to expose the state of {@link
@@ -157,7 +168,7 @@ public final class StarlarkRuleContext
    *
    * <p>Note that StarlarkRuleContext can (for pathological user-written rules) survive the analysis
    * phase and be accessed concurrently. Nonetheless, it is still safe to initialize {@code ctx.var}
-   * lazily without synchronization, because {@code ctx.var} is inaccessible once {@code nullify()}
+   * lazily without synchronization, because {@code ctx.var} is inaccessible once {@code close()}
    * has been called.
    */
   private Dict<String, String> cachedMakeVariables = null;
@@ -195,6 +206,7 @@ public final class StarlarkRuleContext
     this.fragments = new FragmentCollection(ruleContext);
     this.aspectDescriptor = aspectDescriptor;
     this.isForAspect = aspectDescriptor != null;
+    this.ruleClassUnderEvaluation = ruleContext.getRule().getRuleClassObject();
 
     Rule rule = ruleContext.getRule();
 
@@ -434,8 +446,15 @@ public final class StarlarkRuleContext
    * Nullifies fields of the object when it's not supposed to be used anymore to free unused memory
    * and to make sure this object is not accessed when it's not supposed to (after the corresponding
    * rule implementation function has exited).
+   *
+   * <p>Does a check if parent was called.
    */
-  public void nullify() {
+  public void close() {
+    // Check super was called
+    if (ruleClassUnderEvaluation.getStarlarkParent() != null && !superCalled) {
+      ruleContext.ruleError("'super' was not called.");
+    }
+
     ruleContext = null;
     fragments = null;
     aspectDescriptor = null;
@@ -550,6 +569,60 @@ public final class StarlarkRuleContext
   @Override
   public StarlarkActionFactory actions() {
     return actionFactory;
+  }
+
+  @Override
+  public Object callParent(StarlarkThread thread) throws EvalException, InterruptedException {
+    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_EXTEND_RULE);
+    checkMutable("super()");
+    if (aspectDescriptor != null) {
+      throw Starlark.errorf("Can't use 'super' call in an aspect.");
+    }
+    if (ruleClassUnderEvaluation.getStarlarkParent() == null) {
+      throw Starlark.errorf("Can't use 'super' call, the rule has no parent.");
+    }
+    if (superCalled) {
+      throw Starlark.errorf("'super' called the second time.");
+    }
+
+    RuleClass previousClassUnderEvaluation = ruleClassUnderEvaluation;
+    ruleClassUnderEvaluation = ruleClassUnderEvaluation.getStarlarkParent();
+
+    Object rawProviders = null;
+    try {
+      superCalled = false;
+      rawProviders =
+          StarlarkRuleConfiguredTargetUtil.evalRule(ruleContext, ruleClassUnderEvaluation);
+
+    } finally {
+      if (ruleClassUnderEvaluation.getStarlarkParent() != null && !superCalled) {
+        ruleContext.ruleError(
+            String.format(
+                "in %s rule: 'super' was not called.", ruleClassUnderEvaluation.getName()));
+      }
+      ruleClassUnderEvaluation = previousClassUnderEvaluation;
+    }
+
+    if (rawProviders == null) {
+      throw Starlark.errorf("Error evaluating parent rule.");
+    }
+
+    // Normalize the return type
+    if (rawProviders instanceof Info) {
+      // Either an old-style struct or a single declared provider (not in a list)
+      Info info = (Info) rawProviders;
+      if (info.getProvider().getKey().equals(StructProvider.STRUCT.getKey())) {
+        throw Starlark.errorf(
+            "Parent rule returned struct providers. Rules returning struct providers can't be"
+                + " extended.");
+      }
+      rawProviders = StarlarkList.of(thread.mutability(), rawProviders);
+    } else if (rawProviders == Starlark.NONE) {
+      rawProviders = StarlarkList.empty();
+    }
+    superCalled = true;
+
+    return rawProviders;
   }
 
   @Override

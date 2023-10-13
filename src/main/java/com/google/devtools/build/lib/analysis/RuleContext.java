@@ -1148,7 +1148,7 @@ public final class RuleContext extends TargetContext
   public void close() {
     starlarkThread.mutability().freeze();
     if (starlarkRuleContext != null) {
-      starlarkRuleContext.nullify();
+      starlarkRuleContext.close();
       starlarkRuleContext = null;
     }
   }

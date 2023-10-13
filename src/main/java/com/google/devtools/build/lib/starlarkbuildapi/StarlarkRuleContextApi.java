@@ -146,6 +146,12 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
   StarlarkActionFactoryApi actions();
 
   @StarlarkMethod(
+      name = "super",
+      doc = "Experimental: Calls parent's implementation function and returns its providers",
+      useStarlarkThread = true)
+  Object callParent(StarlarkThread thread) throws EvalException, InterruptedException;
+
+  @StarlarkMethod(
       name = "created_actions",
       doc =
           "For rules with <a"

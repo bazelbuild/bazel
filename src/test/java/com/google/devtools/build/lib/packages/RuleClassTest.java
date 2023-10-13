@@ -1024,6 +1024,7 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         DUMMY_STACK,
         /* key= */ name,
         RuleClassType.NORMAL,
+        /* starlarkParent= */ null,
         /* isStarlark= */ starlarkExecutable,
         /* starlarkTestable= */ false,
         documented,
