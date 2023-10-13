@@ -4,6 +4,7 @@ filegroup(
     name = "srcs",
     srcs = [
         "BUILD",
+        "//tools/allowlists/android_binary_allowlist:srcs",
         "//tools/allowlists/config_feature_flag:srcs",
         "//tools/allowlists/function_transition_allowlist:srcs",
         "//tools/whitelists:srcs",
