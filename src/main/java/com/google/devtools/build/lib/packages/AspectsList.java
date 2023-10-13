@@ -35,17 +35,11 @@ import net.starlark.java.eval.Starlark;
  * declared in attribute aspects list. The class is responsible for wrapping the information
  * necessary for constructing those aspects.
  */
-// TODO(ilist@): Separate AspectListBuilder into AspectsList and Builder
-public final class AspectsListBuilder {
+public final class AspectsList {
+  private final ImmutableList<AspectDetails<?>> aspects;
 
-  private final HashMap<String, AspectDetails<?>> aspects = new LinkedHashMap<>();
-
-  public AspectsListBuilder() {}
-
-  public AspectsListBuilder(AspectsListBuilder aspectsList) {
-    for (AspectDetails<?> aspect : aspectsList.aspects.values()) {
-      aspects.put(aspect.getName(), aspect);
-    }
+  private AspectsList(ImmutableList<AspectDetails<?>> aspects) {
+    this.aspects = aspects;
   }
 
   public boolean hasAspects() {
@@ -58,7 +52,7 @@ public final class AspectsListBuilder {
       return ImmutableList.of();
     }
     ImmutableList.Builder<Aspect> builder = null;
-    for (AspectDetails<?> aspect : aspects.values()) {
+    for (AspectDetails<?> aspect : aspects) {
       Aspect a = aspect.getAspect(rule);
       if (a != null) {
         if (builder == null) {
@@ -72,7 +66,7 @@ public final class AspectsListBuilder {
 
   public ImmutableList<AspectClass> getAspectClasses() {
     ImmutableList.Builder<AspectClass> result = ImmutableList.builder();
-    for (AspectDetails<?> aspect : aspects.values()) {
+    for (AspectDetails<?> aspect : aspects) {
       result.add(aspect.getAspectClass());
     }
     return result.build();
@@ -84,14 +78,14 @@ public final class AspectsListBuilder {
     Preconditions.checkArgument(aspectsParameters != null, "aspectsParameters cannot be null");
 
     ImmutableList.Builder<Aspect> aspectsList = ImmutableList.builder();
-    for (AspectDetails<?> aspect : aspects.values()) {
+    for (AspectDetails<?> aspect : aspects) {
       aspectsList.add(aspect.getTopLevelAspect(aspectsParameters));
     }
     return aspectsList.build();
   }
 
   public void validateRulePropagatedAspectsParameters(RuleClass ruleClass) throws EvalException {
-    for (AspectDetails<?> aspect : aspects.values()) {
+    for (AspectDetails<?> aspect : aspects) {
       ImmutableSet<String> requiredAspectParameters = aspect.getRequiredParameters();
       for (Attribute aspectAttribute : aspect.getAspectAttributes()) {
         String aspectAttrName = aspectAttribute.getPublicName();
@@ -128,12 +122,12 @@ public final class AspectsListBuilder {
    *
    * <p>If a mandatory aspect attribute is not given a value in the top-level parameters list.
    */
-  public boolean validateTopLevelAspectsParameters(ImmutableMap<String, String> aspectsParameters)
+  public void validateTopLevelAspectsParameters(ImmutableMap<String, String> aspectsParameters)
       throws EvalException {
     Preconditions.checkArgument(aspectsParameters != null, "aspectsParameters cannot be null");
 
     ImmutableSet.Builder<String> usedParametersBuilder = ImmutableSet.builder();
-    for (AspectDetails<?> aspectDetails : aspects.values()) {
+    for (AspectDetails<?> aspectDetails : aspects) {
       if (aspectDetails instanceof StarlarkAspectDetails) {
         ImmutableList<Attribute> aspectAttributes =
             ((StarlarkAspectDetails) aspectDetails).aspect.getAttributes();
@@ -163,7 +157,6 @@ public final class AspectsListBuilder {
               + " specified in --aspects_parameters.",
           unusedParameters);
     }
-    return true;
   }
 
   @Override
@@ -174,8 +167,8 @@ public final class AspectsListBuilder {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    AspectsListBuilder aspectsListBuilder = (AspectsListBuilder) o;
-    return Objects.equals(aspects, aspectsListBuilder.aspects);
+    AspectsList aspectsList = (AspectsList) o;
+    return Objects.equals(aspects, aspectsList.aspects);
   }
 
   @Override
@@ -257,8 +250,8 @@ public final class AspectsListBuilder {
   private static class StarlarkAspectDetails extends AspectDetails<StarlarkAspectClass> {
     private final StarlarkDefinedAspect aspect;
 
-    private StarlarkAspectDetails(StarlarkDefinedAspect aspect, String reqiredByAspect) {
-      super(aspect.getAspectClass(), aspect.getDefaultParametersExtractor(), reqiredByAspect);
+    private StarlarkAspectDetails(StarlarkDefinedAspect aspect, String requiredByAspect) {
+      super(aspect.getAspectClass(), aspect.getDefaultParametersExtractor(), requiredByAspect);
       this.aspect = aspect;
     }
 
@@ -310,104 +303,121 @@ public final class AspectsListBuilder {
   @SerializationConstant @VisibleForSerialization
   static final Function<Rule, AspectParameters> EMPTY_FUNCTION = input -> AspectParameters.EMPTY;
 
-  /**
-   * Adds a native aspect with its parameters extraction function to the aspects list.
-   *
-   * @param aspect the native aspect to be added
-   * @param evaluator function that extracts aspect parameters from rule.
-   */
-  public void addAspect(NativeAspectClass aspect, Function<Rule, AspectParameters> evaluator) {
-    NativeAspectDetails nativeAspectDetails = new NativeAspectDetails(aspect, evaluator);
-    AspectDetails<?> oldAspect =
-        this.aspects.put(nativeAspectDetails.getName(), nativeAspectDetails);
-    if (oldAspect != null) {
-      throw new AssertionError(
-          String.format("Aspect %s has already been added", oldAspect.getName()));
-    }
-  }
+  /** A builder for AspectsList */
+  public static class Builder {
+    private final HashMap<String, AspectDetails<?>> aspects = new LinkedHashMap<>();
 
-  /**
-   * Adds a native aspect that does not need a parameters extractor to the aspects list.
-   *
-   * @param aspect the native aspect to be added
-   */
-  public void addAspect(NativeAspectClass aspect) {
-    addAspect(aspect, EMPTY_FUNCTION);
-  }
+    public Builder() {}
 
-  /** Attaches this aspect and its required aspects */
-  public void addAspect(StarlarkAspect starlarkAspect) throws EvalException {
-    addAspect(starlarkAspect, null);
-  }
-
-  private void addAspect(StarlarkAspect starlarkAspect, @Nullable String requiredByAspect)
-      throws EvalException {
-    if (starlarkAspect instanceof StarlarkDefinedAspect) {
-      StarlarkDefinedAspect starlarkDefinedAspect = (StarlarkDefinedAspect) starlarkAspect;
-      if (!starlarkDefinedAspect.isExported()) {
-        throw Starlark.errorf(
-            "Aspects should be top-level values in extension files that define them.");
-      }
-
-      for (StarlarkAspect requiredAspect : starlarkDefinedAspect.getRequiredAspects()) {
-        addAspect(requiredAspect, starlarkDefinedAspect.getName());
+    public Builder(AspectsList aspectsList) {
+      for (AspectDetails<?> aspect : aspectsList.aspects) {
+        aspects.put(aspect.getName(), aspect);
       }
     }
 
-    boolean needsToAdd = needsToBeAdded(starlarkAspect.getName(), requiredByAspect);
-    if (needsToAdd) {
-      final AspectDetails<?> aspectDetails;
+    public AspectsList build() {
+      return new AspectsList(ImmutableList.copyOf(aspects.values()));
+    }
 
+    /**
+     * Adds a native aspect with its parameters extraction function to the aspects list.
+     *
+     * @param aspect the native aspect to be added
+     * @param evaluator function that extracts aspect parameters from rule.
+     */
+    public void addAspect(NativeAspectClass aspect, Function<Rule, AspectParameters> evaluator) {
+      NativeAspectDetails nativeAspectDetails = new NativeAspectDetails(aspect, evaluator);
+      AspectDetails<?> oldAspect =
+          this.aspects.put(nativeAspectDetails.getName(), nativeAspectDetails);
+      if (oldAspect != null) {
+        throw new AssertionError(
+            String.format("Aspect %s has already been added", oldAspect.getName()));
+      }
+    }
+
+    /**
+     * Adds a native aspect that does not need a parameters extractor to the aspects list.
+     *
+     * @param aspect the native aspect to be added
+     */
+    public void addAspect(NativeAspectClass aspect) {
+      addAspect(aspect, EMPTY_FUNCTION);
+    }
+
+    /** Attaches this aspect and its required aspects */
+    public void addAspect(StarlarkAspect starlarkAspect) throws EvalException {
+      addAspect(starlarkAspect, null);
+    }
+
+    private void addAspect(StarlarkAspect starlarkAspect, @Nullable String requiredByAspect)
+        throws EvalException {
       if (starlarkAspect instanceof StarlarkDefinedAspect) {
-        aspectDetails =
-            new StarlarkAspectDetails((StarlarkDefinedAspect) starlarkAspect, requiredByAspect);
-      } else if (starlarkAspect instanceof StarlarkNativeAspect) {
-        aspectDetails =
-            new NativeAspectDetails(
-                (StarlarkNativeAspect) starlarkAspect,
-                starlarkAspect.getDefaultParametersExtractor(),
-                requiredByAspect);
-      } else {
-        throw new IllegalArgumentException();
-      }
-      this.aspects.put(starlarkAspect.getName(), aspectDetails);
-    }
-    }
-
-
-  /** Should only be used for deserialization. */
-  public void addAspect(final Aspect aspect) {
-    PredefinedAspectDetails predefinedAspectDetails = new PredefinedAspectDetails(aspect);
-    AspectDetails<?> oldAspect =
-        this.aspects.put(predefinedAspectDetails.getName(), predefinedAspectDetails);
-    if (oldAspect != null) {
-      throw new AssertionError(
-          String.format("Aspect %s has already been added", oldAspect.getName()));
-    }
-  }
-
-  private boolean needsToBeAdded(String aspectName, @Nullable String requiredByAspect)
-      throws EvalException {
-
-    AspectDetails<?> oldAspect = this.aspects.get(aspectName);
-
-    if (oldAspect != null) {
-      if (requiredByAspect != null) {
-        // If the aspect to be added already exists and it is required by another aspect, no need to
-        // add it again.
-        return false;
-      } else {
-        // If the aspect to be added is not required by another aspect, then we should throw error
-        String oldAspectBaseAspectName = oldAspect.requiredByAspect;
-        if (oldAspectBaseAspectName != null) {
+        StarlarkDefinedAspect starlarkDefinedAspect = (StarlarkDefinedAspect) starlarkAspect;
+        if (!starlarkDefinedAspect.isExported()) {
           throw Starlark.errorf(
-              "aspect %s was added before as a required aspect of aspect %s",
-              oldAspect.getName(), oldAspectBaseAspectName);
+              "Aspects should be top-level values in extension files that define them.");
         }
-        throw Starlark.errorf("aspect %s added more than once", oldAspect.getName());
+
+        for (StarlarkAspect requiredAspect : starlarkDefinedAspect.getRequiredAspects()) {
+          addAspect(requiredAspect, starlarkDefinedAspect.getName());
+        }
+      }
+
+      boolean needsToAdd = needsToBeAdded(starlarkAspect.getName(), requiredByAspect);
+      if (needsToAdd) {
+        final AspectDetails<?> aspectDetails;
+
+        if (starlarkAspect instanceof StarlarkDefinedAspect) {
+          aspectDetails =
+              new StarlarkAspectDetails((StarlarkDefinedAspect) starlarkAspect, requiredByAspect);
+        } else if (starlarkAspect instanceof StarlarkNativeAspect) {
+          aspectDetails =
+              new NativeAspectDetails(
+                  (StarlarkNativeAspect) starlarkAspect,
+                  starlarkAspect.getDefaultParametersExtractor(),
+                  requiredByAspect);
+        } else {
+          throw new IllegalArgumentException();
+        }
+        this.aspects.put(starlarkAspect.getName(), aspectDetails);
       }
     }
 
-    return true; // we need to add the new aspect
+    /** Should only be used for deserialization. */
+    public void addAspect(final Aspect aspect) {
+      PredefinedAspectDetails predefinedAspectDetails = new PredefinedAspectDetails(aspect);
+      AspectDetails<?> oldAspect =
+          this.aspects.put(predefinedAspectDetails.getName(), predefinedAspectDetails);
+      if (oldAspect != null) {
+        throw new AssertionError(
+            String.format("Aspect %s has already been added", oldAspect.getName()));
+      }
+    }
+
+    private boolean needsToBeAdded(String aspectName, @Nullable String requiredByAspect)
+        throws EvalException {
+
+      AspectDetails<?> oldAspect = this.aspects.get(aspectName);
+
+      if (oldAspect != null) {
+        if (requiredByAspect != null) {
+          // If the aspect to be added already exists and it is required by another aspect, no need
+          // to
+          // add it again.
+          return false;
+        } else {
+          // If the aspect to be added is not required by another aspect, then we should throw error
+          String oldAspectBaseAspectName = oldAspect.requiredByAspect;
+          if (oldAspectBaseAspectName != null) {
+            throw Starlark.errorf(
+                "aspect %s was added before as a required aspect of aspect %s",
+                oldAspect.getName(), oldAspectBaseAspectName);
+          }
+          throw Starlark.errorf("aspect %s added more than once", oldAspect.getName());
+        }
+      }
+
+      return true; // we need to add the new aspect
+    }
   }
 }
