@@ -231,6 +231,7 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
       // Do not test file symlinks on Windows.
       return;
     }
+    disableBzlmod();
     Path repo = context().getTmpDir().resolve(testName.getMethodName());
     new RepoWithRuleWritingTextGenerator(repo).withOutputText("hi").setupRepository();
 
