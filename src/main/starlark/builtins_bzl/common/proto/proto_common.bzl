@@ -239,7 +239,7 @@ def _compile(
         use_default_shell_env = True,
         resource_set = resource_set,
         exec_group = experimental_exec_group,
-        toolchain = getattr(proto_lang_toolchain_info, "toolchain_type", None),
+        toolchain = _toolchain_type(proto_lang_toolchain_info),
     )
 
 _BAZEL_TOOLS_PREFIX = "external/bazel_tools/"
@@ -350,6 +350,12 @@ def _declare_generated_files(
         outputs.append(actions.declare_file(basename_no_ext + extension, sibling = src))
 
     return outputs
+
+def _toolchain_type(proto_lang_toolchain_info):
+    if _builtins.toplevel.proto_common.incompatible_enable_proto_toolchain_resolution():
+        return getattr(proto_lang_toolchain_info, "toolchain_type", None)
+    else:
+        return None
 
 def _find_toolchain(ctx, legacy_attr, toolchain_type):
     if _builtins.toplevel.proto_common.incompatible_enable_proto_toolchain_resolution():
