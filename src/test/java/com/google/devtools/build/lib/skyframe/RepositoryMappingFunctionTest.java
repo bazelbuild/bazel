@@ -21,10 +21,8 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.Version;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -62,13 +60,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
   @Override
   protected AnalysisMock getAnalysisMock() {
     // Make sure we don't have built-in modules affecting the dependency graph.
-    return new AnalysisMock.Delegate(super.getAnalysisMock()) {
-      @Override
-      public ImmutableMap<String, NonRegistryOverride> getBuiltinModules(
-          BlazeDirectories directories) {
-        return ImmutableMap.of();
-      }
-    };
+    return AnalysisMock.getAnalysisMockWithoutBuiltinModules();
   }
 
   private static RepositoryMappingValue valueForWorkspace(
@@ -151,7 +143,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
                     RepositoryName.MAIN,
                     "aaa",
                     RepositoryName.MAIN,
-                    TestConstants.WORKSPACE_NAME,
+                    TestConstants.LEGACY_WORKSPACE_NAME,
                     RepositoryName.MAIN,
                     "com_foo_bar_b",
                     RepositoryName.create("bbb~1.0")),
@@ -180,7 +172,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
                     RepositoryName.MAIN,
                     "haha",
                     RepositoryName.MAIN,
-                    TestConstants.WORKSPACE_NAME,
+                    TestConstants.LEGACY_WORKSPACE_NAME,
                     RepositoryName.MAIN,
                     "com_foo_bar_b",
                     RepositoryName.create("bbb~1.0")),
@@ -271,7 +263,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
                     RepositoryName.MAIN,
                     "aaa",
                     RepositoryName.MAIN,
-                    TestConstants.WORKSPACE_NAME,
+                    TestConstants.LEGACY_WORKSPACE_NAME,
                     RepositoryName.MAIN,
                     "bbb1",
                     RepositoryName.create("bbb~1.0"),

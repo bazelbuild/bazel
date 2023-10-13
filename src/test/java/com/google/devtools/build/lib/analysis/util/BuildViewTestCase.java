@@ -106,14 +106,8 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.analysis.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -299,19 +293,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     getOutputPath().createDirectoryAndParents();
     ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues =
         ImmutableList.<PrecomputedValue.Injected>builder()
-            .add(PrecomputedValue.injected(PrecomputedValue.REPO_ENV, ImmutableMap.of()))
-            .add(PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()))
-            .add(
-                PrecomputedValue.injected(
-                    RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()))
-            .add(
-                PrecomputedValue.injected(
-                    RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
-                    Optional.empty()))
-            .add(
-                PrecomputedValue.injected(
-                    RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
-                    RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY))
+            .addAll(analysisMock.getPrecomputedValues())
             .add(
                 PrecomputedValue.injected(
                     BuildInfoCollectionFunction.BUILD_INFO_FACTORIES,
@@ -319,21 +301,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .add(
                 PrecomputedValue.injected(
                     ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())))
-            .add(PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false))
-            .add(PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()))
-            .add(
-                PrecomputedValue.injected(
-                    YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, ImmutableList.of()))
-            .add(
-                PrecomputedValue.injected(
-                    BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
-                    CheckDirectDepsMode.WARNING))
-            .add(
-                PrecomputedValue.injected(
-                    BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
-                    BazelCompatibilityMode.ERROR))
-            .add(
-                PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE))
             .addAll(extraPrecomputedValues())
             .build();
     PackageFactory.BuilderForTesting pkgFactoryBuilder =

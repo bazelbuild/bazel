@@ -146,10 +146,12 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
+    BuildLanguageOptions options = Options.getDefaults(BuildLanguageOptions.class);
+    options.enableBzlmod = false;
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
-        Options.getDefaults(BuildLanguageOptions.class),
+        options,
         UUID.randomUUID(),
         ImmutableMap.of(),
         QuiescingExecutorsImpl.forTesting(),

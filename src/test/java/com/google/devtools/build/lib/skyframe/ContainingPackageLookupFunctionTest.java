@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -57,6 +58,7 @@ import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -167,6 +169,22 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
             ImmutableMap::of,
             directories,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
+    skyFunctions.put(
+        SkyFunctions.REPOSITORY_MAPPING,
+        new SkyFunction() {
+          @Override
+          public SkyValue compute(SkyKey skyKey, Environment env) {
+            return RepositoryMappingValue.VALUE_FOR_ROOT_MODULE_WITHOUT_REPOS;
+          }
+        });
+    skyFunctions.put(
+        BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
+        new SkyFunction() {
+          @Override
+          public SkyValue compute(SkyKey skyKey, Environment env) {
+            return BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE;
+          }
+        });
 
     RecordingDifferencer differencer = new SequencedRecordingDifferencer();
     evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer);

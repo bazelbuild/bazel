@@ -55,7 +55,12 @@ public class TestConstants {
   /**
    * Default workspace name.
    */
-  public static final String WORKSPACE_NAME = "__main__";
+  public static final String WORKSPACE_NAME = "_main";
+
+  /**
+   * Legacy default workspace name.
+   */
+  public static final String LEGACY_WORKSPACE_NAME = "__main__";
 
   /**
    * Name of a class with an INSTANCE field of type AnalysisMock to be used for analysis tests.

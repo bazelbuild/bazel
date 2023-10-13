@@ -99,6 +99,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.producers.ConfiguredTargetAndDataProducer;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bugreport.BugReporter;
@@ -672,6 +673,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
               throw new IllegalStateException("supposed to be unused");
             });
     map.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction(externalPackageHelper));
+    // Inject an empty default BAZEL_DEP_GRAPH SkyFunction for Blaze, it'll be overridden by
+    // BazelRepositoryModule in Bazel
+    map.put(
+        SkyFunctions.BAZEL_DEP_GRAPH,
+        new SkyFunction() {
+          @Override
+          public SkyValue compute(SkyKey skyKey, Environment env) {
+            return BazelDepGraphValue.createEmptyDepGraph();
+          }
+        });
     map.put(
         BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
         new BzlmodRepoRuleFunction(ruleClassProvider, directories));

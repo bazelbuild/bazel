@@ -83,7 +83,6 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -110,7 +109,8 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
   private MemoizingEvaluator evaluator;
 
   @Before
-  public void createEnvironment() {
+  public void createEnvironment() throws Exception {
+    setBuildLanguageOptions("--noenable_bzlmod");
     AnalysisMock analysisMock = AnalysisMock.get();
     AtomicReference<PathPackageLocator> pkgLocator =
         new AtomicReference<>(
@@ -187,7 +187,7 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
     RecordingDifferencer differencer = new SequencedRecordingDifferencer();
     evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer);
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
-    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
+    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, getStarlarkSemantics());
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.empty());
   }

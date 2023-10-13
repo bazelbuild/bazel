@@ -60,6 +60,10 @@ public class RepositoryMappingFunction implements SkyFunction {
 
     if (enableBzlmod) {
       if (StarlarkBuiltinsValue.isBuiltinsRepo(repositoryName)) {
+        // If tools repo is not set, repo mapping for @_builtins should be always fallback.
+        if (ruleClassProvider.getToolsRepository() == null) {
+          return RepositoryMappingValue.createForWorkspaceRepo(RepositoryMapping.ALWAYS_FALLBACK);
+        }
         // Builtins .bzl files should use the repo mapping of @bazel_tools, to get access to repos
         // such as @platforms.
         RepositoryMappingValue bazelToolsMapping =

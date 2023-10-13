@@ -27,6 +27,10 @@ import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoSpecFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionEvalFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionUsagesFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
@@ -43,6 +47,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunctio
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.packages.PackageFactoryBuilderWithSkyframeForTesting;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -52,6 +57,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.mockito.Mockito;
@@ -69,6 +75,16 @@ public abstract class AnalysisMock extends LoadingMock {
     }
   }
 
+  public static AnalysisMock getAnalysisMockWithoutBuiltinModules() {
+    return new AnalysisMock.Delegate(AnalysisMock.get()) {
+      @Override
+      public ImmutableMap<String, NonRegistryOverride> getBuiltinModules(
+          BlazeDirectories directories) {
+        return ImmutableMap.of();
+      }
+    };
+  }
+
   @Override
   public String getProductName() {
     return TestConstants.PRODUCT_NAME;
@@ -82,7 +98,8 @@ public abstract class AnalysisMock extends LoadingMock {
   public PackageFactoryBuilderWithSkyframeForTesting getPackageFactoryBuilderForTesting(
       BlazeDirectories directories) {
     return super.getPackageFactoryBuilderForTesting(directories)
-        .setExtraSkyFunctions(getSkyFunctions(directories));
+        .setExtraSkyFunctions(getSkyFunctions(directories))
+        .setExtraPrecomputeValues(getPrecomputedValues());
   }
 
   /**
@@ -163,6 +180,39 @@ public abstract class AnalysisMock extends LoadingMock {
             SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE,
             new ClientEnvironmentFunction(new AtomicReference<>(ImmutableMap.of())))
         .buildOrThrow();
+  }
+
+  public ImmutableList<PrecomputedValue.Injected> getPrecomputedValues() {
+    // PrecomputedValues required by SkyFunctions in getSkyFunctions()
+    return ImmutableList.<PrecomputedValue.Injected>builder()
+        .add(PrecomputedValue.injected(PrecomputedValue.REPO_ENV, ImmutableMap.of()))
+        .add(PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()))
+        .add(
+            PrecomputedValue.injected(
+                RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()))
+        .add(
+            PrecomputedValue.injected(
+                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()))
+        .add(
+            PrecomputedValue.injected(
+                RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
+                RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY))
+        .add(PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, ImmutableList.of()))
+        .add(PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false))
+        .add(PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()))
+        .add(
+            PrecomputedValue.injected(
+                YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, ImmutableList.of()))
+        .add(
+            PrecomputedValue.injected(
+                BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
+                CheckDirectDepsMode.WARNING))
+        .add(
+            PrecomputedValue.injected(
+                BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
+                BazelCompatibilityMode.ERROR))
+        .add(PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE))
+        .build();
   }
 
   // Allow subclasses to add extra repository functions.

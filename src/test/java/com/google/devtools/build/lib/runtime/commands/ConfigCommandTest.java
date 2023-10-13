@@ -112,6 +112,8 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     params.addAll(TestConstants.PRODUCT_SPECIFIC_FLAGS);
     params.add("//test:buildme");
     params.add("--nobuild"); // Execution phase isn't necessary to collect configurations.
+    // TODO: Enable Bzlmod for this test
+    params.add("--noenable_bzlmod");
     Collections.addAll(params, args);
     dispatcher.exec(params, "my client", outErr);
   }
@@ -128,6 +130,8 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     params.addAll(TestConstants.PRODUCT_SPECIFIC_FLAGS);
     params.add("//test:buildme_with_transition");
     params.add("--nobuild"); // Execution phase isn't necessary to collect configurations.
+    // TODO: Enable Bzlmod for this test
+    params.add("--noenable_bzlmod");
     Collections.addAll(params, args);
     dispatcher.exec(params, "my client", outErr);
   }
@@ -140,6 +144,8 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   private RecordingOutErr callConfigCommand(String... args) throws Exception {
     List<String> params = Lists.newArrayList("config");
     params.add("--output=json");
+    // TODO: Enable Bzlmod for this test
+    params.add("--noenable_bzlmod");
     Collections.addAll(params, args);
     RecordingOutErr recordingOutErr = new RecordingOutErr();
     dispatcher.exec(params, "my client", recordingOutErr);

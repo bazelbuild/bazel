@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.WalkableGraphUtils.exists;
+import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -32,7 +33,6 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
@@ -47,7 +47,6 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.Options;
 import java.io.IOException;
-import java.util.Optional;
 import java.util.UUID;
 import org.junit.Before;
 import org.junit.Test;
@@ -70,6 +69,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
 
   @Before
   public void setUp() throws Exception {
+    AnalysisMock analysisMock = AnalysisMock.getAnalysisMockWithoutBuiltinModules();
     BlazeDirectories directories =
         new BlazeDirectories(
             new ServerDirectories(
@@ -78,11 +78,11 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
                 getScratch().dir("/user_root")),
             rootDirectory,
             /* defaultSystemJavabase= */ null,
-            AnalysisMock.get().getProductName());
-    ConfiguredRuleClassProvider ruleClassProvider = AnalysisMock.get().createRuleClassProvider();
+            analysisMock.getProductName());
+    ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
 
     PackageFactory pkgFactory =
-        AnalysisMock.get()
+        analysisMock
             .getPackageFactoryBuilderForTesting(directories)
             .build(ruleClassProvider, fileSystem);
     skyframeExecutor =
@@ -91,7 +91,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
             .setFileSystem(fileSystem)
             .setDirectories(directories)
             .setActionKeyContext(new ActionKeyContext())
-            .setExtraSkyFunctions(AnalysisMock.get().getSkyFunctions(directories))
+            .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .setSyscallCache(SyscallCache.NO_CACHE)
             .setIgnoredPackagePrefixesFunction(
                 new IgnoredPackagePrefixesFunction(
@@ -110,15 +110,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
         QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(null));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
-    skyframeExecutor.injectExtraPrecomputedValues(
-        ImmutableList.of(
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
-                RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY)));
+    skyframeExecutor.injectExtraPrecomputedValues(analysisMock.getPrecomputedValues());
     scratch.file(ADDITIONAL_IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING);
   }
 
@@ -217,7 +209,9 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
     EvaluationResult<SkyValue> evaluationResult =
         skyframeExecutor.getEvaluator().evaluate(singletonTargetPattern, evaluationContext);
     // The evaluation has no errors if success was expected.
-    assertThat(evaluationResult.hasError()).isFalse();
+    if (evaluationResult.hasError()) {
+      fail(evaluationResult.getError().toString());
+    }
     return Preconditions.checkNotNull(evaluationResult.getWalkableGraph());
   }
 

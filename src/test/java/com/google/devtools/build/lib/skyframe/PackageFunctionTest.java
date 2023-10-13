@@ -497,6 +497,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
             ImmutableMap.of(),
             QuiescingExecutorsImpl.forTesting(),
             tsgm);
+    getSkyframeExecutor().injectExtraPrecomputedValues(analysisMock.getPrecomputedValues());
     getSkyframeExecutor().setActionEnv(ImmutableMap.of());
     assertSrcs(validPackageWithoutErrors(skyKey), "foo", "//foo:a.config", "//foo:b.txt");
   }
