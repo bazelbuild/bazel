@@ -970,8 +970,10 @@ public final class Attribute implements Comparable<Attribute> {
       return this;
     }
 
-    public AspectsList.Builder getAspectsListBuilder() {
-      return aspectsListBuilder;
+    @CanIgnoreReturnValue
+    public Builder<TYPE> aspect(StarlarkAspect aspect) throws EvalException {
+      aspectsListBuilder.addAspect(aspect);
+      return this;
     }
 
     /**
