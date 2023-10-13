@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -34,21 +35,47 @@ import net.starlark.java.eval.Starlark;
  * declared in attribute aspects list. The class is responsible for wrapping the information
  * necessary for constructing those aspects.
  */
+// TODO(ilist@): Separate AspectListBuilder into AspectsList and Builder
 public final class AspectsListBuilder {
 
   private final HashMap<String, AspectDetails<?>> aspects = new LinkedHashMap<>();
 
   public AspectsListBuilder() {}
 
-  public AspectsListBuilder(ImmutableList<AspectDetails<?>> aspectsList) {
-    for (AspectDetails<?> aspect : aspectsList) {
+  public AspectsListBuilder(AspectsListBuilder aspectsList) {
+    for (AspectDetails<?> aspect : aspectsList.aspects.values()) {
       aspects.put(aspect.getName(), aspect);
     }
   }
 
-  /** Returns a list of the collected aspects details. */
-  public ImmutableList<AspectDetails<?>> getAspectsDetails() {
-    return ImmutableList.copyOf(aspects.values());
+  public boolean hasAspects() {
+    return !aspects.isEmpty();
+  }
+
+  /** Returns the list of aspects required for dependencies through this attribute. */
+  public ImmutableList<Aspect> getAspects(Rule rule) {
+    if (aspects.isEmpty()) {
+      return ImmutableList.of();
+    }
+    ImmutableList.Builder<Aspect> builder = null;
+    for (AspectDetails<?> aspect : aspects.values()) {
+      Aspect a = aspect.getAspect(rule);
+      if (a != null) {
+        if (builder == null) {
+          builder = ImmutableList.builder();
+        }
+        builder.add(a);
+      }
+    }
+    return builder == null ? ImmutableList.of() : builder.build();
+  }
+
+  public ImmutableList<AspectClass> getAspectClasses() {
+    ImmutableList.Builder<AspectClass> result = ImmutableList.builder();
+    for (AspectDetails<?> aspect : aspects.values()) {
+      result.add(aspect.getAspectClass());
+    }
+    return result.build();
   }
 
   /** Returns a list of Aspect objects for top level aspects. */
@@ -61,6 +88,36 @@ public final class AspectsListBuilder {
       aspectsList.add(aspect.getTopLevelAspect(aspectsParameters));
     }
     return aspectsList.build();
+  }
+
+  public void validateRulePropagatedAspectsParameters(RuleClass ruleClass) throws EvalException {
+    for (AspectDetails<?> aspect : aspects.values()) {
+      ImmutableSet<String> requiredAspectParameters = aspect.getRequiredParameters();
+      for (Attribute aspectAttribute : aspect.getAspectAttributes()) {
+        String aspectAttrName = aspectAttribute.getPublicName();
+        Type<?> aspectAttrType = aspectAttribute.getType();
+
+        // When propagated from a rule, explicit aspect attributes must be of type boolean, int
+        // or string. Integer and string attributes must have the `values` restriction.
+        if (!aspectAttribute.isImplicit() && !aspectAttribute.isLateBound()) {
+          if (aspectAttrType != Type.BOOLEAN && !aspectAttribute.checkAllowedValues()) {
+            throw Starlark.errorf(
+                "Aspect %s: Aspect parameter attribute '%s' must use the 'values' restriction.",
+                aspect.getName(), aspectAttrName);
+          }
+        }
+
+        // Required aspect parameters must be specified by the rule propagating the aspect with
+        // the same parameter type.
+        if (requiredAspectParameters.contains(aspectAttrName)) {
+          if (!ruleClass.hasAttr(aspectAttrName, aspectAttrType)) {
+            throw Starlark.errorf(
+                "Aspect %s requires rule %s to specify attribute '%s' with type %s.",
+                aspect.getName(), ruleClass.getName(), aspectAttrName, aspectAttrType);
+          }
+        }
+      }
+    }
   }
 
   /**
@@ -109,8 +166,25 @@ public final class AspectsListBuilder {
     return true;
   }
 
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    AspectsListBuilder aspectsListBuilder = (AspectsListBuilder) o;
+    return Objects.equals(aspects, aspectsListBuilder.aspects);
+  }
+
+  @Override
+  public int hashCode() {
+    return aspects.hashCode();
+  }
+
   /** Wraps the information necessary to construct an Aspect. */
-  public abstract static class AspectDetails<C extends AspectClass> {
+  private abstract static class AspectDetails<C extends AspectClass> {
     final C aspectClass;
     final Function<Rule, AspectParameters> parametersExtractor;
     final String requiredByAspect;

@@ -532,17 +532,6 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
         "load('myrule.bzl', 'my_rule')",
         "my_rule(name = 'foo', dep = '//default')");
 
-    ImmutableList<String> aspectClassAttributes =
-        getRuleContext(getConfiguredTarget("//subrule_testing:foo"))
-            .getRule()
-            .getRuleClassObject()
-            .getAttributeByName("dep")
-            .getAspectsDetails()
-            .get(0)
-            .getAspectAttributes()
-            .stream()
-            .map(Attribute::getName)
-            .collect(toImmutableList());
     ImmutableList<String> attributesVisibleToStarlark =
         Sequence.cast(
                 getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo")
@@ -557,7 +546,6 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
             "_foo",
             AttributeValueSource.DIRECT);
 
-    assertThat(aspectClassAttributes).contains(ruleAttrName);
     assertThat(attributesVisibleToStarlark).doesNotContain(ruleAttrName);
   }
 

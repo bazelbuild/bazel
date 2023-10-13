@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.AspectsListBuilder.AspectDetails;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
@@ -260,7 +259,7 @@ public final class Attribute implements Comparable<Attribute> {
     private final ImmutableSet<PropertyFlag> propertyFlags;
     private final PredicateWithMessage<Object> allowedValues;
     private final RequiredProviders requiredProviders;
-    private final ImmutableList<AspectDetails<?>> aspects;
+    private final AspectsListBuilder aspects;
     private final int hashCode;
 
     private ImmutableAttributeFactory(
@@ -277,7 +276,7 @@ public final class Attribute implements Comparable<Attribute> {
         boolean valueSet,
         PredicateWithMessage<Object> allowedValues,
         RequiredProviders requiredProviders,
-        ImmutableList<AspectDetails<?>> aspects) {
+        AspectsListBuilder aspects) {
       this.type = type;
       this.doc = doc;
       this.transitionFactory = transitionFactory;
@@ -1076,7 +1075,7 @@ public final class Attribute implements Comparable<Attribute> {
           valueSet,
           allowedValues,
           requiredProvidersBuilder.build(),
-          aspectsListBuilder.getAspectsDetails());
+          aspectsListBuilder);
     }
 
     /**
@@ -1817,7 +1816,7 @@ public final class Attribute implements Comparable<Attribute> {
 
   private final RequiredProviders requiredProviders;
 
-  private final ImmutableList<AspectDetails<?>> aspects;
+  private final AspectsListBuilder aspects;
 
   private final int hashCode;
 
@@ -1846,7 +1845,7 @@ public final class Attribute implements Comparable<Attribute> {
       ValidityPredicate validityPredicate,
       PredicateWithMessage<Object> allowedValues,
       RequiredProviders requiredProviders,
-      ImmutableList<AspectDetails<?>> aspects) {
+      AspectsListBuilder aspects) {
     Preconditions.checkArgument(
         NoTransition.isInstance(transitionFactory)
             || type.getLabelClass() == LabelClass.DEPENDENCY
@@ -2108,37 +2107,20 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   public boolean hasAspects() {
-    return !aspects.isEmpty();
+    return aspects.hasAspects();
   }
 
   /** Returns the list of aspects required for dependencies through this attribute. */
   public ImmutableList<Aspect> getAspects(Rule rule) {
-    if (aspects.isEmpty()) {
-      return ImmutableList.of();
-    }
-    ImmutableList.Builder<Aspect> builder = null;
-    for (AspectDetails<?> aspect : aspects) {
-      Aspect a = aspect.getAspect(rule);
-      if (a != null) {
-        if (builder == null) {
-          builder = ImmutableList.builder();
-        }
-        builder.add(a);
-      }
-    }
-    return builder == null ? ImmutableList.of() : builder.build();
+    return aspects.getAspects(rule);
   }
 
   public ImmutableList<AspectClass> getAspectClasses() {
-    ImmutableList.Builder<AspectClass> result = ImmutableList.builder();
-    for (AspectDetails<?> aspect : aspects) {
-      result.add(aspect.getAspectClass());
-    }
-    return result.build();
+    return aspects.getAspectClasses();
   }
 
-  public ImmutableList<AspectDetails<?>> getAspectsDetails() {
-    return aspects;
+  public void validateRulePropagatedAspectsParameters(RuleClass ruleClass) throws EvalException {
+    aspects.validateRulePropagatedAspectsParameters(ruleClass);
   }
 
   /**

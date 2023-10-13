@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AllowlistChecker;
-import com.google.devtools.build.lib.packages.AspectsListBuilder.AspectDetails;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
@@ -1037,33 +1036,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
     private static void validateRulePropagatedAspects(RuleClass ruleClass) throws EvalException {
       for (Attribute attribute : ruleClass.getAttributes()) {
-        for (AspectDetails<?> aspect : attribute.getAspectsDetails()) {
-          ImmutableSet<String> requiredAspectParameters = aspect.getRequiredParameters();
-          for (Attribute aspectAttribute : aspect.getAspectAttributes()) {
-            String aspectAttrName = aspectAttribute.getPublicName();
-            Type<?> aspectAttrType = aspectAttribute.getType();
-
-            // When propagated from a rule, explicit aspect attributes must be of type boolean, int
-            // or string. Integer and string attributes must have the `values` restriction.
-            if (!aspectAttribute.isImplicit() && !aspectAttribute.isLateBound()) {
-              if (aspectAttrType != Type.BOOLEAN && !aspectAttribute.checkAllowedValues()) {
-                throw Starlark.errorf(
-                    "Aspect %s: Aspect parameter attribute '%s' must use the 'values' restriction.",
-                    aspect.getName(), aspectAttrName);
-              }
-            }
-
-            // Required aspect parameters must be specified by the rule propagating the aspect with
-            // the same parameter type.
-            if (requiredAspectParameters.contains(aspectAttrName)) {
-              if (!ruleClass.hasAttr(aspectAttrName, aspectAttrType)) {
-                throw Starlark.errorf(
-                    "Aspect %s requires rule %s to specify attribute '%s' with type %s.",
-                    aspect.getName(), ruleClass.getName(), aspectAttrName, aspectAttrType);
-              }
-            }
-          }
-        }
+        attribute.validateRulePropagatedAspectsParameters(ruleClass);
       }
     }
 
