@@ -114,7 +114,7 @@ public final class PlatformUtils {
         for (Property property : platformBuilder.getPropertiesList()) {
           properties.put(property.getName(), property.getValue());
         }
-      } else if (!spawn.getExecutionPlatform().execProperties().isEmpty()) {
+      } else {
         properties.putAll(spawn.getExecutionPlatform().execProperties());
       }
     }
