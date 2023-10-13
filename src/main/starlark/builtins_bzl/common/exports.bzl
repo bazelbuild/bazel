@@ -104,4 +104,5 @@ exported_to_java = {
     "j2objc_mapping_file_info_union": objc_common.j2objc_mapping_file_info_union,
     "j2objc_entry_class_info_union": objc_common.j2objc_entry_class_info_union,
     "init_cc_compilation_context": cc_compilation_helper.init_cc_compilation_context,
+    "java_common": java_common,
 }

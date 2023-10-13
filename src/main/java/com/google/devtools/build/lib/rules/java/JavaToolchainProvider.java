@@ -124,7 +124,7 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
 
   /** Returns the target Java bootclasspath. */
   public BootClassPathInfo getBootclasspath() throws RuleErrorException {
-    return getUnderlyingValue("_bootclasspath_info", BootClassPathInfo.class);
+    return BootClassPathInfo.PROVIDER.wrap(getUnderlyingValue("_bootclasspath_info", Info.class));
   }
 
   /** Returns the {@link Artifact}s of compilation tools. */

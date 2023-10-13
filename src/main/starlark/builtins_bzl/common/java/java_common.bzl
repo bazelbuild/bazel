@@ -14,6 +14,7 @@
 
 """ Utilities for Java compilation support in Starlark. """
 
+load(":common/java/boot_class_path_info.bzl", "BootClassPathInfo")
 load(":common/java/java_common_internal_for_builtins.bzl", "compile", "run_ijar")
 load(":common/java/java_helper.bzl", "helper")
 load(
@@ -302,7 +303,7 @@ def _make_java_common():
         "JavaPluginInfo": JavaPluginInfo,
         "JavaToolchainInfo": JavaToolchainInfo,
         "JavaRuntimeInfo": JavaRuntimeInfo,
-        "BootClassPathInfo": _java_common_internal.BootClassPathInfo,
+        "BootClassPathInfo": BootClassPathInfo,
         "JavaRuntimeClasspathInfo": JavaRuntimeClasspathInfo,
     }
     if _java_common_internal._google_legacy_api_enabled():

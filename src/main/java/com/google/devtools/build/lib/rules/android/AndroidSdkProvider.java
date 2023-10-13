@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
@@ -384,7 +385,10 @@ public final class AndroidSdkProvider extends NativeInfo
         Object system,
         Object legacyMainDexListGenerator,
         Object dexdump)
-        throws EvalException {
+        throws EvalException, RuleErrorException {
+      Info systemInfo = fromNoneable(system, Info.class);
+      BootClassPathInfo bootClassPathInfo =
+          systemInfo == null ? null : BootClassPathInfo.PROVIDER.wrap(systemInfo);
       return new AndroidSdkProvider(
           buildToolsVersion,
           frameworkAidl,
@@ -403,7 +407,7 @@ public final class AndroidSdkProvider extends NativeInfo
           apkSigner,
           proguard,
           zipalign,
-          fromNoneable(system, BootClassPathInfo.class),
+          bootClassPathInfo,
           fromNoneable(legacyMainDexListGenerator, FilesToRunProvider.class),
           fromNoneable(dexdump, FilesToRunProvider.class));
     }

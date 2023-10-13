@@ -194,7 +194,7 @@ public interface AndroidSemantics {
             PrerequisiteArtifacts.nestedSet(ruleContext, "$desugar_java8_extra_bootclasspath"));
       }
       bootclasspath.add(androidSdkProvider.getAndroidJar());
-      bootClassPathInfo = BootClassPathInfo.create(bootclasspath.build());
+      bootClassPathInfo = BootClassPathInfo.create(ruleContext, bootclasspath.build());
     }
     return bootClassPathInfo;
   }

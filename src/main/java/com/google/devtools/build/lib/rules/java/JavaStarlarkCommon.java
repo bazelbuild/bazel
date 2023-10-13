@@ -126,7 +126,7 @@ public class JavaStarlarkCommon
       Sequence<?> sourceJars,
       Depset compileTimeClasspath,
       Depset directJars,
-      Object bootClassPath,
+      Object bootClassPathUnchecked,
       Depset compileTimeJavaDeps,
       Depset javacOpts,
       String strictDepsMode,
@@ -148,9 +148,12 @@ public class JavaStarlarkCommon
                 injectingRuleKind == Starlark.NONE ? null : (String) injectingRuleKind)
             .addPlugin(JavaPluginInfo.PROVIDER.wrap(pluginInfo))
             .addCompileTimeDependencyArtifacts(compileTimeJavaDeps.getSet(Artifact.class));
-    if (bootClassPath instanceof BootClassPathInfo
-        && !((BootClassPathInfo) bootClassPath).isEmpty()) {
-      attributesBuilder.setBootClassPath((BootClassPathInfo) bootClassPath);
+    if (bootClassPathUnchecked instanceof Info) {
+      BootClassPathInfo bootClassPathInfo =
+          BootClassPathInfo.PROVIDER.wrap((Info) bootClassPathUnchecked);
+      if (!bootClassPathInfo.isEmpty()) {
+        attributesBuilder.setBootClassPath(bootClassPathInfo);
+      }
     }
     JavaCompilationHelper compilationHelper =
         new JavaCompilationHelper(
@@ -174,7 +177,7 @@ public class JavaStarlarkCommon
       Info pluginInfo,
       Depset compileTimeClasspath,
       Depset directJars,
-      Object bootClassPath,
+      Object bootClassPathUnchecked,
       Depset compileTimeJavaDeps,
       Depset javacOpts,
       String strictDepsMode,
@@ -222,9 +225,12 @@ public class JavaStarlarkCommon
             .addPlugin(JavaPluginInfo.PROVIDER.wrap(pluginInfo))
             .addAdditionalOutputs(
                 Sequence.cast(additionalOutputs, Artifact.class, "additional_outputs"));
-    if (bootClassPath instanceof BootClassPathInfo
-        && !((BootClassPathInfo) bootClassPath).isEmpty()) {
-      attributesBuilder.setBootClassPath((BootClassPathInfo) bootClassPath);
+    if (bootClassPathUnchecked instanceof Info) {
+      BootClassPathInfo bootClassPathInfo =
+          BootClassPathInfo.PROVIDER.wrap((Info) bootClassPathUnchecked);
+      if (!bootClassPathInfo.isEmpty()) {
+        attributesBuilder.setBootClassPath(bootClassPathInfo);
+      }
     }
     for (Artifact resource : Sequence.cast(resources, Artifact.class, "resources")) {
       attributesBuilder.addResource(
@@ -277,7 +283,8 @@ public class JavaStarlarkCommon
 
   @Override
   public ProviderApi getBootClassPathInfo() {
-    return BootClassPathInfo.PROVIDER;
+    // method exists solely for documentation
+    throw new UnsupportedOperationException();
   }
 
   @Override

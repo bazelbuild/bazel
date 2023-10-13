@@ -16,6 +16,7 @@
 Definition of java_toolchain rule and JavaToolchainInfo provider.
 """
 
+load(":common/java/boot_class_path_info.bzl", "BootClassPathInfo")
 load(":common/java/java_helper.bzl", "helper")
 load(":common/java/java_info.bzl", "JavaPluginDataInfo")
 load(":common/java/java_package_configuration.bzl", "JavaPackageConfigurationInfo")
@@ -23,7 +24,6 @@ load(":common/java/java_runtime.bzl", "JavaRuntimeInfo")
 load(":common/java/java_semantics.bzl", "semantics")
 
 _java_common_internal = _builtins.internal.java_common_internal_do_not_use
-BootClassPathInfo = _java_common_internal.BootClassPathInfo
 ToolchainInfo = _builtins.toplevel.platform_common.ToolchainInfo
 PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
 

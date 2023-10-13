@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FilesToRunProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
@@ -308,6 +309,6 @@ public interface AndroidSdkProviderApi<
         Object system,
         Object legacyMainDexListGenerator,
         Object dexdump)
-        throws EvalException;
+        throws EvalException, RuleErrorException;
   }
 }
