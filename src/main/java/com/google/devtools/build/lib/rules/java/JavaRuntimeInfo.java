@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -37,12 +36,11 @@ import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 
 /** Information about the Java runtime used by the <code>java_*</code> rules. */
 @Immutable
-public final class JavaRuntimeInfo {
+public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
 
   public static final StarlarkProviderWrapper<JavaRuntimeInfo> PROVIDER = new Provider();
 
@@ -88,10 +86,8 @@ public final class JavaRuntimeInfo {
     return null;
   }
 
-  private final StarlarkInfo underlying;
-
   private JavaRuntimeInfo(StarlarkInfo underlying) {
-    this.underlying = underlying;
+    super(underlying);
   }
 
   /** All input artifacts in the javabase. */
@@ -127,36 +123,6 @@ public final class JavaRuntimeInfo {
 
   public int version() throws RuleErrorException {
     return getUnderlyingValue("version", Integer.class);
-  }
-
-  private <T> T getUnderlyingValue(String key, Class<T> type) throws RuleErrorException {
-    if (underlying.getValue(key) == Starlark.NONE) {
-      return null;
-    } else {
-      try {
-        return underlying.getValue(key, type);
-      } catch (EvalException e) {
-        throw new RuleErrorException(e);
-      }
-    }
-  }
-
-  private <T> NestedSet<T> getUnderlyingNestedSet(String key, Class<T> type)
-      throws RuleErrorException {
-    try {
-      return Depset.noneableCast(underlying.getValue(key), type, key);
-    } catch (EvalException e) {
-      throw new RuleErrorException(e);
-    }
-  }
-
-  private <T> Sequence<T> getUnderlyingSequence(String key, Class<T> type)
-      throws RuleErrorException {
-    try {
-      return Sequence.noneableCast(underlying.getValue(key), type, key);
-    } catch (EvalException e) {
-      throw new RuleErrorException(e);
-    }
   }
 
   private static class Provider extends StarlarkProviderWrapper<JavaRuntimeInfo> {

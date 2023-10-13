@@ -105,6 +105,7 @@ java_library(
         "OneVersionCheckActionBuilder.java",
         "ResourceJarActionBuilder.java",
         "SingleJarActionBuilder.java",
+        "StarlarkInfoWrapper.java",
         "WriteBuildInfoPropertiesAction.java",
         "proto/GeneratedExtensionRegistryProvider.java",
     ],

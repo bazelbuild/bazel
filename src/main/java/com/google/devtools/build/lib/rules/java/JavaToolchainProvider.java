@@ -49,14 +49,12 @@ import net.starlark.java.eval.StarlarkValue;
 
 /** Information about the JDK used by the <code>java_*</code> rules. */
 @Immutable
-public final class JavaToolchainProvider {
+public final class JavaToolchainProvider extends StarlarkInfoWrapper {
 
   public static final StarlarkProviderWrapper<JavaToolchainProvider> PROVIDER = new Provider();
 
-  private final StarlarkInfo underlying;
-
   private JavaToolchainProvider(StarlarkInfo underlying) {
-    this.underlying = underlying;
+    super(underlying);
   }
 
   @Override
@@ -335,36 +333,6 @@ public final class JavaToolchainProvider {
 
   public JavaRuntimeInfo getJavaRuntime() throws RuleErrorException {
     return JavaRuntimeInfo.PROVIDER.wrap(getUnderlyingValue("java_runtime", Info.class));
-  }
-
-  private <T> T getUnderlyingValue(String key, Class<T> type) throws RuleErrorException {
-    if (underlying.getValue(key) == Starlark.NONE) {
-      return null;
-    } else {
-      try {
-        return underlying.getValue(key, type);
-      } catch (EvalException e) {
-        throw new RuleErrorException(e);
-      }
-    }
-  }
-
-  private <T> NestedSet<T> getUnderlyingNestedSet(String key, Class<T> type)
-      throws RuleErrorException {
-    try {
-      return Depset.noneableCast(underlying.getValue(key), type, key);
-    } catch (EvalException e) {
-      throw new RuleErrorException(e);
-    }
-  }
-
-  private <T> Sequence<T> getUnderlyingSequence(String key, Class<T> type)
-      throws RuleErrorException {
-    try {
-      return Sequence.noneableCast(underlying.getValue(key), type, key);
-    } catch (EvalException e) {
-      throw new RuleErrorException(e);
-    }
   }
 
   @AutoValue
