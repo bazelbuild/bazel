@@ -95,7 +95,6 @@ public final class PlatformUtils {
         properties = spawn.getCombinedExecProperties();
       }
     } else if (spawn.getExecutionPlatform() != null) {
-      properties = new HashMap<>();
       String remoteExecutionProperties = spawn.getExecutionPlatform().remoteExecutionProperties();
       if (!remoteExecutionProperties.isEmpty()) {
         Platform.Builder platformBuilder = Platform.newBuilder();
