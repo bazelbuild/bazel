@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileProviderApi;
@@ -404,7 +405,7 @@ public interface AndroidDataProcessingApi<
       Sequence<?> deps, // <AndroidResourcesInfoT>
       boolean neverlink,
       boolean enableDataBinding)
-      throws EvalException, InterruptedException;
+      throws EvalException, InterruptedException, RuleErrorException;
 
   @StarlarkMethod(
       name = "make_aar",
@@ -504,7 +505,7 @@ public interface AndroidDataProcessingApi<
       SpecialFileT assets,
       FileT androidManifest,
       Sequence<?> deps /* <TransitiveInfoCollectionT> */)
-      throws InterruptedException, EvalException;
+      throws InterruptedException, EvalException, RuleErrorException;
 
   @StarlarkMethod(
       name = "process_local_test_data",

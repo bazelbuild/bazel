@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
@@ -199,7 +200,7 @@ public class JavaTargetAttributes {
      * instance overrides the default bootclasspath.
      */
     @CanIgnoreReturnValue
-    public Builder setBootClassPath(BootClassPathInfo bootClassPath) {
+    public Builder setBootClassPath(BootClassPathInfo bootClassPath) throws RuleErrorException {
       Preconditions.checkArgument(!built);
       Preconditions.checkArgument(!bootClassPath.isEmpty());
       Preconditions.checkState(this.bootClassPath.isEmpty());

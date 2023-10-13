@@ -141,7 +141,7 @@ public abstract class JavaCompilationInfoProvider
       return this;
     }
 
-    public JavaCompilationInfoProvider build() {
+    public JavaCompilationInfoProvider build() throws RuleErrorException {
       return new AutoValue_JavaCompilationInfoProvider(
           JavaCompilationHelper.internJavacOpts(javacOpts),
           runtimeClasspath,

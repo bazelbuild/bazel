@@ -285,7 +285,8 @@ public final class JavaCompileActionBuilder {
     return result.build();
   }
 
-  private CustomCommandLine buildParamFileContents(ImmutableList<String> javacOpts) {
+  private CustomCommandLine buildParamFileContents(ImmutableList<String> javacOpts)
+      throws RuleErrorException {
 
     CustomCommandLine.Builder result = CustomCommandLine.builder();
 

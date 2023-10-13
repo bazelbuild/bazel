@@ -183,7 +183,7 @@ public abstract class AndroidStarlarkData
       Sequence<?> deps, // <AndroidResourcesInfo>
       boolean neverlink,
       boolean enableDataBinding)
-      throws EvalException, InterruptedException {
+      throws EvalException, InterruptedException, RuleErrorException {
     ValidatedAndroidResources validated =
         mergeRes(
             ctx, manifest, resources, deps, StarlarkList.empty(), neverlink, enableDataBinding);
@@ -256,7 +256,7 @@ public abstract class AndroidStarlarkData
       SpecialArtifact assets,
       Artifact androidManifestArtifact,
       Sequence<?> deps) // <ConfiguredTarget>
-      throws InterruptedException, EvalException {
+      throws InterruptedException, EvalException, RuleErrorException {
     List<ConfiguredTarget> depsTargets = Sequence.cast(deps, ConfiguredTarget.class, "deps");
 
     ValidatedAndroidResources validatedResources =
@@ -554,7 +554,8 @@ public abstract class AndroidStarlarkData
     return binaryDataInfo;
   }
 
-  public static Dict<Provider, StructApi> getNativeInfosFrom(ResourceApk resourceApk, Label label) {
+  public static Dict<Provider, StructApi> getNativeInfosFrom(ResourceApk resourceApk, Label label)
+      throws RuleErrorException {
     Dict.Builder<Provider, StructApi> builder = Dict.builder();
 
     builder
@@ -571,7 +572,8 @@ public abstract class AndroidStarlarkData
     return builder.buildImmutable();
   }
 
-  private static JavaInfo getJavaInfoForRClassJar(Artifact rClassJar, Artifact rClassSrcJar) {
+  private static JavaInfo getJavaInfoForRClassJar(Artifact rClassJar, Artifact rClassSrcJar)
+      throws RuleErrorException {
     return JavaInfo.Builder.create()
         .setNeverlink(true)
         .javaSourceJars(JavaSourceJarsProvider.builder().addSourceJar(rClassSrcJar).build())

@@ -182,7 +182,7 @@ public interface AndroidSemantics {
   }
 
   default BootClassPathInfo getBootClassPathInfo(RuleContext ruleContext)
-      throws RuleErrorException {
+      throws RuleErrorException, InterruptedException {
     BootClassPathInfo bootClassPathInfo;
     AndroidSdkProvider androidSdkProvider = AndroidSdkProvider.fromRuleContext(ruleContext);
     if (androidSdkProvider.getSystem() != null) {

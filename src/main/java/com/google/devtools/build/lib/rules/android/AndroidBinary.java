@@ -2106,7 +2106,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       RuleContext ruleContext,
       AndroidCommon common,
       AndroidSemantics semantics,
-      JavaTargetAttributes attributes) {
+      JavaTargetAttributes attributes)
+      throws RuleErrorException {
     if (!AndroidCommon.getAndroidConfig(ruleContext).desugarJava8()) {
       return Functions.identity();
     }
