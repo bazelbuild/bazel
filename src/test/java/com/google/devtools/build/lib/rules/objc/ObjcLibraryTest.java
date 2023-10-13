@@ -408,8 +408,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     checkError(
         "x",
         "x",
-        "non_arc_srcs attribute of objc_library rule @//x:x: source file '@//x:cc.cc' is misplaced"
-            + " here",
+        "non_arc_srcs attribute of objc_library rule @@//x:x: source file '@@//x:cc.cc' is"
+            + " misplaced here",
         "objc_library(name = 'x', non_arc_srcs = ['cc.cc'])");
   }
 

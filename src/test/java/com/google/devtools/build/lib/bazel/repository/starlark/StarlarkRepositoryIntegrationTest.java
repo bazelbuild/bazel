@@ -19,33 +19,19 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
-import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.Mockito;
 
 /** Integration test for Starlark repository not as heavyweight than shell integration tests. */
 @RunWith(JUnit4.class)
@@ -53,45 +39,6 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
 
   // The RuleClassProvider loaded with the StarlarkRepositoryModule
   private ConfiguredRuleClassProvider ruleProvider = null;
-
-  /**
-   * Proxy to the real analysis mock to overwrite {@code #getSkyFunctions(BlazeDirectories)} to
-   * inject the StarlarkRepositoryFunction in the list of SkyFunctions. In Bazel, this function is
-   * injected by the corresponding {@code BlazeModule}.
-   */
-  private static class CustomAnalysisMock extends AnalysisMock.Delegate {
-    CustomAnalysisMock(AnalysisMock proxied) {
-      super(proxied);
-    }
-
-    @Override
-    public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(
-        BlazeDirectories directories) {
-      // Add both the local repository and the Starlark repository functions
-      // The RepositoryCache mock injected with the StarlarkRepositoryFunction
-      DownloadManager downloader = Mockito.mock(DownloadManager.class);
-      RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
-      StarlarkRepositoryFunction starlarkRepositoryFunction =
-          new StarlarkRepositoryFunction(downloader);
-      ImmutableMap<String, RepositoryFunction> repositoryHandlers =
-          ImmutableMap.of(LocalRepositoryRule.NAME, localRepositoryFunction);
-
-      RepositoryDelegatorFunction function =
-          new RepositoryDelegatorFunction(
-              repositoryHandlers,
-              starlarkRepositoryFunction,
-              new AtomicBoolean(true),
-              ImmutableMap::of,
-              directories,
-              BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
-      return ImmutableMap.of(SkyFunctions.REPOSITORY_DIRECTORY, function);
-    }
-  }
-
-  @Override
-  protected AnalysisMock getAnalysisMock() {
-    return new CustomAnalysisMock(super.getAnalysisMock());
-  }
 
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
@@ -409,14 +356,13 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
         rootDirectory.getRelative("WORKSPACE").getPathString(),
         new ImmutableList.Builder<String>()
             .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
-            .add("workspace(name='bleh')")
             .add("load('//:def.bzl', 'macro')")
             .build());
     scratch.file("data.txt");
     scratch.file("BUILD", "filegroup(", "  name='files', ", "  srcs=['data.txt'])");
     invalidatePackages();
     assertThat(getRuleContext(getConfiguredTarget("//:files")).getWorkspaceName())
-        .isEqualTo("bleh");
+        .isEqualTo(ruleClassProvider.getRunfilesPrefix());
   }
 
   @Test

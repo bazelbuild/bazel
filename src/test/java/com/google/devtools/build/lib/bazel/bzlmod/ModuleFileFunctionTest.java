@@ -177,7 +177,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
   @Test
   public void testRootModule() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(",
         "    name='aaa',",
@@ -237,7 +237,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
   @Test
   public void testRootModule_noModuleFunctionIsOkay() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "bazel_dep(name='bbb',version='1.0')");
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
@@ -262,7 +262,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
   @Test
   public void testRootModule_badSelfOverride() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='aaa')",
         "single_version_override(module_name='aaa',version='7')");
@@ -283,7 +283,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             "bazel_tools",
             LocalPathOverride.create(
                 rootDirectory.getRelative("bazel_tools_original").getPathString())));
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='aaa')",
         "local_path_override(module_name='bazel_tools',path='./bazel_tools_new')");
@@ -352,15 +352,15 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   public void testLocalPathOverride() throws Exception {
     // There is an override for B to use the local path "code_for_b", so we shouldn't even be
     // looking at the registry.
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='aaa',version='0.1')",
         "local_path_override(module_name='bbb',path='code_for_b')");
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("code_for_b/MODULE.bazel").getPathString(),
         "module(name='bbb',version='1.0')",
         "bazel_dep(name='ccc',version='2.0')");
-    scratch.file(rootDirectory.getRelative("code_for_b/WORKSPACE").getPathString());
+    scratch.overwriteFile(rootDirectory.getRelative("code_for_b/WORKSPACE").getPathString());
     FakeRegistry registry =
         registryFactory
             .newFakeRegistry("/foo")
@@ -388,7 +388,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
   @Test
   public void testCommandLineModuleOverrides() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='aaa',version='0.1')",
         "bazel_dep(name = \"bbb\", version = \"1.0\")",
@@ -396,15 +396,15 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
     // Command line override has the priority. Thus, "used_override" with dependency on 'ccc'
     // should be selected.
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("ignored_override/MODULE.bazel").getPathString(),
         "module(name='bbb',version='1.0')");
-    scratch.file(rootDirectory.getRelative("ignored_override/WORKSPACE").getPathString());
-    scratch.file(
+    scratch.overwriteFile(rootDirectory.getRelative("ignored_override/WORKSPACE").getPathString());
+    scratch.overwriteFile(
         rootDirectory.getRelative("used_override/MODULE.bazel").getPathString(),
         "module(name='bbb',version='1.0')",
         "bazel_dep(name='ccc',version='2.0')");
-    scratch.file(rootDirectory.getRelative("used_override/WORKSPACE").getPathString());
+    scratch.overwriteFile(rootDirectory.getRelative("used_override/WORKSPACE").getPathString());
 
     // ModuleFileFuncion.MODULE_OVERRIDES should be filled from command line options
     // Inject for testing
@@ -624,7 +624,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
   @Test
   public void testModuleExtensions_duplicateProxy_asRoot() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "myext1 = use_extension('//:defs.bzl','myext',dev_dependency=True)",
         "myext1.tag(name = 'tag1')",
@@ -836,7 +836,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
   @Test
   public void testModuleExtensions_innate() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "repo = use_repo_rule('//:repo.bzl','repo')",
         "repo(name='repo_name', value='something')",
@@ -914,7 +914,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
   @Test
   public void testModuleFileExecute_syntaxError() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='aaa',version='0.1',compatibility_level=4)",
         "foo()");
@@ -926,7 +926,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
   @Test
   public void testModuleFileExecute_evalError() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='aaa',version='0.1',compatibility_level=\"4\")");
 
@@ -953,7 +953,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
   @Test
   public void badModuleName_module() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='f.',version='0.1')");
 
@@ -965,7 +965,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
   @Test
   public void badModuleName_bazelDep() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "bazel_dep(name='f.',version='0.1')");
 
@@ -977,7 +977,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
   @Test
   public void badRepoName_module() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='foo',version='0.1',repo_name='_foo')");
 
@@ -989,7 +989,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
   @Test
   public void badRepoName_bazelDep() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "bazel_dep(name='foo',version='0.1',repo_name='_foo')");
 
@@ -1001,7 +1001,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
   @Test
   public void badRepoName_useRepo() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "ext=use_extension('//:hello.bzl', 'ext')",
         "use_repo(ext, foo='_foo')");
@@ -1014,7 +1014,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
   @Test
   public void badRepoName_useRepo_assignedName() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "ext=use_extension('//:hello.bzl', 'ext')",
         "use_repo(ext, _foo='foo')");
@@ -1034,7 +1034,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             "local_config_platform",
             LocalPathOverride.create("/local_config_platform"));
     setUpWithBuiltinModules(builtinModules);
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "bazel_dep(name='foo',version='1.0')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of());
@@ -1065,11 +1065,11 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             "local_config_platform",
             LocalPathOverride.create("/local_config_platform"));
     setUpWithBuiltinModules(builtinModules);
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "bazel_dep(name='foo',version='1.0')");
-    scratch.file(rootDirectory.getRelative("tools/WORKSPACE").getPathString());
-    scratch.file(
+    scratch.overwriteFile(rootDirectory.getRelative("tools/WORKSPACE").getPathString());
+    scratch.overwriteFile(
         rootDirectory.getRelative("tools/MODULE.bazel").getPathString(),
         "module(name='bazel_tools',version='1.0')",
         "bazel_dep(name='foo',version='2.0')");
@@ -1094,7 +1094,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
   @Test
   public void moduleRepoName() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='aaa',version='0.1',repo_name='bbb')");
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
@@ -1117,7 +1117,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
   @Test
   public void moduleRepoName_conflict() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='aaa',version='0.1',repo_name='bbb')",
         "bazel_dep(name='bbb',version='1.0')");
@@ -1132,7 +1132,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
   @Test
   public void module_calledTwice() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='aaa',version='0.1',repo_name='bbb')",
         "module(name='aaa',version='0.1',repo_name='bbb')");
@@ -1147,7 +1147,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
   @Test
   public void module_calledLate() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "use_extension('//:extensions.bzl', 'my_ext')",
         "module(name='aaa',version='0.1',repo_name='bbb')");
@@ -1162,7 +1162,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
   @Test
   public void restrictedSyntax() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "if 3+5>7: module(name='aaa',version='0.1',repo_name='bbb')");
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
@@ -1185,7 +1185,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             .setBool(BuildLanguageOptions.EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, true)
             .build());
 
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "isolated_ext = use_extension('//:extensions.bzl', 'my_ext', isolate = True)");
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
@@ -1212,7 +1212,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             .setBool(BuildLanguageOptions.EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, true)
             .build());
 
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "use_extension('//:extensions.bzl', 'my_ext', isolate = True)");
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
@@ -1227,7 +1227,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
   @Test
   public void isolatedUsage_notEnabled() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "use_extension('//:extensions.bzl', 'my_ext', isolate = True)");
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");

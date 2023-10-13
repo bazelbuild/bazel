@@ -617,7 +617,7 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         "settings_under_test = {",
         "  '//command_line_option:cpu': 'armeabi-v7a',",
         "  '//command_line_option:compilation_mode': 'dbg',",
-        "  '//command_line_option:crosstool_top': '@//android/crosstool:everything',",
+        "  '//command_line_option:crosstool_top': '@@//android/crosstool:everything',",
         "  '//command_line_option:platform_suffix': 'my-platform-suffix',",
         "}",
         "def set_options_transition_func(settings, attr):",

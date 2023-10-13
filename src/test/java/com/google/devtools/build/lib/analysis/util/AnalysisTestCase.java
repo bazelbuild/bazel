@@ -195,7 +195,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             analysisMock.getProductName());
     workspaceStatusActionFactory = new AnalysisTestUtil.DummyWorkspaceStatusActionFactory();
 
-    scratch.file(rootDirectory.getRelative("MODULE.bazel").getPathString(), "");
     moduleRoot = scratch.dir("modules");
     registry = FakeRegistry.DEFAULT_FACTORY.newFakeRegistry(moduleRoot.getPathString());
 

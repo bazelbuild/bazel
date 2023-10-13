@@ -1203,7 +1203,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//notallowed:test");
 
-    assertContainsEvent("proto_library '@//x:foo' can't be reexported in package '//notallowed'");
+    assertContainsEvent("proto_library '@@//x:foo' can't be reexported in package '//notallowed'");
   }
 
   @Test
@@ -1222,6 +1222,6 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//notallowed:test");
 
-    assertContainsEvent("proto_library '@//x:foo' can't be reexported in package '//notallowed'");
+    assertContainsEvent("proto_library '@@//x:foo' can't be reexported in package '//notallowed'");
   }
 }

@@ -715,7 +715,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "badlib",
         "lib_with_dash_static",
         // message:
-        "in linkopts attribute of cc_library rule @//badlib:lib_with_dash_static: "
+        "in linkopts attribute of cc_library rule @@//badlib:lib_with_dash_static: "
             + "Apple builds do not support statically linked binaries",
         // build file:
         "cc_library(name = 'lib_with_dash_static',",

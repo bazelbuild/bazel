@@ -153,10 +153,6 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
 
   @Test
   public void createValue_basic() throws Exception {
-    scratch.file(
-        rootDirectory.getRelative("MODULE.bazel").getPathString(),
-        "module(name='my_root', version='1.0')");
-
     // Root depends on dep@1.0 and dep@2.0 at the same time with a multiple-version override.
     // Root also depends on rules_cc as a normal dep.
     // dep@1.0 depends on rules_java, which is overridden by a non-registry override (see below).
@@ -227,10 +223,6 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
 
   @Test
   public void createValue_moduleExtensions() throws Exception {
-    scratch.file(
-        rootDirectory.getRelative("MODULE.bazel").getPathString(),
-        "module(name='my_root', version='1.0')");
-
     Module root =
         buildModule("root", "1.0")
             .setKey(ModuleKey.ROOT)
@@ -329,10 +321,6 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
 
   @Test
   public void useExtensionBadLabelFails() throws Exception {
-    scratch.file(
-        rootDirectory.getRelative("MODULE.bazel").getPathString(),
-        "module(name='module', version='1.0')");
-
     Module root =
         buildModule("module", "1.0")
             .addExtensionUsage(createModuleExtensionUsage("@foo//:defs.bzl", "bar"))

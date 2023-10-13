@@ -19,27 +19,15 @@ import static com.google.common.truth.Truth8.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.BinaryFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil;
-import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
@@ -58,7 +46,6 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Rule
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.StarlarkFunctionInfo;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.TextFormat;
-import java.io.IOException;
 import java.util.NoSuchElementException;
 import org.junit.Before;
 import org.junit.Test;
@@ -67,31 +54,6 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public final class StarlarkDocExtractTest extends BuildViewTestCase {
-  private Path moduleRoot; // initialized by extraPrecomputedValues
-  private FakeRegistry registry;
-
-  @Override
-  protected ImmutableList<Injected> extraPrecomputedValues() {
-    // TODO(b/285924565): support --enable_bzlmod in BuildViewTestCase tests without needing the
-    // boilerplate below.
-    try {
-      moduleRoot = scratch.dir("modules");
-    } catch (IOException e) {
-      throw new IllegalStateException(e);
-    }
-    registry = FakeRegistry.DEFAULT_FACTORY.newFakeRegistry(moduleRoot.getPathString());
-    return ImmutableList.of(
-        PrecomputedValue.injected(
-            ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
-        PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
-        PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
-        PrecomputedValue.injected(YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
-        PrecomputedValue.injected(
-            BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING),
-        PrecomputedValue.injected(
-            BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE, BazelCompatibilityMode.ERROR),
-        PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE));
-  }
 
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
@@ -388,7 +350,6 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
   @Test
   public void originKeyFileAndModuleInfoFileLabels_forBzlFileInBzlmodModule_areDisplayForm()
       throws Exception {
-    setBuildLanguageOptions("--enable_bzlmod");
     scratch.overwriteFile("MODULE.bazel", "bazel_dep(name='origin_repo', version='0.1')");
     registry.addModule(
         BzlmodTestUtil.createModuleKey("origin_repo", "0.1"),
@@ -434,6 +395,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         "    src = 'renamer.bzl',",
         "    deps = ['origin_bzl'],",
         ")");
+    invalidatePackages();
 
     // verify that ModuleInfo.name for a .bzl file in another bzlmod module is in display form, i.e.
     // "@origin_repo//:origin.bzl" as opposed to "@@origin_repo~0.1//:origin.bzl"
@@ -964,7 +926,6 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
 
   @Test
   public void repoName_inMainBzlmodModule() throws Exception {
-    setBuildLanguageOptions("--enable_bzlmod");
     scratch.overwriteFile(
         "MODULE.bazel", //
         "module(name = 'my_module', repo_name = 'legacy_internal_repo_name')");
@@ -989,6 +950,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         "    name = 'without_main_repo_name',",
         "    src = 'foo.bzl',",
         ")");
+    invalidatePackages();
 
     ModuleInfo withMainRepoName = protoFromConfiguredTarget("//:with_main_repo_name");
     assertThat(withMainRepoName.getFile()).isEqualTo("@my_module//:foo.bzl");
@@ -1010,6 +972,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
 
   @Test
   public void repoName_inMainWorkspaceRepo() throws Exception {
+    setBuildLanguageOptions("--noenable_bzlmod");
     rewriteWorkspace("workspace(name = 'my_repo')");
     scratch.file(
         "foo.bzl", //
@@ -1053,7 +1016,6 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
 
   @Test
   public void repoName_inBzlmodDep() throws Exception {
-    setBuildLanguageOptions("--enable_bzlmod");
     scratch.overwriteFile(
         "MODULE.bazel", "module(name = 'my_module')", "bazel_dep(name='dep_mod', version='0.1')");
     registry.addModule(
@@ -1074,6 +1036,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         "    name = 'extract',",
         "    src = 'foo.bzl',",
         ")");
+    invalidatePackages();
 
     ModuleInfo moduleInfo = protoFromConfiguredTarget("@dep_mod~0.1//:extract");
     assertThat(moduleInfo.getFile()).isEqualTo("@dep_mod//:foo.bzl");

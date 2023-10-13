@@ -234,7 +234,9 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                     SkyFunctions.IGNORED_PACKAGE_PREFIXES,
                     new IgnoredPackagePrefixesFunction(
                         /* ignoredPackagePrefixesFile= */ PathFragment.EMPTY_FRAGMENT))
-                .put(SkyFunctions.REPOSITORY_MAPPING, new RepositoryMappingFunction())
+                .put(
+                    SkyFunctions.REPOSITORY_MAPPING,
+                    new RepositoryMappingFunction(ruleClassProvider))
                 .put(
                     SkyFunctions.EXTERNAL_PACKAGE,
                     new ExternalPackageFunction(

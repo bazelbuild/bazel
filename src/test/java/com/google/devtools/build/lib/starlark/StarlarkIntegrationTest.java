@@ -116,7 +116,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     checkError(
         "test/starlark",
         "the_rule",
-        "no such package '@r//': The repository '@r' could not be resolved",
+        "No repository visible as '@r'",
         "load('//test/starlark:extension.bzl', 'my_rule')",
         "",
         "my_rule(name='the_rule')");
@@ -1576,7 +1576,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
     getConfiguredTarget("//test/starlark:cr");
     assertContainsEvent("output function cr");
-    assertContainsEvent("implementation @//test/starlark:cr");
+    assertContainsEvent("implementation @@//test/starlark:cr");
   }
 
   @Test

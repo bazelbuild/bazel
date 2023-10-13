@@ -106,7 +106,14 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.analysis.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -226,6 +233,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected BlazeDirectories directories;
   protected ActionKeyContext actionKeyContext;
 
+  protected Path moduleRoot;
+  protected FakeRegistry registry;
+
   // Note that these configurations are virtual (they use only VFS)
   protected BuildConfigurationValue targetConfig; // "target" or "build" config
   protected BuildConfigurationValue execConfig;
@@ -273,6 +283,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             rootDirectory,
             /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
+    moduleRoot = scratch.dir("modules");
+    registry = FakeRegistry.DEFAULT_FACTORY.newFakeRegistry(moduleRoot.getPathString());
 
     actionKeyContext = new ActionKeyContext();
     mockToolsConfig = new MockToolsConfig(rootDirectory, false);
@@ -287,9 +299,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     getOutputPath().createDirectoryAndParents();
     ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues =
         ImmutableList.<PrecomputedValue.Injected>builder()
-            .add(
-                PrecomputedValue.injected(
-                    PrecomputedValue.STARLARK_SEMANTICS, StarlarkSemantics.DEFAULT))
             .add(PrecomputedValue.injected(PrecomputedValue.REPO_ENV, ImmutableMap.of()))
             .add(PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()))
             .add(
@@ -307,6 +316,24 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
                 PrecomputedValue.injected(
                     BuildInfoCollectionFunction.BUILD_INFO_FACTORIES,
                     ruleClassProvider.getBuildInfoFactoriesAsMap()))
+            .add(
+                PrecomputedValue.injected(
+                    ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())))
+            .add(PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false))
+            .add(PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()))
+            .add(
+                PrecomputedValue.injected(
+                    YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, ImmutableList.of()))
+            .add(
+                PrecomputedValue.injected(
+                    BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
+                    CheckDirectDepsMode.WARNING))
+            .add(
+                PrecomputedValue.injected(
+                    BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
+                    BazelCompatibilityMode.ERROR))
+            .add(
+                PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE))
             .addAll(extraPrecomputedValues())
             .build();
     PackageFactory.BuilderForTesting pkgFactoryBuilder =
@@ -557,6 +584,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     if (!analysisMock.isThisBazel()) {
       parser.parse("--experimental_google_legacy_api"); // For starlark java_binary;
     }
+    parser.parse("--enable_bzlmod");
     parser.parse(options);
     return parser.getOptions(BuildLanguageOptions.class);
   }

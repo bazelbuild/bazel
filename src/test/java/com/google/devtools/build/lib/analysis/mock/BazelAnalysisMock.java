@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.mock;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
@@ -46,6 +47,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 /** Subclass of {@link AnalysisMock} using Bazel-specific semantics. */
 public final class BazelAnalysisMock extends AnalysisMock {
@@ -126,13 +128,16 @@ public final class BazelAnalysisMock extends AnalysisMock {
   @Override
   public void setupMockClient(MockToolsConfig config, List<String> workspaceContents)
       throws IOException {
+    config.create("local_config_xcode_workspace/WORKSPACE");
     config.create("local_config_xcode_workspace/BUILD", "xcode_config(name = 'host_xcodes')");
+    config.create(
+        "local_config_xcode_workspace/MODULE.bazel", "module(name = 'local_config_xcode')");
     config.create(
         "protobuf_workspace/BUILD",
         "licenses(['notice'])",
         "exports_files(['protoc', 'cc_toolchain'])");
-    config.create("local_config_xcode_workspace/WORKSPACE");
     config.create("protobuf_workspace/WORKSPACE");
+    config.create("protobuf_workspace/MODULE.bazel", "module(name='com_google_protobuf')");
     config.overwrite("WORKSPACE", workspaceContents.toArray(new String[0]));
     /* The rest of platforms is initialized in {@link MockPlatformSupport}. */
     config.create("platforms_workspace/WORKSPACE", "workspace(name = 'platforms')");
@@ -142,6 +147,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create(
         "local_config_platform_workspace/MODULE.bazel", "module(name = 'local_config_platform')");
     config.create("build_bazel_apple_support/WORKSPACE", "workspace(name = 'apple_support')");
+    config.create(
+        "build_bazel_apple_support/MODULE.bazel", "module(name = 'build_bazel_apple_support')");
     config.create("embedded_tools/WORKSPACE", "workspace(name = 'bazel_tools')");
     Runfiles runfiles = Runfiles.create();
     for (String filename :
@@ -401,11 +408,11 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "embedded_tools/tools/allowlists/config_feature_flag/BUILD",
         "package_group(",
         "    name='config_feature_flag',",
-        "    includes=['@//tools/allowlists/config_feature_flag'],",
+        "    includes=['@@//tools/allowlists/config_feature_flag'],",
         ")",
         "package_group(",
         "    name='config_feature_flag_setter',",
-        "    includes=['@//tools/allowlists/config_feature_flag:config_feature_flag_setter'],",
+        "    includes=['@@//tools/allowlists/config_feature_flag:config_feature_flag_setter'],",
         ")");
 
     config.create(
@@ -505,6 +512,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "    toolchain = '@bazel_tools//tools/jdk:toolchain',",
         "    toolchain_type = '@rules_java//java/toolchains/javac:toolchain_type',",
         "    )");
+
+    config.create("third_party/bazel_rules/rules_proto/WORKSPACE");
+    config.create("third_party/bazel_rules/rules_proto/MODULE.bazel", "module(name='rules_proto')");
 
     MockPlatformSupport.setup(config);
     ccSupport().setup(config);
@@ -681,24 +691,28 @@ public final class BazelAnalysisMock extends AnalysisMock {
   }
 
   @Override
-  protected ImmutableMap<String, NonRegistryOverride> getBuiltinModules(
-      BlazeDirectories directories) {
-    return ImmutableMap.of(
-        "bazel_tools",
-        LocalPathOverride.create(
-            directories.getEmbeddedBinariesRoot().getRelative("embedded_tools").getPathString()),
-        "platforms",
-        LocalPathOverride.create(
-            directories
-                .getEmbeddedBinariesRoot()
-                .getRelative("platforms_workspace")
-                .getPathString()),
-        "rules_java",
-        LocalPathOverride.create(
-            directories
-                .getEmbeddedBinariesRoot()
-                .getRelative("rules_java_workspace")
-                .getPathString()));
+  public ImmutableMap<String, NonRegistryOverride> getBuiltinModules(BlazeDirectories directories) {
+    ImmutableMap<String, String> moduleNameToPath =
+        ImmutableMap.<String, String>builder()
+            .put("bazel_tools", "embedded_tools")
+            .put("platforms", "platforms_workspace")
+            .put("local_config_platform", "local_config_platform_workspace")
+            .put("rules_java", "rules_java_workspace")
+            .put("com_google_protobuf", "protobuf_workspace")
+            .put("rules_proto", "third_party/bazel_rules/rules_proto")
+            .put("build_bazel_apple_support", "build_bazel_apple_support")
+            .put("local_config_xcode", "local_config_xcode_workspace")
+            .buildOrThrow();
+    return moduleNameToPath.entrySet().stream()
+        .collect(
+            toImmutableMap(
+                Map.Entry::getKey,
+                e ->
+                    LocalPathOverride.create(
+                        directories
+                            .getWorkingDirectory()
+                            .getRelative(e.getValue())
+                            .getPathString())));
   }
 
   @Override

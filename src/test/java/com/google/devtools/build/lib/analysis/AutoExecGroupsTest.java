@@ -1830,8 +1830,8 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
             mockToolsConfig,
             CcToolchainConfig.builder()
                 .withFeatures(CppRuleClasses.THIN_LTO, CppRuleClasses.SUPPORTS_START_END_LIB)
-                .withToolchainTargetConstraints("@//platforms:constraint_1")
-                .withToolchainExecConstraints("@//platforms:constraint_1"));
+                .withToolchainTargetConstraints("@@//platforms:constraint_1")
+                .withToolchainExecConstraints("@@//platforms:constraint_1"));
 
     ImmutableList<Action> actions = getActions("//test:custom_rule_name", CppLinkAction.class);
     ImmutableList<Action> cppLTOActions =
@@ -2006,8 +2006,8 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
             mockToolsConfig,
             CcToolchainConfig.builder()
                 .withFeatures(MockCcSupport.HEADER_MODULES_FEATURES)
-                .withToolchainTargetConstraints("@//platforms:constraint_1")
-                .withToolchainExecConstraints("@//platforms:constraint_1"));
+                .withToolchainTargetConstraints("@@//platforms:constraint_1")
+                .withToolchainExecConstraints("@@//platforms:constraint_1"));
 
     ImmutableList<Action> cppCompileActions =
         getActions("//bazel_internal/test_rules/cc:custom_rule_name", CppCompileAction.class);
@@ -2077,8 +2077,8 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
             mockToolsConfig,
             CcToolchainConfig.builder()
                 .withFeatures(MockCcSupport.HEADER_MODULES_FEATURES)
-                .withToolchainTargetConstraints("@//platforms:constraint_1")
-                .withToolchainExecConstraints("@//platforms:constraint_1"));
+                .withToolchainTargetConstraints("@@//platforms:constraint_1")
+                .withToolchainExecConstraints("@@//platforms:constraint_1"));
 
     ImmutableList<Action> cppCompileActions =
         getActions("//bazel_internal/test_rules/cc:custom_rule_name", CppCompileAction.class);
@@ -2143,8 +2143,8 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
             mockToolsConfig,
             CcToolchainConfig.builder()
                 .withFeatures(CppRuleClasses.PARSE_HEADERS)
-                .withToolchainTargetConstraints("@//platforms:constraint_1")
-                .withToolchainExecConstraints("@//platforms:constraint_1"));
+                .withToolchainTargetConstraints("@@//platforms:constraint_1")
+                .withToolchainExecConstraints("@@//platforms:constraint_1"));
 
     ImmutableList<Action> cppCompileActions =
         getActions("//bazel_internal/test_rules/cc:custom_rule_name", CppCompileAction.class);

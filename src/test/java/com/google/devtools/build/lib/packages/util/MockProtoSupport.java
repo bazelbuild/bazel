@@ -214,7 +214,6 @@ public final class MockProtoSupport {
           ")");
     }
 
-    config.create("third_party/bazel_rules/rules_proto/WORKSPACE");
     config.create(
         "third_party/bazel_rules/rules_proto/proto/BUILD",
         "licenses(['notice'])",

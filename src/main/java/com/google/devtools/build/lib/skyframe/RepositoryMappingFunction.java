@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -40,6 +41,11 @@ import net.starlark.java.eval.StarlarkSemantics;
 
 /** {@link SkyFunction} for {@link RepositoryMappingValue}s. */
 public class RepositoryMappingFunction implements SkyFunction {
+  private final RuleClassProvider ruleClassProvider;
+
+  public RepositoryMappingFunction(RuleClassProvider ruleClassProvider) {
+    this.ruleClassProvider = ruleClassProvider;
+  }
 
   @Nullable
   @Override
@@ -58,7 +64,10 @@ public class RepositoryMappingFunction implements SkyFunction {
         // such as @platforms.
         RepositoryMappingValue bazelToolsMapping =
             (RepositoryMappingValue)
-                env.getValue(RepositoryMappingValue.key(RepositoryName.BAZEL_TOOLS));
+                env.getValue(
+                    RepositoryMappingValue.Key.create(
+                        ruleClassProvider.getToolsRepository(),
+                        /* rootModuleShouldSeeWorkspaceRepos= */ false));
         if (bazelToolsMapping == null) {
           return null;
         }
@@ -76,7 +85,9 @@ public class RepositoryMappingFunction implements SkyFunction {
                         RepositoryName.MAIN),
                     StarlarkBuiltinsValue.BUILTINS_REPO)
                 .withAdditionalMappings(bazelToolsMapping.getRepositoryMapping()),
-            "bazel_tools",
+            // The "associated module" doesn't exist here (@_builtins doesn't come from a module),
+            // so we just supply dummy values.
+            "",
             Version.EMPTY);
       }
 

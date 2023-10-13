@@ -320,7 +320,7 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
     assertThat(action.getFileContents())
         .isAnyOf(
             "//java/com/foo:flag1: on\n//java/com/foo:flag2: off",
-            "@//java/com/foo:flag1: on\n@//java/com/foo:flag2: off");
+            "@@//java/com/foo:flag1: on\n@@//java/com/foo:flag2: off");
   }
 
   @Test

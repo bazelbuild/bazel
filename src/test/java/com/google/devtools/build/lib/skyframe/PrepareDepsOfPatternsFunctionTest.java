@@ -36,14 +36,12 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -51,15 +49,6 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsFunction}. */
 @RunWith(JUnit4.class)
 public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
-
-  private Path moduleRoot;
-  private FakeRegistry registry;
-
-  @Before
-  public void setUpForBzlmod() throws Exception {
-    scratch.file("MODULE.bazel");
-    setBuildLanguageOptions("--enable_bzlmod");
-  }
 
   private static SkyKey getKeyForLabel(Label label) {
     // Note that these tests used to look for TargetMarker SkyKeys before TargetMarker was
@@ -354,6 +343,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     scratch.file(moduleRoot.getRelative("repo~1.0/WORKSPACE").getPathString(), "");
     scratch.file(
         moduleRoot.getRelative("repo~1.0/a/BUILD").getPathString(), "exports_files(['x'])");
+    invalidatePackages();
   }
 
   private static void assertValidValue(WalkableGraph graph, SkyKey key)

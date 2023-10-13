@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -29,15 +30,18 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.analysis.util.MockRuleDefaults;
+import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -166,6 +170,17 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     // on our minimal rule class provider.
     // We do need the host platform. Set it to something trivial.
     return ImmutableList.of("--host_platform=//minimal_buildenv/platforms:default_host");
+  }
+
+  @Override
+  protected AnalysisMock getAnalysisMock() {
+    return new AnalysisMock.Delegate(super.getAnalysisMock()) {
+      @Override
+      public ImmutableMap<String, NonRegistryOverride> getBuiltinModules(
+          BlazeDirectories directories) {
+        return ImmutableMap.of();
+      }
+    };
   }
 
   @Override
@@ -345,13 +360,26 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void otherBzlsCannotLoadFromBuiltins() throws Exception {
+  public void otherBzlsCannotLoadFromBuiltins_apparent() throws Exception {
     writeExportsBzl(
         "exported_toplevels = {}", //
         "exported_rules = {}",
         "exported_to_java = {}");
     writePkgBuild();
     writePkgBzl("load('@_builtins//:exports.bzl', 'exported_toplevels')");
+
+    buildAndAssertFailure();
+    assertContainsEvent("No repository visible as '@_builtins' from");
+  }
+
+  @Test
+  public void otherBzlsCannotLoadFromBuiltins_canonical() throws Exception {
+    writeExportsBzl(
+        "exported_toplevels = {}", //
+        "exported_rules = {}",
+        "exported_to_java = {}");
+    writePkgBuild();
+    writePkgBzl("load('@@_builtins//:exports.bzl', 'exported_toplevels')");
 
     buildAndAssertFailure();
     assertContainsEvent("The repository '@_builtins' could not be resolved");

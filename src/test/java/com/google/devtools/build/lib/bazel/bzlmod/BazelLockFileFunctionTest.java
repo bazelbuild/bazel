@@ -217,7 +217,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
 
   @Test
   public void simpleModule() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='my_root', version='1.0')",
         "bazel_dep(name = 'dep_1', version = '1.0')",
@@ -258,7 +258,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
   public void moduleWithFlags() throws Exception {
     // Test having --override_module, --ignore_dev_dependency, --check_bazel_compatibility
     // --check_direct_dependencies & --registry
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='my_root', version='1.0')");
 
@@ -317,7 +317,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
 
   @Test
   public void moduleWithLocalOverrides() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='root',version='0.1')",
         "local_path_override(module_name='ss',path='code_for_ss')");
@@ -360,7 +360,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
 
   @Test
   public void fullModule() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='my_root', version='1.0')",
         "register_toolchains('//my:toolchain', '//my:toolchain2')",
@@ -404,7 +404,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
 
   @Test
   public void invalidLockfileEmptyFile() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='my_root', version='1.0')");
 
@@ -447,7 +447,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
 
   @Test
   public void invalidLockfileNullFlag() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='my_root', version='1.0')");
 
@@ -491,7 +491,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
 
   @Test
   public void invalidLockfileMalformed() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='my_root', version='1.0')");
 

@@ -1618,18 +1618,37 @@ public abstract class AbstractQueryTest<T> {
     helper.useRuleClassProvider(analysisMock.createRuleClassProvider());
     helper.writeFile("/workspace/embedded_tools/BUILD");
     helper.writeFile("/workspace/embedded_tools/WORKSPACE");
-    helper.writeFile(
-        "/workspace/embedded_tools/MODULE.bazel", "module(name = \"bazel_tools\", version = \"\")");
+    helper.writeFile("/workspace/embedded_tools/MODULE.bazel", "module(name='bazel_tools')");
     helper.writeFile("/workspace/platforms_workspace/BUILD");
     helper.writeFile("/workspace/platforms_workspace/WORKSPACE");
+    helper.writeFile("/workspace/platforms_workspace/MODULE.bazel", "module(name='platforms')");
+    helper.writeFile("/workspace/local_config_xcode_workspace/BUILD");
+    helper.writeFile("/workspace/local_config_xcode_workspace/WORKSPACE");
     helper.writeFile(
-        "/workspace/platforms_workspace/MODULE.bazel",
-        "module(name = \"platforms\", version = \"\")");
+        "/workspace/local_config_xcode_workspace/MODULE.bazel",
+        "module(name='local_config_xcode')");
     helper.writeFile("/workspace/rules_java_workspace/BUILD");
     helper.writeFile("/workspace/rules_java_workspace/WORKSPACE");
+    helper.writeFile("/workspace/rules_java_workspace/MODULE.bazel", "module(name='rules_java')");
+    helper.writeFile("/workspace/protobuf_workspace/BUILD");
+    helper.writeFile("/workspace/protobuf_workspace/WORKSPACE");
     helper.writeFile(
-        "/workspace/rules_java_workspace/MODULE.bazel",
-        "module(name = \"rules_java\", version = \"\")");
+        "/workspace/protobuf_workspace/MODULE.bazel", "module(name='com_google_protobuf')");
+    helper.writeFile("/workspace/local_config_platform_workspace/BUILD");
+    helper.writeFile("/workspace/local_config_platform_workspace/WORKSPACE");
+    helper.writeFile(
+        "/workspace/local_config_platform_workspace/MODULE.bazel",
+        "module(name='local_config_platform')");
+    helper.writeFile("/workspace/build_bazel_apple_support/BUILD");
+    helper.writeFile("/workspace/build_bazel_apple_support/WORKSPACE");
+    helper.writeFile(
+        "/workspace/build_bazel_apple_support/MODULE.bazel",
+        "module(name='build_bazel_apple_support')");
+    helper.writeFile("/workspace/third_party/bazel_rules/rules_proto/BUILD");
+    helper.writeFile("/workspace/third_party/bazel_rules/rules_proto/WORKSPACE");
+    helper.writeFile(
+        "/workspace/third_party/bazel_rules/rules_proto/MODULE.bazel",
+        "module(name='rules_proto')");
   }
 
   @Test

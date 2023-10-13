@@ -505,7 +505,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         .put(
             BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
             new BzlmodRepoRuleFunction(ruleClassProvider, directories))
-        .put(SkyFunctions.REPOSITORY_MAPPING, new RepositoryMappingFunction())
+        .put(SkyFunctions.REPOSITORY_MAPPING, new RepositoryMappingFunction(ruleClassProvider))
         .put(
             SkyFunctions.PACKAGE,
             new PackageFunction(

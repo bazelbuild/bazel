@@ -136,8 +136,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     registry = FakeRegistry.DEFAULT_FACTORY.newFakeRegistry(moduleRoot.getPathString());
     writeFile("MODULE.bazel", "module( name = \"root\", version = \"1.0\")");
 
-    initTargetPatternEvaluator(analysisMock.createRuleClassProvider());
-
     MockToolsConfig mockToolsConfig = new MockToolsConfig(rootDirectory);
     analysisMock.setupMockClient(mockToolsConfig);
     analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
@@ -145,6 +143,8 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     analysisMock.ccSupport().setup(mockToolsConfig);
     analysisMock.pySupport().setup(mockToolsConfig);
     performAdditionalClientSetup(mockToolsConfig);
+
+    initTargetPatternEvaluator(analysisMock.createRuleClassProvider());
 
     this.queryEnvironmentFactory = makeQueryEnvironmentFactory();
   }
