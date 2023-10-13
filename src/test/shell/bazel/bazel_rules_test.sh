@@ -51,9 +51,11 @@ case "$(uname -s | tr [:upper:] [:lower:])" in
 msys*)
   # As of 2019-01-15, Bazel on Windows only supports MSYS Bash.
   declare -r is_windows=true
+  declare -r exe_suffix=.exe
   ;;
 *)
   declare -r is_windows=false
+  declare -r exe_suffix=
   ;;
 esac
 
@@ -965,7 +967,7 @@ function test_bash_runfiles_current_repository_binary_enable_runfiles_direct_run
 
   bazel build --enable_bzlmod --enable_runfiles //pkg:binary \
     &>"$TEST_log" || fail "Build should succeed"
-  clean_runfiles_run bazel-bin/pkg/binary &>"$TEST_log" \
+  clean_runfiles_run bazel-bin/pkg/binary$exe_suffix &>"$TEST_log" \
     || fail "Direct run should succeed"
   expect_log "in pkg/binary.sh: ''"
   expect_log "in pkg/library.sh: ''"
@@ -973,8 +975,8 @@ function test_bash_runfiles_current_repository_binary_enable_runfiles_direct_run
 
   bazel run --enable_bzlmod --enable_runfiles @other_repo//pkg:binary \
     &>"$TEST_log" || fail "Run should succeed"
-  clean_runfiles_run bazel-bin/external/other_repo/pkg/binary &>"$TEST_log" \
-    || fail "Direct run should succeed"
+  clean_runfiles_run bazel-bin/external/other_repo/pkg/binary$exe_suffix \
+    &>"$TEST_log" || fail "Direct run should succeed"
   expect_log "in external/other_repo/pkg/binary.sh: 'other_repo'"
   expect_log "in pkg/library.sh: ''"
   expect_log "in external/other_repo/pkg/library2.sh: 'other_repo'"
@@ -1017,7 +1019,7 @@ function test_bash_runfiles_current_repository_binary_noenable_runfiles_direct_r
 
   bazel build --enable_bzlmod --noenable_runfiles //pkg:binary \
     &>"$TEST_log" || fail "Build should succeed"
-  clean_runfiles_run bazel-bin/pkg/binary &>"$TEST_log" \
+  clean_runfiles_run bazel-bin/pkg/binary$exe_suffix &>"$TEST_log" \
     || fail "Direct run should succeed"
   expect_log "in pkg/binary.sh: ''"
   expect_log "in pkg/library.sh: ''"
@@ -1025,8 +1027,8 @@ function test_bash_runfiles_current_repository_binary_noenable_runfiles_direct_r
 
   bazel run --enable_bzlmod --noenable_runfiles @other_repo//pkg:binary \
     &>"$TEST_log" || fail "Run should succeed"
-  clean_runfiles_run bazel-bin/external/other_repo/pkg/binary &>"$TEST_log" \
-    || fail "Direct run should succeed"
+  clean_runfiles_run bazel-bin/external/other_repo/pkg/binary$exe_suffix \
+    &>"$TEST_log" || fail "Direct run should succeed"
   expect_log "in external/other_repo/pkg/binary.sh: 'other_repo'"
   expect_log "in pkg/library.sh: ''"
   expect_log "in external/other_repo/pkg/library2.sh: 'other_repo'"
@@ -1069,7 +1071,7 @@ function test_bash_runfiles_current_repository_binary_nobuild_runfile_links_dire
 
   bazel build --enable_bzlmod --nobuild_runfile_links //pkg:binary \
     &>"$TEST_log" || fail "Build should succeed"
-  clean_runfiles_run bazel-bin/pkg/binary &>"$TEST_log" \
+  clean_runfiles_run bazel-bin/pkg/binary$exe_suffix &>"$TEST_log" \
     || fail "Direct run should succeed"
   expect_log "in pkg/binary.sh: ''"
   expect_log "in pkg/library.sh: ''"
@@ -1077,8 +1079,8 @@ function test_bash_runfiles_current_repository_binary_nobuild_runfile_links_dire
 
   bazel run --enable_bzlmod --nobuild_runfile_links @other_repo//pkg:binary \
     &>"$TEST_log" || fail "Run should succeed"
-  clean_runfiles_run bazel-bin/external/other_repo/pkg/binary &>"$TEST_log" \
-    || fail "Direct run should succeed"
+  clean_runfiles_run bazel-bin/external/other_repo/pkg/binary$exe_suffix \
+    &>"$TEST_log" || fail "Direct run should succeed"
   expect_log "in external/other_repo/pkg/binary.sh: 'other_repo'"
   expect_log "in pkg/library.sh: ''"
   expect_log "in external/other_repo/pkg/library2.sh: 'other_repo'"
