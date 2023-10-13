@@ -299,7 +299,7 @@ public class SandboxOptions extends OptionsBase {
 
   @Option(
       name = "experimental_sandbox_async_tree_delete_idle_threads",
-      defaultValue = "0",
+      defaultValue = "4",
       converter = AsyncTreeDeletesConverter.class,
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
