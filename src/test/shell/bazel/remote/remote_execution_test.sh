@@ -1385,7 +1385,7 @@ EOF
   #  and the action should not be re-run.
   expect_log "1 process: 1 internal"
 
-  bazel build\
+  bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_default_exec_properties="build=88888" \
     --remote_default_platform_properties='properties:{name:"build" value:"1234"}' \
