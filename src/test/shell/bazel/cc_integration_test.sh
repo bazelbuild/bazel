@@ -960,7 +960,7 @@ EOF
   BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 bazel query 'deps(//:ok)' &>"$TEST_log" || \
     fail "Should pass with fake toolchain"
   expect_not_log "An error occurred during the fetch of repository 'local_config_cc'"
-  expect_log "@local_config_cc//:empty"
+  expect_log "@@bazel_tools~cc_configure_extension~local_config_cc//:empty"
 }
 
 function setup_workspace_layout_with_external_directory() {

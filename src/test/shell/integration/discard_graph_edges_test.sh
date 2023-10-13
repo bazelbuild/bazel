@@ -64,6 +64,8 @@ jmaptool="$(rlocation "${javabase}/bin/jmap${EXE_EXT}")"
 
 #### SETUP #############################################################
 
+disable_bzlmod
+
 set -e
 
 function set_up() {

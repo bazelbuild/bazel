@@ -2266,7 +2266,7 @@ genrule(
   cmd = "cp $< $@",
 )
 EOF
-  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
+  bazel build --noenable_bzlmod --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
       || fail "Expected success despite needing a file behind credential helper"
 }
 
@@ -2299,7 +2299,7 @@ EOF
 
   bazel build --repository_disable_download //:it > "${TEST_log}" 2>&1 \
       && fail "Expected failure" || :
-  expect_log "Failed to download repository @ext: download is disabled"
+  expect_log "Failed to download repository @.*: download is disabled"
 }
 
 function test_disable_download_should_allow_distdir() {

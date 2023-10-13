@@ -21,6 +21,8 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 export JAVA_RUNFILES=$BAZEL_RUNFILES
 
+disable_bzlmod
+
 function setup_repo() {
   mkdir -p $1
   create_workspace_with_default_repos $1/WORKSPACE

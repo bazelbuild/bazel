@@ -1,5 +1,5 @@
-load("//:distdir_deps.bzl", "gen_workspace_stanza")
 load("@rules_python//python:defs.bzl", "py_test")
+load("//:distdir_deps.bzl", "gen_workspace_stanza")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -47,6 +47,7 @@ sh_library(
     ],
     data = [
         ":testenv.sh",
+        "//src/test/tools/bzlmod:MODULE.bazel.lock",
         "@bazel_tools//tools/bash/runfiles",
     ],
     visibility = ["//visibility:public"],

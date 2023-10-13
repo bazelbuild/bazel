@@ -61,6 +61,7 @@ local_repository(
     path = "../$pkg2",
 )
 EOF
+  write_default_lockfile "$pkg/MODULE.bazel.lock"
   touch "$pkg/foo.cpp"
   cat > "$pkg/BUILD" <<EOF
 cc_binary(name = "foo",
@@ -81,7 +82,7 @@ EOF
   bazel aquery --output=textproto --include_file_write_contents \
      "//:foo" >output 2> "$TEST_log" || fail "Expected success"
   cat output >> "$TEST_log"
-  assert_contains "^file_contents:.*pkg2,__main__,__main__" output
+  assert_contains "^file_contents:.*pkg2,__main__,_main" output
 
   bazel aquery --output=text --include_file_write_contents "//:foo" | \
     sed -nr '/Mnemonic: RepoMappingManifest/,/^ *$/p' >output \
@@ -91,7 +92,7 @@ EOF
   # Verify file contents if we can decode base64-encoded data.
   if which base64 >/dev/null; then
     sed -nr 's/^ *FileWriteContents: \[(.*)\]/echo \1 | base64 -d/p' output | \
-       sh | tee -a "$TEST_log"  | assert_contains "pkg2,__main__,__main__" -
+       sh | tee -a "$TEST_log"  | assert_contains "pkg2,__main__,_main" -
   fi
 }
 

@@ -200,7 +200,7 @@ EOF
 
   cat > a/a-tool.sh <<'EOF'
 #!/bin/sh -eu
-cat "$0".runfiles/main/a/dir/foo.txt "$0".runfiles/main/a/dir/sub1/bar.txt
+cat "$0".runfiles/_main/a/dir/foo.txt "$0".runfiles/_main/a/dir/sub1/bar.txt
 EOF
   chmod u+x a/a-tool.sh
 

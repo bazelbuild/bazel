@@ -21,6 +21,8 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 mock_rules_java_to_avoid_downloading
 
+disable_bzlmod
+
 test_result_recorded() {
   mkdir result_recorded && cd result_recorded
   rm -rf fetchrepo

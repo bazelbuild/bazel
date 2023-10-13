@@ -673,7 +673,7 @@ EOF
   # But it is required after a clean.
   bazel clean --expunge || fail "Clean failed"
   bazel build --fetch=false //zoo:ball-pit >& $TEST_log && fail "Expected build to fail"
-  expect_log "bazel fetch //..."
+  expect_log "fetching repositories is disabled"
 }
 
 function test_prefix_stripping_tar_gz() {
@@ -944,7 +944,7 @@ genrule(
 )
 EOF
   bazel build :foo &> "$TEST_log" && fail "Expected failure" || true
-  expect_log "no such package '@foo//'"
+  expect_log "No repository visible as '@foo' from main repository"
 }
 
 function test_flip_flopping() {

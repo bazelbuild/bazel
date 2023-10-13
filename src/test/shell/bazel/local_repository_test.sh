@@ -185,7 +185,7 @@ EOF
 
   bazel build //zoo:ball-pit >& $TEST_log && \
     fail "Expected build to fail"
-  expect_log "no such package '@common//carnivore'"
+  expect_log "No repository visible as '@common' from main repository"
 }
 
 function test_new_local_repository_with_build_file() {

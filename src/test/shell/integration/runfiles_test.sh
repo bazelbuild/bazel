@@ -71,6 +71,8 @@ fi
 
 set -e
 
+disable_bzlmod
+
 function create_pkg() {
   local -r pkg=$1
   mkdir -p $pkg

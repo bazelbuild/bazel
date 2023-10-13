@@ -24,6 +24,8 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+disable_bzlmod
+
 function set_up() {
   add_to_bazelrc "build --spawn_strategy=sandboxed"
   add_to_bazelrc "build --genrule_strategy=sandboxed"

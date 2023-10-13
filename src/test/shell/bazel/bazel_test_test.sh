@@ -139,9 +139,9 @@ sh_test(
 EOF
 
   bazel test --test_output=all //foo &> $TEST_log || fail "Test failed"
-  expect_log "pwd: .*/foo.runfiles/bar$"
+  expect_log "pwd: .*/foo.runfiles/_main$"
   expect_log "src: .*/foo.runfiles$"
-  expect_log "ws: bar$"
+  expect_log "ws: _main$"
 }
 
 function test_runfiles_java_runfiles_merges_env_vars() {
@@ -172,8 +172,8 @@ EOF
   bazel test --test_env="${overridden}"=override --test_output=all \
       //foo >& "${TEST_log}" || fail "Test failed"
 
-  expect_log "${overridden}: /.*/execroot/bar/override"
-  expect_log "${unchanged}: /.*/execroot/bar/bazel-out/[^/]\+-fastbuild/bin/foo/foo.runfiles"
+  expect_log "${overridden}: /.*/execroot/_main/override"
+  expect_log "${unchanged}: /.*/execroot/_main/bazel-out/[^/]\+-fastbuild/bin/foo/foo.runfiles"
 }
 
 function test_run_under_external_label_with_options() {

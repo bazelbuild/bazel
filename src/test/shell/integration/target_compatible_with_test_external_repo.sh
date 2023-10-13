@@ -196,6 +196,7 @@ int main() {
     return 0;
 }
 EOF
+  write_default_lockfile "target_skipping/MODULE.bazel.lock"
   cd target_skipping || fail "couldn't cd into workspace"
   bazel test \
     --show_result=10 \

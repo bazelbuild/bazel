@@ -83,6 +83,7 @@ filegroup(
     path = "../B",
 )
 eof
+  write_default_lockfile "$pkg/A/MODULE.bazel.lock"
 
   cat >$pkg/A/BUILD <<'eof'
 genrule(
@@ -132,6 +133,7 @@ eof
   cat >"$pkg/A/BUILD.myext" <<eof
 filegroup(name = "all_files", srcs = glob(["**"]))
 eof
+  write_default_lockfile "$pkg/A/MODULE.bazel.lock"
 
   # Shut down the server afterwards so the test cleanup can remove $pkg/A.
   ( cd "$pkg/A"

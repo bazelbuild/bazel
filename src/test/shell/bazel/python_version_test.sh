@@ -111,7 +111,7 @@ EOF
 from bazel_tools.tools.python.runfiles import runfiles
 
 r = runfiles.Create()
-path = r.Rlocation("$WORKSPACE_NAME/test/data.txt")
+path = r.Rlocation("_main/test/data.txt")
 print("Rlocation returned: " + str(path))
 if path is not None:
   with open(path, 'rt') as f:
@@ -435,17 +435,15 @@ EOF
     exe=""
   fi
 
-  # NOTE: The "main" name isn't special. It's just the name the integration test
-  # setup puts in WORKSPACE.
   cp bazel-bin/py/foo$exe.runfiles_manifest runfiles_manifest
-  assert_contains main/external/repo2/r2.txt runfiles_manifest \
+  assert_contains _main/external/repo2/r2.txt runfiles_manifest \
     "runfiles manifest didn't have external path mapping"
 
   # By default, Python binaries are put into zip files on Windows and don't
   # have a real runfiles tree.
   if ! "$is_windows"; then
     find bazel-bin/py/foo.runfiles > runfiles_listing
-    assert_contains bazel-bin/py/foo.runfiles/main/external/repo2/r2.txt \
+    assert_contains bazel-bin/py/foo.runfiles/_main/external/repo2/r2.txt \
       runfiles_listing \
       "runfiles didn't have external links"
   fi

@@ -1216,7 +1216,7 @@ filegroup(
   srcs = ["doesnotexist"],
 )
 EOF
-  (bazel build --build_event_text_file="${TEST_log}" :badfilegroup \
+  (bazel build --noenable_bzlmod --build_event_text_file="${TEST_log}" :badfilegroup \
     && fail "Expected failure") || :
   # There should be precisely one event with target_completed as event id type
   (echo 'g/^id/+1p'; echo 'q') | ed "${TEST_log}" 2>&1 | tail -n +2 > event_id_types
@@ -1226,7 +1226,7 @@ EOF
   [ `grep unconfigured_label event_id_types | wc -l` -eq 1 ] \
       || fail "not precisely one unconfigured_label event id"
 
-  (bazel build --build_event_text_file="${TEST_log}" :badfilegroup :doesnotexist \
+  (bazel build --noenable_bzlmod --build_event_text_file="${TEST_log}" :badfilegroup :doesnotexist \
     && fail "Expected failure") || :
   # There should be precisely two events with target_completed as event id type
   (echo 'g/^id/+1p'; echo 'q') | ed "${TEST_log}" 2>&1 | tail -n +2 > event_id_types
@@ -1423,7 +1423,7 @@ EOF
   # toolchain resolution and also the //external package. This way we don't need
   # to bother making careful assertions about these packages in our actual test
   # logic below.
-  bazel build --nobuild \
+  bazel build --noenable_bzlmod --nobuild \
     //just-to-get-packages-needed-for-toolchain-resolution:whatever \
     >& "$TEST_log" || fail "Expected success"
 
@@ -1465,6 +1465,7 @@ fail('bad')
 EOF
 
   bazel build \
+    --noenable_bzlmod \
     --nobuild \
     --keep_going \
     --build_event_text_file=bep.txt \

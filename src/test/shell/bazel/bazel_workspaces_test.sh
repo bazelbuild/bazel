@@ -25,6 +25,8 @@ source "${CURRENT_DIR}/remote_helpers.sh" \
 
 mock_rules_java_to_avoid_downloading
 
+disable_bzlmod
+
 # Sets up a workspace with the given commands inserted into the repository rule
 # that will be executed when doing bazel build //:test
 function set_workspace_command() {

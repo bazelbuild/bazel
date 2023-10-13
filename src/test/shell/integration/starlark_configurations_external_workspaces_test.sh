@@ -149,6 +149,7 @@ local_repository(
   name = "sub",
   path = "./sub")
 EOF
+  write_default_lockfile "$pkg/MODULE.bazel.lock"
 
   ## set up inner repo
   cat > $subpkg/BUILD <<EOF
@@ -203,6 +204,7 @@ EOF
   cat > $subpkg/WORKSPACE <<EOF
 workspace(name = "sub")
 EOF
+  write_default_lockfile "$subpkg/MODULE.bazel.lock"
 
   # from the outer repo
   cd $pkg

@@ -1215,14 +1215,14 @@ EOF
 
   bazel clean
 
-  bazel aquery --output=textproto --skyframe_state > output 2> "$TEST_log" \
+  bazel aquery --noenable_bzlmod --output=textproto --skyframe_state > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
   assert_not_contains "actions" output
 
-  bazel build --nobuild "//$pkg:foo"
+  bazel build --noenable_bzlmod --nobuild "//$pkg:foo"
 
-  bazel aquery --output=textproto --skyframe_state > output 2> "$TEST_log" \
+  bazel aquery --noenable_bzlmod --output=textproto --skyframe_state > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
 
@@ -1251,9 +1251,9 @@ EOF
   QUERY="inputs('.*matching_in.java', outputs('.*matching_out', mnemonic('Genrule')))"
 
   bazel clean
-  bazel build --nobuild "//$pkg:foo"
+  bazel build --noenable_bzlmod --nobuild "//$pkg:foo"
 
-  bazel aquery --output=textproto --skyframe_state ${QUERY} > output 2> "$TEST_log" \
+  bazel aquery --noenable_bzlmod --output=textproto --skyframe_state ${QUERY} > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
 
@@ -1273,14 +1273,14 @@ EOF
 
   bazel clean
 
-  bazel aquery --output=textproto --skyframe_state > output 2> "$TEST_log" \
+  bazel aquery --noenable_bzlmod --output=textproto --skyframe_state > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
   assert_not_contains "actions" output
 
-  bazel build --nobuild "//$pkg:foo"
+  bazel build --noenable_bzlmod --nobuild "//$pkg:foo"
 
-  bazel aquery --output=textproto --skyframe_state > output 2> "$TEST_log" \
+  bazel aquery --noenable_bzlmod --output=textproto --skyframe_state > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
 
@@ -1304,14 +1304,14 @@ EOF
 
   bazel clean
 
-  bazel aquery --output=jsonproto --skyframe_state > output 2> "$TEST_log" \
+  bazel aquery --noenable_bzlmod --output=jsonproto --skyframe_state > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
   assert_not_contains "actions" output
 
-  bazel build --nobuild "//$pkg:foo"
+  bazel build --noenable_bzlmod --nobuild "//$pkg:foo"
 
-  bazel aquery --output=jsonproto --skyframe_state > output 2> "$TEST_log" \
+  bazel aquery --noenable_bzlmod --output=jsonproto --skyframe_state > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
 
@@ -1332,7 +1332,7 @@ EOF
 
   bazel clean
 
-  bazel aquery --output=text --skyframe_state &> "$TEST_log" \
+  bazel aquery --noenable_bzlmod --output=text --skyframe_state &> "$TEST_log" \
     && fail "Expected failure"
   expect_log "--skyframe_state must be used with --output=proto\|textproto\|jsonproto. Invalid aquery output format: text"
 }

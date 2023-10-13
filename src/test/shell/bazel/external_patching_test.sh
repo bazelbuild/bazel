@@ -72,6 +72,7 @@ fi
 set_up() {
   WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
   cd "${WRKDIR}"
+  write_default_lockfile "MODULE.bazel.lock"
   # create an archive file with files interesting for patching
   mkdir ext-0.1.2
   cat > ext-0.1.2/foo.sh <<'EOF'
@@ -118,6 +119,7 @@ http_archive(
   patch_cmds = ["find . -name '*.sh' -exec sed -i.orig '1s|#!/usr/bin/env sh\$|/bin/sh\$|' {} +"],
 )
 EOF
+  write_default_lockfile "MODULE.bazel.lock"
   cat > BUILD <<'EOF'
 genrule(
   name = "foo",
@@ -157,6 +159,7 @@ http_archive(
   build_file_content="exports_files([\"foo.sh\"])",
 )
 EOF
+  write_default_lockfile "MODULE.bazel.lock"
   bazel build :foo.sh
   foopath=`bazel info bazel-genfiles`/foo.sh
   grep -q 'Here be' $foopath || fail "expected unpatched file"
@@ -190,6 +193,7 @@ http_archive(
   patch_tool = "${EXTREPODIR}/my_patch_tool",
 )
 EOF
+  write_default_lockfile "MODULE.bazel.lock"
   touch BUILD
 
   bazel build @ext//... >"${TEST_log}" 2>&1 && fail "expected failure" || :
@@ -237,6 +241,7 @@ http_archive(
   patches = ["//:local.patch"],
 )
 EOF
+  write_default_lockfile "MODULE.bazel.lock"
   cat > BUILD <<'EOF'
 genrule(
   name = "foo",
@@ -282,6 +287,7 @@ http_archive(
   patches = ["//:local.patch"],
 )
 EOF
+  write_default_lockfile "MODULE.bazel.lock"
 
   bazel build @ext//... &> $TEST_log 2>&1 && fail "Expected to fail"
   expect_log "Error downloading \\[.*/remote.patch\\] to"
@@ -335,6 +341,7 @@ http_archive(
   remote_patch_strip = 1,
 )
 EOF
+  write_default_lockfile "MODULE.bazel.lock"
   cat > BUILD <<'EOF'
 genrule(
   name = "foo",
@@ -396,6 +403,7 @@ new_git_repository(
   patch_cmds = ["find . -name '*.sh' -exec sed -i.orig '1s|#!/usr/bin/env sh\$|/bin/sh\$|' {} +"],
 )
 EOF
+  write_default_lockfile "MODULE.bazel.lock"
   cat > BUILD <<'EOF'
 genrule(
   name = "foo",
@@ -435,6 +443,7 @@ new_git_repository(
   build_file_content="exports_files([\"foo.sh\"])",
 )
 EOF
+  write_default_lockfile "MODULE.bazel.lock"
   bazel build :foo.sh
   foopath=`bazel info bazel-genfiles`/foo.sh
   grep -q 'Here be' $foopath || fail "expected unpatched file"
@@ -473,6 +482,7 @@ http_archive(
   build_file="@//:ext.BUILD",
 )
 EOF
+  write_default_lockfile "MODULE.bazel.lock"
   cat > BUILD <<'EOF'
 genrule(
   name = "local",
@@ -539,6 +549,7 @@ genrule(
   """,
 )
 EOF
+  write_default_lockfile "MODULE.bazel.lock"
   cat > BUILD <<'EOF'
 genrule(
   name = "local",
@@ -598,6 +609,7 @@ new_git_repository(
   build_file="@//:ext.BUILD",
 )
 EOF
+  write_default_lockfile "MODULE.bazel.lock"
   cat > BUILD <<'EOF'
 genrule(
   name = "local",
@@ -674,6 +686,7 @@ genrule(
   """,
 )
 EOF
+  write_default_lockfile "MODULE.bazel.lock"
   cat > BUILD <<'EOF'
 genrule(
   name = "local",
@@ -722,6 +735,7 @@ http_archive(
   build_file="@//:ext.BUILD",
 )
 EOF
+  write_default_lockfile "MODULE.bazel.lock"
   cat > BUILD <<'EOF'
 genrule(
   name = "local",
@@ -791,6 +805,7 @@ http_archive(
   patch_cmds = ["find . -name '*.sh' -exec sed -i.orig '1s|#!/usr/bin/env sh\$|/bin/sh\$|' {} +"],
 )
 EOF
+  write_default_lockfile "MODULE.bazel.lock"
   cat > BUILD <<'EOF'
 genrule(
   name = "foo",

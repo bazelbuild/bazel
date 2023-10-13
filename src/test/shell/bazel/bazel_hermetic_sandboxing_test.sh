@@ -309,7 +309,7 @@ function test_absolute_path() {
 function test_symbolic_link() {
   bazel build examples/hermetic:symbolic_link &> $TEST_log \
     && fail "Fail due to non hermetic sandbox: examples/hermetic:symbolic_link" || true
-  expect_log "cat: \/execroot\/main\/examples\/hermetic\/unknown_file.txt: No such file or directory"
+  expect_log "cat: \/execroot\/_main\/examples\/hermetic\/unknown_file.txt: No such file or directory"
 }
 
 # Test that the sandbox discover if the bazel python rule miss dependencies.

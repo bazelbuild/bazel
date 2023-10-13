@@ -85,7 +85,7 @@ def rules_java_toolchains():
 EOF
 
   cd rules_java_can_be_overridden || fail "couldn't cd into workspace"
-  bazel build @rules_java//:yolo &> $TEST_log || \
+  bazel build --noenable_bzlmod @rules_java//:yolo &> $TEST_log || \
     fail "Bazel failed to build @rules_java"
 }
 

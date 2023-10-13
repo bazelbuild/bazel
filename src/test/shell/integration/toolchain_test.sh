@@ -217,7 +217,7 @@ report_toolchain(
 EOF
 
   bazel build "//${pkg}:report" &> $TEST_log || fail "Build failed"
-  expect_log "extra_label = \"@//${pkg}:dep_rule\""
+  expect_log "extra_label = \"@@\?//${pkg}:dep_rule\""
   expect_log 'extra_str = "bar"'
 }
 
@@ -2018,7 +2018,7 @@ EOF
   bazel build \
     --extra_execution_platforms="//${pkg}/platforms:all" \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
-  expect_log "@//${pkg}/demo:dep target platform: @//${pkg}/platforms:platform2"
+  expect_log "@@\?//${pkg}/demo:dep target platform: @@\?//${pkg}/platforms:platform2"
 }
 
 function test_config_setting_with_constraints {
@@ -2261,13 +2261,13 @@ EOF
   bazel build \
     --extra_execution_platforms="//${pkg}/platforms:platform1,//${pkg}/platforms:platform2" \
     "//${pkg}/demo:sample" &> $TEST_log || fail "Build failed"
-  expect_log "@//${pkg}/demo:tool target platform: @//${pkg}/platforms:platform1"
+  expect_log "@@\?//${pkg}/demo:tool target platform: @@\?//${pkg}/platforms:platform1"
 
   bazel build \
       --extra_execution_platforms="//${pkg}/platforms:platform1,//${pkg}/platforms:platform2" \
       --experimental_add_exec_constraints_to_targets "//${pkg}/demo:sample=//${pkg}/platforms:value2" \
       "//${pkg}/demo:sample" &> $TEST_log || fail "Build failed"
-  expect_log "@//${pkg}/demo:tool target platform: @//${pkg}/platforms:platform2"
+  expect_log "@@\?//${pkg}/demo:tool target platform: @@\?//${pkg}/platforms:platform2"
 }
 
 function test_deps_includes_exec_group_toolchain() {
@@ -2517,7 +2517,7 @@ demo_rule(name = "demo")
 EOF
 
   bazel build "//${pkg}/demo:demo" &> $TEST_log || fail "Build failed"
-  expect_log "Inner toolchain @//${pkg}/inner:impl"
+  expect_log "Inner toolchain @@\?//${pkg}/inner:impl"
 }
 
 # Test that toolchain type labels are correctly resolved relative to the

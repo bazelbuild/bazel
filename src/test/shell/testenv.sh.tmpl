@@ -264,6 +264,9 @@ build --incompatible_skip_genfiles_symlink=false
 
 build --incompatible_use_toolchain_resolution_for_java_rules
 
+# Enable Bzlmod in all shell integration tests
+common --enable_bzlmod
+
 ${EXTRA_BAZELRC:-}
 EOF
 
@@ -572,6 +575,9 @@ EOF
 
 function create_workspace_with_default_repos() {
   write_workspace_file "${1:-WORKSPACE}" "${2:-main}"
+  workspace_file=${1:-WORKSPACE}
+  write_workspace_file "${workspace_file}" "${2:-main}"
+  write_default_lockfile "$(dirname ${workspace_file})/MODULE.bazel.lock"
   echo "$1"
 }
 
@@ -609,6 +615,11 @@ register_toolchains("//tools/python/windows:py_toolchain")
 EOF
 }
 
+# Set up a lockfile to avoid accessing BCR for tests with a clean workspace.
+function write_default_lockfile() {
+  cp -f $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) ${1:-MODULE.bazel.lock}
+}
+
 workspaces=()
 # Set-up a new, clean workspace with only the tools installed.
 function create_new_workspace() {
@@ -622,6 +633,8 @@ function create_new_workspace() {
   copy_tools_directory
 
   write_workspace_file "WORKSPACE" "$WORKSPACE_NAME"
+
+  write_default_lockfile "MODULE.bazel.lock"
 
   maybe_setup_python_windows_tools
 }
@@ -658,6 +671,7 @@ function cleanup_workspace() {
       fi
     done
     write_workspace_file "WORKSPACE" "$WORKSPACE_NAME"
+    write_default_lockfile "MODULE.bazel.lock"
   fi
   for i in "${workspaces[@]}"; do
     if [ "$i" != "${WORKSPACE_DIR:-}" ]; then
@@ -764,6 +778,10 @@ function create_and_cd_client() {
 create_and_cd_client
 
 # Optional environment changes.
+
+function disable_bzlmod() {
+  add_to_bazelrc "common --noenable_bzlmod"
+}
 
 # Creates a fake Python default runtime that just outputs a marker string
 # indicating which version was used, without executing any Python code.

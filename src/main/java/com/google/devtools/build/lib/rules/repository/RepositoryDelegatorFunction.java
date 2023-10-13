@@ -340,7 +340,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       // The repository isn't on the file system, there is nothing we can do.
       throw new RepositoryFunctionException(
           new IOException(
-              "to fix, run\n\tbazel fetch //...\nExternal repository "
+              "External repository "
                   + repositoryName.getNameWithAt()
                   + " not found and fetching repositories is disabled."),
           Transience.TRANSIENT);

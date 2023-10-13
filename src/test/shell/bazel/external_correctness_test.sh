@@ -310,6 +310,7 @@ genrule(
 )""",
 )
 EOF
+  write_default_lockfile "m/MODULE.bazel.lock"
   cd m
   bazel "$batch_flag" build @r//:fg &> $TEST_log || \
     fail "Expected build to succeed"
@@ -333,7 +334,7 @@ function test_top_level_dir_changes_nobatch() {
 
 function test_non_extsietnt_repo_in_pattern() {
   bazel build @non_existent_repo//... &> $TEST_log && fail "Expected build to fail"
-  expect_log "ERROR: No such repository '@non_existent_repo'"
+  expect_log "ERROR: No repository visible as '@non_existent_repo' from main repository"
 }
 
 run_suite "//external correctness tests"

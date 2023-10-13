@@ -366,6 +366,7 @@ EOF
 
 
   bazel build \
+    --noenable_bzlmod \
     --noincompatible_enable_cc_toolchain_resolution \
     --cpu=fake --host_cpu=fake \
     --crosstool_top=//$pkg/toolchain:alpha \
