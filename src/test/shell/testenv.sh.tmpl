@@ -574,7 +574,9 @@ EOF
 }
 
 function create_workspace_with_default_repos() {
-  write_workspace_file "${1:-WORKSPACE}" "${2:-main}"
+  workspace_file=${1:-WORKSPACE}
+  write_workspace_file "${workspace_file}" "${2:-main}"
+  write_default_lockfile "$(dirname ${workspace_file})/MODULE.bazel.lock"
   echo "$1"
 }
 
