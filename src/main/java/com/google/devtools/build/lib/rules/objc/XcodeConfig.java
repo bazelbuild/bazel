@@ -397,7 +397,7 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
                 "--xcode_version=%1$s specified, but it is not available locally. Your build will"
                     + " fail if any actions require a local Xcode. If you believe you have '%1$s'"
                     + " installed, try running \"blaze sync --configure\", and then re-run your"
-                    + " command.  localy available versions: [%2$s]. remotely available versions:"
+                    + " command. Locally available versions: [%2$s]. Remotely available versions:"
                     + " [%3$s]",
                 versionOverrideFlag,
                 printableXcodeVersions(localVersions.getAvailableVersions()),
@@ -407,7 +407,7 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
         ruleContext.throwWithRuleError(
             String.format(
                 "--xcode_version=%1$s specified, but '%1$s' is not an available Xcode version."
-                    + " localy available versions: [%2$s]. remotely available versions:"
+                    + " Locally available versions: [%2$s]. Remotely available versions:"
                     + " [%3$s]. If you believe you have '%1$s' installed, try running \"blaze"
                     + " sync --configure\", and then re-run your command.",
                 versionOverrideFlag,
