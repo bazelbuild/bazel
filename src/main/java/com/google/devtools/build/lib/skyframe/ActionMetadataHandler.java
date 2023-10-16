@@ -21,13 +21,11 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -38,10 +36,6 @@ import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifac
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileStatusWithMetadata;
-import com.google.devtools.build.lib.actions.FilesetManifest;
-import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehaviorWithoutError;
-import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
-import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestUtils;
@@ -57,19 +51,17 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
 /**
  * Handler provided by {@link ActionExecutionFunction} which allows the execution engine to obtain
- * {@linkplain FileArtifactValue metadata} about inputs and outputs and to store metadata about an
- * action's outputs for purposes of creating the final {@link ActionExecutionValue}.
+ * {@linkplain FileArtifactValue metadata} about outputs and to store metadata about them for
+ * purposes of creating the final {@link ActionExecutionValue}.
  *
- * <p>The handler can be in one of two modes. After construction, it acts as a cache for input and
- * output metadata while {@link com.google.devtools.build.lib.actions.ActionCacheChecker} determines
+ * <p>The handler can be in one of two modes. After construction, it acts as a cache for output
+ * metadata while {@link com.google.devtools.build.lib.actions.ActionCacheChecker} determines
  * whether the action needs to be executed. If the action needs to be executed (i.e. no action cache
  * hit), {@link #prepareForActionExecution} is called. This call switches the handler to a mode
  * where it accepts {@linkplain com.google.devtools.build.lib.actions.cache.MetadataInjector
@@ -77,28 +69,23 @@ import javax.annotation.Nullable;
  * files are set read-only and executable <em>before</em> statting them to ensure that the stat's
  * ctime is up to date.
  *
- * <p>After action execution, {@link #getMetadata} should be called on each of the action's outputs
- * (except those that were {@linkplain #artifactOmitted omitted}) to ensure that declared outputs
- * were in fact created and are valid.
+ * <p>After action execution, {@link #getOutputMetadata} should be called on each of the action's
+ * outputs (except those that were {@linkplain #artifactOmitted omitted}) to ensure that declared
+ * outputs were in fact created and are valid.
  */
-final class ActionMetadataHandler implements InputMetadataProvider, OutputMetadataStore {
+final class ActionMetadataHandler implements OutputMetadataStore {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  /**
-   * Creates a new metadata handler.
-   */
+  /** Creates a new metadata handler. */
   static ActionMetadataHandler create(
-      ActionInputMap inputArtifactData,
       boolean archivedTreeArtifactsEnabled,
       OutputPermissions outputPermissions,
       ImmutableSet<Artifact> outputs,
       XattrProvider xattrProvider,
       TimestampGranularityMonitor tsgm,
       ArtifactPathResolver artifactPathResolver,
-      PathFragment execRoot,
-      Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets) {
+      PathFragment execRoot) {
     return new ActionMetadataHandler(
-        inputArtifactData,
         archivedTreeArtifactsEnabled,
         outputPermissions,
         outputs,
@@ -106,14 +93,11 @@ final class ActionMetadataHandler implements InputMetadataProvider, OutputMetada
         tsgm,
         artifactPathResolver,
         execRoot,
-        createFilesetMapping(expandedFilesets, execRoot),
         new OutputStore());
   }
 
-  private final ActionInputMap inputArtifactData;
   private final boolean archivedTreeArtifactsEnabled;
   private final OutputPermissions outputPermissions;
-  private final ImmutableMap<PathFragment, FileArtifactValue> filesetMapping;
 
   private final Set<Artifact> omittedOutputs = Sets.newConcurrentHashSet();
   private final ImmutableSet<Artifact> outputs;
@@ -127,7 +111,6 @@ final class ActionMetadataHandler implements InputMetadataProvider, OutputMetada
   private final OutputStore store;
 
   private ActionMetadataHandler(
-      ActionInputMap inputArtifactData,
       boolean archivedTreeArtifactsEnabled,
       OutputPermissions outputPermissions,
       ImmutableSet<Artifact> outputs,
@@ -135,9 +118,7 @@ final class ActionMetadataHandler implements InputMetadataProvider, OutputMetada
       TimestampGranularityMonitor tsgm,
       ArtifactPathResolver artifactPathResolver,
       PathFragment execRoot,
-      ImmutableMap<PathFragment, FileArtifactValue> filesetMapping,
       OutputStore store) {
-    this.inputArtifactData = checkNotNull(inputArtifactData);
     this.archivedTreeArtifactsEnabled = archivedTreeArtifactsEnabled;
     this.outputPermissions = outputPermissions;
     this.outputs = checkNotNull(outputs);
@@ -145,7 +126,6 @@ final class ActionMetadataHandler implements InputMetadataProvider, OutputMetada
     this.tsgm = checkNotNull(tsgm);
     this.artifactPathResolver = checkNotNull(artifactPathResolver);
     this.execRoot = checkNotNull(execRoot);
-    this.filesetMapping = checkNotNull(filesetMapping);
     this.store = checkNotNull(store);
   }
 
@@ -175,47 +155,9 @@ final class ActionMetadataHandler implements InputMetadataProvider, OutputMetada
     return checkNotNull(value, artifact);
   }
 
-  private static ImmutableMap<PathFragment, FileArtifactValue> createFilesetMapping(
-      Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets, PathFragment execRoot) {
-    Map<PathFragment, FileArtifactValue> filesetMap = new HashMap<>();
-    for (Map.Entry<Artifact, ImmutableList<FilesetOutputSymlink>> entry : filesets.entrySet()) {
-      FilesetManifest fileset =
-          FilesetManifest.constructFilesetManifestWithoutError(
-              entry.getValue(), execRoot, RelativeSymlinkBehaviorWithoutError.RESOLVE);
-        for (Map.Entry<String, FileArtifactValue> favEntry :
-            fileset.getArtifactValues().entrySet()) {
-          if (favEntry.getValue().getDigest() != null) {
-            filesetMap.put(PathFragment.create(favEntry.getKey()), favEntry.getValue());
-          }
-        }
-    }
-    return ImmutableMap.copyOf(filesetMap);
-  }
-
   private boolean isKnownOutput(Artifact artifact) {
     return outputs.contains(artifact)
         || (artifact.hasParent() && outputs.contains(artifact.getParent()));
-  }
-
-  @Nullable
-  @Override
-  public FileArtifactValue getInputMetadata(ActionInput actionInput) throws IOException {
-    if (!(actionInput instanceof Artifact)) {
-      PathFragment inputPath = actionInput.getExecPath();
-      PathFragment filesetKeyPath =
-          inputPath.startsWith(execRoot) ? inputPath.relativeTo(execRoot) : inputPath;
-      return filesetMapping.get(filesetKeyPath);
-    }
-
-    Artifact artifact = (Artifact) actionInput;
-    FileArtifactValue value;
-
-    value = inputArtifactData.getInputMetadata(artifact);
-    if (value != null) {
-      return checkExists(value, artifact);
-    }
-
-    return null;
   }
 
   @Nullable
@@ -270,11 +212,6 @@ final class ActionMetadataHandler implements InputMetadataProvider, OutputMetada
     value = constructFileArtifactValueFromFilesystem(artifact);
     store.putArtifactData(artifact, value);
     return checkExists(value, artifact);
-  }
-
-  @Override
-  public ActionInput getInput(String execPath) {
-    return inputArtifactData.getInput(execPath);
   }
 
   @Override
@@ -485,7 +422,6 @@ final class ActionMetadataHandler implements InputMetadataProvider, OutputMetada
     return MoreObjects.toStringHelper(this)
         .add("outputs", outputs)
         .add("store", store)
-        .add("inputArtifactDataSize", inputArtifactData.sizeForDebugging())
         .toString();
   }
 

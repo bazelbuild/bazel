@@ -80,6 +80,7 @@ java_library(
         ":action_execution_value",
         ":action_input_collected_event",
         ":action_input_map_helper",
+        ":action_input_metadata_store",
         ":action_lookup_conflict_finding_value",
         ":action_metadata_handler",
         ":action_template_expansion_function",
@@ -503,6 +504,20 @@ java_library(
 )
 
 java_library(
+    name = "action_input_metadata_store",
+    srcs = ["ActionInputMetadataStore.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "action_metadata_handler",
     srcs = ["ActionMetadataHandler.java"],
     deps = [
@@ -511,7 +526,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",

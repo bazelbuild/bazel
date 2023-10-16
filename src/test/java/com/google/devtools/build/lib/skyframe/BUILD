@@ -191,6 +191,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_inactivity_watchdog",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:action_input_metadata_store",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_metadata_handler",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_template_expansion_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_template_expansion_value",

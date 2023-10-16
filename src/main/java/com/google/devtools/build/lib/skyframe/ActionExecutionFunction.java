@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
@@ -762,17 +763,22 @@ public final class ActionExecutionFunction implements SkyFunction {
     ArtifactPathResolver pathResolver =
         ArtifactPathResolver.createPathResolver(
             state.actionFileSystem, skyframeActionExecutor.getExecRoot());
+
+    ActionInputMetadataStore inputMetadataStore =
+        new ActionInputMetadataStore(
+            skyframeActionExecutor.getExecRoot().asFragment(),
+            state.inputArtifactData,
+            expandedFilesets);
+
     ActionMetadataHandler metadataHandler =
         ActionMetadataHandler.create(
-            state.inputArtifactData,
             skyframeActionExecutor.useArchivedTreeArtifacts(action),
             skyframeActionExecutor.getOutputPermissions(),
             ImmutableSet.copyOf(action.getOutputs()),
             skyframeActionExecutor.getXattrProvider(),
             tsgm.get(),
             pathResolver,
-            skyframeActionExecutor.getExecRoot().asFragment(),
-            expandedFilesets);
+            skyframeActionExecutor.getExecRoot().asFragment());
 
     // We only need to check the action cache if we haven't done it on a previous run.
     if (!state.hasCheckedActionCache()) {
@@ -780,7 +786,7 @@ public final class ActionExecutionFunction implements SkyFunction {
           skyframeActionExecutor.checkActionCache(
               env.getListener(),
               action,
-              metadataHandler,
+              inputMetadataStore,
               metadataHandler,
               artifactExpander,
               actionStartTime,
@@ -813,7 +819,7 @@ public final class ActionExecutionFunction implements SkyFunction {
               skyframeActionExecutor.discoverInputs(
                   action,
                   actionLookupData,
-                  metadataHandler,
+                  inputMetadataStore,
                   metadataHandler,
                   env,
                   state.actionFileSystem);
@@ -852,6 +858,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     return skyframeActionExecutor.executeAction(
         env,
         action,
+        inputMetadataStore,
         metadataHandler,
         actionStartTime,
         actionLookupData,
@@ -876,6 +883,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     public void run(
         Environment env,
         Action action,
+        InputMetadataProvider inputMetadataProvider,
         ActionMetadataHandler metadataHandler,
         Map<String, String> clientEnv)
         throws InterruptedException, ActionExecutionException {
@@ -894,7 +902,7 @@ public final class ActionExecutionFunction implements SkyFunction {
       checkState(!env.valuesMissing(), action);
       skyframeActionExecutor.updateActionCache(
           action,
-          metadataHandler,
+          inputMetadataProvider,
           metadataHandler,
           new Artifact.ArtifactExpanderImpl(
               // Skipping the filesets in runfiles since those cannot participate in command line

@@ -485,6 +485,7 @@ public final class SkyframeActionExecutor {
   ActionExecutionValue executeAction(
       Environment env,
       Action action,
+      InputMetadataProvider inputMetadataProvider,
       ActionMetadataHandler metadataHandler,
       long actionStartTime,
       ActionLookupData actionLookupData,
@@ -504,7 +505,7 @@ public final class SkyframeActionExecutor {
     ActionExecutionContext actionExecutionContext =
         getContext(
             action,
-            metadataHandler,
+            inputMetadataProvider,
             metadataHandler,
             artifactExpander,
             topLevelFilesets,
@@ -534,6 +535,7 @@ public final class SkyframeActionExecutor {
                     actionLookupData,
                     new ActionRunner(
                         action,
+                        inputMetadataProvider,
                         metadataHandler,
                         actionStartTime,
                         actionExecutionContext,
@@ -949,6 +951,7 @@ public final class SkyframeActionExecutor {
     void run(
         Environment env,
         Action action,
+        InputMetadataProvider inputMetadataProvider,
         ActionMetadataHandler metadataHandler,
         Map<String, String> clientEnv)
         throws InterruptedException, ActionExecutionException;
@@ -957,6 +960,7 @@ public final class SkyframeActionExecutor {
   /** Represents an action that needs to be run. */
   private final class ActionRunner extends ActionStep {
     private final Action action;
+    private final InputMetadataProvider inputMetadataProvider;
     private final ActionMetadataHandler metadataHandler;
     private final long actionStartTimeNanos;
     private final ActionExecutionContext actionExecutionContext;
@@ -966,12 +970,14 @@ public final class SkyframeActionExecutor {
 
     ActionRunner(
         Action action,
+        InputMetadataProvider inputMetadataProvider,
         ActionMetadataHandler metadataHandler,
         long actionStartTimeNanos,
         ActionExecutionContext actionExecutionContext,
         ActionLookupData actionLookupData,
         ActionPostprocessing postprocessing) {
       this.action = action;
+      this.inputMetadataProvider = inputMetadataProvider;
       this.metadataHandler = metadataHandler;
       this.actionStartTimeNanos = actionStartTimeNanos;
       this.actionExecutionContext = actionExecutionContext;
@@ -1313,7 +1319,12 @@ public final class SkyframeActionExecutor {
       @Override
       public ActionStepOrResult run(Environment env) {
         try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "postprocessing.run")) {
-          postprocessing.run(env, action, metadataHandler, actionExecutionContext.getClientEnv());
+          postprocessing.run(
+              env,
+              action,
+              inputMetadataProvider,
+              metadataHandler,
+              actionExecutionContext.getClientEnv());
           if (env.valuesMissing()) {
             return this;
           }
