@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "ed7411b3f6ea042df9161e60464e70b17546c6e3eadbd4d0b28eed6949964796",
+  "moduleFileHash": "98bcf87bcf0ae660e037e95146abf659ef807edef4a4f6c8ff076bff30258309",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -367,10 +367,10 @@
             "remotejdk17_macos_aarch64": "remotejdk17_macos_aarch64",
             "remotejdk17_win": "remotejdk17_win",
             "remotejdk17_win_arm64": "remotejdk17_win_arm64",
-            "remotejdk20_linux": "remotejdk20_linux",
-            "remotejdk20_macos": "remotejdk20_macos",
-            "remotejdk20_macos_aarch64": "remotejdk20_macos_aarch64",
-            "remotejdk20_win": "remotejdk20_win"
+            "remotejdk21_linux": "remotejdk21_linux",
+            "remotejdk21_macos": "remotejdk21_macos",
+            "remotejdk21_macos_aarch64": "remotejdk21_macos_aarch64",
+            "remotejdk21_win": "remotejdk21_win"
           },
           "devImports": [],
           "tags": [],
