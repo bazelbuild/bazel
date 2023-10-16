@@ -285,8 +285,8 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
   }
 
   @SuppressWarnings("unchecked")
-  private static Iterable<String> getEnviron(Rule rule) {
-    return (Iterable<String>) rule.getAttr("$environ");
+  private static ImmutableSet<String> getEnviron(Rule rule) {
+    return ImmutableSet.copyOf((Iterable<String>) rule.getAttr("$environ"));
   }
 
   @Override
