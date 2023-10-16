@@ -93,13 +93,24 @@ public abstract class JavaHelper {
   }
 
   /**
+   * Flattens a set of javacopts and tokenizes the contents.
+   *
+   * <p>Since javac allows passing the same option multiple times, and the right-most one wins,
+   * multiple instances of the same option+value get de-duped by the NestedSet. So when combining
+   * multiple NestedSets, we store them in reverse order, and reverse again after flattening. This
+   * preserves the right-most occurrence in its correct position, thus achieving the correct
+   * semantics.
+   *
+   * @param inOpts the set of opts to tokenize
+   */
+  public static ImmutableList<String> tokenizeJavaOptions(NestedSet<String> inOpts) {
+    return tokenizeJavaOptions(inOpts.toList().reverse());
+  }
+
+  /**
    * Javac options require special processing - People use them and expect the options to be
    * tokenized.
    */
-  public static ImmutableList<String> tokenizeJavaOptions(NestedSet<String> inOpts) {
-    return tokenizeJavaOptions(inOpts.toList());
-  }
-
   public static ImmutableList<String> tokenizeJavaOptions(Iterable<String> inOpts) {
     // Ideally, this would be in the options parser. Unfortunately,
     // the options parser can't handle a converter that expands

@@ -150,7 +150,11 @@ def compile(
     # detokenize target's javacopts, it will be tokenized before compilation
     all_javac_opts.append(helper.detokenize_javacopts(helper.tokenize_javacopts(ctx, javac_opts)))
 
-    all_javac_opts = depset(order = "preorder", transitive = all_javac_opts)
+    # we reverse the list of javacopts depsets, so that we keep the right-most set
+    # in case it's deduped. When this depset is flattened, we will reverse again,
+    # and then tokenize before passing to javac. This way, right-most javacopts will
+    # be retained and "win out".
+    all_javac_opts = depset(order = "preorder", transitive = reversed(all_javac_opts))
 
     # Optimization: skip this if there are no annotation processors, to avoid unnecessarily
     # disabling the direct classpath optimization if `enable_annotation_processor = False`
