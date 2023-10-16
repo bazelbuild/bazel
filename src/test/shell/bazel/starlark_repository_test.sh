@@ -2356,4 +2356,26 @@ EOF
   bazel build --experimental_repository_disable_download //:it || fail "Failed to build"
 }
 
+function test_duplicate_value_in_environ() {
+  cat >> WORKSPACE <<EOF
+load('//:def.bzl', 'repo')
+repo(name='foo')
+EOF
+
+  touch BUILD
+  cat > def.bzl <<'EOF'
+def _impl(repository_ctx):
+  repository_ctx.file("WORKSPACE")
+  repository_ctx.file("BUILD", """filegroup(name="bar",srcs=[])""")
+
+repo = repository_rule(
+    implementation=_impl,
+    environ=["FOO", "FOO"],
+)
+EOF
+
+  FOO=bar bazel build @foo//:bar >& $TEST_log \
+    || fail "Expected build to succeed"
+}
+
 run_suite "local repository tests"
