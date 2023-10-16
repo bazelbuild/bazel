@@ -604,7 +604,6 @@ public abstract class BuildIntegrationTestCase {
             .addBlazeModule(new OutputFilteringModule())
             .addBlazeModule(connectivityModule)
             .addBlazeModule(new SkymeldModule())
-            .addBlazeModule(getMockBazelRepositoryModule())
             .addBlazeModule(new CredentialModule());
     getSpawnModules().forEach(builder::addBlazeModule);
     builder
@@ -617,7 +616,10 @@ public abstract class BuildIntegrationTestCase {
       builder
           .addBlazeModule(new NoSpawnCacheModule())
           .addBlazeModule(new WorkerModule())
-          .addBlazeModule(new BazelRepositoryModule());
+          .addBlazeModule(
+              new BazelRepositoryModule(AnalysisMock.get().getBuiltinModules(directories)));
+    } else {
+      builder.addBlazeModule(getMockBazelRepositoryModule());
     }
     return builder;
   }

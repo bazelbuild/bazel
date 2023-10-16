@@ -52,6 +52,7 @@ msys*)
 esac
 
 # TODO: cc_shared_library doesn't work well with Bzlmod.
+# https://github.com/bazelbuild/bazel/issues/19822
 disable_bzlmod
 
 function test_starlark_cc() {

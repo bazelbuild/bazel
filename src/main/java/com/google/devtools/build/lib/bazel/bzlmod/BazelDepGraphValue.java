@@ -15,6 +15,8 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -47,6 +49,32 @@ public abstract class BazelDepGraphValue implements SkyValue {
         abridgedModules,
         extensionUsagesTable,
         extensionUniqueNames);
+  }
+
+  public static BazelDepGraphValue createEmptyDepGraph() {
+    Module root =
+        Module.builder()
+            .setName("")
+            .setVersion(Version.EMPTY)
+            .setRepoName("")
+            .setKey(ModuleKey.ROOT)
+            .setExtensionUsages(ImmutableList.of())
+            .setExecutionPlatformsToRegister(ImmutableList.of())
+            .setToolchainsToRegister(ImmutableList.of())
+            .build();
+
+    ImmutableMap<ModuleKey, Module> emptyDepGraph = ImmutableMap.of(ModuleKey.ROOT, root);
+
+    ImmutableMap<RepositoryName, ModuleKey> canonicalRepoNameLookup =
+        emptyDepGraph.keySet().stream()
+            .collect(toImmutableMap(ModuleKey::getCanonicalRepoName, key -> key));
+
+    return BazelDepGraphValue.create(
+        emptyDepGraph,
+        canonicalRepoNameLookup,
+        ImmutableList.of(),
+        ImmutableTable.of(),
+        ImmutableMap.of());
   }
 
   /**

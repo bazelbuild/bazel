@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -232,6 +233,22 @@ public class FileFunctionTest {
                         ImmutableMap::of,
                         directories,
                         BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
+                .put(
+                    SkyFunctions.REPOSITORY_MAPPING,
+                    new SkyFunction() {
+                      @Override
+                      public SkyValue compute(SkyKey skyKey, Environment env) {
+                        return RepositoryMappingValue.VALUE_FOR_ROOT_MODULE_WITHOUT_REPOS;
+                      }
+                    })
+                .put(
+                    BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
+                    new SkyFunction() {
+                      @Override
+                      public SkyValue compute(SkyKey skyKey, Environment env) {
+                        return BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE;
+                      }
+                    })
                 .build(),
             differencer);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
@@ -448,6 +465,7 @@ public class FileFunctionTest {
         .containsExactly(
             rootedPath("WORKSPACE"),
             rootedPath("WORKSPACE.bazel"),
+            rootedPath("WORKSPACE.bzlmod"),
             rootedPath("a"),
             rootedPath(""),
             rootedPath("/output_base"),

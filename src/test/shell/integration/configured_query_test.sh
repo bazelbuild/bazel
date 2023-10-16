@@ -60,6 +60,8 @@ fi
 
 add_to_bazelrc "build --package_path=%workspace%"
 
+# TODO: enable Bzlmod for this Test
+# https://github.com/bazelbuild/bazel/issues/19823
 disable_bzlmod
 
 #### TESTS #############################################################

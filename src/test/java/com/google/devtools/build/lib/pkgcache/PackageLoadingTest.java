@@ -38,11 +38,9 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
@@ -55,7 +53,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
-import java.util.Optional;
 import java.util.UUID;
 import net.starlark.java.syntax.StarlarkFile;
 import org.junit.Before;
@@ -80,7 +77,7 @@ public class PackageLoadingTest extends FoundationTestCase {
    *     this test performs, and the results compared to SkyFrame's result.
    */
   private void initializeSkyframeExecutor(boolean doPackageLoadingChecks) throws Exception {
-    AnalysisMock analysisMock = AnalysisMock.get();
+    AnalysisMock analysisMock = AnalysisMock.getAnalysisMockWithoutBuiltinModules();
     ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     BlazeDirectories directories =
         new BlazeDirectories(
@@ -118,10 +115,7 @@ public class PackageLoadingTest extends FoundationTestCase {
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
-    skyframeExecutor.injectExtraPrecomputedValues(
-        ImmutableList.of(
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
+    skyframeExecutor.injectExtraPrecomputedValues(AnalysisMock.get().getPrecomputedValues());
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,

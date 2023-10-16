@@ -484,11 +484,11 @@ public class LabelTest {
   @Test
   public void starlarkStrAndRepr() throws Exception {
     Label label = Label.parseCanonical("//x");
-    assertThat(Starlark.str(label, StarlarkSemantics.DEFAULT)).isEqualTo("@//x:x");
+    assertThat(Starlark.str(label, StarlarkSemantics.DEFAULT)).isEqualTo("@@//x:x");
     assertThat(Starlark.repr(label)).isEqualTo("Label(\"//x:x\")");
 
     label = Label.parseCanonical("@hello//x");
-    assertThat(Starlark.str(label, StarlarkSemantics.DEFAULT)).isEqualTo("@hello//x:x");
+    assertThat(Starlark.str(label, StarlarkSemantics.DEFAULT)).isEqualTo("@@hello//x:x");
     assertThat(Starlark.repr(label)).isEqualTo("Label(\"@hello//x:x\")");
   }
 
@@ -497,6 +497,7 @@ public class LabelTest {
     StarlarkSemantics semantics =
         StarlarkSemantics.builder()
             .setBool(BuildLanguageOptions.INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION, false)
+            .setBool(BuildLanguageOptions.ENABLE_BZLMOD, false)
             .build();
     assertThat(Starlark.str(Label.parseCanonical("//x"), semantics)).isEqualTo("//x:x");
     assertThat(Starlark.str(Label.parseCanonical("@x//y"), semantics)).isEqualTo("@x//y:y");
