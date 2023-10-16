@@ -14,7 +14,9 @@
 
 """cc_library Starlark implementation replacing native"""
 
+load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/semantics.bzl", "semantics")
 
 CcInfo = _builtins.toplevel.CcInfo
@@ -311,7 +313,10 @@ def _cc_library_impl(ctx):
         data_runfiles = data_runfiles,
     ))
 
-    debug_context = cc_helper.merge_cc_debug_contexts(compilation_outputs, cc_helper.get_providers(ctx.attr.deps, CcInfo))
+    debug_context = cc_helper.merge_cc_debug_contexts(
+        compilation_outputs,
+        cc_helper.get_providers(ctx.attr.deps + ctx.attr.implementation_deps, CcInfo),
+    )
     cc_info = CcInfo(
         compilation_context = compilation_context,
         linking_context = linking_context,
