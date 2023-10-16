@@ -75,10 +75,9 @@ public class AppleBinary {
       UserVariablesExtension userVariablesExtension)
       throws InterruptedException, RuleErrorException, EvalException {
     Map<Optional<String>, List<ConfiguredTargetAndData>> splitDeps =
-        ruleContext.getSplitPrerequisiteConfiguredTargetAndTargets("deps");
+        ruleContext.getSplitPrerequisites("deps");
     Map<Optional<String>, List<ConfiguredTargetAndData>> splitToolchains =
-        ruleContext.getSplitPrerequisiteConfiguredTargetAndTargets(
-            ObjcRuleClasses.CHILD_CONFIG_ATTR);
+        ruleContext.getSplitPrerequisites(ObjcRuleClasses.CHILD_CONFIG_ATTR);
 
     Preconditions.checkState(
         splitDeps.keySet().isEmpty() || splitDeps.keySet().equals(splitToolchains.keySet()),

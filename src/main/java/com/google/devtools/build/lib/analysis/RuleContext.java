@@ -33,7 +33,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -796,43 +795,11 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Returns the dependencies through a {@code LABEL_DICT_UNARY} attribute as a map from a string to
-   * a {@link TransitiveInfoCollection}.
-   */
-  public Map<String, TransitiveInfoCollection> getPrerequisiteMap(String attributeName) {
-    Preconditions.checkState(attributes().has(attributeName, BuildType.LABEL_DICT_UNARY));
-
-    ImmutableMap.Builder<String, TransitiveInfoCollection> result = ImmutableMap.builder();
-    Map<String, Label> dict = attributes().get(attributeName, BuildType.LABEL_DICT_UNARY);
-    Map<Label, ConfiguredTarget> labelToDep = new HashMap<>();
-    for (ConfiguredTargetAndData dep : targetMap.get(attributeName)) {
-      labelToDep.put(dep.getTargetLabel(), dep.getConfiguredTarget());
-    }
-
-    for (Map.Entry<String, Label> entry : dict.entrySet()) {
-      result.put(entry.getKey(), Preconditions.checkNotNull(labelToDep.get(entry.getValue())));
-    }
-
-    return result.buildOrThrow();
-  }
-
-  /**
-   * Returns the prerequisites keyed by their configuration transition keys. If the split transition
-   * is not active (e.g. split() returned an empty list), the key is an empty Optional.
-   */
-  public Map<Optional<String>, ? extends List<? extends TransitiveInfoCollection>>
-      getSplitPrerequisites(String attributeName) {
-    return Maps.transformValues(
-        getSplitPrerequisiteConfiguredTargetAndTargets(attributeName),
-        (ctatList) -> Lists.transform(ctatList, ConfiguredTargetAndData::getConfiguredTarget));
-  }
-
-  /**
    * Returns the prerequisites keyed by their transition keys. If the split transition is not active
    * (e.g. split() returned an empty list), the key is an empty Optional.
    */
-  public Map<Optional<String>, List<ConfiguredTargetAndData>>
-      getSplitPrerequisiteConfiguredTargetAndTargets(String attributeName) {
+  public Map<Optional<String>, List<ConfiguredTargetAndData>> getSplitPrerequisites(
+      String attributeName) {
     checkAttributeIsDependency(attributeName);
     // Use an ImmutableListMultimap.Builder here to preserve ordering.
     ImmutableListMultimap.Builder<Optional<String>, ConfiguredTargetAndData> result =
@@ -939,7 +906,7 @@ public final class RuleContext extends TargetContext
       // portion of the split transition.
       // Callers should be identified, cleaned up, and this check removed.
       Map<Optional<String>, List<ConfiguredTargetAndData>> map =
-          getSplitPrerequisiteConfiguredTargetAndTargets(attributeName);
+          getSplitPrerequisites(attributeName);
       prerequisiteConfiguredTargets =
           map.isEmpty() ? ImmutableList.of() : map.entrySet().iterator().next().getValue();
     } else {

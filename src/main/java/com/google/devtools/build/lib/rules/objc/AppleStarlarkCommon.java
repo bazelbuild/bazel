@@ -335,8 +335,7 @@ public class AppleStarlarkCommon
               ruleContext.getStarlarkDefinedBuiltin("link_multi_arch_static_library");
       Dict<String, StructImpl> splitTargetTriplets =
           MultiArchBinarySupport.getSplitTargetTripletFromCtads(
-              ruleContext.getSplitPrerequisiteConfiguredTargetAndTargets(
-                  ObjcRuleClasses.CHILD_CONFIG_ATTR));
+              ruleContext.getSplitPrerequisites(ObjcRuleClasses.CHILD_CONFIG_ATTR));
       return (StructImpl)
           ruleContext.callStarlarkOrThrowRuleError(
               linkMultiArchLibrary,

@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -43,6 +46,7 @@ import net.starlark.java.syntax.Location;
  * com.google.devtools.build.lib.rules.cpp.CppConfiguration}.
  */
 public class CcToolchainSuite implements RuleConfiguredTargetFactory {
+  private static final String TOOLCHAIN_ATTRIBUTE_NAME = "toolchains";
 
   private static TemplateVariableInfo createMakeVariableProvider(
       CcToolchainProvider toolchainProvider, Location location) {
@@ -68,7 +72,7 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
     String compiler = cppConfiguration.getCompilerFromOptions();
     String key = transformedCpu + (Strings.isNullOrEmpty(compiler) ? "" : ("|" + compiler));
     Map<String, Label> toolchains =
-        ruleContext.attributes().get("toolchains", BuildType.LABEL_DICT_UNARY);
+        ruleContext.attributes().get(TOOLCHAIN_ATTRIBUTE_NAME, BuildType.LABEL_DICT_UNARY);
     Label selectedCcToolchain = toolchains.get(key);
     CcToolchainProvider ccToolchainProvider;
 
@@ -134,6 +138,28 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
     return builder.build();
   }
 
+  /**
+   * Returns the toolchains defined through a {@code LABEL_DICT_UNARY} attribute as a map from a
+   * string to a {@link TransitiveInfoCollection}.
+   */
+  private ImmutableMap<String, TransitiveInfoCollection> getToolchainsMap(RuleContext ruleContext) {
+    Preconditions.checkState(
+        ruleContext.attributes().has(TOOLCHAIN_ATTRIBUTE_NAME, BuildType.LABEL_DICT_UNARY));
+
+    ImmutableMap.Builder<String, TransitiveInfoCollection> result = ImmutableMap.builder();
+    Map<String, Label> dict =
+        ruleContext.attributes().get(TOOLCHAIN_ATTRIBUTE_NAME, BuildType.LABEL_DICT_UNARY);
+    ImmutableMap<Label, ConfiguredTarget> labelToDep =
+        ruleContext.getPrerequisiteConfiguredTargets(TOOLCHAIN_ATTRIBUTE_NAME).stream()
+            .collect(toImmutableMap(dep -> dep.getTargetLabel(), dep -> dep.getConfiguredTarget()));
+
+    for (Map.Entry<String, Label> entry : dict.entrySet()) {
+      result.put(entry.getKey(), Preconditions.checkNotNull(labelToDep.get(entry.getValue())));
+    }
+
+    return result.buildOrThrow();
+  }
+
   private <T extends HasCcToolchainLabel> T selectCcToolchain(
       BuiltinProvider<T> providerType,
       RuleContext ruleContext,
@@ -142,7 +168,7 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
       Label selectedCcToolchain)
       throws RuleErrorException {
     T selectedAttributes = null;
-    for (TransitiveInfoCollection dep : ruleContext.getPrerequisiteMap("toolchains").values()) {
+    for (TransitiveInfoCollection dep : getToolchainsMap(ruleContext).values()) {
       T attributes = dep.get(providerType);
       if (attributes != null && attributes.getCcToolchainLabel().equals(selectedCcToolchain)) {
         selectedAttributes = attributes;

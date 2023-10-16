@@ -24,7 +24,6 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -51,7 +50,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
@@ -88,6 +86,7 @@ import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.rules.java.OneVersionCheckActionBuilder;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -970,10 +969,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         attr -> !"deps".equals(attr),
         validations -> builder.addOutputGroup(OutputGroupInfo.VALIDATION_TRANSITIVE, validations));
     boolean filterSplitValidations = false; // propagate validations from first split unfiltered
-    for (List<? extends TransitiveInfoCollection> deps :
-        ruleContext.getSplitPrerequisites("deps").values()) {
+    for (List<ConfiguredTargetAndData> deps : ruleContext.getSplitPrerequisites("deps").values()) {
       for (OutputGroupInfo provider :
-          AnalysisUtils.getProviders(deps, OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
+          AnalysisUtils.getProviders(
+              getConfiguredTargets(deps), OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
         NestedSet<Artifact> validations = provider.getOutputGroup(OutputGroupInfo.VALIDATION);
         if (filterSplitValidations) {
           // Filter out Android Lint validations by name: we know these validations are expensive
@@ -1038,14 +1037,20 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     // libraries across multiple architectures, e.g. x86 and armeabi-v7a, and need to be packed
     // into the APK.
     NestedSetBuilder<Artifact> transitiveNativeLibs = NestedSetBuilder.naiveLinkOrder();
-    for (Map.Entry<Optional<String>, ? extends List<? extends TransitiveInfoCollection>> entry :
-        ruleContext.getSplitPrerequisites("deps").entrySet()) {
+    for (List<ConfiguredTargetAndData> deps : ruleContext.getSplitPrerequisites("deps").values()) {
       for (AndroidNativeLibsInfo provider :
-          AnalysisUtils.getProviders(entry.getValue(), AndroidNativeLibsInfo.PROVIDER)) {
+          AnalysisUtils.getProviders(getConfiguredTargets(deps), AndroidNativeLibsInfo.PROVIDER)) {
         transitiveNativeLibs.addTransitive(provider.getNativeLibs());
       }
     }
     return transitiveNativeLibs.build();
+  }
+
+  private static ImmutableList<ConfiguredTarget> getConfiguredTargets(
+      List<ConfiguredTargetAndData> prerequisitesList) {
+    return prerequisitesList.stream()
+        .map(ConfiguredTargetAndData::getConfiguredTarget)
+        .collect(toImmutableList());
   }
 
   static class Java8LegacyDexOutput {

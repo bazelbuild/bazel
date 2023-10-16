@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.starlark;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
 import static com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.ALLOWLIST_EXTEND_RULE;
@@ -78,6 +79,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainContextApi;
@@ -501,12 +503,12 @@ public final class StarlarkRuleContext
       if (!attr.getTransitionFactory().isSplit()) {
         continue;
       }
-      Map<Optional<String>, ? extends List<? extends TransitiveInfoCollection>> splitPrereqs =
+      Map<Optional<String>, List<ConfiguredTargetAndData>> splitPrereqs =
           ruleContext.getSplitPrerequisites(attr.getName());
 
       Map<Object, Object> splitPrereqsMap = new LinkedHashMap<>();
-      for (Map.Entry<Optional<String>, ? extends List<? extends TransitiveInfoCollection>>
-          splitPrereq : splitPrereqs.entrySet()) {
+      for (Map.Entry<Optional<String>, List<ConfiguredTargetAndData>> splitPrereq :
+          splitPrereqs.entrySet()) {
 
         // Skip a split with an empty dependency list.
         // TODO(jungjw): Figure out exactly which cases trigger this and see if this can be made
@@ -518,10 +520,14 @@ public final class StarlarkRuleContext
         Object value;
         if (attr.getType() == BuildType.LABEL) {
           Preconditions.checkState(splitPrereq.getValue().size() == 1);
-          value = splitPrereq.getValue().get(0);
+          value = splitPrereq.getValue().get(0).getConfiguredTarget();
         } else {
           // BuildType.LABEL_LIST
-          value = StarlarkList.immutableCopyOf(splitPrereq.getValue());
+          value =
+              StarlarkList.immutableCopyOf(
+                  splitPrereq.getValue().stream()
+                      .map(ConfiguredTargetAndData::getConfiguredTarget)
+                      .collect(toImmutableList()));
         }
 
         if (splitPrereq.getKey().isPresent()
