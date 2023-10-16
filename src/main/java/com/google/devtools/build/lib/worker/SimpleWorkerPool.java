@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.worker;
 
 import com.google.common.base.Throwables;
 import com.google.common.eventbus.EventBus;
+import com.google.common.flogger.GoogleLogger;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -31,6 +32,8 @@ import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
  */
 @ThreadSafe
 final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
    * The subtrahend for maximal toal number of object per key. Unfortunately
@@ -101,7 +104,7 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
         if (eventBus != null) {
           eventBus.post(new WorkerEvictedEvent(key.hashCode(), key.getMnemonic()));
         }
-        updateShrunkBy(key);
+        updateShrunkBy(key, obj.getWorkerId());
       }
     } catch (Throwable t) {
       Throwables.propagateIfPossible(t, InterruptedException.class);
@@ -116,7 +119,7 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
       if (eventBus != null) {
         eventBus.post(new WorkerEvictedEvent(key.hashCode(), key.getMnemonic()));
       }
-      updateShrunkBy(key);
+      updateShrunkBy(key, obj.getWorkerId());
     }
   }
 
@@ -124,10 +127,13 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
     return getMaxTotalPerKey() - shrunkBy.getOrDefault(key, 0);
   }
 
-  private synchronized void updateShrunkBy(WorkerKey workerKey) {
+  private synchronized void updateShrunkBy(WorkerKey workerKey, int workerId) {
     int currentValue = shrunkBy.getOrDefault(workerKey, 0);
     if (getMaxTotalPerKey() - currentValue > 1) {
-      shrunkBy.put(workerKey, currentValue + 1);
+      int newValue = currentValue + 1;
+      logger.atInfo().log(
+          "shrinking %s (worker-%d) by %d.", workerKey.getMnemonic(), workerId, newValue);
+      shrunkBy.put(workerKey, newValue);
     }
   }
 

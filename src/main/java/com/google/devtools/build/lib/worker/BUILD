@@ -233,6 +233,7 @@ java_library(
         ":worker_key",
         ":worker_pool",
         "//third_party:apache_commons_pool2",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
