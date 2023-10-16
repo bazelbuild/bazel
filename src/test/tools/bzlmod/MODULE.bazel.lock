@@ -645,7 +645,7 @@
     },
     "@bazel_tools//tools/android:android_extensions.bzl%remote_android_tools_extensions": {
       "general": {
-        "bzlTransitiveDigest": "Bqnxx7EBkbAIa1pbi6x15Qa5SYY15EM6TspcYmS51S8=",
+        "bzlTransitiveDigest": "ibouvQjJ5aiSzhyc5x57J4CnvIbuwhFJ/zMpCeHpq0c=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -654,8 +654,8 @@
             "ruleClassName": "http_archive",
             "attributes": {
               "name": "bazel_tools~remote_android_tools_extensions~android_tools",
-              "sha256": "d7223664ca5b0de490f2a918c31f35cdf4f23a1446fe261d7470b8a22bd7bcf1",
-              "url": "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.29.0.tar"
+              "sha256": "2b661a761a735b41c41b3a78089f4fc1982626c76ddb944604ae3ff8c545d3c2",
+              "url": "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.30.0.tar"
             }
           },
           "android_gmaven_r8": {
