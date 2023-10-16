@@ -722,4 +722,17 @@ public interface JavaCommonApi<
 
   @StarlarkMethod(name = "current_os_name", structField = true, documented = false)
   String getCurrentOsName();
+
+  @StarlarkMethod(
+      name = "expand_java_opts",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx"),
+        @Param(name = "attr"),
+        @Param(name = "tokenize", named = true, positional = false),
+        @Param(name = "exec_paths", named = true, positional = false, defaultValue = "False")
+      })
+  Sequence<?> expandJavaOpts(
+      StarlarkRuleContextT ctx, String attr, boolean tokenize, boolean execPaths)
+      throws EvalException, InterruptedException;
 }

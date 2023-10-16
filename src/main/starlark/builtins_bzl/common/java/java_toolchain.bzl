@@ -81,7 +81,7 @@ def _java_toolchain_impl(ctx):
         ijar = ctx.attr.ijar.files_to_run if ctx.attr.ijar else None,
         jacocorunner = ctx.attr.jacocorunner.files_to_run if ctx.attr.jacocorunner else None,
         java_runtime = _get_java_runtime(ctx),
-        jvm_opt = depset([ctx.expand_location(opt) for opt in ctx.attr.jvm_opts]),
+        jvm_opt = depset(_java_common_internal.expand_java_opts(ctx, "jvm_opts", tokenize = False, exec_paths = True)),
         label = ctx.label,
         proguard_allowlister = ctx.attr.proguard_allowlister.files_to_run if ctx.attr.proguard_allowlister else None,
         single_jar = ctx.attr.singlejar.files_to_run,
@@ -139,8 +139,8 @@ def _get_javac_opts(ctx):
         opts.extend(["-target", ctx.attr.target_version])
     if ctx.attr.xlint:
         opts.append("-Xlint:" + ",".join(ctx.attr.xlint))
-    opts.extend([token for opt in ctx.attr.misc for token in ctx.tokenize(ctx.expand_location(opt))])
-    opts.extend([token for opt in ctx.attr.javacopts for token in ctx.tokenize(ctx.expand_location(opt))])
+    opts.extend(_java_common_internal.expand_java_opts(ctx, "misc", tokenize = True))
+    opts.extend(_java_common_internal.expand_java_opts(ctx, "javacopts", tokenize = True))
     return helper.detokenize_javacopts(opts)
 
 def _get_android_lint_tool(ctx):

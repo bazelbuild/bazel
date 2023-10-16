@@ -16,6 +16,8 @@
 
 load(":common/java/java_helper.bzl", "helper")
 
+_java_common_internal = _builtins.internal.java_common_internal_do_not_use
+
 PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
 
 JavaPackageConfigurationInfo = provider(
@@ -36,11 +38,7 @@ def _matches(package_specs, label):
     return False
 
 def _rule_impl(ctx):
-    javacopts = [
-        token
-        for opt in ctx.attr.javacopts
-        for token in ctx.tokenize(ctx.expand_location(opt, targets = ctx.attr.data))
-    ]
+    javacopts = _java_common_internal.expand_java_opts(ctx, "javacopts", tokenize = True)
     javacopts_depset = helper.detokenize_javacopts(javacopts)
     package_specs = [package[PackageSpecificationInfo] for package in ctx.attr.packages]
     return [

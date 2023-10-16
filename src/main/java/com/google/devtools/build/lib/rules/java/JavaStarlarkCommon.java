@@ -19,10 +19,12 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.Expander;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
@@ -433,6 +435,23 @@ public class JavaStarlarkCommon
   @Override
   public String getCurrentOsName() {
     return OS.getCurrent().getCanonicalName();
+  }
+
+  @Override
+  public Sequence<?> expandJavaOpts(
+      StarlarkRuleContext ctx, String attr, boolean tokenize, boolean execPaths)
+      throws InterruptedException {
+    Expander expander;
+    if (execPaths) {
+      expander = ctx.getRuleContext().getExpander().withExecLocations(ImmutableMap.of());
+    } else {
+      expander = ctx.getRuleContext().getExpander().withDataLocations();
+    }
+    if (tokenize) {
+      return StarlarkList.immutableCopyOf(expander.tokenized(attr));
+    } else {
+      return StarlarkList.immutableCopyOf(expander.list(attr));
+    }
   }
 
   static boolean isInstanceOfProvider(Object obj, Provider provider) {
