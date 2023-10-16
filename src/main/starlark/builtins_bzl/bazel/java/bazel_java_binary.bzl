@@ -313,9 +313,6 @@ def make_java_binary(executable):
         _bazel_java_binary_impl,
         merge_attrs(
             _BASE_BINARY_ATTRS,
-            {
-                "_use_auto_exec_groups": attr.bool(default = True),
-            },
             ({} if executable else {
                 "args": attr.string_list(),
                 "output_licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),

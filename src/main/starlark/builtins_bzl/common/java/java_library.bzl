@@ -171,7 +171,6 @@ def _make_java_library_rule(extra_attrs = {}):
         _proxy,
         attrs = merge_attrs(
             JAVA_LIBRARY_ATTRS,
-            {"_use_auto_exec_groups": attr.bool(default = True)},
             extra_attrs,
         ),
         provides = [JavaInfo],
