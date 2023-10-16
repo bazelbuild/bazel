@@ -115,6 +115,8 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
@@ -126,14 +128,13 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 /** Tests for {@link RemoteExecutionService}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class RemoteExecutionServiceTest {
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();
   @Rule public final RxNoGlobalErrorsRule rxNoGlobalErrorsRule = new RxNoGlobalErrorsRule();
@@ -1541,6 +1542,49 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void downloadOutputs_pathUnmapped() throws Exception {
+    // Test that the output of a remote action with path mapping applied is downloaded into the
+    // correct unmapped local path.
+    Digest d1 = cache.addContents(remoteActionExecutionContext, "content1");
+    Digest d2 = cache.addContents(remoteActionExecutionContext, "content2");
+    Artifact output1 = ActionsTestUtil.createArtifact(artifactRoot, "bin/config/dir/output1");
+    Artifact output2 = ActionsTestUtil.createArtifact(artifactRoot, "bin/other_dir/output2");
+    ActionResult r =
+        ActionResult.newBuilder()
+            .setExitCode(0)
+            // The action result includes the mapped paths.
+            .addOutputFiles(
+                OutputFile.newBuilder().setPath("outputs/bin/dir/output1").setDigest(d1))
+            .addOutputFiles(
+                OutputFile.newBuilder().setPath("outputs/bin/other_dir/output2").setDigest(d2))
+            .build();
+    PathMapper pathMapper =
+        execPath -> PathFragment.create(execPath.getPathString().replaceAll("config/", ""));
+    Spawn spawn =
+        new SpawnBuilder("unused")
+            .withOutput(output1)
+            .withOutput(output2)
+            .setPathMapper(pathMapper)
+            .build();
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    when(remoteOutputChecker.shouldDownloadOutput(output1.getExecPath())).thenReturn(true);
+    when(remoteOutputChecker.shouldDownloadOutput(output2.getExecPath())).thenReturn(true);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+
+    InMemoryOutput inMemoryOutput = service.downloadOutputs(action, result);
+
+    assertThat(inMemoryOutput).isNull();
+    RemoteActionFileSystem actionFs = context.getActionFileSystem();
+    assertThat(actionFs.getDigest(output1.getPath().asFragment())).isEqualTo(toBinaryDigest(d1));
+    assertThat(readContent(output1.getPath(), UTF_8)).isEqualTo("content1");
+    assertThat(actionFs.getDigest(output2.getPath().asFragment())).isEqualTo(toBinaryDigest(d2));
+    assertThat(readContent(output2.getPath(), UTF_8)).isEqualTo("content2");
+    assertThat(context.isLockOutputFilesCalled()).isTrue();
+  }
+
+  @Test
   public void uploadOutputs_uploadDirectory_works() throws Exception {
     // Test that uploading a directory works.
 
@@ -2264,6 +2308,61 @@ public class RemoteExecutionServiceTest {
                 .setScrubSalt(CacheSalt.ScrubSalt.newBuilder().setSalt("NaCl"))
                 .build()
                 .toByteString());
+  }
+
+  @Test
+  public void buildRemoteActionWithPathMapping(@TestParameter boolean remoteMerkleTreeCache)
+      throws Exception {
+    remoteOptions.remoteMerkleTreeCache = remoteMerkleTreeCache;
+
+    var mappedInput = ActionsTestUtil.createArtifact(artifactRoot, "bin/config/input1");
+    fakeFileCache.createScratchInput(mappedInput, "value1");
+    var unmappedInput = ActionsTestUtil.createArtifact(artifactRoot, "bin/input2");
+    fakeFileCache.createScratchInput(unmappedInput, "value2");
+    var outputDir =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+            artifactRoot, "bin/config/output_dir");
+    PathMapper pathMapper =
+        execPath -> PathFragment.create(execPath.getPathString().replaceAll("config/", ""));
+    Spawn spawn =
+        new SpawnBuilder("unused")
+            .withInputs(mappedInput, unmappedInput)
+            .withOutputs("outputs/bin/config/dir/output1", "outputs/bin/other_dir/output2")
+            .withOutputs(outputDir)
+            .setPathMapper(pathMapper)
+            .build();
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
+
+    // Check that inputs and outputs of the remote action are mapped correctly.
+    var remoteAction = service.buildRemoteAction(spawn, context);
+    assertThat(remoteAction.getInputMap(false))
+        .containsExactly(
+            PathFragment.create("outputs/bin/input1"), mappedInput,
+            PathFragment.create("outputs/bin/input2"), unmappedInput);
+    assertThat(remoteAction.getCommand().getOutputFilesList())
+        .containsExactly("outputs/bin/dir/output1", "outputs/bin/other_dir/output2");
+    assertThat(remoteAction.getCommand().getOutputDirectoriesList())
+        .containsExactly("outputs/bin/output_dir");
+    assertThat(remoteAction.getCommand().getOutputPathsList())
+        .containsExactly(
+            "outputs/bin/dir/output1", "outputs/bin/other_dir/output2", "outputs/bin/output_dir");
+
+    // Check that the Merkle tree nodes are mapped correctly, including the output directory.
+    var merkleTree = remoteAction.getMerkleTree();
+    var outputsDirectory =
+        merkleTree.getDirectoryByDigest(merkleTree.getRootProto().getDirectories(0).getDigest());
+    assertThat(outputsDirectory.getDirectoriesCount()).isEqualTo(1);
+    var binDirectory =
+        merkleTree.getDirectoryByDigest(outputsDirectory.getDirectories(0).getDigest());
+    assertThat(
+            binDirectory.getFilesList().stream().map(FileNode::getName).collect(toImmutableList()))
+        .containsExactly("input1", "input2");
+    assertThat(
+            binDirectory.getDirectoriesList().stream()
+                .map(DirectoryNode::getName)
+                .collect(toImmutableList()))
+        .containsExactly("output_dir");
   }
 
   private Spawn newSpawnFromResult(RemoteActionResult result) {

@@ -117,6 +117,10 @@ public class RemoteAction {
     return command;
   }
 
+  public RemotePathResolver getRemotePathResolver() {
+    return remotePathResolver;
+  }
+
   @Nullable
   public MerkleTree getMerkleTree() {
     return merkleTree;

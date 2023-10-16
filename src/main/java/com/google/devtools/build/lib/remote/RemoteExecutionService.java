@@ -160,7 +160,13 @@ public class RemoteExecutionService {
   private final Reporter reporter;
   private final boolean verboseFailures;
   private final Path execRoot;
-  private final RemotePathResolver remotePathResolver;
+
+  /**
+   * Do not use directly, instead use the per-spawn resolver created in {@link
+   * #buildRemoteAction(Spawn, SpawnExecutionContext)}.
+   */
+  private final RemotePathResolver baseRemotePathResolver;
+
   private final String buildRequestId;
   private final String commandId;
   private final DigestUtil digestUtil;
@@ -200,7 +206,7 @@ public class RemoteExecutionService {
     this.reporter = reporter;
     this.verboseFailures = verboseFailures;
     this.execRoot = execRoot;
-    this.remotePathResolver = remotePathResolver;
+    this.baseRemotePathResolver = remotePathResolver;
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
     this.digestUtil = digestUtil;
@@ -343,7 +349,8 @@ public class RemoteExecutionService {
     return merkleTreeCache;
   }
 
-  private SortedMap<PathFragment, ActionInput> buildOutputDirMap(Spawn spawn) {
+  private SortedMap<PathFragment, ActionInput> buildOutputDirMap(
+      Spawn spawn, RemotePathResolver remotePathResolver) {
     TreeMap<PathFragment, ActionInput> outputDirMap = new TreeMap<>();
     for (ActionInput output : spawn.getOutputFiles()) {
       if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
@@ -360,12 +367,14 @@ public class RemoteExecutionService {
       Spawn spawn,
       SpawnExecutionContext context,
       ToolSignature toolSignature,
-      @Nullable SpawnScrubber spawnScrubber)
+      @Nullable SpawnScrubber spawnScrubber,
+      RemotePathResolver remotePathResolver)
       throws IOException, ForbiddenActionInputException {
     // Add output directories to inputs so that they are created as empty directories by the
     // executor. The spec only requires the executor to create the parent directory of an output
     // directory, which differs from the behavior of both local and sandboxed execution.
-    SortedMap<PathFragment, ActionInput> outputDirMap = buildOutputDirMap(spawn);
+    SortedMap<PathFragment, ActionInput> outputDirMap =
+        buildOutputDirMap(spawn, remotePathResolver);
     boolean useMerkleTreeCache = remoteOptions.remoteMerkleTreeCache;
     if (toolSignature != null || spawnScrubber != null) {
       // The Merkle tree cache is not yet compatible with scrubbing or marking tool files.
@@ -531,10 +540,16 @@ public class RemoteExecutionService {
       throws IOException, ExecException, ForbiddenActionInputException, InterruptedException {
     remoteActionBuildingSemaphore.acquire();
     try {
+      // Create a remote path resolver that is aware of the spawn's path mapper, which rewrites
+      // the paths of the inputs and outputs as well as paths appearing in the command line for
+      // execution. This is necessary to ensure that artifacts are correctly emitted into and staged
+      // from the unmapped location locally.
+      RemotePathResolver remotePathResolver =
+          RemotePathResolver.createMapped(baseRemotePathResolver, execRoot, spawn.getPathMapper());
       ToolSignature toolSignature = getToolSignature(spawn, context);
       SpawnScrubber spawnScrubber = scrubber != null ? scrubber.forSpawn(spawn) : null;
       final MerkleTree merkleTree =
-          buildInputMerkleTree(spawn, context, toolSignature, spawnScrubber);
+          buildInputMerkleTree(spawn, context, toolSignature, spawnScrubber, remotePathResolver);
 
       // Get the remote platform properties.
       Platform platform;
@@ -751,7 +766,8 @@ public class RemoteExecutionService {
       RemoteActionExecutionContext context,
       ProgressStatusListener progressStatusListener,
       FileMetadata file,
-      Path tmpPath) {
+      Path tmpPath,
+      RemotePathResolver remotePathResolver) {
     checkNotNull(remoteCache, "remoteCache can't be null");
 
     try {
@@ -992,7 +1008,9 @@ public class RemoteExecutionService {
   }
 
   ActionResultMetadata parseActionResultMetadata(
-      RemoteActionExecutionContext context, RemoteActionResult result)
+      RemoteActionExecutionContext context,
+      RemoteActionResult result,
+      RemotePathResolver remotePathResolver)
       throws IOException, InterruptedException {
     checkNotNull(remoteCache, "remoteCache can't be null");
 
@@ -1097,7 +1115,7 @@ public class RemoteExecutionService {
 
     ActionResultMetadata metadata;
     try (SilentCloseable c = Profiler.instance().profile("Remote.parseActionResultMetadata")) {
-      metadata = parseActionResultMetadata(context, result);
+      metadata = parseActionResultMetadata(context, result, action.getRemotePathResolver());
     }
 
     // The expiration time for remote cache entries.
@@ -1134,7 +1152,9 @@ public class RemoteExecutionService {
       if (!isInMemoryOutputFile && shouldDownload(result, execPath)) {
         Path tmpPath = tempPathGenerator.generateTempPath();
         realToTmpPath.put(file.path, tmpPath);
-        downloadsBuilder.add(downloadFile(context, progressStatusListener, file, tmpPath));
+        downloadsBuilder.add(
+            downloadFile(
+                context, progressStatusListener, file, tmpPath, action.getRemotePathResolver()));
       } else {
         remoteActionFileSystem.injectRemoteFile(
             file.path().asFragment(),
@@ -1164,7 +1184,9 @@ public class RemoteExecutionService {
         if (shouldDownload(result, file.path.relativeTo(execRoot))) {
           Path tmpPath = tempPathGenerator.generateTempPath();
           realToTmpPath.put(file.path, tmpPath);
-          downloadsBuilder.add(downloadFile(context, progressStatusListener, file, tmpPath));
+          downloadsBuilder.add(
+              downloadFile(
+                  context, progressStatusListener, file, tmpPath, action.getRemotePathResolver()));
         } else {
           remoteActionFileSystem.injectRemoteFile(
               file.path().asFragment(),
@@ -1322,7 +1344,7 @@ public class RemoteExecutionService {
               remoteOptions,
               remoteCache.getCacheCapabilities(),
               digestUtil,
-              remotePathResolver,
+              action.getRemotePathResolver(),
               action.getActionKey(),
               action.getAction(),
               action.getCommand(),
@@ -1442,7 +1464,9 @@ public class RemoteExecutionService {
         SpawnExecutionContext context = action.getSpawnExecutionContext();
         ToolSignature toolSignature = getToolSignature(spawn, context);
         SpawnScrubber spawnScrubber = scrubber != null ? scrubber.forSpawn(spawn) : null;
-        merkleTree = buildInputMerkleTree(spawn, context, toolSignature, spawnScrubber);
+        merkleTree =
+            buildInputMerkleTree(
+                spawn, context, toolSignature, spawnScrubber, action.getRemotePathResolver());
       }
 
       remoteExecutionCache.ensureInputsPresent(

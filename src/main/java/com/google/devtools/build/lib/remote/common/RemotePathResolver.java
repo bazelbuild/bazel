@@ -15,16 +15,20 @@ package com.google.devtools.build.lib.remote.common;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
+import com.google.devtools.build.lib.exec.SpawnInputExpander.InputVisitor;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.SortedMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * A {@link RemotePathResolver} is used to resolve input/output paths for remote execution from
@@ -224,5 +228,71 @@ public interface RemotePathResolver {
     public Path outputPathToLocalPath(ActionInput actionInput) {
       return ActionInputHelper.toInputPath(actionInput, execRoot);
     }
+  }
+
+  /**
+   * Adapts a given base {@link RemotePathResolver} to also apply a {@link PathMapper} to map (and
+   * inverse map) paths.
+   */
+  static RemotePathResolver createMapped(
+      RemotePathResolver base, Path execRoot, PathMapper pathMapper) {
+    if (pathMapper.isNoop()) {
+      return base;
+    }
+    return new RemotePathResolver() {
+      private final ConcurrentHashMap<PathFragment, PathFragment> inverse =
+          new ConcurrentHashMap<>();
+
+      @Override
+      public String getWorkingDirectory() {
+        return base.getWorkingDirectory();
+      }
+
+      @Override
+      public SortedMap<PathFragment, ActionInput> getInputMapping(
+          SpawnExecutionContext context, boolean willAccessRepeatedly)
+          throws IOException, ForbiddenActionInputException {
+        return base.getInputMapping(context, willAccessRepeatedly);
+      }
+
+      @Override
+      public void walkInputs(Spawn spawn, SpawnExecutionContext context, InputVisitor visitor)
+          throws IOException, ForbiddenActionInputException {
+        base.walkInputs(spawn, context, visitor);
+      }
+
+      @Override
+      public String localPathToOutputPath(Path path) {
+        return localPathToOutputPath(path.relativeTo(execRoot));
+      }
+
+      @Override
+      public String localPathToOutputPath(PathFragment execPath) {
+        return base.localPathToOutputPath(map(execPath));
+      }
+
+      @Override
+      public Path outputPathToLocalPath(String outputPath) {
+        return execRoot.getRelative(
+            inverseMap(base.outputPathToLocalPath(outputPath).relativeTo(execRoot)));
+      }
+
+      private PathFragment map(PathFragment path) {
+        PathFragment mappedPath = pathMapper.map(path);
+        PathFragment previousPath = inverse.put(mappedPath, path);
+        Preconditions.checkState(
+            previousPath == null || previousPath.equals(path),
+            "Two different paths %s and %s map to the same path %s",
+            previousPath,
+            path,
+            mappedPath);
+        return mappedPath;
+      }
+
+      private PathFragment inverseMap(PathFragment path) {
+        return Preconditions.checkNotNull(
+            inverse.get(path), "Failed to find original path for mapped path %s", path);
+      }
+    };
   }
 }
