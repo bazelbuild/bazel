@@ -2664,10 +2664,16 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
   @Test
   public void rewindingPrerequisites(
-      @TestParameter boolean trackIncrementalState, @TestParameter boolean useActionCache)
+      @TestParameter boolean trackIncrementalState,
+      @TestParameter boolean useActionCache,
+      @TestParameter boolean skymeldEnabled)
       throws Exception {
     initializeSkyframeExecutor();
-    options.parse("--rewind_lost_inputs", "--use_action_cache=" + useActionCache);
+    options.parse(
+        "--rewind_lost_inputs",
+        "--use_action_cache=" + useActionCache,
+        "--experimental_merged_skyframe_analysis_execution=" + skymeldEnabled);
+    skyframeExecutor.setMergedSkyframeAnalysisExecutionSupplier(() -> skymeldEnabled);
 
     skyframeExecutor.setActive(false);
     skyframeExecutor.decideKeepIncrementalState(
@@ -2679,7 +2685,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         reporter);
     skyframeExecutor.setActive(true);
 
-    if (useActionCache) {
+    if (useActionCache || skymeldEnabled) {
       AbruptExitException e = assertThrows(AbruptExitException.class, this::syncSkyframeExecutor);
       assertThat(e.getDetailedExitCode().getFailureDetail().getActionRewinding().getCode())
           .isEqualTo(ActionRewinding.Code.REWIND_LOST_INPUTS_PREREQ_UNMET);

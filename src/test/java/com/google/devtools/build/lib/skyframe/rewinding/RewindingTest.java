@@ -72,6 +72,7 @@ public final class RewindingTest extends BuildIntegrationTestCase {
     addOptions(
         "--spawn_strategy=standalone",
         "--nouse_action_cache",
+        "--noexperimental_merged_skyframe_analysis_execution",
         "--rewind_lost_inputs",
         "--features=cc_include_scanning",
         "--experimental_remote_include_extraction_size_threshold=0",
