@@ -83,6 +83,7 @@ message TestResultData {
   // Following data is informational.
   optional BlazeTestStatus status = 3 [default = NO_STATUS];
   optional string status_details = 16;
+  optional int32 exit_code = 17;
   repeated string failed_logs = 4;
   repeated string warning = 5;
   optional bool has_coverage = 6;
