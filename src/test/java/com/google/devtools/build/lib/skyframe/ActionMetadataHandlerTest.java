@@ -253,13 +253,13 @@ public final class ActionMetadataHandlerTest {
     FileArtifactValue treeMetadata = handler.getOutputMetadata(treeArtifact);
     FileArtifactValue child1Metadata = handler.getOutputMetadata(child1);
     FileArtifactValue child2Metadata = handler.getOutputMetadata(child2);
-    TreeArtifactValue tree = handler.getOutputStore().getTreeArtifactData(treeArtifact);
+    TreeArtifactValue tree = handler.getAllTreeArtifactData().get(treeArtifact);
 
     assertThat(tree.getMetadata()).isEqualTo(treeMetadata);
     assertThat(tree.getChildValues())
         .containsExactly(child1, child1Metadata, child2, child2Metadata);
     assertThat(handler.getTreeArtifactChildren(treeArtifact)).isEqualTo(tree.getChildren());
-    assertThat(handler.getOutputStore().getAllArtifactData()).isEmpty();
+    assertThat(handler.getAllArtifactData()).isEmpty();
     assertThat(chmodCalls).isEmpty();
   }
 
@@ -323,8 +323,8 @@ public final class ActionMetadataHandlerTest {
         RemoteFileArtifactValue.create(new byte[] {1, 2, 3}, 5, 1, /* expireAtEpochMilli= */ -1);
 
     assertThrows(IllegalArgumentException.class, () -> handler.injectFile(child, childValue));
-    assertThat(handler.getOutputStore().getAllArtifactData()).isEmpty();
-    assertThat(handler.getOutputStore().getAllTreeArtifactData()).isEmpty();
+    assertThat(handler.getAllArtifactData()).isEmpty();
+    assertThat(handler.getAllTreeArtifactData()).isEmpty();
     assertThat(chmodCalls).isEmpty();
   }
 
@@ -343,8 +343,8 @@ public final class ActionMetadataHandlerTest {
         RemoteFileArtifactValue.create(new byte[] {1, 2, 3}, 5, 1, /* expireAtEpochMilli= */ -1);
     handler.injectFile(output, value);
 
-    assertThat(handler.getOutputStore().getAllArtifactData()).containsExactly(output, value);
-    assertThat(handler.getOutputStore().getAllTreeArtifactData()).isEmpty();
+    assertThat(handler.getAllArtifactData()).containsExactly(output, value);
+    assertThat(handler.getAllTreeArtifactData()).isEmpty();
     assertThat(chmodCalls).isEmpty();
   }
 
@@ -372,7 +372,7 @@ public final class ActionMetadataHandlerTest {
     FileArtifactValue value = handler.getOutputMetadata(treeArtifact);
     assertThat(value).isNotNull();
     assertThat(value.getDigest()).isEqualTo(tree.getDigest());
-    assertThat(handler.getOutputStore().getTreeArtifactData(treeArtifact)).isEqualTo(tree);
+    assertThat(handler.getAllTreeArtifactData().get(treeArtifact)).isEqualTo(tree);
     assertThat(chmodCalls).isEmpty();
 
     assertThat(handler.getTreeArtifactChildren(treeArtifact)).isEqualTo(tree.getChildren());
@@ -380,8 +380,8 @@ public final class ActionMetadataHandlerTest {
     // Make sure that all children are transferred properly into the ActionExecutionValue. If any
     // child is missing, getExistingFileArtifactValue will throw.
     ActionExecutionValue actionExecutionValue =
-        ActionExecutionValue.createFromOutputStore(
-            handler.getOutputStore(), /* outputSymlinks= */ ImmutableList.of(), new NullAction());
+        ActionExecutionValue.createFromActionMetadataHandler(
+            handler, /* outputSymlinks= */ ImmutableList.of(), new NullAction());
     tree.getChildren().forEach(actionExecutionValue::getExistingFileArtifactValue);
   }
 
@@ -595,9 +595,9 @@ public final class ActionMetadataHandlerTest {
 
     assertThat(handler.artifactOmitted(omitted)).isTrue();
     assertThat(handler.artifactOmitted(consumed)).isFalse();
-    assertThat(handler.getOutputStore().getAllArtifactData())
+    assertThat(handler.getAllArtifactData())
         .containsExactly(omitted, FileArtifactValue.OMITTED_FILE_MARKER);
-    assertThat(handler.getOutputStore().getAllTreeArtifactData()).isEmpty();
+    assertThat(handler.getAllTreeArtifactData()).isEmpty();
     assertThat(chmodCalls).isEmpty();
   }
 
@@ -618,9 +618,9 @@ public final class ActionMetadataHandlerTest {
 
     assertThat(handler.artifactOmitted(omittedTree)).isTrue();
     assertThat(handler.artifactOmitted(consumedTree)).isFalse();
-    assertThat(handler.getOutputStore().getAllTreeArtifactData())
+    assertThat(handler.getAllTreeArtifactData())
         .containsExactly(omittedTree, TreeArtifactValue.OMITTED_TREE_MARKER);
-    assertThat(handler.getOutputStore().getAllArtifactData()).isEmpty();
+    assertThat(handler.getAllArtifactData()).isEmpty();
     assertThat(chmodCalls).isEmpty();
   }
 
@@ -636,8 +636,8 @@ public final class ActionMetadataHandlerTest {
     FileArtifactValue metadata = handler.getOutputMetadata(output);
 
     assertThat(metadata.getDigest()).isEqualTo(outputPath.getDigest());
-    assertThat(handler.getOutputStore().getAllArtifactData()).containsExactly(output, metadata);
-    assertThat(handler.getOutputStore().getAllTreeArtifactData()).isEmpty();
+    assertThat(handler.getAllArtifactData()).containsExactly(output, metadata);
+    assertThat(handler.getAllTreeArtifactData()).isEmpty();
     assertThat(chmodCalls).containsExactly(outputPath, 0555);
   }
 
@@ -662,8 +662,8 @@ public final class ActionMetadataHandlerTest {
     FileArtifactValue metadata = handler.getOutputMetadata(output);
 
     assertThat(metadata.getDigest()).isEqualTo(outputPath.getDigest());
-    assertThat(handler.getOutputStore().getAllArtifactData()).containsExactly(output, metadata);
-    assertThat(handler.getOutputStore().getAllTreeArtifactData()).isEmpty();
+    assertThat(handler.getAllArtifactData()).containsExactly(output, metadata);
+    assertThat(handler.getAllTreeArtifactData()).isEmpty();
     // Permissions preserved in handler, so chmod calls should be empty.
     assertThat(chmodCalls).containsExactly(outputPath, 0755);
   }
@@ -682,13 +682,13 @@ public final class ActionMetadataHandlerTest {
     FileArtifactValue treeMetadata = handler.getOutputMetadata(treeArtifact);
     FileArtifactValue child1Metadata = handler.getOutputMetadata(child1);
     FileArtifactValue child2Metadata = handler.getOutputMetadata(child2);
-    TreeArtifactValue tree = handler.getOutputStore().getTreeArtifactData(treeArtifact);
+    TreeArtifactValue tree = handler.getAllTreeArtifactData().get(treeArtifact);
 
     assertThat(tree.getMetadata()).isEqualTo(treeMetadata);
     assertThat(tree.getChildValues())
         .containsExactly(child1, child1Metadata, child2, child2Metadata);
     assertThat(handler.getTreeArtifactChildren(treeArtifact)).isEqualTo(tree.getChildren());
-    assertThat(handler.getOutputStore().getAllArtifactData()).isEmpty();
+    assertThat(handler.getAllArtifactData()).isEmpty();
     assertThat(chmodCalls)
         .containsExactly(
             treeArtifact.getPath(),
@@ -722,19 +722,18 @@ public final class ActionMetadataHandlerTest {
     scratch.file(child.getPath().getPathString(), "1");
     ActionMetadataHandler handler =
         createHandler(/* outputs= */ ImmutableSet.of(artifact, treeArtifact));
-    OutputStore store = handler.getOutputStore();
 
     FileArtifactValue artifactMetadata1 = handler.getOutputMetadata(artifact);
     FileArtifactValue treeArtifactMetadata1 = handler.getOutputMetadata(treeArtifact);
     assertThat(artifactMetadata1).isNotNull();
     assertThat(artifactMetadata1).isNotNull();
-    assertThat(store.getAllArtifactData().keySet()).containsExactly(artifact);
-    assertThat(store.getAllTreeArtifactData().keySet()).containsExactly(treeArtifact);
+    assertThat(handler.getAllArtifactData().keySet()).containsExactly(artifact);
+    assertThat(handler.getAllTreeArtifactData().keySet()).containsExactly(treeArtifact);
 
     // Entering execution mode should clear the cached outputs.
     handler.prepareForActionExecution();
-    assertThat(store.getAllArtifactData()).isEmpty();
-    assertThat(store.getAllTreeArtifactData()).isEmpty();
+    assertThat(handler.getAllArtifactData()).isEmpty();
+    assertThat(handler.getAllTreeArtifactData()).isEmpty();
 
     // Updated metadata should be read from the filesystem.
     scratch.overwriteFile(artifact.getPath().getPathString(), "2");

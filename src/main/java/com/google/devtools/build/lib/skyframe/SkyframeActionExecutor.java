@@ -1301,8 +1301,8 @@ public final class SkyframeActionExecutor {
               + "\nSymlinks: %s",
           action,
           outputSymlinks);
-      return ActionExecutionValue.createFromOutputStore(
-          this.metadataHandler.getOutputStore(), outputSymlinks, action);
+      return ActionExecutionValue.createFromActionMetadataHandler(
+          this.metadataHandler, outputSymlinks, action);
     }
 
     /**

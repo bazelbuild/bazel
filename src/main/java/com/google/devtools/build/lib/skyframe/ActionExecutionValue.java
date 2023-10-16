@@ -133,11 +133,13 @@ public abstract class ActionExecutionValue implements SkyValue {
         : new MultiOutputFile(artifactData);
   }
 
-  static ActionExecutionValue createFromOutputStore(
-      OutputStore outputStore, ImmutableList<FilesetOutputSymlink> outputSymlinks, Action action) {
+  static ActionExecutionValue createFromActionMetadataHandler(
+      ActionMetadataHandler actionMetadataHandler,
+      ImmutableList<FilesetOutputSymlink> outputSymlinks,
+      Action action) {
     return create(
-        outputStore.getAllArtifactData(),
-        outputStore.getAllTreeArtifactData(),
+        actionMetadataHandler.getAllArtifactData(),
+        actionMetadataHandler.getAllTreeArtifactData(),
         outputSymlinks,
         action instanceof IncludeScannable
             ? ((IncludeScannable) action).getDiscoveredModules()

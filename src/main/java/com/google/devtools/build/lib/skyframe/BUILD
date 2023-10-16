@@ -449,7 +449,7 @@ java_library(
     name = "action_execution_value",
     srcs = ["ActionExecutionValue.java"],
     deps = [
-        ":output_store",
+        ":action_metadata_handler",
         ":tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -521,7 +521,6 @@ java_library(
     name = "action_metadata_handler",
     srcs = ["ActionMetadataHandler.java"],
     deps = [
-        ":output_store",
         ":tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -1588,19 +1587,6 @@ java_library(
     name = "mutable_supplier",
     srcs = ["MutableSupplier.java"],
     deps = ["//third_party:guava"],
-)
-
-java_library(
-    name = "output_store",
-    srcs = ["OutputStore.java"],
-    deps = [
-        ":tree_artifact_value",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
 )
 
 java_library(

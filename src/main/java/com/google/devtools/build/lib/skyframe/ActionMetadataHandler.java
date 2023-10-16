@@ -20,7 +20,9 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
@@ -52,6 +54,8 @@ import com.google.devtools.build.lib.vfs.XattrProvider;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
@@ -92,15 +96,11 @@ final class ActionMetadataHandler implements OutputMetadataStore {
         xattrProvider,
         tsgm,
         artifactPathResolver,
-        execRoot,
-        new OutputStore());
+        execRoot);
   }
 
   private final boolean archivedTreeArtifactsEnabled;
   private final OutputPermissions outputPermissions;
-
-  private final Set<Artifact> omittedOutputs = Sets.newConcurrentHashSet();
-  private final ImmutableSet<Artifact> outputs;
 
   private final XattrProvider xattrProvider;
   private final TimestampGranularityMonitor tsgm;
@@ -108,7 +108,12 @@ final class ActionMetadataHandler implements OutputMetadataStore {
   private final PathFragment execRoot;
 
   private final AtomicBoolean executionMode = new AtomicBoolean(false);
-  private final OutputStore store;
+
+  private final ImmutableSet<Artifact> outputs;
+  private final Set<Artifact> omittedOutputs = Sets.newConcurrentHashSet();
+  private final ConcurrentMap<Artifact, FileArtifactValue> artifactData = new ConcurrentHashMap<>();
+  private final ConcurrentMap<SpecialArtifact, TreeArtifactValue> treeArtifactData =
+      new ConcurrentHashMap<>();
 
   private ActionMetadataHandler(
       boolean archivedTreeArtifactsEnabled,
@@ -117,8 +122,7 @@ final class ActionMetadataHandler implements OutputMetadataStore {
       XattrProvider xattrProvider,
       TimestampGranularityMonitor tsgm,
       ArtifactPathResolver artifactPathResolver,
-      PathFragment execRoot,
-      OutputStore store) {
+      PathFragment execRoot) {
     this.archivedTreeArtifactsEnabled = archivedTreeArtifactsEnabled;
     this.outputPermissions = outputPermissions;
     this.outputs = checkNotNull(outputs);
@@ -126,7 +130,26 @@ final class ActionMetadataHandler implements OutputMetadataStore {
     this.tsgm = checkNotNull(tsgm);
     this.artifactPathResolver = checkNotNull(artifactPathResolver);
     this.execRoot = checkNotNull(execRoot);
-    this.store = checkNotNull(store);
+  }
+
+  private void putArtifactData(Artifact artifact, FileArtifactValue value) {
+    Preconditions.checkArgument(
+        !artifact.isTreeArtifact() && !artifact.isChildOfDeclaredDirectory(),
+        "%s should be stored in a TreeArtifactValue",
+        artifact);
+    artifactData.put(artifact, value);
+  }
+
+  ImmutableMap<Artifact, FileArtifactValue> getAllArtifactData() {
+    return ImmutableMap.copyOf(artifactData);
+  }
+
+  /**
+   * Returns data for TreeArtifacts that was computed during execution. May contain copies of {@link
+   * TreeArtifactValue#MISSING_TREE_ARTIFACT}.
+   */
+  ImmutableMap<Artifact, TreeArtifactValue> getAllTreeArtifactData() {
+    return ImmutableMap.copyOf(treeArtifactData);
   }
 
   /**
@@ -174,11 +197,11 @@ final class ActionMetadataHandler implements OutputMetadataStore {
     if (artifact.isMiddlemanArtifact()) {
       // A middleman artifact's data was either already injected from the action cache checker using
       // #setDigestForVirtualArtifact, or it has the default middleman value.
-      value = store.getArtifactData(artifact);
+      value = artifactData.get(artifact);
       if (value != null) {
         return checkExists(value, artifact);
       }
-      store.putArtifactData(artifact, FileArtifactValue.DEFAULT_MIDDLEMAN);
+      putArtifactData(artifact, FileArtifactValue.DEFAULT_MIDDLEMAN);
       return FileArtifactValue.DEFAULT_MIDDLEMAN;
     }
 
@@ -193,7 +216,7 @@ final class ActionMetadataHandler implements OutputMetadataStore {
       return checkExists(value, artifact);
     }
 
-    value = store.getArtifactData(artifact);
+    value = artifactData.get(artifact);
     if (value != null) {
       return checkExists(value, artifact);
     }
@@ -210,7 +233,7 @@ final class ActionMetadataHandler implements OutputMetadataStore {
     }
 
     value = constructFileArtifactValueFromFilesystem(artifact);
-    store.putArtifactData(artifact, value);
+    putArtifactData(artifact, value);
     return checkExists(value, artifact);
   }
 
@@ -218,7 +241,7 @@ final class ActionMetadataHandler implements OutputMetadataStore {
   public void setDigestForVirtualArtifact(Artifact artifact, byte[] digest) {
     checkArgument(artifact.isMiddlemanArtifact(), artifact);
     checkNotNull(digest, artifact);
-    store.putArtifactData(artifact, FileArtifactValue.createProxy(digest));
+    putArtifactData(artifact, FileArtifactValue.createProxy(digest));
   }
 
   @Override
@@ -226,13 +249,13 @@ final class ActionMetadataHandler implements OutputMetadataStore {
       throws IOException, InterruptedException {
     checkState(artifact.isTreeArtifact(), "%s is not a tree artifact", artifact);
 
-    TreeArtifactValue value = store.getTreeArtifactData(artifact);
+    TreeArtifactValue value = treeArtifactData.get(artifact);
     if (value != null) {
       return checkExists(value, artifact);
     }
 
     value = constructTreeArtifactValueFromFilesystem(artifact);
-    store.putTreeArtifactData(artifact, value);
+    treeArtifactData.put(artifact, value);
     return checkExists(value, artifact);
   }
 
@@ -323,7 +346,7 @@ final class ActionMetadataHandler implements OutputMetadataStore {
   @Override
   public ImmutableSet<TreeFileArtifact> getTreeArtifactChildren(SpecialArtifact treeArtifact) {
     checkArgument(treeArtifact.isTreeArtifact(), "%s is not a tree artifact", treeArtifact);
-    TreeArtifactValue tree = store.getTreeArtifactData(treeArtifact);
+    TreeArtifactValue tree = treeArtifactData.get(treeArtifact);
     return tree != null ? tree.getChildren() : ImmutableSet.of();
   }
 
@@ -349,7 +372,7 @@ final class ActionMetadataHandler implements OutputMetadataStore {
         "Tree artifacts and their children must be injected via injectTree: %s",
         output);
 
-    store.putArtifactData(output, metadata);
+    putArtifactData(output, metadata);
   }
 
   @Override
@@ -362,7 +385,7 @@ final class ActionMetadataHandler implements OutputMetadataStore {
         tree,
         archivedTreeArtifactsEnabled);
 
-    store.putTreeArtifactData(output, tree);
+    treeArtifactData.put(output, tree);
   }
 
   @Override
@@ -373,11 +396,11 @@ final class ActionMetadataHandler implements OutputMetadataStore {
       // Tolerate marking a tree artifact as omitted multiple times so that callers don't have to
       // deduplicate when a tree artifact has several omitted children.
       if (newlyOmitted) {
-        store.putTreeArtifactData((SpecialArtifact) output, TreeArtifactValue.OMITTED_TREE_MARKER);
+        treeArtifactData.put((SpecialArtifact) output, TreeArtifactValue.OMITTED_TREE_MARKER);
       }
     } else {
       checkState(newlyOmitted, "%s marked as omitted twice", output);
-      store.putArtifactData(output, FileArtifactValue.OMITTED_FILE_MARKER);
+      putArtifactData(output, FileArtifactValue.OMITTED_FILE_MARKER);
     }
   }
 
@@ -392,36 +415,31 @@ final class ActionMetadataHandler implements OutputMetadataStore {
         executionMode.get(), "resetOutputs() should only be called from within a running action.");
     for (Artifact output : outputs) {
       omittedOutputs.remove(output);
-      store.remove(output);
+      if (output.isTreeArtifact()) {
+        treeArtifactData.remove(output);
+      } else {
+        artifactData.remove(output);
+      }
     }
   }
 
   /**
    * Informs this handler that the action is about to be executed.
    *
-   * <p>Any stale metadata cached in the underlying {@link OutputStore} from action cache checking
-   * is cleared.
+   * <p>Any stale metadata cached from action cache checking is cleared.
    */
   void prepareForActionExecution() {
     checkState(!executionMode.getAndSet(true), "Already in execution mode");
-    store.clear();
-  }
-
-  /**
-   * Returns the underlying {@link OutputStore} containing metadata cached during the lifetime of
-   * this handler.
-   *
-   * <p>The store may be passed to {@link ActionExecutionValue#createFromOutputStore}.
-   */
-  OutputStore getOutputStore() {
-    return store;
+    artifactData.clear();
+    treeArtifactData.clear();
   }
 
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
         .add("outputs", outputs)
-        .add("store", store)
+        .add("artifactData", artifactData)
+        .add("treeArtifactData", treeArtifactData)
         .toString();
   }
 

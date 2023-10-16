@@ -801,8 +801,8 @@ public final class ActionExecutionFunction implements SkyFunction {
           "Error, we're not re-executing a "
               + "SkyframeAwareAction which should be re-executed unconditionally. Action: %s",
           action);
-      return ActionExecutionValue.createFromOutputStore(
-          metadataHandler.getOutputStore(), /* outputSymlinks= */ ImmutableList.of(), action);
+      return ActionExecutionValue.createFromActionMetadataHandler(
+          metadataHandler, /* outputSymlinks= */ ImmutableList.of(), action);
     }
 
     metadataHandler.prepareForActionExecution();
