@@ -18,6 +18,7 @@ syntax = "proto3";
 
 package build_event_stream;
 
+import "google/protobuf/any.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 import "src/main/java/com/google/devtools/build/lib/packages/metrics/package_load_metrics.proto";
@@ -577,6 +578,15 @@ message ActionExecuted {
 
   // Only populated if success = false, and sometimes not even then.
   failure_details.FailureDetail failure_detail = 11;
+
+  // Start of action execution, before any attempted execution begins.
+  google.protobuf.Timestamp start_time = 12;
+
+  // End of action execution, after all attempted execution completes.
+  google.protobuf.Timestamp end_time = 13;
+
+  // Additional details about action execution supplied by any/all strategies.
+  repeated google.protobuf.Any strategy_details = 14;
 }
 
 // Collection of all output files belonging to that output group.
