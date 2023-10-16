@@ -34,6 +34,11 @@ fail_if_no_android_sdk
 source "${CURRENT_DIR}/../../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+if [[ "$1" = '--with_platforms' ]]; then
+  # TODO(https://github.com/bazelbuild/bazel/issues/19829): Re-enable when
+  # android_local_test works properly with Android platforms.
+  exit 0
+fi
 resolve_android_toolchains "$1"
 
 function setup_android_local_test_env() {
