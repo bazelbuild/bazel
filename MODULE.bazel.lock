@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "d74b979a0d1f2f2a2e3968f8e67eee0a4bbee294ace422debf2ca527231eb8d4",
+  "moduleFileHash": "6d032b9aa1e4935f540fde37b07103eb118a3e714f27700643c2470d0669a7b8",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -14,8 +14,8 @@
   },
   "localOverrideHashes": {
     "bazel_tools": "0cc38516259ab87144b82461dd874e139f093d8e356667c3a3c5a52441ac448f",
-    "googleapis": "2f11ff6746ba50aea110cc24a56afd91d138b55052991176fdc30034b0dbfa38",
-    "remoteapis": "038a6397cee38ebe0df6f97a69049b7695044449f73b7721ae5e970e05828175"
+    "googleapis": "89bad67656f73e953cbf62f12165f56e97cf2cc17d56974c593de76200fa3471",
+    "remoteapis": "3862bfbe3d308e71852b8f025f4b33ea9c0dc8790829eda4a71425c5a2ca814e"
   },
   "moduleDepGraph": {
     "<root>": {
@@ -38,7 +38,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 63,
+            "line": 66,
             "column": 22
           },
           "imports": {
@@ -157,152 +157,152 @@
                   "com.google.protobuf:protobuf-javalite"
                 ],
                 "fail_if_repin_required": true,
-                "strict_visibility": true,
                 "lock_file": "//:maven_install.json",
                 "repositories": [
                   "https://repo1.maven.org/maven2"
-                ]
+                ],
+                "strict_visibility": true
               },
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 64,
+                "line": 67,
                 "column": 14
               }
             },
             {
               "tagName": "artifact",
               "attributeValues": {
+                "testonly": true,
                 "artifact": "guava-testlib",
                 "group": "com.google.guava",
-                "version": "31.1-jre",
-                "testonly": true
+                "version": "31.1-jre"
               },
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 184,
-                "column": 16
+                "line": 189,
+                "column": 19
               }
             },
             {
               "tagName": "artifact",
               "attributeValues": {
+                "testonly": true,
                 "artifact": "jimfs",
                 "group": "com.google.jimfs",
-                "version": "1.2",
-                "testonly": true
+                "version": "1.2"
               },
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 184,
-                "column": 16
+                "line": 189,
+                "column": 19
               }
             },
             {
               "tagName": "artifact",
               "attributeValues": {
+                "testonly": true,
                 "artifact": "compile-testing",
                 "group": "com.google.testing.compile",
-                "version": "0.18",
-                "testonly": true
+                "version": "0.18"
               },
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 184,
-                "column": 16
+                "line": 189,
+                "column": 19
               }
             },
             {
               "tagName": "artifact",
               "attributeValues": {
+                "testonly": true,
                 "artifact": "test-parameter-injector",
                 "group": "com.google.testparameterinjector",
-                "version": "1.0",
-                "testonly": true
+                "version": "1.0"
               },
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 184,
-                "column": 16
+                "line": 189,
+                "column": 19
               }
             },
             {
               "tagName": "artifact",
               "attributeValues": {
+                "testonly": true,
                 "artifact": "truth",
                 "group": "com.google.truth",
-                "version": "1.1.3",
-                "testonly": true
+                "version": "1.1.3"
               },
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 184,
-                "column": 16
+                "line": 189,
+                "column": 19
               }
             },
             {
               "tagName": "artifact",
               "attributeValues": {
+                "testonly": true,
                 "artifact": "truth-java8-extension",
                 "group": "com.google.truth.extensions",
-                "version": "1.1.3",
-                "testonly": true
+                "version": "1.1.3"
               },
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 184,
-                "column": 16
+                "line": 189,
+                "column": 19
               }
             },
             {
               "tagName": "artifact",
               "attributeValues": {
+                "testonly": true,
                 "artifact": "truth-liteproto-extension",
                 "group": "com.google.truth.extensions",
-                "version": "1.1.3",
-                "testonly": true
+                "version": "1.1.3"
               },
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 184,
-                "column": 16
+                "line": 189,
+                "column": 19
               }
             },
             {
               "tagName": "artifact",
               "attributeValues": {
+                "testonly": true,
                 "artifact": "truth-proto-extension",
                 "group": "com.google.truth.extensions",
-                "version": "1.1.3",
-                "testonly": true
+                "version": "1.1.3"
               },
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 184,
-                "column": 16
+                "line": 189,
+                "column": 19
               }
             },
             {
               "tagName": "artifact",
               "attributeValues": {
+                "testonly": true,
                 "artifact": "mockito-core",
                 "group": "org.mockito",
-                "version": "5.4.0",
-                "testonly": true
+                "version": "5.4.0"
               },
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 184,
-                "column": 16
+                "line": 189,
+                "column": 19
               }
             },
             {
@@ -329,7 +329,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 301,
+                "line": 314,
                 "column": 22
               }
             }
@@ -343,14 +343,14 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 198,
+            "line": 210,
             "column": 32
           },
           "imports": {
             "local_jdk": "local_jdk",
             "remote_java_tools": "remote_java_tools",
-            "remote_java_tools_darwin_x86_64": "remote_java_tools_darwin_x86_64",
             "remote_java_tools_darwin_arm64": "remote_java_tools_darwin_arm64",
+            "remote_java_tools_darwin_x86_64": "remote_java_tools_darwin_x86_64",
             "remote_java_tools_linux": "remote_java_tools_linux",
             "remote_java_tools_windows": "remote_java_tools_windows",
             "remotejdk11_linux": "remotejdk11_linux",
@@ -383,7 +383,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 231,
+            "line": 244,
             "column": 23
           },
           "imports": {},
@@ -397,7 +397,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 232,
+                "line": 245,
                 "column": 17
               }
             }
@@ -411,7 +411,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 234,
+            "line": 247,
             "column": 20
           },
           "imports": {
@@ -429,7 +429,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 235,
+                "line": 248,
                 "column": 10
               }
             }
@@ -443,12 +443,12 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 246,
+            "line": 259,
             "column": 33
           },
           "imports": {
-            "bootstrap_repo_cache": "bootstrap_repo_cache",
             "bazel_tools_repo_cache": "bazel_tools_repo_cache",
+            "bootstrap_repo_cache": "bootstrap_repo_cache",
             "debian_cc_deps": "debian_cc_deps",
             "openjdk_linux_aarch64_vanilla": "openjdk_linux_aarch64_vanilla",
             "openjdk_linux_ppc64le_vanilla": "openjdk_linux_ppc64le_vanilla",
@@ -470,7 +470,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 263,
+            "line": 276,
             "column": 29
           },
           "imports": {
@@ -487,13 +487,13 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 270,
+            "line": 283,
             "column": 32
           },
           "imports": {
+            "bazelci_rules": "bazelci_rules",
             "local_bazel_source_list": "local_bazel_source_list",
-            "local_config_winsdk": "local_config_winsdk",
-            "bazelci_rules": "bazelci_rules"
+            "local_config_winsdk": "local_config_winsdk"
           },
           "devImports": [],
           "tags": [],
@@ -506,7 +506,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 278,
+            "line": 291,
             "column": 31
           },
           "imports": {
@@ -523,7 +523,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 281,
+            "line": 294,
             "column": 48
           },
           "imports": {
@@ -540,7 +540,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 323,
+            "line": 336,
             "column": 35
           },
           "imports": {
@@ -557,7 +557,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 326,
+            "line": 339,
             "column": 42
           },
           "imports": {
@@ -2128,7 +2128,7 @@
       "general": {
         "bzlTransitiveDigest": "yseV59Gli/QtNiWYztGw/BCEfbZOAJ97MKMy8mbTpbg=",
         "accumulatedFileDigests": {
-          "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "e08da247a1b4200186a5118fcb0de3b1a39e8a402446607abfaaf420e543936f"
+          "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "733ddc2ba09b9c42d8c3b30215077c7c87bbc0cf66cbe5c402c2e9cba9421eea"
         },
         "envVariables": {},
         "generatedRepoSpecs": {
