@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.MissingDepExecException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
@@ -608,15 +607,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
             grepIncludes,
             includeScanningHeaderData);
 
-    try {
-      visitor.processInternal(mainSource, sources, cmdlineIncludes, includes, pathHints);
-    } catch (MissingDepExecException e) {
-      // This happens when a skyframe restart is necessary. Callers are responsible for checking
-      // env.valuesMissing() as per this method's contract, so we can just ignore the exception.
-      if (!env.valuesMissing()) {
-        throw new IllegalStateException("Missing dep without skyframe request", e);
-      }
-    }
+    visitor.processInternal(mainSource, sources, cmdlineIncludes, includes, pathHints);
   }
 
   private static void checkForInterrupt(String operation, Object source)
