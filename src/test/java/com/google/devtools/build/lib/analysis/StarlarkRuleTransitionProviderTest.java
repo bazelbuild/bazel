@@ -985,9 +985,10 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
   }
 
   @Test
-  public void testCannotTransitionWithoutAllowlist() throws Exception {
+  public void testTransitionIsCheckedAgainstDefaultAllowlist() throws Exception {
     scratch.overwriteFile(
-        "tools/allowlists/function_transition_allowlist/BUILD",
+        TestConstants.TOOLS_REPOSITORY_SCRATCH
+            + "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
         "    name = 'function_transition_allowlist',",
         "    packages = [],",
@@ -1013,7 +1014,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test");
-    assertContainsEvent("Use of Starlark transition without allowlist");
+    assertContainsEvent("Non-allowlisted use of Starlark transition");
   }
 
   @Test
