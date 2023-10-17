@@ -1141,11 +1141,20 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               "Symlinking proguard proto mapping"));
     }
 
+    // Conditionally select which output map to symlink. In the case where a select() resolves to
+    // an empty list we should pull the fail action artifact from the proguard processor. Otherwise
+    // we should prefer the final output map from dexing.
+    Artifact outputMap = null;
     if (finalProguardOutputMap != null) {
+      outputMap = finalProguardOutputMap;
+    } else if (proguardOutput.getMapping() != null) {
+      outputMap = proguardOutput.getMapping();
+    }
+    if (outputMap != null) {
       ruleContext.registerAction(
           SymlinkAction.toArtifact(
               ruleContext.getActionOwner(),
-              finalProguardOutputMap,
+              outputMap,
               androidSemantics.getProguardOutputMap(ruleContext),
               "Symlinking final proguard output map"));
     }
