@@ -170,13 +170,12 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
               /*artifactMetadata=*/ null));
     }
     if (exception == null) {
-      LocalFileType type = LocalFileType.OUTPUT_FILE;
-      if (outputArtifact.isDirectory()) {
-        type = LocalFileType.OUTPUT_DIRECTORY;
-      } else if (outputArtifact.isSymlink()) {
-        type = LocalFileType.OUTPUT_SYMLINK;
-      }
-      localFiles.add(new LocalFile(primaryOutput, type, outputArtifact, primaryOutputMetadata));
+      localFiles.add(
+          new LocalFile(
+              primaryOutput,
+              LocalFileType.forArtifact(outputArtifact),
+              outputArtifact,
+              primaryOutputMetadata));
     }
     return localFiles.build();
   }

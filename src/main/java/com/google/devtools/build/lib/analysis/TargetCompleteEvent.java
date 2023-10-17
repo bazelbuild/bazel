@@ -409,7 +409,7 @@ public final class TargetCompleteEvent
                 builder.add(
                     new LocalFile(
                         completionContext.pathResolver().toPath(artifact),
-                        LocalFileType.OUTPUT_FILE,
+                        LocalFileType.forArtifact(artifact),
                         artifact,
                         completionContext.getFileArtifactValue(artifact)));
               }

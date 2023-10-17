@@ -65,6 +65,15 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
             || this == OUTPUT_DIRECTORY
             || this == OUTPUT_SYMLINK;
       }
+
+      public static LocalFileType forArtifact(Artifact artifact) {
+        if (artifact.isDirectory()) {
+          return LocalFileType.OUTPUT_DIRECTORY;
+        } else if (artifact.isSymlink()) {
+          return LocalFileType.OUTPUT_SYMLINK;
+        }
+        return LocalFileType.OUTPUT_FILE;
+      }
     }
 
     /** Indicates the type of compression the local file should have. */

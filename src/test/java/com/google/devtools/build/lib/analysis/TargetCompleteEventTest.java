@@ -20,18 +20,32 @@ import static com.google.devtools.build.lib.analysis.TargetCompleteEvent.newFile
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts.ReportedArtifacts;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.File;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -39,6 +53,139 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link TargetCompleteEvent}. */
 @RunWith(JUnit4.class)
 public class TargetCompleteEventTest extends AnalysisTestCase {
+
+  @Test
+  public void testReferencedSourceFile() throws Exception {
+    scratch.file("BUILD", "filegroup(name = 'files', srcs = ['file'])");
+    scratch.file("file", "content does not matter");
+    ConfiguredTargetAndData ctAndData = getCtAndData("//:files");
+    ArtifactsToBuild artifactsToBuild = getArtifactsToBuild(ctAndData);
+    Artifact artifact = Iterables.getOnlyElement(artifactsToBuild.getAllArtifacts().toList());
+    FileArtifactValue metadata =
+        FileArtifactValue.createForNormalFile(new byte[] {1, 2, 3}, null, 10);
+    CompletionContext completionContext =
+        getCompletionContext(ImmutableMap.of(artifact, metadata), ImmutableMap.of());
+
+    TargetCompleteEvent event =
+        TargetCompleteEvent.successfulBuild(
+            ctAndData,
+            completionContext,
+            artifactsToBuild.getAllArtifactsByOutputGroup(),
+            /* announceTargetSummary= */ false);
+
+    assertThat(event.referencedLocalFiles()).hasSize(1);
+    LocalFile localFile = event.referencedLocalFiles().get(0);
+    assertThat(localFile.path).isEqualTo(artifact.getPath());
+    assertThat(localFile.type).isEqualTo(LocalFileType.OUTPUT_FILE);
+  }
+
+  @Test
+  public void testReferencedSourceDirectory() throws Exception {
+    scratch.file("BUILD", "filegroup(name = 'files', srcs = ['dir'])");
+    scratch.file("dir/file", "content does not matter");
+    ConfiguredTargetAndData ctAndData = getCtAndData("//:files");
+    ArtifactsToBuild artifactsToBuild = getArtifactsToBuild(ctAndData);
+    Artifact artifact = Iterables.getOnlyElement(artifactsToBuild.getAllArtifacts().toList());
+    FileArtifactValue metadata = FileArtifactValue.createForDirectoryWithMtime(0);
+    CompletionContext completionContext =
+        getCompletionContext(ImmutableMap.of(artifact, metadata), ImmutableMap.of());
+
+    TargetCompleteEvent event =
+        TargetCompleteEvent.successfulBuild(
+            ctAndData,
+            completionContext,
+            artifactsToBuild.getAllArtifactsByOutputGroup(),
+            /* announceTargetSummary= */ false);
+
+    assertThat(event.referencedLocalFiles()).hasSize(1);
+    LocalFile localFile = event.referencedLocalFiles().get(0);
+    assertThat(localFile.path).isEqualTo(artifact.getPath());
+    // TODO(tjgq): This should be reported as a directory.
+    assertThat(localFile.type).isEqualTo(LocalFileType.OUTPUT_FILE);
+  }
+
+  @Test
+  public void testReferencedTreeArtifact() throws Exception {
+    scratch.file(
+        "defs.bzl",
+        "def _impl(ctx):",
+        "  d = ctx.actions.declare_directory(ctx.label.name)",
+        "  ctx.actions.run_shell(",
+        "    outputs = [d],",
+        "    command = 'touch %s/file.txt' % d.path,",
+        "  )",
+        "  return DefaultInfo(files = depset([d]))",
+        "dir = rule(_impl)");
+    scratch.file(
+        "BUILD",
+        "load(':defs.bzl', 'dir')",
+        "dir(name = 'dir')",
+        "filegroup(name = 'files', srcs = ['dir'])");
+    ConfiguredTargetAndData ctAndData = getCtAndData("//:files");
+    ArtifactsToBuild artifactsToBuild = getArtifactsToBuild(ctAndData);
+    SpecialArtifact artifact =
+        (SpecialArtifact) Iterables.getOnlyElement(artifactsToBuild.getAllArtifacts().toList());
+    TreeArtifactValue metadata =
+        TreeArtifactValue.newBuilder(artifact)
+            .putChild(
+                TreeFileArtifact.createTreeOutput(artifact, PathFragment.create("file")),
+                FileArtifactValue.createForNormalFile(new byte[] {1, 2, 3}, null, 10))
+            .build();
+    CompletionContext completionContext =
+        getCompletionContext(ImmutableMap.of(), ImmutableMap.of(artifact, metadata));
+
+    TargetCompleteEvent event =
+        TargetCompleteEvent.successfulBuild(
+            ctAndData,
+            completionContext,
+            artifactsToBuild.getAllArtifactsByOutputGroup(),
+            /* announceTargetSummary= */ false);
+
+    assertThat(event.referencedLocalFiles()).hasSize(1);
+    LocalFile localFile = event.referencedLocalFiles().get(0);
+    assertThat(localFile.path)
+        .isEqualTo(Iterables.getOnlyElement(metadata.getChildren()).getPath());
+    assertThat(localFile.type).isEqualTo(LocalFileType.OUTPUT_FILE);
+  }
+
+  @Test
+  public void testReferencedUnresolvedSymlink() throws Exception {
+    scratch.file(
+        "defs.bzl",
+        "def _impl(ctx):",
+        "  s = ctx.actions.declare_symlink(ctx.label.name)",
+        "  ctx.actions.symlink(",
+        "    output = s,",
+        "    target_path = '/some/path',",
+        "  )",
+        "  return DefaultInfo(files = depset([s]))",
+        "sym = rule(_impl)");
+    scratch.file(
+        "BUILD",
+        "load(':defs.bzl', 'sym')",
+        "sym(name = 'sym')",
+        "filegroup(name = 'files', srcs = ['sym'])");
+    ConfiguredTargetAndData ctAndData = getCtAndData("//:files");
+    ArtifactsToBuild artifactsToBuild = getArtifactsToBuild(ctAndData);
+    Artifact artifact = Iterables.getOnlyElement(artifactsToBuild.getAllArtifacts().toList());
+    artifact.getPath().getParentDirectory().createDirectoryAndParents();
+    artifact.getPath().createSymbolicLink(fileSystem.getPath("/some/path"));
+    FileArtifactValue metadata = FileArtifactValue.createForUnresolvedSymlink(artifact.getPath());
+    CompletionContext completionContext =
+        getCompletionContext(ImmutableMap.of(artifact, metadata), ImmutableMap.of());
+
+    TargetCompleteEvent event =
+        TargetCompleteEvent.successfulBuild(
+            ctAndData,
+            completionContext,
+            artifactsToBuild.getAllArtifactsByOutputGroup(),
+            /* announceTargetSummary= */ false);
+
+    assertThat(event.referencedLocalFiles()).hasSize(1);
+    LocalFile localFile = event.referencedLocalFiles().get(0);
+    assertThat(localFile.path).isEqualTo(artifact.getPath());
+    assertThat(localFile.type).isEqualTo(LocalFileType.OUTPUT_SYMLINK);
+  }
 
   /** Regression test for b/165671166. */
   @Test
@@ -55,17 +202,9 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
     };
     String utf8InLatin1FileName = new String(filenameBytes, ISO_8859_1);
     scratch.file(utf8InLatin1FileName, "content does not matter");
-    AnalysisResult result = update("//sh:globby");
-    ConfiguredTarget ct = Iterables.getOnlyElement(result.getTargetsToBuild());
-    TargetAndConfiguration tac = Iterables.getOnlyElement(result.getTopLevelTargetsWithConfigs());
-    var configuredTargetConfiguration =
-        (BuildConfigurationValue)
-            skyframeExecutor.getEvaluator().getExistingValue(ct.getConfigurationKey());
-    ConfiguredTargetAndData ctAndData =
-        new ConfiguredTargetAndData(ct, tac.getTarget(), configuredTargetConfiguration, null);
-    TopLevelArtifactContext context =
-        new TopLevelArtifactContext(false, false, false, OutputGroupInfo.DEFAULT_GROUPS);
-    ArtifactsToBuild artifactsToBuild = TopLevelArtifactHelper.getAllArtifactsToBuild(ct, context);
+    ConfiguredTargetAndData ctAndData = getCtAndData("//sh:globby");
+    ArtifactsToBuild artifactsToBuild = getArtifactsToBuild(ctAndData);
+
     TargetCompleteEvent event =
         TargetCompleteEvent.successfulBuild(
             ctAndData,
@@ -90,5 +229,48 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
     String utf8FileName = new String(filenameBytes, UTF_8);
     assertThat(fileProtos).hasSize(1);
     assertThat(fileProtos.get(0).getName()).isEqualTo(utf8FileName);
+  }
+
+  private ConfiguredTargetAndData getCtAndData(String target) throws Exception {
+    AnalysisResult result = update(target);
+    ConfiguredTarget ct = Iterables.getOnlyElement(result.getTargetsToBuild());
+    TargetAndConfiguration tac = Iterables.getOnlyElement(result.getTopLevelTargetsWithConfigs());
+    var configuredTargetConfiguration =
+        (BuildConfigurationValue)
+            skyframeExecutor.getEvaluator().getExistingValue(ct.getConfigurationKey());
+    return new ConfiguredTargetAndData(ct, tac.getTarget(), configuredTargetConfiguration, null);
+  }
+
+  private ArtifactsToBuild getArtifactsToBuild(ConfiguredTargetAndData ctAndData) {
+    TopLevelArtifactContext context =
+        new TopLevelArtifactContext(false, false, false, OutputGroupInfo.DEFAULT_GROUPS);
+    return TopLevelArtifactHelper.getAllArtifactsToBuild(ctAndData.getConfiguredTarget(), context);
+  }
+
+  private CompletionContext getCompletionContext(
+      Map<Artifact, FileArtifactValue> metadata,
+      Map<SpecialArtifact, TreeArtifactValue> treeMetadata) {
+    ImmutableMap.Builder<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts =
+        ImmutableMap.builder();
+    ActionInputMap inputMap = new ActionInputMap(0);
+
+    for (Map.Entry<Artifact, FileArtifactValue> entry : metadata.entrySet()) {
+      expandedArtifacts.put(entry.getKey(), ImmutableList.of(entry.getKey()));
+      inputMap.put(entry.getKey(), entry.getValue(), /* depOwner= */ null);
+    }
+
+    for (Map.Entry<SpecialArtifact, TreeArtifactValue> entry : treeMetadata.entrySet()) {
+      expandedArtifacts.put(entry.getKey(), entry.getValue().getChildren());
+      inputMap.putTreeArtifact(entry.getKey(), entry.getValue(), /* depOwner= */ null);
+    }
+
+    return new CompletionContext(
+        directories.getExecRoot(TestConstants.WORKSPACE_NAME),
+        expandedArtifacts.buildOrThrow(),
+        /* expandedFilesets= */ ImmutableMap.of(),
+        ArtifactPathResolver.IDENTITY,
+        inputMap,
+        /* expandFilesets= */ false,
+        /* fullyResolveFilesetLinks= */ false);
   }
 }

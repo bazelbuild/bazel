@@ -59,7 +59,7 @@ public class CompletionContext {
   private final boolean fullyResolveFilesetLinks;
 
   @VisibleForTesting
-  CompletionContext(
+  public CompletionContext(
       Path execRoot,
       Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets,
