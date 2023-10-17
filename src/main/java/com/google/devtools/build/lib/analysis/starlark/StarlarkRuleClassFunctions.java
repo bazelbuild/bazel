@@ -543,7 +543,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       }
 
       try {
-        builder.addAttribute(attr);
+        if (builder.contains(attr.getName())) {
+          builder.override(attr);
+        } else {
+          builder.addAttribute(attr);
+        }
       } catch (IllegalStateException ex) {
         // TODO(bazel-team): stop using unchecked exceptions in this way.
         throw Starlark.errorf("cannot add attribute: %s", ex.getMessage());

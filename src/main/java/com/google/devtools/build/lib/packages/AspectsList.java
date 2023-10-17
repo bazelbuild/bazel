@@ -394,6 +394,21 @@ public final class AspectsList {
       }
     }
 
+    /**
+     * Adds all aspect from the list.
+     *
+     * <p>The function is intended for extended Starlark rules, where aspect list is already built
+     * and may include aspects required by other aspects.
+     */
+    public void addAspects(AspectsList aspectsList) throws EvalException {
+      for (AspectDetails<?> aspect : aspectsList.aspects) {
+        boolean needsToAdd = needsToBeAdded(aspect.getName(), aspect.requiredByAspect);
+        if (needsToAdd) {
+          aspects.put(aspect.getName(), aspect);
+        }
+      }
+    }
+
     private boolean needsToBeAdded(String aspectName, @Nullable String requiredByAspect)
         throws EvalException {
 

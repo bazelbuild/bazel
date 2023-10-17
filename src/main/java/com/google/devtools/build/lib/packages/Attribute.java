@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.FormatMethod;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -968,6 +969,10 @@ public final class Attribute implements Comparable<Attribute> {
     public Builder<TYPE> mandatoryProviders(StarlarkProviderIdentifier... providers) {
       mandatoryProviders(Arrays.asList(providers));
       return this;
+    }
+
+    void addAspects(AspectsList aspectsList) throws EvalException {
+      aspectsListBuilder.addAspects(aspectsList);
     }
 
     @CanIgnoreReturnValue
@@ -2117,6 +2122,10 @@ public final class Attribute implements Comparable<Attribute> {
     return aspects.getAspects(rule);
   }
 
+  public AspectsList getAspectsList() {
+    return aspects;
+  }
+
   public ImmutableList<AspectClass> getAspectClasses() {
     return aspects.getAspectClasses();
   }
@@ -2222,6 +2231,50 @@ public final class Attribute implements Comparable<Attribute> {
       return "_" + nativeAttrName.substring(1);
     }
     return nativeAttrName;
+  }
+
+  @FormatMethod
+  private static void failIf(boolean condition, String message, Object... args)
+      throws EvalException {
+    if (condition) {
+      throw Starlark.errorf(message, args);
+    }
+  }
+
+  /**
+   * Throws Eval exception if this attribute cannot override another one using Starlark rule
+   * extensions.
+   *
+   * <p>Starlark rule extension only allow to override aspects and default value.
+   */
+  public void failIfNotAValidOverride() throws EvalException {
+    failIf(
+        !allowedRuleClassesForLabels.equals(Attribute.ANY_RULE),
+        "attribute `%s`: can't override allowed rule classes",
+        name);
+    failIf(
+        !allowedRuleClassesForLabelsWarning.equals(Attribute.NO_RULE),
+        "attribute `%s`: can't override allowed rule classes",
+        name);
+    failIf(
+        !NoTransition.isInstance(transitionFactory),
+        "attribute `%s`: can't override configuration transition",
+        name);
+    failIf(
+        allowedFileTypesForLabels != FileTypeSet.NO_FILE,
+        "attribute `%s`: can't override allowed files",
+        name);
+    failIf(
+        validityPredicate != Attribute.ANY_EDGE,
+        "attribute `%s`: can't override allowed files",
+        name);
+    failIf(
+        !requiredProviders.acceptsAny(), "attribute `%s`: can't override required providers", name);
+    failIf(
+        !propertyFlags.equals(
+            ImmutableSet.of(PropertyFlag.STARLARK_DEFINED, PropertyFlag.STRICT_LABEL_CHECKING)),
+        "attribute `%s`: can't have additional flags",
+        name); // mandatory?*/
   }
 
   @Override

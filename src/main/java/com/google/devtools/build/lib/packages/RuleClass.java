@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.FormatMethod;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1241,6 +1242,48 @@ public class RuleClass implements RuleClassData {
     @CanIgnoreReturnValue
     public <TYPE> Builder add(Attribute.Builder<TYPE> attr) {
       addAttribute(attr.build());
+      return this;
+    }
+
+    @FormatMethod
+    private static void failIf(boolean condition, String message, Object... args)
+        throws EvalException {
+      if (condition) {
+        throw Starlark.errorf(message, args);
+      }
+    }
+
+    /**
+     * Overrides the attribute with the same name. This method does additional checks required for
+     * overriding attributes in Starlark
+     */
+    @CanIgnoreReturnValue
+    public Builder override(Attribute attr) throws EvalException {
+      Attribute parentAttr = attributes.get(attr.getName());
+      failIf(
+          !parentAttr.starlarkDefined(),
+          "attribute `%s`: built-in attributes cannot be overridden.",
+          parentAttr.getPublicName());
+      failIf(
+          !parentAttr.isPublic(),
+          "attribute `%s`: private attributes cannot be overridden.",
+          parentAttr.getPublicName());
+      failIf(
+          parentAttr.getType() != BuildType.LABEL_LIST && parentAttr.getType() != BuildType.LABEL,
+          "attribute `%s`: Only label types maybe be overridden.",
+          parentAttr.getPublicName());
+      failIf(
+          parentAttr.getType() != attr.getType(),
+          "attribute `%s`: Types of parent and child's attributes mismatch.",
+          parentAttr.getPublicName());
+      attr.failIfNotAValidOverride();
+
+      Attribute.Builder<?> attrBuilder = copy(attr.getName());
+      if (attr.getDefaultValueUnchecked() != null) {
+        attrBuilder.defaultValue(attr.getDefaultValueUnchecked());
+      }
+      attrBuilder.addAspects(attr.getAspectsList());
+      override(attrBuilder);
       return this;
     }
 

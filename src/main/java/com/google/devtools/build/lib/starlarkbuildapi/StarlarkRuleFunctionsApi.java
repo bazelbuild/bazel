@@ -487,7 +487,7 @@ public interface StarlarkRuleFunctionsApi {
             defaultValue = "None",
             positional = false,
             doc =
-                "Experimental: the Stalark function that is extended. When set the public"
+                "Experimental: the Stalark rule that is extended. When set the public"
                     + " attributes are merged as well as advertised providers. The rule matches"
                     + " <code>executable</code> and <code>test</code> from the parent. Values of"
                     + " <code>fragments</code>, <code>toolchains</code>,"

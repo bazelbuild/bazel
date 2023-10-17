@@ -165,7 +165,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "  return",
         "r = rule(impl, attrs = {'tags': attr.string_list()})");
     ev.assertContainsError(
-        "There is already a built-in attribute 'tags' which cannot be overridden");
+        "Error in rule: attribute `tags`: built-in attributes cannot be overridden.");
   }
 
   @Test
@@ -177,7 +177,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "  return",
         "r = rule(impl, attrs = {'name': attr.string()})");
     ev.assertContainsError(
-        "There is already a built-in attribute 'name' which cannot be overridden");
+        "Error in rule: attribute `name`: built-in attributes cannot be overridden.");
   }
 
   @Test
@@ -3413,8 +3413,159 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void extendRule_attributeAdditionalAspects() throws Exception {
+    scratch.file("parent/BUILD");
+    scratch.file(
+        "parent/parent.bzl",
+        "ParentInfo = provider()",
+        "def _aspect_impl(ctx, target):",
+        "  return []",
+        "parent_aspect = aspect(_aspect_impl)",
+        "def _impl(ctx):",
+        "  return [ParentInfo()]",
+        "parent_library = rule(",
+        "  implementation = _impl,",
+        "  attrs = { ",
+        "    'srcs': attr.label_list(allow_files = ['.parent']),",
+        "    'deps': attr.label_list(aspects = [parent_aspect]),",
+        "    'tool': attr.label(providers = [ParentInfo]),",
+        "  },",
+        ")");
+    scratch.file(
+        "extend_rule_testing/child.bzl",
+        "load('//parent:parent.bzl', 'parent_library')",
+        "def _aspect_impl(ctx, target):",
+        "  return []",
+        "my_aspect = aspect(_aspect_impl)",
+        "def _impl(ctx):",
+        "  return ctx.super()",
+        "my_library = rule(",
+        "  implementation = _impl,",
+        "  parent = parent_library,",
+        "  attrs = {",
+        "    'deps': attr.label_list(aspects = [my_aspect]),",
+        "    'tool': attr.label(aspects = [my_aspect]),",
+        "  }",
+        ")");
+    scratch.file(
+        "extend_rule_testing/BUILD",
+        "load(':child.bzl', 'my_library')",
+        "my_library(name = 'my_target', deps = [':dep'])",
+        "filegroup(name = 'dep')");
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//extend_rule_testing:my_target");
+    Rule rule = getRuleContext(myTarget).getRule();
+    assertNoEvents();
+
+    assertThat(rule.getRuleClassObject().isExecutableStarlark()).isFalse();
+    assertThat(rule.getRuleClassObject().getRuleClassType()).isEqualTo(RuleClassType.NORMAL);
+    assertThat(
+            rule.getRuleClassObject().getAttributeByName("deps").getAspectClasses().stream()
+                .map(AspectClass::toString))
+        .containsExactly(
+            "//parent:parent.bzl%parent_aspect", "//extend_rule_testing:child.bzl%my_aspect");
+    assertThat(
+            rule.getRuleClassObject().getAttributeByName("tool").getAspectClasses().stream()
+                .map(AspectClass::toString))
+        .containsExactly("//extend_rule_testing:child.bzl%my_aspect");
+  }
+
+  @Test
+  public void extendRule_overridePrivateAttribute_fails() throws Exception {
+    scratch.file("parent/BUILD", "filegroup(name = 'parent_tool')");
+    scratch.file(
+        "parent/parent.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "parent_library = rule(",
+        "  implementation = _impl,",
+        "  attrs = { ",
+        "    '_tool': attr.label(default = ':parent_tool'),",
+        "  },",
+        ")");
+    scratch.file(
+        "extend_rule_testing/child.bzl",
+        "load('//parent:parent.bzl', 'parent_library')",
+        "def _impl(ctx):",
+        "  return ctx.super()",
+        "my_library = rule(",
+        "  implementation = _impl,",
+        "  parent = parent_library,",
+        "  attrs = {",
+        "    '_tool': attr.label(default = ':child_tool'),",
+        "  }",
+        ")");
+    scratch.file(
+        "extend_rule_testing/BUILD",
+        "load(':child.bzl', 'my_library')",
+        "my_library(name = 'my_target')",
+        "filegroup(name = 'child_tool')");
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//extend_rule_testing:BUILD");
+
+    ev.assertContainsError(
+        "Error in rule: attribute `_tool`: private attributes cannot be overridden.");
+  }
+
+  @Test
+  public void extendRule_attributeOverrideDefault() throws Exception {
+    scratch.file("parent/BUILD");
+    scratch.file(
+        "parent/parent.bzl",
+        "ParentInfo = provider()",
+        "def _impl(ctx):",
+        "  return [ParentInfo(deps = ctx.attr.deps, tools = [ctx.attr.tool])]",
+        "parent_library = rule(",
+        "  implementation = _impl,",
+        "  attrs = { ",
+        "    'srcs': attr.label_list(allow_files = ['.parent']),",
+        "    'deps': attr.label_list(),",
+        "    'tool': attr.label(default = ':tool_parent'),",
+        "  },",
+        ")");
+    scratch.file(
+        "extend_rule_testing/child.bzl",
+        "load('//parent:parent.bzl', 'parent_library')",
+        "def _impl(ctx):",
+        "  return ctx.super()",
+        "my_library = rule(",
+        "  implementation = _impl,",
+        "  parent = parent_library,",
+        "  attrs = {",
+        "    'deps': attr.label_list(default = [':dep']),",
+        "    'tool': attr.label(default = ':tool_child'),",
+        "  }",
+        ")");
+    scratch.file(
+        "extend_rule_testing/BUILD",
+        "load(':child.bzl', 'my_library')",
+        "my_library(name = 'my_target')",
+        "filegroup(name = 'dep')",
+        "filegroup(name = 'tool_child')");
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//extend_rule_testing:my_target");
+    StarlarkProvider.Key parentInfoKey =
+        new StarlarkProvider.Key(
+            Label.parseCanonicalUnchecked("//parent:parent.bzl"), "ParentInfo");
+    StarlarkInfo parentInfo = (StarlarkInfo) myTarget.get(parentInfoKey);
+
+    assertNoEvents();
+    assertThat(
+            Sequence.cast(parentInfo.getValue("deps"), ConfiguredTarget.class, "deps").stream()
+                .map(ConfiguredTarget::getLabel)
+                .map(Label::getName))
+        .containsExactly("dep");
+    assertThat(
+            Sequence.cast(parentInfo.getValue("tools"), ConfiguredTarget.class, "tools").stream()
+                .map(ConfiguredTarget::getLabel)
+                .map(Label::getName))
+        .containsExactly("tool_child");
+  }
+
+  @Test
   public void extendRule_attributeCollision() throws Exception {
-    // TODO b/300201845 - support public attribute merging/overriding
     // TODO b/300201845 - encapsulate parents and childs private attributes
     scratchParentRule("parent_library");
     scratch.file(
@@ -3435,10 +3586,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     reporter.addHandler(ev.getEventCollector());
     getConfiguredTarget("//extend_rule_testing:BUILD");
 
-    // TODO: b/300201845 - adjust error messaging, "built-in attr" -> "attr in parent"
     ev.assertContainsError(
-        "Error in rule: cannot add attribute: There is already a built-in attribute 'srcs' which"
-            + " cannot be overridden.");
+        "Error in rule: attribute `srcs`: Types of parent and child's attributes mismatch.");
   }
 
   @Test
@@ -3853,8 +4002,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     getConfiguredTarget("//p:my_test_target");
 
     ev.assertContainsError(
-        "Error in analysis_test: cannot add attribute: There is already a built-in attribute 'name'"
-            + " which cannot be overridden.");
+        "Error in analysis_test: attribute `name`: built-in attributes cannot be overridden");
   }
 
   @Test
