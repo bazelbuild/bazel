@@ -106,8 +106,13 @@ public class BazelLockFileModule extends BlazeModule {
                 combineModuleExtensions(lockfile.getModuleExtensions(), oldExtensionUsages))
             .build();
 
-    // Write the new value to the file
-    updateLockfile(lockfilePath, lockfile);
+    // Write the new value to the file, but only if needed. This is not just a performance
+    // optimization: whenever the lockfile is updated, most Skyframe nodes will be marked as dirty
+    // on the next build, which breaks commands such as `bazel config` that rely on
+    // com.google.devtools.build.skyframe.MemoizingEvaluator#getDoneValues.
+    if (!lockfile.equals(oldLockfile)) {
+      updateLockfile(lockfilePath, lockfile);
+    }
     this.moduleResolutionEvent = null;
     this.extensionResolutionEventsMap.clear();
   }
