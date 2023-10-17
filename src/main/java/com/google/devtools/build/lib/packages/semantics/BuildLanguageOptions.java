@@ -686,11 +686,20 @@ public final class BuildLanguageOptions extends OptionsBase {
   @Option(
       name = "incompatible_disable_non_executable_java_binary",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "If true, java_binary is always executable. create_executable attribute is removed.")
   public boolean incompatibleDisableNonExecutableJavaBinary;
+
+  @Option(
+      name = "experimental_rule_extension_api",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "Enable experimental rule extension API and subrule APIs")
+  public boolean experimentalRuleExtensionApi;
 
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
@@ -794,6 +803,7 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_DISABLE_NON_EXECUTABLE_JAVA_BINARY,
                 incompatibleDisableNonExecutableJavaBinary)
+            .setBool(EXPERIMENTAL_RULE_EXTENSION_API, experimentalRuleExtensionApi)
             .build();
     return INTERNER.intern(semantics);
   }
@@ -886,6 +896,7 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-incompatible_enable_proto_toolchain_resolution";
   public static final String INCOMPATIBLE_DISABLE_NON_EXECUTABLE_JAVA_BINARY =
       "-incompatible_disable_non_executable_java_binary";
+  public static final String EXPERIMENTAL_RULE_EXTENSION_API = "-experimental_rule_extension_api";
 
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =
