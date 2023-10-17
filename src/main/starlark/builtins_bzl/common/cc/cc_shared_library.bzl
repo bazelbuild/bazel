@@ -840,6 +840,31 @@ cc_shared_library = rule(
     fragments = ["cpp"] + semantics.additional_fragments(),
 )
 
+def _deps_analyzed_by_graph_structure_aspect(dynamic_deps, linkshared, deps, malloc, link_extra_lib):
+    if not dynamic_deps:
+        return []
+
+    # Propagate an aspect if dynamic_deps attribute is specified.
+    all_deps = []
+    all_deps.extend(deps)
+
+    if not linkshared:
+        all_deps.append(link_extra_lib)
+        all_deps.append(malloc)
+    return all_deps
+
+dynamic_deps_attrs = {
+    "dynamic_deps": attr.label_list(
+        allow_files = False,
+        providers = [CcSharedLibraryInfo],
+    ),
+    "_deps_analyzed_by_graph_structure_aspect": attr.label_list(
+        providers = [CcInfo],
+        aspects = [graph_structure_aspect],
+        default = _deps_analyzed_by_graph_structure_aspect,
+    ),
+}
+
 for_testing_dont_use_check_if_target_under_path = _check_if_target_under_path
 merge_cc_shared_library_infos = _merge_cc_shared_library_infos
 build_link_once_static_libs_map = _build_link_once_static_libs_map

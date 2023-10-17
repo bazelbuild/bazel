@@ -223,7 +223,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testMacroHasGeneratorAttributes() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_binary");
     scratch.file(
         "test/starlark/extension.bzl",
         "def _impl(ctx):",
@@ -242,9 +241,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "  native_macro_rule = 'native_macro')",
         "macro_rule(name = 'macro_target')",
         "no_macro_rule(name = 'no_macro_target')",
-        "native_macro_rule(name = 'native_macro_target')",
-        "cc_binary(name = 'cc_target', deps = ['cc_dep'])",
-        "cc_library(name = 'cc_dep')");
+        "native_macro_rule(name = 'native_macro_target')");
 
     Rule withMacro = getRuleForTarget("macro_target");
     assertThat(withMacro.getAttr("generator_name")).isEqualTo("macro_target");
@@ -261,12 +258,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     assertThat(nativeMacro.getAttr("generator_name")).isEqualTo("native_macro_target");
     assertThat(nativeMacro.getAttr("generator_function")).isEqualTo("native_macro");
     assertThat(nativeMacro.getAttr("generator_location")).isEqualTo("test/starlark/BUILD:5:18");
-
-    // Starlark version of cc_binary is created by a wrapper macro.
-    Rule ccTarget = getRuleForTarget("cc_target");
-    assertThat(ccTarget.getAttr("generator_name")).isEqualTo("cc_target");
-    assertThat(ccTarget.getAttr("generator_function")).isEqualTo("cc_binary");
-    assertThat(ccTarget.getAttr("generator_location")).isEqualTo("test/starlark/BUILD:6:10");
   }
 
   @Test

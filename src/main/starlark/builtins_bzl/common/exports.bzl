@@ -14,7 +14,7 @@
 
 """Exported builtins symbols that are not specific to OSS Bazel."""
 
-load("@_builtins//:common/cc/cc_binary_wrapper.bzl", "cc_binary")
+load("@_builtins//:common/cc/cc_binary.bzl", "cc_binary")
 load("@_builtins//:common/cc/cc_common.bzl", "cc_common")
 load("@_builtins//:common/cc/cc_compilation_helper.bzl", "cc_compilation_helper")
 load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
