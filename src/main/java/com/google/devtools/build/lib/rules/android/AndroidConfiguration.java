@@ -775,7 +775,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
     @Option(
         name = "incompatible_enable_android_toolchain_resolution",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
