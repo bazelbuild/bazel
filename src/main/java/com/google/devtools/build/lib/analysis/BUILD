@@ -192,6 +192,7 @@ java_library(
         "OutputGroupInfo.java",
         "PackageSpecificationProvider.java",
         "PrerequisiteArtifacts.java",
+        "PrerequisitesCollection.java",
         "PseudoAction.java",
         "RuleConfiguredTargetBuilder.java",
         "RuleConfiguredTargetFactory.java",
