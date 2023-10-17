@@ -168,12 +168,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                   .build())
           .build();
 
-  private static final ImmutableSet<AllowlistEntry> ALLOWLIST_INITIALIZER =
-      ImmutableSet.of(allowlistEntry("", "initializer_testing"));
-  public static final ImmutableSet<AllowlistEntry> ALLOWLIST_EXTEND_RULE =
-      ImmutableSet.of(allowlistEntry("", "extend_rule_testing"));
-  private static final ImmutableSet<AllowlistEntry> ALLOWLIST_SUBRULES =
-      ImmutableSet.of(allowlistEntry("", "subrule_testing"));
+  public static final ImmutableSet<AllowlistEntry> ALLOWLIST_RULE_EXTENSION_API =
+      ImmutableSet.of(
+          allowlistEntry("", "initializer_testing"),
+          allowlistEntry("", "extend_rule_testing"),
+          allowlistEntry("", "subrule_testing"));
 
   /** Parent rule class for test Starlark rules. */
   public static RuleClass getTestBaseRule(RuleDefinitionEnvironment env) {
@@ -336,16 +335,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     // Ensure we're initializing a .bzl file, which also means we have a RuleDefinitionEnvironment.
     BzlInitThreadContext bazelContext = BzlInitThreadContext.fromOrFail(thread, "rule()");
 
-    if (initializer != Starlark.NONE) {
-      BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_INITIALIZER);
-    }
-
-    if (parentUnchecked != Starlark.NONE) {
-      BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_EXTEND_RULE);
-    }
-
-    if (!subrules.isEmpty()) {
-      BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_SUBRULES);
+    if (initializer != Starlark.NONE || parentUnchecked != Starlark.NONE || !subrules.isEmpty()) {
+      if (!thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_RULE_EXTENSION_API)) {
+        BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_RULE_EXTENSION_API);
+      }
     }
 
     final RuleClass parent;
@@ -780,7 +773,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         attrObjectToAttributesList(attrs);
 
     if (!subrulesUnchecked.isEmpty()) {
-      BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_SUBRULES);
+      if (!thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_RULE_EXTENSION_API)) {
+        BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_RULE_EXTENSION_API);
+      }
     }
     ImmutableList<StarlarkSubrule> subrules =
         Sequence.cast(subrulesUnchecked, StarlarkSubrule.class, "subrules").getImmutableList();
@@ -1180,7 +1175,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Sequence<?> toolchainsUnchecked,
       StarlarkThread thread)
       throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_SUBRULES);
+    if (!thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_RULE_EXTENSION_API)) {
+      BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_RULE_EXTENSION_API);
+    }
     ImmutableMap<String, Descriptor> attrs =
         ImmutableMap.copyOf(Dict.cast(attrsUnchecked, String.class, Descriptor.class, "attrs"));
     for (Entry<String, Descriptor> attr : attrs.entrySet()) {
