@@ -1227,6 +1227,7 @@ sh_test(
         ":test-deps",
         "//src/tools/workspacelog:parser",
     ],
+    shard_count = 3,
     tags = [
         "no_windows",
         "requires-network",
