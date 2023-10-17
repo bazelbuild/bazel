@@ -1492,6 +1492,17 @@ function test_external_cc_test_local_sibling_repository_layout() {
       --strategy=local \
       --experimental_sibling_repository_layout \
       @other_repo//test >& $TEST_log || fail "Test should pass"
+
+  # Test cc compile action can hit the action cache. See
+  # https://github.com/bazelbuild/bazel/issues/17819
+  bazel shutdown
+
+  bazel test \
+      --test_output=errors \
+      --strategy=local \
+      --experimental_sibling_repository_layout \
+      @other_repo//test >& $TEST_log || fail "Test should pass"
+  expect_log "1 process: 1 internal"
 }
 
 function test_bazel_current_repository_define() {

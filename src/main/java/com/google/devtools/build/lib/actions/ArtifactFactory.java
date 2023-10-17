@@ -359,6 +359,21 @@ public class ArtifactFactory implements ArtifactResolver {
     }
   }
 
+  private boolean isDefinitelyNotSourceExecPath(PathFragment execPath) {
+    // Source exec paths cannot escape the source root.
+    if (siblingRepositoryLayout) {
+      // The exec path may start with .. if using --experimental_sibling_repository_layout, so test
+      // the subfragment from index 1 onwards.
+      if (execPath.subFragment(1).containsUplevelReferences()) {
+        return true;
+      }
+    } else if (execPath.containsUplevelReferences()) {
+      return true;
+    }
+
+    return false;
+  }
+
   /**
    * Returns an {@link Artifact} with exec path formed by composing {@code baseExecPath} and {@code
    * relativePath} (via {@code baseExecPath.getRelative(relativePath)} if baseExecPath is not null).
@@ -388,14 +403,7 @@ public class ArtifactFactory implements ArtifactResolver {
     PathFragment execPath =
         baseExecPath != null ? baseExecPath.getRelative(relativePath) : relativePath;
 
-    // Source exec paths cannot escape the source root.
-    if (siblingRepositoryLayout) {
-      // The exec path may start with .. if using --experimental_sibling_repository_layout, so test
-      // the subfragment from index 1 onwards.
-      if (execPath.subFragment(1).containsUplevelReferences()) {
-        return null;
-      }
-    } else if (execPath.containsUplevelReferences()) {
+    if (isDefinitelyNotSourceExecPath(execPath)) {
       return null;
     }
 
@@ -462,8 +470,7 @@ public class ArtifactFactory implements ArtifactResolver {
     ArrayList<PathFragment> unresolvedPaths = new ArrayList<>();
 
     for (PathFragment execPath : execPaths) {
-      if (execPath.containsUplevelReferences()) {
-        // Source exec paths cannot escape the source root.
+      if (isDefinitelyNotSourceExecPath(execPath)) {
         result.put(execPath, null);
         continue;
       }
