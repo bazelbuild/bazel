@@ -20,21 +20,26 @@ import static com.google.devtools.build.lib.analysis.starlark.StarlarkSubrule.ge
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import net.starlark.java.eval.BuiltinFunction;
 import net.starlark.java.eval.Sequence;
 import org.junit.Test;
@@ -729,6 +734,221 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
     Object value = provider.getValue("result");
     assertThat(value).isInstanceOf(ConfiguredTarget.class);
     assertThat(((ConfiguredTarget) value).getLabel().toString()).isEqualTo("//my:tool");
+  }
+
+  @Test
+  public void testSubruleToolchains_cannotRequireMoreThanOne() throws Exception {
+    ev.checkEvalErrorContains(
+        "subrules may require at most 1 toolchain",
+        "_my_subrule = subrule(",
+        "  implementation = lambda: None,",
+        "  toolchains = ['//t1', '//t2'],",
+        ")");
+  }
+
+  @Test
+  public void testSubruleToolchains_cannotAccessUnrequestedToolchain() throws Exception {
+    useConfiguration("--incompatible_auto_exec_groups");
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _subrule_impl(ctx):",
+        "  ctx.toolchains['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "']",
+        "_my_subrule = subrule(",
+        "  implementation = _subrule_impl,",
+        ")",
+        "",
+        "def _rule_impl(ctx):",
+        "  _my_subrule()",
+        "",
+        "my_rule = rule(",
+        "  implementation = _rule_impl,",
+        "  subrules = [_my_subrule],",
+        ")");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    assertThrows(
+        TestConstants.JAVA_TOOLCHAIN_TYPE + " was requested but only types [] are configured",
+        AssertionError.class,
+        () -> getConfiguredTarget("//subrule_testing:foo"));
+  }
+
+  @Test
+  public void testSubruleToolchains_cannotAccessToolchainFromRule() throws Exception {
+    useConfiguration("--incompatible_auto_exec_groups");
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _subrule_impl(ctx):",
+        "  ctx.toolchains['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "']",
+        "_my_subrule = subrule(",
+        "  implementation = _subrule_impl,",
+        ")",
+        "",
+        "def _rule_impl(ctx):",
+        "  _my_subrule()",
+        "",
+        "my_rule = rule(",
+        "  implementation = _rule_impl,",
+        "  subrules = [_my_subrule],",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
+        ")");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    assertThrows(
+        TestConstants.JAVA_TOOLCHAIN_TYPE + " was requested but only types [] are configured",
+        AssertionError.class,
+        () -> getConfiguredTarget("//subrule_testing:foo"));
+  }
+
+  @Test
+  public void testSubruleToolchains_requestedToolchainIsResolved_inRule() throws Exception {
+    useConfiguration("--incompatible_auto_exec_groups");
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _subrule_impl(ctx):",
+        "  return ctx.toolchains['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "']",
+        "_my_subrule = subrule(",
+        "  implementation = _subrule_impl,",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
+        ")",
+        "MyInfo = provider()",
+        "def _rule_impl(ctx):",
+        "  return [MyInfo(result = _my_subrule())]",
+        "",
+        "my_rule = rule(",
+        "  implementation = _rule_impl,",
+        "  subrules = [_my_subrule],",
+        ")");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    ToolchainInfo toolchainInfo =
+        getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo")
+            .getValue("result", ToolchainInfo.class);
+
+    assertThat(toolchainInfo).isNotNull();
+    assertThat(toolchainInfo.getValue("java", StarlarkInfo.class).getProvider().getKey())
+        .isEqualTo(JavaToolchainProvider.PROVIDER.getKey());
+  }
+
+  @Test
+  public void testSubruleToolchains_requstedToolchainIsResolved_inAspect() throws Exception {
+    useConfiguration("--incompatible_auto_exec_groups");
+    scratch.file("default/BUILD", "genrule(name = 'default', outs = ['a'], cmd = '')");
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _subrule_impl(ctx):",
+        "  return ctx.toolchains['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "']",
+        "_my_subrule = subrule(",
+        "  implementation = _subrule_impl,",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
+        ")",
+        "MyInfo=provider()",
+        "def _aspect_impl(target, ctx):",
+        "  return MyInfo(result = _my_subrule())",
+        "my_aspect = aspect(implementation = _aspect_impl, subrules = [_my_subrule])",
+        "def _rule_impl(ctx):",
+        "  return ctx.attr.dep[MyInfo]",
+        "my_rule = rule(",
+        "  implementation = _rule_impl,",
+        "  attrs = {'dep' : attr.label(aspects = [my_aspect])}",
+        ")");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo', dep = '//default')");
+
+    ToolchainInfo toolchainInfo =
+        getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo")
+            .getValue("result", ToolchainInfo.class);
+
+    assertThat(toolchainInfo).isNotNull();
+    assertThat(toolchainInfo.getValue("java", StarlarkInfo.class).getProvider().getKey())
+        .isEqualTo(JavaToolchainProvider.PROVIDER.getKey());
+  }
+
+  /**
+   * This test case exists purely as a companion to the test case {@link
+   * #testSubruleToolchains_requestedToolchainIsSuppliedToAction} below. To ensure the latter does
+   * not spuriously pass, we test the inverse case here. If this test begins to fail due to changes
+   * to the AEG checking code, it very likely means the other test below needs to be updated
+   * appropriately.
+   */
+  @Test
+  public void testSubruleToolchains_aegValidationFailsWithoutToolchain() throws Exception {
+    useConfiguration("--incompatible_auto_exec_groups");
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _subrule_impl(ctx):",
+        "  out = ctx.actions.declare_file(ctx.label.name + '.out')",
+        "  ctx.actions.run(outputs = [out], executable = '/bin/ls', tools = [depset()])",
+        "  return out",
+        "_my_subrule = subrule(",
+        "  implementation = _subrule_impl,",
+        ")",
+        "def _rule_impl(ctx):",
+        "  return [DefaultInfo(files = depset([_my_subrule()]))]",
+        "",
+        "my_rule = rule(",
+        "  implementation = _rule_impl,",
+        "  subrules = [_my_subrule],",
+        ")");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    assertThrows(
+        "Couldn't identify if tools are from implicit dependencies or a toolchain. Please set the"
+            + " toolchain parameter.",
+        AssertionError.class,
+        () -> getConfiguredTarget("//subrule_testing:foo"));
+  }
+
+  @Test
+  public void testSubruleToolchains_requestedToolchainIsSuppliedToAction() throws Exception {
+    useConfiguration("--incompatible_auto_exec_groups");
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _subrule_impl(ctx):",
+        "  out = ctx.actions.declare_file(ctx.label.name + '.out')",
+        "  ctx.actions.run(outputs = [out], executable = '/bin/ls', tools = [depset()])",
+        "  return out",
+        "_my_subrule = subrule(",
+        "  implementation = _subrule_impl,",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
+        ")",
+        "def _rule_impl(ctx):",
+        "  return [DefaultInfo(files = depset([_my_subrule()]))]",
+        "",
+        "my_rule = rule(",
+        "  implementation = _rule_impl,",
+        "  subrules = [_my_subrule],",
+        ")");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    ConfiguredTarget target = getConfiguredTarget("//subrule_testing:foo");
+    Action action = getGeneratingAction(target, "subrule_testing/foo.out");
+
+    assertThat(action).isNotNull();
+    assertThat(action.getOwner())
+        .isEqualTo(getRuleContext(target).getActionOwner(TestConstants.JAVA_TOOLCHAIN_TYPE));
   }
 
   @Test

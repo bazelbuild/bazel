@@ -552,8 +552,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
     // the set of subrules is stored in the rule class, primarily for validating that a rule class
     // declared the subrule when using it.
-    builder.setSubrules(
-        Sequence.cast(subrulesUnchecked, StarlarkSubrule.class, "subrules").getImmutableList());
+    ImmutableList<StarlarkSubrule> subrules =
+        Sequence.cast(subrulesUnchecked, StarlarkSubrule.class, "subrules").getImmutableList();
+    builder.addToolchainTypes(StarlarkSubrule.discoverToolchains(subrules));
+    builder.setSubrules(subrules);
 
     if (implicitOutputs != Starlark.NONE) {
       if (implicitOutputs instanceof StarlarkFunction) {
@@ -777,7 +779,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     ImmutableList<StarlarkSubrule> subrules =
         Sequence.cast(subrulesUnchecked, StarlarkSubrule.class, "subrules").getImmutableList();
     ImmutableList<Pair<String, Descriptor>> subruleAttributes =
-        StarlarkSubrule.discoverAttributesForRule(subrules);
+        StarlarkSubrule.discoverAttributes(subrules);
     if (!subruleAttributes.isEmpty()) {
       descriptors =
           ImmutableList.<Pair<String, Descriptor>>builder()
@@ -881,6 +883,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       }
     }
 
+    ImmutableSet<ToolchainTypeRequirement> toolchainTypes =
+        ImmutableSet.<ToolchainTypeRequirement>builder()
+            .addAll(parseToolchainTypes(toolchains, labelConverter))
+            .addAll(StarlarkSubrule.discoverToolchains(subrules))
+            .build();
+
     return new StarlarkDefinedAspect(
         implementation,
         Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString),
@@ -893,7 +901,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         requiredParams.build(),
         ImmutableSet.copyOf(Sequence.cast(requiredAspects, StarlarkAspect.class, "requires")),
         ImmutableSet.copyOf(Sequence.cast(fragments, String.class, "fragments")),
-        parseToolchainTypes(toolchains, labelConverter),
+        toolchainTypes,
         applyToGeneratingRules,
         execCompatibleWith,
         execGroups,
@@ -1051,7 +1059,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       // exploit dependency resolution for "free"
       ImmutableList<Pair<String, Descriptor>> subruleAttributes;
       try {
-        subruleAttributes = StarlarkSubrule.discoverAttributesForRule(builder.getSubrules());
+        subruleAttributes = StarlarkSubrule.discoverAttributes(builder.getSubrules());
       } catch (EvalException e) {
         errorf(handler, "%s", e.getMessage());
         return;
@@ -1161,7 +1169,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
   @Override
   public StarlarkSubruleApi subrule(
-      StarlarkFunction implementation, Dict<?, ?> attrsUnchecked, StarlarkThread thread)
+      StarlarkFunction implementation,
+      Dict<?, ?> attrsUnchecked,
+      Sequence<?> toolchainsUnchecked,
+      StarlarkThread thread)
       throws EvalException {
     BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_SUBRULES);
     ImmutableMap<String, Descriptor> attrs =
@@ -1194,7 +1205,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
             attrName);
       }
     }
-    return new StarlarkSubrule(implementation, attrs);
+    ImmutableSet<ToolchainTypeRequirement> toolchains =
+        parseToolchainTypes(toolchainsUnchecked, LabelConverter.forBzlEvaluatingThread(thread));
+    if (toolchains.size() > 1) {
+      throw Starlark.errorf("subrules may require at most 1 toolchain, got: %s", toolchains);
+    }
+    return new StarlarkSubrule(implementation, attrs, toolchains);
   }
 
   private static ImmutableSet<ToolchainTypeRequirement> parseToolchainTypes(

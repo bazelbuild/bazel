@@ -15,18 +15,21 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.BazelRuleAnalysisThreadContext;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.StarlarkActionContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule.Descriptor;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -38,6 +41,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainContextApi;
 import com.google.devtools.build.lib.util.Pair;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -66,15 +70,19 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
   // TODO: b/293304174 - Fix all user-facing Starlark documentation
 
   private final StarlarkFunction implementation;
+  private final ImmutableSet<ToolchainTypeRequirement> toolchains;
 
   // following fields are set on export
   @Nullable private String exportedName = null;
   private ImmutableList<SubruleAttribute> attributes;
 
   public StarlarkSubrule(
-      StarlarkFunction implementation, ImmutableMap<String, Descriptor> attributes) {
+      StarlarkFunction implementation,
+      ImmutableMap<String, Descriptor> attributes,
+      ImmutableSet<ToolchainTypeRequirement> toolchains) {
     this.implementation = implementation;
     this.attributes = SubruleAttribute.from(attributes);
+    this.toolchains = toolchains;
   }
 
   @Override
@@ -137,7 +145,8 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
       }
       namedArgs.put(attr.attrName, value == null ? Starlark.NONE : value);
     }
-    SubruleContext subruleContext = new SubruleContext(ruleContext, runfilesFromDeps.build());
+    SubruleContext subruleContext =
+        new SubruleContext(ruleContext, toolchains, runfilesFromDeps.build());
     ImmutableList<Object> positionals =
         ImmutableList.builder().add(subruleContext).addAll(args).build();
     try {
@@ -197,14 +206,14 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
   }
 
   /**
-   * Returns all attributes to be lifted from the given subrules to a rule
+   * Returns all attributes to be lifted from the given subrules to a rule/aspect
    *
    * <p>Attributes are discovered transitively (if a subrule depends on another subrule) and those
    * from common, transitive dependencies are de-duped.
    *
    * @throws EvalException if any of the given subrules are unexported
    */
-  static ImmutableList<Pair<String, Descriptor>> discoverAttributesForRule(
+  static ImmutableList<Pair<String, Descriptor>> discoverAttributes(
       ImmutableList<? extends StarlarkSubruleApi> subrules) throws EvalException {
     ImmutableSet.Builder<StarlarkSubruleApi> uniqueSubrules = ImmutableSet.builder();
     for (StarlarkSubruleApi subrule : subrules) {
@@ -218,6 +227,23 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
       }
     }
     return attributes.build();
+  }
+
+  /** Returns all toolchain types to be lifted from the given subrules to a rule/aspect */
+  static ImmutableSet<ToolchainTypeRequirement> discoverToolchains(
+      ImmutableList<? extends StarlarkSubruleApi> subrules) {
+    ImmutableSet.Builder<StarlarkSubruleApi> uniqueSubrules = ImmutableSet.builder();
+    for (StarlarkSubruleApi subrule : subrules) {
+      // TODO: b/293304174 - use all transitive subrules once subrules can depend on other subrules
+      uniqueSubrules.add(subrule);
+    }
+    ImmutableSet.Builder<ToolchainTypeRequirement> toolchains = ImmutableSet.builder();
+    for (StarlarkSubruleApi subrule : uniqueSubrules.build()) {
+      if (subrule instanceof StarlarkSubrule) {
+        toolchains.addAll(((StarlarkSubrule) subrule).toolchains);
+      }
+    }
+    return toolchains.build();
   }
 
   /**
@@ -235,13 +261,20 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
   private static class SubruleContext implements StarlarkActionContext {
     // these fields are effectively final, set to null once this instance is no longer usable by
     // Starlark
-    private StarlarkRuleContext ruleContext;
+    private StarlarkRuleContext starlarkRuleContext;
+    private ImmutableSet<Label> requestedToolchains;
     private ImmutableSet<FilesToRunProvider> runfilesFromDeps;
     private StarlarkActionFactory actions;
 
     private SubruleContext(
-        StarlarkRuleContext ruleContext, ImmutableSet<FilesToRunProvider> runfilesFromDeps) {
-      this.ruleContext = ruleContext;
+        StarlarkRuleContext ruleContext,
+        ImmutableSet<ToolchainTypeRequirement> requestedToolchains,
+        ImmutableSet<FilesToRunProvider> runfilesFromDeps) {
+      this.starlarkRuleContext = ruleContext;
+      this.requestedToolchains =
+          requestedToolchains.stream()
+              .map(ToolchainTypeRequirement::toolchainType)
+              .collect(toImmutableSet());
       this.runfilesFromDeps = runfilesFromDeps;
       this.actions = new StarlarkActionFactory(this);
     }
@@ -254,7 +287,7 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
       checkMutable("label");
       // we use the underlying RuleContext to bypass the mutability check in
       // StarlarkRuleContext.getLabel() since it's locked
-      return ruleContext.getRuleContext().getLabel();
+      return starlarkRuleContext.getRuleContext().getLabel();
     }
 
     // This is identical to the StarlarkActionFactory used by StarlarkRuleContext, and subrule
@@ -268,9 +301,35 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
       return actions;
     }
 
+    @StarlarkMethod(
+        name = "toolchains",
+        doc = "Contains methods for declaring output files and the actions that produce them",
+        structField = true)
+    public ToolchainContextApi toolchains() throws EvalException {
+      checkMutable("toolchains");
+      RuleContext ruleContext = starlarkRuleContext.getRuleContext();
+      if (ruleContext.getToolchainContext() == null) {
+        return StarlarkToolchainContext.TOOLCHAINS_NOT_VALID;
+      }
+      if (ruleContext.useAutoExecGroups()) {
+        return StarlarkToolchainContext.create(
+            /* targetDescription= */ ruleContext.getToolchainContext().targetDescription(),
+            /* resolveToolchainInfoFunc= */ ruleContext::getToolchainInfo,
+            /* resolvedToolchainTypeLabels= */ getAutomaticExecGroupLabels());
+      } else {
+        throw Starlark.errorf("subrules using toolchains must enable automatic exec-groups");
+      }
+    }
+
+    private ImmutableSet<Label> getAutomaticExecGroupLabels() {
+      return starlarkRuleContext.getAutomaticExecGroupLabels().stream()
+          .filter(label -> requestedToolchains.contains(label))
+          .collect(toImmutableSet());
+    }
+
     @Override
     public ArtifactRoot newFileRoot() {
-      return ruleContext.getRuleContext().getBinDirectory();
+      return starlarkRuleContext.getRuleContext().getBinDirectory();
     }
 
     @Override
@@ -286,7 +345,7 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
 
     @Override
     public boolean isImmutable() {
-      return ruleContext == null;
+      return starlarkRuleContext == null;
     }
 
     @Override
@@ -302,12 +361,12 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
 
     @Override
     public RuleContext getRuleContext() {
-      return ruleContext.getRuleContext();
+      return starlarkRuleContext.getRuleContext();
     }
 
     @Override
     public StarlarkSemantics getStarlarkSemantics() {
-      return ruleContext.getStarlarkSemantics();
+      return starlarkRuleContext.getStarlarkSemantics();
     }
 
     @Override
@@ -324,13 +383,15 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
       if (toolchainUnchecked != Starlark.UNBOUND) {
         throw Starlark.errorf("'toolchain' may not be specified in subrules");
       }
-      // TODO: b/293304174 - return the correct toolchain
-      return toolchainUnchecked;
+      return requestedToolchains.isEmpty()
+          ? toolchainUnchecked
+          : Iterables.getOnlyElement(requestedToolchains);
     }
 
     private void nullify() {
-      this.ruleContext = null;
+      this.starlarkRuleContext = null;
       this.actions = null;
+      this.requestedToolchains = null;
       this.runfilesFromDeps = null;
     }
   }

@@ -824,7 +824,8 @@ public final class StarlarkRuleContext
         : ((ImmutableKeyTrackingDict<String, String>) cachedMakeVariables).getAccessedKeys();
   }
 
-  private ImmutableSet<Label> getAutomaticExecGroupLabels() {
+  // visible for subrules
+  ImmutableSet<Label> getAutomaticExecGroupLabels() {
     ToolchainCollection<ResolvedToolchainContext> toolchainContexts =
         ruleContext.getToolchainContexts();
 
@@ -836,9 +837,7 @@ public final class StarlarkRuleContext
                     .requestedToolchainTypeLabels()
                     .keySet()
                     .stream()
-                    .filter(label -> label.toString().equals(execGroupName))
-                    .findAny()
-                    .stream())
+                    .filter(label -> label.toString().equals(execGroupName)))
         .collect(toImmutableSet());
   }
 
