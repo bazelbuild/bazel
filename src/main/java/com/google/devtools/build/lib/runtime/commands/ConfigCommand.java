@@ -332,6 +332,15 @@ public class ConfigCommand implements BlazeCommand {
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     ImmutableSortedMap<BuildConfigurationKey, BuildConfigurationValue> configurations =
         findConfigurations(env);
+    if (configurations.isEmpty()) {
+      String message =
+          "No configurations found. This can happen if the 'config' subcommand is used after "
+              + "files, including their metadata, have changed since the last invocation of "
+              + "another subcommand. Try running a 'build' or 'cquery' directly followed by "
+              + "'config'.";
+      env.getReporter().handle(Event.error(message));
+      return createFailureResult(message, Code.CONFIGURATION_NOT_FOUND);
+    }
 
     try (PrintWriter writer =
         new PrintWriter(

@@ -60,10 +60,6 @@ fi
 
 add_to_bazelrc "build --package_path=%workspace%"
 
-# TODO: enable Bzlmod for this Test
-# https://github.com/bazelbuild/bazel/issues/19823
-disable_bzlmod
-
 #### TESTS #############################################################
 
 function test_basic_query() {
@@ -897,8 +893,8 @@ EOF
     --starlark:expr="str(target.label) + '%foo'" > output \
     2>"$TEST_log" || fail "Expected success"
 
-  assert_contains "^@//$pkg:pylib%foo$" output
-  assert_contains "^@//$pkg:pylibtwo%foo$" output
+  assert_contains "^@@\?//$pkg:pylib%foo$" output
+  assert_contains "^@@\?//$pkg:pylibtwo%foo$" output
 
   bazel cquery "//$pkg:all" --output=starlark \
     --noincompatible_unambiguous_label_stringification \
@@ -1294,7 +1290,7 @@ EOF
     2>"$TEST_log" || fail "Expected success"
   assert_contains "//$pkg:srcfile.txt:providers=.*FileProvider.*FilesToRunProvider.*LicensesProvider.*VisibilityProvider" \
     output
-  assert_contains "VisibilityProvider.label:@//$pkg:srcfile.txt" output
+  assert_contains "VisibilityProvider.label:@@\?//$pkg:srcfile.txt" output
 }
 
 function test_starlark_output_providers_starlark_provider() {
@@ -1394,6 +1390,7 @@ sh_library(name='japanese')
 EOF
 
   mkdir -p $dir/main
+  write_default_lockfile $dir/main/MODULE.bazel.lock
   cat > $dir/main/WORKSPACE <<EOF
 local_repository(name = "repo", path = "../repo")
 EOF
