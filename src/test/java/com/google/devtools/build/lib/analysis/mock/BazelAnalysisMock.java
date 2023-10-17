@@ -640,9 +640,15 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create(
         "embedded_tools/tools/build_defs/build_info/bazel_cc_build_info.bzl",
         "def _impl(ctx):",
+        "  volatile_file = ctx.actions.declare_file('volatile_file.h')",
+        "  non_volatile_file = ctx.actions.declare_file('non_volatile_file.h')",
+        "  redacted_file = ctx.actions.declare_file('redacted_file.h')",
+        "  ctx.actions.write(output = volatile_file, content = '')",
+        "  ctx.actions.write(output = non_volatile_file, content = '')",
+        "  ctx.actions.write(output = redacted_file, content = '')",
         "  output_groups = {",
-        "    'non_redacted_build_info_files': depset([ctx.info_file, ctx.version_file]),",
-        "    'redacted_build_info_files': depset([ctx.version_file]),",
+        "    'non_redacted_build_info_files': depset([volatile_file, non_volatile_file]),",
+        "    'redacted_build_info_files': depset([redacted_file]),",
         "  }",
         "  return OutputGroupInfo(**output_groups)",
         "bazel_cc_build_info = rule(implementation = _impl)");

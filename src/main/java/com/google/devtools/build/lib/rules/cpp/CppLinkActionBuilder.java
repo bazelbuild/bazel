@@ -556,11 +556,17 @@ public class CppLinkActionBuilder {
     }
 
     final ImmutableList<Artifact> buildInfoHeaderArtifacts =
-        !linkstamps.isEmpty()
-            ? actionConstructionContext
-                .getAnalysisEnvironment()
-                .getBuildInfo(isStampingEnabled, CppBuildInfo.KEY, configuration)
-            : ImmutableList.of();
+        linkstamps.isEmpty()
+            ? ImmutableList.of()
+            : isStampingEnabled
+                ? toolchain
+                    .getCcBuildInfoTranslator()
+                    .getOutputGroup("non_redacted_build_info_files")
+                    .toList()
+                : toolchain
+                    .getCcBuildInfoTranslator()
+                    .getOutputGroup("redacted_build_info_files")
+                    .toList();
 
     boolean needWholeArchive =
         wholeArchive

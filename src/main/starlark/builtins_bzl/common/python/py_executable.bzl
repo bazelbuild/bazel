@@ -13,7 +13,17 @@
 # limitations under the License.
 """Common functionality between test/binary executables."""
 
+load(":common/cc/cc_common.bzl", _cc_common = "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
+load(
+    ":common/python/attributes.bzl",
+    "AGNOSTIC_EXECUTABLE_ATTRS",
+    "COMMON_ATTRS",
+    "PY_SRCS_ATTRS",
+    "SRCS_VERSION_ALL_VALUES",
+    "create_srcs_attr",
+    "create_srcs_version_attr",
+)
 load(
     ":common/python/common.bzl",
     "TOOLCHAIN_TYPE",
@@ -28,15 +38,6 @@ load(
     "union_attrs",
 )
 load(
-    ":common/python/attributes.bzl",
-    "AGNOSTIC_EXECUTABLE_ATTRS",
-    "COMMON_ATTRS",
-    "PY_SRCS_ATTRS",
-    "SRCS_VERSION_ALL_VALUES",
-    "create_srcs_attr",
-    "create_srcs_version_attr",
-)
-load(
     ":common/python/providers.bzl",
     "PyCcLinkParamsProvider",
     "PyRuntimeInfo",
@@ -48,7 +49,6 @@ load(
     "IS_BAZEL",
     "PY_RUNTIME_ATTR_NAME",
 )
-load(":common/cc/cc_common.bzl", _cc_common = "cc_common")
 
 _py_builtins = _builtins.internal.py_builtins
 
@@ -490,6 +490,7 @@ def _get_native_deps_details(ctx, *, semantics, cc_details, is_test):
     if share_native_deps:
         linked_lib = _create_shared_native_deps_dso(
             ctx,
+            cc_toolchain = cc_details.cc_toolchain,
             cc_info = cc_info,
             is_test = is_test,
             requested_features = cc_feature_config.requested_features,
@@ -527,6 +528,7 @@ def _get_native_deps_details(ctx, *, semantics, cc_details, is_test):
 def _create_shared_native_deps_dso(
         ctx,
         *,
+        cc_toolchain,
         cc_info,
         is_test,
         feature_configuration,
@@ -542,6 +544,12 @@ def _create_shared_native_deps_dso(
             feature_configuration = feature_configuration,
         )
     )
+    if not linkstamps:
+        build_info_artifacts = []
+    elif cc_helper.is_stamping_enabled(ctx):
+        build_info_artifacts = cc_toolchain.build_info_files().non_redacted_build_info_files.to_list()
+    else:
+        build_info_artifacts = cc_toolchain.build_info_files().redacted_build_info_files.to_list()
     dso_hash = _get_shared_native_deps_hash(
         linker_inputs = cc_helper.get_static_mode_params_for_dynamic_library_libraries(
             depset([
@@ -556,7 +564,7 @@ def _create_shared_native_deps_dso(
             for flag in input.user_link_flags
         ],
         linkstamps = [linkstamp.file() for linkstamp in linkstamps.to_list()],
-        build_info_artifacts = _cc_common.get_build_info(ctx) if linkstamps else [],
+        build_info_artifacts = build_info_artifacts,
         features = requested_features,
         is_test_target_partially_disabled_thin_lto = is_test and partially_disabled_thin_lto,
     )
