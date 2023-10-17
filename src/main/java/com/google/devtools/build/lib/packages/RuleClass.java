@@ -1303,6 +1303,10 @@ public class RuleClass implements RuleClassData {
       return attributes.containsKey(name);
     }
 
+    public Attribute getAttribute(String name) {
+      return attributes.get(name);
+    }
+
     /** Returns a list of all attributes added to this Builder so far. */
     public ImmutableList<Attribute> getAttributes() {
       return ImmutableList.copyOf(attributes.values());
