@@ -174,7 +174,7 @@ public final class ActionExecutionValueTest {
                     tree("tree2"),
                     TreeArtifactValue.empty())),
             // Mixed file and tree
-            ActionExecutionValue.create(
+            ActionExecutionValue.createFromOutputMetadataStore(
                 ImmutableMap.of(output("file"), VALUE_1_REMOTE),
                 ImmutableMap.of(tree("tree"), TreeArtifactValue.empty()),
                 /* outputSymlinks= */ ImmutableList.of(),
@@ -304,7 +304,7 @@ public final class ActionExecutionValueTest {
 
   private static ActionExecutionValue createWithArtifactData(
       ImmutableMap<Artifact, FileArtifactValue> artifactData) {
-    return ActionExecutionValue.create(
+    return ActionExecutionValue.createFromOutputMetadataStore(
         /* artifactData= */ artifactData,
         /* treeArtifactData= */ ImmutableMap.of(),
         /* outputSymlinks= */ ImmutableList.of(),
@@ -313,7 +313,7 @@ public final class ActionExecutionValueTest {
 
   private static ActionExecutionValue createWithTreeArtifactData(
       ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData) {
-    return ActionExecutionValue.create(
+    return ActionExecutionValue.createFromOutputMetadataStore(
         /* artifactData= */ ImmutableMap.of(),
         treeArtifactData,
         /* outputSymlinks= */ ImmutableList.of(),
@@ -323,7 +323,7 @@ public final class ActionExecutionValueTest {
   private static ActionExecutionValue createWithArtifactAndTreeArtifactData(
       ImmutableMap<Artifact, FileArtifactValue> artifactData,
       ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData) {
-    return ActionExecutionValue.create(
+    return ActionExecutionValue.createFromOutputMetadataStore(
         artifactData,
         treeArtifactData,
         /* outputSymlinks= */ ImmutableList.of(),
@@ -332,7 +332,7 @@ public final class ActionExecutionValueTest {
 
   private static ActionExecutionValue createWithOutputSymlinks(
       ImmutableList<FilesetOutputSymlink> outputSymlinks) {
-    return ActionExecutionValue.create(
+    return ActionExecutionValue.createFromOutputMetadataStore(
         ImmutableMap.of(output("fileset.manifest"), VALUE_1_REMOTE),
         /* treeArtifactData= */ ImmutableMap.of(),
         outputSymlinks,
@@ -346,7 +346,7 @@ public final class ActionExecutionValueTest {
 
   private static ActionExecutionValue createWithDiscoveredModules(
       NestedSet<Artifact> discoveredModules) {
-    return ActionExecutionValue.create(
+    return ActionExecutionValue.createFromOutputMetadataStore(
         /* artifactData= */ ImmutableMap.of(output("modules.pcm"), VALUE_1_REMOTE),
         /* treeArtifactData= */ ImmutableMap.of(),
         /* outputSymlinks= */ ImmutableList.of(),

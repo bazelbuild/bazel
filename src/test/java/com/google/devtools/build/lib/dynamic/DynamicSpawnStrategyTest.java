@@ -352,12 +352,12 @@ public class DynamicSpawnStrategyTest {
 
     ActionExecutionContext actionExecutionContext =
         ActionsTestUtil.createContext(
-            /*executor=*/ executor,
-            /*eventHandler=*/ null,
+            /* executor= */ executor,
+            /* eventHandler= */ null,
             actionKeyContext,
             outErr,
             testRoot,
-            /*metadataHandler=*/ null);
+            /* outputMetadataStore= */ null);
 
     List<? extends SpawnStrategy> dynamicStrategies =
         spawnStrategyRegistry.getStrategies(

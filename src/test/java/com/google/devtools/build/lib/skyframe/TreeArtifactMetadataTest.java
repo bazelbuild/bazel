@@ -69,7 +69,8 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Test the behavior of ActionMetadataHandler and ArtifactFunction with respect to TreeArtifacts.
+ * Test the behavior of ActionOutputMetadataStore and ArtifactFunction with respect to
+ * TreeArtifacts.
  */
 @RunWith(JUnit4.class)
 public final class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
@@ -270,7 +271,7 @@ public final class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
           TreeFileArtifact suboutput = TreeFileArtifact.createTreeOutput(output, subpath);
           Path path = suboutput.getPath();
           FileArtifactValue noDigest =
-              ActionMetadataHandler.fileArtifactValueFromArtifact(
+              ActionOutputMetadataStore.fileArtifactValueFromArtifact(
                   suboutput,
                   FileStatusWithDigestAdapter.maybeAdapt(path.statIfFound(Symlinks.NOFOLLOW)),
                   SyscallCache.NO_CACHE,

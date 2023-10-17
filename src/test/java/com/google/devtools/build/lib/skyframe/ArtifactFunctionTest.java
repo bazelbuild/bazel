@@ -481,7 +481,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
         } else if (action.getActionType() == MiddlemanType.NORMAL) {
           Path path = output.getPath();
           FileArtifactValue noDigest =
-              ActionMetadataHandler.fileArtifactValueFromArtifact(
+              ActionOutputMetadataStore.fileArtifactValueFromArtifact(
                   output,
                   FileStatusWithDigestAdapter.maybeAdapt(path.statIfFound(Symlinks.NOFOLLOW)),
                   SyscallCache.NO_CACHE,

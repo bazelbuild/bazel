@@ -58,8 +58,8 @@ public abstract class ActionExecutionValue implements SkyValue {
 
   private ActionExecutionValue() {}
 
-  @VisibleForTesting // All non-test usage should go through createFromOutputStore.
-  public static ActionExecutionValue create(
+  @VisibleForTesting // All non-test usage should go through createFromOutputMetadataStore().
+  public static ActionExecutionValue createFromOutputMetadataStore(
       ImmutableMap<Artifact, FileArtifactValue> artifactData,
       ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData,
       ImmutableList<FilesetOutputSymlink> outputSymlinks,
@@ -133,13 +133,13 @@ public abstract class ActionExecutionValue implements SkyValue {
         : new MultiOutputFile(artifactData);
   }
 
-  static ActionExecutionValue createFromActionMetadataHandler(
-      ActionMetadataHandler actionMetadataHandler,
+  static ActionExecutionValue createFromOutputMetadataStore(
+      ActionOutputMetadataStore actionOutputMetadataStore,
       ImmutableList<FilesetOutputSymlink> outputSymlinks,
       Action action) {
-    return create(
-        actionMetadataHandler.getAllArtifactData(),
-        actionMetadataHandler.getAllTreeArtifactData(),
+    return createFromOutputMetadataStore(
+        actionOutputMetadataStore.getAllArtifactData(),
+        actionOutputMetadataStore.getAllTreeArtifactData(),
         outputSymlinks,
         action instanceof IncludeScannable
             ? ((IncludeScannable) action).getDiscoveredModules()
@@ -319,7 +319,7 @@ public abstract class ActionExecutionValue implements SkyValue {
     }
     ImmutableMap<OwnerlessArtifactWrapper, Artifact> newArtifactMap =
         Maps.uniqueIndex(outputs, OwnerlessArtifactWrapper::new);
-    return create(
+    return createFromOutputMetadataStore(
         transformMap(artifactData, newArtifactMap, action, (newArtifact, value) -> value),
         transformMap(
             treeArtifactData, newArtifactMap, action, ActionExecutionValue::transformSharedTree),

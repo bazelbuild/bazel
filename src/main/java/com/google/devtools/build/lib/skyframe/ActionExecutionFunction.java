@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
+import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
@@ -764,14 +765,14 @@ public final class ActionExecutionFunction implements SkyFunction {
         ArtifactPathResolver.createPathResolver(
             state.actionFileSystem, skyframeActionExecutor.getExecRoot());
 
-    ActionInputMetadataStore inputMetadataStore =
-        new ActionInputMetadataStore(
+    ActionInputMetadataProvider inputMetadataProvider =
+        new ActionInputMetadataProvider(
             skyframeActionExecutor.getExecRoot().asFragment(),
             state.inputArtifactData,
             expandedFilesets);
 
-    ActionMetadataHandler metadataHandler =
-        ActionMetadataHandler.create(
+    ActionOutputMetadataStore outputMetadataStore =
+        ActionOutputMetadataStore.create(
             skyframeActionExecutor.useArchivedTreeArtifacts(action),
             skyframeActionExecutor.getOutputPermissions(),
             ImmutableSet.copyOf(action.getOutputs()),
@@ -786,8 +787,8 @@ public final class ActionExecutionFunction implements SkyFunction {
           skyframeActionExecutor.checkActionCache(
               env.getListener(),
               action,
-              inputMetadataStore,
-              metadataHandler,
+              inputMetadataProvider,
+              outputMetadataStore,
               artifactExpander,
               actionStartTime,
               state.allInputs.actionCacheInputs,
@@ -801,11 +802,11 @@ public final class ActionExecutionFunction implements SkyFunction {
           "Error, we're not re-executing a "
               + "SkyframeAwareAction which should be re-executed unconditionally. Action: %s",
           action);
-      return ActionExecutionValue.createFromActionMetadataHandler(
-          metadataHandler, /* outputSymlinks= */ ImmutableList.of(), action);
+      return ActionExecutionValue.createFromOutputMetadataStore(
+          outputMetadataStore, /* outputSymlinks= */ ImmutableList.of(), action);
     }
 
-    metadataHandler.prepareForActionExecution();
+    outputMetadataStore.prepareForActionExecution();
 
     if (action.discoversInputs()) {
       Duration discoveredInputsDuration = Duration.ZERO;
@@ -819,8 +820,8 @@ public final class ActionExecutionFunction implements SkyFunction {
               skyframeActionExecutor.discoverInputs(
                   action,
                   actionLookupData,
-                  inputMetadataStore,
-                  metadataHandler,
+                  inputMetadataProvider,
+                  outputMetadataStore,
                   env,
                   state.actionFileSystem);
         }
@@ -858,8 +859,8 @@ public final class ActionExecutionFunction implements SkyFunction {
     return skyframeActionExecutor.executeAction(
         env,
         action,
-        inputMetadataStore,
-        metadataHandler,
+        inputMetadataProvider,
+        outputMetadataStore,
         actionStartTime,
         actionLookupData,
         artifactExpander,
@@ -884,12 +885,12 @@ public final class ActionExecutionFunction implements SkyFunction {
         Environment env,
         Action action,
         InputMetadataProvider inputMetadataProvider,
-        ActionMetadataHandler metadataHandler,
+        OutputMetadataStore outputMetadataStore,
         Map<String, String> clientEnv)
         throws InterruptedException, ActionExecutionException {
       // TODO(b/160603797): For the sake of action key computation, we should not need
-      //  state.filesetsInsideRunfiles. In fact, for the metadataHandler, we are guaranteed to not
-      //  expand any filesets since we request metadata for input/output Artifacts only.
+      //  state.filesetsInsideRunfiles. In fact, for the outputMetadataStore, we are guaranteed to
+      // not expand any filesets since we request metadata for input/output Artifacts only.
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets =
           state.getExpandedFilesets();
       if (action.discoversInputs()) {
@@ -903,7 +904,7 @@ public final class ActionExecutionFunction implements SkyFunction {
       skyframeActionExecutor.updateActionCache(
           action,
           inputMetadataProvider,
-          metadataHandler,
+          outputMetadataStore,
           new Artifact.ArtifactExpanderImpl(
               // Skipping the filesets in runfiles since those cannot participate in command line
               // creation.

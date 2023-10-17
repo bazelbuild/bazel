@@ -259,7 +259,7 @@ public final class ActionExecutionValueTransformSharedTreeArtifactsTest {
   private static ActionExecutionValue createActionExecutionValue(
       ImmutableMap<Artifact, FileArtifactValue> fileArtifacts,
       ImmutableMap<Artifact, TreeArtifactValue> treeArtifacts) {
-    return ActionExecutionValue.create(
+    return ActionExecutionValue.createFromOutputMetadataStore(
         fileArtifacts,
         treeArtifacts,
         /* outputSymlinks= */ ImmutableList.of(),

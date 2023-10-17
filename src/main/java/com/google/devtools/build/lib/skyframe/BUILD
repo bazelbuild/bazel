@@ -80,9 +80,9 @@ java_library(
         ":action_execution_value",
         ":action_input_collected_event",
         ":action_input_map_helper",
-        ":action_input_metadata_store",
+        ":action_input_metadata_provider",
         ":action_lookup_conflict_finding_value",
-        ":action_metadata_handler",
+        ":action_output_metadata_store",
         ":action_template_expansion_function",
         ":action_template_expansion_value",
         ":action_utils",
@@ -449,7 +449,7 @@ java_library(
     name = "action_execution_value",
     srcs = ["ActionExecutionValue.java"],
     deps = [
-        ":action_metadata_handler",
+        ":action_output_metadata_store",
         ":tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -504,8 +504,8 @@ java_library(
 )
 
 java_library(
-    name = "action_input_metadata_store",
-    srcs = ["ActionInputMetadataStore.java"],
+    name = "action_input_metadata_provider",
+    srcs = ["ActionInputMetadataProvider.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -518,8 +518,8 @@ java_library(
 )
 
 java_library(
-    name = "action_metadata_handler",
-    srcs = ["ActionMetadataHandler.java"],
+    name = "action_output_metadata_store",
+    srcs = ["ActionOutputMetadataStore.java"],
     deps = [
         ":tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -1373,7 +1373,7 @@ java_library(
     ],
     deps = [
         ":action_execution_value",
-        ":action_metadata_handler",
+        ":action_output_metadata_store",
         ":directory_listing_state_value",
         ":sky_functions",
         ":sky_value_dirtiness_checker",

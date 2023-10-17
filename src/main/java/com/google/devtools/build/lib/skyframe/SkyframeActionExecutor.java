@@ -486,7 +486,7 @@ public final class SkyframeActionExecutor {
       Environment env,
       Action action,
       InputMetadataProvider inputMetadataProvider,
-      ActionMetadataHandler metadataHandler,
+      ActionOutputMetadataStore outputMetadataStore,
       long actionStartTime,
       ActionLookupData actionLookupData,
       ArtifactExpander artifactExpander,
@@ -499,14 +499,14 @@ public final class SkyframeActionExecutor {
       throws ActionExecutionException, InterruptedException {
     if (actionFileSystem != null) {
       updateActionFileSystemContext(
-          action, actionFileSystem, env, metadataHandler, expandedFilesets);
+          action, actionFileSystem, env, outputMetadataStore, expandedFilesets);
     }
 
     ActionExecutionContext actionExecutionContext =
         getContext(
             action,
             inputMetadataProvider,
-            metadataHandler,
+            outputMetadataStore,
             artifactExpander,
             topLevelFilesets,
             actionFileSystem,
@@ -536,7 +536,7 @@ public final class SkyframeActionExecutor {
                     new ActionRunner(
                         action,
                         inputMetadataProvider,
-                        metadataHandler,
+                        outputMetadataStore,
                         actionStartTime,
                         actionExecutionContext,
                         actionLookupData,
@@ -952,7 +952,7 @@ public final class SkyframeActionExecutor {
         Environment env,
         Action action,
         InputMetadataProvider inputMetadataProvider,
-        ActionMetadataHandler metadataHandler,
+        OutputMetadataStore outputMetadataStore,
         Map<String, String> clientEnv)
         throws InterruptedException, ActionExecutionException;
   }
@@ -961,7 +961,7 @@ public final class SkyframeActionExecutor {
   private final class ActionRunner extends ActionStep {
     private final Action action;
     private final InputMetadataProvider inputMetadataProvider;
-    private final ActionMetadataHandler metadataHandler;
+    private final ActionOutputMetadataStore outputMetadataStore;
     private final long actionStartTimeNanos;
     private final ActionExecutionContext actionExecutionContext;
     private final ActionLookupData actionLookupData;
@@ -971,14 +971,14 @@ public final class SkyframeActionExecutor {
     ActionRunner(
         Action action,
         InputMetadataProvider inputMetadataProvider,
-        ActionMetadataHandler metadataHandler,
+        ActionOutputMetadataStore outputMetadataStore,
         long actionStartTimeNanos,
         ActionExecutionContext actionExecutionContext,
         ActionLookupData actionLookupData,
         ActionPostprocessing postprocessing) {
       this.action = action;
       this.inputMetadataProvider = inputMetadataProvider;
-      this.metadataHandler = metadataHandler;
+      this.outputMetadataStore = outputMetadataStore;
       this.actionStartTimeNanos = actionStartTimeNanos;
       this.actionExecutionContext = actionExecutionContext;
       this.actionLookupData = actionLookupData;
@@ -1301,8 +1301,8 @@ public final class SkyframeActionExecutor {
               + "\nSymlinks: %s",
           action,
           outputSymlinks);
-      return ActionExecutionValue.createFromActionMetadataHandler(
-          this.metadataHandler, outputSymlinks, action);
+      return ActionExecutionValue.createFromOutputMetadataStore(
+          this.outputMetadataStore, outputSymlinks, action);
     }
 
     /**
@@ -1323,7 +1323,7 @@ public final class SkyframeActionExecutor {
               env,
               action,
               inputMetadataProvider,
-              metadataHandler,
+              outputMetadataStore,
               actionExecutionContext.getClientEnv());
           if (env.valuesMissing()) {
             return this;
@@ -1525,7 +1525,7 @@ public final class SkyframeActionExecutor {
 
   /**
    * Validates that all action outputs were created or intentionally omitted. This can result in
-   * chmod calls on the output files; see {@link ActionMetadataHandler}.
+   * chmod calls on the output files; see {@link ActionOutputMetadataStore}.
    *
    * @return false if some outputs are missing or invalid, true - otherwise.
    */
@@ -1538,9 +1538,9 @@ public final class SkyframeActionExecutor {
     boolean success = true;
     try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "checkOutputs")) {
       for (Artifact output : action.getOutputs()) {
-        // getMetadata has the side effect of adding the artifact to the cache if it's not there
-        // already (e.g., due to a previous call to MetadataHandler.injectDigest), therefore we only
-        // call it if we know the artifact is not omitted.
+        // getOutputMetadata() has the side effect of adding the artifact to the cache if it's not
+        // there already (e.g., due to a previous call to MetadataInjector.injectFile()), therefore
+        // we only call it if we know the artifact is not omitted.
         if (!outputMetadataStore.artifactOmitted(output)) {
           try {
             FileArtifactValue metadata = outputMetadataStore.getOutputMetadata(output);

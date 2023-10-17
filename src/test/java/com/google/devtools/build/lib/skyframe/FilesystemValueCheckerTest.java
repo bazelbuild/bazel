@@ -202,7 +202,7 @@ public final class FilesystemValueCheckerTest {
       throws IOException {
     Path path = artifact.getPath();
     FileArtifactValue noDigest =
-        ActionMetadataHandler.fileArtifactValueFromArtifact(
+        ActionOutputMetadataStore.fileArtifactValueFromArtifact(
             artifact,
             FileStatusWithDigestAdapter.maybeAdapt(path.statIfFound(Symlinks.NOFOLLOW)),
             SyscallCache.NO_CACHE,
@@ -1284,7 +1284,7 @@ public final class FilesystemValueCheckerTest {
       try {
         Path path = output.getPath();
         FileArtifactValue noDigest =
-            ActionMetadataHandler.fileArtifactValueFromArtifact(
+            ActionOutputMetadataStore.fileArtifactValueFromArtifact(
                 output,
                 FileStatusWithDigestAdapter.maybeAdapt(path.statIfFound(Symlinks.NOFOLLOW)),
                 SyscallCache.NO_CACHE,

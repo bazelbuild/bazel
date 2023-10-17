@@ -77,11 +77,11 @@ import javax.annotation.Nullable;
  * outputs (except those that were {@linkplain #artifactOmitted omitted}) to ensure that declared
  * outputs were in fact created and are valid.
  */
-final class ActionMetadataHandler implements OutputMetadataStore {
+final class ActionOutputMetadataStore implements OutputMetadataStore {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** Creates a new metadata handler. */
-  static ActionMetadataHandler create(
+  static ActionOutputMetadataStore create(
       boolean archivedTreeArtifactsEnabled,
       OutputPermissions outputPermissions,
       ImmutableSet<Artifact> outputs,
@@ -89,7 +89,7 @@ final class ActionMetadataHandler implements OutputMetadataStore {
       TimestampGranularityMonitor tsgm,
       ArtifactPathResolver artifactPathResolver,
       PathFragment execRoot) {
-    return new ActionMetadataHandler(
+    return new ActionOutputMetadataStore(
         archivedTreeArtifactsEnabled,
         outputPermissions,
         outputs,
@@ -115,7 +115,7 @@ final class ActionMetadataHandler implements OutputMetadataStore {
   private final ConcurrentMap<SpecialArtifact, TreeArtifactValue> treeArtifactData =
       new ConcurrentHashMap<>();
 
-  private ActionMetadataHandler(
+  private ActionOutputMetadataStore(
       boolean archivedTreeArtifactsEnabled,
       OutputPermissions outputPermissions,
       ImmutableSet<Artifact> outputs,
@@ -637,7 +637,7 @@ final class ActionMetadataHandler implements OutputMetadataStore {
         @Nullable Path realPath,
         @Nullable FileStatusWithDigest statNoFollow,
         FileArtifactValue fileArtifactValue) {
-      return new AutoValue_ActionMetadataHandler_FileArtifactStatAndValue(
+      return new AutoValue_ActionOutputMetadataStore_FileArtifactStatAndValue(
           pathNoFollow, realPath, statNoFollow, fileArtifactValue);
     }
 

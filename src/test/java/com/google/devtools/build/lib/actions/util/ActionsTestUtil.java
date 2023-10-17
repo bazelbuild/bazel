@@ -272,7 +272,7 @@ public final class ActionsTestUtil {
   public static ActionExecutionValue createActionExecutionValue(
       ImmutableMap<Artifact, FileArtifactValue> artifactData,
       ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData) {
-    return ActionExecutionValue.create(
+    return ActionExecutionValue.createFromOutputMetadataStore(
         artifactData,
         treeArtifactData,
         /* outputSymlinks= */ ImmutableList.of(),

@@ -39,13 +39,13 @@ import javax.annotation.Nullable;
  * <p>It is constructed during the preparation for the execution of the action and garbage collected
  * once the action finishes executing.
  */
-final class ActionInputMetadataStore implements InputMetadataProvider {
+final class ActionInputMetadataProvider implements InputMetadataProvider {
   private final PathFragment execRoot;
 
   private final ActionInputMap inputArtifactData;
   private final ImmutableMap<PathFragment, FileArtifactValue> filesetMapping;
 
-  ActionInputMetadataStore(
+  ActionInputMetadataProvider(
       PathFragment execRoot,
       ActionInputMap inputArtifactData,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
