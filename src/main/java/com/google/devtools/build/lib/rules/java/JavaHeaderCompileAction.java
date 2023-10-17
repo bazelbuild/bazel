@@ -78,6 +78,7 @@ import javax.annotation.Nullable;
 public final class JavaHeaderCompileAction extends SpawnAction {
 
   private final boolean insertDependencies;
+  private final NestedSet<Artifact> additionalArtifactsForPathMapping;
 
   private JavaHeaderCompileAction(
       ActionOwner owner,
@@ -92,7 +93,8 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       RunfilesSupplier runfilesSupplier,
       String mnemonic,
       OutputPathsMode outputPathsMode,
-      boolean insertDependencies) {
+      boolean insertDependencies,
+      NestedSet<Artifact> additionalArtifactsForPathMapping) {
     super(
         owner,
         tools,
@@ -107,6 +109,12 @@ public final class JavaHeaderCompileAction extends SpawnAction {
         mnemonic,
         outputPathsMode);
     this.insertDependencies = insertDependencies;
+    this.additionalArtifactsForPathMapping = additionalArtifactsForPathMapping;
+  }
+
+  @Override
+  public NestedSet<Artifact> getAdditionalArtifactsForPathMapping() {
+    return additionalArtifactsForPathMapping;
   }
 
   @Override
@@ -117,7 +125,12 @@ public final class JavaHeaderCompileAction extends SpawnAction {
     try {
       Deps.Dependencies fullOutputDeps =
           JavaCompileAction.createFullOutputDeps(
-              spawnResult, outputDepsProto, getInputs(), context, pathMapper);
+              spawnResult,
+              outputDepsProto,
+              Iterables.concat(
+                  getInputs().toList(), getAdditionalArtifactsForPathMapping().toList()),
+              context,
+              pathMapper);
       JavaCompileActionContext javaContext = context.getContext(JavaCompileActionContext.class);
       if (insertDependencies && javaContext != null) {
         javaContext.insertDependencies(outputDepsProto, fullOutputDeps);
@@ -463,10 +476,20 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       }
       if (useDirectClasspath) {
         NestedSet<Artifact> classpath;
+        NestedSet<Artifact> additionalArtifactsForPathMapping;
         if (!directJars.isEmpty() || classpathEntries.isEmpty()) {
           classpath = directJars;
+          // When using the direct classpath optimization, Turbine generates .jdeps entries based on
+          // the transitive dependency information packages into META-INF/TRANSITIVE. When path
+          // mapping is used, these entries may have been subject to it when they were generated.
+          // Since the contents of that directory are not unmapped, we need to instead unmap the
+          // paths emitted in the .jdeps file, which requires knowing the full list of artifact
+          // paths even if they aren't inputs to the current action.
+          // https://github.com/google/turbine/commit/f9f2decee04a3c651671f7488a7c9d7952df88c8
+          additionalArtifactsForPathMapping = classpathEntries;
         } else {
           classpath = classpathEntries;
+          additionalArtifactsForPathMapping = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
         }
         mandatoryInputsBuilder.addTransitive(classpath);
 
@@ -499,7 +522,8 @@ public final class JavaHeaderCompileAction extends SpawnAction {
                 // If classPathMode == BAZEL, also make sure to inject the dependencies to be
                 // available to downstream actions. Else just do enough work to locally create the
                 // full .jdeps from the .stripped .jdeps produced on the executor.
-                /* insertDependencies= */ classpathMode == JavaClasspathMode.BAZEL));
+                /* insertDependencies= */ classpathMode == JavaClasspathMode.BAZEL,
+                additionalArtifactsForPathMapping));
         return;
       }
 
