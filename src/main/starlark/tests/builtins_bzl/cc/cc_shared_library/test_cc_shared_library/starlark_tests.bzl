@@ -150,18 +150,18 @@ build_failure_test = _build_failure_test_macro
 
 def _paths_test_impl(env, _):
     env.expect.that_bool(_check_if_target_under_path(Label("//foo"), Label("//bar"))).equals(False)
-    env.expect.that_bool(_check_if_target_under_path(Label("@foo//foo"), Label("@bar//bar"))).equals(False)
-    env.expect.that_bool(_check_if_target_under_path(Label("//bar"), Label("@foo//bar"))).equals(False)
-    env.expect.that_bool(_check_if_target_under_path(Label("@foo//bar"), Label("@foo//bar"))).equals(True)
-    env.expect.that_bool(_check_if_target_under_path(Label("@foo//bar:bar"), Label("@foo//bar"))).equals(True)
+    env.expect.that_bool(_check_if_target_under_path(Label("@@foo//foo"), Label("@@bar//bar"))).equals(False)
+    env.expect.that_bool(_check_if_target_under_path(Label("//bar"), Label("@@foo//bar"))).equals(False)
+    env.expect.that_bool(_check_if_target_under_path(Label("@@foo//bar"), Label("@@foo//bar"))).equals(True)
+    env.expect.that_bool(_check_if_target_under_path(Label("@@foo//bar:bar"), Label("@@foo//bar"))).equals(True)
     env.expect.that_bool(_check_if_target_under_path(Label("//bar:bar"), Label("//bar"))).equals(True)
 
-    env.expect.that_bool(_check_if_target_under_path(Label("@foo//bar/baz"), Label("@foo//bar"))).equals(False)
-    env.expect.that_bool(_check_if_target_under_path(Label("@foo//bar/baz"), Label("@foo//bar:__pkg__"))).equals(False)
-    env.expect.that_bool(_check_if_target_under_path(Label("@foo//bar/baz"), Label("@foo//bar:__subpackages__"))).equals(True)
-    env.expect.that_bool(_check_if_target_under_path(Label("@foo//bar:qux"), Label("@foo//bar:__pkg__"))).equals(True)
+    env.expect.that_bool(_check_if_target_under_path(Label("@@foo//bar/baz"), Label("@@foo//bar"))).equals(False)
+    env.expect.that_bool(_check_if_target_under_path(Label("@@foo//bar/baz"), Label("@@foo//bar:__pkg__"))).equals(False)
+    env.expect.that_bool(_check_if_target_under_path(Label("@@foo//bar/baz"), Label("@@foo//bar:__subpackages__"))).equals(True)
+    env.expect.that_bool(_check_if_target_under_path(Label("@@foo//bar:qux"), Label("@@foo//bar:__pkg__"))).equals(True)
 
-    env.expect.that_bool(_check_if_target_under_path(Label("@foo//bar"), Label("@foo//bar/baz:__subpackages__"))).equals(False)
+    env.expect.that_bool(_check_if_target_under_path(Label("@@foo//bar"), Label("@@foo//bar/baz:__subpackages__"))).equals(False)
     env.expect.that_bool(_check_if_target_under_path(Label("//bar"), Label("//bar/baz:__pkg__"))).equals(False)
 
     env.expect.that_bool(_check_if_target_under_path(Label("//foo/bar:baz"), Label("//:__subpackages__"))).equals(True)
@@ -381,10 +381,10 @@ nocode_cc_lib = rule(
 def _exports_test_impl(env, target):
     actual = list(target[CcSharedLibraryInfo].exports)
 
-    # Remove the @ prefix on Bazel
+    # Remove the @@ prefix on Bazel
     for i in range(len(actual)):
-        if actual[i][0] == "@":
-            actual[i] = actual[i][1:]
+        if actual[i].startswith("@@"):
+            actual[i] = actual[i][2:]
     expected = env.ctx.attr._targets_that_should_be_claimed_to_be_exported
     env.expect.where(
         detail = "Exports lists do not match.",
