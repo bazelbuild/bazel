@@ -464,6 +464,10 @@ public final class SkyframeActionExecutor {
     if (!actionFileSystemType().inMemoryFileSystem()) {
       outputDirectoryHelper.invalidateTreeArtifactDirectoryCreation(dep.getOutputs());
     }
+    // Evict the rewinding action from the action cache to ensure that it is executed.
+    if (actionCacheChecker.enabled()) {
+      actionCacheChecker.removeCacheEntry(dep);
+    }
   }
 
   @Nullable

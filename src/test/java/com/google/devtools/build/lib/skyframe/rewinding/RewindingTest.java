@@ -71,7 +71,6 @@ public final class RewindingTest extends BuildIntegrationTestCase {
     super.setupOptions();
     addOptions(
         "--spawn_strategy=standalone",
-        "--nouse_action_cache",
         "--noexperimental_merged_skyframe_analysis_execution",
         "--rewind_lost_inputs",
         "--features=cc_include_scanning",

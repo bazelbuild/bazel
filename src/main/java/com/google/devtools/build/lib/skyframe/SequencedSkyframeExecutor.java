@@ -317,16 +317,6 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     if (buildRequestOptions == null || !buildRequestOptions.rewindLostInputs) {
       return false;
     }
-    if (buildRequestOptions.useActionCache) {
-      throw new AbruptExitException(
-          DetailedExitCode.of(
-              FailureDetail.newBuilder()
-                  .setMessage("--rewind_lost_inputs requires --nouse_action_cache")
-                  .setActionRewinding(
-                      ActionRewinding.newBuilder()
-                          .setCode(ActionRewinding.Code.REWIND_LOST_INPUTS_PREREQ_UNMET))
-                  .build()));
-    }
     if (isMergedSkyframeAnalysisExecution()) {
       throw new AbruptExitException(
           DetailedExitCode.of(

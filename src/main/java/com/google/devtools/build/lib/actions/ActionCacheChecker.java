@@ -149,7 +149,8 @@ public class ActionCacheChecker {
     return ActionCacheUtils.getCacheEntry(actionCache, action);
   }
 
-  private void removeCacheEntry(Action action) {
+  public void removeCacheEntry(Action action) {
+    checkState(enabled(), "Action cache disabled");
     ActionCacheUtils.removeCacheEntry(actionCache, action);
   }
 
