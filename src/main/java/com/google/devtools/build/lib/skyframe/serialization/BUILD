@@ -28,6 +28,9 @@ java_library(
             "CodecScanningConstants.java",
         ],
     ),
+    add_opens = [
+        "java.base/java.lang.invoke",
+    ],
     deps = [
         ":codec-scanning-constants",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:registered-singleton",
