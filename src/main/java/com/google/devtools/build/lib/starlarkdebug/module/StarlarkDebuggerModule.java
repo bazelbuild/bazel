@@ -35,6 +35,9 @@ public final class StarlarkDebuggerModule extends BlazeModule {
         env.getOptions().getOptions(StarlarkDebuggerOptions.class);
     boolean enabled = buildOptions != null && buildOptions.debugStarlark;
     if (enabled) {
+      if (buildOptions.resetAnalysis) {
+        env.getBlazeWorkspace().resetEvaluator();
+      }
       initializeDebugging(
           env.getReporter(), buildOptions.debugServerPort, buildOptions.verboseLogs);
     } else {

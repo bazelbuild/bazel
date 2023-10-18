@@ -52,4 +52,15 @@ public final class StarlarkDebuggerOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "Show verbose logs for the debugger.")
   public boolean verboseLogs;
+
+  @Option(
+      name = "experimental_skylark_debug_reset_analysis",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If true, resets analysis before executing the build. Has no effect without"
+              + " --experimental_skylark_debug")
+  public boolean resetAnalysis;
 }
