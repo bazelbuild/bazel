@@ -348,8 +348,8 @@ tasks:
       - "//src:bazel_nojdk.exe"
     include_json_profile:
       - build
-  rbe_ubuntu1804:
-    platform: ubuntu1804
+  rbe_ubuntu2004:
+    platform: ubuntu2004
     name: "RBE"
     shell_commands:
       - sed -i.bak
@@ -357,7 +357,7 @@ tasks:
         -e 's/^# android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
       - rm -f WORKSPACE.bzlmod.bak
     build_flags:
-      - "--config=ubuntu1804_java11"
+      - "--config=ubuntu2004_java11"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
       - "--experimental_remote_cache_async"
@@ -368,7 +368,7 @@ tasks:
       - "//src:bazel_jdk_minimal"
       - "//src/main/java/..."
     test_flags:
-      - "--config=ubuntu1804_java11"
+      - "--config=ubuntu2004_java11"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
       - "--experimental_remote_cache_async"
