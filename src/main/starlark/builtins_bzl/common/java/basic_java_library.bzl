@@ -17,7 +17,7 @@ Common code for reuse across java_* rules
 """
 
 load(":common/cc/cc_info.bzl", "CcInfo")
-load(":common/java/android_lint.bzl", "android_lint_action")
+load(":common/java/android_lint.bzl", "android_lint_subrule")
 load(":common/java/compile_action.bzl", "compile_action")
 load(":common/java/java_common.bzl", "java_common")
 load(":common/java/java_common_internal_for_builtins.bzl", "target_kind")
@@ -161,8 +161,7 @@ def basic_java_library(
             for output in java_info.java_outputs
             if output.generated_source_jar != None
         ]
-        lint_output = android_lint_action(
-            ctx,
+        lint_output = android_lint_subrule(
             source_files,
             source_jars + generated_source_jars,
             compilation_info,
