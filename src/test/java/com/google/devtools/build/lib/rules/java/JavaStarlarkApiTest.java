@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getProcessorNames;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getProcessorPath;
+import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.dumpStructure;
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.joining;
 
@@ -1541,7 +1542,10 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     StructImpl declaredProvider = (StructImpl) myRuleTarget.get(myProviderKey);
     // attempting to wrap will error out if not a JavaInfo
     Object javaProvider = JavaInfo.PROVIDER.wrap(declaredProvider.getValue("p", Info.class));
-    assertThat(javaLibraryTarget.get(JavaInfo.PROVIDER)).isEqualTo(javaProvider);
+    // Compares providers structurally rather than by reference equality. References will not match
+    // after serialization.
+    assertThat(dumpStructure(javaLibraryTarget.get(JavaInfo.PROVIDER)))
+        .isEqualTo(dumpStructure(javaProvider));
   }
 
   @Test
@@ -1568,7 +1572,9 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     JavaInfo jlJavaInfo = javaLibraryTarget.get(JavaInfo.PROVIDER);
 
-    assertThat(jlJavaInfo).isEqualTo(javaProvider);
+    // Compares providers structurally rather than by reference equality. References will not match
+    // after serialization.
+    assertThat(dumpStructure(jlJavaInfo)).isEqualTo(dumpStructure(javaProvider));
 
     JavaInfo jlTopJavaInfo = topJavaLibraryTarget.get(JavaInfo.PROVIDER);
 

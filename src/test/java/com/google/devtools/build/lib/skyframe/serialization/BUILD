@@ -363,7 +363,7 @@ java_library(
     name = "serialization-tests",
     testonly = 1,
     srcs = glob(
-        ["**/*.java"],
+        ["*.java"],
         exclude = [
             "PackageLookupValueCodecTest.java",
             "MutableListCodecTest.java",
