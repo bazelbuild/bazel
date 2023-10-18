@@ -37,6 +37,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
@@ -502,7 +503,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     }
 
     boolean hasStarlarkDefinedTransition = false;
-    boolean hasFunctionTransitionAllowlist = false;
     for (Pair<String, StarlarkAttrModule.Descriptor> attribute : attributes) {
       String name = attribute.getFirst();
       StarlarkAttrModule.Descriptor descriptor = attribute.getSecond();
@@ -517,29 +517,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                   + " analysis_test_transition transitions");
         }
         builder.setHasAnalysisTestTransition();
-      }
-      // Check for existence of the function transition allowlist attribute.
-      // TODO(b/121385274): remove when we stop allowlisting starlark transitions
-      if (name.equals(FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME)) {
-        if (!BuildType.isLabelType(attr.getType())) {
-          throw Starlark.errorf("_allowlist_function_transition attribute must be a label type");
-        }
-        if (attr.getDefaultValueUnchecked() == null) {
-          throw Starlark.errorf(
-              "_allowlist_function_transition attribute must have a default value");
-        }
-        Label defaultLabel = (Label) attr.getDefaultValueUnchecked();
-        // Check the label value for package and target name, to make sure this works properly
-        // in Bazel where it is expected to be found under @bazel_tools.
-        if (!(defaultLabel
-                    .getPackageName()
-                    .equals(FunctionSplitTransitionAllowlist.LABEL.getPackageName())
-                && defaultLabel.getName().equals(FunctionSplitTransitionAllowlist.LABEL.getName()))) {
-          throw Starlark.errorf(
-              "_allowlist_function_transition attribute (%s) does not have the expected value %s",
-              defaultLabel, FunctionSplitTransitionAllowlist.LABEL);
-        }
-        hasFunctionTransitionAllowlist = true;
       }
 
       try {
@@ -653,15 +630,40 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       }
     }
 
-    // TODO(b/121385274): remove when we stop allowlisting starlark transitions
+    boolean hasFunctionTransitionAllowlist = false;
+    // Check for existence of the function transition allowlist attribute.
+    if (builder.contains(FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME)) {
+      Attribute attr = builder.getAttribute(FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME);
+      if (!BuildType.isLabelType(attr.getType())) {
+        throw Starlark.errorf("_allowlist_function_transition attribute must be a label type");
+      }
+      if (attr.getDefaultValueUnchecked() == null) {
+        throw Starlark.errorf("_allowlist_function_transition attribute must have a default value");
+      }
+      Label defaultLabel = (Label) attr.getDefaultValueUnchecked();
+      // Check the label value for package and target name, to make sure this works properly
+      // in Bazel where it is expected to be found under @bazel_tools.
+      if (!(defaultLabel
+              .getPackageName()
+              .equals(FunctionSplitTransitionAllowlist.LABEL.getPackageName())
+          && defaultLabel.getName().equals(FunctionSplitTransitionAllowlist.LABEL.getName()))) {
+        throw Starlark.errorf(
+            "_allowlist_function_transition attribute (%s) does not have the expected value %s",
+            defaultLabel, FunctionSplitTransitionAllowlist.LABEL);
+      }
+      hasFunctionTransitionAllowlist = true;
+    }
     if (hasStarlarkDefinedTransition) {
       if (!bzlFile.getRepository().getNameWithAt().equals("@_builtins")) {
         if (!hasFunctionTransitionAllowlist) {
-          throw Starlark.errorf(
-              "Use of Starlark transition without allowlist attribute"
-                  + " '_allowlist_function_transition'. See Starlark transitions documentation"
-                  + " for details and usage: %s %s",
-              builder.getRuleDefinitionEnvironmentLabel(), builder.getType());
+          // add the allowlist automatically
+          builder.add(
+              attr(FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME, LABEL)
+                  .cfg(ExecutionTransitionFactory.createFactory())
+                  .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class))
+                  .value(
+                      ruleDefinitionEnvironment.getToolsLabel(
+                          FunctionSplitTransitionAllowlist.LABEL_STR)));
         }
         builder.addAllowlistChecker(FUNCTION_TRANSITION_ALLOWLIST_CHECKER);
       }
