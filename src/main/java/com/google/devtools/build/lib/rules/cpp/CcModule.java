@@ -2092,7 +2092,7 @@ public abstract class CcModule
       })
   public void checkPrivateApi(Object allowlistObject, StarlarkThread thread) throws EvalException {
     // Make sure that check_private_api is called either from builtins or allowlisted packages.
-    isCalledFromStarlarkCcCommon(thread);
+    checkPrivateStarlarkificationAllowlist(thread);
     BazelModuleContext bazelModuleContext =
         (BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread, 1).getClientData();
     ImmutableList<BuiltinRestriction.AllowlistEntry> allowlist =
