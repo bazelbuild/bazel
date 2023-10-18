@@ -349,9 +349,18 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
     }
 
     @Override
+    @Nullable
     public FilesToRunProvider getExecutableRunfiles(Artifact executable, String what)
         throws EvalException {
-      throw Starlark.errorf("for '%s', expected FilesToRunProvider, got File", what);
+      if (runfilesFromDeps.stream().anyMatch(dep -> executable.equals(dep.getExecutable()))) {
+        // TODO: b/293304174 - maybe return the matched FilesToRunProvider instead of failing?
+        throw Starlark.errorf("for '%s', expected FilesToRunProvider, got File", what);
+      } else {
+        // executable attributes of a subrule are passed to the implementation as FilesToRunProvider
+        // so this should never happen unless this comes from somewhere else, in which case, we
+        // can't resolve it anyway
+        return null;
+      }
     }
 
     @Override
