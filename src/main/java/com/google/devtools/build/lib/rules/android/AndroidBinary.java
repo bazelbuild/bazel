@@ -649,6 +649,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           androidSemantics,
           javaSemantics,
           dataContext,
+          filesBuilder,
           proguardOutput,
           androidDexInfo.getFinalProguardOutputMap(),
           optimizationInfo.getOptimizedResourceApk(),
@@ -771,7 +772,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       }
     }
 
-    if (hasProguardSpecs) {
+    if (hasProguardSpecs && optimizationInfo == null) {
       proguardOutput.addAllToSet(filesBuilder, finalProguardOutputMap);
     }
 
@@ -1085,6 +1086,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       AndroidSemantics androidSemantics,
       JavaSemantics javaSemantics,
       AndroidDataContext dataContext,
+      NestedSetBuilder<Artifact> filesBuilder,
       ProguardOutput proguardOutput,
       @Nullable Artifact finalProguardOutputMap,
       @Nullable Artifact optimizedResourceApk,
@@ -1096,49 +1098,63 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       throws InterruptedException {
 
     if (proguardOutput.getOutputJar() != null) {
+      Artifact proguardedJar =
+          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_PROGUARD_JAR);
       ruleContext.registerAction(
           SymlinkAction.toArtifact(
               ruleContext.getActionOwner(),
               proguardOutput.getOutputJar(),
-              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_PROGUARD_JAR),
+              proguardedJar,
               "Symlinking proguard output jar"));
+      filesBuilder.add(proguardedJar);
     }
 
     if (proguardOutput.getSeeds() != null) {
+      Artifact proguardSeeds =
+          ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_SEEDS);
       ruleContext.registerAction(
           SymlinkAction.toArtifact(
               ruleContext.getActionOwner(),
               proguardOutput.getSeeds(),
-              ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_SEEDS),
+              proguardSeeds,
               "Symlinking proguard seeds"));
+      filesBuilder.add(proguardSeeds);
     }
 
     if (proguardOutput.getConfig() != null) {
+      Artifact proguardConfig =
+          ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_CONFIG);
       ruleContext.registerAction(
           SymlinkAction.toArtifact(
               ruleContext.getActionOwner(),
               proguardOutput.getConfig(),
-              ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_CONFIG),
+              proguardConfig,
               "Symlinking proguard config"));
+      filesBuilder.add(proguardConfig);
     }
 
     if (proguardOutput.getUsage() != null) {
+      Artifact proguardUsage =
+          ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_USAGE);
       ruleContext.registerAction(
           SymlinkAction.toArtifact(
               ruleContext.getActionOwner(),
               proguardOutput.getUsage(),
-              ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_USAGE),
+              proguardUsage,
               "Symlinking proguard usage"));
+      filesBuilder.add(proguardUsage);
     }
 
     if (proguardOutput.getProtoMapping() != null
         && javaSemantics.getProtoMapping(ruleContext) != null) {
+      Artifact proguardProtoMapping = javaSemantics.getProtoMapping(ruleContext);
       ruleContext.registerAction(
           SymlinkAction.toArtifact(
               ruleContext.getActionOwner(),
               proguardOutput.getProtoMapping(),
-              javaSemantics.getProtoMapping(ruleContext),
+              proguardProtoMapping,
               "Symlinking proguard proto mapping"));
+      filesBuilder.add(proguardProtoMapping);
     }
 
     // Conditionally select which output map to symlink. In the case where a select() resolves to
@@ -1157,6 +1173,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               outputMap,
               androidSemantics.getProguardOutputMap(ruleContext),
               "Symlinking final proguard output map"));
+      filesBuilder.add(androidSemantics.getProguardOutputMap(ruleContext));
     }
 
     if (optimizedResourceApk != null) {
@@ -1193,6 +1210,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               resourceShrinkerLog,
               dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCE_SHRINKER_LOG),
               "Symlinking resource shrinker log"));
+      filesBuilder.add(
+          dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCE_SHRINKER_LOG));
     }
 
     if (resourceOptimizationConfig != null) {
