@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -2852,18 +2853,20 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testBadAllowlistTransition_noAllowlist() throws Exception {
+  public void testBadAllowlistTransition_automaticAllowlist() throws Exception {
     scratch.overwriteFile(
-        "tools/allowlists/function_transition_allowlist/BUILD",
+        TestConstants.TOOLS_REPOSITORY_SCRATCH
+            + "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
         "    name = 'function_transition_allowlist',",
         "    packages = [",
-        "        '//test/...',",
+        // cross-repo allowlists don't work well
+        analysisMock.isThisBazel() ? "'public'," : "'//test/...',",
         "    ],",
         ")");
     scratch.file(
         "test/rules.bzl",
-        "def transition_func(settings):",
+        "def transition_func(settings, attr):",
         "  return {'t0': {'//command_line_option:cpu': 'k8'}}",
         "my_transition = transition(implementation = transition_func, inputs = [],",
         "  outputs = ['//command_line_option:cpu'])",
@@ -2887,9 +2890,8 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "my_rule(name = 'my_rule', dep = ':dep')",
         "simple_rule(name = 'dep')");
 
-    reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:my_rule");
-    assertContainsEvent("Use of Starlark transition without allowlist");
+    assertNoEvents();
   }
 
   @Test

@@ -227,7 +227,14 @@ export -f runfiles_export_envvars
 # its return value is ignored if passed to rlocation.
 function runfiles_current_repository() {
   local -r idx=${1:-1}
-  local -r caller_path="${BASH_SOURCE[$idx]}"
+  local -r raw_caller_path="${BASH_SOURCE[$idx]}"
+  # Make the caller path absolute if needed to handle the case where the script is run directly
+  # from bazel-bin, with working directory a subdirectory of bazel-bin.
+  if [[ "$raw_caller_path" =~ $_RLOCATION_ISABS_PATTERN ]]; then
+    local -r caller_path="$raw_caller_path"
+  else
+    local -r caller_path="$(cd $(dirname "$raw_caller_path"); pwd)/$(basename "$raw_caller_path")"
+  fi
   if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
     echo >&2 "INFO[runfiles.bash]: runfiles_current_repository($idx): caller's path is ($caller_path)"
   fi
@@ -244,6 +251,19 @@ function runfiles_current_repository() {
     if [[ -z "$rlocation_path" ]]; then
       if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
         echo >&2 "ERROR[runfiles.bash]: runfiles_current_repository($idx): ($normalized_caller_path) is not the target of an entry in the runfiles manifest ($RUNFILES_MANIFEST_FILE)"
+      fi
+      # The binary may also be run directly from bazel-bin or bazel-out.
+      local -r repository=$(echo "$normalized_caller_path" | __runfiles_maybe_grep -E -o '(^|/)(bazel-out/[^/]+/bin|bazel-bin)/external/[^/]+/' | tail -1 | rev | cut -d / -f 2 | rev)
+      if [[ -n "$repository" ]]; then
+        if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+          echo >&2 "INFO[runfiles.bash]: runfiles_current_repository($idx): ($normalized_caller_path) lies in repository ($repository) (parsed exec path)"
+        fi
+        echo "$repository"
+      else
+        if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+          echo >&2 "INFO[runfiles.bash]: runfiles_current_repository($idx): ($normalized_caller_path) lies in the main repository (parsed exec path)"
+        fi
+        echo ""
       fi
       return 1
     else
@@ -273,16 +293,17 @@ function runfiles_current_repository() {
       fi
       # The only shell script that is not executed from the runfiles directory (if it is populated)
       # is the sh_binary entrypoint. Parse its path under the execroot, using the last match to
-      # allow for nested execroots (e.g. in Bazel integration tests).
-      local -r repository=$(echo "$normalized_caller_path" | __runfiles_maybe_grep -E -o '(^|/)bazel-out/[^/]+/bin/external/[^/]+/' | tail -1 | rev | cut -d / -f 2 | rev)
+      # allow for nested execroots (e.g. in Bazel integration tests). The binary may also be run
+      # directly from bazel-bin.
+      local -r repository=$(echo "$normalized_caller_path" | __runfiles_maybe_grep -E -o '(^|/)(bazel-out/[^/]+/bin|bazel-bin)/external/[^/]+/' | tail -1 | rev | cut -d / -f 2 | rev)
       if [[ -n "$repository" ]]; then
         if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
-          echo >&2 "INFO[runfiles.bash]: runfiles_current_repository($idx): ($normalized_caller_path) lies in repository ($repository)"
+          echo >&2 "INFO[runfiles.bash]: runfiles_current_repository($idx): ($normalized_caller_path) lies in repository ($repository) (parsed exec path)"
         fi
         echo "$repository"
       else
         if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
-          echo >&2 "INFO[runfiles.bash]: runfiles_current_repository($idx): ($normalized_caller_path) lies in the main repository"
+          echo >&2 "INFO[runfiles.bash]: runfiles_current_repository($idx): ($normalized_caller_path) lies in the main repository (parsed exec path)"
         fi
         echo ""
       fi
@@ -292,6 +313,13 @@ function runfiles_current_repository() {
         echo >&2 "INFO[runfiles.bash]: runfiles_current_repository($idx): ($caller_path) has path ($rlocation_path) relative to the runfiles directory ($RUNFILES_DIR)"
       fi
     fi
+  fi
+
+  if [[ -z "$rlocation_path" ]]; then
+    if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+      echo >&2 "ERROR[runfiles.bash]: runfiles_current_repository($idx): cannot determine repository for ($caller_path) since neither the runfiles directory (${RUNFILES_DIR:-}) nor the runfiles manifest (${RUNFILES_MANIFEST_FILE:-}) exist"
+    fi
+    return 1
   fi
 
   if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then

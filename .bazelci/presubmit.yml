@@ -55,7 +55,7 @@ tasks:
     include_json_profile:
       - build
       - test
-  ubuntu1804:
+  ubuntu2204:
     shards: 4
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -72,7 +72,6 @@ tasks:
       - "//src/main/java/..."
     test_flags:
       - "--config=ci-linux"
-      - "--test_tag_filters=-no_1804"
     test_targets:
       - "//scripts/..."
       - "//src/java_tools/..."
@@ -98,8 +97,8 @@ tasks:
     include_json_profile:
       - build
       - test
-  ubuntu1804_clang:
-    platform: ubuntu1804
+  ubuntu2004_clang:
+    platform: ubuntu2004
     environment:
       CC: clang
       CC_CONFIGURE_DEBUG: 1
@@ -119,7 +118,6 @@ tasks:
       - "//src/main/java/..."
     test_flags:
       - "--config=ci-linux"
-      - "--test_tag_filters=-no_1804"
     test_targets:
       - "//src/test/shell/bazel:cc_integration_test"
     include_json_profile:
@@ -411,8 +409,8 @@ tasks:
       - "//src:bazel_nojdk.exe"
     include_json_profile:
       - build
-  rbe_ubuntu1804:
-    platform: ubuntu1804
+  rbe_ubuntu2004:
+    platform: ubuntu2004
     name: "RBE"
     shell_commands:
       - sed -i.bak
@@ -420,7 +418,7 @@ tasks:
         -e 's/^# android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
       - rm -f WORKSPACE.bzlmod.bak
     build_flags:
-      - "--config=ubuntu1804_java11"
+      - "--config=ubuntu2004_java11"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
       - "--experimental_remote_cache_async"
@@ -431,13 +429,12 @@ tasks:
       - "//src:bazel_jdk_minimal"
       - "//src/main/java/..."
     test_flags:
-      - "--config=ubuntu1804_java11"
+      - "--config=ubuntu2004_java11"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
       - "--jobs=200"
       - "--experimental_remote_cache_async"
       - "--experimental_remote_merkle_tree_cache"
       - "--remote_download_minimal"
-      - "--test_tag_filters=-no_1804"
     test_targets:
       - "//scripts/..."
       - "//src/java_tools/..."
@@ -468,7 +465,7 @@ tasks:
       - "-//src/test/py/bazel:bazel_yanked_versions_test"
       - "-//src/test/py/bazel:bzlmod_query_test"
       - "-//src/test/shell/bazel:verify_workspace"
-      # Flaky on rbe_ubuntu1804
+      # Flaky on rbe_ubuntu2004
       # https://github.com/bazelbuild/continuous-integration/issues/1631
       - "-//src/test/shell/bazel:bazel_sandboxing_networking_test"
       # https://github.com/bazelbuild/bazel/issues/18776
@@ -491,8 +488,8 @@ tasks:
     index_targets_query: "kind(\"cc_(binary|library|test|proto_library) rule\", ...) union kind(\"java_(binary|import|library|plugin|test|proto_library) rule\", ...) union kind(\"proto_library rule\", ...)"
     index_upload_policy: Always
     index_upload_gcs: False
-  docs_ubuntu1804:
-    platform: ubuntu1804
+  docs_ubuntu2004:
+    platform: ubuntu2004
     name: "Docs"
     build_flags:
       - "--config=docs"
