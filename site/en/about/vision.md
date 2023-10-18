@@ -5,9 +5,9 @@ Book: /_book.yaml
 
 {% include "_buttons.html" %}
 
-Any software developer can efficiently build, test, and package
-any project, of any size or complexity, with tooling that's easy to adopt and
-extend.
+**Bazel's vision statement**: Any software developer can efficiently build,
+test, and package any project, of any size or complexity, with tooling that's
+easy to adopt and extend.
 
 *   **Engineers can take build fundamentals for granted.** Software developers
     focus on the creative process of authoring code because the mechanical
