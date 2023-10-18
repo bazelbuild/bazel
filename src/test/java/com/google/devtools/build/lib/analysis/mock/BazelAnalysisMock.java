@@ -422,6 +422,16 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "package_group(name='config_feature_flag_Setter', packages=['public'])");
 
     config.create(
+        "embedded_tools/tools/allowlists/android_binary_allowlist/BUILD",
+        "package_group(",
+        "    name='enable_starlark_dex_desugar_proguard',",
+        "    includes=['@@//tools/allowlists/android_binary_allowlist:enable_starlark_dex_desugar_proguard'],",
+        ")");
+    config.create(
+        "tools/allowlists/android_binary_allowlist/BUILD",
+        "package_group(name='enable_starlark_dex_desugar_proguard', packages=[])");
+
+    config.create(
         "embedded_tools/tools/proto/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "alias(name='protoc',actual='@com_google_protobuf//:protoc')",

@@ -176,6 +176,12 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
                         AndroidRuleClasses.getAndroidSdkLabel(
                             Label.parseCanonicalUnchecked(
                                 toolsRepository + AndroidRuleClasses.DEFAULT_SDK))))
+            .add(
+                Allowlist.getAttributeFromAllowlistName("enable_starlark_dex_desugar_proguard")
+                    .value(
+                        Label.parseCanonicalUnchecked(
+                            toolsRepository
+                                + "//tools/allowlists/android_binary_allowlist:enable_starlark_dex_desugar_proguard")))
             .requiresConfigurationFragments(AndroidConfiguration.class)
             .requireAspectsWithProviders(
                 ImmutableList.of(ImmutableSet.of(forKey(JavaInfo.PROVIDER.getKey()))));
