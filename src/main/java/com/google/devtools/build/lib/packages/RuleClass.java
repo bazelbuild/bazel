@@ -823,6 +823,7 @@ public class RuleClass implements RuleClassData {
         // the condition removes {@link StarlarkRuleClasssFunctions.baseRule} and binaryBaseRule,
         // which are marked as Starlark (because of Stardoc) && abstract at the same time
         starlarkParent = parents[0];
+        Preconditions.checkArgument(starlarkParent.isExtendable());
       }
       for (RuleClass parent : parents) {
         if (parent.getValidityPredicate() != PredicatesWithMessage.<Rule>alwaysTrue()) {
@@ -928,6 +929,15 @@ public class RuleClass implements RuleClassData {
         this.useToolchainResolution(ToolchainResolutionMode.DISABLED);
       }
 
+      boolean extendable =
+          starlark
+              && (type == RuleClassType.NORMAL || type == RuleClassType.TEST)
+              && implicitOutputsFunction == ImplicitOutputsFunction.NONE
+              && outputsToBindir
+              && !starlarkTestable
+              && !isAnalysisTest
+              && buildSetting == null;
+
       return new RuleClass(
           name,
           callstack,
@@ -935,6 +945,7 @@ public class RuleClass implements RuleClassData {
           type,
           starlarkParent,
           starlark,
+          extendable,
           starlarkTestable,
           documented,
           outputsToBindir,
@@ -1625,6 +1636,7 @@ public class RuleClass implements RuleClassData {
   private final RuleClassType type;
   @Nullable private final RuleClass starlarkParent;
   private final boolean isStarlark;
+  private final boolean extendable;
   private final boolean starlarkTestable;
   private final boolean documented;
   private final boolean outputsToBindir;
@@ -1759,6 +1771,7 @@ public class RuleClass implements RuleClassData {
       RuleClassType type,
       RuleClass starlarkParent,
       boolean isStarlark,
+      boolean extendable,
       boolean starlarkTestable,
       boolean documented,
       boolean outputsToBindir,
@@ -1795,6 +1808,7 @@ public class RuleClass implements RuleClassData {
     this.type = type;
     this.starlarkParent = starlarkParent;
     this.isStarlark = isStarlark;
+    this.extendable = extendable;
     this.targetKind = name + Rule.targetKindSuffix();
     this.starlarkTestable = starlarkTestable;
     this.documented = documented;
@@ -2628,6 +2642,11 @@ public class RuleClass implements RuleClassData {
   @Override
   public boolean isStarlark() {
     return isStarlark;
+  }
+
+  /** Returns true if this RuleClass can be extended. */
+  public boolean isExtendable() {
+    return extendable;
   }
 
   /** Returns true if this RuleClass is Starlark-defined and is subject to analysis-time tests. */
