@@ -109,14 +109,13 @@ public final class SyncCommand implements BlazeCommand {
         skyframeExecutor.injectExtraPrecomputedValues(
             ImmutableList.of(
                 PrecomputedValue.injected(
-                    RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_CONFIGURING,
+                    RepositoryDelegatorFunction.FORCE_FETCH_CONFIGURE,
                     env.getCommandId().toString())));
       } else {
         skyframeExecutor.injectExtraPrecomputedValues(
             ImmutableList.of(
                 PrecomputedValue.injected(
-                    RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
-                    env.getCommandId().toString())));
+                    RepositoryDelegatorFunction.FORCE_FETCH, env.getCommandId().toString())));
       }
 
       // Obtain the key for the top-level WORKSPACE file

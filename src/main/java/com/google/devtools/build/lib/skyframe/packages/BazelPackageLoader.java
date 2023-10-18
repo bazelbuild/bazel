@@ -105,12 +105,12 @@ public class BazelPackageLoader extends AbstractPackageLoader {
           PrecomputedValue.injected(
               RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
           PrecomputedValue.injected(
-              RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
-              RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
+              RepositoryDelegatorFunction.FORCE_FETCH,
+              RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
           PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
           PrecomputedValue.injected(
-              RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_CONFIGURING,
-              RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
+              RepositoryDelegatorFunction.FORCE_FETCH_CONFIGURE,
+              RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
           PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, ImmutableList.of()),
           PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
           PrecomputedValue.injected(

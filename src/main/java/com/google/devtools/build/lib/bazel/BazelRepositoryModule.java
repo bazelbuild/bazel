@@ -570,11 +570,11 @@ public class BazelRepositoryModule extends BlazeModule {
         // That key will be reinjected by the sync command with a universally unique identifier.
         // Nevertheless, we need to provide a default value for other commands.
         PrecomputedValue.injected(
-            RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
-            RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
+            RepositoryDelegatorFunction.FORCE_FETCH,
+            RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
         PrecomputedValue.injected(
-            RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_CONFIGURING,
-            RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
+            RepositoryDelegatorFunction.FORCE_FETCH_CONFIGURE,
+            RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
         PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, registries),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, ignoreDevDeps.get()),
         PrecomputedValue.injected(
