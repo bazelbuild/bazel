@@ -789,7 +789,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
   }
 
   private ResourceSet estimateResourceConsumptionLocal(
-      RuleContext ruleContext, OS os, int inputsCount) throws Exception {
+      RuleContext ruleContext, OS os, int inputsCount, int estimatedCPU, double estimatedMinimumMemory) throws Exception {
     InputMetadataProvider inputMetadataProvider = mock(InputMetadataProvider.class);
 
     ActionExecutionContext actionExecutionContext = mock(ActionExecutionContext.class);
@@ -798,7 +798,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
     NestedSet<Artifact> inputs = createInputs(ruleContext, inputsCount);
     try {
       LocalResourcesEstimator estimator =
-          new LocalResourcesEstimator(actionExecutionContext, os, inputs, 1, 15.0);
+          new LocalResourcesEstimator(actionExecutionContext, os, inputs, estimatedCPU, estimatedMinimumMemory);
       return estimator.get();
     } finally {
       for (Artifact input : inputs.toList()) {
@@ -811,23 +811,44 @@ public final class CppLinkActionTest extends BuildViewTestCase {
   public void testLocalLinkResourceEstimate() throws Exception {
     RuleContext ruleContext = createDummyRuleContext();
 
-    assertThat(estimateResourceConsumptionLocal(ruleContext, OS.DARWIN, 100))
+    assertThat(estimateResourceConsumptionLocal(ruleContext, OS.DARWIN, 100, 1, -1))
         .isEqualTo(ResourceSet.createWithRamCpu(20, 1));
 
-    assertThat(estimateResourceConsumptionLocal(ruleContext, OS.DARWIN, 1000))
+    assertThat(estimateResourceConsumptionLocal(ruleContext, OS.DARWIN, 1000, 1, -1))
         .isEqualTo(ResourceSet.createWithRamCpu(65, 1));
 
-    assertThat(estimateResourceConsumptionLocal(ruleContext, OS.LINUX, 100))
+    assertThat(estimateResourceConsumptionLocal(ruleContext, OS.DARWIN, 100, 10, -1))
+        .isEqualTo(ResourceSet.createWithRamCpu(20, 10));
+
+    assertThat(estimateResourceConsumptionLocal(ruleContext, OS.DARWIN, 1000, 10, -1))
+        .isEqualTo(ResourceSet.createWithRamCpu(65, 10));
+
+    assertThat(estimateResourceConsumptionLocal(ruleContext, OS.DARWIN, 100, 10, 1000))
+        .isEqualTo(ResourceSet.createWithRamCpu(1005, 10));
+
+    assertThat(estimateResourceConsumptionLocal(ruleContext, OS.LINUX, 100, 1, -1))
         .isEqualTo(ResourceSet.createWithRamCpu(50, 1));
 
-    assertThat(estimateResourceConsumptionLocal(ruleContext, OS.LINUX, 10000))
+    assertThat(estimateResourceConsumptionLocal(ruleContext, OS.LINUX, 10000, 1, -1))
         .isEqualTo(ResourceSet.createWithRamCpu(900, 1));
 
-    assertThat(estimateResourceConsumptionLocal(ruleContext, OS.WINDOWS, 0))
+    assertThat(estimateResourceConsumptionLocal(ruleContext, OS.LINUX, 2000, 10, -1))
+        .isEqualTo(ResourceSet.createWithRamCpu(100, 10));
+
+    assertThat(estimateResourceConsumptionLocal(ruleContext, OS.LINUX, 100, 10, 100))
+        .isEqualTo(ResourceSet.createWithRamCpu(110, 10));
+
+    assertThat(estimateResourceConsumptionLocal(ruleContext, OS.WINDOWS, 0, 1, -1))
         .isEqualTo(ResourceSet.createWithRamCpu(1500, 1));
 
-    assertThat(estimateResourceConsumptionLocal(ruleContext, OS.WINDOWS, 1000))
+    assertThat(estimateResourceConsumptionLocal(ruleContext, OS.WINDOWS, 1000, 1, -1))
         .isEqualTo(ResourceSet.createWithRamCpu(2500, 1));
+
+    assertThat(estimateResourceConsumptionLocal(ruleContext, OS.WINDOWS, 1000, 10, -1))
+        .isEqualTo(ResourceSet.createWithRamCpu(2500, 10));
+
+    assertThat(estimateResourceConsumptionLocal(ruleContext, OS.WINDOWS, 1000, 10, 100))
+        .isEqualTo(ResourceSet.createWithRamCpu(1100, 10));
   }
 
   private static CppLinkActionBuilder createLinkBuilder(
