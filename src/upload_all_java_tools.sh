@@ -51,15 +51,15 @@ commit_hash=$(git rev-parse HEAD)
 timestamp=$(date +%s)
 bazel_version=$(bazel info release | cut -d' ' -f2)
 
-JAVA_BUILD_OPTS="--tool_java_language_version=8 --java_language_version=8"
+RELEASE_BUILD_OPTS="-c opt --tool_java_language_version=8 --java_language_version=8"
 
 # Passing the same commit_hash and timestamp to all targets to mark all the artifacts
 # uploaded on GCS with the same identifier.
 
-bazel build ${JAVA_BUILD_OPTS} //src:java_tools_zip
+bazel build ${RELEASE_BUILD_OPTS} //src:java_tools_zip
 zip_path=${PWD}/bazel-bin/src/java_tools.zip
 
-bazel build ${JAVA_BUILD_OPTS} //src:java_tools_prebuilt_zip
+bazel build ${RELEASE_BUILD_OPTS} //src:java_tools_prebuilt_zip
 prebuilt_zip_path=${PWD}/bazel-bin/src/java_tools_prebuilt.zip
 
 if [[ "$platform" == "windows" ]]; then
@@ -84,18 +84,18 @@ if [[ "$platform" != "windows" ]]; then
     done
 fi
 
-bazel run ${JAVA_BUILD_OPTS} //src:upload_java_tools_prebuilt -- \
+bazel run ${RELEASE_BUILD_OPTS} //src:upload_java_tools_prebuilt -- \
     --commit_hash ${commit_hash} \
     --timestamp ${timestamp} \
     --bazel_version ${bazel_version}
 
 if [[ "$platform" == "linux" ]]; then
-    bazel run ${JAVA_BUILD_OPTS} //src:upload_java_tools -- \
+    bazel run ${RELEASE_BUILD_OPTS} //src:upload_java_tools -- \
         --commit_hash ${commit_hash} \
         --timestamp ${timestamp} \
         --bazel_version ${bazel_version}
 
-    bazel run ${JAVA_BUILD_OPTS} //src:upload_java_tools_dist -- \
+    bazel run ${RELEASE_BUILD_OPTS} //src:upload_java_tools_dist -- \
         --commit_hash ${commit_hash} \
         --timestamp ${timestamp} \
         --bazel_version ${bazel_version}
