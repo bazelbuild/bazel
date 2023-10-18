@@ -344,11 +344,27 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   public void testUnknown_notUploadedIfDirectory() throws Exception {
     Path dir = fs.getPath("/dir");
     dir.createDirectoryAndParents();
-    Map<Path, LocalFile> filesToUpload = new HashMap<>();
-    filesToUpload.put(
-        dir,
-        new LocalFile(
-            dir, LocalFileType.OUTPUT, /* artifact= */ null, /* artifactMetadata= */ null));
+    var successfulTest = fs.getPath("/test_passed");
+    successfulTest.createDirectory();
+    var failedTest = fs.getPath("/test_failed");
+    failedTest.createDirectory();
+    var filesToUpload =
+        ImmutableMap.of(
+            dir,
+            new LocalFile(
+                dir, LocalFileType.OUTPUT, /* artifact= */ null, /* artifactMetadata= */ null),
+            successfulTest,
+            new LocalFile(
+                successfulTest,
+                LocalFileType.SUCCESSFUL_TEST_OUTPUT,
+                /* artifact= */ null,
+                /* artifactMetadata= */ null),
+            failedTest,
+            new LocalFile(
+                failedTest,
+                LocalFileType.FAILED_TEST_OUTPUT,
+                /* artifact= */ null,
+                /* artifactMetadata= */ null));
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
@@ -357,6 +373,9 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     assertThat(pathConverter.apply(dir)).isNull();
+    assertThat(pathConverter.apply(successfulTest)).isNull();
+    assertThat(pathConverter.apply(failedTest)).isNull();
+    assertThat(eventHandler.getEvents()).isEmpty();
     artifactUploader.release();
   }
 
