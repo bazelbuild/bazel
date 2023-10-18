@@ -603,6 +603,60 @@ public class StarlarkDebugServerTest {
     assertThat(response.getError().getMessage()).isEqualTo("name 'z' is not defined");
   }
 
+  // b/143713658
+  @Test
+  public void testEvaluateRequest_resolvesGlobalsAndLocals() throws Exception {
+    sendStartDebuggingRequest();
+    ParserInput buildFile =
+        createInput(
+            "/a/build/file/foo.bzl",
+            "_global = [1,2,3]",
+            "",
+            "def _func(my_arg):",
+            "  pass",
+            "",
+            "_func(my_arg = [4,5,6])");
+
+    Location breakpoint =
+        Location.newBuilder().setLineNumber(4).setPath("/a/build/file/foo.bzl").build();
+    setBreakpoints(ImmutableList.of(breakpoint));
+
+    Thread evaluationThread = execInWorkerThread(buildFile, null);
+    long threadId = evaluationThread.getId();
+
+    // wait for breakpoint to be hit
+    client.waitForEvent(DebugEvent::hasThreadPaused, Duration.ofSeconds(5));
+
+    DebugEvent responseForGlobal =
+        client.sendRequestAndWaitForResponse(
+            DebugRequest.newBuilder()
+                .setSequenceNumber(123)
+                .setEvaluate(
+                    EvaluateRequest.newBuilder()
+                        .setThreadId(threadId)
+                        .setStatement("_global[1]")
+                        .build())
+                .build());
+
+    assertThat(responseForGlobal.hasEvaluate()).isTrue();
+    assertThat(responseForGlobal.getEvaluate().getResult())
+        .isEqualTo(getValueProto("Evaluation result", StarlarkInt.of(2)));
+
+    DebugEvent responseForLocal =
+        client.sendRequestAndWaitForResponse(
+            DebugRequest.newBuilder()
+                .setSequenceNumber(124)
+                .setEvaluate(
+                    EvaluateRequest.newBuilder()
+                        .setThreadId(threadId)
+                        .setStatement("my_arg[1]")
+                        .build())
+                .build());
+
+    assertThat(responseForLocal.hasError()).isTrue();
+    assertThat(responseForLocal.getError().getMessage()).isEqualTo("name 'my_arg' is not defined");
+  }
+
   @Test
   public void testStepIntoFunction() throws Exception {
     sendStartDebuggingRequest();
