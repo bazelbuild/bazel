@@ -1040,7 +1040,8 @@ public class CppLinkActionBuilder {
         toolchainEnv,
         ImmutableMap.copyOf(executionInfo),
         toolchain.getToolPathFragment(Tool.LD, ruleErrorConsumer),
-        toolchain.getTargetCpu());
+        toolchain.getTargetCpu(),
+        cppConfiguration);
   }
 
   /** We're doing 4-phased lto build, and this is the final link action (4-th phase). */

@@ -181,7 +181,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
 
   private final PathFragment ldExecutable;
   private final String targetCpu;
-
+  private final CppConfiguration cppConfiguration;
 
   /**
    * Use {@link CppLinkActionBuilder} to create instances of this class. Also see there for the
@@ -205,7 +205,8 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
       ImmutableMap<String, String> toolchainEnv,
       ImmutableMap<String, String> executionRequirements,
       PathFragment ldExecutable,
-      String targetCpu) {
+      String targetCpu,
+      CppConfiguration cppConfiguration) {
     super(owner, inputs, outputs);
     this.mnemonic = getMnemonic(mnemonic, isLtoIndexing);
     this.outputLibrary = outputLibrary;
@@ -219,6 +220,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
     this.executionRequirements = executionRequirements;
     this.ldExecutable = ldExecutable;
     this.targetCpu = targetCpu;
+    this.cppConfiguration = cppConfiguration;
   }
 
   @VisibleForTesting
@@ -336,7 +338,11 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
       throws ActionExecutionException, InterruptedException {
     LocalResourcesEstimator localResourcesEstimator =
         new LocalResourcesEstimator(
-            actionExecutionContext, OS.getCurrent(), linkCommandLine.getLinkerInputArtifacts());
+            actionExecutionContext,
+            OS.getCurrent(),
+            linkCommandLine.getLinkerInputArtifacts(),
+            cppConfiguration.getExperimentalCppLinkResourcesEstimationCpu(),
+            cppConfiguration.getExperimentalCppLinkResourcesEstimationMinMemory());
 
     Spawn spawn = createSpawn(actionExecutionContext, localResourcesEstimator);
     try {
@@ -496,6 +502,8 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
     private final ActionExecutionContext actionExecutionContext;
     private final OS os;
     private final NestedSet<Artifact> inputs;
+    private final int estimationCpu;
+    private final Double estimationMinMemory;
 
     /** Container for all lazily-initialized details. */
     private static class LazyData {
@@ -513,10 +521,12 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
     private LazyData lazyData = null;
 
     public LocalResourcesEstimator(
-        ActionExecutionContext actionExecutionContext, OS os, NestedSet<Artifact> inputs) {
+        ActionExecutionContext actionExecutionContext, OS os, NestedSet<Artifact> inputs, int estimationCpu, Double estimationMinMemory) {
       this.actionExecutionContext = actionExecutionContext;
       this.os = os;
       this.inputs = inputs;
+      this.estimationCpu = estimationCpu;
+      this.estimationMinMemory = estimationMinMemory;
     }
 
     /** Performs costly computations required to predict linker resources consumption. */
@@ -543,20 +553,30 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
 
       // TODO(https://github.com/bazelbuild/bazel/issues/17368): Use inputBytes in the computations.
       ResourceSet resourceSet;
+      double resolvedEstimationMinMemory = estimationMinMemory;
       switch (os) {
         case DARWIN:
+          if (resolvedEstimationMinMemory == -1) {
+            resolvedEstimationMinMemory = 15.0;
+          }
           resourceSet =
               ResourceSet.createWithRamCpu(
-                  /* memoryMb= */ 15 + 0.05 * inputsCount, /* cpuUsage= */ 1);
+                  /* memoryMb= */ resolvedEstimationMinMemory + 0.05 * inputsCount, /* cpuUsage= */ estimationCpu);
           break;
         case LINUX:
+          if (resolvedEstimationMinMemory == -1) {
+            resolvedEstimationMinMemory = -100.0;
+          }
           resourceSet =
               ResourceSet.createWithRamCpu(
-                  /* memoryMb= */ Math.max(50, -100 + 0.1 * inputsCount), /* cpuUsage= */ 1);
+                  /* memoryMb= */ Math.max(50, resolvedEstimationMinMemory + 0.1 * inputsCount), /* cpuUsage= */ estimationCpu);
           break;
         default:
+          if (resolvedEstimationMinMemory == -1) {
+            resolvedEstimationMinMemory = 1500.0;
+          }
           resourceSet =
-              ResourceSet.createWithRamCpu(/* memoryMb= */ 1500 + inputsCount, /* cpuUsage= */ 1);
+              ResourceSet.createWithRamCpu(/* memoryMb= */ resolvedEstimationMinMemory + inputsCount, /* cpuUsage= */ estimationCpu);
           break;
       }
 

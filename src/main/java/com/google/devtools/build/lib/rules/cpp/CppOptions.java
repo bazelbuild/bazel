@@ -1070,6 +1070,32 @@ public class CppOptions extends FragmentOptions {
   public boolean experimentalCppCompileResourcesEstimation;
 
   @Option(
+      name = "experimental_cpp_link_resources_estimation_cpu",
+      defaultValue = "1",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.EXECUTION,
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Specify the number of CPU cores to allocate for local execution of CppLinkAction. "
+              + "the default configuration is to use 1 cpu core.")
+  public int experimentalCppLinkResourcesEstimationCpu;
+
+  @Option(
+      name = "experimental_cpp_link_resources_estimation_min_memory",
+      defaultValue = "-1",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.EXECUTION,
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Specify the minimum amount of memory (in MBs) to allocate for local execution of CppLinkAction. "
+              + "The default configuration is to use existing platform specific minimum memory.")
+  public double experimentalCppLinkResourcesEstimationMinMemory;
+
+  @Option(
       name = "experimental_platform_cc_test",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

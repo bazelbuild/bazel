@@ -855,6 +855,14 @@ public final class CppConfiguration extends Fragment
     return cppOptions.experimentalCppCompileResourcesEstimation;
   }
 
+  public int getExperimentalCppLinkResourcesEstimationCpu() {
+    return cppOptions.experimentalCppLinkResourcesEstimationCpu;
+  }
+
+  public double getExperimentalCppLinkResourcesEstimationMinMemory() {
+    return cppOptions.experimentalCppLinkResourcesEstimationMinMemory;
+  }
+
   @Override
   public boolean macosSetInstallName() {
     return cppOptions.macosSetInstallName;
