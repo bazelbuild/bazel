@@ -210,8 +210,8 @@ public abstract class BuildIntegrationTestCase {
           PrecomputedValue.injected(
               RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
           PrecomputedValue.injected(
-              RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
-              RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY));
+              RepositoryDelegatorFunction.FORCE_FETCH,
+              RepositoryDelegatorFunction.FORCE_FETCH_DISABLED));
 
   protected EventCollectionApparatus createEvents() {
     return new EventCollectionApparatus();
