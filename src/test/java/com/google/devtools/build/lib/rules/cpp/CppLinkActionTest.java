@@ -798,7 +798,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
     NestedSet<Artifact> inputs = createInputs(ruleContext, inputsCount);
     try {
       LocalResourcesEstimator estimator =
-          new LocalResourcesEstimator(actionExecutionContext, os, inputs);
+          new LocalResourcesEstimator(actionExecutionContext, os, inputs, 1, 15.0);
       return estimator.get();
     } finally {
       for (Artifact input : inputs.toList()) {
