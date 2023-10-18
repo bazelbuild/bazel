@@ -13,6 +13,7 @@
 # limitations under the License.
 
 load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 load(":common/java/android_lint.bzl", "android_lint_subrule")
 load(":common/java/java_binary.bzl", "BASE_TEST_ATTRIBUTES", "BASIC_JAVA_BINARY_ATTRIBUTES", "basic_java_binary")
 load(":common/java/java_helper.bzl", "helper")
@@ -42,7 +43,11 @@ def _bazel_base_binary_impl(ctx, is_test_rule_class):
     executable = _get_executable(ctx)
 
     feature_config = helper.get_feature_config(ctx)
-    strip_as_default = helper.should_strip_as_default(ctx, feature_config)
+    if feature_config:
+        strip_as_default = helper.should_strip_as_default(ctx, feature_config)
+    else:
+        # No C++ toolchain available.
+        strip_as_default = False
 
     providers, default_info, jvm_flags = basic_java_binary(
         ctx,
@@ -54,7 +59,6 @@ def _bazel_base_binary_impl(ctx, is_test_rule_class):
         coverage_config,
         launcher_info,
         executable,
-        feature_config,
         strip_as_default,
         is_test_rule_class = is_test_rule_class,
     )
@@ -307,6 +311,7 @@ _BASE_BINARY_ATTRS = merge_attrs(
             cfg = "exec",
             executable = True,
         ),
+        "_cc_toolchain": attr.label(default = "@" + cc_semantics.get_repo() + "//tools/cpp:optional_current_cc_toolchain"),
     },
 )
 

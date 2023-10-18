@@ -240,4 +240,96 @@ EOF
   expect_not_log "singlejar/singlejar_local"
 }
 
+function test_executable_java_binary_compiles_for_platform_without_cc_toolchain() {
+  cat > MODULE.bazel <<'EOF'
+# This version should always be at most as high as the version in MODULE.tools.
+bazel_dep(name = "rules_java", version = "6.3.1")
+java_toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
+use_repo(java_toolchains, "remotejdk17_linux")
+register_toolchains(
+  "//pkg:runtime",
+  "//pkg:bootstrap_runtime",
+)
+EOF
+  mkdir -p pkg
+# Choose a platform with a registered JDK, but for which no registered C++ toolchain can compile, to
+# verify that java_binary doesn't have a mandatory dependency on a C++ toolchain. The particular
+# architecture of the fake registered JDK doesn't matter as it won't be executed.
+  cat > pkg/BUILD.bazel <<'EOF'
+constraint_setting(
+  name = "exotic_constraint",
+)
+constraint_value(
+  name = "exotic_value",
+  constraint_setting = ":exotic_constraint",
+)
+platform(
+  name = "exotic_platform",
+  constraint_values = [":exotic_value"],
+)
+toolchain(
+  name = "runtime",
+  target_compatible_with = [":exotic_value"],
+  toolchain_type = "@bazel_tools//tools/jdk:runtime_toolchain_type",
+  toolchain = "@remotejdk17_linux//:jdk",
+)
+toolchain(
+  name = "bootstrap_runtime",
+  target_compatible_with = [":exotic_value"],
+  toolchain_type = "@bazel_tools//tools/jdk:runtime_toolchain_type",
+  toolchain = "@remotejdk17_linux//:jdk",
+)
+java_binary(
+  name = "foo",
+  srcs = ["Foo.java"],
+  main_class = "com.example.Foo",
+)
+cc_binary(
+  name = "cc",
+)
+EOF
+
+    cat > pkg/Foo.java <<'EOF'
+package com.example;
+public class Foo {
+  public static void main(String[] args) {
+    System.out.println("Hello World!");
+  }
+}
+EOF
+
+  bazel build --platforms=//pkg:exotic_platform --java_runtime_version=remotejdk_17 \
+    //pkg:cc &>"$TEST_log" && fail "C++ build should fail"
+  bazel build --platforms=//pkg:exotic_platform --java_runtime_version=remotejdk_17 \
+    //pkg:foo &>"$TEST_log" || fail "Build should succeed"
+  bazel build --platforms=//pkg:exotic_platform --java_runtime_version=remotejdk_17 \
+    //pkg:foo_deploy.jar &>"$TEST_log" || fail "Build should succeed"
+}
+
+function test_non_executable_java_binary_compiles_for_any_platform_with_local_jdk() {
+  mkdir -p pkg
+  cat > pkg/BUILD.bazel <<'EOF'
+platform(name = "exotic_platform")
+java_binary(
+  name = "foo",
+  srcs = ["Foo.java"],
+  create_executable = False,
+)
+EOF
+
+    cat > pkg/Foo.java <<'EOF'
+package com.example;
+public class Foo {
+  public static void main(String[] args) {
+    System.out.println("Hello World!");
+  }
+}
+EOF
+
+  bazel build --platforms=//pkg:exotic_platform --java_runtime_version=local_jdk \
+    //pkg:foo &>"$TEST_log" || fail "Build should succeed"
+  bazel build --platforms=//pkg:exotic_platform --java_runtime_version=local_jdk \
+    //pkg:foo_deploy.jar &>"$TEST_log" || fail "Build should succeed"
+}
+
 run_suite "Java toolchains tests, configured using flags or the default_java_toolchain macro."
