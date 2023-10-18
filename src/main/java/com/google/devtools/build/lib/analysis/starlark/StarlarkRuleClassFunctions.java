@@ -361,7 +361,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       executable = parent.isExecutableStarlark();
       test = parent.getRuleClassType() == RuleClassType.TEST;
 
-      // TODO b/300201845 - verify that parent is extendable
+      failIf(
+          !parent.isExtendable(),
+          "The rule '%s' is not extendable. Only Starlark rules not using deprecated features (like"
+              + " implicit outputs, output to genfiles) may be extended. Special rules like"
+              + " analysis tests or rules using build_settings cannot be extended.",
+          parent.getName());
 
       failIf(
           executableUnchecked != Starlark.UNBOUND,

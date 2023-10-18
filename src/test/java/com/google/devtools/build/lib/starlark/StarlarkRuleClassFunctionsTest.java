@@ -3713,7 +3713,61 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         .containsExactly("java", "cc");
   }
 
-  // TODO: b/300201845 - verify build_setting, analysis_test, ... can't be extended
+  private String notExtendableError(String rule) {
+    return String.format(
+        "The rule '%s' is not extendable. Only Starlark rules not using deprecated features (like"
+            + " implicit outputs, output to genfiles) may be extended. Special rules like"
+            + " analysis tests or rules using build_settings cannot be extended.",
+        rule);
+  }
+
+  @Test
+  public void extendRule_notExtendable() throws Exception {
+    BazelEvaluationTestCase ev = new BazelEvaluationTestCase("//extend_rule_testing:child.bzl");
+    ev.exec(
+        "def impl():", //
+        "  pass");
+
+    ev.execAndExport("parent_library = rule(impl, output_to_genfiles = True)");
+    ev.checkEvalError(notExtendableError("parent_library"), "rule(impl, parent = parent_library)");
+
+    ev.execAndExport("parent_library = rule(impl, _skylark_testable = True)");
+    ev.checkEvalError(notExtendableError("parent_library"), "rule(impl, parent = parent_library)");
+
+    ev.execAndExport("parent_test = rule(impl, analysis_test = True)");
+    ev.checkEvalError(notExtendableError("parent_test"), "rule(impl, parent = parent_test)");
+
+    ev.update("config", new StarlarkConfig());
+    ev.execAndExport("parent_library = rule(impl, build_setting = config.int())");
+    ev.checkEvalError(notExtendableError("parent_library"), "rule(impl, parent = parent_library)");
+
+    ev.execAndExport("parent_library = rule(impl, outputs = {'deploy': '%{name}_deploy.jar'})");
+    ev.checkEvalError(notExtendableError("parent_library"), "rule(impl, parent = parent_library)");
+  }
+
+  @Test
+  public void extendRule_nativeRule_notExtendable() throws Exception {
+    scratch.file(
+        "extend_rule_testing/child.bzl",
+        "def _impl(ctx):",
+        "  ctx.super()",
+        "my_library = rule(",
+        "  implementation = _impl,",
+        "  parent = native.alias,",
+        "  fragments = ['cc']",
+        ")");
+    scratch.file(
+        "extend_rule_testing/BUILD",
+        "load(':child.bzl', 'my_library')",
+        "my_library(name = 'my_target')");
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//extend_rule_testing:my_target");
+
+    ev.assertContainsError("Parent needs to be a Starlark rule");
+  }
+
   @Test
   public void extendRule_toolchains_merged() throws Exception {
     scratchParentRule(
