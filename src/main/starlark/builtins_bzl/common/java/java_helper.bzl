@@ -203,7 +203,9 @@ def _jar_and_target_arg_mapper(jar):
     return jar.path + "," + str(jar.owner)
 
 def _get_feature_config(ctx):
-    cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
+    cc_toolchain = cc_helper.find_cpp_toolchain(ctx, mandatory = False)
+    if not cc_toolchain:
+        return None
     feature_config = cc_common.configure_features(
         ctx = ctx,
         cc_toolchain = cc_toolchain,
