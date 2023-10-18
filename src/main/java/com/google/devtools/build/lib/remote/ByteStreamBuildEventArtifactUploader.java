@@ -199,7 +199,10 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     DigestUtil digestUtil = new DigestUtil(xattrProvider, path.getFileSystem().getDigestFunction());
 
     if (file.type == LocalFileType.OUTPUT_DIRECTORY
-        || (file.type == LocalFileType.OUTPUT && path.isDirectory())) {
+        || ((file.type == LocalFileType.SUCCESSFUL_TEST_OUTPUT
+                || file.type == LocalFileType.FAILED_TEST_OUTPUT
+                || file.type == LocalFileType.OUTPUT)
+            && path.isDirectory())) {
       return new PathMetadata(
           path,
           /* digest= */ null,
