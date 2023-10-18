@@ -1390,6 +1390,71 @@ public class AspectTest extends AnalysisTestCase {
     assertThat(info.truncateToInt()).isEqualTo(2);
   }
 
+  @Test
+  public void ruleDepsVisibilityNotAffectNativeAspect() throws Exception {
+    setRulesAndAspectsAvailableInTests(
+        ImmutableList.of(TestAspects.ALL_ATTRIBUTES_ASPECT), ImmutableList.of());
+    useConfiguration("--incompatible_visibility_private_attributes_at_definition");
+    scratch.file("defs/BUILD");
+    scratch.file(
+        "defs/build_defs.bzl",
+        "def _rule_impl(ctx):",
+        "  pass",
+        "",
+        "implicit_dep_rule = rule(",
+        "    implementation = _rule_impl,",
+        "    attrs = {",
+        "        '_tool': attr.label(default = '//tool:tool'),",
+        "        'deps': attr.label_list()",
+        "    },",
+        ")");
+    scratch.file("tool/BUILD", "sh_library(name='tool', visibility = ['//defs:__pkg__'])");
+    scratch.file(
+        "pkg/BUILD",
+        "load('//defs:build_defs.bzl', 'implicit_dep_rule')",
+        "implicit_dep_rule(name='y')",
+        "implicit_dep_rule(name='x', deps = [':y'])");
+
+    AnalysisResult result =
+        update(
+            new EventBus(),
+            defaultFlags(),
+            ImmutableList.of(TestAspects.ALL_ATTRIBUTES_ASPECT.getName()),
+            "//pkg:x");
+
+    assertThat(result.hasError()).isFalse();
+  }
+
+  @Test
+  public void nativeAspectFailIfDepsNotVisible() throws Exception {
+    scratch.file("tool/BUILD", "sh_library(name='tool', visibility = ['//visibility:private'])");
+    ExtraAttributeAspect extraAttributeAspect = new ExtraAttributeAspect("//tool:tool", false);
+    setRulesAndAspectsAvailableInTests(ImmutableList.of(extraAttributeAspect), ImmutableList.of());
+    scratch.file(
+        "pkg/build_defs.bzl",
+        "def _rule_impl(ctx):",
+        "  pass",
+        "",
+        "simple_rule = rule(",
+        "    implementation = _rule_impl,",
+        ")");
+    scratch.file(
+        "pkg/BUILD", "load('//pkg:build_defs.bzl', 'simple_rule')", "simple_rule(name='x')");
+    reporter.removeHandler(failFastHandler);
+
+    assertThrows(
+        ViewCreationFailedException.class,
+        () ->
+            update(
+                new EventBus(),
+                defaultFlags(),
+                ImmutableList.of(extraAttributeAspect.getName()),
+                "//pkg:x"));
+    assertContainsEvent(
+        "ExtraAttributeAspect_//tool:tool_false aspect on simple_rule rule //pkg:x: target"
+            + " '//tool:tool' is not visible from target '//pkg:x'.");
+  }
+
   private void setupAspectHints() throws Exception {
     scratch.file(
         "aspect_hints/hints.bzl",
