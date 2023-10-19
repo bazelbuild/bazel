@@ -1160,6 +1160,10 @@ public abstract class AndroidDataBindingV2Test extends AndroidBuildViewTestCase 
   @Test
   public void dataBinding_androidLocalTest_dataBindingDisabled_doesNotUseDataBindingFlags()
       throws Exception {
+    if (!getAnalysisMock().isThisBazel()) {
+      return;
+    }
+
     writeDataBindingFiles();
     writeNonDataBindingLocalTestFiles();
 
@@ -1191,6 +1195,10 @@ public abstract class AndroidDataBindingV2Test extends AndroidBuildViewTestCase 
   @Test
   public void dataBinding_androidLocalTest_dataBindingEnabled_usesDataBindingFlags()
       throws Exception {
+    if (!getAnalysisMock().isThisBazel()) {
+      return;
+    }
+
     writeDataBindingFiles();
     writeDataBindingLocalTestFiles();
 

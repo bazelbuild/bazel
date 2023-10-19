@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
-import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -37,7 +37,8 @@ public final class StampTest extends BuildViewTestCase {
       String name = e.getKey();
       RuleClass ruleClass = e.getValue();
       if (TargetUtils.isTestRuleName(name) && ruleClass.hasAttr("stamp", BuildType.TRISTATE)) {
-        assertThat(ruleClass.getAttributeByName("stamp").getDefaultValue(null))
+        assertWithMessage(name)
+            .that(ruleClass.getAttributeByName("stamp").getDefaultValue(null))
             .isEqualTo(TriState.NO);
       }
     }

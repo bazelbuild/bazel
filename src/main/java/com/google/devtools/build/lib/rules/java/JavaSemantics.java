@@ -53,8 +53,6 @@ public interface JavaSemantics {
   SafeImplicitOutputsFunction JAVA_BINARY_SOURCE_JAR = fromTemplates("%{name}-src.jar");
 
   SafeImplicitOutputsFunction JAVA_BINARY_DEPLOY_JAR = fromTemplates("%{name}_deploy.jar");
-  SafeImplicitOutputsFunction JAVA_UNSTRIPPED_BINARY_DEPLOY_JAR =
-      fromTemplates("%{name}_deploy.jar.unstripped");
   SafeImplicitOutputsFunction JAVA_BINARY_PROGUARD_MAP = fromTemplates("%{name}_proguard.map");
   SafeImplicitOutputsFunction JAVA_BINARY_PROGUARD_PROTO_MAP =
       fromTemplates("%{name}_proguard.pbmap");
@@ -64,21 +62,19 @@ public interface JavaSemantics {
       fromTemplates("%{name}_proguard.config");
   SafeImplicitOutputsFunction JAVA_ONE_VERSION_ARTIFACT = fromTemplates("%{name}-one-version.txt");
 
-  SafeImplicitOutputsFunction JAVA_BINARY_DEPLOY_SOURCE_JAR =
-      fromTemplates("%{name}_deploy-src.jar");
-
   FileType JAVA_SOURCE = FileType.of(".java");
   FileType JAR = FileType.of(".jar");
   FileType PROPERTIES = FileType.of(".properties");
   FileType SOURCE_JAR = FileType.of(".srcjar");
-  
+
   /** The java_toolchain.compatible_javacopts key for Android javacopts */
-  public static final String ANDROID_JAVACOPTS_KEY = "android";
+  String ANDROID_JAVACOPTS_KEY = "android";
+
   /** The java_toolchain.compatible_javacopts key for testonly compilations. */
-  public static final String TESTONLY_JAVACOPTS_KEY = "testonly";
+  String TESTONLY_JAVACOPTS_KEY = "testonly";
 
   /** The java_toolchain.compatible_javacopts key for public visibility. */
-  public static final String PUBLIC_VISIBILITY_JAVACOPTS_KEY = "public_visibility";
+  String PUBLIC_VISIBILITY_JAVACOPTS_KEY = "public_visibility";
 
   static Label javaToolchainAttribute(RuleDefinitionEnvironment environment) {
     return environment.getToolsLabel("//tools/jdk:current_java_toolchain");
@@ -125,19 +121,6 @@ public interface JavaSemantics {
               return null;
             }
             return optimizer.label().get();
-          });
-
-  @SerializationConstant
-  LabelLateBoundDefault<JavaConfiguration> LOCAL_JAVA_OPTIMIZATION_CONFIGURATION =
-      LabelLateBoundDefault.fromTargetConfiguration(
-          JavaConfiguration.class,
-          null,
-          (rule, attributes, javaConfig) -> {
-            // Don't bother adding the configuration dep if we're not going to use it.
-            if (!javaConfig.runLocalJavaOptimizations()) {
-              return null;
-            }
-            return javaConfig.getLocalJavaOptimizationConfiguration();
           });
 
   String JACOCO_METADATA_PLACEHOLDER = "%set_jacoco_metadata%";
@@ -222,7 +205,7 @@ public interface JavaSemantics {
    *
    * @param createCoverageMetadataJar is false for Java rules and true otherwise (e.g. android)
    */
-  public Artifact createStubAction(
+  Artifact createStubAction(
       RuleContext ruleContext,
       JavaCommon javaCommon,
       List<String> jvmFlags,

@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
-import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromFunctions;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
@@ -31,12 +30,8 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcToolchainRequiringRule;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.PredicateWithMessage;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.RuleClass.PackageNameConstraint;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
@@ -52,22 +47,6 @@ import com.google.devtools.build.lib.util.FileTypeSet;
  * Rule class definitions for Java rules.
  */
 public class BazelJavaRuleClasses {
-
-  public static final PredicateWithMessage<Rule> JAVA_PACKAGE_NAMES = new PackageNameConstraint(
-      PackageNameConstraint.ANY_SEGMENT, "java", "javatests");
-
-  public static final ImplicitOutputsFunction JAVA_BINARY_IMPLICIT_OUTPUTS =
-      fromFunctions(
-          JavaSemantics.JAVA_BINARY_CLASS_JAR,
-          JavaSemantics.JAVA_BINARY_SOURCE_JAR,
-          JavaSemantics.JAVA_BINARY_DEPLOY_JAR,
-          JavaSemantics.JAVA_BINARY_DEPLOY_SOURCE_JAR);
-
-  static final ImplicitOutputsFunction JAVA_LIBRARY_IMPLICIT_OUTPUTS =
-      fromFunctions(
-          JavaSemantics.JAVA_LIBRARY_CLASS_JAR,
-          JavaSemantics.JAVA_LIBRARY_SOURCE_JAR);
-
   public static final ImmutableList<StarlarkProviderIdentifier> CONTAINS_CC_LINK_PARAMS =
       ImmutableList.of(StarlarkProviderIdentifier.forKey(CcInfo.PROVIDER.getKey()));
 
