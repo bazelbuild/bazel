@@ -18,4 +18,4 @@ load("@rules_java//toolchains:remote_java_repository.bzl", _remote_java_reposito
 
 def remote_java_repository(name, **kwargs):
     _remote_java_repository(name, **kwargs)
-    native.register_toolchains("@" + name + "_toolchain_config_repo//:toolchain")
+    native.register_toolchains("@" + name + "_toolchain_config_repo//:all")

@@ -1,10 +1,11 @@
 # NOTE: When editing this file, also update the lockfile.
 #   bazel run //src/test/tools/bzlmod:update_default_lock_file
+#   bazel mod deps --lockfile_mode=update
 
 module(name = "bazel_tools")
 
 bazel_dep(name = "rules_cc", version = "0.0.9")
-bazel_dep(name = "rules_java", version = "6.3.1")
+bazel_dep(name = "rules_java", version = "7.0.6")
 bazel_dep(name = "rules_license", version = "0.0.3")
 bazel_dep(name = "rules_proto", version = "4.0.0")
 bazel_dep(name = "rules_python", version = "0.4.0")
