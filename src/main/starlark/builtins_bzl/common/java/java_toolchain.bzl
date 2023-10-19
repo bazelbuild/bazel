@@ -239,7 +239,7 @@ _java_toolchain = rule(
         "jspecify_stubs": attr.label_list(cfg = "exec", allow_files = True),
         "jvm_opts": attr.string_list(default = []),
         "misc": attr.string_list(default = []),
-        "oneversion": attr.label(cfg = "exec", executable = True, allow_single_file = True),
+        "oneversion": attr.label(cfg = "exec", allow_files = True, executable = True),
         "oneversion_whitelist": attr.label(allow_single_file = True),
         "oneversion_allowlist_for_tests": attr.label(allow_single_file = True),
         "package_configuration": attr.label_list(cfg = "exec", providers = [JavaPackageConfigurationInfo]),
