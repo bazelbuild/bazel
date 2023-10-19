@@ -52,7 +52,13 @@ public class FetchOptions extends OptionsBase {
               + " {@@canonical_repo_name}. Only works when --enable_bzlmod is on.")
   public List<String> repos;
 
-  /*TODO(salmasamy) add more options:
-   * force: to force fetch even if a repo exists
-   */
+  @Option(
+      name = "force",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help =
+          "Ignore existing repository if any and force fetch the repository again. Only works when "
+              + "--enable_bzlmod is on.")
+  public boolean force;
 }
