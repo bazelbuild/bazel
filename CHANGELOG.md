@@ -1,3 +1,421 @@
+## Release 6.4.0 (2023-10-19)
+
+```
+Baseline:  0f231ac8acabcd8aa309da041c98ab90a1552418
+
+Release Notes:
+
++ Support multiple remote execution digest functions (#19042)
++ Release 6.4.0 remote (#18959)
++ Move BazelFileSystemModule into bazel package (#19043)
++ Fix a bug where frozen targets list was mutated while expanding env attribute (#19053)
++ Mark isolated extension usages as experimental (#19065)
++ Add the remote_require_cached flag (#19075)
++ Advertise CcInfo from cc_import (#19086) (#19088)
++ Update java_tools version to 12.6 (#19092)
++ Set the digest_function field as part of all relevant gRPC requests (#19049)
++ Merge `use_repo` buildifier fixups into a single command (#19134)
++ Ensure that extension unique names followed by `~` are prefix-free (#19164)
++ Lockfile updates & fixes (#19153)
++ Switch xcode_autoconf to use 'configure = True' (#19174)
++ Cherry pick Add a Starlark flag that allows disabling proguard. This will be useful for testing later. (#19179)
++ Update CODEOWNERS for 6.4.0 (#19194)
++ Friendlier error message for `bazel_dep`s without `version` (#19196)
++ Always check `$config_dependencies` visibility at use (#19197)
++ Add support for the BLAKE3 digest function (#19191)
++ Enable cc toolchain resolution when cross compiling to windows arm64. (#19198)
++ Ensure disk cache root exists (#19225)
++ Fix valid json when using jsonproto output in queries  with new `--ouput=streamed_jsonproto` implementation. (#19226)
++ Add toolchain type for Java bootstrap runtime (#19220)
++ Add Starlark implementation for several CcCommon methods. (#19076)
++ Rename `cc_test_wrapper` to `cc_test` (#19231)
++ Cherry-pick commits to fix a Windows issue (#19232)
++ Add support for more workspace boundary files to bash completion (#19281)
++ Use `debugPrint` instead of `str` for `fail` arguments (#19283)
++ Include name in `repr` of exported `rule`s (#19229)
++ Download `BazelRegistryJson` only once per registry (#19300)
++ Make module extension tag's `debugPrint` useful for error messages (#19285)
++ Intern repository mapping entries (#19293)
++ Add `additional_linker_inputs` option to `cc_library` rule (#19264)
++ Do not rerun module extensions when only imports or locations change (#19284)
++ Add profiling for Bzlmod operations (#19313)
++ Retry on javax.net.ssl.SSLException ... BAD_DECRYPT (#19346)
++ Fetch `RepoSpecs` in parallel (#19354)
++ Make `MODULE.bazel.lock` deterministic (#19370)
++ Ensure lockfile is updated after reset to pre-build state (#19371)
++ build-runfiles: remove temporary file prior to creating it (#19386)
++ Always fail on unknown attributes (#19404)
++ Ignore Starlark options on commands with `allowResidue = False` (#19417)
++ Separate PackageSpecificationProvider from its target (PackageGroupConfiguredTarget) (#19420)
++ Expose PackageSpecificationInfo provider as a top level symbol (#19422)
++ Revert "Report remote execution messages as events" (#19415)
++ [6.4] Add --incompatible_disable_objc_library_transition (#19393)
++ Create .bazelversion to address postsubmit timeout issues (#19435)
++ Add `contains` method inside `PackageSpecificationProvider`  (#19425)
++ Wrong include path to Clang 16 on Windows (#19430)
++ Simplify release notes by just printing the first line of the commit … (#19448)
++ Remove PackageGroupConfiguredTarget.isAvailableFor function (#19444)
++ Remove default -s flag from macOS libtool invocation (#19454)
++ Turn off lockfile feature by default (#19462)
++ Take the no-remote-exec tag into account when computing the action salt (#19457)
++ Add `--incompatible_merge_fixed_and_default_shell_env` (#19319)
++ Improve error when a label is provided in `config_setting`'s `values` (#19484)
++ Mark tool inputs in the execution log. (#19483)
++ Add visionOS support (#19436)
++ Intern empty `Depset`s (#19443)
++ Do not allow applicable_licenses on platform. (#19426)
++ Cherry pick Bzlmod fixes (#19494)
++ Optimize classpath pre-processing in java_stub_template.txt (#19491)
++ Add output name to CacheNotFoundException (#19452)
++ feat: add option to exit early if analysis cache is discarded (#19503)
++ Cherry pick platform dependent lockfile (#19498)
++ Print Passed and Failed methods in detailed test summary (#19505)
++ Add formatted timestamp entries to volatile workspace status file. (#19499)
++ Write an explicit line ending to the lockfile (#19519)
++ Only use `/showIncludes` if supported (#19521)
++ Also apply `NestedSet` optimizations to `Depset` (#19492)
++ Add diff_against_dynamic_baseline option to experimental_output_direc… (#19514)
++ Update java_tools to v12.7 (#19522)
++ Advertise CcInfo from cc_proto_library (#19534)
++ Update unknown Xcode version error message and provide an environment variable to force re-evaluation (#19540)
++ Print dep chain leading to a module that is in error (#19543)
++ Show fetch progress for the `mod` command (#19542)
++ Revert "Switch xcode_autoconf to use 'configure = True' (#19174)" (#19550)
++ Explain the use of `str(Label(...))` in the docs (#19554)
++ Add `--consistent_labels` flag to all query commands (#19567)
++ Inject builtin modules at the end of the MODULE.bazel file (#19573)
++ Disable bzlmod_query_test for RBE build (#19585)
++ Clear runfiles environment variables for `bazel run` (#19606)
++ cc_library: propagate data dependencies via implementation_deps. (#19590)
++ Error on potential unsupported `/showIncludes` lines (#19611)
++ Use case-insensitive comparison for Windows paths in `runfiles.bash`  (#19626)
++ Show test labels in summaries in display form (#19625)
++ Remove stale extension entries from lockfile (#19683)
++ Keep leading zero in formatted date (#19694)
++ Bzlmod lockfile: fix pretty printing for attributes  (#19691)
++ MODULE.bazel.lock file contains user specific paths (#19698)
++ Consider RCs equivalent to release for `bazel_compatibility` (#19689)
++ Use `Label` in `@bazel_tools//tools/jdk` macros (#19675)
++ Remove stale extension entries from lockfile if module order changes (#19730)
++ Update rules_java 5.5.1 (#19701)
++ Fix Java compilation for jdk21 (#19735)
++ Fix output materialized as symlink when building without the bytes. (#19739)
++ Make lockfile's `RepoSpec` attributes more readable (#19748)
++ Merge rule and aspect validation output groups (#19745)
++ Fix handling of non-ASCII characters in archive entry file names (#19765)
++ Raise an early error on invalid labels in transitions inputs/outputs (#19764)
++ Handle synthetic method parameters entries that don't have names (#19758)
++ Bazel release process: Fix push justification. (#19768)
++ Flip --experimental_cc_implementation_deps (#19751)
++ Add blake3 NEON instructions on linux arm64 (#19804)
++ Fix crash when `environ` contains duplicate entries (#19827)
++ Bump c++ standard to c++14 per default (#19794)
++ Collect debug info context from implementation deps (#19836)
++ Fix unconditional Skyframe invalidation with --lockfile_mode=… (#19848)
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as Andreas Herrmann, bazel.build machine account, Brentley Jones, buildbreaker2021, Chirag Ramani, David Ostrovsky, Ed Schouten, Fabian Meumertzheim, George Gensure, Greg, John Laxson, Julio Merino, Keith Smiley, Matt Mackay, Mauricio G, NelsonLi0701, nglevin, Nicholas Junge, oquenchil, Orion Hodson, Roman Salvador, Ted Kaplan, Thi Doan, Thi Don, Tyler Williams, Xùdōng Yáng.
+```
+
+## Release 7.0.0-pre.20230926.1 (2023-10-06)
+
+```
+Baseline: ea4ab7d8e696f48253fd172fcfbd37661e4710d5
+
+Cherry picks:
+
+   + 3453d035bb335a0e792fb379807dbdb812065619:
+     Keep leading zero in formatted date
+   + 8893f2ee0efbdeb0816b13e7cb57c69d70b941c6:
+     Bazel release process: Fix broken "git push" by setting direct
+     push justification.
+   + 3f8e0964f4525cee71f8b7051e6996a906dd78d0:
+     Bazel release process: Fix push justification. (#19754)
+   + 95296e81853a4c93a47fba1812e1f849b6b16480:
+     Release 7.0.0-pre.20230926.1 (2023-10-06)
+   + fbcc487642c567a63f6503670d6d4f46f98308c1:
+     Release 7.0.0-pre.20230926.1 (2023-10-06)
+   + 3f9dc1c789e4bb2523fcd5236f53db8b3edb4733:
+     Release 7.0.0-pre.20230926.1 (2023-10-06)
+   + f46bf7067991fea6c650cb1fb75d1f7844916ff0:
+     Release 7.0.0-pre.20230926.1 (2023-10-06)
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 7.0.0-pre.20230926.1 (2023-10-06)
+
+```
+Baseline: ea4ab7d8e696f48253fd172fcfbd37661e4710d5
+
+Cherry picks:
+
+   + 3453d035bb335a0e792fb379807dbdb812065619:
+     Keep leading zero in formatted date
+   + 5b7da83d94d94204d1d95cbe3ed361ec742f8acb:
+     Bazel release process: Fix broken "git push" by setting direct
+     push j… (#19747)
+   + 2bf83ab8e58b96df994e59ffbe93d6d28a0f7897:
+     Release 7.0.0-pre.20230926.1 (2023-10-06)
+   + 0cc1b4e0aa2d3937bd47ca8d7506f4ca88453a26:
+     Release 7.0.0-pre.20230926.1 (2023-10-06)
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 7.0.0-pre.20230926.1 (2023-10-05)
+
+```
+Baseline: ea4ab7d8e696f48253fd172fcfbd37661e4710d5
+
+Cherry picks:
+
+   + 3453d035bb335a0e792fb379807dbdb812065619:
+     Keep leading zero in formatted date
+   + b63af1ec3c09d50e7b96dd496874c98ca2907209:
+     Release 7.0.0-pre.20230926.1 (2023-10-05)
+   + dc23c2fbc5ae5ef14d59afbedd3e0d29d2ee3d6b:
+     Release 7.0.0-pre.20230926.1 (2023-10-05)
+```
+
+Incompatible changes:
+
+  - proto_compiler attribute removed from proto_lang_toolchain
+    (it was recently introduced, and there is no evidence of use)
+  - --experimental_genquery_use_graphless_query is made to be a NO-OP.
+
+Important changes:
+
+  - The new `--consistent_labels` option on `query`, `cquery`, and
+    `aquery` can be used to force consistent label formatting across
+    all output modes that is also compatible with `str(Label(...))`
+    in Starlark.
+
+This release contains contributions from many people at Google, as well as Alexander Grund, Fabian Meumertzheim, Joseph Lisee, Patrick Balestra, Son Luong Ngoc, Zheng Wei Tan.
+
+## Release  (2023-10-05)
+
+```
+Error: Not a release branch.
+```
+
+## Release  (2023-10-05)
+
+```
+Error: Not a release branch.
+```
+
+## Release 7.0.0-pre.20230917.3 (2023-09-22)
+
+```
+Baseline: 1cf392ff3918386858b8c038f82c013b1e04be98
+
+Cherry picks:
+
+   + 32563ca1728a69437b26efa19d18eebfcecc4765:
+     [Skymeld] Avoid printing extra WARNINGS for execution failures
+     in -k.
+   + 19f5e933d3fc91848b2b786cb11a6decaa96cf6e:
+     Automated rollback of commit
+     f06418470988721c8c3efe38723f910989180ad4.
+```
+
+Incompatible changes:
+
+  - `cmd_helper` module was removed
+  - `ctx.new_file` was removed, `ctx.actions.declare_file` is to be
+    used instead.
+  - Fails on unknown attributes (even when set to None). See
+    https://github.com/bazelbuild/bazel/issues/19403
+  - Flip incompatible_enable_cc_toolchain_resolution
+    (https://github.com/bazelbuild/bazel/issues/7260)
+
+Important changes:
+
+  - Change output paths to consistently start with
+    [cpu]-[compilation_mode] along with other cleanups to output path
+    generation logic.
+  - Compilation actions using the auto-configured MSVC toolchain are
+    forced to emit error messages in English if the English language
+    pack for Visual Studio is installed.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Boleyn Su, Brentley Jones, Daniel Wagner-Hall, Fabian Meumertzheim, Keith Smiley, Roman Salvador, Timothy Gu.
+
+## Release 7.0.0-pre.20230906.2 (2023-09-14)
+
+```
+Baseline: 08070932379cd3dafaefe5b546c84ad26cd72951
+
+Cherry picks:
+
+   + 4fb701adb5cdf4a87d7457bfe75b76338a8d351a:
+     fix forward for
+     https://github.com/bazelbuild/bazel/commit/ceddfb1ece1f8ed7ff8155
+     8fa1751e6526df031b. Make sure the use the appropriate check for
+     alias + feature flag so trimming does not get applied
+```
+
+Incompatible changes:
+
+  - --incompatible_merge_fixed_and_default_shell_env is flipped to
+    true. See #19317 for details.
+  - Fails on unknown attributes (even when set to None)
+
+Important changes:
+
+  - Set Android Databinding to v2 and Databinging AndroidX to true
+    and remove support for Databinding V1.
+  - Added whether or not a FileWrite action's output is executable to
+    the aquery results
+  - --use_single_jar_apk_builder is removed. It's been a no-op for
+    years.
+  - JVM options in environment variables JAVA_TOOL_OPTIONS and
+    JDK_JAVA_OPTIONS now do not get to the server; use
+    --host_jvm_args instead.
+  - --remote_download_minimal no longer implies
+    --nobuild_runfile_links.
+  - attr objects in Starlark now use value equality rather than
+    reference
+    equality.
+
+This release contains contributions from many people at Google, as well as Benjamin Lee, Benjamin Peterson, Ed Schouten, Fabian Meumertzheim, Keith Smiley, Letu Ren, Mauricio Galindo, Mauricio G, Orion Hodson, Shaygan Hooshyari.
+
+## Release 7.0.0-pre.20230823.4 (2023-08-30)
+
+```
+Baseline: d55c11b658255a4574e0b3eb50d76dd6123866e6
+
+Cherry picks:
+
+   + 34c5ef22e88eba60238ad3735b74ea71db1c993e:
+     make sure IdempotencyChecker use the correct rule transition and
+     remove redundant computeTransition calls.
+   + 32d018ea402a5acbb574b7f4bf600b3cc040778c:
+     Make targets in analysis completed events visible.
+```
+
+Incompatible changes:
+
+  - The --apple_compiler command line option is not available anymore.
+  - py_transitions top-level was removed.
+
+Important changes:
+
+  - Android resources will no longer propagate through neverlinked
+    libraries by default.
+
+This release contains contributions from many people at Google, as well as Alex Eagle, arun.sampathkumar, Benjamin Lee, Fabian Meumertzheim, Gunnar Wagenknecht, Julio Merino, Keith Smiley, Nicholas Junge.
+
+## Release 7.0.0-pre.20230816.3 (2023-08-25)
+
+```
+Baseline: 27aaccccb674090493d52d3340b7df69f5ed43f8
+
+Cherry picks:
+
+   + baace69c0c7cb2fe927214dae78c43bd10865c43:
+     Automated rollback of commit
+     37268de708224bba900036b8b3fe9e123d2eae6d.
+```
+
+Incompatible changes:
+
+  - The --android_include_proguard_location_references flag is not
+    supported anymore.
+  - The --apple_compiler command line option is not available anymore.
+  - --no_proguard_location_reference is now added unconditionally to
+    the command line of aapt2.
+  - The command line flag --apple_enable_auto_dsym_dbg is not
+    supported anymore.
+
+Important changes:
+
+  - `rule()` and `attr.*` can no longer be (pointlessly) called
+    during WORKSPACE evaluation and repository rule evaluation.
+  - Expands baseline profile wildcards before optimizer tools see
+    them.
+
+This release contains contributions from many people at Google, as well as Chirag Ramani, Fabian Meumertzheim, Keith Smiley, nglevin, Tyler Williams.
+
+## Release 7.0.0-pre.20230810.1 (2023-08-22)
+
+```
+Baseline: c279c7b2f125fcb5a7e67595c0044c32fe944aa9
+
+Cherry picks:
+
+   + 4d157ee3530762c9392ccc08a0073103293a6391:
+     Cherry-pick required commits into 7.0.0-pre.20230810.1rc1
+     (#19298)
+```
+
+Initial release.
+
+## Release 6.3.2 (2023-08-08)
+
+```
+Baseline:  283ed362e6ccceb047553c2517a0331afd02db90
+
+Release Notes:
+
++ Ensure that extension unique names followed by `~` are prefix-free (#19167)
++ Lockfile updates & fixes (#19153) (#19175)
++ Empty commit to try to fix CI issue (#19177)
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as bazel.build machine account, Fabian Meumertzheim.
+```
+
+## Release 7.0.0-pre.20230724.1 (2023-08-07)
+
+```
+Baseline: f6344ffcacdea6c4a61e112d0f60beda8068eac5
+```
+
+Initial release.
+
+## Release 6.3.1 (2023-07-31)
+
+```
+Baseline:  0f231ac8acabcd8aa309da041c98ab90a1552418
+
+Release Notes:
+
++ Mark isolated extension usages as experimental (#19050)
++ Fix a bug where frozen targets list was mutated while expanding env attribute (#19052)
++ Add documentation for --experimental_isolated_extension_usage (#19071)
++ Advertise CcInfo from cc_import (#19086)
++ Create .bazelversion to address postsubmit issues (#19089)
++ Update java_tools version to 12.6 (#19091)
++ Disable lockfiles by default (#19106)
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as Brentley Jones, Fabian Meumertzheim, oquenchil, Xùdōng Yáng.
+```
+
+## Release 7.0.0-pre.20230710.5 (2023-07-28)
+
+```
+Baseline: 7845acae9769a72dc507dc2f57c4e032ebf429d3
+
+Cherry picks:
+
+   + d9e2f9181f8fa283e3986ee3b261e610c41cf61b:
+     Avoid overcounting in ActionLookupValueProgressReceiver.
+   + da23370dcdf6ea19545002fb86bd5d3e6519cdf6:
+     Fix crash for top level aspects on targets with non-idempotent
+     rule transitions.
+   + 4714cd70c83de43ba7ab10c29e63af716216770a:
+     Reuse the built set of tools in `SpawnAction.Builder`.
+   + 0a1d50533078283fab93024681c917303a91c46c:
+     Correctly handle symlinks when prefetching.
+```
+
+Initial release.
+
 ## Release 6.3.0 (2023-07-24)
 
 ```
