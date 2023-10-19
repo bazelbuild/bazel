@@ -92,9 +92,10 @@ function set_up() {
 
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
-java_library(
+java_binary(
     name = 'JavaExample',
     srcs = ['JavaExample.java'],
+    main_class = 'JavaExample',
 )
 EOF
 

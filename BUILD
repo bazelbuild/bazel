@@ -1,6 +1,7 @@
 # Bazel - Google's Build System
 
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 load("@rules_license//rules:license.bzl", "license")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 load("@rules_python//python:defs.bzl", "py_binary")
@@ -293,3 +294,19 @@ REMOTE_PLATFORMS = ("rbe_ubuntu2004_java11",)
     )
     for platform_name in REMOTE_PLATFORMS
 ]
+
+# Workaround for https://github.com/bazelbuild/bazel/issues/19837.
+# TODO(bazel-team): Remove these two targets when .bazelversion is 7.0.0rc2 or later.
+default_java_toolchain(
+    name = "bazel_java_toolchain",
+    bootclasspath = ["@rules_java//toolchains:platformclasspath"],
+    source_version = "11",
+    tags = ["manual"],
+    target_version = "11",
+)
+
+default_java_toolchain(
+    name = "bazel_rbe_java_toolchain",
+    source_version = "11",
+    target_version = "11",
+)
