@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
+import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
@@ -52,6 +53,7 @@ import com.google.devtools.build.lib.runtime.commands.QueryCommand;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.FetchCommand.Code;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -82,7 +84,6 @@ import net.starlark.java.eval.EvalException;
     allowResidue = true,
     completion = "label")
 public final class FetchCommand implements BlazeCommand {
-  // TODO(kchodorow): add an option to force-fetch targets, even if they're already downloaded.
   // TODO(kchodorow): this would be a great time to check for difference and invalidate the upward
   //                  transitive closure for local repositories.
 
@@ -119,6 +120,15 @@ public final class FetchCommand implements BlazeCommand {
                 /* showProgress= */ true,
                 /* id= */ null));
     BlazeCommandResult result;
+    if (fetchOptions.force) {
+      // Using commandId as the value -instead of true/false- to make sure to invalidate skyframe
+      // and to actually force fetch each time
+      env.getSkyframeExecutor()
+          .injectExtraPrecomputedValues(
+              ImmutableList.of(
+                  PrecomputedValue.injected(
+                      RepositoryDelegatorFunction.FORCE_FETCH, env.getCommandId().toString())));
+    }
     if (fetchOptions.all || fetchOptions.configure) {
       result = fetchAll(env, options, threadsOption, fetchOptions.configure);
     } else if (!fetchOptions.repos.isEmpty()) {
