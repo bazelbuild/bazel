@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "413e7533bebfc4aaf273d5c909589a297de330ac07bd6970c59aad7034fae1cd",
+  "moduleFileHash": "9ee47c2efef5f33f69b8cf617fba1fb6e38fb35e79345ce524924bee781cb72e",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -2106,7 +2106,7 @@
   "moduleExtensions": {
     "//:extensions.bzl%bazel_android_deps": {
       "general": {
-        "bzlTransitiveDigest": "6AGSxM+UftLlwIp1CDxiyKB5llsivFGozNcZoLrIYRc=",
+        "bzlTransitiveDigest": "n3Rv2PmmDuw7aJr+nz1ckn3VyB5UDfB7IIh1wMuc+4s=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2131,7 +2131,7 @@
     },
     "//:extensions.bzl%bazel_build_deps": {
       "general": {
-        "bzlTransitiveDigest": "6AGSxM+UftLlwIp1CDxiyKB5llsivFGozNcZoLrIYRc=",
+        "bzlTransitiveDigest": "n3Rv2PmmDuw7aJr+nz1ckn3VyB5UDfB7IIh1wMuc+4s=",
         "accumulatedFileDigests": {
           "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "3690079fb96225220955f4e04363ba87470cb4cfb0f2b6deddd9929822ecc3ad"
         },
@@ -2347,7 +2347,7 @@
     },
     "//:extensions.bzl%bazel_test_deps": {
       "general": {
-        "bzlTransitiveDigest": "6AGSxM+UftLlwIp1CDxiyKB5llsivFGozNcZoLrIYRc=",
+        "bzlTransitiveDigest": "n3Rv2PmmDuw7aJr+nz1ckn3VyB5UDfB7IIh1wMuc+4s=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -7921,7 +7921,7 @@
     },
     "@rules_python~0.24.0//python/extensions:pip.bzl%pip": {
       "general": {
-        "bzlTransitiveDigest": "Ft3hTgShxX/7p6AciATaTUQJgVShv/1SJ64filkse6c=",
+        "bzlTransitiveDigest": "TEllPVzarB4s4TpELB3gWHqo8xpekIiVpXI5FLmg+CQ=",
         "accumulatedFileDigests": {
           "@@//:requirements.txt": "ff12967a755bb8e9b4c92524f6471a99e14c30474a3d428547c55745ec8f23a0"
         },
@@ -7956,7 +7956,7 @@
               "repo": "bazel_pip_dev_deps_38",
               "repo_prefix": "bazel_pip_dev_deps_38_",
               "python_interpreter": "",
-              "python_interpreter_target": "@@rules_python~0.24.0~python~python_3_8_x86_64-unknown-linux-gnu//:bin/python3",
+              "python_interpreter_target": "@@rules_python~0.24.0~python~python_3_8_aarch64-apple-darwin//:bin/python3",
               "quiet": true,
               "timeout": 600,
               "isolated": true,
