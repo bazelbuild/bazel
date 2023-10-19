@@ -219,6 +219,52 @@ class BazelFetchTest(test_base.TestBase):
         stderr,
     )
 
+  def testForceFetch(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extension.bzl", "ext")',
+            'use_repo(ext, "hello")',
+            'local_path_override(module_name="bazel_tools", path="tools_mock")',
+            'local_path_override(module_name="local_config_platform", ',
+            'path="platforms_mock")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile('orange_juice.txt', ['Orange Juice'])
+    file_path = self.Path('orange_juice.txt').replace('\\', '\\\\')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    file_content = ctx.read("' + file_path + '").strip()',
+            '    print(file_content)',
+            '    ctx.file("WORKSPACE")',
+            '    ctx.file("BUILD")',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _ext_impl(ctx):',
+            '    repo_rule(name="hello")',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['fetch', '--repo=@hello'])
+    self.assertIn('Orange Juice', ''.join(stderr))
+
+    # Change file content and run WITHOUT force, assert no fetching!
+    self.ScratchFile('orange_juice.txt', ['No more Orange Juice!'])
+    _, _, stderr = self.RunBazel(['fetch', '--repo=@hello'])
+    self.assertNotIn('No more Orange Juice!', ''.join(stderr))
+
+    # Run again WITH --force and assert fetching
+    _, _, stderr = self.RunBazel(['fetch', '--repo=@hello', '--force'])
+    self.assertIn('No more Orange Juice!', ''.join(stderr))
+
+    # One more time to validate force is invoked and not cached by skyframe
+    _, _, stderr = self.RunBazel(['fetch', '--repo=@hello', '--force'])
+    self.assertIn('No more Orange Juice!', ''.join(stderr))
+
 
 if __name__ == '__main__':
   absltest.main()

@@ -192,8 +192,8 @@ public abstract class AnalysisMock extends LoadingMock {
         PrecomputedValue.injected(
             RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
         PrecomputedValue.injected(
-            RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
-            RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
+            RepositoryDelegatorFunction.FORCE_FETCH,
+            RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
         PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, ImmutableList.of()),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
         PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
