@@ -309,10 +309,6 @@ register_toolchains("@local_config_winsdk//:all")
 
 register_toolchains("//src/main/res:empty_rc_toolchain")
 
-# Workaround for https://github.com/bazelbuild/bazel/issues/19837.
-# TODO(bazel-team): Remove when .bazelversion is 7.0.0rc2 or later.
-register_toolchains("//:bazel_java_toolchain_definition")
-
 # =========================================
 # Android tools dependencies
 # =========================================
