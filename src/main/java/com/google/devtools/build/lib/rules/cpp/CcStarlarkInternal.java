@@ -262,7 +262,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         /* additionalMakeVariables= */ ImmutableMap.copyOf(additionalMakeVariables),
         /* legacyCcFlagsMakeVariable= */ legacyCcFlagsMakeVariable,
         /* allowlistForLayeringCheck= */ attributes.getAllowlistForLayeringCheck(),
-        /* allowListForLooseHeaderCheck= */ attributes.getAllowlistForLooseHeaderCheck(),
         /* objcopyExecutable= */ objcopyExecutable,
         /* compilerExecutable= */ compilerExecutable,
         /* preprocessorExecutable= */ preprocessorExecutable,

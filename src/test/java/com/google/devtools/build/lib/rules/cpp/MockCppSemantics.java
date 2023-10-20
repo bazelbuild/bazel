@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkThread;
@@ -60,12 +59,6 @@ public final class MockCppSemantics implements CppSemantics {
   @Override
   public boolean allowIncludeScanning() {
     return false;
-  }
-
-  @Override
-  public HeadersCheckingMode determineStarlarkHeadersCheckingMode(
-      RuleContext context, CppConfiguration cppConfig, CcToolchainProvider toolchain) {
-    return HeadersCheckingMode.LOOSE;
   }
 
   @Override

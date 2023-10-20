@@ -15,9 +15,9 @@
 """Attributes for cc_binary.
 """
 
-load(":common/cc/semantics.bzl", "semantics")
-load(":common/cc/cc_shared_library.bzl", "CcSharedLibraryInfo", "graph_structure_aspect")
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/cc_shared_library.bzl", "CcSharedLibraryInfo", "graph_structure_aspect")
+load(":common/cc/semantics.bzl", "semantics")
 
 cc_internal = _builtins.internal.cc_internal
 
@@ -99,7 +99,6 @@ cc_binary_attrs_with_aspects = {
 }
 
 cc_binary_attrs_with_aspects.update(semantics.get_distribs_attr())
-cc_binary_attrs_with_aspects.update(semantics.get_loose_mode_in_hdrs_check_allowed_attr())
 
 # Update attributes to contain no aspect implementation.
 cc_binary_attrs_without_aspects = dict(cc_binary_attrs_with_aspects)

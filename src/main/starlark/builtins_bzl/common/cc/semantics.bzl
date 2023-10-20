@@ -26,9 +26,6 @@ def _validate_deps(ctx):
 def _validate_attributes(ctx):
     pass
 
-def _determine_headers_checking_mode(ctx):
-    return "strict"
-
 def _get_semantics():
     return _builtins.internal.bazel_cc_internal.semantics
 
@@ -49,9 +46,6 @@ def _get_distribs_attr():
 
 def _get_licenses_attr():
     # TODO(b/182226065): Change to applicable_licenses
-    return {}
-
-def _get_loose_mode_in_hdrs_check_allowed_attr():
     return {}
 
 def _def_parser_computed_default(name, tags):
@@ -175,14 +169,12 @@ semantics = struct(
     ALLOWED_RULES_WITH_WARNINGS_IN_DEPS = [],
     validate_deps = _validate_deps,
     validate_attributes = _validate_attributes,
-    determine_headers_checking_mode = _determine_headers_checking_mode,
     get_semantics = _get_semantics,
     get_repo = _get_repo,
     get_platforms_root = _get_platforms_root,
     additional_fragments = _additional_fragments,
     get_distribs_attr = _get_distribs_attr,
     get_licenses_attr = _get_licenses_attr,
-    get_loose_mode_in_hdrs_check_allowed_attr = _get_loose_mode_in_hdrs_check_allowed_attr,
     get_def_parser = _get_def_parser,
     get_stl = _get_stl,
     should_create_empty_archive = _should_create_empty_archive,

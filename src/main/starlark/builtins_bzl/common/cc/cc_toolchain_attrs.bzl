@@ -184,11 +184,6 @@ cc_toolchain_attrs_exec = {
         providers = [PackageSpecificationInfo],
         cfg = "exec",
     ),
-    "_whitelist_loose_header_check_allowed_in_toolchain": attr.label(
-        default = "@" + semantics.get_repo() + "//tools/build_defs/cc/whitelists/starlark_hdrs_check:loose_header_check_allowed_in_toolchain",
-        providers = [PackageSpecificationInfo],
-        cfg = "exec",
-    ),
     "_build_info_translator": attr.label(
         default = semantics.BUILD_INFO_TRANLATOR_LABEL,
         providers = [OutputGroupInfo],
