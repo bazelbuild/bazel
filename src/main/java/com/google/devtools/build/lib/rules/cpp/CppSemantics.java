@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkThread;
@@ -48,10 +47,6 @@ public interface CppSemantics extends StarlarkValue {
       FeatureConfiguration featureConfiguration,
       CppCompileActionBuilder actionBuilder,
       RuleErrorConsumer ruleErrorConsumer);
-
-  /** Determines the applicable mode of headers checking in Starlark. */
-  HeadersCheckingMode determineStarlarkHeadersCheckingMode(
-      RuleContext ruleContext, CppConfiguration cppConfiguration, CcToolchainProvider toolchain);
 
   /**
    * Returns if include scanning is allowed.

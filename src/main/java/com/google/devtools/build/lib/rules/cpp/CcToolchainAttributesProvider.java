@@ -100,7 +100,6 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
   private final TransitiveInfoCollection staticRuntimeLib;
   private final TransitiveInfoCollection dynamicRuntimeLib;
   private final PackageSpecificationProvider allowlistForLayeringCheck;
-  private final PackageSpecificationProvider allowlistForLooseHeaderCheck;
   private final StarlarkFunction ccToolchainBuildVariablesFunc;
   private final String lateBoundLibc;
   private final String lateBoundTargetLibc;
@@ -217,9 +216,6 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     this.allowlistForLayeringCheck =
         Allowlist.fetchPackageSpecificationProvider(
             ruleContext, CcToolchainRule.ALLOWED_LAYERING_CHECK_FEATURES_ALLOWLIST);
-    this.allowlistForLooseHeaderCheck =
-        Allowlist.fetchPackageSpecificationProvider(
-            ruleContext, CcToolchainRule.LOOSE_HEADER_CHECK_ALLOWLIST);
     this.ccToolchainBuildVariablesFunc = ccToolchainBuildVariablesFunc;
     this.ccBuildInfoTranslator =
         OutputGroupInfo.get(ruleContext.getPrerequisite("$build_info_translator"));
@@ -553,10 +549,6 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
 
   public PackageSpecificationProvider getAllowlistForLayeringCheck() {
     return allowlistForLayeringCheck;
-  }
-
-  public PackageSpecificationProvider getAllowlistForLooseHeaderCheck() {
-    return allowlistForLooseHeaderCheck;
   }
 
   public OutputGroupInfo getCcBuildInfoTranslator() {

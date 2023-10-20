@@ -47,8 +47,6 @@ public final class CcToolchainRule implements RuleDefinition {
   public static final String ALLOWED_LAYERING_CHECK_FEATURES_TARGET =
       "//tools/build_defs/cc/whitelists/parse_headers_and_layering_check:"
           + ALLOWED_LAYERING_CHECK_FEATURES_ALLOWLIST;
-  public static final String LOOSE_HEADER_CHECK_ALLOWLIST =
-      "loose_header_check_allowed_in_toolchain";
 
   public static final String FDO_OPTIMIZE_ATTR = ":fdo_optimize";
   public static final String FDO_PROFILE_ATTR = ":fdo_profile";

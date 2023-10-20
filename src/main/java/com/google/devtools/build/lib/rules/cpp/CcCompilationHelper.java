@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CompilationInfoApi;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
@@ -276,13 +275,10 @@ public final class CcCompilationHelper {
   private final Set<String> localDefines = new LinkedHashSet<>();
   private final List<CcCompilationContext> deps = new ArrayList<>();
   private final List<CcCompilationContext> implementationDeps = new ArrayList<>();
-  private Set<PathFragment> looseIncludeDirs = ImmutableSet.of();
   private final List<PathFragment> systemIncludeDirs = new ArrayList<>();
   private final List<PathFragment> quoteIncludeDirs = new ArrayList<>();
   private final List<PathFragment> includeDirs = new ArrayList<>();
   private final List<PathFragment> frameworkIncludeDirs = new ArrayList<>();
-
-  private HeadersCheckingMode headersCheckingMode = HeadersCheckingMode.STRICT;
 
   private final SourceCategory sourceCategory;
   private final List<VariablesExtension> variablesExtensions = new ArrayList<>();
@@ -639,14 +635,6 @@ public final class CcCompilationHelper {
   }
 
   /**
-   * Sets the given directories to by loose include directories that are only allowed to be
-   * referenced when headers checking is {@link HeadersCheckingMode#LOOSE}.
-   */
-  public void setLooseIncludeDirs(Set<PathFragment> looseIncludeDirs) {
-    this.looseIncludeDirs = Preconditions.checkNotNull(looseIncludeDirs);
-  }
-
-  /**
    * Adds the given directories to the system include directories (they are passed with {@code
    * "-isystem"} to the compiler); these are also passed to dependent rules.
    */
@@ -706,13 +694,6 @@ public final class CcCompilationHelper {
   @CanIgnoreReturnValue
   public CcCompilationHelper setPropagateModuleMapToCompileAction(boolean propagatesModuleMap) {
     this.propagateModuleMapToCompileAction = propagatesModuleMap;
-    return this;
-  }
-
-  /** Sets the given headers checking mode. The default is {@link HeadersCheckingMode#LOOSE}. */
-  @CanIgnoreReturnValue
-  public CcCompilationHelper setHeadersCheckingMode(HeadersCheckingMode headersCheckingMode) {
-    this.headersCheckingMode = Preconditions.checkNotNull(headersCheckingMode);
     return this;
   }
 
@@ -814,8 +795,6 @@ public final class CcCompilationHelper {
                 /* public_textual_headers */ StarlarkList.immutableCopyOf(publicTextualHeaders),
                 /* private_headers_artifacts */ StarlarkList.immutableCopyOf(privateHeaders),
                 /* additional_inputs */ StarlarkList.immutableCopyOf(additionalInputs),
-                /* headers_checking_mode */ headersCheckingMode.name(),
-                /* loose_include_dirs */ convertPathFragmentsToStarlarkList(looseIncludeDirs),
                 /* separate_module_headers */ StarlarkList.immutableCopyOf(separateModuleHeaders),
                 /* generate_module_map */ generateModuleMap,
                 /* generate_pic_action */ generatePicAction,

@@ -427,7 +427,6 @@ def _create_compilation_context(
         virtual_to_original_headers = _UNBOUND,
         dependent_cc_compilation_contexts = _UNBOUND,
         non_code_inputs = _UNBOUND,
-        loose_hdrs_dirs = _UNBOUND,
         headers_checking_mode = _UNBOUND,
         propagate_module_map_to_compile_action = _UNBOUND,
         pic_header_module = _UNBOUND,
@@ -443,7 +442,6 @@ def _create_compilation_context(
        virtual_to_original_headers != _UNBOUND or \
        dependent_cc_compilation_contexts != _UNBOUND or \
        non_code_inputs != _UNBOUND or \
-       loose_hdrs_dirs != _UNBOUND or \
        headers_checking_mode != _UNBOUND or \
        propagate_module_map_to_compile_action != _UNBOUND or \
        pic_header_module != _UNBOUND or \
@@ -470,8 +468,6 @@ def _create_compilation_context(
         dependent_cc_compilation_contexts = []
     if non_code_inputs == _UNBOUND:
         non_code_inputs = []
-    if loose_hdrs_dirs == _UNBOUND:
-        loose_hdrs_dirs = []
     if headers_checking_mode == _UNBOUND:
         headers_checking_mode = "STRICT"
     if propagate_module_map_to_compile_action == _UNBOUND:
@@ -507,7 +503,7 @@ def _create_compilation_context(
         virtual_to_original_headers = virtual_to_original_headers,
         dependent_cc_compilation_contexts = dependent_cc_compilation_contexts,
         non_code_inputs = non_code_inputs,
-        loose_hdrs_dirs = loose_hdrs_dirs,
+        loose_hdrs_dirs = [],
         headers_checking_mode = headers_checking_mode,
         propagate_module_map_to_compile_action = propagate_module_map_to_compile_action,
         pic_header_module = pic_header_module,
@@ -695,7 +691,6 @@ def _compile(
         textual_hdrs = [],
         additional_exported_hdrs = _UNBOUND,
         includes = [],
-        loose_includes = _UNBOUND,
         quote_includes = [],
         system_includes = [],
         framework_includes = [],
@@ -732,7 +727,6 @@ def _compile(
        hdrs_checking_mode != _UNBOUND or \
        implementation_compilation_contexts != _UNBOUND or \
        copts_filter != _UNBOUND or \
-       loose_includes != _UNBOUND or \
        separate_module_headers != _UNBOUND or \
        non_compilation_additional_inputs != _UNBOUND:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
@@ -757,8 +751,6 @@ def _compile(
         implementation_compilation_contexts = []
     if copts_filter == _UNBOUND:
         copts_filter = None
-    if loose_includes == _UNBOUND:
-        loose_includes = []
     if separate_module_headers == _UNBOUND:
         separate_module_headers = []
     if non_compilation_additional_inputs == _UNBOUND:
@@ -779,7 +771,6 @@ def _compile(
         textual_hdrs = textual_hdrs,
         additional_exported_hdrs = additional_exported_hdrs,
         includes = includes,
-        loose_includes = loose_includes,
         quote_includes = quote_includes,
         system_includes = system_includes,
         framework_includes = framework_includes,
@@ -878,10 +869,6 @@ def _create_compile_action(
         additional_outputs = additional_outputs,
     )
 
-def _loose_hdrs_check_forbidden_by_allowlist(*, ctx):
-    cc_common_internal.check_private_api(allowlist = _BUILTINS)
-    return cc_common_internal.loose_hdrs_check_forbidden_by_allowlist(ctx = ctx)
-
 def _implementation_deps_allowed_by_allowlist(*, ctx):
     cc_common_internal.check_private_api(allowlist = _BUILTINS)
     return cc_common_internal.implementation_deps_allowed_by_allowlist(ctx = ctx)
@@ -933,7 +920,6 @@ cc_common = struct(
     ld_tool_path = _ld_tool_path,
     cc_target_os_do_not_use = _cc_target_os_do_not_use,
     create_compile_action = _create_compile_action,
-    loose_hdrs_check_forbidden_by_allowlist = _loose_hdrs_check_forbidden_by_allowlist,
     implementation_deps_allowed_by_allowlist = _implementation_deps_allowed_by_allowlist,
     CcSharedLibraryHintInfo = CcSharedLibraryHintInfo,
 )
