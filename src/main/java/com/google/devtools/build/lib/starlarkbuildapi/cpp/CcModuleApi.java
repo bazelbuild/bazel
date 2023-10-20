@@ -417,11 +417,31 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "unbound"),
+        @Param(
+            name = "dwo_objects",
+            documented = false,
+            doc = "Compilation outputs containing dwo files of debuginfo for fission builds.",
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = Depset.class),
+            }),
+        @Param(
+            name = "pic_dwo_objects",
+            doc = "Compilation outputs containing dwo files of debuginfo for pic fission builds.",
+            documented = false,
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = Depset.class),
+            }),
       })
   CompilationOutputsT createCompilationOutputsFromStarlark(
       Object objectsObject,
       Object picObjectsObject,
       Object ltoCopmilationContextObject,
+      Object dwoObjectsObject,
+      Object picDwoObjectsObject,
       StarlarkThread thread)
       throws EvalException;
 

@@ -2854,6 +2854,8 @@ public abstract class CcModule
       Object objectsObject,
       Object picObjectsObject,
       Object ltoCompilationContextObject,
+      Object dwoObjectsObject,
+      Object picDwoObjectsObject,
       StarlarkThread thread)
       throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
@@ -2879,6 +2881,16 @@ public abstract class CcModule
     ccCompilationOutputsBuilder.addPicObjectFiles(picObjects.toList());
     if (ltoCompilationContext != null) {
       ccCompilationOutputsBuilder.addLtoCompilationContext(ltoCompilationContext);
+    }
+    NestedSet<Artifact> dwoObjects =
+        convertToNestedSet(dwoObjectsObject, Artifact.class, "dwo_objects");
+    for (Artifact dwoFile : dwoObjects.toList()) {
+      ccCompilationOutputsBuilder.addDwoFile(dwoFile);
+    }
+    NestedSet<Artifact> picDwoObjects =
+        convertToNestedSet(picDwoObjectsObject, Artifact.class, "pic_dwo_objects");
+    for (Artifact picDwoFile : picDwoObjects.toList()) {
+      ccCompilationOutputsBuilder.addPicDwoFile(picDwoFile);
     }
     return ccCompilationOutputsBuilder.build();
   }

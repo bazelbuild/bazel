@@ -172,15 +172,21 @@ def _link(
         build_config = build_config,
     )
 
-def _create_compilation_outputs(*, objects = None, pic_objects = None, lto_compilation_context = _UNBOUND):
-    if lto_compilation_context != _UNBOUND:
+def _create_compilation_outputs(*, objects = None, pic_objects = None, lto_compilation_context = _UNBOUND, dwo_objects = _UNBOUND, pic_dwo_objects = _UNBOUND):
+    if lto_compilation_context != _UNBOUND or dwo_objects != _UNBOUND or pic_dwo_objects != _UNBOUND:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     if lto_compilation_context == _UNBOUND:
         lto_compilation_context = None
+    if dwo_objects == _UNBOUND:
+        dwo_objects = depset()
+    if pic_dwo_objects == _UNBOUND:
+        pic_dwo_objects = depset()
     return cc_common_internal.create_compilation_outputs(
         objects = objects,
         pic_objects = pic_objects,
         lto_compilation_context = lto_compilation_context,
+        dwo_objects = dwo_objects,
+        pic_dwo_objects = pic_dwo_objects,
     )
 
 def _merge_compilation_outputs(*, compilation_outputs = []):
