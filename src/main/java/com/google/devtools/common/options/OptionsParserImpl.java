@@ -332,10 +332,9 @@ class OptionsParserImpl {
     if (!optionDefinition.getOldNameWarning()) {
       return;
     }
-    String commandLineForm = parsedOption.getCommandLineForm();
     String oldOptionName = optionDefinition.getOldOptionName();
     String optionName = optionDefinition.getOptionName();
-    if (commandLineForm.startsWith(String.format("--%s=", oldOptionName))) {
+    if (parsedOption.isOldNameUsed()) {
       addDeprecationWarning(oldOptionName, String.format("Use --%s instead", optionName));
     }
   }
@@ -746,6 +745,7 @@ class OptionsParserImpl {
     String unconvertedValue = null;
     OptionLookupResult lookupResult;
     boolean booleanValue = true;
+    String parsedOptionName = "";
 
     if (arg.length() == 2) { // -l  (may be nullary or unary)
       lookupResult = getWithFallback(OptionsData::getFieldForAbbrev, arg.charAt(1), fallbackData);
@@ -786,6 +786,7 @@ class OptionsParserImpl {
           unconvertedValue = "0";
         }
       }
+      parsedOptionName = name;
     } else {
       throw new OptionsParsingException("Invalid options syntax: " + arg, arg);
     }
@@ -828,7 +829,9 @@ class OptionsParserImpl {
                     sourceFunction.apply(lookupResult.definition),
                     implicitDependent,
                     expandedFrom),
-                conversionContext)),
+                conversionContext,
+                !parsedOptionName.isEmpty()
+                    && lookupResult.definition.getOldOptionName().equals(parsedOptionName))),
         Optional.empty());
   }
 
