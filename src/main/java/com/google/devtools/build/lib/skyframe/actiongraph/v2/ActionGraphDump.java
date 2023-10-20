@@ -68,6 +68,7 @@ public class ActionGraphDump {
   @Nullable private final AqueryActionFilter actionFilters;
   private final boolean includeActionCmdLine;
   private final boolean includeArtifacts;
+  private final boolean includeSchedulingDependencies;
   private final boolean includeParamFiles;
   private final boolean includeFileWriteContents;
   private final AqueryOutputHandler aqueryOutputHandler;
@@ -78,6 +79,7 @@ public class ActionGraphDump {
   public ActionGraphDump(
       boolean includeActionCmdLine,
       boolean includeArtifacts,
+      boolean includeSchedulingDependencies,
       AqueryActionFilter actionFilters,
       boolean includeParamFiles,
       boolean includeFileWriteContents,
@@ -87,6 +89,7 @@ public class ActionGraphDump {
         /* actionGraphTargets= */ ImmutableList.of("..."),
         includeActionCmdLine,
         includeArtifacts,
+        includeSchedulingDependencies,
         actionFilters,
         includeParamFiles,
         includeFileWriteContents,
@@ -98,6 +101,7 @@ public class ActionGraphDump {
       List<String> actionGraphTargets,
       boolean includeActionCmdLine,
       boolean includeArtifacts,
+      boolean includeSchedulingDependencies,
       AqueryActionFilter actionFilters,
       boolean includeParamFiles,
       boolean includeFileWriteContents,
@@ -106,6 +110,7 @@ public class ActionGraphDump {
     this.actionGraphTargets = ImmutableSet.copyOf(actionGraphTargets);
     this.includeActionCmdLine = includeActionCmdLine;
     this.includeArtifacts = includeArtifacts;
+    this.includeSchedulingDependencies = includeSchedulingDependencies;
     this.actionFilters = actionFilters;
     this.includeParamFiles = includeParamFiles;
     this.includeFileWriteContents = includeFileWriteContents;
@@ -259,6 +264,12 @@ public class ActionGraphDump {
       NestedSet<Artifact> inputs = action.getInputs();
       if (!inputs.isEmpty()) {
         actionBuilder.addInputDepSetIds(knownNestedSets.dataToIdAndStreamOutputProto(inputs));
+      }
+
+      NestedSet<Artifact> schedulingDependencies = action.getSchedulingDependencies();
+      if (includeSchedulingDependencies && !schedulingDependencies.isEmpty()) {
+        actionBuilder.addInputDepSetIds(
+            knownNestedSets.dataToIdAndStreamOutputProto(schedulingDependencies));
       }
 
       // store outputs

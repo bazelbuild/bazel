@@ -243,6 +243,34 @@ EOF
   assert_not_contains "Outputs: \[" output
 }
 
+function test_aquery_include_scheduling_dependencies() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+cc_binary(name="b", srcs=["b.cc"], deps=[":l"])
+cc_library(name="l", hdrs=["library_header.h"])
+EOF
+
+  bazel aquery \
+    --include_artifacts \
+    --include_scheduling_dependencies \
+    "mnemonic(CppCompile,//$pkg:b)" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_contains "SchedulingDependencies:.*library_header.h" output
+
+  bazel aquery \
+    --include_artifacts \
+    --include_scheduling_dependencies \
+    --output=jsonproto \
+    "mnemonic(CppCompile,//$pkg:b)" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_contains "library_header.h" output
+}
+
+
 function test_aquery_starlark_env() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"

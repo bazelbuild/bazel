@@ -72,6 +72,7 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
         new ActionGraphDump(
             options.includeCommandline,
             options.includeArtifacts,
+            options.includeSchedulingDependencies,
             this.actionFilters,
             options.includeParamFiles,
             options.includeFileWriteContents,
