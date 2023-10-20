@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.OS_TO_CONSTRAINTS;
 import static com.google.devtools.build.lib.analysis.test.ExecutionInfo.DEFAULT_TEST_RUNNER_EXEC_GROUP;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -118,9 +117,13 @@ import net.starlark.java.syntax.Location;
  * internal tests to ensure that RuleContext objects are not persisted that check the name of this
  * class, so update those tests if you change this class's name.
  *
- * @see com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory
+ * <p>@see com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory
+ *
+ * <p>The class is intended to be sub-classed by {@link AspectOnRuleContext}, in order to share the
+ * code. However, it's not intended for sub-classing beyond that, and the constructor is
+ * intentionally package private to enforce that.
  */
-public final class RuleContext extends TargetContext
+public class RuleContext extends TargetContext
     implements ActionConstructionContext, ActionRegistry, RuleErrorConsumer, AutoCloseable {
 
   /** Custom dependency validation logic. */
@@ -143,18 +146,9 @@ public final class RuleContext extends TargetContext
       new Attribute.Builder<>(TOOLCHAIN_ATTR_NAME, BuildType.LABEL_LIST).build();
 
   private final Rule rule;
-  /**
-   * A list of all aspects applied to the target. If this {@code RuleContext} is for a rule
-   * implementation, {@code aspects} is an empty list.
-   *
-   * <p>Otherwise, the last aspect in the list is the one that this {@code RuleContext} is for.
-   */
-  private final ImmutableList<Aspect> aspects;
-
-  private final ImmutableList<AspectDescriptor> aspectDescriptors;
   private final PrerequisitesCollection prerequisitesCollection;
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
-  private final AspectAwareAttributeMapper attributes;
+  private final AttributeMap attributes;
   private final FeatureSet features;
   private final String ruleClassNameForLogging;
   private final ConfigurationFragmentPolicy configurationFragmentPolicy;
@@ -180,6 +174,7 @@ public final class RuleContext extends TargetContext
    * partially migrated to {@code @_builtins}.
    */
   private final StarlarkThread starlarkThread;
+
   /**
    * The {@code ctx} object passed to a Starlark-defined rule's or aspect's implementation function.
    * This object may outlive the analysis phase, e.g. if it is returned in a provider.
@@ -190,24 +185,26 @@ public final class RuleContext extends TargetContext
    */
   @Nullable private StarlarkRuleContext starlarkRuleContext;
 
-  private RuleContext(
+  /**
+   * The constructor is intentionally package private to be only used by {@link
+   * AspectOnRuleContext}.
+   */
+  RuleContext(
       Builder builder,
-      AttributeMap ruleAttributes,
-      ImmutableSortedKeyListMultimap<String, ConfiguredTargetAndData> targetMap,
+      AttributeMap attributes,
+      ImmutableListMultimap<DependencyKind, ConfiguredTargetAndData> targetMap,
       ExecGroupCollection execGroupCollection) {
     super(
         builder.env,
         builder.target.getAssociatedRule(),
         builder.configuration,
-        builder.prerequisiteMap.get(null),
+        getDirectPrerequisites(builder.prerequisiteMap),
         builder.visibility);
     this.rule = builder.target.getAssociatedRule();
-    this.aspects = builder.aspects;
-    this.aspectDescriptors = aspects.stream().map(Aspect::getDescriptor).collect(toImmutableList());
     this.configurationFragmentPolicy = builder.configurationFragmentPolicy;
     this.ruleClassProvider = builder.ruleClassProvider;
     this.configConditions = builder.configConditions.asProviders();
-    this.attributes = new AspectAwareAttributeMapper(ruleAttributes, builder.aspectAttributes);
+    this.attributes = attributes;
     this.features = computeFeatures();
     this.ruleClassNameForLogging = builder.getRuleClassNameForLogging();
     this.actionOwnerSymbolGenerator = new SymbolGenerator<>(builder.actionOwnerSymbol);
@@ -220,8 +217,13 @@ public final class RuleContext extends TargetContext
     this.starlarkThread = createStarlarkThread(builder.mutability); // uses above state
 
     this.prerequisitesCollection =
-        new PrerequisitesCollection(
-            this.attributes, targetMap, this.reporter, this.rule, this.ruleClassNameForLogging);
+        PrerequisitesCollection.create(
+            attributes,
+            targetMap,
+            builder.aspects,
+            this.reporter,
+            this.rule,
+            this.ruleClassNameForLogging);
   }
 
   private FeatureSet computeFeatures() {
@@ -232,6 +234,14 @@ public final class RuleContext extends TargetContext
             : FeatureSet.EMPTY;
     return FeatureSet.mergeWithGlobalFeatures(
         FeatureSet.merge(pkg, rule), getConfiguration().getDefaultFeatures());
+  }
+
+  private static ImmutableSet<ConfiguredTargetAndData> getDirectPrerequisites(
+      OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap) {
+    return prerequisiteMap.entries().stream()
+        .filter(e -> e.getKey().getAttribute() == null)
+        .map(e -> e.getValue())
+        .collect(toImmutableSet());
   }
 
   public boolean isAllowTagsPropagation() {
@@ -284,7 +294,7 @@ public final class RuleContext extends TargetContext
   }
 
   public ImmutableList<Aspect> getAspects() {
-    return aspects;
+    return ImmutableList.of();
   }
 
   /**
@@ -312,7 +322,7 @@ public final class RuleContext extends TargetContext
    */
   @Nullable
   public Aspect getMainAspect() {
-    return Streams.findLast(aspects.stream()).orElse(null);
+    return null;
   }
 
   /**
@@ -334,7 +344,7 @@ public final class RuleContext extends TargetContext
 
   /** All aspects applied to the rule. */
   public ImmutableList<AspectDescriptor> getAspectDescriptors() {
-    return aspectDescriptors;
+    return ImmutableList.of();
   }
 
   /**
@@ -365,11 +375,6 @@ public final class RuleContext extends TargetContext
     return prerequisitesCollection.getPrerequisiteConfiguredTargets(attributeName);
   }
 
-  @Override
-  public ActionOwner getActionOwner() {
-    return getActionOwner(DEFAULT_EXEC_GROUP_NAME);
-  }
-
   /**
    * Returns a special action owner for test actions. Test actions should run on the target platform
    * rather than the host platform. Note that the value is not cached (on the assumption that this
@@ -394,12 +399,21 @@ public final class RuleContext extends TargetContext
 
     ActionOwner actionOwner =
         createActionOwner(
-            rule, aspectDescriptors, getConfiguration(), testExecProperties, testExecutionPlatform);
+            rule,
+            getAspectDescriptors(),
+            getConfiguration(),
+            testExecProperties,
+            testExecutionPlatform);
 
     if (actionOwner == null) {
       actionOwner = getActionOwner();
     }
     return actionOwner;
+  }
+
+  @Override
+  public ActionOwner getActionOwner() {
+    return getActionOwner(DEFAULT_EXEC_GROUP_NAME);
   }
 
   @Override
@@ -414,7 +428,7 @@ public final class RuleContext extends TargetContext
     ActionOwner actionOwner =
         createActionOwner(
             rule,
-            aspectDescriptors,
+            getAspectDescriptors(),
             getConfiguration(),
             execGroupCollection.getExecProperties(execGroup),
             getExecutionPlatform(execGroup));
@@ -977,9 +991,9 @@ public final class RuleContext extends TargetContext
    */
   public StarlarkRuleContext initStarlarkRuleContext() throws RuleErrorException {
     if (starlarkRuleContext == null) {
-      AspectDescriptor descriptor =
-          aspects.isEmpty() ? null : Iterables.getLast(aspects).getDescriptor();
-      this.starlarkRuleContext = new StarlarkRuleContext(this, descriptor);
+      AspectDescriptor aspectDescriptor =
+          getMainAspect() == null ? null : getMainAspect().getDescriptor();
+      this.starlarkRuleContext = new StarlarkRuleContext(this, aspectDescriptor);
     }
     return starlarkRuleContext;
   }
@@ -1050,31 +1064,11 @@ public final class RuleContext extends TargetContext
     return targetPlatform.label();
   }
 
-  private boolean useAutoExecGroupsForRule() {
+  public boolean useAutoExecGroups() {
     if (attributes().has("$use_auto_exec_groups")) {
       return (boolean) attributes().get("$use_auto_exec_groups", Type.BOOLEAN);
     } else {
       return getConfiguration().useAutoExecGroups();
-    }
-  }
-
-  private boolean useAutoExecGroupsForAspect(Aspect aspect) {
-    ImmutableMap<String, Attribute> aspectAttributes = aspect.getDefinition().getAttributes();
-
-    if (aspectAttributes.containsKey("$use_auto_exec_groups")) {
-      return (boolean) aspectAttributes.get("$use_auto_exec_groups").getDefaultValueUnchecked();
-    } else {
-      return getConfiguration().useAutoExecGroups();
-    }
-  }
-
-  public boolean useAutoExecGroups() {
-    Aspect aspect = getMainAspect();
-
-    if (aspect == null) {
-      return useAutoExecGroupsForRule();
-    } else {
-      return useAutoExecGroupsForAspect(aspect);
     }
   }
 
@@ -1484,11 +1478,10 @@ public final class RuleContext extends TargetContext
     private ConfiguredRuleClassProvider ruleClassProvider;
     private ConfigurationFragmentPolicy configurationFragmentPolicy;
     private ActionLookupKey actionOwnerSymbol;
-    private OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap;
+    private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap;
     private ConfigConditions configConditions;
     private Mutability mutability;
     private NestedSet<PackageGroupContents> visibility;
-    private ImmutableMap<String, Attribute> aspectAttributes = ImmutableMap.of();
     private ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
     private ExecGroupCollection.Builder execGroupCollectionBuilder;
     private ImmutableMap<String, String> rawExecProperties;
@@ -1539,17 +1532,19 @@ public final class RuleContext extends TargetContext
       Preconditions.checkNotNull(configConditions);
       Preconditions.checkNotNull(mutability);
       Preconditions.checkNotNull(visibility);
-      ConfiguredAttributeMapper attributes =
+      ConfiguredAttributeMapper ruleAttributes =
           ConfiguredAttributeMapper.of(
               target.getAssociatedRule(), configConditions.asProviders(), configuration);
-      ImmutableSortedKeyListMultimap<String, ConfiguredTargetAndData> targetMap = createTargetMap();
-      validateExtraPrerequisites(attributeChecks, attributes);
+      ImmutableListMultimap<DependencyKind, ConfiguredTargetAndData> targetMap = createTargetMap();
+      validateExtraPrerequisites(attributeChecks, ruleAttributes);
 
-      return new RuleContext(
-          this,
-          attributes,
-          targetMap,
-          createExecGroupCollection(execGroupCollectionBuilder, attributes));
+      ExecGroupCollection execGroupCollection =
+          createExecGroupCollection(execGroupCollectionBuilder, ruleAttributes);
+      if (aspects.isEmpty()) {
+        return new RuleContext(this, ruleAttributes, targetMap, execGroupCollection);
+      } else {
+        return new AspectOnRuleContext(this, ruleAttributes, targetMap, execGroupCollection);
+      }
     }
 
     private ExecGroupCollection createExecGroupCollection(
@@ -1638,15 +1633,8 @@ public final class RuleContext extends TargetContext
      */
     @CanIgnoreReturnValue
     public Builder setPrerequisites(
-        OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap) {
+        OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap) {
       this.prerequisiteMap = Preconditions.checkNotNull(prerequisiteMap);
-      return this;
-    }
-
-    /** Adds attributes which are defined by an Aspect (and not by RuleClass). */
-    @CanIgnoreReturnValue
-    public Builder setAspectAttributes(Map<String, Attribute> aspectAttributes) {
-      this.aspectAttributes = ImmutableMap.copyOf(aspectAttributes);
       return this;
     }
 
@@ -1703,14 +1691,17 @@ public final class RuleContext extends TargetContext
       return this;
     }
 
-    /** Determines and returns a map from attribute name to list of configured targets. */
-    private ImmutableSortedKeyListMultimap<String, ConfiguredTargetAndData> createTargetMap() {
-      ImmutableSortedKeyListMultimap.Builder<String, ConfiguredTargetAndData> mapBuilder =
-          ImmutableSortedKeyListMultimap.builder();
+    /**
+     * Filter only attribute-based prerequisites, validate them and return them in a map from {@link
+     * DependencyKind} to list of configured targets.
+     */
+    private ImmutableListMultimap<DependencyKind, ConfiguredTargetAndData> createTargetMap() {
+      ImmutableListMultimap.Builder<DependencyKind, ConfiguredTargetAndData> mapBuilder =
+          ImmutableListMultimap.builder();
 
-      for (Map.Entry<Attribute, Collection<ConfiguredTargetAndData>> entry :
+      for (Map.Entry<DependencyKind, Collection<ConfiguredTargetAndData>> entry :
           prerequisiteMap.asMap().entrySet()) {
-        Attribute attribute = entry.getKey();
+        Attribute attribute = entry.getKey().getAttribute();
         if (attribute == null) {
           continue;
         }
@@ -1725,13 +1716,13 @@ public final class RuleContext extends TargetContext
           for (ConfiguredTargetAndData configuredTarget : entry.getValue()) {
             if (filter.apply(configuredTarget.getRuleClass())) {
               validateDirectPrerequisite(attribute, configuredTarget);
-              mapBuilder.put(attribute.getName(), configuredTarget);
+              mapBuilder.put(entry.getKey(), configuredTarget);
             }
           }
         } else {
           for (ConfiguredTargetAndData configuredTarget : entry.getValue()) {
             validateDirectPrerequisite(attribute, configuredTarget);
-            mapBuilder.put(attribute.getName(), configuredTarget);
+            mapBuilder.put(entry.getKey(), configuredTarget);
           }
         }
       }
@@ -1879,6 +1870,10 @@ public final class RuleContext extends TargetContext
     @Nullable
     Aspect getMainAspect() {
       return Streams.findLast(aspects.stream()).orElse(null);
+    }
+
+    ImmutableList<Aspect> getAspects() {
+      return aspects;
     }
 
     boolean isStarlarkRuleOrAspect() {

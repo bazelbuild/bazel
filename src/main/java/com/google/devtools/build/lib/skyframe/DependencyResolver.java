@@ -669,7 +669,7 @@ public final class DependencyResolver {
   public static OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> computeDependencies(
       State state,
       ConfiguredTargetKey configuredTargetKey,
-      Iterable<Aspect> aspects,
+      ImmutableList<Aspect> aspects,
       StarlarkTransitionCache transitionCache,
       @Nullable StarlarkAttributeTransitionProvider starlarkTransitionProvider,
       LookupEnvironment env,

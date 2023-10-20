@@ -418,7 +418,7 @@ public class BuildViewForTesting {
             NestedSetBuilder.create(
                 Order.STABLE_ORDER,
                 PackageGroupContents.create(ImmutableList.of(PackageSpecification.everything()))))
-        .setPrerequisites(ConfiguredTargetFactory.transformPrerequisiteMap(prerequisiteMap))
+        .setPrerequisites(ConfiguredTargetFactory.removeToolchainDeps(prerequisiteMap))
         .setConfigConditions(ConfigConditions.EMPTY)
         .setToolchainContexts(resolvedToolchainContext.build())
         .setExecGroupCollectionBuilder(state.execGroupCollectionBuilder)

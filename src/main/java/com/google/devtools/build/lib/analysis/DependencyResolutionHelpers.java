@@ -89,7 +89,7 @@ public final class DependencyResolutionHelpers {
 
   public static DependencyLabels computeDependencyLabels(
       TargetAndConfiguration node,
-      Iterable<Aspect> aspects,
+      ImmutableList<Aspect> aspects,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts)
       throws Failure {
@@ -241,7 +241,7 @@ public final class DependencyResolutionHelpers {
 
   private static void visitRule(
       TargetAndConfiguration node,
-      Iterable<Aspect> aspects,
+      ImmutableList<Aspect> aspects,
       ConfiguredAttributeMapper attributeMap,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       OrderedSetMultimap<DependencyKind, Label> outgoingLabels)
@@ -448,36 +448,56 @@ public final class DependencyResolutionHelpers {
 
   /** Returns the attributes that should be visited for this rule/aspect combination. */
   private static ImmutableList<AttributeDependencyKind> getAttributes(
-      Rule rule, Iterable<Aspect> aspects) {
+      Rule rule, ImmutableList<Aspect> aspects) {
     ImmutableList.Builder<AttributeDependencyKind> result = ImmutableList.builder();
-    // If processing aspects, aspect attribute names may conflict with the attribute names of
-    // rules they attach to. If this occurs, the highest-level aspect attribute takes precedence.
-    HashSet<String> aspectProcessedAttributes = new HashSet<>();
+    HashSet<String> ruleAndBaseAspectsProcessedAttributes = new HashSet<>();
 
-    addAspectAttributes(aspects, aspectProcessedAttributes, result);
-    List<Attribute> ruleDefs = rule.getRuleClassObject().getAttributes();
-    for (Attribute attribute : ruleDefs) {
-      if (!aspectProcessedAttributes.contains(attribute.getName())) {
+    // For aspects evaluation, all attributes of the main aspect (last aspect in {@code aspects}
+    // should be added, even if they have the same name as an attribute in the rule or a base aspect
+    // because main aspect attributes are separated and retrieved from `ctx.attr`.
+
+    // Attributes of the underlying rule and base aspects are merged and retrieved from
+    // `ctx.rule.attr` with rule attributes taking precedence then aspects' attributes based on the
+    // aspect order in the aspects path (lowest order to highest).
+
+    List<Attribute> ruleAttributes = rule.getRuleClassObject().getAttributes();
+    for (Attribute attribute : ruleAttributes) {
         result.add(AttributeDependencyKind.forRule(attribute));
-      }
+      ruleAndBaseAspectsProcessedAttributes.add(attribute.getName());
     }
+
+    addAspectAttributes(aspects, ruleAndBaseAspectsProcessedAttributes, result);
+
     return result.build();
   }
 
   private static ImmutableList<AttributeDependencyKind> getAspectAttributes(
-      Iterable<Aspect> aspects) {
+      ImmutableList<Aspect> aspects) {
     ImmutableList.Builder<AttributeDependencyKind> result = ImmutableList.builder();
     addAspectAttributes(aspects, new HashSet<>(), result);
     return result.build();
   }
 
   private static void addAspectAttributes(
-      Iterable<Aspect> aspects,
-      Set<String> aspectProcessedAttributes,
+      ImmutableList<Aspect> aspects,
+      Set<String> processedAttributes,
       ImmutableList.Builder<AttributeDependencyKind> attributes) {
-    for (Aspect aspect : aspects) {
+
+    if (aspects.isEmpty()) {
+      return;
+    }
+
+    // Add all the main aspect's attributes
+    Aspect mainAspect = Iterables.getLast(aspects, null);
+    for (Attribute attribute : mainAspect.getDefinition().getAttributes().values()) {
+      attributes.add(AttributeDependencyKind.forAspect(attribute, mainAspect.getAspectClass()));
+    }
+
+    // For base aspects, if multiple attributes have the same name, take the first encountered in
+    // the aspects path.
+    for (Aspect aspect : aspects.subList(0, aspects.size() - 1)) {
       for (Attribute attribute : aspect.getDefinition().getAttributes().values()) {
-        if (aspectProcessedAttributes.add(attribute.getName())) {
+        if (processedAttributes.add(attribute.getName())) {
           attributes.add(AttributeDependencyKind.forAspect(attribute, aspect.getAspectClass()));
         }
       }
