@@ -1711,17 +1711,20 @@ public class RuleContext extends TargetContext
           continue;
         }
 
-        if (attribute.isSilentRuleClassFilter()) {
-          Predicate<String> filter = attribute.getAllowedRuleClassPredicate();
-          for (ConfiguredTargetAndData configuredTarget : entry.getValue()) {
-            if (filter.apply(configuredTarget.getRuleClass())) {
+        Predicate<String> filter =
+            attribute.isSilentRuleClassFilter()
+                ? attribute.getAllowedRuleClassPredicate()
+                : Predicates.<String>alwaysTrue();
+
+        for (ConfiguredTargetAndData configuredTarget : entry.getValue()) {
+          if (filter.apply(configuredTarget.getRuleClass())) {
+            if (aspects.isEmpty()
+                || getMainAspect().getAspectClass().equals(entry.getKey().getOwningAspect())) {
+              // During aspects evaluation, only validate the dependencies of the main aspect.
+              // Dependencies of base aspects as well as the rule itself are checked when they
+              // are evaluated.
               validateDirectPrerequisite(attribute, configuredTarget);
-              mapBuilder.put(entry.getKey(), configuredTarget);
             }
-          }
-        } else {
-          for (ConfiguredTargetAndData configuredTarget : entry.getValue()) {
-            validateDirectPrerequisite(attribute, configuredTarget);
             mapBuilder.put(entry.getKey(), configuredTarget);
           }
         }
