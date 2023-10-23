@@ -85,9 +85,6 @@ The directories are laid out as follows:
                                               This contains the persistent record of the file
                                               metadata (timestamps, and perhaps eventually also MD5
                                               sums) used by the FilesystemValueChecker.
-      action_outs/                        <== Action output directory. This contains a file with the
-                                              stdout/stderr for every action from the most recent
-                                              bazel run that produced output.
       command.log                         <== A copy of the stdout/stderr output from the most
                                               recent bazel command.
       external/                           <== The directory that remote repositories are
@@ -106,6 +103,9 @@ The directories are laid out as follows:
           _bin/                           <== Helper tools are linked from or copied to here.
 
           bazel-out/                      <== All actual output of the build is under here: outputPath
+            _tmp/actions/                 <== Action output directory. This contains a file with the
+                                              stdout/stderr for every action from the most recent
+                                              bazel run that produced output.
             local_linux-fastbuild/        <== one subdirectory per unique target BuildConfiguration instance;
                                               this is currently encoded
               bin/                        <== Bazel outputs binaries for target configuration here: $(BINDIR)
