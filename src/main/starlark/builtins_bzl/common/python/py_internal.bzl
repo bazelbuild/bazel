@@ -20,6 +20,7 @@ These may change at any time and are closely coupled to the rule implementation.
 
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 
 _py_builtins = _builtins.internal.py_builtins
 PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
@@ -33,6 +34,15 @@ def _add_py_extra_pseudo_action(*args, **kwargs):
 
 def _are_action_listeners_enabled(*args, **kwargs):
     return _py_builtins.are_action_listeners_enabled(*args, **kwargs)
+
+def _cc_semantics_get_cc_runtimes(*args, **kwargs):
+    return cc_semantics.get_cc_runtimes(*args, **kwargs)
+
+def _cc_semantics_get_runtimes_toolchain(*args, **kwargs):
+    return cc_semantics.get_runtimes_toolchain(*args, **kwargs)
+
+def _cc_semantics_get_stl(*args, **kwargs):
+    return cc_semantics.get_stl(*args, **kwargs)
 
 def _compilation_outputs(cc_launcher_info):
     return cc_launcher_info.compilation_outputs()
@@ -119,6 +129,9 @@ py_internal = struct(
     add_py_extra_pseudo_action = _add_py_extra_pseudo_action,
     are_action_listeners_enabled = _are_action_listeners_enabled,
     cc_helper = cc_helper,
+    cc_semantics_get_cc_runtimes = _cc_semantics_get_cc_runtimes,
+    cc_semantics_get_runtimes_toolchain = _cc_semantics_get_runtimes_toolchain,
+    cc_semantics_get_stl = _cc_semantics_get_stl,
     compilation_outputs = _compilation_outputs,
     compile = _compile,
     copy_without_caching = _copy_without_caching,
