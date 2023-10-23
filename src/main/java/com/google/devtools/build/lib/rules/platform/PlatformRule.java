@@ -138,7 +138,7 @@ The user should be familiar with the concepts explained <a href="/extending/plat
 (such as cpu architecture or compiler version) describing an environment in
 which part of the build may run.
 
-For more details, see the <a href="//extending/platforms">Platforms</a> page.
+For more details, see the <a href="/extending/platforms">Platforms</a> page.
 
 
 <h4 id="platform_examples">Example</h4>
