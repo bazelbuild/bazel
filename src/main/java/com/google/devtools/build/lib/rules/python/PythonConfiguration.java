@@ -45,7 +45,6 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
   private final PythonVersion version;
   private final PythonVersion defaultVersion;
   private final TriState buildPythonZip;
-  private final boolean buildTransitiveRunfilesTrees;
 
   // TODO(brandjon): Remove this once migration to PY3-as-default is complete.
   private final boolean py2OutputsAreSuffixed;
@@ -65,7 +64,6 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
     this.version = pythonVersion;
     this.defaultVersion = pythonOptions.getDefaultPythonVersion();
     this.buildPythonZip = pythonOptions.buildPythonZip;
-    this.buildTransitiveRunfilesTrees = pythonOptions.buildTransitiveRunfilesTrees;
     this.py2OutputsAreSuffixed = pythonOptions.incompatiblePy2OutputsAreSuffixed;
     this.useToolchains = pythonOptions.incompatibleUsePythonToolchains;
     this.defaultToExplicitInitPy = pythonOptions.incompatibleDefaultToExplicitInitPy;
@@ -152,14 +150,6 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
       default:
         return OS.getCurrent() == OS.WINDOWS;
     }
-  }
-
-  /**
-   * Return whether to build the runfiles trees of py_binary targets that appear in the transitive
-   * data runfiles of another binary.
-   */
-  public boolean buildTransitiveRunfilesTrees() {
-    return buildTransitiveRunfilesTrees;
   }
 
   /**
