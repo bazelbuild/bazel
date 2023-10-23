@@ -88,7 +88,8 @@ public final class TestTrimmingTransitionFactory implements TransitionFactory<Ru
     }
 
     @Override
-    public BuildOptions patch(BuildOptionsView originalOptions, EventHandler eventHandler) {
+    public BuildOptions patch(BuildOptionsView originalOptions, EventHandler eventHandler)
+        throws InterruptedException {
       if (!originalOptions.contains(TestOptions.class)) {
         // nothing to do, already trimmed this fragment
         return originalOptions.underlying();
