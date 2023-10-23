@@ -276,7 +276,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
   protected BuildConfigurationValue createExec(String... args) throws Exception {
     return skyframeExecutor.getConfiguration(
         reporter,
-        AnalysisTestUtil.execOptions(parseBuildOptions(args), reporter),
+        AnalysisTestUtil.execOptions(parseBuildOptions(args), skyframeExecutor, reporter),
         /* keepGoing= */ false);
   }
 }

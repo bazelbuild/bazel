@@ -1830,6 +1830,23 @@ java_library(
 )
 
 java_library(
+    name = "config/starlark_exec_transition_loader",
+    srcs = ["config/StarlarkExecTransitionLoader.java"],
+    deps = [
+        ":analysis_cluster",
+        ":config/build_options",
+        ":config/core_options",
+        ":config/starlark_defined_config_transition",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:starlark_builtins_value",
+        "//third_party:auto_value",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "config/execution_transition_factory",
     srcs = ["config/ExecutionTransitionFactory.java"],
     deps = [

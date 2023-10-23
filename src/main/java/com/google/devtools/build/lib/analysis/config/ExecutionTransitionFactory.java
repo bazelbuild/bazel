@@ -68,12 +68,6 @@ public class ExecutionTransitionFactory
     return new ExecutionTransitionFactory(execGroup);
   }
 
-  /** Returns a new {@link NativeExecTransition} immediately. */
-  public static PatchTransition createTransition(@Nullable Label executionPlatform) {
-    // TODO(b/288258583): support Starlark transitions.
-    return new ExecTransitionFinalizer(executionPlatform, NativeExecTransition.INSTANCE);
-  }
-
   /**
    * Guarantees we don't duplicate instances of the same transition.
    *

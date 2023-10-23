@@ -46,6 +46,8 @@ import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
+import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader;
+import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.producers.DependencyContext;
 import com.google.devtools.build.lib.analysis.producers.DependencyContextProducer;
@@ -78,7 +80,6 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.UnreportedException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
@@ -313,11 +314,15 @@ final class AspectFunction implements SkyFunction {
       Optional<StarlarkAttributeTransitionProvider> starlarkExecTransition;
       try {
         starlarkExecTransition =
-            DependencyResolver.loadStarlarkExecTransition(targetAndConfiguration, env);
+            StarlarkExecTransitionLoader.loadStarlarkExecTransition(
+                targetAndConfiguration.getConfiguration() == null
+                    ? null
+                    : targetAndConfiguration.getConfiguration().getOptions(),
+                (bzlKey) -> (BzlLoadValue) env.getValue(bzlKey));
         if (starlarkExecTransition == null) {
           return null; // Need Skyframe deps.
         }
-      } catch (UnreportedException e) {
+      } catch (StarlarkExecTransitionLoadingException | InterruptedException e) {
         throw new AspectCreationException(e.getMessage(), key.getLabel(), configuration);
       }
 

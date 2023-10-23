@@ -97,8 +97,11 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader;
+import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.producers.ConfiguredTargetAndDataProducer;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
@@ -1765,6 +1768,32 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return memoizingEvaluator.getDoneValues().keySet().stream()
         .filter(key -> SkyFunctions.BUILD_CONFIGURATION.equals(key.functionName()))
         .collect(toImmutableList());
+  }
+
+  /**
+   * Only for testing:
+   *
+   * <p>Returns the Starlark transition that implements the exec transition, if one is defined for
+   * this build. Else returns null (this build uses the Java-native exec transition).
+   *
+   * <p>Production code handles this in Bazel's analysis phase skyfunctions.
+   */
+  @Nullable
+  @VisibleForTesting
+  public StarlarkAttributeTransitionProvider getStarlarkExecTransitionForTesting(
+      BuildOptions options, ExtendedEventHandler eventHandler)
+      throws StarlarkExecTransitionLoadingException, InterruptedException {
+    return StarlarkExecTransitionLoader.loadStarlarkExecTransition(
+            options,
+            (bzlKey) ->
+                (BzlLoadValue)
+                    evaluate(
+                            ImmutableList.of(bzlKey),
+                            /* keepGoing= */ false,
+                            /* numThreads= */ DEFAULT_THREAD_COUNT,
+                            eventHandler)
+                        .get(bzlKey))
+        .orElse(null);
   }
 
   private BuildConfigurationKey createBuildConfigurationKey(

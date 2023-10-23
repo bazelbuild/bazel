@@ -630,7 +630,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     execConfig =
         skyframeExecutor.getConfiguration(
             reporter,
-            AnalysisTestUtil.execOptions(targetConfig.getOptions(), reporter),
+            AnalysisTestUtil.execOptions(targetConfig.getOptions(), skyframeExecutor, reporter),
             /* keepGoing= */ false);
 
     targetConfigKey = targetConfig.getKey();

@@ -381,7 +381,7 @@ public class BzlLoadValue implements SkyValue {
   }
 
   /** Constructs a key for loading a .bzl file within the {@code @_builtins} pseudo-repository. */
-  static Key keyForBuiltins(Label label) {
+  public static Key keyForBuiltins(Label label) {
     return keyInterner.intern(new KeyForBuiltins(label));
   }
 
