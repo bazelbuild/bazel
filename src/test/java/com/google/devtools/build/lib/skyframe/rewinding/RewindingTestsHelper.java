@@ -1392,7 +1392,7 @@ public class RewindingTestsHelper {
     addSpawnShim("Compiling tree/make_cc_dir.cc/file1.cc", shim);
 
     if (!supportsConcurrentRewinding()) {
-      testCase.addOptions("--jobs=1");
+      testCase.addOptions("--jobs=1", "--experimental_use_semaphore_for_jobs");
     }
 
     List<SkyKey> dirtiedKeys = collectOrderedDirtiedKeys();
