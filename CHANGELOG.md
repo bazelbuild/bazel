@@ -1,3 +1,11 @@
+## Release 7.0.0-pre.20231011.2 (2023-10-23)
+
+```
+Baseline: e66a10f473ed853393061633e3803a8f71e47bff
+```
+
+Initial release.
+
 ## Release 6.4.0 (2023-10-19)
 
 ```
