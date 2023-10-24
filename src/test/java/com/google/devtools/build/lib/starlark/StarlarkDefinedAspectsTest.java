@@ -885,6 +885,65 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   }
 
   @Test
+  public void expandLocationFailsForTargetsWithSameLabel() throws Exception {
+    scratch.overwriteFile(
+        "tools/allowlists/function_transition_allowlist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_allowlist',",
+        "    packages = [",
+        "        '//a/...',",
+        "    ],",
+        ")");
+    scratch.file(
+        "a/defs.bzl",
+        "def _transition_impl(settings, attr):",
+        "    return {",
+        "        'opt': {'//command_line_option:compilation_mode': 'opt'},",
+        "        'dbg': {'//command_line_option:compilation_mode': 'dbg'},",
+        "    }",
+        "split_transition = transition(",
+        "    implementation = _transition_impl,",
+        "    inputs = [],",
+        "    outputs = ['//command_line_option:compilation_mode'])",
+        "def _split_deps_rule_impl(ctx):",
+        "    pass",
+        "split_deps_rule = rule(",
+        "    implementation = _split_deps_rule_impl,",
+        "    attrs = {",
+        "        'my_dep': attr.label(cfg = split_transition),",
+        "        '_allowlist_function_transition': attr.label(",
+        "            default = '//tools/allowlists/function_transition_allowlist')",
+        "    })",
+        "",
+        "def _print_expanded_location_impl(target, ctx):",
+        "    return struct(result=ctx.expand_location('$(location //a:lib)',"
+            + " [ctx.rule.attr.my_dep[0], ctx.rule.attr.my_dep[1]]))",
+        "",
+        "print_expanded_location = aspect(",
+        "    implementation = _print_expanded_location_impl,",
+        ")");
+    scratch.file(
+        "a/BUILD",
+        "load('//a:defs.bzl', 'split_deps_rule')",
+        "cc_library(name = 'lib', srcs = ['lib.cc'])",
+        "split_deps_rule(",
+        "    name = 'a',",
+        "    my_dep = ':lib')");
+
+    reporter.removeHandler(failFastHandler);
+
+    try {
+      AnalysisResult analysisResult =
+          update(ImmutableList.of("//a:defs.bzl%print_expanded_location"), "//a");
+      assertThat(keepGoing()).isTrue();
+      assertThat(analysisResult.hasError()).isTrue();
+    } catch (ViewCreationFailedException e) {
+      // expect to fail.
+    }
+    assertContainsEvent("Label \"//a:lib\" is found more than once in 'targets' list.");
+  }
+
+  @Test
   public void topLevelAspectIsNotAnAspect() throws Exception {
     scratch.file("test/aspect.bzl", "MyAspect = 4");
     scratch.file("test/BUILD", "java_library(name = 'xxx')");

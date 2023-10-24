@@ -1206,15 +1206,18 @@ public final class StarlarkRuleContext
    * @return Immutable map with immutable collections as values
    */
   public static ImmutableMap<Label, ImmutableCollection<Artifact>> makeLabelMap(
-      Iterable<TransitiveInfoCollection> knownLabels) {
-    ImmutableMap.Builder<Label, ImmutableCollection<Artifact>> builder = ImmutableMap.builder();
-
+      Iterable<TransitiveInfoCollection> knownLabels) throws EvalException {
+    var targetsMap = new LinkedHashMap<Label, ImmutableCollection<Artifact>>();
     for (TransitiveInfoCollection current : knownLabels) {
-      builder.put(
-          AliasProvider.getDependencyLabel(current),
-          current.getProvider(FileProvider.class).getFilesToBuild().toList());
+      Label label = AliasProvider.getDependencyLabel(current);
+      if (targetsMap.containsKey(label)) {
+        throw Starlark.errorf(
+            "Label %s is found more than once in 'targets' list.", Starlark.repr(label.toString()));
+      }
+
+      targetsMap.put(label, current.getProvider(FileProvider.class).getFilesToBuild().toList());
     }
 
-    return builder.buildOrThrow();
+    return ImmutableMap.copyOf(targetsMap);
   }
 }
