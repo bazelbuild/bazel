@@ -80,7 +80,14 @@ public class ToolchainResolutionFunction implements SkyFunction {
           Preconditions.checkNotNull(configuration.getFragment(PlatformConfiguration.class));
 
       // Check if debug output should be generated.
-      boolean debug = key.debugTarget();
+      boolean debug =
+          key.debugTarget()
+              || configuration
+                  .getFragment(PlatformConfiguration.class)
+                  .debugToolchainResolution(
+                      key.toolchainTypes().stream()
+                          .map(ToolchainTypeRequirement::toolchainType)
+                          .collect(toImmutableSet()));
 
       // Load the configured target for the toolchain types to ensure that they are valid and
       // resolve aliases.

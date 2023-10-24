@@ -90,7 +90,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
                 .debugToolchainResolution(key.toolchainType().toolchainType());
 
     // Find the right one.
-    ArrayList<String> resolutionTrace = debug ? new ArrayList<>() : null;
+    List<String> resolutionTrace = debug ? new ArrayList<>() : null;
     SingleToolchainResolutionValue toolchainResolution = resolveConstraints(
         key.toolchainType(),
         key.toolchainTypeInfo(),
@@ -194,7 +194,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       if (!nonmatchingSettings.isEmpty()) {
         debugMessage(
             resolutionTrace,
-            "  Rejected toolchain %s; mismatching config settings: %s",
+            "Rejected toolchain %s; mismatching config settings: %s",
             toolchain.toolchainLabel(),
             String.join(", ", nonmatchingSettings));
         continue;
@@ -212,7 +212,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
 
       debugMessage(
           resolutionTrace,
-          "  Toolchain %s is compatible with target plaform, searching for execution platforms:",
+          "Toolchain %s is compatible with target plaform, searching for execution platforms:",
           toolchain.toolchainLabel());
 
       boolean done = true;
@@ -223,7 +223,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
         if (platformKeysSeen.contains(executionPlatformKey)) {
           debugMessage(
               resolutionTrace,
-              "    Skipping execution platform %s; it has already selected a toolchain",
+              "  Skipping execution platform %s; it has already selected a toolchain",
               executionPlatformKey.getLabel());
           continue;
         }
@@ -242,7 +242,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
 
         debugMessage(
             resolutionTrace,
-            "    Compatible execution platform %s",
+            "  Compatible execution platform %s",
             executionPlatformKey.getLabel());
         builder.put(executionPlatformKey, toolchain.toolchainLabel());
         platformKeysSeen.add(executionPlatformKey);
@@ -251,7 +251,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       if (done) {
         debugMessage(
             resolutionTrace,
-            "  All execution platforms have been assigned a %s toolchain, stopping",
+            "All execution platforms have been assigned a %s toolchain, stopping",
             toolchainType.toolchainType());
         break;
       }
@@ -262,19 +262,19 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       if (resolvedToolchainLabels.isEmpty()) {
         debugMessage(
             resolutionTrace,
-            " => No %s toolchain found for target platform %s.",
+            "=> No %s toolchain found for target platform %s.",
             toolchainType.toolchainType(),
             targetPlatform.label());
       } else {
         debugMessage(
             resolutionTrace,
-            " => Recap of selected %s toolchains for target platform %s:",
+            "=> Recap of selected %s toolchains for target platform %s:",
             toolchainType.toolchainType(),
             targetPlatform.label());
         resolvedToolchainLabels.forEach((executionPlatformKey, toolchainLabel) ->
             debugMessage(
                 resolutionTrace,
-                "  Selected toolchain %s to run on exec platform %s",
+                "Selected toolchain %s to run on exec platform %s",
                 toolchainLabel,
                 executionPlatformKey.getLabel())
         );
@@ -295,7 +295,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       return;
     }
 
-    resolutionTrace.add(String.format(template, args));
+    resolutionTrace.add("ToolchainResolution: " + String.format(template, args));
   }
 
   /**
@@ -347,13 +347,13 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       if (isTargetPlatform) {
         debugMessage(
             resolutionTrace,
-            "  Rejected toolchain %s%s",
+            "Rejected toolchain %s%s",
             toolchainLabel,
             mismatchValues + missingSettings);
       } else {
         debugMessage(
             resolutionTrace,
-            "    Incompatible execution platform %s%s",
+            "  Incompatible execution platform %s%s",
             platform.label(),
             mismatchValues + missingSettings);
       }

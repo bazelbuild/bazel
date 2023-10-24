@@ -690,10 +690,11 @@ EOF
     --platform_mappings= \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
   expect_log "Performing resolution of //${pkg}/toolchain:test_toolchain for target platform ${default_host_platform}"
-  expect_log "  Toolchain //register/${pkg}:test_toolchain_impl_1 is compatible with target plaform, searching for execution platforms:"
-  expect_log "    Compatible execution platform ${default_host_platform}"
-  expect_log " => Recap of selected //${pkg}/toolchain:test_toolchain toolchains for target platform ${default_host_platform}:"
-  expect_log "  Selected toolchain //register/${pkg}:test_toolchain_impl_1 to run on exec platform ${default_host_platform}"
+  expect_log "Toolchain //register/${pkg}:test_toolchain_impl_1 is compatible with target plaform, searching for execution platforms:"
+  expect_log "  Compatible execution platform ${default_host_platform}"
+  expect_log "=> Recap of selected //${pkg}/toolchain:test_toolchain toolchains for target platform ${default_host_platform}:"
+  expect_log "   Selected toolchain //register/${pkg}:test_toolchain_impl_1 to run on exec platform ${default_host_platform}"
+  expect_log "ToolchainResolution: Target platform ${default_host_platform}: Selected execution platform ${default_host_platform}, type //${pkg}/toolchain:test_toolchain -> toolchain //register/${pkg}:test_toolchain_impl_1"
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
 }
 
@@ -720,10 +721,10 @@ EOF
     --platform_mappings= \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
   expect_log "Performing resolution of //${pkg}/toolchain:test_toolchain for target platform ${default_host_platform}"
-  expect_log "  Toolchain //register/${pkg}:test_toolchain_impl_1 is compatible with target plaform, searching for execution platforms:"
-  expect_log "    Compatible execution platform ${default_host_platform}"
-  expect_log " => Recap of selected //${pkg}/toolchain:test_toolchain toolchains for target platform ${default_host_platform}:"
-  expect_log "  Selected toolchain //register/${pkg}:test_toolchain_impl_1 to run on exec platform ${default_host_platform}"
+  expect_log "Toolchain //register/${pkg}:test_toolchain_impl_1 is compatible with target plaform, searching for execution platforms:"
+  expect_log "  Compatible execution platform ${default_host_platform}"
+  expect_log "=> Recap of selected //${pkg}/toolchain:test_toolchain toolchains for target platform ${default_host_platform}:"
+  expect_log "   Selected toolchain //register/${pkg}:test_toolchain_impl_1 to run on exec platform ${default_host_platform}"
   expect_log "ToolchainResolution: Target platform ${default_host_platform}: Selected execution platform ${default_host_platform}, type //${pkg}/toolchain:test_toolchain -> toolchain //register/${pkg}:test_toolchain_impl_1"
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
 }
@@ -1250,7 +1251,7 @@ EOF
     --extra_execution_platforms="//${pkg}/platforms:all" \
     --toolchain_resolution_debug=toolchain:test_toolchain \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
-  expect_log "Selected toolchain //register/${pkg}:test_toolchain_impl_1 to run on exec platform //${pkg}/platforms:platform2"
+  expect_log "Selected execution platform //${pkg}/platforms:platform2"
 }
 
 
@@ -1310,7 +1311,7 @@ EOF
     --extra_execution_platforms="//${pkg}/platforms:all" \
     --toolchain_resolution_debug=toolchain:test_toolchain \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
-  expect_log "Selected toolchain //register/${pkg}:test_toolchain_impl_1 to run on exec platform //${pkg}/platforms:platform2"
+  expect_log "Selected execution platform //${pkg}/platforms:platform2"
 }
 
 function test_rule_and_target_with_execution_constraints() {
@@ -1384,7 +1385,7 @@ EOF
     --extra_execution_platforms="//${pkg}/platforms:all" \
     --toolchain_resolution_debug=toolchain:test_toolchain \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
-  expect_log "Selected toolchain //register/${pkg}:test_toolchain_impl_1 to run on exec platform //${pkg}/platforms:platform2_4"
+  expect_log "Selected execution platform //${pkg}/platforms:platform2_4"
 }
 
 function test_target_setting() {
@@ -2704,7 +2705,7 @@ EOF
   # Verify that a toolchain was provided.
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain is none: False'
   # Verify that the exec platform is platform2.
-  expect_log "Selected toolchain //register/${pkg}:test_toolchain_impl_1 to run on exec platform //${pkg}/platforms:platform2"
+  expect_log "Selected execution platform //${pkg}/platforms:platform2"
 }
 
 function test_exec_platform_order_with_optional_toolchains {
@@ -2777,7 +2778,7 @@ EOF
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
 
   # Verify that the exec platform is platform2.
-  expect_log "Selected toolchain //register/${pkg}:test_toolchain_impl_1 to run on exec platform //${pkg}/platforms:platform2"
+  expect_log "Selected execution platform //${pkg}/platforms:platform2"
 }
 
 # TODO(katre): Test using toolchain-provided make variables from a genrule.
