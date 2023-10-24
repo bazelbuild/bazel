@@ -159,6 +159,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
 
     debugMessage(
         resolutionTrace,
+        IndentLevel.TargetPlatformLevel,
         "Performing resolution of %s for target platform %s",
         toolchainType.toolchainType(),
         targetPlatform.label());
@@ -194,6 +195,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       if (!nonmatchingSettings.isEmpty()) {
         debugMessage(
             resolutionTrace,
+            IndentLevel.ToolchainLevel,
             "Rejected toolchain %s; mismatching config settings: %s",
             toolchain.toolchainLabel(),
             String.join(", ", nonmatchingSettings));
@@ -212,6 +214,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
 
       debugMessage(
           resolutionTrace,
+          IndentLevel.ToolchainLevel,
           "Toolchain %s is compatible with target plaform, searching for execution platforms:",
           toolchain.toolchainLabel());
 
@@ -223,7 +226,8 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
         if (platformKeysSeen.contains(executionPlatformKey)) {
           debugMessage(
               resolutionTrace,
-              "  Skipping execution platform %s; it has already selected a toolchain",
+              IndentLevel.ExecutionPlatformLevel,
+              "Skipping execution platform %s; it has already selected a toolchain",
               executionPlatformKey.getLabel());
           continue;
         }
@@ -242,7 +246,8 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
 
         debugMessage(
             resolutionTrace,
-            "  Compatible execution platform %s",
+            IndentLevel.ExecutionPlatformLevel,
+            "Compatible execution platform %s",
             executionPlatformKey.getLabel());
         builder.put(executionPlatformKey, toolchain.toolchainLabel());
         platformKeysSeen.add(executionPlatformKey);
@@ -251,6 +256,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       if (done) {
         debugMessage(
             resolutionTrace,
+            IndentLevel.ToolchainLevel,
             "All execution platforms have been assigned a %s toolchain, stopping",
             toolchainType.toolchainType());
         break;
@@ -262,19 +268,22 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       if (resolvedToolchainLabels.isEmpty()) {
         debugMessage(
             resolutionTrace,
-            "=> No %s toolchain found for target platform %s.",
+            IndentLevel.TargetPlatformLevel,
+            "No %s toolchain found for target platform %s.",
             toolchainType.toolchainType(),
             targetPlatform.label());
       } else {
         debugMessage(
             resolutionTrace,
-            "=> Recap of selected %s toolchains for target platform %s:",
+            IndentLevel.TargetPlatformLevel,
+            "Recap of selected %s toolchains for target platform %s:",
             toolchainType.toolchainType(),
             targetPlatform.label());
         resolvedToolchainLabels.forEach((executionPlatformKey, toolchainLabel) ->
             debugMessage(
                 resolutionTrace,
-                "Selected toolchain %s to run on exec platform %s",
+                IndentLevel.ToolchainLevel,
+                "  Selected %s to run on execution platform %s",
                 toolchainLabel,
                 executionPlatformKey.getLabel())
         );
@@ -285,17 +294,40 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
   }
 
   /**
+   * Helper enum to define the three indentation levels used in {@link debugMessage}.
+   */
+  private static enum IndentLevel  {
+      TargetPlatformLevel(""),
+      ToolchainLevel("  "),
+      ExecutionPlatformLevel("    ");
+
+      final String value;
+
+      IndentLevel(String value) {
+          this.value = value;
+      }
+
+      @Override
+      public String toString() {
+          return value;
+      }
+  }
+
+  /**
    * Helper method to print a debugging message, if the given {@link resolutionTrace} is not {@code
    * null}.
    */
   @FormatMethod
   private static void debugMessage(
-      @Nullable List<String> resolutionTrace, @FormatString String template, Object... args) {
+      @Nullable List<String> resolutionTrace,
+      IndentLevel indent,
+      @FormatString String template,
+      Object... args) {
     if (resolutionTrace == null) {
       return;
     }
-
-    resolutionTrace.add("ToolchainResolution: " + String.format(template, args));
+    String padding = resolutionTrace.isEmpty() ? "" : " ".repeat("INFO: ".length());
+    resolutionTrace.add(padding + "ToolchainResolution: " + indent + String.format(template, args));
   }
 
   /**
@@ -347,13 +379,15 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       if (isTargetPlatform) {
         debugMessage(
             resolutionTrace,
+            IndentLevel.ToolchainLevel,
             "Rejected toolchain %s%s",
             toolchainLabel,
             mismatchValues + missingSettings);
       } else {
         debugMessage(
             resolutionTrace,
-            "  Incompatible execution platform %s%s",
+            IndentLevel.ExecutionPlatformLevel,
+            "Incompatible execution platform %s%s",
             platform.label(),
             mismatchValues + missingSettings);
       }
