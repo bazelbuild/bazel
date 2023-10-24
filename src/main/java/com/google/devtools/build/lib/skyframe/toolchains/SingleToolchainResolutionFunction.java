@@ -296,7 +296,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
   /**
    * Helper enum to define the three indentation levels used in {@link debugMessage}.
    */
-  private static enum IndentLevel  {
+  private enum IndentLevel  {
       TargetPlatformLevel(""),
       ToolchainLevel("  "),
       ExecutionPlatformLevel("    ");
@@ -307,8 +307,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
           this.value = value;
       }
 
-      @Override
-      public String toString() {
+      public String indent() {
           return value;
       }
   }
@@ -327,7 +326,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       return;
     }
     String padding = resolutionTrace.isEmpty() ? "" : " ".repeat("INFO: ".length());
-    resolutionTrace.add(padding + "ToolchainResolution: " + indent + String.format(template, args));
+    resolutionTrace.add(padding + "ToolchainResolution: " + indent.indent() + String.format(template, args));
   }
 
   /**
