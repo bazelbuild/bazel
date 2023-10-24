@@ -283,7 +283,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
             debugMessage(
                 resolutionTrace,
                 IndentLevel.ToolchainLevel,
-                "  Selected %s to run on execution platform %s",
+                "Selected %s to run on execution platform %s",
                 toolchainLabel,
                 executionPlatformKey.getLabel())
         );
