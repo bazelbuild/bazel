@@ -2875,7 +2875,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testFrozenRuleContextHasInaccessibleAttributes() throws Exception {
-    setBuildLanguageOptions("--incompatible_new_actions_api=false");
     scratch.file(
         "test/BUILD",
         "load('//test:rules.bzl', 'main_rule', 'dep_rule')",
@@ -2948,14 +2947,11 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
           "    'deps': attr.label_list(aspects = [MyAspect])",
           "  },",
           ")");
-      setBuildLanguageOptions("--incompatible_new_actions_api=false");
+
+      reporter.removeHandler(failFastHandler);
       invalidatePackages();
 
-      AssertionError e =
-          assertThrows(
-              "Should have been unable to access dep." + attribute,
-              AssertionError.class,
-              () -> getConfiguredTarget("//test:main"));
+      getConfiguredTarget("//test:main");
 
       // Typical value of e.getMessage():
       //
@@ -2966,13 +2962,11 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
       //        File "/workspace/test/rules.bzl", line 7, column 18, in _aspect_impl
       // Error: cannot access field or method 'attr' of rule context for '//test:dep' \
       // outside of its own rule implementation function
-      assertThat(e)
-          .hasMessageThat()
-          .contains(
-              "cannot access field or method '"
-                  + Iterables.get(Splitter.on('(').split(attribute), 0)
-                  + "' of rule context for '//test:dep' outside of its own rule implementation "
-                  + "function");
+      assertContainsEvent(
+          "cannot access field or method '"
+              + Iterables.get(Splitter.on('(').split(attribute), 0)
+              + "' of rule context for '//test:dep' outside of its own rule implementation "
+              + "function");
     }
   }
 
