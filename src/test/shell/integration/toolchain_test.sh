@@ -693,7 +693,7 @@ EOF
   expect_log "ToolchainResolution:   Toolchain //register/${pkg}:test_toolchain_impl_1 is compatible with target plaform, searching for execution platforms:"
   expect_log "ToolchainResolution:     Compatible execution platform ${default_host_platform}"
   expect_log "ToolchainResolution: Recap of selected //${pkg}/toolchain:test_toolchain toolchains for target platform ${default_host_platform}:"
-  expect_log "ToolchainResolution:   Selected toolchain //register/${pkg}:test_toolchain_impl_1 to run on exec platform ${default_host_platform}"
+  expect_log "ToolchainResolution:   Selected //register/${pkg}:test_toolchain_impl_1 to run on execution platform ${default_host_platform}"
   expect_log "ToolchainResolution: Target platform ${default_host_platform}: Selected execution platform ${default_host_platform}, type //${pkg}/toolchain:test_toolchain -> toolchain //register/${pkg}:test_toolchain_impl_1"
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
 }
@@ -724,7 +724,7 @@ EOF
   expect_log "ToolchainResolution:   Toolchain //register/${pkg}:test_toolchain_impl_1 is compatible with target plaform, searching for execution platforms:"
   expect_log "ToolchainResolution:     Compatible execution platform ${default_host_platform}"
   expect_log "ToolchainResolution: Recap of selected //${pkg}/toolchain:test_toolchain toolchains for target platform ${default_host_platform}:"
-  expect_log "ToolchainResolution:   Selected toolchain //register/${pkg}:test_toolchain_impl_1 to run on exec platform ${default_host_platform}"
+  expect_log "ToolchainResolution:   Selected //register/${pkg}:test_toolchain_impl_1 to run on execution platform ${default_host_platform}"
   expect_log "ToolchainResolution: ToolchainResolution: Target platform ${default_host_platform}: Selected execution platform ${default_host_platform}, type //${pkg}/toolchain:test_toolchain -> toolchain //register/${pkg}:test_toolchain_impl_1"
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
 }
