@@ -170,19 +170,19 @@ EOF
   export PATH="$PWD/jdk/bin:$PATH"
 
   bazel cquery \
-      --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
+      --toolchain_resolution_debug=//java/main:JavaExample \
       --java_runtime_version=8 \
       //java/main:JavaExample &>"${TEST_log}" || fail "Autodetecting a fake JDK version 8 and selecting it failed"
   expect_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @rules_java~.*~toolchains~local_jdk//:jdk"
 
   bazel cquery \
-      --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
+      --toolchain_resolution_debug=//java/main:JavaExample \
       --java_runtime_version=local_jdk_8 \
       //java/main:JavaExample &>"${TEST_log}" || fail "Autodetecting a fake JDK version 8 and selecting it failed"
   expect_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @rules_java~.*~toolchains~local_jdk//:jdk"
 
   bazel cquery \
-      --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
+      --toolchain_resolution_debug=//java/main:JavaExample \
       --java_runtime_version=11 \
       //java/main:JavaExample &>"${TEST_log}" || fail "Autodetecting a fake JDK version 8 and selecting it failed"
   expect_not_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @rules_java~.*~toolchains~local_jdk//:jdk"
@@ -205,19 +205,19 @@ EOF
   export PATH="$PWD/jdk/bin:$PATH"
 
   bazel cquery \
-      --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
+      --toolchain_resolution_debug=//java/main:JavaExample \
       --java_runtime_version=11 \
       //java/main:JavaExample &>"${TEST_log}" || fail "Autodetecting a fake JDK version 11 and selecting it failed"
   expect_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @rules_java~.*~toolchains~local_jdk//:jdk"
 
   bazel cquery \
-      --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
+      --toolchain_resolution_debug=//java/main:JavaExample \
       --java_runtime_version=local_jdk_11 \
       //java/main:JavaExample &>"${TEST_log}" || fail "Autodetecting a fake JDK version 11 and selecting it failed"
   expect_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @rules_java~.*~toolchains~local_jdk//:jdk"
 
   bazel cquery \
-      --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
+      --toolchain_resolution_debug=//java/main:JavaExample \
       --java_runtime_version=17 \
       //java/main:JavaExample &>"${TEST_log}" || fail "Autodetecting a fake JDK version 11 and selecting it failed"
   expect_not_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @rules_java~.*~toolchains~local_jdk//:jdk"
@@ -240,19 +240,19 @@ EOF
   export PATH="$PWD/jdk/bin:$PATH"
 
   bazel cquery \
-      --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
+      --toolchain_resolution_debug=//java/main:JavaExample \
       --java_runtime_version=11 \
       //java/main:JavaExample &>"${TEST_log}" || fail "Autodetecting a fake JDK version 11 and selecting it failed"
   expect_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @rules_java~.*~toolchains~local_jdk//:jdk"
 
   bazel cquery \
-      --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
+      --toolchain_resolution_debug=//java/main:JavaExample \
       --java_runtime_version=local_jdk_11 \
       //java/main:JavaExample &>"${TEST_log}" || fail "Autodetecting a fake JDK version 11 and selecting it failed"
   expect_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @rules_java~.*~toolchains~local_jdk//:jdk"
 
   bazel cquery \
-      --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
+      --toolchain_resolution_debug=//java/main:JavaExample \
       --java_runtime_version=17 \
       //java/main:JavaExample &>"${TEST_log}" || fail "Autodetecting a fake JDK version 11 and selecting it failed"
   expect_not_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @rules_java~.*~toolchains~local_jdk//:jdk"
@@ -275,7 +275,7 @@ EOF
   export PATH="$PWD/jdk/bin:$PATH"
 
   bazel cquery \
-      --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
+      --toolchain_resolution_debug=//java/main:JavaExample \
       //java/main:JavaExample &>"${TEST_log}" \
       || fail "Failed to resolve Java toolchain when version cannot be detected"
   expect_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @rules_java~.*~toolchains~local_jdk//:jdk"
