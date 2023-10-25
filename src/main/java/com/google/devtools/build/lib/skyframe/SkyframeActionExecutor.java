@@ -187,16 +187,16 @@ public final class SkyframeActionExecutor {
   // again.
   private ConcurrentMap<OwnerlessArtifactWrapper, ActionExecutionState> buildActionMap;
 
-  // We also keep track of actions which were rewound this build from a previously-completed state.
-  // When re-evaluated, these actions should not emit progress events, in order to not confuse the
-  // downstream consumers of action-related event streams, which may (reasonably) have expected an
-  // action to be executed at most once per build.
+  // We also keep track of actions which were rewound this build, possibly from a
+  // previously-completed state. When re-evaluated, these actions should not emit progress events,
+  // in order to not confuse the downstream consumers of action-related event streams, which may
+  // (reasonably) have expected an action to be executed at most once per build.
   //
   // Note: actions which fail due to lost inputs, and get reset (having not completed successfully),
   // will not have any events suppressed during their second evaluation. Consumers of events which
   // get emitted before execution (e.g. ActionStartedEvent, SpawnExecutedEvent) must support
   // receiving more than one of those events per action.
-  private Set<OwnerlessArtifactWrapper> completedAndRewoundActions;
+  private Set<OwnerlessArtifactWrapper> rewoundActions;
 
   // We also keep track of actions that failed due to lost discovered inputs. In some circumstances
   // the input discovery process will use a discovered input before requesting it as a dep. If that
@@ -295,7 +295,7 @@ public final class SkyframeActionExecutor {
 
     // Start with a new map each build so there's no issue with internal resizing.
     this.buildActionMap = Maps.newConcurrentMap();
-    this.completedAndRewoundActions = Sets.newConcurrentHashSet();
+    this.rewoundActions = Sets.newConcurrentHashSet();
     this.lostDiscoveredInputsMap = Maps.newConcurrentMap();
     this.hadExecutionError = false;
     this.actionCacheChecker = checkNotNull(actionCacheChecker);
@@ -401,7 +401,7 @@ public final class SkyframeActionExecutor {
     this.progressSuppressingEventHandler = null;
     this.outputService = null;
     this.buildActionMap = null;
-    this.completedAndRewoundActions = null;
+    this.rewoundActions = null;
     this.lostDiscoveredInputsMap = null;
     this.actionCacheChecker = null;
     this.outputDirectoryHelper = null;
@@ -424,8 +424,7 @@ public final class SkyframeActionExecutor {
    * events should be suppressed.
    */
   boolean shouldEmitProgressEvents(Action action) {
-    return !completedAndRewoundActions.contains(
-        new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
+    return !rewoundActions.contains(new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
   }
 
   /**
@@ -462,7 +461,7 @@ public final class SkyframeActionExecutor {
     if (actionExecutionState != null) {
       actionExecutionState.obsolete(failedKey, buildActionMap, ownerlessArtifactWrapper);
     }
-    completedAndRewoundActions.add(ownerlessArtifactWrapper);
+    rewoundActions.add(ownerlessArtifactWrapper);
     if (!actionFileSystemType().inMemoryFileSystem()) {
       outputDirectoryHelper.invalidateTreeArtifactDirectoryCreation(dep.getOutputs());
     }
@@ -1006,7 +1005,7 @@ public final class SkyframeActionExecutor {
       // progress events that are generated in the Action implementation are posted to
       // actionExecutionContext.getEventHandler. The reason for this is action rewinding, in which
       // case env.getListener may be a ProgressSuppressingEventHandler. See shouldEmitProgressEvents
-      // and completedAndRewoundActions.
+      // and rewoundActions.
       //
       // It is also unclear why we are posting anything directly to reporter. That probably
       // shouldn't happen.
