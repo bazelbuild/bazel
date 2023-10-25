@@ -153,8 +153,8 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     // Verify that the target registered with the extra_toolchains flag is first in the list.
     assertToolchainLabels(result.get(toolchainsKey))
         .containsAtLeast(
-            Label.parseCanonicalUnchecked("//extra:extra_toolchain_impl_1"),
             Label.parseCanonicalUnchecked("//extra:extra_toolchain_impl_2"),
+            Label.parseCanonicalUnchecked("//extra:extra_toolchain_impl_1"),
             Label.parseCanonicalUnchecked("//toolchain:toolchain_1_impl"))
         .inOrder();
   }
