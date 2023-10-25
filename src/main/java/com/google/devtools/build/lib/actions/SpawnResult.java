@@ -523,7 +523,6 @@ public interface SpawnResult {
 
     public SpawnResult build() {
       Preconditions.checkArgument(!runnerName.isEmpty());
-
       switch (status) {
         case SUCCESS:
           Preconditions.checkArgument(exitCode == 0, exitCode);

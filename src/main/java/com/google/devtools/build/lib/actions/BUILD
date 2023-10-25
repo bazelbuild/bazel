@@ -125,6 +125,7 @@ java_library(
         "SimpleSpawn.java",
         "SingleStringArgFormatter.java",
         "Spawn.java",
+        "SpawnActionExecutionException.java",
         "SpawnExecutedEvent.java",
         "SpawnMetrics.java",
         "SpawnResult.java",

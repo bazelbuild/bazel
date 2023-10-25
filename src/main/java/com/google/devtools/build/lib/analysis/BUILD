@@ -396,6 +396,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:bin_tools",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
+        "//src/main/java/com/google/devtools/build/lib/exec:spawn_exec_exception",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_resolver",
         "//src/main/java/com/google/devtools/build/lib/exec:streamed_test_output",
         "//src/main/java/com/google/devtools/build/lib/exec:test_log_helper",

@@ -16,7 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Comparators.max;
+import static com.google.common.collect.Comparators.min;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -70,6 +71,7 @@ import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit.ActionCached
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
+import com.google.devtools.build.lib.actions.SpawnActionExecutionException;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.MetadataLog;
 import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
@@ -119,9 +121,9 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentMap;
@@ -1801,7 +1803,6 @@ public final class SkyframeActionExecutor {
       ErrorTiming errorTiming) {
     Path stdout = null;
     Path stderr = null;
-    ImmutableList<MetadataLog> logs = ImmutableList.of();
 
     if (outErr.hasRecordedStdout()) {
       stdout = outErr.getOutputPath();
@@ -1809,12 +1810,24 @@ public final class SkyframeActionExecutor {
     if (outErr.hasRecordedStderr()) {
       stderr = outErr.getErrorPath();
     }
-    if (actionResult != null) {
-      logs =
-          actionResult.spawnResults().stream()
-              .map(SpawnResult::getActionMetadataLog)
-              .filter(Objects::nonNull)
-              .collect(toImmutableList());
+    // Collect MetadataLogs and spawn start times/end times from the Action's SpawnResults.
+    ImmutableList<SpawnResult> spawnResults =
+        findSpawnResultsInActionResultAndException(actionResult, exception);
+    ImmutableList.Builder<MetadataLog> logs = ImmutableList.builder();
+    Instant firstStartTime = Instant.MAX;
+    Instant lastEndTime = Instant.MIN;
+    for (SpawnResult spawnResult : spawnResults) {
+      MetadataLog log = spawnResult.getActionMetadataLog();
+      if (log != null) {
+        logs.add(log);
+      }
+      // Not all SpawnResults have a start time, and some use Instant.MIN/MAX instead of null.
+      @Nullable Instant startTime = spawnResult.getStartTime();
+      if (startTime != null && !startTime.equals(Instant.MIN) && !startTime.equals(Instant.MAX)) {
+        Instant endTime = startTime.plusMillis(spawnResult.getWallTimeInMs());
+        firstStartTime = min(firstStartTime, startTime);
+        lastEndTime = max(lastEndTime, endTime);
+      }
     }
     eventHandler.post(
         new ActionExecutedEvent(
@@ -1826,8 +1839,27 @@ public final class SkyframeActionExecutor {
             primaryOutputMetadata,
             stdout,
             stderr,
-            logs,
-            errorTiming));
+            logs.build(),
+            errorTiming,
+            firstStartTime.equals(Instant.MAX) ? null : firstStartTime,
+            lastEndTime.equals(Instant.MIN) ? null : firstStartTime));
+  }
+
+  /**
+   * Extracts the {@link SpawnResult SpawnResults} from either a completed {@link ActionResult} or a
+   * {@link SpawnActionExecutionException}.
+   *
+   * <p>Returns an empty list for any other kind of {@link ActionExecutionException}.
+   */
+  private static ImmutableList<SpawnResult> findSpawnResultsInActionResultAndException(
+      @Nullable ActionResult actionResult, @Nullable ActionExecutionException exception) {
+    if (actionResult != null) {
+      return actionResult.spawnResults();
+    }
+    if (exception instanceof SpawnActionExecutionException) {
+      return ImmutableList.of(((SpawnActionExecutionException) exception).getSpawnResult());
+    }
+    return ImmutableList.of();
   }
 
   /** An object supplying data for action execution progress reporting. */
@@ -1840,6 +1872,7 @@ public final class SkyframeActionExecutor {
   public interface ActionCompletedReceiver {
     /** Receives a completed action. */
     void actionCompleted(ActionLookupData actionLookupData);
+
     /** Notes that an action has started, giving the key. */
     void noteActionEvaluationStarted(ActionLookupData actionLookupData, Action action);
   }

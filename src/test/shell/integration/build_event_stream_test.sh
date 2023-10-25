@@ -755,6 +755,39 @@ function test_bep_output_groups() {
   expect_not_log "-valid\""  # validation outputs shouldn't appear in BEP
 }
 
+function test_action_timing_details() {
+  mkdir -p demo
+  cat >demo/BUILD <<'EOF'
+genrule(
+    name = "passrule",
+    outs = ["pass.out"],
+    cmd = "echo passrule > $(location pass.out); true",
+)
+genrule(
+    name = "failrule",
+    outs = ["fail.out"],
+    cmd = "echo failrule > $(location fail.out); false",
+)
+EOF
+
+  bazel build //demo:passrule //demo:failrule \
+     --keep_going \
+     --spawn_strategy=local \
+     --genrule_strategy=local \
+     --build_event_publish_all_actions \
+     --build_event_json_file="$TEST_log" \
+    && fail "expected failure"
+  # Successful and failed action start/end times should be present and take
+  # place after the year 1999.
+  local -r _DATE_PATTERN='[2-9][0-9][0-9][0-9]-[0-3][0-9]-[0-3][0-9]'
+  local -r _TIME_PATTERN='[0-2][0-9]:[0-6][0-9]:[0-6][0-9]\.[0-9][0-9]*'
+  local -r _DATETIME_PATTERN="${_DATE_PATTERN}"T"${_TIME_PATTERN}"Z
+  expect_log '{"id":{"action.*pass.out.*startTime":"'"${_DATETIME_PATTERN}"
+  expect_log '{"id":{"action.*pass.out.*endTime":"'"${_DATETIME_PATTERN}"
+  expect_log '{"id":{"action.*fail.out.*startTime":"'"${_DATETIME_PATTERN}"
+  expect_log '{"id":{"action.*fail.out.*endTime":"'"${_DATETIME_PATTERN}"
+}
+
 function test_aspect_artifacts() {
   bazel build --build_event_text_file=$TEST_log \
     --aspects=simpleaspect.bzl%simple_aspect \
