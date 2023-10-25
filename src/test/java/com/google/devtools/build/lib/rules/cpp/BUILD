@@ -724,3 +724,19 @@ java_test(
         "//third_party:truth",
     ],
 )
+
+java_test(
+    name = "Cpp20ModuleCompileTest",
+    srcs = ["Cpp20ModuleCompileTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//third_party:junit4",
+        "@@rules_jvm_external~5.2~maven~maven//:com_google_truth_truth"
+    ],
+)

@@ -53,6 +53,7 @@ def _impl(ctx):
         tool_path(name = "objcopy", path = "/bin/false"),
         tool_path(name = "objdump", path = "/bin/false"),
         tool_path(name = "strip", path = "/bin/false"),
+        tool_path(name = "deps-scanner", path = "/bin/false"),
     ]
 
     return cc_common.create_cc_toolchain_config_info(

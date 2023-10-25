@@ -76,6 +76,7 @@ public final class CppConfiguration extends Fragment
     OBJDUMP("objdump"),
     STRIP("strip"),
     DWP("dwp"),
+    DEPS_SCANNER("deps-scanner"),
     LLVM_PROFDATA("llvm-profdata");
 
     private final String namePart;

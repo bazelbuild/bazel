@@ -36,6 +36,11 @@ public class CppActionNames {
   public static final String OBJCPP_COMPILE = "objc++-compile";
   /** A string constant for the c++ header parsing. */
   public static final String CPP_HEADER_PARSING = "c++-header-parsing";
+  /** A string constant for the c++20 modules deps scanning */
+  public static final String CPP20_DEPS_SCANNING = "c++20-deps-scanning";
+  /** A string constant for the c++20 module compile action. */
+  public static final String CPP20_MODULE_COMPILE = "c++20-module-compile";
+  public static final String CPP20_MODULE_CODEGEN = "c++20-module-codegen";
   /**
    * A string constant for the c++ module compilation action. Note: currently we don't support C
    * module compilation.

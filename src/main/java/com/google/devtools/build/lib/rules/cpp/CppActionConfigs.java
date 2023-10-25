@@ -72,6 +72,9 @@ public class CppActionConfigs {
                         "    action: 'c++-header-parsing'",
                         "    action: 'c++-module-compile'",
                         "    action: 'c++-module-codegen'",
+                        "    action: 'c++20-deps-scanning'",
+                        "    action: 'c++20-module-compile'",
+                        "    action: 'c++20-module-codegen'",
                         "    action: 'lto-backend'",
                         "    action: 'clif-match'",
                         "    flag_group {",
@@ -102,7 +105,9 @@ public class CppActionConfigs {
                         "    action: 'preprocess-assemble'",
                         "    action: 'c-compile'",
                         "    action: 'c++-compile'",
-                        "    action: 'c++-module-compile'",
+                        "    action: 'c++-module-codegen'",
+                        "    action: 'c++20-deps-scanning'",
+                        "    action: 'c++20-module-codegen'",
                         "    action: 'objc-compile'",
                         "    action: 'objc++-compile'",
                         "    action: 'c++-header-parsing'",
@@ -133,6 +138,9 @@ public class CppActionConfigs {
                         "    action: 'c++-compile'",
                         "    action: 'c++-module-codegen'",
                         "    action: 'c++-module-compile'",
+                        "    action: 'c++20-deps-scanning'",
+                        "    action: 'c++20-module-compile'",
+                        "    action: 'c++20-module-codegen'",
                         "    flag_group {",
                         "      expand_if_all_available: 'output_file'",
                         "      flag: '-frandom-seed=%{output_file}'",
@@ -154,6 +162,9 @@ public class CppActionConfigs {
                         "    action: 'c++-compile'",
                         "    action: 'c++-module-codegen'",
                         "    action: 'c++-module-compile'",
+                        "    action: 'c++20-deps-scanning'",
+                        "    action: 'c++20-module-compile'",
+                        "    action: 'c++20-module-codegen'",
                         "    flag_group {",
                         "      expand_if_all_available: 'pic'",
                         "      flag: '-fPIC'",
@@ -172,6 +183,7 @@ public class CppActionConfigs {
                         "    action: 'c-compile'",
                         "    action: 'c++-compile'",
                         "    action: 'c++-module-codegen'",
+                        "    action: 'c++20-module-compile'",
                         "    flag_group {",
                         "      expand_if_all_available: 'per_object_debug_info_file'",
                         "      flag: '-gsplit-dwarf'",
@@ -193,6 +205,8 @@ public class CppActionConfigs {
                         "    action: 'c++-compile'",
                         "    action: 'c++-header-parsing'",
                         "    action: 'c++-module-compile'",
+                        "    action: 'c++20-deps-scanning'",
+                        "    action: 'c++20-module-compile'",
                         "    action: 'clif-match'",
                         "    flag_group {",
                         "      iterate_over: 'preprocessor_defines'",
@@ -214,6 +228,8 @@ public class CppActionConfigs {
                         "    action: 'c++-compile'",
                         "    action: 'c++-header-parsing'",
                         "    action: 'c++-module-compile'",
+                        "    action: 'c++20-deps-scanning'",
+                        "    action: 'c++20-module-compile'",
                         "    action: 'clif-match'",
                         "    action: 'objc-compile'",
                         "    action: 'objc++-compile'",
@@ -239,6 +255,8 @@ public class CppActionConfigs {
                         "    action: 'c++-compile'",
                         "    action: 'c++-header-parsing'",
                         "    action: 'c++-module-compile'",
+                        "    action: 'c++20-deps-scanning'",
+                        "    action: 'c++20-module-compile'",
                         "    action: 'clif-match'",
                         "    action: 'objc-compile'",
                         "    action: 'objc++-compile'",
@@ -956,6 +974,7 @@ public class CppActionConfigs {
                         "    action: 'c-compile'",
                         "    action: 'c++-compile'",
                         "    action: 'c++-module-compile'",
+                        "    action: 'c++20-module-compile'",
                         "    action: 'objc-compile'",
                         "    action: 'objc++-compile'",
                         "    flag_group {",
@@ -989,6 +1008,7 @@ public class CppActionConfigs {
                         "    action: 'c-compile'",
                         "    action: 'c++-compile'",
                         "    action: 'c++-module-compile'",
+                        "    action: 'c++20-module-compile'",
                         "    action: 'objc-compile'",
                         "    action: 'objc++-compile'",
                         "    action: 'objc-executable'",
@@ -1029,6 +1049,7 @@ public class CppActionConfigs {
       String gccToolPath,
       String arToolPath,
       String stripToolPath,
+      String depsScannerToolPath,
       boolean supportsInterfaceSharedLibraries,
       ImmutableSet<String> existingActionConfigNames) {
     try {
@@ -1185,6 +1206,59 @@ public class CppActionConfigs {
                         "  implies: 'unfiltered_compile_flags'",
                         "  implies: 'compiler_input_flags'",
                         "  implies: 'compiler_output_flags'")));
+      }
+
+      if (!existingActionConfigNames.contains(CppActionNames.CPP20_DEPS_SCANNING)) {
+        actionConfigBuilder.add(
+                getActionConfig(
+                        Joiner.on("\n")
+                                .join(
+                                        "  config_name: 'c++20-deps-scanning'",
+                                        "  action_name: 'c++20-deps-scanning'",
+                                        "  tool {",
+                                        "    tool_path: '" + depsScannerToolPath + "'",
+                                        "  }",
+                                        "  implies: 'legacy_compile_flags'",
+                                        "  implies: 'user_compile_flags'",
+                                        "  implies: 'sysroot'",
+                                        "  implies: 'unfiltered_compile_flags'",
+                                        "  implies: 'compiler_input_flags'",
+                                        "  implies: 'compiler_output_flags'")));
+      }
+      if (!existingActionConfigNames.contains(CppActionNames.CPP20_MODULE_COMPILE)) {
+        actionConfigBuilder.add(
+                getActionConfig(
+                        Joiner.on("\n")
+                                .join(
+                                        "  config_name: 'c++20-module-compile'",
+                                        "  action_name: 'c++20-module-compile'",
+                                        "  tool {",
+                                        "    tool_path: '" + gccToolPath + "'",
+                                        "  }",
+                                        "  implies: 'cpp20_module_compile'",
+                                        "  implies: 'legacy_compile_flags'",
+                                        "  implies: 'user_compile_flags'",
+                                        "  implies: 'sysroot'",
+                                        "  implies: 'unfiltered_compile_flags'",
+                                        "  implies: 'compiler_input_flags'",
+                                        "  implies: 'compiler_output_flags'")));
+      }
+      if (!existingActionConfigNames.contains(CppActionNames.CPP20_MODULE_CODEGEN)) {
+        actionConfigBuilder.add(
+                getActionConfig(
+                        Joiner.on("\n")
+                                .join(
+                                        "  config_name: 'c++20-module-codegen'",
+                                        "  action_name: 'c++20-module-codegen'",
+                                        "  tool {",
+                                        "    tool_path: '" + gccToolPath + "'",
+                                        "  }",
+                                        "  implies: 'legacy_compile_flags'",
+                                        "  implies: 'user_compile_flags'",
+                                        "  implies: 'sysroot'",
+                                        "  implies: 'unfiltered_compile_flags'",
+                                        "  implies: 'compiler_input_flags'",
+                                        "  implies: 'compiler_output_flags'")));
       }
       if (!existingActionConfigNames.contains(CppActionNames.CPP_LINK_EXECUTABLE)) {
         actionConfigBuilder.add(
@@ -1440,6 +1514,8 @@ public class CppActionConfigs {
                         "    action: 'c++-compile'",
                         "    action: 'c++-header-parsing'",
                         "    action: 'c++-module-compile'",
+                        "    action: 'c++20-deps-scanning'",
+                        "    action: 'c++20-module-compile'",
                         "    action: 'c++-link-executable'",
                         "    action: 'c++-link-dynamic-library'",
                         "    action: 'c++-link-nodeps-dynamic-library'",
@@ -1451,6 +1527,22 @@ public class CppActionConfigs {
                         "    flag_group {",
                         "      expand_if_all_available: 'sysroot'",
                         "      flag: '--sysroot=%{sysroot}'",
+                        "    }",
+                        "  }")));
+      }
+      if (!existingFeatureNames.contains("cpp20_module_compile")) {
+        featureBuilder.add(
+            getFeature(
+                Joiner.on("\n")
+                    .join(
+                        "  name: 'cpp20_module_compile'",
+                        "  enabled: true",
+                        "  flag_set {",
+                        "    action: 'c++20-module-compile'",
+                        "    flag_group {",
+                        "      flag: '--precompile'",
+                        "      flag: '-x'",
+                        "      flag: 'c++-module'",
                         "    }",
                         "  }")));
       }
@@ -1474,12 +1566,32 @@ public class CppActionConfigs {
                         "    action: 'c++-header-parsing'",
                         "    action: 'c++-module-compile'",
                         "    action: 'c++-module-codegen'",
+                        "    action: 'c++20-deps-scanning'",
+                        "    action: 'c++20-module-compile'",
+                        "    action: 'c++20-module-codegen'",
                         "    action: 'lto-backend'",
                         "    action: 'clif-match'",
                         "    flag_group {",
                         "      expand_if_all_available: 'unfiltered_compile_flags'",
                         "      iterate_over: 'unfiltered_compile_flags'",
                         "      flag: '%{unfiltered_compile_flags}'",
+                        "    }",
+                        "  }")));
+      }
+      if (!existingFeatureNames.contains("cpp20_modmap_file")) {
+        String compileModmapFile = "      flag: '@%{cpp20_modmap_file}'";
+        featureBuilder.add(
+            getFeature(
+                Joiner.on("\n")
+                    .join(
+                        "  name: 'compile_modmap_file'",
+                        "  flag_set {",
+                        "    action: 'c++-compile'",
+                        "    action: 'c++20-module-compile'",
+                        "    action: 'c++20-module-codegen'",
+                        "    flag_group {",
+                        "      expand_if_all_available: 'cpp20_modmap_file'",
+                        compileModmapFile,
                         "    }",
                         "  }")));
       }
@@ -1525,6 +1637,9 @@ public class CppActionConfigs {
                         "    action: 'linkstamp-compile'",
                         "    action: 'c++-module-compile'",
                         "    action: 'c++-module-codegen'",
+                        "    action: 'c++20-deps-scanning'",
+                        "    action: 'c++20-module-compile'",
+                        "    action: 'c++20-module-codegen'",
                         "    action: 'objc-compile'",
                         "    action: 'objc++-compile'",
                         "    action: 'c++-header-parsing'",
@@ -1552,6 +1667,9 @@ public class CppActionConfigs {
                         "    action: 'linkstamp-compile'",
                         "    action: 'c++-module-compile'",
                         "    action: 'c++-module-codegen'",
+                        "    action: 'c++20-deps-scanning'",
+                        "    action: 'c++20-module-compile'",
+                        "    action: 'c++20-module-codegen'",
                         "    action: 'objc-compile'",
                         "    action: 'objc++-compile'",
                         "    action: 'c++-header-parsing'",
