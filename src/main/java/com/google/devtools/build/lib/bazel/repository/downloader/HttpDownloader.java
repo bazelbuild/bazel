@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import com.google.auth.Credentials;
+import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
@@ -74,6 +76,7 @@ public class HttpDownloader implements Downloader {
   @Override
   public void download(
       List<URL> urls,
+      Map<String, List<String>> headers,
       Credentials credentials,
       Optional<Checksum> checksum,
       String canonicalId,
@@ -93,7 +96,7 @@ public class HttpDownloader implements Downloader {
     for (URL url : urls) {
       SEMAPHORE.acquire();
 
-      try (HttpStream payload = multiplexer.connect(url, checksum, credentials, type);
+      try (HttpStream payload = multiplexer.connect(url, checksum, headers, credentials, type);
           OutputStream out = destination.getOutputStream()) {
         try {
           ByteStreams.copy(payload, out);
@@ -152,7 +155,7 @@ public class HttpDownloader implements Downloader {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     SEMAPHORE.acquire();
     try (HttpStream payload =
-        multiplexer.connect(url, Optional.empty(), credentials, Optional.empty())) {
+        multiplexer.connect(url, Optional.empty(), ImmutableMap.of(), credentials, Optional.empty())) {
       ByteStreams.copy(payload, out);
     } catch (SocketTimeoutException e) {
       // SocketTimeoutExceptions are InterruptedIOExceptions; however they do not signify
