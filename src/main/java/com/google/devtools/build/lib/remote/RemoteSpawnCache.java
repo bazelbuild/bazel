@@ -186,9 +186,6 @@ final class RemoteSpawnCache implements SpawnCache {
           remoteExecutionService.uploadOutputs(action, result);
         }
 
-        @Override
-        public void close() {}
-
         private void checkForConcurrentModifications()
             throws IOException, ForbiddenActionInputException {
           for (ActionInput input : action.getInputMap(true).values()) {

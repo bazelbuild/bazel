@@ -146,7 +146,8 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
     SpawnResult spawnResult;
     ExecException ex = null;
-    try (CacheHandle cacheHandle = cache.lookup(spawn, context)) {
+    try {
+      CacheHandle cacheHandle = cache.lookup(spawn, context);
       if (cacheHandle.hasResult()) {
         spawnResult = Preconditions.checkNotNull(cacheHandle.getResult());
       } else {
