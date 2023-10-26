@@ -3947,7 +3947,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   /** Tests two analysis_test calls with same name. */
   @Test
-  public void testAnalysisTestDuplicateName() throws Exception {
+  public void testAnalysisTestDuplicateName_samePackage() throws Exception {
     scratch.file(
         "p/a.bzl",
         "def impl(ctx): ",
@@ -3980,6 +3980,53 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     ev.assertContainsError(
         "Error in analysis_test: my_test_target_test rule 'my_test_target' in package 'p' conflicts"
             + " with existing my_test_target_test rule");
+  }
+
+  // Regression test for b/291752414 (Digest for Starlark-defined rules is wrong for analysis_test).
+  @Test
+  public void testAnalysisTestDuplicateName_differentAttrs_differentPackage() throws Exception {
+    scratch.file("p/BUILD");
+    scratch.file(
+        "p/make.bzl",
+        "def impl(ctx): ",
+        "  return  [AnalysisTestResultInfo(",
+        "    success = True,",
+        "    message = ''",
+        "  )]",
+        "def make(name, additional_string_attr_name):",
+        "  testing.analysis_test(",
+        "    name = name, ",
+        "    implementation = impl,",
+        "    attrs = {additional_string_attr_name: attr.string()},",
+        "    attr_values = {additional_string_attr_name: 'whatever'}",
+        "  )");
+    scratch.file(
+        "p1/BUILD", //
+        "load('//p:make.bzl','make')",
+        "make(name = 'my_test_target', additional_string_attr_name = 'p1')");
+    scratch.file(
+        "p2/BUILD", //
+        "load('//p:make.bzl','make')",
+        "make(name = 'my_test_target', additional_string_attr_name = 'p2')");
+    scratch.file(
+        "s/BUILD", //
+        "test_suite(name = 'suite', tests = ['//p1:my_test_target', '//p2:my_test_target'])");
+
+    // Confirm we can [transitively] analyze both targets together without errors.
+    getConfiguredTarget("//s:suite");
+
+    // Also confirm the definition environment digests differ for the rule classes synthesized under
+    // the hood for these two targets.
+    Rule p1Target =
+        (Rule)
+            getPackageManager()
+                .getTarget(ev.getEventHandler(), Label.parseCanonical("//p1:my_test_target"));
+    Rule p2Target =
+        (Rule)
+            getPackageManager()
+                .getTarget(ev.getEventHandler(), Label.parseCanonical("//p2:my_test_target"));
+    assertThat(p1Target.getRuleClassObject().getRuleDefinitionEnvironmentDigest())
+        .isNotEqualTo(p2Target.getRuleClassObject().getRuleDefinitionEnvironmentDigest());
   }
 
   /**
