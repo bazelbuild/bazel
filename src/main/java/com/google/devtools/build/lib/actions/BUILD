@@ -109,6 +109,7 @@ java_library(
         "MapBasedActionGraph.java",
         "MiddlemanAction.java",
         "MiddlemanFactory.java",
+        "MissingDepExecException.java",
         "MissingInputFileException.java",
         "MutableActionGraph.java",
         "NotifyOnActionCacheHit.java",
