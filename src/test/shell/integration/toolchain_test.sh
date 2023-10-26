@@ -689,8 +689,12 @@ EOF
     --toolchain_resolution_debug=toolchain:test_toolchain \
     --platform_mappings= \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
-  expect_log "ToolchainResolution:   Type //${pkg}/toolchain:test_toolchain: target platform ${default_host_platform}: execution ${default_host_platform}: Selected toolchain //register/${pkg}:test_toolchain_impl_1"
-  expect_log "ToolchainResolution: Target platform ${default_host_platform}: Selected execution platform ${default_host_platform}, type //${pkg}/toolchain:test_toolchain -> toolchain //register/${pkg}:test_toolchain_impl_1"
+  expect_log "Performing resolution of //${pkg}/toolchain:test_toolchain for target platform ${default_host_platform}"
+  expect_log "Toolchain //register/${pkg}:test_toolchain_impl_1 is compatible with target plaform, searching for execution platforms:"
+  expect_log "Compatible execution platform ${default_host_platform}"
+  expect_log "Recap of selected //${pkg}/toolchain:test_toolchain toolchains for target platform ${default_host_platform}:"
+  expect_log "Selected //register/${pkg}:test_toolchain_impl_1 to run on execution platform ${default_host_platform}"
+  expect_log "Target platform ${default_host_platform}: Selected execution platform ${default_host_platform}, type //${pkg}/toolchain:test_toolchain -> toolchain //register/${pkg}:test_toolchain_impl_1"
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
 }
 
@@ -716,7 +720,11 @@ EOF
     --toolchain_resolution_debug=demo:use \
     --platform_mappings= \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
-  expect_log "ToolchainResolution:   Type //${pkg}/toolchain:test_toolchain: target platform ${default_host_platform}: execution ${default_host_platform}: Selected toolchain //register/${pkg}:test_toolchain_impl_1"
+  expect_log "Performing resolution of //${pkg}/toolchain:test_toolchain for target platform ${default_host_platform}"
+  expect_log "Toolchain //register/${pkg}:test_toolchain_impl_1 is compatible with target plaform, searching for execution platforms:"
+  expect_log "Compatible execution platform ${default_host_platform}"
+  expect_log "Recap of selected //${pkg}/toolchain:test_toolchain toolchains for target platform ${default_host_platform}:"
+  expect_log "Selected //register/${pkg}:test_toolchain_impl_1 to run on execution platform ${default_host_platform}"
   expect_log "ToolchainResolution: Target platform ${default_host_platform}: Selected execution platform ${default_host_platform}, type //${pkg}/toolchain:test_toolchain -> toolchain //register/${pkg}:test_toolchain_impl_1"
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from test_toolchain"'
 }
