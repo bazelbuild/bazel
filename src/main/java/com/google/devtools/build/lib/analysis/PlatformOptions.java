@@ -100,7 +100,6 @@ public class PlatformOptions extends FragmentOptions {
       defaultValue = "null",
       converter = CommaSeparatedOptionListConverter.class,
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      allowMultiple = true,
       effectTags = {
         OptionEffectTag.AFFECTS_OUTPUTS,
         OptionEffectTag.CHANGES_INPUTS,
@@ -110,7 +109,8 @@ public class PlatformOptions extends FragmentOptions {
           "The toolchain rules to be considered during toolchain resolution. "
               + "Toolchains can be specified by exact target, or as a target pattern. "
               + "These toolchains will be considered before those declared in the WORKSPACE file "
-              + "by register_toolchains().")
+              + "by register_toolchains(). This option may only be set once; later "
+              + "instances will override earlier flag settings.")
   public List<String> extraToolchains;
 
   @Option(

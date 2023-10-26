@@ -14,14 +14,14 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
@@ -100,18 +100,14 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
    *
    * <p>Example: [a, b, a, c, b] -> [a, b, c]
    */
-  protected static List<String> dedupeOnly(List<String> values) {
-    HashSet<String> alreadySeen = new HashSet<>();
-    List<String> result = new ArrayList<>();
-    for (String value : values) {
-      // Add to result only the first time we see the value
-      if (alreadySeen.add(value)) {
-        result.add(value);
-      }
+  protected static ImmutableList<String> dedupeOnly(@Nullable List<String> values) {
+    if (values == null || values.isEmpty()) {
+      return ImmutableList.of();
     }
+    ImmutableList<String> result = values.stream().distinct().collect(toImmutableList());
     // If there were no duplicates, return the exact same instance we got.
     if (result.size() == values.size()) {
-      return values;
+      return ImmutableList.copyOf(values);
     } else {
       return result;
     }

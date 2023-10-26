@@ -39,8 +39,7 @@ _BAZEL_ARGS="--spawn_strategy=standalone \
       --compilation_mode=opt \
       --repository_cache=derived/repository_cache \
       --norepository_cache_urls_as_default_canonical_id \
-      --extra_toolchains=//scripts/bootstrap:all \
-      --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain \
+      --extra_toolchains=//scripts/bootstrap:all,@bazel_tools//tools/python:autodetecting_toolchain \
       --enable_bzlmod \
       --check_direct_dependencies=error \
       --lockfile_mode=update \
