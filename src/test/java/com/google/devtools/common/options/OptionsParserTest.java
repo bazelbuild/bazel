@@ -1994,8 +1994,6 @@ public final class OptionsParserTest {
     assertThat(e).hasMessageThat().contains("'2147483648' is not an int");
   }
 
-  // TODO: b/254735608 - Add test coverage for deprecation warnings on negated boolean options when
-  // old option name is used.
   public static class OldNameExample extends OptionsBase {
     @Option(
       name = "new_name",
