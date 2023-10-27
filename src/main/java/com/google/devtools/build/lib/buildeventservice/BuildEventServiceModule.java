@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.buildeventstream.transports.TextFormatFileT
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.Protos.SpawnExec;
 import com.google.devtools.build.lib.network.ConnectivityStatus;
 import com.google.devtools.build.lib.network.ConnectivityStatus.Status;
 import com.google.devtools.build.lib.network.ConnectivityStatusProvider;
@@ -72,6 +73,7 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.protobuf.util.JsonFormat.TypeRegistry;
 import com.google.protobuf.util.Timestamps;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -748,6 +750,16 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
         .build();
   }
 
+  /**
+   * Returns the JSON type registry, used to resolve {@code Any} type names at serialization time.
+   *
+   * <p>Intended to be overridden by custom build tools with a subclassed {@link
+   * BuildEventServiceModule} to add additional Any types to be produced.
+   */
+  protected TypeRegistry makeJsonTypeRegistry() {
+    return TypeRegistry.newBuilder().add(SpawnExec.getDescriptor()).build();
+  }
+
   private ImmutableSet<BuildEventTransport> createBepTransports(
       CommandEnvironment cmdEnv,
       ThrowingBuildEventArtifactUploaderSupplier uploaderSupplier,
@@ -820,7 +832,11 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
                 : new LocalFilesArtifactUploader();
         bepTransportsBuilder.add(
             new JsonFormatFileTransport(
-                bepJsonOutputStream, bepOptions, localFileUploader, artifactGroupNamer));
+                bepJsonOutputStream,
+                bepOptions,
+                localFileUploader,
+                artifactGroupNamer,
+                makeJsonTypeRegistry()));
       } catch (IOException exception) {
         // TODO(b/125216340): Consider making this a warning instead of an error once the
         //  associated bug has been resolved.
