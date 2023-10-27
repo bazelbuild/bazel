@@ -624,6 +624,42 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testSubruleAttrs_singleFileLabelAttributesAreResolvedToFile() throws Exception {
+    scratch.file(
+        "some/pkg/BUILD",
+        //
+        "genrule(name = 'tool', cmd = '', outs = ['tool.exe'])");
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _subrule_impl(ctx, _tool):",
+        "  return _tool",
+        "_my_subrule = subrule(",
+        "  implementation = _subrule_impl,",
+        "  attrs = {'_tool' : attr.label(allow_single_file = True, default = '//some/pkg:tool')},",
+        ")",
+        "",
+        "MyInfo = provider()",
+        "def _rule_impl(ctx):",
+        "  res = _my_subrule()",
+        "  return MyInfo(result = res)",
+        "",
+        "my_rule = rule(implementation = _rule_impl, subrules = [_my_subrule])");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    StructImpl provider =
+        getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo");
+
+    assertThat(provider).isNotNull();
+    Object value = provider.getValue("result");
+    assertThat(value).isInstanceOf(Artifact.class);
+    assertThat(((Artifact) value).getRootRelativePathString()).isEqualTo("some/pkg/tool.exe");
+  }
+
+  @Test
   public void testSubruleAttr_executableAttrIsPassedAsFilesToRun() throws Exception {
     scratch.file(
         "my/BUILD",
