@@ -138,7 +138,12 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
       } else if (attribute.getType() == BuildType.LABEL_LIST) {
         value = ruleContext.getRuleContext().getPrerequisites(attribute.getName());
       } else if (attribute.getType() == BuildType.LABEL) {
-        value = ruleContext.getRuleContext().getPrerequisite(attribute.getName());
+        // TODO: b/293304174 - document this behavior
+        if (attribute.isSingleArtifact()) {
+          value = ruleContext.getRuleContext().getPrerequisiteArtifact(attribute.getName());
+        } else {
+          value = ruleContext.getRuleContext().getPrerequisite(attribute.getName());
+        }
       } else {
         // this should never happen, we've already validated the type while evaluating the subrule
         throw new IllegalStateException("unexpected attribute type");
