@@ -20,4 +20,4 @@ jobs:
         egress-policy: audit
 
     - uses: actions/labeler@ba790c862c380240c6d5e7427be5ace9a05c754b # v4.0.3
-    if: ${{ github.event.pull_request.draft == false }}
+    if: ${{ github.event.pull_request.draft == false && github.event.pull_request.user.login != 'bazel-io' }}
