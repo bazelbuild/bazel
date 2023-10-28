@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.actions;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -73,7 +74,8 @@ public class StarlarkAction extends SpawnAction {
       CharSequence progressMessage,
       RunfilesSupplier runfilesSupplier,
       String mnemonic,
-      OutputPathsMode outputPathsMode) {
+      OutputPathsMode outputPathsMode,
+      @Nullable Artifact actionExecutionMetadata) {
     super(
         owner,
         tools,
@@ -86,7 +88,7 @@ public class StarlarkAction extends SpawnAction {
         progressMessage,
         runfilesSupplier,
         mnemonic,
-        outputPathsMode);
+        outputPathsMode,actionExecutionMetadata);
   }
 
   @VisibleForTesting
@@ -122,10 +124,19 @@ public class StarlarkAction extends SpawnAction {
 
     private Optional<Artifact> unusedInputsList = Optional.empty();
     private Optional<Action> shadowedAction = Optional.empty();
+   @Nullable private Artifact actionExecutionMetadata = null;
 
     @CanIgnoreReturnValue
     public Builder setUnusedInputsList(Optional<Artifact> unusedInputsList) {
       this.unusedInputsList = unusedInputsList;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setActionExecutionMetadata(Artifact actionExecutionMetadata) {
+      Preconditions.checkNotNull(actionExecutionMetadata);
+
+      this.actionExecutionMetadata = actionExecutionMetadata;
       return this;
     }
 
@@ -176,7 +187,8 @@ public class StarlarkAction extends SpawnAction {
               mnemonic,
               outputPathsMode,
               unusedInputsList,
-              shadowedAction)
+              shadowedAction,
+              actionExecutionMetadata)
           : new StarlarkAction(
               owner,
               tools,
@@ -189,7 +201,8 @@ public class StarlarkAction extends SpawnAction {
               progressMessage,
               runfilesSupplier,
               mnemonic,
-              outputPathsMode);
+              outputPathsMode,
+              actionExecutionMetadata);
     }
   }
 
@@ -218,7 +231,8 @@ public class StarlarkAction extends SpawnAction {
         String mnemonic,
         OutputPathsMode outputPathsMode,
         Optional<Artifact> unusedInputsList,
-        Optional<Action> shadowedAction) {
+        Optional<Action> shadowedAction,
+        @Nullable Artifact actionExecutionMetadata) {
       super(
           owner,
           tools,
@@ -233,7 +247,7 @@ public class StarlarkAction extends SpawnAction {
           progressMessage,
           runfilesSupplier,
           mnemonic,
-          outputPathsMode);
+          outputPathsMode,actionExecutionMetadata);
       this.allStarlarkActionInputs = inputs;
       this.unusedInputsList = unusedInputsList;
       this.shadowedAction = shadowedAction;

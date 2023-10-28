@@ -536,6 +536,16 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
                     + " define this toolchain inside its 'rule()' function.</p><p>When `toolchain`"
                     + " and `exec_group` parameters are both set, `exec_group` will be used. An"
                     + " error is raised in case the `exec_group` doesn't specify the same."),
+              @Param(
+                      name = "action_execution_metadata",
+                      allowedTypes = {
+                              @ParamType(type = FileApi.class),
+                              @ParamType(type = NoneType.class),
+                      },
+                      defaultValue = "unbound",
+                      named = true,
+                      positional = false,
+                      doc = "This is a hackathon. What do you think?")
       })
   void run(
       Sequence<?> outputs,
@@ -553,7 +563,8 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       Object execGroupUnchecked,
       Object shadowedAction,
       Object resourceSetUnchecked,
-      Object toolchainUnchecked)
+      Object toolchainUnchecked,
+      Object actionExecutionMetadataUnchecked)
       throws EvalException;
 
   @StarlarkMethod(

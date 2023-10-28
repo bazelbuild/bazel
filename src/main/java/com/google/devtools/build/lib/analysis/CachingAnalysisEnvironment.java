@@ -197,6 +197,11 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
       // Don't bother checking that every Artifact only appears once; that test is performed
       // elsewhere (see #testNonUniqueOutputs in ActionListenerIntegrationTest).
       artifactsWithActions.addAll(action.getOutputs());
+
+      var actionExecutionMetadata = action.getActionExecutionMetadata();
+      if (actionExecutionMetadata != null) {
+        artifactsWithActions.add(actionExecutionMetadata);
+      }
     }
     // The order of the artifacts.entrySet iteration is unspecified - we use a TreeMap here to
     // guarantee that the return value of this method is deterministic.

@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROU
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -137,19 +138,20 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    * @param mnemonic the mnemonic that is reported in the master log
    */
   public SpawnAction(
-      ActionOwner owner,
-      NestedSet<Artifact> tools,
-      NestedSet<Artifact> inputs,
-      Iterable<? extends Artifact> outputs,
-      ResourceSetOrBuilder resourceSetOrBuilder,
-      CommandLines commandLines,
-      ActionEnvironment env,
-      ImmutableMap<String, String> executionInfo,
-      CharSequence progressMessage,
-      RunfilesSupplier runfilesSupplier,
-      String mnemonic,
-      OutputPathsMode outputPathsMode) {
-    super(owner, inputs, outputs);
+          ActionOwner owner,
+          NestedSet<Artifact> tools,
+          NestedSet<Artifact> inputs,
+          Iterable<? extends Artifact> outputs,
+          ResourceSetOrBuilder resourceSetOrBuilder,
+          CommandLines commandLines,
+          ActionEnvironment env,
+          ImmutableMap<String, String> executionInfo,
+          CharSequence progressMessage,
+          RunfilesSupplier runfilesSupplier,
+          String mnemonic,
+          OutputPathsMode outputPathsMode,
+        @Nullable  Artifact actionExecutionMetadata) {
+    super(owner, inputs, outputs, actionExecutionMetadata);
     this.tools = tools;
     this.runfilesSupplier = runfilesSupplier;
     this.resourceSetOrBuilder = resourceSetOrBuilder;
@@ -162,6 +164,22 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     this.progressMessage = progressMessage;
     this.mnemonic = mnemonic;
     this.outputPathsMode = outputPathsMode;
+  }
+
+  public SpawnAction(
+          ActionOwner owner,
+          NestedSet<Artifact> tools,
+          NestedSet<Artifact> inputs,
+          Iterable<? extends Artifact> outputs,
+          ResourceSetOrBuilder resourceSetOrBuilder,
+          CommandLines commandLines,
+          ActionEnvironment env,
+          ImmutableMap<String, String> executionInfo,
+          CharSequence progressMessage,
+          RunfilesSupplier runfilesSupplier,
+          String mnemonic,
+          OutputPathsMode outputPathsMode) {
+    this(owner,tools,inputs,outputs,resourceSetOrBuilder,commandLines,env,executionInfo,progressMessage,runfilesSupplier,mnemonic,outputPathsMode,/* actionExecutionMetadata= */ null);
   }
 
   @Override
@@ -312,7 +330,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         /* additionalInputs= */ ImmutableList.of(),
         /* filesetMappings= */ ImmutableMap.of(),
         /* reportOutputs= */ true,
-        PathMapper.NOOP);
+        PathMapper.NOOP,
+            getActionExecutionMetadata());
   }
 
   /**
@@ -357,7 +376,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         expandedCommandLines.getParamFiles(),
         filesetMappings,
         reportOutputs,
-        pathMapper);
+        pathMapper,
+            getActionExecutionMetadata());
   }
 
   @ForOverride
@@ -500,6 +520,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private final ImmutableMap<String, String> effectiveEnvironment;
     private final boolean reportOutputs;
     private final PathMapper pathMapper;
+    @Nullable
+    private final Artifact actionExecutionMetadata;
 
     /**
      * Creates an ActionSpawn with the given environment variables.
@@ -516,7 +538,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         Iterable<? extends ActionInput> additionalInputs,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings,
         boolean reportOutputs,
-        PathMapper pathMapper)
+        PathMapper pathMapper,
+        @Nullable Artifact actionExecutionMetadata)
         throws CommandLineExpansionException {
       super(
           arguments,
@@ -546,6 +569,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         effectiveEnvironment = parent.getEffectiveEnvironment(env);
       }
       this.reportOutputs = reportOutputs;
+      this.actionExecutionMetadata = actionExecutionMetadata;
     }
 
     @Override
@@ -571,6 +595,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     @Override
     public Collection<Artifact> getOutputFiles() {
       return reportOutputs ? super.getOutputFiles() : ImmutableSet.of();
+    }
+
+    @Nullable
+    public Artifact getActionExecutionMetadata() {
+      return actionExecutionMetadata;
     }
   }
 

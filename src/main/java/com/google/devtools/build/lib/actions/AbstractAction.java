@@ -89,11 +89,20 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    */
   private final Object outputs;
 
+  @Nullable
+  private final Artifact actionExecutionMetadata;
+
   protected AbstractAction(
-      ActionOwner owner, NestedSet<Artifact> inputs, Iterable<? extends Artifact> outputs) {
+          ActionOwner owner, NestedSet<Artifact> inputs, Iterable<? extends Artifact> outputs) {
+    this(owner, inputs, outputs, null);
+  }
+
+  protected AbstractAction(
+          ActionOwner owner, NestedSet<Artifact> inputs, Iterable<? extends Artifact> outputs, @Nullable Artifact actionExecutionMetadata) {
     this.owner = checkNotNull(owner);
     this.inputs = checkNotNull(inputs);
     this.outputs = singletonOrArray(outputs);
+    this.actionExecutionMetadata = actionExecutionMetadata;
   }
 
   private static Object singletonOrArray(Iterable<? extends Artifact> outputs) {
@@ -261,6 +270,12 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
     return outputs instanceof Artifact
         ? ImmutableSet.of((Artifact) outputs)
         : new OutputSet((Artifact[]) outputs);
+  }
+
+  @Override
+  @Nullable
+  public Artifact getActionExecutionMetadata() {
+    return actionExecutionMetadata;
   }
 
   /**

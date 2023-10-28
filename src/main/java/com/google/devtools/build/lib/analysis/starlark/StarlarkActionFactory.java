@@ -402,7 +402,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object execGroupUnchecked,
       Object shadowedActionUnchecked,
       Object resourceSetUnchecked,
-      Object toolchainUnchecked)
+      Object toolchainUnchecked,
+      Object actionExecutionMetadataUnchecked)
       throws EvalException {
     context.checkMutable("actions.run");
     execGroupUnchecked = context.maybeOverrideExecGroup(execGroupUnchecked);
@@ -454,7 +455,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         execGroupUnchecked,
         shadowedActionUnchecked,
         resourceSetUnchecked,
-        toolchainUnchecked,
+        toolchainUnchecked,actionExecutionMetadataUnchecked,
         builder);
   }
 
@@ -668,6 +669,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         shadowedActionUnchecked,
         resourceSetUnchecked,
         toolchainUnchecked,
+            /* actionExecutionMetadataUnchecked= */ Starlark.NONE,
         builder);
   }
 
@@ -716,6 +718,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Object shadowedActionUnchecked,
       Object resourceSetUnchecked,
       Object toolchainUnchecked,
+      Object actionExecutionMetadataUnchecked,
       StarlarkAction.Builder builder)
       throws EvalException {
     if (inputs instanceof Sequence) {
@@ -878,6 +881,10 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       builder.setResources(
           new StarlarkActionResourceSetBuilder(
               (StarlarkCallable) resourceSetUnchecked, mnemonic, getSemantics()));
+    }
+
+    if (actionExecutionMetadataUnchecked instanceof Artifact) {
+      builder.setActionExecutionMetadata((Artifact) actionExecutionMetadataUnchecked);
     }
 
     // Always register the action

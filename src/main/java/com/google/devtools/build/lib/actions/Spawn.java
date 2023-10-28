@@ -108,6 +108,10 @@ public interface Spawn extends DescribableExecutionUnit {
    */
   Collection<? extends ActionInput> getOutputFiles();
 
+  @Nullable default Artifact getActionExecutionInfo() {
+    return null;
+  }
+
   /**
    * Returns the output files that should be considered to be "generated" by this spawn for purposes
    * of reconstructing the execution graph in {@link
