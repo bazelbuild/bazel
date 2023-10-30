@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 
@@ -46,7 +47,7 @@ public class NewLocalRepositoryRule implements RuleDefinition {
         named BUILD, but can be. (Something like BUILD.new-repo-name may work well for
         distinguishing it from the repository's actual BUILD files.)</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("build_file", STRING))
+        .add(attr("build_file", BuildType.NODEP_LABEL))
         /* <!-- #BLAZE_RULE(new_local_repository).ATTRIBUTE(build_file_content) -->
         The content for the BUILD file for this repository.
 
@@ -62,7 +63,7 @@ public class NewLocalRepositoryRule implements RuleDefinition {
         named WORKSPACE, but can be. (Something like WORKSPACE.new-repo-name may work well for
         distinguishing it from the repository's actual WORKSPACE files.)</p>
          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("workspace_file", STRING))
+        .add(attr("workspace_file", BuildType.NODEP_LABEL))
         /* <!-- #BLAZE_RULE(new_local_repository).ATTRIBUTE(workspace_file_content) -->
         The content for the WORKSPACE file for this repository.
 
