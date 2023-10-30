@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.exec;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
@@ -44,6 +46,7 @@ import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.SpawnCache.CacheHandle;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
@@ -229,6 +232,8 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     private SortedMap<PathFragment, ActionInput> lazyInputMapping;
     private PathFragment inputMappingBaseDirectory;
 
+    @Nullable private Digest digest;
+
     SpawnExecutionContextImpl(
         Spawn spawn,
         ActionExecutionContext actionExecutionContext,
@@ -243,6 +248,24 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     @Override
     public int getId() {
       return id;
+    }
+
+    @Override
+    public void setDigest(Digest digest) {
+      if (this.digest != null) {
+        checkArgument(
+            this.digest.equals(digest),
+            "setDigest was called more than once with different digests: %s vs %s",
+            this.digest,
+            digest);
+      }
+      this.digest = checkNotNull(digest);
+    }
+
+    @Override
+    @Nullable
+    public Digest getDigest() {
+      return digest;
     }
 
     @Override

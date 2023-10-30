@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -128,11 +129,32 @@ public interface SpawnRunner {
    */
   interface SpawnExecutionContext {
     /**
-     * Returns a unique id for this spawn, to be used for logging. Note that a single spawn may be
-     * passed to multiple {@link SpawnRunner} implementations, so any log entries should also
-     * contain the identity of the spawn runner implementation.
+     * Returns an id for this spawn, unique within the context of this Bazel server instance, to be
+     * used for logging. Note that a single spawn may be passed to multiple {@link SpawnRunner}
+     * implementations, so any log entries should also contain the identity of the spawn runner
+     * implementation.
      */
     int getId();
+
+    /**
+     * Sets the remote or disk cache digest for this spawn.
+     *
+     * <p>This is the digest that identifies a spawn result stored in a remote or disk cache. It
+     * should be set whenever the spawn is looked up in the cache, and later retrieved via {@link
+     * #getDigest} to be incorporated in the {@link SpawnResult} for a spawn that was executed due
+     * to a cache miss.
+     *
+     * @throws IllegalStateException if called multiple times with different digests.
+     */
+    void setDigest(Digest digest);
+
+    /**
+     * Returns the remote or disk cache digest for this spawn.
+     *
+     * <p>Only available if {@link #setDigest} has been previously called.
+     */
+    @Nullable
+    Digest getDigest();
 
     /**
      * Prefetches the Spawns input files to the local machine. There are cases where Bazel runs on a
@@ -316,4 +338,11 @@ public interface SpawnRunner {
    * @throws IOException if there are problems deleting the entries
    */
   default void cleanupSandboxBase(Path sandboxBase, TreeDeleter treeDeleter) throws IOException {}
+
+  /**
+   * Returns a {@link SpawnResult.Builder} prepopulated with the runner name and the spawn digest.
+   */
+  default SpawnResult.Builder getSpawnResultBuilder(SpawnExecutionContext context) {
+    return new SpawnResult.Builder().setRunnerName(getName()).setDigest(context.getDigest());
+  }
 }
