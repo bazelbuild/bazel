@@ -793,7 +793,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       name = "experimental_output_paths",
       converter = OutputPathsConverter.class,
       defaultValue = "off",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {
         OptionEffectTag.LOSES_INCREMENTAL_STATE,
         OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
