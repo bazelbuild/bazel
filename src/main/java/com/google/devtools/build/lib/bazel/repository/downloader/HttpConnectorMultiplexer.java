@@ -75,7 +75,7 @@ final class HttpConnectorMultiplexer {
   }
 
   public HttpStream connect(URL url, Optional<Checksum> checksum) throws IOException {
-    return connect(url, checksum, Map.of(), StaticCredentials.EMPTY, Optional.empty());
+    return connect(url, checksum, ImmutableMap.of(), StaticCredentials.EMPTY, Optional.empty());
   }
 
   /**
@@ -102,12 +102,13 @@ final class HttpConnectorMultiplexer {
     if (Thread.interrupted()) {
       throw new InterruptedIOException();
     }
-    Map<String, List<String>> baseHeaders = new HashMap<>(headers);
+    ImmutableMap.Builder<String, List<String>> baseHeaders = new ImmutableMap.Builder();
+    baseHeaders.putAll(headers);
     // REQUEST_HEADERS should not be overriable by user provided headers
     baseHeaders.putAll(REQUEST_HEADERS);
     
     Function<URL, ImmutableMap<String, List<String>>> headerFunction =
-        getHeaderFunction(baseHeaders, credentials);
+        getHeaderFunction(baseHeaders.buildOrThrow(), credentials);
     URLConnection connection = connector.connect(url, headerFunction);
     return httpStreamFactory.create(
         connection,
