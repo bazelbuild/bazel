@@ -319,6 +319,9 @@ public final class ArtifactFunction implements SkyFunction {
         case SYMLINK_CYCLE_OR_INFINITE_EXPANSION:
           throw new ArtifactFunctionException(
               SourceArtifactException.create(artifact, e), Transience.PERSISTENT);
+        case INCONSISTENT_FILESYSTEM:
+          throw new ArtifactFunctionException(
+              SourceArtifactException.create(artifact, e), Transience.TRANSIENT);
         case CANNOT_CROSS_PACKAGE_BOUNDARY:
           throw new IllegalStateException(
               String.format(
