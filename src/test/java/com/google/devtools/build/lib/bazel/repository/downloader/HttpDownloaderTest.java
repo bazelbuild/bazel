@@ -117,6 +117,7 @@ public class HttpDownloaderTest {
               Collections.singletonList(
                   new URL(String.format("http://localhost:%d/foo", server.getLocalPort()))),
               Collections.emptyMap(),
+              Collections.emptyMap(),
               Optional.empty(),
               "testCanonicalId",
               Optional.empty(),
@@ -180,6 +181,7 @@ public class HttpDownloaderTest {
       Path resultingFile =
           downloadManager.download(
               urls,
+              Collections.emptyMap(),
               Collections.emptyMap(),
               Optional.empty(),
               "testCanonicalId",
@@ -247,6 +249,7 @@ public class HttpDownloaderTest {
       Path resultingFile =
           downloadManager.download(
               urls,
+              Collections.emptyMap(),
               Collections.emptyMap(),
               Optional.empty(),
               "testCanonicalId",
@@ -317,6 +320,7 @@ public class HttpDownloaderTest {
         downloadManager.download(
             urls,
             Collections.emptyMap(),
+            Collections.emptyMap(),
             Optional.empty(),
             "testCanonicalId",
             Optional.empty(),
@@ -371,6 +375,7 @@ public class HttpDownloaderTest {
       httpDownloader.download(
           Collections.singletonList(
               new URL(String.format("http://localhost:%d/foo", server.getLocalPort()))),
+          Collections.emptyMap(),
           StaticCredentials.EMPTY,
           Optional.empty(),
           "testCanonicalId",
@@ -410,6 +415,7 @@ public class HttpDownloaderTest {
               httpDownloader.download(
                   Collections.singletonList(
                       new URL(String.format("http://localhost:%d/foo", server.getLocalPort()))),
+                  Collections.emptyMap(),
                   StaticCredentials.EMPTY,
                   Optional.empty(),
                   "testCanonicalId",
@@ -470,6 +476,7 @@ public class HttpDownloaderTest {
       Path destination = fs.getPath(workingDir.newFile().getAbsolutePath());
       httpDownloader.download(
           urls,
+          Collections.emptyMap(),
           StaticCredentials.EMPTY,
           Optional.empty(),
           "testCanonicalId",
@@ -564,13 +571,14 @@ public class HttpDownloaderTest {
                   throw new ContentLengthMismatchException(0, data.length);
                 })
         .when(downloader)
-        .download(any(), any(), any(), any(), any(), any(), any(), any());
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any());
 
     assertThrows(
         ContentLengthMismatchException.class,
         () ->
             downloadManager.download(
                 ImmutableList.of(new URL("http://localhost")),
+                Collections.emptyMap(),
                 ImmutableMap.of(),
                 Optional.empty(),
                 "testCanonicalId",
@@ -597,7 +605,7 @@ public class HttpDownloaderTest {
                   if (times.getAndIncrement() < 3) {
                     throw new ContentLengthMismatchException(0, data.length);
                   }
-                  Path output = invocationOnMock.getArgument(4, Path.class);
+                  Path output = invocationOnMock.getArgument(5, Path.class);
                   try (OutputStream outputStream = output.getOutputStream()) {
                     ByteStreams.copy(new ByteArrayInputStream(data), outputStream);
                   }
@@ -605,11 +613,12 @@ public class HttpDownloaderTest {
                   return null;
                 })
         .when(downloader)
-        .download(any(), any(), any(), any(), any(), any(), any(), any());
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any());
 
     Path result =
         downloadManager.download(
             ImmutableList.of(new URL("http://localhost")),
+            ImmutableMap.of(),
             ImmutableMap.of(),
             Optional.empty(),
             "testCanonicalId",
