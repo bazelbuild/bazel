@@ -56,7 +56,9 @@ public final class SpawnRunnerTestUtil {
 
   /** A rigged spawn execution policy that can be used for testing purposes. */
   public static final class SpawnExecutionContextForTesting implements SpawnExecutionContext {
-    private final List<ProgressStatus> reportedStatus = new ArrayList<>();
+    public final List<ProgressStatus> reportedStatus = new ArrayList<>();
+    public boolean prefetchCalled;
+    public boolean lockOutputFilesCalled;
 
     private final Spawn spawn;
     private final Duration timeout;
@@ -92,12 +94,15 @@ public final class SpawnRunnerTestUtil {
 
     @Override
     public ListenableFuture<Void> prefetchInputs() {
+      prefetchCalled = true;
       return immediateVoidFuture();
     }
 
     @Override
     public void lockOutputFiles(int exitCode, String errorMessage, FileOutErr outErr)
-        throws InterruptedException {}
+        throws InterruptedException {
+      lockOutputFilesCalled = true;
+    }
 
     @Override
     public boolean speculating() {
