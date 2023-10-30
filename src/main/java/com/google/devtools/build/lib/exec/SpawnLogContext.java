@@ -171,11 +171,9 @@ public class SpawnLogContext implements ActionContext {
     builder.setExitCode(result.exitCode());
     builder.setRemoteCacheHit(result.isCacheHit());
     builder.setRunner(result.getRunnerName());
+
     if (result.getDigest() != null) {
-      builder
-          .getDigestBuilder()
-          .setHash(result.getDigest().getHash())
-          .setSizeBytes(result.getDigest().getSizeBytes());
+      builder.setDigest(result.getDigest());
     }
 
     String progressMessage = spawn.getResourceOwner().getProgressMessage();

@@ -143,11 +143,9 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       try (SilentCloseable c = Profiler.instance().profile("sandbox.createFileSystem")) {
         sandbox.createFileSystem();
       }
-      FileOutErr outErr = context.getFileOutErr();
-
       SpawnResult result;
       try (SilentCloseable c = Profiler.instance().profile("subprocess.run")) {
-        result = run(originalSpawn, sandbox, context.getTimeout(), outErr);
+        result = run(originalSpawn, sandbox, context);
       }
       try (SilentCloseable c = Profiler.instance().profile("sandbox.verifyPostCondition")) {
         verifyPostCondition(originalSpawn, sandbox, context);
@@ -156,7 +154,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       context.lockOutputFiles(
           result.exitCode(),
           result.failureDetail() != null ? result.failureDetail().getMessage() : "",
-          outErr);
+          context.getFileOutErr());
       try (SilentCloseable c = Profiler.instance().profile("sandbox.copyOutputs")) {
         // We copy the outputs even when the command failed.
         sandbox.copyOutputs(execRoot);
@@ -189,8 +187,14 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   }
 
   private final SpawnResult run(
-      Spawn originalSpawn, SandboxedSpawn sandbox, Duration timeout, FileOutErr outErr)
+      Spawn originalSpawn, SandboxedSpawn sandbox, SpawnExecutionContext context)
       throws IOException, InterruptedException {
+
+    SpawnResult.Builder spawnResultBuilder = getSpawnResultBuilder(context);
+
+    FileOutErr outErr = context.getFileOutErr();
+    Duration timeout = context.getTimeout();
+
     SubprocessBuilder subprocessBuilder = new SubprocessBuilder();
     subprocessBuilder.setWorkingDirectory(sandbox.getSandboxExecRoot().getPathFile());
     subprocessBuilder.setStdout(outErr.getOutputPath().getPathFile());
@@ -229,8 +233,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       outErr.getErrorStream().write(msg.toString().getBytes(UTF_8));
       outErr.getErrorStream().flush();
       String message = makeFailureMessage(originalSpawn, sandbox);
-      return new SpawnResult.Builder()
-          .setRunnerName(getName())
+      return spawnResultBuilder
           .setStatus(Status.EXECUTION_FAILED)
           .setExitCode(LOCAL_EXEC_ERROR)
           .setFailureMessage(message)
@@ -279,14 +282,12 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       }
     }
 
-    SpawnResult.Builder spawnResultBuilder =
-        new SpawnResult.Builder()
-            .setRunnerName(getName())
-            .setStatus(status)
-            .setExitCode(exitCode)
-            .setStartTime(startTime)
-            .setWallTimeInMs((int) wallTime.toMillis())
-            .setFailureMessage(failureMessage);
+    spawnResultBuilder
+        .setStatus(status)
+        .setExitCode(exitCode)
+        .setStartTime(startTime)
+        .setWallTimeInMs((int) wallTime.toMillis())
+        .setFailureMessage(failureMessage);
 
     if (failureDetail != null) {
       spawnResultBuilder.setFailureDetail(failureDetail);

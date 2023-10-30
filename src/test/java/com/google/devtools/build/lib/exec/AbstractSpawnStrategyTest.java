@@ -81,6 +81,9 @@ public class AbstractSpawnStrategyTest {
           .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.NON_ZERO_EXIT))
           .build();
 
+  private static final Digest DIGEST =
+      Digest.newBuilder().setHash("abc123").setSizeBytes(42).setHashFunctionName("SHA-256").build();
+
   private static class TestedSpawnStrategy extends AbstractSpawnStrategy {
     public TestedSpawnStrategy(Path execRoot, SpawnRunner spawnRunner) {
       super(execRoot, spawnRunner, new ExecutionOptions());
@@ -408,6 +411,7 @@ public class AbstractSpawnStrategyTest {
             .setWalltime(Duration.getDefaultInstance())
             .setTargetLabel("//dummy:label")
             .setMetrics(Protos.SpawnMetrics.getDefaultInstance())
+            .setDigest(DIGEST)
             .build();
     verify(messageOutput).write(expectedSpawnLog);
   }
@@ -589,6 +593,7 @@ public class AbstractSpawnStrategyTest {
                 .setExitCode(23)
                 .setFailureDetail(NON_ZERO_EXIT_DETAILS)
                 .setRunnerName("runner")
+                .setDigest(DIGEST)
                 .build());
     when(actionExecutionContext.getInputMetadataProvider())
         .thenReturn(mock(InputMetadataProvider.class));
@@ -608,6 +613,7 @@ public class AbstractSpawnStrategyTest {
         .setRemoteCacheable(true)
         .setWalltime(Duration.getDefaultInstance())
         .setTargetLabel("//dummy:label")
+        .setDigest(DIGEST)
         .setMetrics(Protos.SpawnMetrics.getDefaultInstance());
   }
 }

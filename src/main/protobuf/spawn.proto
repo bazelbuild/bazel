@@ -21,11 +21,12 @@ import "google/protobuf/duration.proto";
 option java_package = "com.google.devtools.build.lib.exec";
 option java_outer_classname = "Protos";
 
+// Digest of a file or action cache entry.
 message Digest {
-  // Digest of a file's contents using the current FileSystem digest function.
+  // The content hash.
   string hash = 1;
 
-  // The size in bytes of the original content.
+  // The original content size in bytes.
   int64 size_bytes = 2;
 
   // The digest function that was used to generate the hash.
@@ -39,7 +40,7 @@ message File {
   // Path to the file relative to the execution root.
   string path = 1;
 
-  // Digest of the file's contents.
+  // File digest.
   Digest digest = 2;
 
   // Whether the file is a tool.
@@ -183,7 +184,9 @@ message SpawnExec {
   // set.
   string target_label = 18;
 
-  // A unique identifier for this Spawn.
+  // The action cache digest.
+  // Only available when remote execution, remote cache or disk cache was
+  // enabled for this spawn.
   Digest digest = 19;
 
   // Timing, size and memory statistics.
