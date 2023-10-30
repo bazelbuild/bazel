@@ -77,6 +77,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -231,7 +232,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     ImmutableMap.Builder<String, List<String>> headers = new ImmutableMap.Builder<>();
 
     for (Map.Entry<String, List> headerEntry : headersUnchecked.entrySet()) {
-      List<String> headerValue = headerEntry.getValue().stream().map(r -> r.toString()).toList();
+      List<String> headerValue = (List<String>) headerEntry.getValue().stream().map(r -> r.toString()).collect(Collectors.toList());
       headers.put(headerEntry.getKey(), headerValue);
     }
     return headers.buildOrThrow();
