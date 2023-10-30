@@ -178,6 +178,7 @@ public class GrpcRemoteDownloaderTest {
     final Path destination = scratch.resolve("output file path");
     downloader.download(
         urls,
+        ImmutableMap.of(),
         StaticCredentials.EMPTY,
         checksum,
         canonicalId,
@@ -240,13 +241,13 @@ public class GrpcRemoteDownloaderTest {
             invocation -> {
               List<URL> urls = invocation.getArgument(0);
               if (urls.equals(ImmutableList.of(new URL("http://example.com/content.txt")))) {
-                Path output = invocation.getArgument(4);
+                Path output = invocation.getArgument(5);
                 FileSystemUtils.writeContent(output, content);
               }
               return null;
             })
         .when(fallbackDownloader)
-        .download(any(), any(), any(), any(), any(), any(), any(), any());
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any());
     final GrpcRemoteDownloader downloader = newDownloader(cacheClient, fallbackDownloader);
 
     final byte[] downloaded =
