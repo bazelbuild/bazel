@@ -644,15 +644,6 @@ public interface JavaCommonApi<
   String getTargetKind(Object target, StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
-      name = "get_build_info",
-      documented = false,
-      parameters = {@Param(name = "ctx"), @Param(name = "is_stamping_enabled")},
-      useStarlarkThread = true)
-  Sequence<FileT> getBuildInfo(
-      StarlarkRuleContextT ruleContext, boolean isStampingEnabled, StarlarkThread thread)
-      throws EvalException, InterruptedException;
-
-  @StarlarkMethod(
       name = "collect_native_deps_dirs",
       parameters = {@Param(name = "libraries")},
       useStarlarkThread = true,

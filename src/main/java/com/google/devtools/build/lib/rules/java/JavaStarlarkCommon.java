@@ -309,19 +309,6 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public Sequence<Artifact> getBuildInfo(
-      StarlarkRuleContext starlarkRuleContext, boolean isStampingEnabled, StarlarkThread thread)
-      throws EvalException, InterruptedException {
-    checkPrivateAccess(thread);
-    RuleContext ruleContext = starlarkRuleContext.getRuleContext();
-    return StarlarkList.immutableCopyOf(
-        ruleContext
-            .getAnalysisEnvironment()
-            .getBuildInfo(
-                isStampingEnabled, JavaBuildInfoFactory.KEY, ruleContext.getConfiguration()));
-  }
-
-  @Override
   public Sequence<String> collectNativeLibsDirs(Depset libraries, StarlarkThread thread)
       throws EvalException, TypeException {
     checkPrivateAccess(thread);

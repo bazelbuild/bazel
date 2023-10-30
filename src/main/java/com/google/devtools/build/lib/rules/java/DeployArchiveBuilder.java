@@ -45,6 +45,10 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashSet;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkInt;
 
 /** Utility for configuring an action to generate a deploy archive. */
 public class DeployArchiveBuilder {
@@ -367,6 +371,35 @@ public class DeployArchiveBuilder {
     return inputs.build();
   }
 
+  @SuppressWarnings("unchecked")
+  @Nullable
+  private static ImmutableList<Artifact> asArtifactImmutableList(Object o) {
+    if (o == Starlark.UNBOUND) {
+      return null;
+    } else {
+      ImmutableList<Artifact> list = ((Sequence<Artifact>) o).getImmutableList();
+      if (list.isEmpty()) {
+        return null;
+      }
+      return list;
+    }
+  }
+
+  private static ImmutableList<Artifact> getBuildInfo(RuleContext ruleContext, int stamp)
+      throws RuleErrorException, InterruptedException {
+
+    StarlarkFunction getBuildInfo =
+        (StarlarkFunction) ruleContext.getStarlarkDefinedBuiltin("get_build_info");
+    ruleContext.initStarlarkRuleContext();
+    Object buildInfoFilesObject =
+        ruleContext.callStarlarkOrThrowRuleError(
+            getBuildInfo,
+            ImmutableList.of(
+                /* ctx */ ruleContext.getStarlarkRuleContext(), /* stamp */ StarlarkInt.of(stamp)),
+            ImmutableMap.of());
+    return asArtifactImmutableList(buildInfoFilesObject);
+  }
+
   /** Builds the action as configured. */
   public void build() throws InterruptedException, RuleErrorException {
     ImmutableList<Artifact> classpathResources = attributes.getClassPathResources();
@@ -407,7 +440,7 @@ public class DeployArchiveBuilder {
       stamp = ruleContext.attributes().get("stamp", BuildType.TRISTATE).toInt();
     }
     try {
-      buildInfoArtifacts = semantics.getBuildInfo(ruleContext, stamp);
+      buildInfoArtifacts = getBuildInfo(ruleContext, stamp);
     } catch (RuleErrorException e) {
       throw new InterruptedException("Translating BuildInfo files failed: " + e);
     }
