@@ -326,7 +326,7 @@ public class LocalSpawnRunner implements SpawnRunner {
       logger.atInfo().log("starting local subprocess #%d, argv: %s", id, debugCmdString());
 
       SpawnResult.Builder spawnResultBuilder =
-          new SpawnResult.Builder().setRunnerName(getName()).setExecutorHostname(hostName);
+          getSpawnResultBuilder(context).setExecutorHostname(hostName);
 
       FileOutErr outErr = context.getFileOutErr();
       String actionType = spawn.getResourceOwner().getMnemonic();

@@ -30,7 +30,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/main/protobuf:spawn_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",

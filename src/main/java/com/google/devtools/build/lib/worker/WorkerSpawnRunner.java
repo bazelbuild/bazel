@@ -213,8 +213,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
     int exitCode = response.getExitCode();
     SpawnResult.Builder builder =
-        new SpawnResult.Builder()
-            .setRunnerName(getName())
+        getSpawnResultBuilder(context)
             .setExitCode(exitCode)
             .setStatus(exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT)
             .setStartTime(startTime)

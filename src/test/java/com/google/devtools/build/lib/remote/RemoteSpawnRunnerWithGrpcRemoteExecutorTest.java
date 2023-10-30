@@ -355,7 +355,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             /* cmdlineReporter= */ null,
             retryService,
             logDir,
-            remoteExecutionService);
+            remoteExecutionService,
+            DIGEST_UTIL);
 
     inputDigest =
         fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().getSingleton(), "xyz");
