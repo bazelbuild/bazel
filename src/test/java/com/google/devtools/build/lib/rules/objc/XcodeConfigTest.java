@@ -428,7 +428,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
     getConfiguredTarget("//xcode:foo");
     assertContainsEvent(
         "--xcode_version=6 specified, but '6' is not an available Xcode version."
-            + " localy available versions: [8.4]. remotely available versions:"
+            + " Locally available versions: [8.4]. Remotely available versions:"
             + " [5.1.2, 8.4].");
   }
 
