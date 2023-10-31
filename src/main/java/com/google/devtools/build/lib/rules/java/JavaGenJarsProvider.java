@@ -131,6 +131,11 @@ public interface JavaGenJarsProvider
   abstract class NativeJavaGenJarsProvider implements JavaGenJarsProvider {
 
     @Override
+    public boolean isImmutable() {
+      return true;
+    }
+
+    @Override
     public abstract boolean usesAnnotationProcessing();
 
     @Nullable
