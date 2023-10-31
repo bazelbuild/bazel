@@ -622,6 +622,10 @@ public class BzlLoadFunction implements SkyFunction {
         || (key instanceof BzlLoadValue.KeyForBzlmod && !isFileSafeForUninjectedEvaluation(key));
   }
 
+  private static final PackageIdentifier BAZEL_TOOLS_BOOTSTRAP_RULES_PACKAGE =
+      PackageIdentifier.create(
+          RepositoryName.BAZEL_TOOLS, PathFragment.create("tools/build_defs/repo"));
+
   private static boolean isFileSafeForUninjectedEvaluation(BzlLoadValue.Key key) {
     // We don't inject _builtins for repo rules to avoid a Skyframe cycle.
     // The cycle is caused only with bzlmod because the `@_builtins` repo does not declare its own
@@ -629,9 +633,7 @@ public class BzlLoadFunction implements SkyFunction {
     // Bazel module resolution, and if there are any non-registry overrides in the root MODULE.bazel
     // file (such as `git_override` or `archive_override`), the corresponding bzl files will be
     // evaluated.
-    return PackageIdentifier.create(
-            RepositoryName.BAZEL_TOOLS, PathFragment.create("tools/build_defs/repo"))
-        .equals(key.getLabel().getPackageIdentifier());
+    return key.getLabel().getPackageIdentifier().equals(BAZEL_TOOLS_BOOTSTRAP_RULES_PACKAGE);
   }
 
   /**
@@ -944,7 +946,7 @@ public class BzlLoadFunction implements SkyFunction {
     }
 
     if (key instanceof BzlLoadValue.KeyForBzlmod) {
-      if (repoName.equals(RepositoryName.BAZEL_TOOLS) && isFileSafeForUninjectedEvaluation(key)) {
+      if (key.getLabel().getPackageIdentifier().equals(BAZEL_TOOLS_BOOTSTRAP_RULES_PACKAGE)) {
         // Special case: we're only here to get one of the rules in the @bazel_tools repo that
         // load Bazel modules. At this point we can't load from any other modules and thus use a
         // repository mapping that contains only @bazel_tools itself.
