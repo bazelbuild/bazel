@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
+import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
@@ -176,8 +177,13 @@ public class NewRepositoryFileHandler {
         return null;
       }
       if (!pkgLookupValue.packageExists()) {
+        String message = pkgLookupValue.getErrorMsg();
+        if (pkgLookupValue == PackageLookupValue.NO_BUILD_FILE_VALUE) {
+          message = PackageLookupFunction.explainNoBuildFileValue(label.getPackageIdentifier(),
+              env);
+        }
         throw new RepositoryFunctionException(
-            Starlark.errorf("Unable to load package for %s: not found.", label),
+            Starlark.errorf("Unable to load package for %s: %s", label, message),
             Transience.PERSISTENT);
       }
 
