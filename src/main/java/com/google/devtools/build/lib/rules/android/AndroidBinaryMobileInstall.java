@@ -342,7 +342,7 @@ public final class AndroidBinaryMobileInstall {
       return null;
     }
 
-    if (!JavaInfo.isJavaTarget(dep)) {
+    if (!JavaInfo.isJavaLibraryesqueTarget(dep)) {
       ruleContext.attributeError(attribute, "'" + dep.getLabel() + "' should be a Java target");
       return null;
     }
