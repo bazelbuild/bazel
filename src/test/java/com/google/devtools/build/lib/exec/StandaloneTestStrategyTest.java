@@ -625,10 +625,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
             .setRunnerName("test")
             .build();
     SpawnResult xmlGeneratorSpawnResult =
-        new SpawnResult.Builder()
-            .setStatus(Status.SUCCESS)
-            .setRunnerName("test")
-            .build();
+        new SpawnResult.Builder().setStatus(Status.SUCCESS).setRunnerName("test").build();
     List<FileOutErr> called = new ArrayList<>();
     when(spawnStrategy.exec(any(), any()))
         .thenAnswer(

@@ -60,7 +60,7 @@ public interface SpawnCache extends ActionContext {
   /**
    * Helper method to create a {@link CacheHandle} from a successful {@link SpawnResult} instance.
    */
-  public static CacheHandle success(final SpawnResult result) {
+  public static CacheHandle success(SpawnResult result) {
     return new CacheHandle() {
       @Override
       public boolean hasResult() {

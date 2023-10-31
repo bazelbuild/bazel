@@ -201,4 +201,47 @@ EOF
   grep "\"remoteCacheable\": false" output.json || fail "log does not contain valid remoteCacheable entry"
 }
 
+function test_digest() {
+  cat > BUILD <<'EOF'
+genrule(
+    name = "gen",
+    outs = ["out.txt"],
+    cmd = "touch $@",
+)
+EOF
+
+  DIGEST="\"digest\": "
+
+  CACHEDIR=$(mktemp -d)
+
+  # No cache
+  # Expect 2 digests (genrule-setup.sh and out.txt).
+  bazel build //:gen --execution_log_json_file=output.json \
+       >& $TEST_log || fail "build failed"
+  expect_log "1 .*-sandbox"
+  if [[ $(grep -c "$DIGEST" output.json) -ne 2 ]]; then
+    fail "digest present on build without cache"
+  fi
+
+  # Cache miss
+  # Expect 3 digests (genrule-setup.sh, out.txt, action digest).
+  bazel clean
+  bazel build //:gen --execution_log_json_file=output.json \
+      --disk_cache="$CACHEDIR"  >& $TEST_log || fail "build failed"
+  expect_log "1 .*-sandbox"
+  if [[ $(grep -c "$DIGEST" output.json) -ne 3 ]]; then
+    fail "digest missing on cache miss"
+  fi
+
+  # Cache hit
+  # Expect 3 digests (genrule-setup.sh, out.txt, action digest).
+  bazel clean
+  bazel build //:gen --execution_log_json_file=output.json \
+      --disk_cache="$CACHEDIR"  >& $TEST_log || fail "build failed"
+  expect_log "1 disk cache hit"
+  if [[ $(grep -c "$DIGEST" output.json) -ne 3 ]]; then
+    fail "digest missing on cache hit"
+  fi
+}
+
 run_suite "execlog_tests"

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
@@ -90,6 +91,17 @@ public final class SpawnRunnerTestUtil {
     @Override
     public int getId() {
       return 0;
+    }
+
+    @Override
+    public void setDigest(Digest digest) {
+      // Intentionally empty.
+    }
+
+    @Override
+    @Nullable
+    public Digest getDigest() {
+      return null;
     }
 
     @Override

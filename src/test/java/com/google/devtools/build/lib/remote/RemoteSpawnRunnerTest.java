@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static org.junit.Assert.assertThrows;
@@ -1152,11 +1153,12 @@ public class RemoteSpawnRunnerTest {
             execRoot,
             remoteOptions,
             executionOptions,
-            true,
+            /* verboseFailures= */ true,
             /* cmdlineReporter= */ null,
             retryService,
             logDir,
-            remoteExecutionService);
+            remoteExecutionService,
+            digestUtil);
 
     ExecuteResponse succeeded =
         ExecuteResponse.newBuilder()
@@ -1307,11 +1309,11 @@ public class RemoteSpawnRunnerTest {
     verify(service)
         .executeRemotely(requestCaptor.capture(), anyBoolean(), any(OperationObserver.class));
 
+    assertThat(policy.getDigest())
+        .isEqualTo(digestUtil.asSpawnLogProto(requestCaptor.getValue().getActionKey()));
+
     assertThat(res.getDigest())
-        .isEqualTo(
-            SpawnResult.Digest.of(
-                requestCaptor.getValue().getActionKey().getDigest().getHash(),
-                requestCaptor.getValue().getActionKey().getDigest().getSizeBytes()));
+        .isEqualTo(digestUtil.asSpawnLogProto(requestCaptor.getValue().getActionKey()));
   }
 
   @Test
@@ -1686,10 +1688,11 @@ public class RemoteSpawnRunnerTest {
         execRoot,
         remoteOptions,
         Options.getDefaults(ExecutionOptions.class),
-        false,
+        /* verboseFailures= */ false,
         reporter,
         retryService,
         logDir,
-        service);
+        service,
+        digestUtil);
   }
 }
