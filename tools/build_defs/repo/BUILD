@@ -8,7 +8,9 @@ exports_files(glob(["*.bzl"]))
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//tools/build_defs/repo/private:srcs",
+    ],
     visibility = ["//tools/build_defs:__pkg__"],
 )
 
@@ -17,19 +19,23 @@ filegroup(
     srcs = [
         "http.bzl",
         "utils.bzl",
+        "//tools/build_defs/repo/private:bzl_srcs",
     ],
     visibility = ["//src/test/py/bazel:__pkg__"],
 )
 
 filegroup(
     name = "embedded_tools",
-    srcs = glob(["*.bzl"]) + ["BUILD.repo"],
+    srcs = glob(["*.bzl"]) + ["BUILD.repo"] + [
+        "//tools/build_defs/repo/private:embedded_tools",
+    ],
     visibility = ["//tools/build_defs:__pkg__"],
 )
 
 bzl_library(
     name = "lib",
     srcs = glob(["*.bzl"]),
+    deps = ["//tools/build_defs/repo/private:lib"],
 )
 
 genrule(
