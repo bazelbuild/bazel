@@ -211,7 +211,11 @@ public class NewRepositoryFileHandler {
 
       if (!fileValue.isFile() || fileValue.isSpecialFile()) {
         throw new RepositoryFunctionException(
-            Starlark.errorf("%s is not a regular file", rootedFile.asPath()),
+            Starlark.errorf(
+                "%s is not a regular file; if you're using a relative or absolute path for "
+                    + "`build_file` in your `new_local_repository` rule, please switch to using a "
+                    + "label instead",
+                rootedFile.asPath()),
             Transience.PERSISTENT);
       }
 
