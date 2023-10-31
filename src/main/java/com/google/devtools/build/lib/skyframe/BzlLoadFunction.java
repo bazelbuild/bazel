@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
@@ -68,6 +69,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
@@ -626,6 +628,12 @@ public class BzlLoadFunction implements SkyFunction {
       PackageIdentifier.create(
           RepositoryName.BAZEL_TOOLS, PathFragment.create("tools/build_defs/repo"));
 
+  private static final Set<PackageIdentifier> FILES_SAFE_FOR_UNINJECTED_EVALUATION =
+      ImmutableSet.of(
+          BAZEL_TOOLS_BOOTSTRAP_RULES_PACKAGE,
+          PackageIdentifier.create(
+              RepositoryName.BAZEL_TOOLS, PathFragment.create("tools/build_defs/repo/private")));
+
   private static boolean isFileSafeForUninjectedEvaluation(BzlLoadValue.Key key) {
     // We don't inject _builtins for repo rules to avoid a Skyframe cycle.
     // The cycle is caused only with bzlmod because the `@_builtins` repo does not declare its own
@@ -633,7 +641,7 @@ public class BzlLoadFunction implements SkyFunction {
     // Bazel module resolution, and if there are any non-registry overrides in the root MODULE.bazel
     // file (such as `git_override` or `archive_override`), the corresponding bzl files will be
     // evaluated.
-    return key.getLabel().getPackageIdentifier().equals(BAZEL_TOOLS_BOOTSTRAP_RULES_PACKAGE);
+    return FILES_SAFE_FOR_UNINJECTED_EVALUATION.contains(key.getLabel().getPackageIdentifier());
   }
 
   /**
