@@ -354,6 +354,14 @@ def _generate_def_file(ctx, def_parser, object_files, dll_name):
     )
     return def_file
 
+def _is_non_empty_list_or_select(value, attr):
+    if type(value) == "list":
+        return len(value) > 0
+    elif type(value) == "select":
+        return True
+    else:
+        fail("Only select or list is valid for {} attr".format(attr))
+
 CC_SOURCE = [".cc", ".cpp", ".cxx", ".c++", ".C", ".cu", ".cl"]
 C_SOURCE = [".c"]
 OBJC_SOURCE = [".m"]
@@ -1232,6 +1240,7 @@ cc_helper = struct(
     get_copts = _get_copts,
     get_expanded_env = _get_expanded_env,
     has_target_constraints = _has_target_constraints,
+    is_non_empty_list_or_select = _is_non_empty_list_or_select,
     expand_make_variables_for_copts = _expand_make_variables_for_copts,
     build_linking_context_from_libraries = _build_linking_context_from_libraries,
     is_stamping_enabled = _is_stamping_enabled,
