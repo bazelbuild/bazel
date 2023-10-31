@@ -1127,9 +1127,7 @@ public class AspectTest extends AnalysisTestCase {
                     "//foo:foo"));
     assertThat(exception)
         .hasMessageThat()
-        .containsMatch(
-            "ConflictException: for foo/aspect.out, previous action: action 'Action for aspect .',"
-                + " attempted action: action 'Action for aspect .'");
+        .containsMatch("ConflictException: file 'foo/aspect.out'");
     MoreAsserts.assertContainsEvent(
         eventCollector,
         Pattern.compile(
@@ -1151,20 +1149,19 @@ public class AspectTest extends AnalysisTestCase {
     scratch.overwriteFile("foo/aspect.bzl", String.format(bzlFileTemplate, "2"));
     // Expect errors.
     reporter.removeHandler(failFastHandler);
-    exception =
-        assertThrows(
-            ViewCreationFailedException.class,
-            () ->
-                update(
-                    new EventBus(),
-                    defaultFlags(),
-                    ImmutableList.of("//foo:aspect.bzl%aspect1", "//foo:aspect.bzl%aspect2"),
-                    "//foo:foo"));
-    assertThat(exception)
-        .hasMessageThat()
-        .containsMatch(
-            "ConflictException: for foo/aspect.out, previous action: action 'Action for aspect .',"
-                + " attempted action: action 'Action for aspect .'");
+    assertThrows(
+        ViewCreationFailedException.class,
+        () ->
+            update(
+                new EventBus(),
+                defaultFlags(),
+                ImmutableList.of("//foo:aspect.bzl%aspect1", "//foo:aspect.bzl%aspect2"),
+                "//foo:foo"));
+    MoreAsserts.assertContainsEvent(
+        eventCollector,
+        Pattern.compile(
+            "Aspects: \\[//foo:aspect.bzl%aspect[12]], \\[//foo:aspect.bzl%aspect[12]]"),
+        EventKind.ERROR);
   }
 
   @Test
@@ -1200,7 +1197,9 @@ public class AspectTest extends AnalysisTestCase {
     reporter.removeHandler(failFastHandler);
     ViewCreationFailedException exception =
         assertThrows(ViewCreationFailedException.class, () -> update("//foo:foo"));
-    assertThat(exception).hasMessageThat().containsMatch("ConflictException: for foo/conflict.out");
+    assertThat(exception)
+        .hasMessageThat()
+        .containsMatch("ConflictException: file 'foo/conflict.out'");
     MoreAsserts.assertContainsEvent(
         eventCollector,
         Pattern.compile(
