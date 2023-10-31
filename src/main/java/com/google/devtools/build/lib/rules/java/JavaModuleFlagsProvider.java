@@ -45,6 +45,11 @@ import net.starlark.java.eval.Starlark;
 abstract class JavaModuleFlagsProvider
     implements JavaInfoInternalProvider, JavaModuleFlagsProviderApi {
 
+  @Override
+  public boolean isImmutable() {
+    return true;
+  }
+
   public abstract NestedSet<String> addExports();
 
   public abstract NestedSet<String> addOpens();
