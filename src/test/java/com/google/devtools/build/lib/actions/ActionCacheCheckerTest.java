@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ARTIFACT_OWNER;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.createArtifact;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.createTreeArtifactWithGeneratingAction;
+import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.writeIsoLatin1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.mockito.ArgumentMatchers.any;
@@ -398,9 +399,10 @@ public class ActionCacheCheckerTest {
   @Test
   public void testDifferentFiles() throws Exception {
     Action action = new WriteEmptyOutputAction();
-    runAction(action);  // Not cached.
+    runAction(action); // Not cached.
+    assertThat(readContent(action.getPrimaryOutput().getPath(), UTF_8)).isEmpty();
     writeContentAsLatin1(action.getPrimaryOutput().getPath(), "modified");
-    runAction(action);  // Cache miss because output files were modified.
+    runAction(action); // Cache miss because output files were modified.
 
     assertStatistics(
         0,
@@ -462,12 +464,18 @@ public class ActionCacheCheckerTest {
                 Order.STABLE_ORDER, ActionsTestUtil.createArtifact(root, path));
           }
         };
-    runAction(action);  // Not cached so recorded as different deps.
+    // Manually register outputs of middleman action in `filesToDelete` because it won't get a cache
+    // token to execute and register in `runAction`. Failing to delete outputs may populate the
+    // filesystem for other test cases. b/308017721
+    for (var output : action.getOutputs()) {
+      filesToDelete.add(output.getPath());
+    }
+    runAction(action); // Not cached so recorded as different deps.
     writeContentAsLatin1(action.getPrimaryInput().getPath(), "modified");
-    runAction(action);  // Cache miss because input files were modified.
+    runAction(action); // Cache miss because input files were modified.
     writeContentAsLatin1(action.getPrimaryOutput().getPath(), "modified");
-    runAction(action);  // Outputs are not considered for middleman actions, so this is a cache hit.
-    runAction(action);  // Outputs are not considered for middleman actions, so this is a cache hit.
+    runAction(action); // Outputs are not considered for middleman actions, so this is a cache hit.
+    runAction(action); // Outputs are not considered for middleman actions, so this is a cache hit.
 
     assertStatistics(
         2,
@@ -1688,7 +1696,7 @@ public class ActionCacheCheckerTest {
         Path path = output.getPath();
         if (!path.exists()) {
           try {
-            FileSystemUtils.writeContentAsLatin1(path, "");
+            writeContentAsLatin1(path, "");
           } catch (IOException e) {
             throw new IllegalStateException("Failed to create output", e);
           }
