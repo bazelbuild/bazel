@@ -944,12 +944,12 @@ public class BzlLoadFunction implements SkyFunction {
     }
 
     if (key instanceof BzlLoadValue.KeyForBzlmod) {
-      if (repoName.equals(RepositoryName.BAZEL_TOOLS)) {
-        // Special case: we're only here to get the @bazel_tools repo (for example, for
-        // http_archive). This repo shouldn't have visibility into anything else (during repo
-        // generation), so we just return an empty repo mapping.
-        // TODO(wyv): disallow fallback.
-        return RepositoryMapping.ALWAYS_FALLBACK;
+      if (repoName.equals(RepositoryName.BAZEL_TOOLS) && isFileSafeForUninjectedEvaluation(key)) {
+        // Special case: we're only here to get one of the rules in the @bazel_tools repo that
+        // load Bazel modules. At this point we can't load from any other modules and thus use a
+        // repository mapping that contains only @bazel_tools itself.
+        return RepositoryMapping.create(
+            ImmutableMap.of("bazel_tools", RepositoryName.BAZEL_TOOLS), RepositoryName.BAZEL_TOOLS);
       }
       if (repoName.isMain()) {
         // Special case: when we try to run an extension in the main repo, we need to grab the repo
