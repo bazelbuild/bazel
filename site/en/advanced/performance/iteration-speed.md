@@ -90,3 +90,6 @@ server was restarted. Either of these should be avoided during iterative use:
 *   If you want to use multiple sets of flags from the same workspace, you can
     use multiple, distinct output bases, switched with the `--output_base`
     flag. Each output base gets its own Bazel server.
+
+To make this condition an error rather than a warning, you can use the
+`--noallow_analysis_cache_discard` flag (introduced in Bazel 6.4.0)
