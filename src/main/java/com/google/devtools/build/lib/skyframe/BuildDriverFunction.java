@@ -191,7 +191,7 @@ public class BuildDriverFunction implements SkyFunction {
       try (SilentCloseable c =
           Profiler.instance().profile("BuildDriverFunction.checkActionConflicts")) {
         ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts =
-            checkActionConflicts(actionLookupKey, buildDriverKey.strictActionConflictCheck());
+            checkActionConflicts(actionLookupKey);
         if (!actionConflicts.isEmpty()) {
           throw new BuildDriverFunctionException(
               new TopLevelConflictException(
@@ -609,20 +609,19 @@ public class BuildDriverFunction implements SkyFunction {
 
   @VisibleForTesting
   ImmutableMap<ActionAnalysisMetadata, ConflictException> checkActionConflicts(
-      ActionLookupKey actionLookupKey, boolean strictConflictCheck) throws InterruptedException {
+      ActionLookupKey actionLookupKey) throws InterruptedException {
     IncrementalArtifactConflictFinder localRef = incrementalArtifactConflictFinder.get();
     // a null value means that the conflict checker is shut down.
     if (localRef == null) {
       return ImmutableMap.of();
     }
     if (transitiveActionLookupValuesHelper.trackingStateForIncrementality()) {
-      return localRef.findArtifactConflicts(actionLookupKey, strictConflictCheck).getConflicts();
+      return localRef.findArtifactConflicts(actionLookupKey).getConflicts();
     }
     ActionLookupValuesCollectionResult transitiveValueCollectionResult =
         transitiveActionLookupValuesHelper.collect();
     return localRef
-        .findArtifactConflictsNoIncrementality(
-            transitiveValueCollectionResult.collectedValues(), strictConflictCheck)
+        .findArtifactConflictsNoIncrementality(transitiveValueCollectionResult.collectedValues())
         .getConflicts();
   }
 

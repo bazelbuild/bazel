@@ -108,9 +108,9 @@ public final class IncrementalArtifactConflictFinder {
     return threadSafeMutableActionGraph.getSize();
   }
 
-  ActionConflictsAndStats findArtifactConflicts(
-      ActionLookupKey actionLookupKey, boolean strictConflictChecks) throws InterruptedException {
-    return findArtifactConflicts(actionLookupKey, strictConflictChecks, /* inRerun= */ false);
+  ActionConflictsAndStats findArtifactConflicts(ActionLookupKey actionLookupKey)
+      throws InterruptedException {
+    return findArtifactConflicts(actionLookupKey, /* inRerun= */ false);
   }
 
   /**
@@ -231,8 +231,7 @@ public final class IncrementalArtifactConflictFinder {
    * executing.
    * }</pre>
    */
-  ActionConflictsAndStats findArtifactConflicts(
-      ActionLookupKey actionLookupKey, boolean strictConflictChecks, boolean inRerun)
+  ActionConflictsAndStats findArtifactConflicts(ActionLookupKey actionLookupKey, boolean inRerun)
       throws InterruptedException {
     ConcurrentMap<ActionAnalysisMetadata, ConflictException> temporaryBadActionMap =
         new ConcurrentHashMap<>();
@@ -258,8 +257,7 @@ public final class IncrementalArtifactConflictFinder {
                 actionCheckingFutures,
                 temporaryBadActionMap,
                 // While rerunning, we only keep a local set of visited ALKs.
-                /* dedupSet= */ inRerun ? Sets.newConcurrentHashSet() : globalVisited,
-                strictConflictChecks));
+                /* dedupSet= */ inRerun ? Sets.newConcurrentHashSet() : globalVisited));
         exclusivePool.awaitQuiescenceWithoutShutdown(true);
       }
     }
@@ -296,7 +294,7 @@ public final class IncrementalArtifactConflictFinder {
       // No need to rerun if the temporaryBadActionMap is non-empty: this means a conflict has
       // been detected for this top level target and it won't be executed. That's all we want.
       if (conflictFound.get() && toWaitFor != null && temporaryBadActionMap.isEmpty()) {
-        return findArtifactConflicts(actionLookupKey, strictConflictChecks, /* inRerun= */ true);
+        return findArtifactConflicts(actionLookupKey, /* inRerun= */ true);
       }
     }
 
@@ -305,8 +303,7 @@ public final class IncrementalArtifactConflictFinder {
   }
 
   ActionConflictsAndStats findArtifactConflictsNoIncrementality(
-      ImmutableCollection<SkyValue> actionLookupValues, boolean strictConflictChecks)
-      throws InterruptedException {
+      ImmutableCollection<SkyValue> actionLookupValues) throws InterruptedException {
     ConcurrentMap<ActionAnalysisMetadata, ConflictException> temporaryBadActionMap =
         new ConcurrentHashMap<>();
 
@@ -314,10 +311,7 @@ public final class IncrementalArtifactConflictFinder {
         Profiler.instance()
             .profile(ProfilerTask.CONFLICT_CHECK, "constructActionGraphAndArtifactList")) {
       constructActionGraphAndArtifactList(
-          pathFragmentTrieRoot,
-          actionLookupValues,
-          strictConflictChecks,
-          temporaryBadActionMap);
+          pathFragmentTrieRoot, actionLookupValues, temporaryBadActionMap);
     }
 
     return ActionConflictsAndStats.create(
@@ -327,7 +321,6 @@ public final class IncrementalArtifactConflictFinder {
   private void constructActionGraphAndArtifactList(
       ConcurrentMap<String, Object> pathFragmentTrieRoot,
       ImmutableCollection<SkyValue> actionLookupValues,
-      boolean strictConflictChecks,
       ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap)
       throws InterruptedException {
     List<ListenableFuture<Void>> futures = new ArrayList<>(actionLookupValues.size());
@@ -347,7 +340,6 @@ public final class IncrementalArtifactConflictFinder {
                         (ActionLookupValue) alv,
                         threadSafeMutableActionGraph,
                         pathFragmentTrieRoot,
-                        strictConflictChecks,
                         badActionMap)));
       }
     }
@@ -380,7 +372,6 @@ public final class IncrementalArtifactConflictFinder {
       ActionLookupValue alv,
       MutableActionGraph actionGraph,
       ConcurrentMap<String, Object> pathFragmentTrieRoot,
-      boolean strictConflictChecks,
       ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap) {
     for (ActionAnalysisMetadata action : alv.getActions()) {
       try {
@@ -400,8 +391,7 @@ public final class IncrementalArtifactConflictFinder {
         return null;
       }
       for (Artifact output : action.getOutputs()) {
-        checkOutputPrefix(
-            actionGraph, strictConflictChecks, pathFragmentTrieRoot, output, badActionMap);
+        checkOutputPrefix(actionGraph, pathFragmentTrieRoot, output, badActionMap);
       }
     }
     return null;
@@ -423,7 +413,6 @@ public final class IncrementalArtifactConflictFinder {
    */
   private static void checkOutputPrefix(
       MutableActionGraph actionGraph,
-      boolean strictConflictCheck,
       ConcurrentMap<String, Object> root,
       Artifact newArtifact,
       ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap) {
@@ -460,17 +449,15 @@ public final class IncrementalArtifactConflictFinder {
                 conflictingExistingArtifact);
         ActionAnalysisMetadata currentAction =
             Preconditions.checkNotNull(actionGraph.getGeneratingAction(newArtifact), newArtifact);
-        if (strictConflictCheck || priorAction.shouldReportPathPrefixConflict(currentAction)) {
-          ConflictException exception =
-              new ConflictException(
-                  new ArtifactPrefixConflictException(
-                      conflictingExistingArtifact.getExecPath(),
-                      newArtifactPathFragment,
-                      priorAction.getOwner().getLabel(),
-                      currentAction.getOwner().getLabel()));
-          badActionMap.put(priorAction, exception);
-          badActionMap.put(currentAction, exception);
-        }
+        ConflictException exception =
+            new ConflictException(
+                new ArtifactPrefixConflictException(
+                    conflictingExistingArtifact.getExecPath(),
+                    newArtifactPathFragment,
+                    priorAction.getOwner().getLabel(),
+                    currentAction.getOwner().getLabel()));
+        badActionMap.put(priorAction, exception);
+        badActionMap.put(currentAction, exception);
         // If 2 paths collide, we need to update the Trie to contain only the shorter one.
         // This is required for correctness: the set of subsequent paths that could conflict with
         // the longer path is a subset of that of the shorter path.
@@ -509,19 +496,16 @@ public final class IncrementalArtifactConflictFinder {
     private final ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap;
 
     private final Set<ActionLookupKey> dedupSet;
-    private final boolean strictConflictChecks;
 
     private CheckForConflictsUnderKey(
         ActionLookupKey key,
         List<ListenableFuture<Void>> actionCheckingFutures,
         ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap,
-        Set<ActionLookupKey> dedupSet,
-        boolean strictConflictChecks) {
+        Set<ActionLookupKey> dedupSet) {
       this.key = key;
       this.actionCheckingFutures = actionCheckingFutures;
       this.badActionMap = badActionMap;
       this.dedupSet = dedupSet;
-      this.strictConflictChecks = strictConflictChecks;
     }
 
     @Override
@@ -553,8 +537,7 @@ public final class IncrementalArtifactConflictFinder {
         ActionLookupKey depKey = (ActionLookupKey) dep;
         if (dedupSet.add(depKey)) {
           exclusivePool.execute(
-              new CheckForConflictsUnderKey(
-                  depKey, actionCheckingFutures, badActionMap, dedupSet, strictConflictChecks));
+              new CheckForConflictsUnderKey(depKey, actionCheckingFutures, badActionMap, dedupSet));
         }
       }
       var finalValue = value;
@@ -568,7 +551,6 @@ public final class IncrementalArtifactConflictFinder {
                   (ActionLookupValue) finalValue,
                   threadSafeMutableActionGraph,
                   pathFragmentTrieRoot,
-                  strictConflictChecks,
                   badActionMap);
       try {
         var actionCheckingFuture = freeForAllPool.submit(goThroughActions);

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.testutil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
@@ -79,7 +78,7 @@ public class FakeResourceOwner implements ActionExecutionMetadata {
         /* label= */ null,
         Location.BUILTIN,
         /* targetKind= */ "fake target kind",
-        /* mnemonic= */ "fake",
+        /* buildConfigurationMnemonic= */ "fake",
         /* configurationChecksum= */ "fake",
         /* buildConfigurationEvent= */ null,
         /* isToolConfiguration= */ false,
@@ -165,11 +164,6 @@ public class FakeResourceOwner implements ActionExecutionMetadata {
   @Override
   public NestedSet<Artifact> getMandatoryInputs() {
     return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-  }
-
-  @Override
-  public boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action) {
-    return false;
   }
 
   @Override
