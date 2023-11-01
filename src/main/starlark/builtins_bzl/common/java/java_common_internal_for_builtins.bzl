@@ -142,10 +142,6 @@ def compile(
         ["--add-exports=%s=ALL-UNNAMED" % x for x in add_exports],
         order = "preorder",
     ))
-    all_javac_opts.append(depset(
-        ["--add-opens=%s=ALL-UNNAMED" % x for x in add_opens],
-        order = "preorder",
-    ))
 
     # detokenize target's javacopts, it will be tokenized before compilation
     all_javac_opts.append(helper.detokenize_javacopts(helper.tokenize_javacopts(ctx, javac_opts)))
