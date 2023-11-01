@@ -755,6 +755,36 @@ class BazelModuleTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '@what'], allow_failure=True)
     self.assertIn('ERROR: @@hello~override//:MODULE.bazel', '\n'.join(stderr))
 
+  def testLoadRulesJavaSymbolThroughBazelTools(self):
+    """Tests that loads from @bazel_tools that delegate to other modules resolve."""
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("//:ext.bzl", "ext")',
+            'use_repo(ext, "data")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile(
+        'ext.bzl',
+        [
+            (
+                "load('@bazel_tools//tools/jdk:toolchain_utils.bzl',"
+                " 'find_java_toolchain')"
+            ),
+            'def _repo_impl(ctx):',
+            "  ctx.file('WORKSPACE')",
+            "  ctx.file('BUILD', 'exports_files([\"data.txt\"])')",
+            "  ctx.file('data.txt', 'hi')",
+            'repo = repository_rule(implementation = _repo_impl)',
+            'def _ext_impl(ctx):',
+            "  repo(name='data')",
+            'ext = module_extension(implementation = _ext_impl)',
+        ],
+    )
+
+    self.RunBazel(['build', '@data//:data.txt'])
+
 
 if __name__ == '__main__':
   absltest.main()
