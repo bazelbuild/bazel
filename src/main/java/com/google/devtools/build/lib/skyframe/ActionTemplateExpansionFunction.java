@@ -232,9 +232,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
   private static Map<ActionAnalysisMetadata, ArtifactPrefixConflictException>
       findArtifactPrefixConflicts(Map<Artifact, ActionAnalysisMetadata> generatingActions) {
     return Actions.findArtifactPrefixConflicts(
-        new MapBasedImmutableActionGraph(generatingActions),
-        generatingActions.keySet(),
-        /*strictConflictChecks=*/ true);
+        new MapBasedImmutableActionGraph(generatingActions), generatingActions.keySet());
   }
 
   private static class MapBasedImmutableActionGraph implements ActionGraph {

@@ -359,7 +359,6 @@ public final class SkyframeBuildView {
       BugReporter bugReporter,
       boolean keepGoing,
       QuiescingExecutors executors,
-      boolean strictConflictChecks,
       boolean checkForActionConflicts)
       throws InterruptedException, ViewCreationFailedException {
     enableAnalysis(true);
@@ -397,7 +396,6 @@ public final class SkyframeBuildView {
             ArtifactConflictFinder.findAndStoreArtifactConflicts(
                 analysisTraversalResult.getActionLookupValueShards(),
                 analysisTraversalResult.getActionCount(),
-                strictConflictChecks,
                 actionKeyContext);
         BuildGraphMetrics buildGraphMetrics =
             analysisTraversalResult
@@ -571,7 +569,6 @@ public final class SkyframeBuildView {
       CoverageReportActionsWrapperSupplier coverageReportActionsWrapperSupplier,
       boolean keepGoing,
       boolean skipIncompatibleExplicitTargets,
-      boolean strictConflictCheck,
       boolean checkForActionConflicts,
       boolean extraActionTopLevelOnly,
       QuiescingExecutors executors,
@@ -611,7 +608,6 @@ public final class SkyframeBuildView {
                     BuildDriverKey.ofConfiguredTarget(
                         ctKey,
                         topLevelArtifactContext,
-                        strictConflictCheck,
                         /* explicitlyRequested= */ explicitTargetPatterns.contains(
                             ctKey.getLabel()),
                         skipIncompatibleExplicitTargets,
@@ -625,7 +621,6 @@ public final class SkyframeBuildView {
                     BuildDriverKey.ofTopLevelAspect(
                         k,
                         topLevelArtifactContext,
-                        strictConflictCheck,
                         /* explicitlyRequested= */ explicitTargetPatterns.contains(k.getLabel()),
                         skipIncompatibleExplicitTargets,
                         extraActionTopLevelOnly))

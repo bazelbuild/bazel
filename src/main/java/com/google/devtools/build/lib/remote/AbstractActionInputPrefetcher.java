@@ -569,9 +569,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       //   (1) The file does not belong to a tree artifact.
       //   (2) The file belongs to a tree artifact created by an action template expansion.
       //   (3) The file belongs to a tree artifact but we don't know it. This can occur when the
-      //       file is a non-tree artifact nested inside a tree artifact (which can only happen if
-      //       --incompatible_strict_conflict_checks is disabled) or a tree artifact inside a
-      //       fileset (see b/254844173).
+      //       file belongs to a tree artifact inside a fileset (see b/254844173).
       // In case (1), the parent directory is a package or a subdirectory of a package, and should
       // remain writable. In cases (2) and (3), even though we arguably ought to set the output
       // permissions on the parent directory to match the outcome of a locally executed action, we

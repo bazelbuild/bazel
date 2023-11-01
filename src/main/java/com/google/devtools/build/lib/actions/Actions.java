@@ -303,14 +303,11 @@ public final class Actions {
    *
    * @param actionGraph the {@link ActionGraph} to query for artifact conflicts
    * @param artifacts all generated artifacts in the build
-   * @param strictConflictChecks report path prefix conflicts, regardless of {@link
-   *     ActionAnalysisMetadata#shouldReportPathPrefixConflict}
    * @return An immutable map between actions that generated the conflicting artifacts and their
    *     associated {@link ArtifactPrefixConflictException}
    */
   public static ImmutableMap<ActionAnalysisMetadata, ArtifactPrefixConflictException>
-      findArtifactPrefixConflicts(
-          ActionGraph actionGraph, Collection<Artifact> artifacts, boolean strictConflictChecks) {
+      findArtifactPrefixConflicts(ActionGraph actionGraph, Collection<Artifact> artifacts) {
     // No actions in graph -- currently happens only in tests. Special-cased because .next() call
     // below is unconditional.
     if (artifacts.isEmpty()) {
@@ -347,13 +344,11 @@ public final class Actions {
               Preconditions.checkNotNull(actionGraph.getGeneratingAction(artifactI), artifactI);
           ActionAnalysisMetadata actionJ =
               Preconditions.checkNotNull(actionGraph.getGeneratingAction(artifactJ), artifactJ);
-          if (strictConflictChecks || actionI.shouldReportPathPrefixConflict(actionJ)) {
-            ArtifactPrefixConflictException exception =
-                new ArtifactPrefixConflictException(
-                    pathI, pathJ, actionI.getOwner().getLabel(), actionJ.getOwner().getLabel());
-            badActions.put(actionI, exception);
-            badActions.put(actionJ, exception);
-          }
+          ArtifactPrefixConflictException exception =
+              new ArtifactPrefixConflictException(
+                  pathI, pathJ, actionI.getOwner().getLabel(), actionJ.getOwner().getLabel());
+          badActions.put(actionI, exception);
+          badActions.put(actionJ, exception);
         } else { // pathJ didn't have prefix pathI, so no conflict possible for pathI.
           break;
         }

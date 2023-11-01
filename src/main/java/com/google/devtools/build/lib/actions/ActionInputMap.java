@@ -196,12 +196,13 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
           : (FileArtifactValue) values[index];
     }
     if (input instanceof Artifact) {
-      // Non tree-artifacts can overlap with tree files, but need to be registered separately
-      // therefore we can skip searching the parents.
+      // Non tree artifacts cannot overlap with tree files, therefore we can skip searching the
+      // parents.
       return null;
     }
 
-    // Check the trees in case input is a plain action input pointing to a tree artifact file.
+    // Check the trees in case input is a non-Artifact ActionInput pointing to a tree artifact file
+    // (such as the ones resulting from a fileset expansion).
     FileArtifactValue result = getMetadataFromTreeArtifacts(input.getExecPath());
 
     if (result != null) {
@@ -297,7 +298,7 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
    * Returns count of unique, top-level {@linkplain ActionInput action inputs} in the map.
    *
    * <p>Top-level means that each tree artifact, counts as 1, irrespective of the number of children
-   * it has. Same goes for nested trees/files.
+   * it has.
    */
   public int sizeForDebugging() {
     return size;

@@ -1454,11 +1454,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     }
 
     @Override
-    public boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action) {
-      return this != action;
-    }
-
-    @Override
     public MiddlemanType getActionType() {
       return MiddlemanType.NORMAL;
     }

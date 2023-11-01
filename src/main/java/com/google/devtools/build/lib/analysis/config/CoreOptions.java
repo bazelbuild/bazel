@@ -203,8 +203,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help =
-          "Check for action prefix file path conflicts, regardless of action-specific overrides.")
+      help = "No-op.")
   public boolean strictConflictChecks;
 
   @Option(

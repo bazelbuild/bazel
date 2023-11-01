@@ -552,11 +552,6 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action) {
-    return this != action;
-  }
-
-  @Override
   public ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext)
       throws CommandLineExpansionException, InterruptedException {
     ExtraActionInfo.Builder result =
