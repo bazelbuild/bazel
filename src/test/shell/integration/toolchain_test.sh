@@ -2832,15 +2832,21 @@ EOF
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from toolchain_1"'
 
-  # Test that .bazelrc options take precedence over registered toolchains
-  add_to_bazelrc "build --extra_toolchains=//${pkg}:toolchain_2"
+  # Test that bazelrc options take precedence over registered toolchains
+  cat > "${pkg}/toolchain_rc" <<EOF
+import ${bazelrc}
+build --extra_toolchains=//${pkg}:toolchain_2
+EOF
+
   bazel \
+    --${PRODUCT_NAME}rc="${pkg}/toolchain_rc" \
     build \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from toolchain_2"'
 
   # Test that command-line options take precedence over other toolchains
   bazel \
+    --${PRODUCT_NAME}rc="${pkg}/toolchain_rc" \
     build \
     --extra_toolchains=//${pkg}:toolchain_3 \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
@@ -2848,6 +2854,7 @@ EOF
 
   # Test that the last --extra_toolchains takes precedence
   bazel \
+    --${PRODUCT_NAME}rc="${pkg}/toolchain_rc" \
     build \
     --extra_toolchains=//${pkg}:toolchain_3 \
     --extra_toolchains=//${pkg}:toolchain_4 \
