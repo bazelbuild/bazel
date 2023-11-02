@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.test;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -99,6 +100,19 @@ public final class TestProgress implements BuildEvent {
         && attempt == other.attempt
         && opaqueCount == other.opaqueCount
         && uri.equals(other.uri);
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("label", label)
+        .add("configId", configId)
+        .add("run", run)
+        .add("shard", shard)
+        .add("attempt", attempt)
+        .add("opaqueCount", opaqueCount)
+        .add("uri", uri)
+        .toString();
   }
 
   private BuildEventStreamProtos.TestProgress asTestResult() {
