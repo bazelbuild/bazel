@@ -663,7 +663,9 @@ def _javainfo_init(
         exports = [],
         exported_plugins = [],
         jdeps = None,
-        native_libraries = []):
+        native_libraries = [],
+        add_exports = [],
+        add_opens = []):
     """The JavaInfo constructor
 
     Args:
@@ -693,6 +695,8 @@ def _javainfo_init(
             is typically produced by a compiler. IDEs and other tools can use this information for
             more efficient processing. Optional.
         native_libraries: ([CcInfo]) Native library dependencies that are needed for this library.
+        add_exports: ([str]) The <module>/<package>s this library was given access to.
+        add_opens: ([str]) The <module>/<package>s this library was given reflective access to.
 
     Returns:
         (dict) arguments to the JavaInfo provider constructor
@@ -734,11 +738,11 @@ def _javainfo_init(
             ],
         ),
         module_flags_info = _create_module_flags_info(
-            add_exports = depset(transitive = [
+            add_exports = depset(add_exports, transitive = [
                 dep.module_flags_info.add_exports
                 for dep in concatenated_deps.deps_exports
             ]),
-            add_opens = depset(transitive = [
+            add_opens = depset(add_opens, transitive = [
                 dep.module_flags_info.add_opens
                 for dep in concatenated_deps.deps_exports
             ]),
