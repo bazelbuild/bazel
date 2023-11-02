@@ -752,6 +752,11 @@ public class RuleClass implements RuleClassData {
     private ImmutableList<StarlarkThread.CallStackEntry> callstack = ImmutableList.of();
     private final RuleClassType type;
     @Nullable private RuleClass starlarkParent = null;
+    // The extendable may take 3 value, null means that the default allowlist should be use when
+    // rule is extendable in practice.
+    @Nullable private Boolean extendable = null;
+    @Nullable private Label extendableAllowlist = null;
+    @Nullable private Label defaultExtendableAllowlist = null;
     private final boolean starlark;
     private boolean starlarkTestable = false;
     private boolean documented;
@@ -929,14 +934,24 @@ public class RuleClass implements RuleClassData {
         this.useToolchainResolution(ToolchainResolutionMode.DISABLED);
       }
 
-      boolean extendable =
-          starlark
-              && (type == RuleClassType.NORMAL || type == RuleClassType.TEST)
-              && implicitOutputsFunction == ImplicitOutputsFunction.NONE
-              && outputsToBindir
-              && !starlarkTestable
-              && !isAnalysisTest
-              && buildSetting == null;
+      if (starlark
+          && (type == RuleClassType.NORMAL || type == RuleClassType.TEST)
+          && implicitOutputsFunction == ImplicitOutputsFunction.NONE
+          && outputsToBindir
+          && !starlarkTestable
+          && !isAnalysisTest
+          && buildSetting == null) {
+        if (extendable == null) { // The rule can be extended, use fallback
+          extendable = true;
+          extendableAllowlist = defaultExtendableAllowlist;
+        }
+      } else {
+        // This kind of rule can't be extended
+        if (Boolean.TRUE.equals(extendable) || extendableAllowlist != null) {
+          throw new IllegalArgumentException("The rule cannot be extended");
+        }
+        extendable = false;
+      }
 
       return new RuleClass(
           name,
@@ -946,6 +961,7 @@ public class RuleClass implements RuleClassData {
           starlarkParent,
           starlark,
           extendable,
+          extendableAllowlist,
           starlarkTestable,
           documented,
           outputsToBindir,
@@ -1020,6 +1036,25 @@ public class RuleClass implements RuleClassData {
           "Concrete Starlark rule classes can't have null labels: %s %s",
           ruleDefinitionEnvironmentLabel,
           type);
+    }
+
+    public void setExtendableByAllowlist(Label extendableAllowlist) {
+      this.extendable = true;
+      this.extendableAllowlist = extendableAllowlist;
+    }
+
+    /** Set the rule extendable or not, without an allowlist. */
+    public void setExtendable(boolean extendable) {
+      this.extendable = extendable;
+      this.extendableAllowlist = null;
+    }
+
+    /**
+     * Sets the default allowlist, which is used as a fallback, when user doesn't set extendable or
+     * extendable by allowlist
+     */
+    public void setDefaultExtendableAllowlist(Label extendableAllowlist) {
+      this.defaultExtendableAllowlist = extendableAllowlist;
     }
 
     /**
@@ -1637,6 +1672,7 @@ public class RuleClass implements RuleClassData {
   @Nullable private final RuleClass starlarkParent;
   private final boolean isStarlark;
   private final boolean extendable;
+  @Nullable private final Label extendableAllowlist;
   private final boolean starlarkTestable;
   private final boolean documented;
   private final boolean outputsToBindir;
@@ -1772,6 +1808,7 @@ public class RuleClass implements RuleClassData {
       RuleClass starlarkParent,
       boolean isStarlark,
       boolean extendable,
+      @Nullable Label extendableAllowlist,
       boolean starlarkTestable,
       boolean documented,
       boolean outputsToBindir,
@@ -1809,6 +1846,7 @@ public class RuleClass implements RuleClassData {
     this.starlarkParent = starlarkParent;
     this.isStarlark = isStarlark;
     this.extendable = extendable;
+    this.extendableAllowlist = extendableAllowlist;
     this.targetKind = name + Rule.targetKindSuffix();
     this.starlarkTestable = starlarkTestable;
     this.documented = documented;
@@ -2647,6 +2685,11 @@ public class RuleClass implements RuleClassData {
   /** Returns true if this RuleClass can be extended. */
   public boolean isExtendable() {
     return extendable;
+  }
+
+  @Nullable
+  public Label getExtendableAllowlist() {
+    return extendableAllowlist;
   }
 
   /** Returns true if this RuleClass is Starlark-defined and is subject to analysis-time tests. */
