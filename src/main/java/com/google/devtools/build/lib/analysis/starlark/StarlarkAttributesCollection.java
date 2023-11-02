@@ -147,7 +147,6 @@ class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
       this.context = ruleContext;
     }
 
-    @SuppressWarnings("unchecked")
     public void addAttribute(Attribute a, Object val) {
       Type<?> type = a.getType();
       String skyname = a.getPublicName();
@@ -238,17 +237,6 @@ class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
           builder.put(prereq, original.get(AliasProvider.getDependencyLabel(prereq)));
         }
         attrBuilder.put(skyname, builder.buildImmutable());
-      } else if (type == BuildType.LABEL_DICT_UNARY) {
-        Map<Label, TransitiveInfoCollection> prereqsByLabel = new LinkedHashMap<>();
-        for (TransitiveInfoCollection target :
-            context.getRuleContext().getPrerequisites(a.getName())) {
-          prereqsByLabel.put(target.getLabel(), target);
-        }
-        ImmutableMap.Builder<String, TransitiveInfoCollection> attrValue = ImmutableMap.builder();
-        for (Map.Entry<String, Label> entry : ((Map<String, Label>) val).entrySet()) {
-          attrValue.put(entry.getKey(), prereqsByLabel.get(entry.getValue()));
-        }
-        attrBuilder.put(skyname, attrValue.buildOrThrow());
       } else {
         throw new IllegalArgumentException(
             "Can't transform attribute "
