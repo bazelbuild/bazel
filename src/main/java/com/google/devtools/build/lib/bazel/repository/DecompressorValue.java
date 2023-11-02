@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.nio.channels.ClosedByInterruptException;
 import java.util.Optional;
 import java.util.Set;
 import net.starlark.java.eval.Starlark;
@@ -128,6 +129,8 @@ public class DecompressorValue implements SkyValue {
       throws RepositoryFunctionException, InterruptedException {
     try {
       return getDecompressor(descriptor.archivePath()).decompress(descriptor);
+    } catch (ClosedByInterruptException e) {
+      throw new InterruptedException();
     } catch (IOException e) {
       Path destinationDirectory = descriptor.archivePath().getParentDirectory();
       throw new RepositoryFunctionException(
