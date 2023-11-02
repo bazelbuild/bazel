@@ -460,19 +460,3 @@ def get_runtime_classpath_for_archive(jars, excluded_jars):
         jars,
         excluded_jars,
     )
-
-def filter_protos_for_generated_extension_registry(runtime_jars, deploy_env):
-    """Get proto artifacts from runtime_jars excluding those in deploy_env
-
-    Args:
-        runtime_jars: (depset[File]) the artifacts to scan
-        deploy_env: (depset[File]) the artifacts to exclude
-
-    Returns
-        (depset[File], bool) A tuple of the filtered protos and whether all protos are 'lite'
-            flavored
-    """
-    return _java_common_internal.filter_protos_for_generated_extension_registry(
-        runtime_jars,
-        deploy_env,
-    )
