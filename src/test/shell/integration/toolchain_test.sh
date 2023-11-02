@@ -2781,6 +2781,80 @@ EOF
   expect_log "Selected execution platform //${pkg}/platforms:platform2"
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/19945.
+function test_extra_toolchain_precedence {
+  local -r pkg="${FUNCNAME[0]}"
+
+  write_test_toolchain "${pkg}"
+  write_test_rule "${pkg}"
+
+  cat > WORKSPACE <<EOF
+register_toolchains('//${pkg}:toolchain_1')
+EOF
+
+  cat > "${pkg}/BUILD" <<EOF
+load('//${pkg}/toolchain:toolchain_test_toolchain.bzl', 'test_toolchain')
+
+package(default_visibility = ["//visibility:public"])
+
+# Define and declare four identical toolchains.
+[
+  [
+    test_toolchain(
+      name = 'toolchain_impl_' + str(i),
+      extra_str = 'foo from toolchain_' + str(i),
+    ),
+    toolchain(
+      name = 'toolchain_' + str(i),
+      toolchain_type = '//${pkg}/toolchain:test_toolchain',
+      toolchain = ':toolchain_impl_' + str(i)
+    ),
+  ]
+  for i in range(1, 5)
+]
+EOF
+
+  mkdir -p "${pkg}/demo"
+  cat > "${pkg}/demo/BUILD" <<EOF
+load('//${pkg}/toolchain:rule_use_toolchain.bzl', 'use_toolchain')
+package(default_visibility = ["//visibility:public"])
+
+# Use the toolchain.
+use_toolchain(
+    name = 'use',
+    message = 'this is the rule')
+EOF
+
+  bazel query "//${pkg}:*"
+
+  bazel \
+    build \
+    "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
+  expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from toolchain_1"'
+
+  # Test that .bazelrc options take precedence over registered toolchains
+  add_to_bazelrc "build --extra_toolchains=//${pkg}:toolchain_2"
+  bazel \
+    build \
+    "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
+  expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from toolchain_2"'
+
+  # Test that command-line options take precedence over other toolchains
+  bazel \
+    build \
+    --extra_toolchains=//${pkg}:toolchain_3 \
+    "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
+  expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from toolchain_3"'
+
+  # Test that the last --extra_toolchains takes precedence
+  bazel \
+    build \
+    --extra_toolchains=//${pkg}:toolchain_3 \
+    --extra_toolchains=//${pkg}:toolchain_4 \
+    "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
+  expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from toolchain_4"'
+}
+
 # TODO(katre): Test using toolchain-provided make variables from a genrule.
 
 run_suite "toolchain tests"
