@@ -192,6 +192,7 @@ import com.google.devtools.build.lib.skyframe.config.BuildConfigurationFunction;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingFunction;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingValue;
+import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsFunction;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsCycleReporter;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsFunction;
@@ -359,7 +360,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private final AtomicReference<ActionExecutionStatusReporter> statusReporterRef =
       new AtomicReference<>();
   protected final SkyframeActionExecutor skyframeActionExecutor;
-  private ActionExecutionFunction actionExecutionFunction;
+  private ActionRewindStrategy actionRewindStrategy;
   private BuildDriverFunction buildDriverFunction;
   private GlobFunction globFunction;
   SkyframeProgressReceiver progressReceiver;
@@ -709,10 +710,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         new BuildInfoCollectionFunction(actionKeyContext, artifactFactory));
     map.put(SkyFunctions.BUILD_INFO, new WorkspaceStatusFunction(this::makeWorkspaceStatusAction));
     map.put(SkyFunctions.COVERAGE_REPORT, new CoverageReportFunction(actionKeyContext));
-    ActionExecutionFunction actionExecutionFunction =
-        new ActionExecutionFunction(skyframeActionExecutor, directories, tsgm::get, bugReporter);
-    map.put(SkyFunctions.ACTION_EXECUTION, actionExecutionFunction);
-    this.actionExecutionFunction = actionExecutionFunction;
+    this.actionRewindStrategy = new ActionRewindStrategy();
+    map.put(SkyFunctions.ACTION_EXECUTION, newActionExecutionFunction());
     map.put(
         SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL,
         new RecursiveFilesystemTraversalFunction(syscallCache));
@@ -764,6 +763,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected SkyFunction newDirectoryListingStateFunction() {
     return new DirectoryListingStateFunction(externalFilesHelper, syscallCache);
+  }
+
+  protected SkyFunction newActionExecutionFunction() {
+    return new ActionExecutionFunction(
+        actionRewindStrategy, skyframeActionExecutor, directories, tsgm::get, bugReporter);
   }
 
   protected SkyFunction newCollectPackagesUnderDirectoryFunction(BlazeDirectories directories) {
@@ -2072,7 +2076,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     setExecutionProgressReceiver(null);
 
     skyframeActionExecutor.executionOver();
-    actionExecutionFunction.complete(eventHandler);
+    actionRewindStrategy.reset(eventHandler);
   }
 
   /**
