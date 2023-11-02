@@ -420,6 +420,12 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "tools/allowlists/config_feature_flag/BUILD",
         "package_group(name='config_feature_flag', packages=['public'])",
         "package_group(name='config_feature_flag_Setter', packages=['public'])");
+    config.create(
+        "embedded_tools/tools/allowlists/extend_rule_allowlist/BUILD",
+        "package_group(",
+        "    name = 'extend_rule_allowlist',",
+        "    packages = ['public'],",
+        ")");
 
     config.create(
         "embedded_tools/tools/allowlists/android_binary_allowlist/BUILD",

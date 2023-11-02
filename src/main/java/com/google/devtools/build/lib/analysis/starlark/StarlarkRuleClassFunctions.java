@@ -329,13 +329,17 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Object execGroups,
       Object initializer,
       Object parentUnchecked,
+      Object extendableUnchecked,
       Sequence<?> subrules,
       StarlarkThread thread)
       throws EvalException {
     // Ensure we're initializing a .bzl file, which also means we have a RuleDefinitionEnvironment.
     BzlInitThreadContext bazelContext = BzlInitThreadContext.fromOrFail(thread, "rule()");
 
-    if (initializer != Starlark.NONE || parentUnchecked != Starlark.NONE || !subrules.isEmpty()) {
+    if (initializer != Starlark.NONE
+        || parentUnchecked != Starlark.NONE
+        || !subrules.isEmpty()
+        || extendableUnchecked != Starlark.NONE) {
       if (!thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_RULE_EXTENSION_API)) {
         BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_RULE_EXTENSION_API);
       }
@@ -409,6 +413,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         thread.getSemantics(),
         // rule() parameters
         parent,
+        extendableUnchecked,
         implementation,
         initializer == Starlark.NONE ? null : (StarlarkFunction) initializer,
         test,
@@ -450,6 +455,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       StarlarkSemantics starlarkSemantics,
       // Parameters that come from rule().
       @Nullable RuleClass parent,
+      @Nullable Object extendableUnchecked,
       StarlarkFunction implementation,
       @Nullable StarlarkFunction initializer,
       boolean test,
@@ -474,15 +480,56 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     test |= Boolean.TRUE.equals(analysisTest);
 
     RuleClassType type = test ? RuleClassType.TEST : RuleClassType.NORMAL;
-    if (parent == null) {
-      parent =
+
+    final RuleClass.Builder builder;
+    if (parent != null) {
+      // We'll set the name later, pass the empty string for now.
+      builder = new RuleClass.Builder("", type, true, parent);
+    } else {
+      // We'll set the name later, pass the empty string for now.
+      RuleClass baseParent =
           test
               ? getTestBaseRule(ruleDefinitionEnvironment)
               : (executable ? binaryBaseRule : baseRule);
+      builder = new RuleClass.Builder("", type, true, baseParent);
     }
 
-    // We'll set the name later, pass the empty string for now.
-    RuleClass.Builder builder = new RuleClass.Builder("", type, true, parent);
+    builder.setDefaultExtendableAllowlist(
+        ruleDefinitionEnvironment.getToolsLabel("//tools/allowlists/extend_rule_allowlist"));
+    if (extendableUnchecked instanceof Boolean) {
+      builder.setExtendable((Boolean) extendableUnchecked);
+    } else if (extendableUnchecked instanceof String) {
+      try {
+        builder.setExtendableByAllowlist(labelConverter.convert((String) extendableUnchecked));
+      } catch (LabelSyntaxException e) {
+        throw Starlark.errorf(
+            "Unable to parse label '%s': %s", extendableUnchecked, e.getMessage());
+      }
+    } else if (extendableUnchecked instanceof Label) {
+      builder.setExtendableByAllowlist((Label) extendableUnchecked);
+    } else {
+      failIf(
+          !(extendableUnchecked == Starlark.NONE || extendableUnchecked == null),
+          "parameter 'extendable': expected bool, str or Label, but got '%s'",
+          Starlark.type(extendableUnchecked));
+    }
+
+    // Verify the child against parent's allowlist
+    if (parent != null && parent.getExtendableAllowlist() != null) {
+      builder.addAllowlistChecker(EXTEND_RULE_ALLOWLIST_CHECKER);
+      Attribute.Builder<Label> allowlistAttr =
+          attr("$allowlist_extend_rule", LABEL)
+              .cfg(ExecutionTransitionFactory.createFactory())
+              .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class))
+              .value(parent.getExtendableAllowlist());
+      if (builder.contains("$allowlist_extend_rule")) {
+        // the allowlist already exist if this is the second extension of the rule
+        // in this case we need to override the allowlist with the one in the direct parent
+        builder.override(allowlistAttr);
+      } else {
+        builder.add(allowlistAttr);
+      }
+    }
 
     if (executable || test) {
       builder.setExecutableStarlark();
@@ -1137,6 +1184,14 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           .setAllowlistAttr(FunctionSplitTransitionAllowlist.NAME)
           .setErrorMessage("Non-allowlisted use of Starlark transition")
           .setLocationCheck(AllowlistChecker.LocationCheck.INSTANCE_OR_DEFINITION)
+          .build();
+
+  @SerializationConstant
+  static final AllowlistChecker EXTEND_RULE_ALLOWLIST_CHECKER =
+      AllowlistChecker.builder()
+          .setAllowlistAttr("extend_rule")
+          .setErrorMessage("Non-allowlisted attempt to extend a rule.")
+          .setLocationCheck(AllowlistChecker.LocationCheck.DEFINITION)
           .build();
 
   @Override

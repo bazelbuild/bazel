@@ -494,6 +494,21 @@ public interface StarlarkRuleFunctionsApi {
                     + " <code>exec_compatible_with</code>, and <code>exec_groups</code> are"
                     + " merged. Legacy or deprecated parameters may not be set."),
         @Param(
+            name = "extendable",
+            named = true,
+            defaultValue = "None",
+            positional = false,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            doc =
+                "Experimental: A label of an allowlist defining which rules can extending this"
+                    + " rule. It can be set also to True/False to always allow/disallow extending."
+                    + " Bazel defaults to always allowing extensions."),
+        @Param(
             name = "subrules",
             allowedTypes = {
               @ParamType(type = Sequence.class, generic1 = StarlarkSubruleApi.class),
@@ -525,6 +540,7 @@ public interface StarlarkRuleFunctionsApi {
       Object execGroups,
       Object initializer,
       Object parentUnchecked,
+      Object extendableUnchecked,
       Sequence<?> subrules,
       StarlarkThread thread)
       throws EvalException;

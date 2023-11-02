@@ -129,6 +129,7 @@ public class StarlarkTestingModule implements TestingModuleApi {
             thread.getSemantics(),
             // rule() parameters.
             /* parent= */ null,
+            /* extendableUnchecked= */ false,
             implementation,
             /* initializer= */ null,
             /* test= */ true,
