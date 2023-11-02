@@ -19,12 +19,14 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.ArchiveRepoSpecBuilder;
 import com.google.devtools.build.lib.bazel.bzlmod.AttributeValues;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleCreator;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
+import com.google.devtools.build.lib.bazel.bzlmod.GitOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
@@ -53,6 +55,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -185,13 +188,13 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
       ruleClass = ruleClassProvider.getRuleClassMap().get(repoSpec.ruleClassName());
     } else {
       ImmutableMap<String, Module> loadedModules =
-          loadBzlModules(env, repoSpec.bzlFile(), starlarkSemantics);
+          loadBzlModules(env, repoSpec.bzlFile(), repoSpec.getRuleClass(), starlarkSemantics);
       if (env.valuesMissing()) {
         return null;
       }
       ruleClass = getStarlarkRuleClass(repoSpec, loadedModules);
     }
-    
+
     try {
       Rule rule =
           BzlmodRepoRuleCreator.createRule(
@@ -242,9 +245,16 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
     return repoSpec.attributes();
   }
 
+  // Starlark rules loaded from bazel_tools that may define Bazel module repositories and thus must
+  // be loaded without relying on any other modules.
+  private static final Set<String> BOOTSTRAP_RULE_CLASSES =
+      ImmutableSet.of(
+          ArchiveRepoSpecBuilder.HTTP_ARCHIVE_PATH + "%http_archive",
+          GitOverride.GIT_REPOSITORY_PATH + "%git_repository");
+
   /** Loads modules from the given bzl file. */
   private ImmutableMap<String, Module> loadBzlModules(
-      Environment env, String bzlFile, StarlarkSemantics starlarkSemantics)
+      Environment env, String bzlFile, String ruleClass, StarlarkSemantics starlarkSemantics)
       throws InterruptedException, BzlmodRepoRuleFunctionException {
     ImmutableList<Pair<String, Location>> programLoads =
         ImmutableList.of(Pair.of(bzlFile, Location.BUILTIN));
@@ -268,8 +278,12 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
     }
 
     Preconditions.checkArgument(loadLabels.size() == 1);
-    ImmutableList<BzlLoadValue.Key> keys =
-        ImmutableList.of(BzlLoadValue.keyForBzlmod(loadLabels.get(0)));
+    ImmutableList<BzlLoadValue.Key> keys;
+    if (BOOTSTRAP_RULE_CLASSES.contains(ruleClass)) {
+      keys = ImmutableList.of(BzlLoadValue.keyForBzlmodBootstrap(loadLabels.get(0)));
+    } else {
+      keys = ImmutableList.of(BzlLoadValue.keyForBzlmod(loadLabels.get(0)));
+    }
 
     // Load the .bzl module.
     try {

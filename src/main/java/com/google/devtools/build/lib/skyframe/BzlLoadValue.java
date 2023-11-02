@@ -17,7 +17,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BzlVisibility;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -340,7 +342,7 @@ public class BzlLoadValue implements SkyValue {
   /** A key for loading a .bzl to get the repo rule required by Bzlmod generated repositories. */
   @Immutable
   @AutoCodec.VisibleForSerialization
-  static final class KeyForBzlmod extends Key {
+  static class KeyForBzlmod extends Key {
     private final Label label;
 
     private KeyForBzlmod(Label label) {
@@ -363,9 +365,22 @@ public class BzlLoadValue implements SkyValue {
     }
   }
 
+  @Immutable
+  @AutoCodec.VisibleForSerialization
+  static class KeyForBzlmodBootstrap extends KeyForBzlmod {
+    private KeyForBzlmodBootstrap(Label label) {
+      super(label);
+    }
+
+    @Override
+    Key getKeyForLoad(Label loadLabel) {
+      return keyForBzlmodBootstrap(loadLabel);
+    }
+  }
+
   /** Constructs a key for loading a regular (non-workspace) .bzl file, from the .bzl's label. */
   public static Key keyForBuild(Label label) {
-    return keyInterner.intern(new KeyForBuild(label, /*isBuildPrelude=*/ false));
+    return keyInterner.intern(new KeyForBuild(label, /* isBuildPrelude= */ false));
   }
 
   /**
@@ -387,11 +402,18 @@ public class BzlLoadValue implements SkyValue {
 
   /** Constructs a key for loading the special prelude .bzl. */
   static Key keyForBuildPrelude(Label label) {
-    return keyInterner.intern(new KeyForBuild(label, /*isBuildPrelude=*/ true));
+    return keyInterner.intern(new KeyForBuild(label, /* isBuildPrelude= */ true));
   }
 
   /** Constructs a key for loading a .bzl for Bzlmod repos */
   public static Key keyForBzlmod(Label label) {
     return keyInterner.intern(new KeyForBzlmod(label));
+  }
+
+  public static Key keyForBzlmodBootstrap(Label label) {
+    Preconditions.checkArgument(
+        label.getRepository().equals(RepositoryName.BAZEL_TOOLS),
+        "keyForBzlmodBootstrap must be called with a label in the bazel_tools repository");
+    return keyInterner.intern(new KeyForBzlmodBootstrap(label));
   }
 }
