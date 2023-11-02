@@ -66,10 +66,6 @@ class BazelFetchTest(test_base.TestBase):
         'tools_mock/tools/build_defs/repo/http.bzl',
     )
     self.CopyFile(
-      self.Rlocation('io_bazel/tools/build_defs/repo/private/labels.bzl'),
-      'tools_mock/tools/build_defs/repo/private/labels.bzl',
-    )
-    self.CopyFile(
         self.Rlocation('io_bazel/tools/build_defs/repo/utils.bzl'),
         'tools_mock/tools/build_defs/repo/utils.bzl',
     )

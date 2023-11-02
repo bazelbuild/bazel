@@ -46,10 +46,6 @@ load(
     "use_netrc",
     "workspace_and_buildfile",
 )
-load(
-    "//tools/build_defs/repo/private:labels.bzl",
-    "RULES_JAVA_DEFS",
-)
 
 # Shared between http_jar, http_file and http_archive.
 
@@ -230,7 +226,7 @@ def _http_jar_impl(ctx):
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
     ctx.file("jar/BUILD", _HTTP_JAR_BUILD.format(
         file_name = downloaded_file_name,
-        rules_java_defs = RULES_JAVA_DEFS,
+        rules_java_defs = str(Label("@rules_java//java:defs.bzl")),
     ))
 
     return _update_sha256_attr(ctx, _http_jar_attrs, download_info)

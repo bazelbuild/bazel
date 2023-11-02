@@ -35,10 +35,6 @@ output_paths = [
         lambda x: 'tools/build_defs/repo/BUILD',
     ),
     (
-      '*tools/build_defs/repo/private/BUILD.repo',
-      lambda x: 'tools/build_defs/repo/private/BUILD',
-    ),
-    (
         '*tools/build_defs/build_info/BUILD.tools',
         lambda x: 'tools/build_defs/build_info/BUILD',
     ),
