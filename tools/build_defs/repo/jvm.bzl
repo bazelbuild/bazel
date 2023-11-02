@@ -136,7 +136,7 @@ def _jvm_import_external(repository_ctx):
         "",
         "alias(",
         "    name = \"%s\"," % extension,
-        "    actual = \"@%s\"," % repository_ctx.name,
+        "    actual = \"//:%s\"," % name,
         ")",
         "",
         "filegroup(",
@@ -255,6 +255,7 @@ jvm_import_external = repository_rule(
 )
 
 def jvm_maven_import_external(
+        name,
         artifact,
         server_urls,
         fetch_sources = False,
@@ -269,9 +270,10 @@ def jvm_maven_import_external(
     srcjar_urls = kwargs.pop("srcjar_urls", None)
 
     rule_name = kwargs.pop("rule_name", "java_import")
+    rules_java_defs = str(Label("@rules_java//java:defs.bzl"))
     rule_load = kwargs.pop(
         "rule_load",
-        'load("@rules_java//java:defs.bzl", "java_import")',
+        'load("{}", "java_import")'.format(rules_java_defs),
     )
 
     if fetch_sources:
@@ -289,6 +291,8 @@ def jvm_maven_import_external(
     tags.append("maven_coordinates=" + artifact)
 
     jvm_import_external(
+        name = name,
+        generated_rule_name = kwargs.pop("generated_rule_name", name),
         artifact_urls = jar_urls,
         srcjar_urls = srcjar_urls,
         canonical_id = artifact,
