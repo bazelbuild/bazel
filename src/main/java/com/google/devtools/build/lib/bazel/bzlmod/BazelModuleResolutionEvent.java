@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 
@@ -22,20 +21,39 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
  * After resolving bazel module this event is sent from {@link BazelDepGraphFunction} holding the
  * lockfile value with module updates, and the module extension usages. It will be received in
  * {@link BazelLockFileModule} to be used to update the lockfile content
+ *
+ * <p>Instances of this class are retained in Skyframe nodes and subject to frequent {@link
+ * java.util.Set}-based deduplication. As such, it <b>must</b> have a cheap implementation of {@link
+ * #hashCode()} and {@link #equals(Object)}. It currently uses reference equality since the logic
+ * that creates instances of this class already ensures that there is only one instance per build.
  */
-@AutoValue
-public abstract class BazelModuleResolutionEvent implements Postable {
+public final class BazelModuleResolutionEvent implements Postable {
+
+  private final BazelLockFileValue lockfileValue;
+  private final ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>
+      extensionUsagesById;
+
+  private BazelModuleResolutionEvent(
+      BazelLockFileValue lockfileValue,
+      ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById) {
+    this.lockfileValue = lockfileValue;
+    this.extensionUsagesById = extensionUsagesById;
+  }
 
   public static BazelModuleResolutionEvent create(
       BazelLockFileValue lockFileValue,
       ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById) {
-    return new AutoValue_BazelModuleResolutionEvent(lockFileValue, extensionUsagesById);
+    return new BazelModuleResolutionEvent(lockFileValue, extensionUsagesById);
   }
 
-  public abstract BazelLockFileValue getLockfileValue();
+  public BazelLockFileValue getLockfileValue() {
+    return lockfileValue;
+  }
 
-  public abstract ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>
-      getExtensionUsagesById();
+  public ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>
+      getExtensionUsagesById() {
+    return extensionUsagesById;
+  }
 
   @Override
   public boolean storeForReplay() {

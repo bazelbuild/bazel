@@ -391,6 +391,32 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
         .inOrder();
   }
 
+  @Test
+  public void repoMappingOnFilesToRunProvider() throws Exception {
+    scratch.overwriteFile("MODULE.bazel", "bazel_dep(name='bare_rule',version='1.0')");
+    scratch.overwriteFile(
+        "defs.bzl",
+        "def _get_repo_mapping_impl(ctx):",
+        "    files_to_run = ctx.attr.bin[DefaultInfo].files_to_run",
+        "    return [",
+        "        DefaultInfo(files = depset([files_to_run.repo_mapping_manifest])),",
+        "    ]",
+        "get_repo_mapping = rule(",
+        "    implementation = _get_repo_mapping_impl,",
+        "    attrs = {'bin':attr.label(cfg='target',executable=True)}",
+        ")");
+    scratch.overwriteFile(
+        "BUILD",
+        "load('@bare_rule//:defs.bzl', 'bare_binary')",
+        "load('//:defs.bzl', 'get_repo_mapping')",
+        "bare_binary(name='aaa')",
+        "get_repo_mapping(name='get_repo_mapping', bin=':aaa')");
+    invalidatePackages();
+
+    assertThat(getFilesToBuild(getConfiguredTarget("//:get_repo_mapping")).toList())
+        .containsExactly(getRunfilesSupport("//:aaa").getRepoMappingManifest());
+  }
+
   /**
    * Similar to {@link BuildViewTestCase#rewriteWorkspace(String...)}, but does not call {@link
    * BuildViewTestCase#invalidatePackages()}.
