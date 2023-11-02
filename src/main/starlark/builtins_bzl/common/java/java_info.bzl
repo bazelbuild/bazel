@@ -711,6 +711,19 @@ def _javainfo_init(
             direct = [output_jar],
             transitive = [dep.transitive_runtime_jars for dep in concatenated_deps.exports_deps + runtime_deps],
         )
+
+    # For backward compatibility, we use deps_exports for add_exports/add_opens
+    # for the JavaInfo constructor rather than runtimedeps_exports_deps (used
+    # by java_info_for_compilation). However, runtimedeps_exports_deps makes
+    # more sense, since add_exports/add_opens from runtime_deps are needed at
+    # runtime anyway.
+    #
+    # TODO: When this flag is removed, move this logic into _javainfo_init_base
+    #  and remove the special case from java_info_for_compilation.
+    module_flags_deps = concatenated_deps.deps_exports
+    if _java_common_internal._incompatible_java_info_merge_runtime_module_flags():
+        module_flags_deps = concatenated_deps.runtimedeps_exports_deps
+
     result.update(
         transitive_runtime_jars = transitive_runtime_jars,
         transitive_source_jars = depset(
@@ -724,11 +737,11 @@ def _javainfo_init(
         module_flags_info = _create_module_flags_info(
             add_exports = depset(add_exports, transitive = [
                 dep.module_flags_info.add_exports
-                for dep in concatenated_deps.deps_exports
+                for dep in module_flags_deps
             ]),
             add_opens = depset(add_opens, transitive = [
                 dep.module_flags_info.add_opens
-                for dep in concatenated_deps.deps_exports
+                for dep in module_flags_deps
             ]),
         ),
     )

@@ -574,6 +574,17 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean incompatibleJavaCommonParameters;
 
   @Option(
+      name = "incompatible_java_info_merge_runtime_module_flags",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+	  "If set to true, the JavaInfo constructor will merge add_exports and "
+	      + "add_opens of runtime_deps in addition to deps and exports.")
+  public boolean incompatibleJavaInfoMergeRuntimeModuleFlags;
+
+  @Option(
       name = "max_computation_steps",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -757,6 +768,7 @@ public final class BuildLanguageOptions extends OptionsBase {
                 INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX,
                 incompatibleFixPackageGroupReporootSyntax)
             .setBool(INCOMPATIBLE_JAVA_COMMON_PARAMETERS, incompatibleJavaCommonParameters)
+            .setBool(INCOMPATIBLE_JAVA_INFO_MERGE_RUNTIME_MODULE_FLAGS, incompatibleJavaInfoMergeRuntimeModuleFlags)
             .setBool(INCOMPATIBLE_NO_ATTR_LICENSE, incompatibleNoAttrLicense)
             .setBool(INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT, incompatibleNoImplicitFileExport)
             .setBool(INCOMPATIBLE_NO_PACKAGE_DISTRIBS, incompatibleNoPackageDistribs)
@@ -864,6 +876,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "+incompatible_do_not_split_linking_cmdline";
   public static final String INCOMPATIBLE_JAVA_COMMON_PARAMETERS =
       "+incompatible_java_common_parameters";
+  public static final String INCOMPATIBLE_JAVA_INFO_MERGE_RUNTIME_MODULE_FLAGS =
+      "-incompatible_java_info_merge_runtime_module_flags";
   public static final String INCOMPATIBLE_NO_ATTR_LICENSE = "+incompatible_no_attr_license";
   public static final String INCOMPATIBLE_NO_PACKAGE_DISTRIBS = "-incompatible_no_package_distribs";
   public static final String INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT =
