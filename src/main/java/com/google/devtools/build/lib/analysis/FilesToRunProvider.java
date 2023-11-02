@@ -95,6 +95,13 @@ public class FilesToRunProvider implements TransitiveInfoProvider, FilesToRunPro
     return runfilesSupport != null ? runfilesSupport.getRunfilesManifest() : null;
   }
 
+  @Nullable
+  @Override
+  public Artifact getRepoMappingManifest() {
+    var runfilesSupport = getRunfilesSupport();
+    return runfilesSupport != null ? runfilesSupport.getRepoMappingManifest() : null;
+  }
+
   /** Returns a {@link RunfilesSupplier} encapsulating runfiles for this tool. */
   public final RunfilesSupplier getRunfilesSupplier() {
     return firstNonNull(getRunfilesSupport(), EmptyRunfilesSupplier.INSTANCE);
