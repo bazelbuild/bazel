@@ -785,6 +785,33 @@ class BazelModuleTest(test_base.TestBase):
 
     self.RunBazel(['build', '@data//:data.txt'])
 
+  def testHttpJar(self):
+    """Tests that using http_jar does not require a bazel_dep on rules_java."""
+
+    my_jar_path = self.ScratchFile('my_jar.jar')
+    my_jar_uri = pathlib.Path(my_jar_path).as_uri()
+
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            (
+                'http_jar ='
+                ' use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl",'
+                ' "http_jar")'
+            ),
+            'http_jar(',
+            '  name = "my_jar",',
+            '  url = "%s",' % my_jar_uri,
+            (
+                '  sha256 ='
+                ' "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",'
+            ),
+            ')',
+        ],
+    )
+
+    self.RunBazel(['build', '@my_jar//jar'])
+
 
 if __name__ == '__main__':
   absltest.main()
