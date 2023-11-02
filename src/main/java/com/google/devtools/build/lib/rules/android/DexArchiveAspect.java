@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaO
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -594,6 +595,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
    * @return the artifact given as {@code result}, which can simplify calling code
    */
   // Package-private method for use in AndroidBinary
+  @CanIgnoreReturnValue
   static Artifact createDexArchiveAction(
       RuleContext ruleContext,
       String dexbuilderPrereq,
@@ -623,6 +625,48 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
             .addExecPath("--input_jar", jar)
             .addExecPath("--output_zip", dexArchive)
             .addAll(ImmutableList.copyOf(incrementalDexopts));
+    if (minSdkVersion > 0) {
+      args.add("--min_sdk_version", Integer.toString(minSdkVersion));
+    }
+
+    dexbuilder.addCommandLine(
+        args.build(), ParamFileInfo.builder(UNQUOTED).setUseAlways(true).build());
+    ruleContext.registerAction(dexbuilder.build(ruleContext));
+    return dexArchive;
+  }
+
+  @CanIgnoreReturnValue
+  static Artifact createShardedOptimizedDexArchiveAction(
+      RuleContext ruleContext,
+      Artifact jar,
+      Set<String> incrementalDexopts,
+      int minSdkVersion,
+      Artifact dexArchive) {
+    SpawnAction.Builder dexbuilder =
+        new SpawnAction.Builder()
+            .useDefaultShellEnvironment()
+            .setExecutable(ruleContext.getExecutablePrerequisite(":optimizing_dexer"))
+            .setExecutionInfo(
+                createDexingDesugaringExecRequirements(ruleContext)
+                    .putAll(
+                        TargetUtils.getExecutionInfo(
+                            ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
+                    .buildKeepingLast())
+            .addInput(jar)
+            .addOutput(dexArchive)
+            .setMnemonic("ShardedOptimizingDex")
+            .setProgressMessage(
+                "Optimized dexing %s with applicable dexopts %s",
+                jar.prettyPrint(), incrementalDexopts);
+
+    CustomCommandLine.Builder args =
+        new CustomCommandLine.Builder()
+            .add("--intermediate")
+            .add("--release")
+            .add("--no-desugaring")
+            .addExecPath("--output", dexArchive)
+            .addAll(ImmutableList.copyOf(incrementalDexopts))
+            .addExecPath(jar);
     if (minSdkVersion > 0) {
       args.add("--min_sdk_version", Integer.toString(minSdkVersion));
     }
