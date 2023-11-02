@@ -384,13 +384,12 @@ public class BaseRuleClasses {
             attr(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, LABEL_LIST)
                 .nonconfigurable("stores configurability keys"))
         .add(
-            attr(RuleClass.APPLICABLE_LICENSES_ATTR, LABEL_LIST)
+            attr(RuleClass.APPLICABLE_METADATA_ATTR, LABEL_LIST)
                 .value(packageMetadataDefault)
                 .cfg(ExecutionTransitionFactory.createFactory())
                 .allowedFileTypes(FileTypeSet.NO_FILE)
-                // TODO(b/148601291): Require provider to be "LicenseInfo".
                 .dontCheckConstraints()
-                .nonconfigurable("applicable_licenses is not configurable"))
+                .nonconfigurable("applicable_metadata is not configurable"))
         .add(
             attr("aspect_hints", LABEL_LIST)
                 .allowedFileTypes(FileTypeSet.NO_FILE)

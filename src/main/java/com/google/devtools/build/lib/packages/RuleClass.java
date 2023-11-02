@@ -160,9 +160,9 @@ public class RuleClass implements RuleClassData {
   public static final PathFragment THIRD_PARTY_PREFIX = PathFragment.create("third_party");
   public static final PathFragment EXPERIMENTAL_PREFIX = PathFragment.create("experimental");
   /*
-   * The attribute that declares the set of license labels which apply to this target.
+   * The attribute that declares the set of metadata labels which apply to this target.
    */
-  public static final String APPLICABLE_LICENSES_ATTR = "applicable_licenses";
+  public static final String APPLICABLE_METADATA_ATTR = "applicable_licenses";
 
   /**
    * A constraint for the package name of the Rule instances.
@@ -2254,30 +2254,29 @@ public class RuleClass implements RuleClassData {
       } else if (attr.isLateBound()) {
         rule.setAttributeValue(attr, attr.getLateBoundDefault(), /*explicit=*/ false);
 
-      } else if (attr.getName().equals(APPLICABLE_LICENSES_ATTR)
+      } else if (attr.getName().equals(APPLICABLE_METADATA_ATTR)
           && attr.getType() == BuildType.LABEL_LIST) {
-        // The check here is preventing against a corner case where the license() rule can get
-        // itself as an applicable_license. This breaks the graph because there is now a self-edge.
+        // The check here is preventing against a corner case where the license()/package_info()
+        // rule can get itself as applicable_metadata. This breaks the graph because there is now a
+        // self-edge.
         //
         // There are two ways that I can see to resolve this. The first, what is shown here, simply
-        // prunes the attribute if the source is a new-style license rule, based on what's been
-        // provided publicly. This does create a tight coupling to the implementation, but this is
-        // unavoidable since licenses are no longer a first-class type but we want first class
+        // prunes the attribute if the source is a new-style license/metadata rule, based on what's
+        // been provided publicly. This does create a tight coupling to the implementation, but this
+        // is unavoidable since licenses are no longer a first-class type but we want first class
         // behavior in Bazel core.
         //
         // A different approach that would not depend on the implementation of the rule could filter
-        // the list of default_applicable_licenses and not include the license rule if it matches
+        // the list of default_applicable_metadata and not include the metadata rule if it matches
         // the name of the current rule. This obviously fixes the self-assignment rule, but the
         // resulting graph is semantically strange. The interpretation of the graph would be that
-        // the license rule is subject to the licenses of the *other* default licenses, but not
-        // itself. That looks very odd, and it's not semantically accurate. A license rule transmits
-        // no license obligation, so the correct semantics would be to have no
-        // default_applicable_licenses applied. This begs the question, if the self-edge is
-        // detected, why not simply drop all the default_applicable_licenses attributes and avoid
-        // this oddness? That would work and fix the self-edge problem, but for nodes that don't
-        // have the self-edge problem, they would get all default_applicable_licenses and now the
-        // graph is inconsistent in that some license() rules have applicable_licenses while others
-        // do not.
+        // the metadata rule is subject to the metadata of the *other* default metadata, but not
+        // itself. That looks very odd, and it's not semantically accurate.
+        // As an alternate, if the self-edge is detected, why not simply drop all the
+        // default_applicable_metadata attributes and avoid this oddness? That would work and
+        // fix the self-edge problem, but for nodes that don't have the self-edge problem, they
+        // would get all default_applicable_metadata and now the graph is inconsistent in that some
+        // license() rules have applicable_metadata while others do not.
         if (rule.getRuleClassObject().isPackageMetadataRule()) {
           rule.setAttributeValue(attr, ImmutableList.of(), /* explicit= */ false);
         }
@@ -2718,13 +2717,13 @@ public class RuleClass implements RuleClassData {
    *
    * <p>The intended use is to detect if this rule is of a type which would be used in <code>
    * default_package_metadata</code>, so that we don't apply it to an instanced of itself when
-   * <code>applicable_licenses</code> is left unset. Doing so causes a self-referential loop. To
+   * <code>applicable_metadata</code> is left unset. Doing so causes a self-referential loop. To
    * prevent that, we are overly cautious at this time, treating all rules from <code>@rules_license
    * </code> as potential metadata rules.
    *
    * <p>Most users will only use declarations from <code>@rules_license</code>. If they which to
    * create organization local rules, they must be careful to avoid loops by explicitly setting
-   * <code>applicable_licenses</code> on each of the metadata targets they define, so that default
+   * <code>applicable_metadata</code> on each of the metadata targets they define, so that default
    * processing is not an issue.
    */
   public boolean isPackageMetadataRule() {
