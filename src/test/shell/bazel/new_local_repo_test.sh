@@ -66,6 +66,7 @@ function test_build_file_label_repo_mapping() {
   mkdir subdir
   cat > WORKSPACE <<'eof'
 workspace(name='myws')
+# add a `load` to force a new workspace chunk, adding "myws" to the mapping
 load('@bazel_tools//tools/build_defs/repo:http.bzl', 'http_archive')
 new_local_repository(
   name = "heh",
