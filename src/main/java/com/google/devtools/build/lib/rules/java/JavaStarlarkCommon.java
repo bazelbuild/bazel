@@ -272,24 +272,6 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public ProviderApi getJavaToolchainProvider() {
-    // method exists solely for documentation
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public Provider getJavaRuntimeProvider() {
-    // method exists purely for documentation
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public ProviderApi getBootClassPathInfo() {
-    // method exists solely for documentation
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
   public String getTargetKind(Object target, StarlarkThread thread) throws EvalException {
     checkPrivateAccess(thread);
     if (target instanceof MergedConfiguredTarget) {

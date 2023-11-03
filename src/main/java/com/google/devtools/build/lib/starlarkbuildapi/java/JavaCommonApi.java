@@ -617,7 +617,10 @@ public interface JavaCommonApi<
           "The key used to retrieve the provider that contains information about the Java "
               + "toolchain being used.",
       structField = true)
-  ProviderApi getJavaToolchainProvider();
+  default ProviderApi getJavaToolchainProvider() {
+    // method exists purely for documentation
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "JavaRuntimeInfo",
@@ -625,13 +628,19 @@ public interface JavaCommonApi<
           "The key used to retrieve the provider that contains information about the Java "
               + "runtime being used.",
       structField = true)
-  ProviderApi getJavaRuntimeProvider();
+  default ProviderApi getJavaRuntimeProvider() {
+    // method exists purely for documentation
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "BootClassPathInfo",
       doc = "The provider used to supply bootclasspath information",
       structField = true)
-  ProviderApi getBootClassPathInfo();
+  default ProviderApi getBootClassPathInfo() {
+    // method exists solely for documentation
+    throw new UnsupportedOperationException();
+  }
 
   /** Returns target kind. */
   @StarlarkMethod(
