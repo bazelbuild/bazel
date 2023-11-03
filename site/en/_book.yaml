@@ -9,6 +9,8 @@ upper_tabs:
       contents:
       - title: Bazel overview
         path: /about/intro
+      - title: Why Bazel?
+        path: /about/why
       - title: Bazel vision
         path: /about/vision
       - title: Roadmap
