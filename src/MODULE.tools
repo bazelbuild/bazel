@@ -23,9 +23,9 @@ use_repo(xcode_configure, "local_config_xcode")
 
 archive_override(
     module_name = "rules_java",
-    urls = ["https://github.com/bazelbuild/rules_java/archive/b11b5e8f37b4adb0f90ba391662830cefa6c84dc.tar.gz"],
-    integrity = "sha256-r/WJwQvdjo3x9FE1lu4yJrhGZahmCIX+yHuW77Il2i8=",
-    strip_prefix = "rules_java-b11b5e8f37b4adb0f90ba391662830cefa6c84dc",
+    urls = ["https://github.com/bazelbuild/rules_java/archive/43bed5d17f0e04b10c1ecc3d6c00975669fda0d5.tar.gz"],
+    integrity = "sha256-eF+Y9mCfg4U/u1+s+pnxt9l9MADF9mJza4o+SqR1McU=",
+    strip_prefix = "rules_java-43bed5d17f0e04b10c1ecc3d6c00975669fda0d5",
 )
 
 java_toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
