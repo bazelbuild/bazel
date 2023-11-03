@@ -947,6 +947,22 @@ EOF
   expect_log "No repository visible as '@foo' from main repository"
 }
 
+function test_bind_repo_mapping() {
+  cat >> $(create_workspace_with_default_repos WORKSPACE myws) <<'EOF'
+load('//:foo.bzl', 'foo')
+foo()
+bind(name='bar', actual='@myws//:something')
+EOF
+  cat > foo.bzl <<'EOF'
+def foo():
+  native.bind(name='foo', actual='@myws//:something')
+EOF
+  cat > BUILD <<'EOF'
+filegroup(name='something', visibility=["//visibility:public"])
+EOF
+  bazel build //external:foo //external:bar &> "$TEST_log" || fail "don't fail!"
+}
+
 function test_flip_flopping() {
   REPO_PATH=$TEST_TMPDIR/repo
   mkdir -p "$REPO_PATH"
