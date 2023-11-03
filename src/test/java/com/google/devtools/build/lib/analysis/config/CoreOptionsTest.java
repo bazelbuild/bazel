@@ -24,6 +24,7 @@ public final class CoreOptionsTest extends OptionsTestCase<CoreOptions> {
 
   private static final String FEATURES_PREFIX = "--features=";
   private static final String DEFINE_PREFIX = "--define=";
+  private static final String FLAG_ALIAS_PREFIX = "--flag_alias=";
 
   @Test
   public void testFeatures_orderingOfPositiveFeatures() throws Exception {
@@ -47,9 +48,32 @@ public final class CoreOptionsTest extends OptionsTestCase<CoreOptions> {
   }
 
   @Test
-  public void testDefines_duplicatesWithCollapsingEnabled_effectOnCacheKey() throws Exception {
+  public void testDefines_duplicateKey() throws Exception {
+    // Last one should win
     CoreOptions one = createWithPrefix(DEFINE_PREFIX, "a=1", "a=2");
     CoreOptions two = createWithPrefix(DEFINE_PREFIX, "a=2");
+    assertSame(one, two);
+  }
+
+  @Test
+  public void testDefines_orderOfKeys() throws Exception {
+    CoreOptions one = createWithPrefix(DEFINE_PREFIX, "a=1", "c=3", "b=2");
+    CoreOptions two = createWithPrefix(DEFINE_PREFIX, "b=2", "a=1", "c=3");
+    assertSame(one, two);
+  }
+
+  @Test
+  public void testflagAlias_duplicateKey() throws Exception {
+    // Last one should win
+    CoreOptions one = createWithPrefix(FLAG_ALIAS_PREFIX, "a=//one", "a=//two");
+    CoreOptions two = createWithPrefix(FLAG_ALIAS_PREFIX, "a=//two");
+    assertSame(one, two);
+  }
+
+  @Test
+  public void testFlagAlias_orderOfKeys() throws Exception {
+    CoreOptions one = createWithPrefix(FLAG_ALIAS_PREFIX, "a=//one", "c=//three", "b=//two");
+    CoreOptions two = createWithPrefix(FLAG_ALIAS_PREFIX, "b=//two", "a=//one", "c=//three");
     assertSame(one, two);
   }
 
