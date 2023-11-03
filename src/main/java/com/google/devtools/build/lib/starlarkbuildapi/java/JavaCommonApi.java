@@ -606,10 +606,10 @@ public interface JavaCommonApi<
             documented = false,
             defaultValue = "False")
       })
-  // TODO(b/78512644): migrate callers to passing explicit javacopts or using custom toolchains, and
-  // delete
-  StarlarkValue getDefaultJavacOpts(Info javaToolchain, boolean asDepset)
-      throws EvalException, RuleErrorException;
+  default StarlarkValue getDefaultJavacOpts(Info javaToolchain, boolean asDepset) {
+    // method exists solely for documentation
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "JavaToolchainInfo",
