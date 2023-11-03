@@ -95,10 +95,8 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
         result.addAttribute("incremental_dexing", incrementalAttr.name());
         result.addAttribute(
             "min_sdk_version", attributes.get("min_sdk_version", INTEGER).toString());
-        result.addAttribute("toprule_kind", rule.getRuleClass());
         return result.build();
       };
-
   /**
    * Function that limits this aspect to Java 8 desugaring (disabling incremental dexing) when
    * attaching this aspect to a target. This is intended for implicit attributes like the stub APKs
@@ -247,11 +245,9 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
       throws InterruptedException, ActionConflictException {
     ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(ruleContext);
 
-    // No-op out of the aspect in the android_binary rule if the Starlark dex/desugar will execute
-    // to avoid registering duplicate actions and bloating memory.
-    if (!params.getAttribute("toprule_kind").isEmpty()
-        && params.getOnlyValueOfAttribute("toprule_kind").equals("android_binary")
-        && Allowlist.hasAllowlist(ruleContext, "enable_starlark_dex_desugar_proguard")
+    // No-op out of the aspect if the Starlark dex/desugar will execute to avoid registering
+    // duplicate actions and bloating memory
+    if (Allowlist.hasAllowlist(ruleContext, "enable_starlark_dex_desugar_proguard")
         && Allowlist.isAvailable(ruleContext, "enable_starlark_dex_desugar_proguard")) {
       return result.build();
     }
