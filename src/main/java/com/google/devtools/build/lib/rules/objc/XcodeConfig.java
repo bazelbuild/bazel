@@ -208,6 +208,7 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
     }
     return false;
   }
+
   /**
    * Returns the {@link XcodeVersionProperties} selected by the {@code--xcode_version} flag from the
    * {@code versions} attribute of the {@code xcode_config} target explicitly defined in the {@code
@@ -397,7 +398,7 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
                 "--xcode_version=%1$s specified, but it is not available locally. Your build will"
                     + " fail if any actions require a local Xcode. If you believe you have '%1$s'"
                     + " installed, try running \"blaze sync --configure\", and then re-run your"
-                    + " command.  localy available versions: [%2$s]. remotely available versions:"
+                    + " command.  Locally available versions: [%2$s]. Remotely available versions:"
                     + " [%3$s]",
                 versionOverrideFlag,
                 printableXcodeVersions(localVersions.getAvailableVersions()),
@@ -407,7 +408,7 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
         ruleContext.throwWithRuleError(
             String.format(
                 "--xcode_version=%1$s specified, but '%1$s' is not an available Xcode version."
-                    + " localy available versions: [%2$s]. remotely available versions:"
+                    + " Locally available versions: [%2$s]. Remotely available versions:"
                     + " [%3$s]. If you believe you have '%1$s' installed, try running \"blaze"
                     + " sync --configure\", and then re-run your command.",
                 versionOverrideFlag,
@@ -532,7 +533,6 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
 
   public static XcodeConfigInfo getXcodeConfigInfo(RuleContext ruleContext) {
     return ruleContext.getPrerequisite(
-        XcodeConfigRule.XCODE_CONFIG_ATTR_NAME,
-        XcodeConfigInfo.PROVIDER);
+        XcodeConfigRule.XCODE_CONFIG_ATTR_NAME, XcodeConfigInfo.PROVIDER);
   }
 }
