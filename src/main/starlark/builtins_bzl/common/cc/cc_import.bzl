@@ -153,12 +153,18 @@ def _cc_import_impl(ctx):
             linker_inputs = depset([linker_input]),
         )
 
+    additional_make_variable_substitutions = cc_helper.get_toolchain_global_make_variables(cc_toolchain)
+    additional_make_variable_substitutions.update(cc_helper.get_cc_flags_make_variable(ctx, feature_configuration, cc_toolchain))
+
     (compilation_context, _) = cc_common.compile(
         actions = ctx.actions,
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
         public_hdrs = ctx.files.hdrs,
-        includes = ctx.attr.includes,
+        system_includes = cc_helper.system_include_dirs(
+            ctx,
+            additional_make_variable_substitutions,
+        ),
         name = ctx.label.name,
     )
 
