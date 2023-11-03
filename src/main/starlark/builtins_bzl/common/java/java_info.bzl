@@ -456,8 +456,7 @@ def java_info_for_compilation(
             # only differs from the usual java_info.transitive_source_jars in the order of deps
             transitive = [dep.transitive_source_jars for dep in concatenated_deps.runtimedeps_exports_deps],
         ),
-        # the JavaInfo constructor does not add flags from runtime_deps nor support
-        # adding this target's exports/opens
+        # the JavaInfo constructor does not add flags from runtime_deps
         module_flags_info = _create_module_flags_info(
             add_exports = depset(add_exports, transitive = [
                 dep.module_flags_info.add_exports
