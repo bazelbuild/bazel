@@ -73,7 +73,7 @@ project][lcov]) to produce a report that can be viewed in a web
 browser:
 
 ```console
-genhtml --output genhtml "$(bazel info output_path)/_coverage/_coverage_report.dat"
+genhtml --branch-coverage --output genhtml "$(bazel info output_path)/_coverage/_coverage_report.dat"
 ```
 
 Note that `genhtml` reads the source code as well, to annotate missing
