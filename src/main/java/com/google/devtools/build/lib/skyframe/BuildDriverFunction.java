@@ -685,17 +685,9 @@ public class BuildDriverFunction implements SkyFunction {
   abstract static class ActionLookupValuesCollectionResult {
     abstract ImmutableCollection<SkyValue> collectedValues();
 
-    abstract ImmutableSet<ActionLookupKey> visitedKeys();
-
     static ActionLookupValuesCollectionResult create(
-        ImmutableCollection<SkyValue> collectedValues, ImmutableSet<ActionLookupKey> visitedKeys) {
-      return new AutoValue_BuildDriverFunction_ActionLookupValuesCollectionResult(
-          collectedValues, visitedKeys);
-    }
-
-    static ActionLookupValuesCollectionResult empty() {
-      return new AutoValue_BuildDriverFunction_ActionLookupValuesCollectionResult(
-          ImmutableSet.of(), ImmutableSet.of());
+        ImmutableCollection<SkyValue> collectedValues) {
+      return new AutoValue_BuildDriverFunction_ActionLookupValuesCollectionResult(collectedValues);
     }
   }
 }

@@ -3081,8 +3081,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         Profiler.instance().profile("SkyframeExecutor.collectAccumulatedAlvs")) {
       ImmutableMap<ActionLookupKey, SkyValue> batchOfActionLookupValues =
           progressReceiver.getBatchedActionLookupValuesForConflictChecking();
-      return ActionLookupValuesCollectionResult.create(
-          batchOfActionLookupValues.values(), batchOfActionLookupValues.keySet());
+      return ActionLookupValuesCollectionResult.create(batchOfActionLookupValues.values());
     }
   }
 
