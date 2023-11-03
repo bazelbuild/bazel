@@ -417,14 +417,19 @@ public final class SkyframeActionExecutor {
     return buildActionMap.get(new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
   }
 
+  /** Determines whether the given action was rewound during the current build. */
+  public boolean wasRewound(Action action) {
+    return rewoundActions.contains(new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
+  }
+
   /**
    * Determines whether the action should have its progress events emitted.
    *
-   * <p>Returns {@code false} for completed and rewound actions, indicating that their progress
-   * events should be suppressed.
+   * <p>Returns {@code false} for rewound actions, indicating that their progress events should be
+   * suppressed.
    */
   boolean shouldEmitProgressEvents(Action action) {
-    return !rewoundActions.contains(new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
+    return !wasRewound(action);
   }
 
   /**
