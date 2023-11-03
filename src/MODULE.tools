@@ -21,6 +21,13 @@ register_toolchains("@local_config_cc_toolchains//:all")
 xcode_configure = use_extension("//tools/osx:xcode_configure.bzl", "xcode_configure_extension")
 use_repo(xcode_configure, "local_config_xcode")
 
+archive_override(
+    module_name = "rules_java",
+    urls = ["https://github.com/bazelbuild/rules_java/archive/b11b5e8f37b4adb0f90ba391662830cefa6c84dc.tar.gz"],
+    integrity = "sha256-r/WJwQvdjo3x9FE1lu4yJrhGZahmCIX+yHuW77Il2i8=",
+    strip_prefix = "rules_java-b11b5e8f37b4adb0f90ba391662830cefa6c84dc",
+)
+
 java_toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
 use_repo(
     java_toolchains,
