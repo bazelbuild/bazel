@@ -38,6 +38,12 @@ replace the native rules.
 """
 
 load(
+    ":cache.bzl",
+    "CANONICAL_ID_DOC",
+    "DEFAULT_CANONICAL_ID_ENV",
+    "get_default_canonical_id",
+)
+load(
     ":utils.bzl",
     "patch",
     "read_netrc",
@@ -142,7 +148,7 @@ def _http_archive_impl(ctx):
         ctx.attr.sha256,
         ctx.attr.type,
         ctx.attr.strip_prefix,
-        canonical_id = ctx.attr.canonical_id,
+        canonical_id = ctx.attr.canonical_id or get_default_canonical_id(ctx, all_urls),
         auth = auth,
         integrity = ctx.attr.integrity,
     )
@@ -182,7 +188,7 @@ def _http_file_impl(ctx):
         "file/" + downloaded_file_path,
         ctx.attr.sha256,
         ctx.attr.executable,
-        canonical_id = ctx.attr.canonical_id,
+        canonical_id = ctx.attr.canonical_id or get_default_canonical_id(ctx, all_urls),
         auth = auth,
         integrity = ctx.attr.integrity,
     )
@@ -219,7 +225,7 @@ def _http_jar_impl(ctx):
         all_urls,
         "jar/" + downloaded_file_name,
         ctx.attr.sha256,
-        canonical_id = ctx.attr.canonical_id,
+        canonical_id = ctx.attr.canonical_id or get_default_canonical_id(ctx, all_urls),
         auth = auth,
         integrity = ctx.attr.integrity,
     )
@@ -257,11 +263,7 @@ easier but either this attribute or `sha256` should be set before shipping.""",
         doc = _AUTH_PATTERN_DOC,
     ),
     "canonical_id": attr.string(
-        doc = """A canonical id of the archive downloaded.
-
-If specified and non-empty, bazel will not take the archive from cache,
-unless it was added to the cache by a request with the same canonical id.
-""",
+        doc = CANONICAL_ID_DOC,
     ),
     "strip_prefix": attr.string(
         doc = """A directory prefix to strip from the extracted files.
@@ -382,6 +384,7 @@ following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
 http_archive = repository_rule(
     implementation = _http_archive_impl,
     attrs = _http_archive_attrs,
+    environ = [DEFAULT_CANONICAL_ID_ENV],
     doc =
         """Downloads a Bazel repository as a compressed archive file, decompresses it,
 and makes its targets available for binding.
@@ -457,11 +460,7 @@ field will make your build non-hermetic. It is optional to make development
 easier but either this attribute or `sha256` should be set before shipping.""",
     ),
     "canonical_id": attr.string(
-        doc = """A canonical id of the archive downloaded.
-
-If specified and non-empty, bazel will not take the archive from cache,
-unless it was added to the cache by a request with the same canonical id.
-""",
+        doc = CANONICAL_ID_DOC,
     ),
     "url": attr.string(doc = _URL_DOC),
     "urls": attr.string_list(doc = _URLS_DOC),
@@ -476,6 +475,7 @@ unless it was added to the cache by a request with the same canonical id.
 http_file = repository_rule(
     implementation = _http_file_impl,
     attrs = _http_file_attrs,
+    environ = [DEFAULT_CANONICAL_ID_ENV],
     doc =
         """Downloads a file from a URL and makes it available to be used as a file
 group.
@@ -517,11 +517,7 @@ field will make your build non-hermetic. It is optional to make development
 easier but either this attribute or `sha256` should be set before shipping.""",
     ),
     "canonical_id": attr.string(
-        doc = """A canonical id of the archive downloaded.
-
-If specified and non-empty, bazel will not take the archive from cache,
-unless it was added to the cache by a request with the same canonical id.
-""",
+        doc = CANONICAL_ID_DOC,
     ),
     "url": attr.string(doc = _URL_DOC + "\n\nThe URL must end in `.jar`."),
     "urls": attr.string_list(doc = _URLS_DOC + "\n\nAll URLs must end in `.jar`."),
@@ -540,6 +536,7 @@ unless it was added to the cache by a request with the same canonical id.
 http_jar = repository_rule(
     implementation = _http_jar_impl,
     attrs = _http_jar_attrs,
+    environ = [DEFAULT_CANONICAL_ID_ENV],
     doc =
         """Downloads a jar from a URL and makes it available as java_import
 
