@@ -13,7 +13,7 @@
     "compatibilityMode": "ERROR"
   },
   "localOverrideHashes": {
-    "bazel_tools": "47573ebf3764af096ce3ca82c7a119cd51de973ec358f39cd65bb32e185bb0f8"
+    "bazel_tools": "18ffd442cf258c9048798a0d9bc49bbb06aba5ccb141dd357ce0c13c56f1ae78"
   },
   "moduleDepGraph": {
     "<root>": {
@@ -81,7 +81,7 @@
           "usingModule": "bazel_tools@_",
           "location": {
             "file": "@@bazel_tools//:MODULE.bazel",
-            "line": 31,
+            "line": 24,
             "column": 32
           },
           "imports": {
@@ -103,7 +103,7 @@
           "usingModule": "bazel_tools@_",
           "location": {
             "file": "@@bazel_tools//:MODULE.bazel",
-            "line": 42,
+            "line": 35,
             "column": 39
           },
           "imports": {
@@ -120,7 +120,7 @@
           "usingModule": "bazel_tools@_",
           "location": {
             "file": "@@bazel_tools//:MODULE.bazel",
-            "line": 46,
+            "line": 39,
             "column": 48
           },
           "imports": {
@@ -137,7 +137,7 @@
           "usingModule": "bazel_tools@_",
           "location": {
             "file": "@@bazel_tools//:MODULE.bazel",
-            "line": 49,
+            "line": 42,
             "column": 42
           },
           "imports": {
