@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -48,7 +49,7 @@ public abstract class RegisteredToolchainsValue implements SkyValue {
     }
 
     @AutoCodec.Instantiator
-    @AutoCodec.VisibleForSerialization
+    @VisibleForSerialization
     static Key of(BuildConfigurationKey configurationKey) {
       return interner.intern(new Key(configurationKey));
     }

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -38,7 +39,7 @@ public abstract class RegisteredExecutionPlatformsValue implements SkyValue {
 
   /** {@link SkyKey} implementation used for {@link RegisteredExecutionPlatformsFunction}. */
   @AutoCodec
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   static class Key implements SkyKey {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
@@ -49,7 +50,7 @@ public abstract class RegisteredExecutionPlatformsValue implements SkyValue {
     }
 
     @AutoCodec.Instantiator
-    @AutoCodec.VisibleForSerialization
+    @VisibleForSerialization
     static Key of(BuildConfigurationKey configurationKey) {
       return interner.intern(new Key(configurationKey));
     }

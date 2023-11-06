@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -71,7 +72,7 @@ public class RecursivePkgValue implements SkyValue {
     return hasErrors;
   }
 
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   @AutoCodec
   static class Key extends RecursivePkgSkyKey {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
@@ -83,7 +84,7 @@ public class RecursivePkgValue implements SkyValue {
       super(repositoryName, rootedPath, excludedPaths);
     }
 
-    @AutoCodec.VisibleForSerialization
+    @VisibleForSerialization
     @AutoCodec.Instantiator
     static Key create(
         RepositoryName repositoryName,
