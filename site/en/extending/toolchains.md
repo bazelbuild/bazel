@@ -508,6 +508,18 @@ The host platform is automatically included as an available execution platform.
 Available platforms and toolchains are tracked as ordered lists for determinism,
 with preference given to earlier items in the list.
 
+The set of available toolchains, in priority order, is created from
+`--extra_toolchains` and `register_toolchains`:
+
+1. Toolchains registered using `--extra_toolchains` are added first.
+  1. Within these, the **last** toolchain has highest priority.
+2. Toolchains registered using `register_toolchains`
+  1. Within these, the **first** mentioned toolchain has highest priority.
+
+**NOTE:** [Pseudo-targets like `:all`, `:*`, and
+`/...`](/run/build#specifying-build-targets) are ordered by Bazel's package
+loading mechanism, which uses a lexicographic ordering.
+
 The resolution steps are as follows.
 
 1. A `target_compatible_with` or `exec_compatible_with` clause *matches* a
