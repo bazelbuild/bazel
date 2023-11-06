@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -173,6 +174,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           allowlistEntry("", "initializer_testing"),
           allowlistEntry("", "extend_rule_testing"),
           allowlistEntry("", "subrule_testing"));
+
+  public static final ImmutableSet<AllowlistEntry> ALLOWLIST_RULE_EXTENSION_API_EXPERIMENTAL =
+      ImmutableSet.of(allowlistEntry("", "initializer_testing/builtins"));
 
   /** Parent rule class for test Starlark rules. */
   public static RuleClass getTestBaseRule(RuleDefinitionEnvironment env) {
@@ -1062,14 +1066,23 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                 : Dict.cast(ret, String.class, Object.class, "rule's initializer return value");
 
         for (var arg : newKwargs.keySet()) {
-          Attribute attr = currentRuleClass.getAttributeByNameMaybe(arg);
-          if (attr != null && !(attr.isPublic() && attr.starlarkDefined())) {
-            throw Starlark.errorf(
-                "Initializer can only set public, Starlark defined attributes, not '%s'", arg);
+          checkAttributeName(arg);
+          if (arg.startsWith("_")) {
+            // allow setting private attributes from initializers in builtins
+            Label definitionLabel = ruleClass.getRuleDefinitionEnvironmentLabel();
+            BuiltinRestriction.failIfLabelOutsideAllowlist(
+                definitionLabel,
+                RepositoryMapping.ALWAYS_FALLBACK,
+                ALLOWLIST_RULE_EXTENSION_API_EXPERIMENTAL);
           }
+          String nativeName = arg.startsWith("_") ? "$" + arg.substring(1) : arg;
+          Attribute attr = currentRuleClass.getAttributeByNameMaybe(nativeName);
+          if (attr != null && !attr.starlarkDefined()) {
+            throw Starlark.errorf(
+                "Initializer can only set Starlark defined attributes, not '%s'", arg);
+          }
+          kwargs.putEntry(nativeName, newKwargs.get(arg));
         }
-
-        kwargs.putEntries(newKwargs);
       }
 
       BuildLangTypedAttributeValuesMap attributeValues =

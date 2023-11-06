@@ -2997,7 +2997,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void initializer_failsSettingInheritedPublicParameter() throws Exception {
+  public void initializer_failsSettingBaseAttribute() throws Exception {
+    // 'args' is an attribute defined for all executable rules
     scratch.file(
         "initializer_testing/b.bzl",
         "def initializer(srcs = [], deps = []):",
@@ -3020,8 +3021,66 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     reporter.addHandler(ev.getEventCollector());
     getConfiguredTarget("//initializer_testing:my_target");
 
-    ev.assertContainsError(
-        "Initializer can only set public, Starlark defined attributes, not 'args'");
+    ev.assertContainsError("Initializer can only set Starlark defined attributes, not 'args'");
+  }
+
+  @Test
+  public void initializer_failsSettingPrivateAttribute_outsideBuiltins() throws Exception {
+    scratch.file(
+        "initializer_testing/b.bzl",
+        "def initializer(srcs = [], deps = []):",
+        "  return {'srcs': srcs, '_tool': ':my_tool'}",
+        "def impl(ctx): ",
+        "  pass",
+        "my_rule = rule(impl,",
+        "  initializer = initializer,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files = ['ml']),",
+        "    '_tool': attr.label(),",
+        "  })");
+    scratch.file(
+        "initializer_testing/BUILD", //
+        "load(':b.bzl','my_rule')",
+        "filegroup(name='my_tool')",
+        "my_rule(name = 'my_target', srcs = ['a.ml'])");
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//initializer_testing:my_target");
+
+    ev.assertContainsError("file '//initializer_testing:b.bzl' cannot use private API");
+  }
+
+  @Test
+  public void initializer_settingPrivateAttribute_insideBuiltins() throws Exception {
+    scratch.file("initializer_testing/builtins/BUILD");
+    scratch.file(
+        "initializer_testing/builtins/b.bzl",
+        "def initializer(srcs = [], deps = []):",
+        "  return {'srcs': srcs, '_tool': ':my_tool'}",
+        "MyInfo = provider()",
+        "def impl(ctx): ",
+        "  return MyInfo(_tool = str(ctx.attr._tool.label))",
+        "my_rule = rule(impl,",
+        "  initializer = initializer,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files = ['ml']),",
+        "    '_tool': attr.label(),",
+        "  })");
+    scratch.file(
+        "initializer_testing/BUILD", //
+        "load('//initializer_testing/builtins:b.bzl','my_rule')",
+        "filegroup(name='my_tool')",
+        "my_rule(name = 'my_target', srcs = ['a.ml'])");
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//initializer_testing:my_target");
+    StructImpl info =
+        (StructImpl)
+            myTarget.get(
+                new StarlarkProvider.Key(
+                    Label.parseCanonical("//initializer_testing/builtins:b.bzl"), "MyInfo"));
+
+    assertThat(info.getValue("_tool").toString()).isEqualTo("@@//initializer_testing:my_tool");
   }
 
   @Test
