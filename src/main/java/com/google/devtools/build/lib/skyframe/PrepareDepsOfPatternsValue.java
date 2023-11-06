@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.query2.common.UniverseSkyKey;
@@ -65,8 +63,7 @@ public final class PrepareDepsOfPatternsValue implements SkyValue {
   @AutoCodec.VisibleForSerialization
   @AutoCodec
   static class TargetPatternSequence implements UniverseSkyKey {
-    private static final Interner<TargetPatternSequence> interner =
-        BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<TargetPatternSequence> interner = SkyKey.newInterner();
 
     private final ImmutableList<String> patterns;
     private final PathFragment offset;
@@ -89,6 +86,11 @@ public final class PrepareDepsOfPatternsValue implements SkyValue {
 
     public PathFragment getOffset() {
       return offset;
+    }
+
+    @Override
+    public SkyKeyInterner<TargetPatternSequence> getSkyKeyInterner() {
+      return interner;
     }
 
     @Override

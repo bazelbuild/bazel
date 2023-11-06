@@ -17,9 +17,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -239,7 +237,7 @@ public abstract class CollectPackagesUnderDirectoryValue implements SkyValue {
   @AutoCodec.VisibleForSerialization
   @AutoCodec
   static class Key extends RecursivePkgSkyKey {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private Key(
         RepositoryName repositoryName,
@@ -260,6 +258,11 @@ public abstract class CollectPackagesUnderDirectoryValue implements SkyValue {
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.COLLECT_PACKAGES_UNDER_DIRECTORY;
+    }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
     }
   }
 }

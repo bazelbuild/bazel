@@ -19,14 +19,13 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
+import com.google.devtools.build.skyframe.SkyKey.SkyKeyInterner;
 import com.google.devtools.build.skyframe.SkyframeLookupResult.QueryDepCallback;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
@@ -512,7 +511,7 @@ public class GraphTester {
   @AutoCodec.VisibleForSerialization
   @AutoCodec
   static class Key extends AbstractSkyKey<String> {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private Key(String arg) {
       super(arg);
@@ -528,12 +527,17 @@ public class GraphTester {
     public SkyFunctionName functionName() {
       return SkyFunctionName.FOR_TESTING;
     }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
+    }
   }
 
   @AutoCodec.VisibleForSerialization
   @AutoCodec
   static class NonHermeticKey extends AbstractSkyKey<String> {
-    private static final Interner<NonHermeticKey> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<NonHermeticKey> interner = SkyKey.newInterner();
 
     private NonHermeticKey(String arg) {
       super(arg);
@@ -548,6 +552,11 @@ public class GraphTester {
     @Override
     public SkyFunctionName functionName() {
       return FOR_TESTING_NONHERMETIC;
+    }
+
+    @Override
+    public SkyKeyInterner<NonHermeticKey> getSkyKeyInterner() {
+      return interner;
     }
   }
 
