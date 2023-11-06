@@ -18,7 +18,7 @@ import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -60,7 +60,7 @@ public final class TestCompletionValue implements SkyValue {
   public abstract static class TestCompletionKey implements SkyKey {
     private static final Interner<TestCompletionKey> interner = BlazeInterners.newWeakInterner();
 
-    @AutoCodec.VisibleForSerialization
+    @VisibleForSerialization
     @AutoCodec.Instantiator
     static TestCompletionKey create(
         ConfiguredTargetKey configuredTargetKey,

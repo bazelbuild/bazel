@@ -24,6 +24,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -509,7 +510,7 @@ public class GraphTester {
         StringValue.of(String.format(format, StringValue.from(deps.get(key)).getValue()));
   }
 
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   @AutoCodec
   static class Key extends AbstractSkyKey<String> {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
@@ -518,7 +519,7 @@ public class GraphTester {
       super(arg);
     }
 
-    @AutoCodec.VisibleForSerialization
+    @VisibleForSerialization
     @AutoCodec.Instantiator
     static Key create(String arg) {
       return interner.intern(new Key(arg));
@@ -530,7 +531,7 @@ public class GraphTester {
     }
   }
 
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   @AutoCodec
   static class NonHermeticKey extends AbstractSkyKey<String> {
     private static final Interner<NonHermeticKey> interner = BlazeInterners.newWeakInterner();
@@ -539,7 +540,7 @@ public class GraphTester {
       super(arg);
     }
 
-    @AutoCodec.VisibleForSerialization
+    @VisibleForSerialization
     @AutoCodec.Instantiator
     static NonHermeticKey create(String arg) {
       return interner.intern(new NonHermeticKey(arg));
