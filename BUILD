@@ -296,7 +296,7 @@ REMOTE_PLATFORMS = ("rbe_ubuntu2004_java11",)
 ]
 
 # Workaround for https://github.com/bazelbuild/bazel/issues/19837.
-# TODO(bazel-team): Remove these two targets when .bazelversion is 7.0.0rc2 or later.
+# TODO(bazel-team): Remove these three targets when .bazelversion is 7.0.0rc2 or later.
 default_java_toolchain(
     name = "bazel_java_toolchain",
     bootclasspath = ["@rules_java//toolchains:platformclasspath"],
@@ -307,6 +307,13 @@ default_java_toolchain(
 
 default_java_toolchain(
     name = "bazel_rbe_java_toolchain",
+    bootclasspath = ["@bazel_tools//tools/jdk:platformclasspath"],
     source_version = "11",
     target_version = "11",
+)
+
+toolchain(
+    name = "bazel_rbe_bootstrap_runtime_toolchain",
+    toolchain = ":bazel_rbe_java_toolchain",
+    toolchain_type = "@bazel_tools//tools/jdk:bootstrap_runtime_toolchain_type",
 )
