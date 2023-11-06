@@ -14,11 +14,9 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -58,7 +56,7 @@ public final class TestCompletionValue implements SkyValue {
   @AutoCodec
   @AutoValue
   public abstract static class TestCompletionKey implements SkyKey {
-    private static final Interner<TestCompletionKey> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<TestCompletionKey> interner = SkyKey.newInterner();
 
     @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
@@ -84,6 +82,11 @@ public final class TestCompletionValue implements SkyValue {
     @Override
     public final boolean valueIsShareable() {
       return false;
+    }
+
+    @Override
+    public final SkyKeyInterner<TestCompletionKey> getSkyKeyInterner() {
+      return interner;
     }
   }
 }
