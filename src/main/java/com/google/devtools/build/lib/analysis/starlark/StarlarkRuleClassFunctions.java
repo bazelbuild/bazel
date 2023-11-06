@@ -378,8 +378,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       failIf(testUnchecked != Starlark.UNBOUND, "Omit test parameter when extending rules.");
       // TODO b/300201845 - add cfg support
       failIf(cfg != Starlark.NONE, "cfg is not supported in extended rules yet.");
-      // TODO b/300201845 - add initializers
-      failIf(initializer != Starlark.NONE, "initializers are not supported in extended rules yet.");
       // TODO b/300201845 - add subrules support
       failIf(!subrules.isEmpty(), "subrules are not supported in extended rules yet.");
       failIf(
@@ -493,6 +491,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
               : (executable ? binaryBaseRule : baseRule);
       builder = new RuleClass.Builder("", type, true, baseParent);
     }
+
+    builder.initializer(initializer);
 
     builder.setDefaultExtendableAllowlist(
         ruleDefinitionEnvironment.getToolsLabel("//tools/allowlists/extend_rule_allowlist"));
@@ -740,7 +740,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
     return new StarlarkRuleFunction(
         builder,
-        initializer,
         loc,
         Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString));
   }
@@ -970,7 +969,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     private RuleClass.Builder builder;
 
     private RuleClass ruleClass;
-    @Nullable private final StarlarkFunction initializer;
     private final Location definitionLocation;
     @Nullable private final String documentation;
     private Label starlarkLabel;
@@ -981,11 +979,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     // rich query output mode that includes values from loaded .bzl files.)
     public StarlarkRuleFunction(
         RuleClass.Builder builder,
-        @Nullable StarlarkFunction initializer,
         Location definitionLocation,
         Optional<String> documentation) {
       this.builder = builder;
-      this.initializer = initializer;
       this.definitionLocation = definitionLocation;
       this.documentation = documentation.orElse(null);
     }
@@ -1031,14 +1027,23 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
       validateRulePropagatedAspects(ruleClass);
 
-      if (initializer != null) {
-        // TODO: b/298561048 - lift parameters to more accurate type - for example strings to Labels
+      // We call all the initializers of the rule and its ancestor rules, proceeding from child to
+      // ancestor, so each initializer can transform the attributes it knows about in turn.
+      for (RuleClass currentRuleClass = ruleClass;
+          currentRuleClass != null;
+          currentRuleClass = currentRuleClass.getStarlarkParent()) {
+        if (currentRuleClass.getInitializer() == null) {
+          continue;
+        }
+
+        // TODO: b/298561048 - lift parameters to more accurate type - for example strings to
+        // Labels
         // You might feel tempted to inspect the signature of the initializer function. The
         // temptation might come from handling default values, making them work for better for the
         // users.
         // The less magic the better. Do not give in those temptations!
         Dict.Builder<String, Object> initializerKwargs = Dict.builder();
-        for (var attr : ruleClass.getAttributes()) {
+        for (var attr : currentRuleClass.getAttributes()) {
           if (attr.isPublic() && attr.starlarkDefined()) {
             if (kwargs.containsKey(attr.getName())) {
               initializerKwargs.put(attr.getName(), kwargs.get(attr.getName()));
@@ -1047,14 +1052,17 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         }
         Object ret =
             Starlark.call(
-                thread, initializer, Tuple.of(), initializerKwargs.build(thread.mutability()));
+                thread,
+                currentRuleClass.getInitializer(),
+                Tuple.of(),
+                initializerKwargs.build(thread.mutability()));
         Dict<String, Object> newKwargs =
             ret == Starlark.NONE
                 ? Dict.empty()
                 : Dict.cast(ret, String.class, Object.class, "rule's initializer return value");
 
         for (var arg : newKwargs.keySet()) {
-          Attribute attr = ruleClass.getAttributeByNameMaybe(arg);
+          Attribute attr = currentRuleClass.getAttributeByNameMaybe(arg);
           if (attr != null && !(attr.isPublic() && attr.starlarkDefined())) {
             throw Starlark.errorf(
                 "Initializer can only set public, Starlark defined attributes, not '%s'", arg);
