@@ -219,28 +219,33 @@ EOF
   bazel build //:gen --execution_log_json_file=output.json \
        >& $TEST_log || fail "build failed"
   expect_log "1 .*-sandbox"
-  if [[ $(grep -c "$DIGEST" output.json) -ne 2 ]]; then
-    fail "digest present on build without cache"
+  local num_digests=$(grep -c "$DIGEST" output.json)
+  if [[ $num_digests -ne 2 ]]; then
+    fail "expected 2 digests, got $num_digests"
   fi
 
   # Cache miss
   # Expect 3 digests (genrule-setup.sh, out.txt, action digest).
   bazel clean
   bazel build //:gen --execution_log_json_file=output.json \
-      --disk_cache="$CACHEDIR"  >& $TEST_log || fail "build failed"
+      --remote_download_minimal --disk_cache="$CACHEDIR"  \
+      >& $TEST_log || fail "build failed"
   expect_log "1 .*-sandbox"
-  if [[ $(grep -c "$DIGEST" output.json) -ne 3 ]]; then
-    fail "digest missing on cache miss"
+  local num_digests=$(grep -c "$DIGEST" output.json)
+  if [[ $num_digests -ne 3 ]]; then
+    fail "expected 3 digests, got $num_digests"
   fi
 
   # Cache hit
   # Expect 3 digests (genrule-setup.sh, out.txt, action digest).
   bazel clean
   bazel build //:gen --execution_log_json_file=output.json \
-      --disk_cache="$CACHEDIR"  >& $TEST_log || fail "build failed"
+      --remote_download_minimal --disk_cache="$CACHEDIR" \
+      >& $TEST_log || fail "build failed"
   expect_log "1 disk cache hit"
-  if [[ $(grep -c "$DIGEST" output.json) -ne 3 ]]; then
-    fail "digest missing on cache hit"
+  local num_digests=$(grep -c "$DIGEST" output.json)
+  if [[ $num_digests -ne 3 ]]; then
+    fail "expected 3 digests, got $num_digests"
   fi
 }
 
