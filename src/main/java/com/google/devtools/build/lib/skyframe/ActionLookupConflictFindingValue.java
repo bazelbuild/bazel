@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
@@ -45,7 +46,7 @@ public class ActionLookupConflictFindingValue implements SkyValue {
         ((Artifact.DerivedArtifact) artifact).getGeneratingActionKey().getActionLookupKey());
   }
 
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   @AutoCodec
   static class Key extends AbstractSkyKey<ActionLookupKey> {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
@@ -54,7 +55,7 @@ public class ActionLookupConflictFindingValue implements SkyValue {
       super(arg);
     }
 
-    @AutoCodec.VisibleForSerialization
+    @VisibleForSerialization
     @AutoCodec.Instantiator
     static Key create(ActionLookupKey arg) {
       return interner.intern(new Key(arg));

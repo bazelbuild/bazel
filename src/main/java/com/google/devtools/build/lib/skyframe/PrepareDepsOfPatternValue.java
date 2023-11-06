@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
@@ -197,7 +198,7 @@ public class PrepareDepsOfPatternValue implements SkyValue {
         super(arg);
       }
 
-      @AutoCodec.VisibleForSerialization
+      @VisibleForSerialization
       @AutoCodec.Instantiator
       static Key create(TargetPatternKey arg) {
         return interner.intern(new Key(arg));
