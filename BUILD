@@ -311,9 +311,3 @@ default_java_toolchain(
     source_version = "11",
     target_version = "11",
 )
-
-toolchain(
-    name = "bazel_rbe_bootstrap_runtime_toolchain",
-    toolchain = ":bazel_rbe_java_toolchain",
-    toolchain_type = "@bazel_tools//tools/jdk:bootstrap_runtime_toolchain_type",
-)

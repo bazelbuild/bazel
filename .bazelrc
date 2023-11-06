@@ -17,7 +17,6 @@ build:remote_shared --noexperimental_check_desugar_deps
 # Workaround for https://github.com/bazelbuild/bazel/issues/19837.
 # TODO(bazel-team): Remove this toolchain when .bazelversion is 7.0.0rc2 or later.
 build:ubuntu2004_java11 --extra_toolchains=//:bazel_rbe_java_toolchain_definition
-build:ubuntu2004_java11 --extra_toolchains=//:bazel_rbe_bootstrap_runtime_toolchain
 build:ubuntu2004_java11 --extra_toolchains=@rbe_ubuntu2004_java11//java:all
 build:ubuntu2004_java11 --crosstool_top=@rbe_ubuntu2004_java11//cc:toolchain
 build:ubuntu2004_java11 --extra_toolchains=@rbe_ubuntu2004_java11//config:cc-toolchain
