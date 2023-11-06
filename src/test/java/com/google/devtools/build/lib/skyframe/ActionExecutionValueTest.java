@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -37,15 +36,9 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root.RootCodecDependencies;
-import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.devtools.build.lib.vfs.SyscallCache;
-import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -71,8 +64,6 @@ public final class ActionExecutionValueTest {
 
   private static final ArtifactRoot OUTPUT_ROOT =
       ArtifactRoot.asDerivedRoot(new Scratch().resolve("/execroot"), RootType.Output, "out");
-  private final Scratch scratch =
-      new Scratch(new InMemoryFileSystem(DigestHashFunction.SHA256), "/root");
 
   @Test
   public void equality() {
@@ -186,122 +177,6 @@ public final class ActionExecutionValueTest {
         .runTests();
   }
 
-  @Test
-  public void isEntirelyRemote() throws IOException {
-    Path file1 = scratch.file("/file1");
-    FileArtifactValue value1Local =
-        FileArtifactValue.createFromStat(file1, file1.stat(Symlinks.FOLLOW), SyscallCache.NO_CACHE);
-
-    // Remote artifact.
-    ActionExecutionValue actionExecutionValue1 =
-        createWithArtifactData(ImmutableMap.of(output("file1"), VALUE_1_REMOTE));
-
-    assertThat(actionExecutionValue1.isEntirelyRemote()).isTrue();
-
-    // Local artifact.
-    ActionExecutionValue actionExecutionValue2 =
-        createWithArtifactData(ImmutableMap.of(output("file1"), value1Local));
-
-    assertThat(actionExecutionValue2.isEntirelyRemote()).isFalse();
-
-    // Local and remote artifacts.
-    ActionExecutionValue actionExecutionValue3 =
-        createWithArtifactData(
-            ImmutableMap.of(output("file1"), value1Local, output("file2"), VALUE_2_REMOTE));
-
-    assertThat(actionExecutionValue3.isEntirelyRemote()).isFalse();
-
-    SpecialArtifact tree1 = tree("tree1");
-    TreeArtifactValue tree1Value1Remote =
-        TreeArtifactValue.newBuilder(tree1)
-            .putChild(TreeFileArtifact.createTreeOutput(tree1, "file1"), VALUE_1_REMOTE)
-            .build();
-
-    // Remote tree artifact.
-    ActionExecutionValue actionExecutionValue4 =
-        createWithTreeArtifactData(ImmutableMap.of(tree1, tree1Value1Remote));
-
-    assertThat(actionExecutionValue4.isEntirelyRemote()).isTrue();
-
-    SpecialArtifact tree2 = tree("tree2");
-    Path file2 = scratch.file("/file2");
-    FileArtifactValue value2Local =
-        FileArtifactValue.createFromStat(file2, file2.stat(Symlinks.FOLLOW), SyscallCache.NO_CACHE);
-    TreeArtifactValue tree2Value2Local =
-        TreeArtifactValue.newBuilder(tree2)
-            .putChild(TreeFileArtifact.createTreeOutput(tree2, "file2"), value2Local)
-            .build();
-
-    // Local tree artifact.
-    ActionExecutionValue actionExecutionValue5 =
-        createWithTreeArtifactData(ImmutableMap.of(tree2, tree2Value2Local));
-
-    assertThat(actionExecutionValue5.isEntirelyRemote()).isFalse();
-
-    // Local and remote tree artifacts.
-    ActionExecutionValue actionExecutionValue6 =
-        createWithTreeArtifactData(
-            ImmutableMap.of(tree2, tree2Value2Local, tree1, tree1Value1Remote));
-
-    assertThat(actionExecutionValue6.isEntirelyRemote()).isFalse();
-
-    // Remote artifact and local tree artifact.
-    ActionExecutionValue actionExecutionValue7 =
-        createWithArtifactAndTreeArtifactData(
-            ImmutableMap.of(output("file1"), VALUE_1_REMOTE),
-            ImmutableMap.of(tree2, tree2Value2Local));
-
-    assertThat(actionExecutionValue7.isEntirelyRemote()).isFalse();
-
-    // Local artifact and remote tree artifact.
-    ActionExecutionValue actionExecutionValue8 =
-        createWithArtifactAndTreeArtifactData(
-            ImmutableMap.of(output("file2"), value2Local),
-            ImmutableMap.of(tree1, tree1Value1Remote));
-
-    assertThat(actionExecutionValue8.isEntirelyRemote()).isFalse();
-
-    // Local artifact and tree artifact.
-    ActionExecutionValue actionExecutionValue9 =
-        createWithArtifactAndTreeArtifactData(
-            ImmutableMap.of(output("file1"), value1Local),
-            ImmutableMap.of(tree2, tree2Value2Local));
-
-    assertThat(actionExecutionValue9.isEntirelyRemote()).isFalse();
-
-    // Remote artifact and tree artifact.
-    ActionExecutionValue actionExecutionValue10 =
-        createWithArtifactAndTreeArtifactData(
-            ImmutableMap.of(output("file2"), VALUE_2_REMOTE),
-            ImmutableMap.of(tree1, tree1Value1Remote));
-
-    assertThat(actionExecutionValue10.isEntirelyRemote()).isTrue();
-
-    // Empty tree artifact.
-    ActionExecutionValue actionExecutionValue11 =
-        createWithTreeArtifactData(ImmutableMap.of(tree1, TreeArtifactValue.empty()));
-
-    assertThat(actionExecutionValue11.isEntirelyRemote()).isFalse();
-
-    // Discovered modules.
-    ActionExecutionValue actionExecutionValue12 =
-        createWithDiscoveredModules(NestedSetBuilder.create(Order.STABLE_ORDER, output("file1")));
-
-    assertThat(actionExecutionValue12.isEntirelyRemote()).isTrue();
-
-    FilesetOutputSymlink symlink1 =
-        FilesetOutputSymlink.createForTesting(
-            PathFragment.create("name1"),
-            PathFragment.create("target1"),
-            PathFragment.create("execPath1"));
-
-    // Fileset.
-    ActionExecutionValue actionExecutionValue13 =
-        createWithOutputSymlinks(ImmutableList.of(symlink1));
-
-    assertThat(actionExecutionValue13.isEntirelyRemote()).isTrue();
-  }
-
   private static ActionExecutionValue createWithArtifactData(
       ImmutableMap<Artifact, FileArtifactValue> artifactData) {
     return ActionExecutionValue.createFromOutputMetadataStore(
@@ -315,16 +190,6 @@ public final class ActionExecutionValueTest {
       ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData) {
     return ActionExecutionValue.createFromOutputMetadataStore(
         /* artifactData= */ ImmutableMap.of(),
-        treeArtifactData,
-        /* outputSymlinks= */ ImmutableList.of(),
-        /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
-  }
-
-  private static ActionExecutionValue createWithArtifactAndTreeArtifactData(
-      ImmutableMap<Artifact, FileArtifactValue> artifactData,
-      ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData) {
-    return ActionExecutionValue.createFromOutputMetadataStore(
-        artifactData,
         treeArtifactData,
         /* outputSymlinks= */ ImmutableList.of(),
         /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));

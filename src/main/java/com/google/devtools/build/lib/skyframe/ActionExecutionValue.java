@@ -203,12 +203,6 @@ public abstract class ActionExecutionValue implements SkyValue {
     return ImmutableMap.of();
   }
 
-  /**
-   * Returns whether all artifacts output by the action are {@linkplain FileArtifactValue#isRemote
-   * remote}.
-   */
-  public abstract boolean isEntirelyRemote();
-
   public ImmutableList<FilesetOutputSymlink> getOutputSymlinks() {
     return ImmutableList.of();
   }
@@ -368,11 +362,6 @@ public abstract class ActionExecutionValue implements SkyValue {
     public final ImmutableMap<Artifact, FileArtifactValue> getAllFileValues() {
       return ImmutableMap.of(artifact, value);
     }
-
-    @Override
-    public final boolean isEntirelyRemote() {
-      return value.isRemote();
-    }
   }
 
   /**
@@ -427,16 +416,6 @@ public abstract class ActionExecutionValue implements SkyValue {
     public final ImmutableMap<Artifact, FileArtifactValue> getAllFileValues() {
       return artifactData;
     }
-
-    @Override
-    public boolean isEntirelyRemote() {
-      for (FileArtifactValue fileArtifactValue : artifactData.values()) {
-        if (!fileArtifactValue.isRemote()) {
-          return false;
-        }
-      }
-      return true;
-    }
   }
 
   /** The result of an action that outputs a single tree artifact and no other files. */
@@ -465,11 +444,6 @@ public abstract class ActionExecutionValue implements SkyValue {
     public ImmutableMap<Artifact, FileArtifactValue> getAllFileValues() {
       return ImmutableMap.of();
     }
-
-    @Override
-    public boolean isEntirelyRemote() {
-      return treeValue.isEntirelyRemote();
-    }
   }
 
   /**
@@ -496,16 +470,6 @@ public abstract class ActionExecutionValue implements SkyValue {
     @Override
     public ImmutableMap<Artifact, TreeArtifactValue> getAllTreeArtifactValues() {
       return treeArtifactData;
-    }
-
-    @Override
-    public boolean isEntirelyRemote() {
-      for (TreeArtifactValue treeArtifactValue : treeArtifactData.values()) {
-        if (!treeArtifactValue.isEntirelyRemote()) {
-          return false;
-        }
-      }
-      return super.isEntirelyRemote();
     }
   }
 }

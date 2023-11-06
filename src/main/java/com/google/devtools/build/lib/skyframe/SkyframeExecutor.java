@@ -2011,20 +2011,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                 if (packageValue != null) { // Null for errors e.g. "no such package"
                   Optional<Root> sourceRoot = packageValue.getPackage().getSourceRoot();
                   if (sourceRoot.isPresent()) {
-                    roots.put(
-                        (PackageIdentifier) key,
-                        maybeTransformSourceRootForExecrootSymlinkCreation(sourceRoot.get()));
+                    roots.put((PackageIdentifier) key, sourceRoot.get());
                   }
                 }
               }
             });
     return ImmutableMap.copyOf(roots);
-  }
-
-  /** Returns a possibly transformed source root of a package for execroot symlink creation. */
-  @ForOverride
-  protected Root maybeTransformSourceRootForExecrootSymlinkCreation(Root sourceRoot) {
-    return sourceRoot;
   }
 
   public void clearSyscallCache() {
