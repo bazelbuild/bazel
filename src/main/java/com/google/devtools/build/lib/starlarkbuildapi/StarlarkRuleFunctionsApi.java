@@ -464,23 +464,26 @@ public interface StarlarkRuleFunctionsApi {
             defaultValue = "None",
             positional = false,
             doc =
-                "Experimental: the Stalark function initializing the attributes of the rule."
-                    + "The function is "
-                    + "called at load time for each instance of the rule. It's called with values "
-                    + "of public attributes defined by the rule (not with generic attributes, "
-                    + "for example <code>name</code> or <code>tags</code>). It has to return a "
-                    + "dictionary from the attribute names to the desired values. The attributes "
-                    + " that are not returned are unaffected. Returning <code>None</code> as value"
-                    + " results in using the default value specified in the attribute definition."
-                    + "<p>Initializers are evaluated before the default values specified in an"
-                    + "attribute definition. Consequently, if a parameter in the initializer's "
+                "Experimental: the Stalark function initializing the attributes of the rule. "
+                    + "<p>The function is called at load time for each instance of the rule. It's "
+                    + "called with values of public attributes defined by the rule (not with "
+                    + "generic attributes, for example <code>name</code> or <code>tags</code>). "
+                    + "<p>It has to return a dictionary from the attribute names to the desired "
+                    + "values. The attributes that are not returned are unaffected. Returning "
+                    + "<code>None</code> as value results in using the default value specified in "
+                    + "the attribute definition. "
+                    + "<p>Initializers are evaluated before the default values specified in "
+                    + "an attribute definition. Consequently, if a parameter in the initializer's "
                     + "signature contains a default values, it overwrites the default from the "
-                    + "attribute definition (except if returning <code>None</code>)."
+                    + "attribute definition (except if returning <code>None</code>). "
                     + "<p>Similarly, if a parameter in the initializer's signature doesn't have a "
-                    + "default, the parameter will become mandatory. It's a good practice to omit"
-                    + " default/mandatory settings on an attribute definition in such cases."
-                    + "<p>It's a good practice to use <code>**kwargs</code> for attributes "
-                    + " that are not handled."),
+                    + "default, the parameter will become mandatory. It's a good practice to omit "
+                    + "default/mandatory settings on an attribute definition in such cases. "
+                    + "<p>It's a good practice to use <code>**kwargs</code> for attributes that "
+                    + "are not handled."
+                    + "<p>In case of extended rules, all initializers are called proceeding from "
+                    + "child to ancestors. Each initializer is passed only the public attributes "
+                    + "it knows about."),
         @Param(
             name = "parent",
             named = true,

@@ -79,6 +79,7 @@ import javax.annotation.concurrent.Immutable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.spelling.SpellChecker;
 
@@ -752,6 +753,7 @@ public class RuleClass implements RuleClassData {
     private ImmutableList<StarlarkThread.CallStackEntry> callstack = ImmutableList.of();
     private final RuleClassType type;
     @Nullable private RuleClass starlarkParent = null;
+    @Nullable private StarlarkFunction initializer = null;
     // The extendable may take 3 value, null means that the default allowlist should be use when
     // rule is extendable in practice.
     @Nullable private Boolean extendable = null;
@@ -959,6 +961,7 @@ public class RuleClass implements RuleClassData {
           key,
           type,
           starlarkParent,
+          initializer,
           starlark,
           extendable,
           extendableAllowlist,
@@ -1036,6 +1039,12 @@ public class RuleClass implements RuleClassData {
           "Concrete Starlark rule classes can't have null labels: %s %s",
           ruleDefinitionEnvironmentLabel,
           type);
+    }
+
+    @CanIgnoreReturnValue
+    public Builder initializer(StarlarkFunction initializer) {
+      this.initializer = initializer;
+      return this;
     }
 
     public void setExtendableByAllowlist(Label extendableAllowlist) {
@@ -1670,6 +1679,7 @@ public class RuleClass implements RuleClassData {
 
   private final RuleClassType type;
   @Nullable private final RuleClass starlarkParent;
+  @Nullable private final StarlarkFunction initializer;
   private final boolean isStarlark;
   private final boolean extendable;
   @Nullable private final Label extendableAllowlist;
@@ -1806,6 +1816,7 @@ public class RuleClass implements RuleClassData {
       String key,
       RuleClassType type,
       RuleClass starlarkParent,
+      @Nullable StarlarkFunction initializer,
       boolean isStarlark,
       boolean extendable,
       @Nullable Label extendableAllowlist,
@@ -1844,6 +1855,7 @@ public class RuleClass implements RuleClassData {
     this.key = key;
     this.type = type;
     this.starlarkParent = starlarkParent;
+    this.initializer = initializer;
     this.isStarlark = isStarlark;
     this.extendable = extendable;
     this.extendableAllowlist = extendableAllowlist;
@@ -1942,6 +1954,11 @@ public class RuleClass implements RuleClassData {
 
   public RuleClass getStarlarkParent() {
     return this.starlarkParent;
+  }
+
+  @Nullable
+  public StarlarkFunction getInitializer() {
+    return initializer;
   }
 
   /**

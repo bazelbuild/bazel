@@ -3234,6 +3234,85 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void extendRule_withInitializers() throws Exception {
+    scratch.file("extend_rule_testing/parent/BUILD");
+    scratch.file(
+        "extend_rule_testing/parent/parent.bzl",
+        "ParentInfo = provider()",
+        "def _parent_initializer(srcs, deps):", // only parents attributes
+        "  return {'deps': deps + ['//extend_rule_testing:parent_dep']}",
+        "def _impl(ctx):",
+        "  return [ParentInfo()]",
+        "parent_library = rule(",
+        "  implementation = _impl,",
+        "  initializer = _parent_initializer,",
+        "  extendable = True,",
+        "  attrs = { ",
+        "    'srcs': attr.label_list(allow_files = ['.parent']),",
+        "    'deps': attr.label_list(),",
+        "  },",
+        ")");
+    scratch.file(
+        "extend_rule_testing/child.bzl",
+        "load('//extend_rule_testing/parent:parent.bzl', 'parent_library')",
+        "ChildInfo = provider()",
+        "def _child_initializer(srcs, deps, runtime_deps = []):",
+        "  return {'deps': deps + [':child_dep'], 'runtime_deps': runtime_deps + [':runtime_dep']}",
+        "def _impl(ctx):",
+        "  return ctx.super() + [ChildInfo(",
+        "    srcs = ctx.files.srcs,",
+        "    deps = ctx.attr.deps,",
+        "    runtime_deps = ctx.attr.runtime_deps)]",
+        "child_library = rule(",
+        "  implementation = _impl,",
+        "  initializer = _child_initializer,",
+        "  parent = parent_library,",
+        "  attrs = {",
+        "    'runtime_deps': attr.label_list(),",
+        "  }",
+        ")");
+    scratch.file(
+        "extend_rule_testing/BUILD",
+        "load(':child.bzl', 'child_library')",
+        "child_library(name = 'my_target', srcs = ['a.parent'], deps = [':dep'])",
+        "filegroup(name = 'dep')",
+        "filegroup(name = 'child_dep')",
+        "filegroup(name = 'parent_dep')",
+        "filegroup(name = 'runtime_dep')");
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//extend_rule_testing:my_target");
+    Rule rule = getRuleContext(myTarget).getRule();
+    StarlarkProvider.Key myInfoKey =
+        new StarlarkProvider.Key(
+            Label.parseCanonicalUnchecked("//extend_rule_testing:child.bzl"), "ChildInfo");
+    StarlarkInfo myInfo = (StarlarkInfo) myTarget.get(myInfoKey);
+
+    assertNoEvents();
+    assertThat(rule.getRuleClassObject().isExecutableStarlark()).isFalse();
+    assertThat(rule.getRuleClassObject().getRuleClassType()).isEqualTo(RuleClassType.NORMAL);
+    assertThat(
+            Sequence.cast(myInfo.getValue("srcs"), Artifact.class, "srcs").stream()
+                .map(Artifact::getFilename))
+        .containsExactly("a.parent");
+    assertThat(
+            Sequence.cast(myInfo.getValue("deps"), ConfiguredTarget.class, "deps").stream()
+                .map(ConfiguredTarget::getLabel)
+                .map(Label::getName))
+        .containsExactly("dep", "child_dep", "parent_dep")
+        .inOrder();
+    assertThat(
+            Sequence.cast(myInfo.getValue("runtime_deps"), ConfiguredTarget.class, "runtime_deps")
+                .stream()
+                .map(ConfiguredTarget::getLabel)
+                .map(Label::getName))
+        .containsExactly("runtime_dep");
+    StarlarkProvider.Key parentInfoKey =
+        new StarlarkProvider.Key(
+            Label.parseCanonicalUnchecked("//extend_rule_testing/parent:parent.bzl"), "ParentInfo");
+    assertThat(myTarget.get(parentInfoKey)).isNotNull();
+  }
+
+  @Test
   public void extendRule_superNotCalled() throws Exception {
     scratchParentRule("parent_library"); // parent has srcs and deps attribute
     scratch.file(

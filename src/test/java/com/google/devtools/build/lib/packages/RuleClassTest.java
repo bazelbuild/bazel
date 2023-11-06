@@ -1025,6 +1025,7 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         /* key= */ name,
         RuleClassType.NORMAL,
         /* starlarkParent= */ null,
+        /* initializer= */ null,
         /* isStarlark= */ starlarkExecutable,
         /* extendable= */ false,
         /* extendableAllowlist= */ null,
