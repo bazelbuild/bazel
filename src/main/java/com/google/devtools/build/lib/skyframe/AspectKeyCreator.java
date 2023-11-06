@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -107,7 +108,7 @@ public final class AspectKeyCreator {
       this.aspectDescriptor = aspectDescriptor;
     }
 
-    @AutoCodec.VisibleForSerialization
+    @VisibleForSerialization
     @AutoCodec.Instantiator
     static AspectKey createAspectKey(
         ConfiguredTargetKey baseConfiguredTargetKey,
@@ -299,7 +300,7 @@ public final class AspectKeyCreator {
     private final ImmutableMap<String, String> topLevelAspectsParameters;
 
     @AutoCodec.Instantiator
-    @AutoCodec.VisibleForSerialization
+    @VisibleForSerialization
     static TopLevelAspectsKey createInternal(
         ImmutableList<AspectClass> topLevelAspectsClasses,
         Label targetLabel,

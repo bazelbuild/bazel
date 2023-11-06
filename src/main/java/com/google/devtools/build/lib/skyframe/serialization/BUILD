@@ -26,6 +26,7 @@ java_library(
         exclude = [
             "SerializationConstants.java",
             "CodecScanningConstants.java",
+            "VisibleForSerialization.java",
         ],
     ),
     add_opens = [
@@ -52,4 +53,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/util:resource_usage",
     ],
+)
+
+java_library(
+    name = "visible-for-serialization",
+    srcs = ["VisibleForSerialization.java"],
 )

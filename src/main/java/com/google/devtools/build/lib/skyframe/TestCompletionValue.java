@@ -17,6 +17,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -58,7 +59,7 @@ public final class TestCompletionValue implements SkyValue {
   public abstract static class TestCompletionKey implements SkyKey {
     private static final SkyKeyInterner<TestCompletionKey> interner = SkyKey.newInterner();
 
-    @AutoCodec.VisibleForSerialization
+    @VisibleForSerialization
     @AutoCodec.Instantiator
     static TestCompletionKey create(
         ConfiguredTargetKey configuredTargetKey,
