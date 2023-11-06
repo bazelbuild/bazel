@@ -43,7 +43,7 @@ public class AndroidBootstrap implements Bootstrap {
 
   public AndroidBootstrap(
       AndroidStarlarkCommonApi<?, ?, ?, ?, ?> androidCommon,
-      ApkInfoApiProvider apkInfoProvider,
+      ApkInfoApiProvider<?> apkInfoProvider,
       AndroidInstrumentationInfoApiProvider<?> androidInstrumentationInfoProvider,
       AndroidDeviceBrokerInfoApiProvider androidDeviceBrokerInfoProvider,
       AndroidResourcesInfoApiProvider<?, ?, ?> androidResourcesInfoProvider,
