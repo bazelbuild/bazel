@@ -270,6 +270,14 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
         || getConverter() instanceof BoolOrEnumConverter;
   }
 
+  /**
+   * Returns whether an option requires a value when instantiated, or instead can be present without
+   * an explicit value.
+   */
+  public boolean requiresValue() {
+    return !isVoidField() && !usesBooleanValueSyntax();
+  }
+
   /** Returns the evaluated default value for this option & memoizes the result. */
   @Nullable
   public Object getDefaultValue(@Nullable Object conversionContext) {

@@ -221,7 +221,7 @@ class OptionsUsage {
         .append(flagName)
         .append("</a>");
 
-    if (optionDefinition.usesBooleanValueSyntax() || optionDefinition.isVoidField()) {
+    if (!optionDefinition.requiresValue()) {
       // Nothing for boolean, tristate, boolean_or_enum, or void options.
     } else if (!valueDescription.isEmpty()) {
       usage.append("=").append(escaper.escape(valueDescription));
