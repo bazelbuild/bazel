@@ -86,7 +86,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import javax.annotation.Nullable;
@@ -486,8 +485,6 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     final ScheduledExecutorService executor =
         Executors.newSingleThreadScheduledExecutor(
             new ThreadFactoryBuilder().setNameFormat("bes-notify-ui-%d").build());
-    ScheduledFuture<?> waitMessageFuture = null;
-
     try {
       // Notify the UI handler when a transport finished closing.
       transportFutures.forEach(
@@ -522,9 +519,6 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     } finally {
       if (besUploadModeIsSynchronous) {
         cancelAndResetPendingUploads();
-      }
-      if (waitMessageFuture != null) {
-        waitMessageFuture.cancel(/* mayInterruptIfRunning= */ true);
       }
       executor.shutdown();
     }
