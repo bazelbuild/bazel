@@ -332,6 +332,10 @@ public final class StarlarkRuleContext
     this.lockedForSubruleEvaluation = isLocked;
   }
 
+  boolean getLockedForSubrule() {
+    return lockedForSubruleEvaluation;
+  }
+
   /**
    * Represents `ctx.outputs`.
    *
