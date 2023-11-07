@@ -150,9 +150,8 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
                 + " declare '_my_subrule' in 'subrules'");
   }
 
-  // this is a bug that must be fixed
   @Test
-  public void testSubruleCallingSibling_succeeds() throws Exception {
+  public void testSubruleCallingUndeclaredSibling_fails() throws Exception {
     scratch.file(
         "subrule_testing/myrule.bzl",
         "def _subrule1_impl(ctx):",
@@ -175,11 +174,13 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
         "load('myrule.bzl', 'my_rule')",
         "my_rule(name = 'foo')");
 
-    StructImpl provider =
-        getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo");
+    AssertionError error =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//subrule_testing:foo"));
 
-    assertThat(provider).isNotNull();
-    assertThat(provider.getValue("result")).isEqualTo("result from subrule1");
+    assertThat(error).isNotNull();
+    assertThat(error)
+        .hasMessageThat()
+        .contains("Error in _my_subrule1: subrules cannot call other subrules");
   }
 
   @Test
