@@ -1,5 +1,5 @@
 load("@rules_python//python:defs.bzl", "py_test")
-load("//:distdir_deps.bzl", "gen_workspace_stanza")
+load("//:workspace_deps.bzl", "gen_workspace_stanza")
 
 package(default_visibility = ["//visibility:private"])
 
