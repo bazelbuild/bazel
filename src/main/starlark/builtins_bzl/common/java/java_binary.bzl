@@ -26,7 +26,7 @@ load(
     "get_runtime_classpath_for_archive",
 )
 load(":common/java/java_helper.bzl", "helper")
-load(":common/java/java_info.bzl", "JavaInfo", "JavaPluginInfo", "to_java_binary_info")
+load(":common/java/java_info.bzl", "JavaCompilationInfo", "JavaInfo", "JavaPluginInfo", "to_java_binary_info")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/paths.bzl", "paths")
 load(":common/proto/proto_info.bzl", "ProtoInfo")
@@ -128,6 +128,7 @@ def basic_java_binary(
         add_opens = ctx.attr.add_opens,
     )
     java_info = target["JavaInfo"]
+    compilation_info = java_info.compilation_info
     runtime_classpath = depset(
         order = "preorder",
         transitive = [
@@ -149,6 +150,13 @@ def basic_java_binary(
                     source_jar = extension_registry_provider.src_jar,
                 ),
             ],
+        )
+        compilation_info = JavaCompilationInfo(
+            compilation_classpath = compilation_info.compilation_classpath,
+            runtime_classpath = runtime_classpath,
+            boot_classpath = compilation_info.boot_classpath,
+            javac_options = compilation_info.javac_options,
+            javac_options_list = compilation_info.javac_options_list,
         )
 
     java_attrs = _collect_attrs(ctx, runtime_classpath, classpath_resources)
@@ -265,7 +273,7 @@ def basic_java_binary(
 
     _filter_validation_output_group(ctx, output_groups)
 
-    java_binary_info = to_java_binary_info(java_info)
+    java_binary_info = to_java_binary_info(java_info, compilation_info)
 
     internal_deploy_jar_info = InternalDeployJarInfo(
         java_attrs = java_attrs,
