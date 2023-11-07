@@ -2106,7 +2106,7 @@
   "moduleExtensions": {
     "//:extensions.bzl%bazel_android_deps": {
       "general": {
-        "bzlTransitiveDigest": "6AGSxM+UftLlwIp1CDxiyKB5llsivFGozNcZoLrIYRc=",
+        "bzlTransitiveDigest": "YE1RlA6YS4ztUyZvffGDzF2vAIQTseoX8IwjeYyKcFc=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2131,9 +2131,9 @@
     },
     "//:extensions.bzl%bazel_build_deps": {
       "general": {
-        "bzlTransitiveDigest": "6AGSxM+UftLlwIp1CDxiyKB5llsivFGozNcZoLrIYRc=",
+        "bzlTransitiveDigest": "YE1RlA6YS4ztUyZvffGDzF2vAIQTseoX8IwjeYyKcFc=",
         "accumulatedFileDigests": {
-          "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "3690079fb96225220955f4e04363ba87470cb4cfb0f2b6deddd9929822ecc3ad"
+          "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "23e00a4ebe85282fdd1c8206adeec448eba0618b7083739bbd78704651e32d6b"
         },
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2347,7 +2347,7 @@
     },
     "//:extensions.bzl%bazel_test_deps": {
       "general": {
-        "bzlTransitiveDigest": "6AGSxM+UftLlwIp1CDxiyKB5llsivFGozNcZoLrIYRc=",
+        "bzlTransitiveDigest": "YE1RlA6YS4ztUyZvffGDzF2vAIQTseoX8IwjeYyKcFc=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2404,7 +2404,7 @@
     },
     "//tools/android:android_extensions.bzl%remote_android_tools_extensions": {
       "general": {
-        "bzlTransitiveDigest": "ibouvQjJ5aiSzhyc5x57J4CnvIbuwhFJ/zMpCeHpq0c=",
+        "bzlTransitiveDigest": "EFYd5Zc37KUKoseMe8brwJ5A2j/kUvPs5pIvTfGf3ok=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2431,7 +2431,7 @@
     },
     "//tools/test:extensions.bzl%remote_coverage_tools_extension": {
       "general": {
-        "bzlTransitiveDigest": "PEh3vETU0xQzauyboFj1AYs9nvzf23oQ3vbV/5bFnE4=",
+        "bzlTransitiveDigest": "wd0+Kn35gYWv/xzdEzWg7vRQz6FZcfpne4WcwCs9d+o=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
