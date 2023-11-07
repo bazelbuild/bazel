@@ -35,7 +35,7 @@ import javax.annotation.Nullable;
  */
 public class NotifyingHelper {
   public static MemoizingEvaluator.GraphTransformerForTesting makeNotifyingTransformer(
-      final Listener listener) {
+      Listener listener) {
     return new MemoizingEvaluator.GraphTransformerForTesting() {
       @Override
       public InMemoryGraph transform(InMemoryGraph graph) {
@@ -123,6 +123,14 @@ public class NotifyingHelper {
           delegate.getBatchMap(requestor, reason, keys), notifyingHelper::wrapEntry);
     }
 
+    @Nullable
+    @Override
+    public ImmutableSet<SkyKey> prefetchDeps(
+        SkyKey requestor, Set<SkyKey> oldDeps, GroupedDeps previouslyRequestedDeps)
+        throws InterruptedException {
+      return delegate.prefetchDeps(requestor, oldDeps, previouslyRequestedDeps);
+    }
+
     @Override
     public DepsReport analyzeDepsDoneness(SkyKey parent, Collection<SkyKey> deps)
         throws InterruptedException {
@@ -202,7 +210,7 @@ public class NotifyingHelper {
     private final SkyKey myKey;
     private final NodeEntry delegate;
 
-    protected NotifyingNodeEntry(SkyKey key, NodeEntry delegate) {
+    NotifyingNodeEntry(SkyKey key, NodeEntry delegate) {
       myKey = key;
       this.delegate = delegate;
     }
