@@ -519,7 +519,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     }
 
     // Verify the child against parent's allowlist
-    if (parent != null && parent.getExtendableAllowlist() != null) {
+    if (parent != null
+        && parent.getExtendableAllowlist() != null
+        && !bzlFile.getRepository().getNameWithAt().equals("@_builtins")) {
       builder.addAllowlistChecker(EXTEND_RULE_ALLOWLIST_CHECKER);
       Attribute.Builder<Label> allowlistAttr =
           attr("$allowlist_extend_rule", LABEL)

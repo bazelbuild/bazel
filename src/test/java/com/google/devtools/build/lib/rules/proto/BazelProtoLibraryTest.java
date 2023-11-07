@@ -225,7 +225,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         .containsAtLeast("--direct_dependencies", "x/nodeps.proto")
         .inOrder();
     assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x:nodeps")).getRemainingArguments())
-        .contains(String.format(ProtoCompileActionBuilder.STRICT_DEPS_FLAG_TEMPLATE, "//x:nodeps"));
+        .contains(String.format(ProtoConstants.STRICT_PROTO_DEPS_VIOLATION_MESSAGE, "//x:nodeps"));
 
     assertThat(
             getGeneratingSpawnAction(getDescriptorOutput("//x:withdeps")).getRemainingArguments())
@@ -275,7 +275,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
       assertThat(arg).doesNotContain("--direct_dependencies=");
       assertThat(arg)
           .doesNotContain(
-              String.format(ProtoCompileActionBuilder.STRICT_DEPS_FLAG_TEMPLATE, "//x:foo_proto"));
+              String.format(ProtoConstants.STRICT_PROTO_DEPS_VIOLATION_MESSAGE, "//x:foo_proto"));
     }
   }
 

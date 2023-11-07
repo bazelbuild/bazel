@@ -43,7 +43,7 @@ public final class ProtoConstants {
    * it with the .proto file that violates strict proto deps.
    */
   static final String STRICT_PROTO_DEPS_VIOLATION_MESSAGE =
-      "%%s is imported, but %1$s doesn't directly depend on a proto_library that 'srcs' it.";
+      "--direct_dependencies_violation_msg=%%s is imported, but %1$s doesn't directly depend on a proto_library that 'srcs' it.";
 
   private ProtoConstants() {}
 }
