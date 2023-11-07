@@ -900,17 +900,17 @@ EOF
   local sandbox_stash="${output_base}/sandbox_stash"
   [[ -d "${sandbox_stash}" ]] \
     || fail "${sandbox_stash} not present"
-  [[ -d "${sandbox_stash}/_NoMnemonic_/3" ]] \
+  [[ -d "${sandbox_stash}/Genrule/3" ]] \
     || fail "${sandbox_stash} did not stash anything"
-  [[ -L "${sandbox_stash}/_NoMnemonic_/3/$execroot_reldir/pkg/a.txt" ]] \
+  [[ -L "${sandbox_stash}/Genrule/3/$execroot_reldir/pkg/a.txt" ]] \
     || fail "${sandbox_stash} did not have a link to a.txt"
 
   bazel build --reuse_sandbox_directories //pkg:b >"${TEST_log}" 2>&1 \
     || fail "Expected build to succeed"
-  ls -R "${sandbox_stash}/_NoMnemonic_/"
-  [[ ! -L "${sandbox_stash}/_NoMnemonic_/6/$execroot_reldir/pkg/a.txt" ]] \
+  ls -R "${sandbox_stash}/Genrule/"
+  [[ ! -L "${sandbox_stash}/Genrule/6/$execroot_reldir/pkg/a.txt" ]] \
     || fail "${sandbox_stash} should no longer have a link to a.txt"
-  [[ -L "${sandbox_stash}/_NoMnemonic_/6/$execroot_reldir/pkg/b.txt" ]] \
+  [[ -L "${sandbox_stash}/Genrule/6/$execroot_reldir/pkg/b.txt" ]] \
     || fail "${sandbox_stash} should now have a link to b.txt"
 
   bazel clean
@@ -950,18 +950,18 @@ EOF
   local sandbox_stash="${output_base}/sandbox_stash"
   [[ -d "${sandbox_stash}" ]] \
     || fail "${sandbox_stash} not present"
-  [[ -d "${sandbox_stash}/_NoMnemonic_/3" ]] \
+  [[ -d "${sandbox_stash}/Genrule/3" ]] \
     || fail "${sandbox_stash} did not stash anything"
-  [[ -L "${sandbox_stash}/_NoMnemonic_/3/$execroot_reldir/pkg/a.txt" ]] \
+  [[ -L "${sandbox_stash}/Genrule/3/$execroot_reldir/pkg/a.txt" ]] \
     || fail "${sandbox_stash} did not have a link to a.txt"
 
   bazel build --reuse_sandbox_directories --incompatible_sandbox_hermetic_tmp \
     //pkg:b >"${TEST_log}" 2>&1 \
     || fail "Expected build to succeed"
-  ls -R "${sandbox_stash}/_NoMnemonic_/"
-  [[ ! -L "${sandbox_stash}/_NoMnemonic_/6/$execroot_reldir/pkg/a.txt" ]] \
+  ls -R "${sandbox_stash}/Genrule/"
+  [[ ! -L "${sandbox_stash}/Genrule/6/$execroot_reldir/pkg/a.txt" ]] \
     || fail "${sandbox_stash} should no longer have a link to a.txt"
-  [[ -L "${sandbox_stash}/_NoMnemonic_/6/$execroot_reldir/pkg/b.txt" ]] \
+  [[ -L "${sandbox_stash}/Genrule/6/$execroot_reldir/pkg/b.txt" ]] \
     || fail "${sandbox_stash} should now have a link to b.txt"
 
   bazel clean
@@ -992,7 +992,7 @@ EOF
   local sandbox_stash="${output_base}/sandbox_stash"
   [[ -d "${sandbox_stash}" ]] \
     || fail "${sandbox_stash} not present"
-  [[ -d "${sandbox_stash}/_NoMnemonic_/3" ]] \
+  [[ -d "${sandbox_stash}/Genrule/3" ]] \
     || fail "${sandbox_stash} did not stash anything"
 
   bazel clean --reuse_sandbox_directories
@@ -1002,7 +1002,7 @@ EOF
   bazel build --experimental_sandbox_async_tree_delete_idle_threads=2 \
     --reuse_sandbox_directories //pkg:a >"${TEST_log}" 2>&1 \
     || fail "Expected build to succeed"
-  [[ -d "${sandbox_stash}/_NoMnemonic_/6" ]] \
+  [[ -d "${sandbox_stash}/Genrule/6" ]] \
     || fail "${sandbox_stash} did not stash anything"
 
   bazel clean
