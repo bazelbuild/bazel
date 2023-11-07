@@ -2,7 +2,7 @@ name: Documentation issue
 description: File a documentation issue (through bazel.build's "report an issue" button)
 labels: ["type: documentation (cleanup)", "untriaged", "team-Documentation"]
 assignees:
-  - pavank1992
+  - rakshitasingh05
   - sgowroji
   - iancha1992
 body:
