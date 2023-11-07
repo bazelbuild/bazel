@@ -114,7 +114,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "    deps = [':objc'],",
         ")");
 
-    setBuildLanguageOptions("--incompatible_disable_objc_library_transition");
     useConfiguration("--macos_cpus=arm64,x86_64");
 
     ConfiguredTarget cc = getConfiguredTarget("//bin:cc");
@@ -2046,7 +2045,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                     .flatMap(List::stream)
                     .map(LibraryToLink::getStaticLibrary)
                     .collect(toImmutableList())))
-        .contains("/ x/libbaz.a");
+        .contains("bin x/libbaz.a");
   }
 
   @Test
