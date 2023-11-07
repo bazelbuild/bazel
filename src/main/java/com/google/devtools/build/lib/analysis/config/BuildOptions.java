@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
@@ -230,14 +231,16 @@ public final class BuildOptions implements Cloneable {
    */
   @Override
   public BuildOptions clone() {
-    ImmutableMap.Builder<Class<? extends FragmentOptions>, FragmentOptions> nativeOptionsBuilder =
-        ImmutableMap.builderWithExpectedSize(fragmentOptionsMap.size());
-    for (Map.Entry<Class<? extends FragmentOptions>, FragmentOptions> entry :
-        fragmentOptionsMap.entrySet()) {
-      nativeOptionsBuilder.put(entry.getKey(), entry.getValue().clone());
-    }
-    return new BuildOptions(
-        nativeOptionsBuilder.buildOrThrow(), ImmutableMap.copyOf(starlarkOptionsMap));
+    ImmutableMap<Class<? extends FragmentOptions>, FragmentOptions> nativeOptions =
+        fragmentOptionsMap.entrySet().stream()
+            .collect(
+                toImmutableMap(
+                    Map.Entry::getKey,
+                    // Explicitly clone native options because FragmentOptions is mutable.
+                    e -> e.getValue().clone()));
+    // Note that this assumes that starlark option values are immutable.
+    ImmutableMap<Label, Object> starlarkOptions = ImmutableMap.copyOf(starlarkOptionsMap);
+    return new BuildOptions(nativeOptions, starlarkOptions);
   }
 
   @Override
