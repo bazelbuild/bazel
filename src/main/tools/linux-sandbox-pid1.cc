@@ -322,8 +322,9 @@ static void MountFilesystems() {
     }
   }
 
-  // Make sure that our working directory is a mount point. The easiest way to
-  // do this is by bind-mounting it upon itself.
+  // Make sure that the working directory is writable (unlike most of the rest
+  // of the file system, which is read-only by default). The easiest way to do
+  // this is by bind-mounting it upon itself.
   PRINT_DEBUG("working dir: %s", opt.working_dir.c_str());
 
   if (mount(opt.working_dir.c_str(), opt.working_dir.c_str(), nullptr, MS_BIND,
@@ -622,13 +623,15 @@ static void MountAllMounts() {
     }
   }
 
-  // Make sure that our working directory is a mount point. The easiest way to
-  // do this is by bind-mounting it upon itself.
+  // Make sure that the working directory is writable (unlike most of the rest
+  // of the file system, which is read-only by default). The easiest way to do
+  // this is by bind-mounting it upon itself.
   if (mount(opt.working_dir.c_str(), opt.working_dir.c_str(), nullptr, MS_BIND,
             nullptr) < 0) {
     DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", opt.working_dir.c_str(),
         opt.working_dir.c_str());
   }
+
   for (int i = 0; i < (signed)opt.bind_mount_sources.size(); i++) {
     if (global_debug) {
       if (strcmp(opt.bind_mount_sources[i].c_str(),
