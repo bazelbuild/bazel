@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "f0e6a39c22d948f1d5da8f60e940de766202d4e9edfdbbb0567f712fd2872e9b",
+  "moduleFileHash": "f1b9df44f7bcffd593f156e611a34f02e7e956c87906b21e9e67bfa98d151f94",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -2107,7 +2107,7 @@
   "moduleExtensions": {
     "//:extensions.bzl%bazel_android_deps": {
       "general": {
-        "bzlTransitiveDigest": "1h1g38NxBlE9pP3bSGYt7Bi6wiu3WWhRTrqPj8UXZF0=",
+        "bzlTransitiveDigest": "mOXzD3aFHXptRfqyoPDoUSAhPpM61ZnYzNrbeIgHvuM=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2126,7 +2126,7 @@
     },
     "//:extensions.bzl%bazel_build_deps": {
       "general": {
-        "bzlTransitiveDigest": "1h1g38NxBlE9pP3bSGYt7Bi6wiu3WWhRTrqPj8UXZF0=",
+        "bzlTransitiveDigest": "mOXzD3aFHXptRfqyoPDoUSAhPpM61ZnYzNrbeIgHvuM=",
         "accumulatedFileDigests": {
           "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "23e00a4ebe85282fdd1c8206adeec448eba0618b7083739bbd78704651e32d6b"
         },
@@ -2376,7 +2376,7 @@
     },
     "//:extensions.bzl%bazel_test_deps": {
       "general": {
-        "bzlTransitiveDigest": "1h1g38NxBlE9pP3bSGYt7Bi6wiu3WWhRTrqPj8UXZF0=",
+        "bzlTransitiveDigest": "mOXzD3aFHXptRfqyoPDoUSAhPpM61ZnYzNrbeIgHvuM=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {

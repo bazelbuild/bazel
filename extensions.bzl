@@ -17,7 +17,7 @@
 """
 
 load("//:distdir.bzl", "repo_cache_tar", "distdir_tar")
-load("//:distdir_deps.bzl", "WORKSPACE_REPOS")
+load("//:workspace_deps.bzl", "WORKSPACE_REPOS")
 load("//:repositories.bzl", "DIST_ARCHIVE_REPOS", "embedded_jdk_repositories", "bazelci_rules_repo", "android_deps_repos")
 load("//src/main/res:winsdk_configure.bzl", "winsdk_configure")
 load("//src/test/shell/bazel:list_source_repository.bzl", "list_source_repository")

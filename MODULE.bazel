@@ -52,7 +52,7 @@ local_path_override(
 )
 
 # The following Bazel modules are not direct dependencies for building Bazel,
-# but are required for visibility from DIST_ARCHIVE_REPOS in distdir_deps.bzl
+# but are required for visibility from DIST_ARCHIVE_REPOS in repositories.bzl
 bazel_dep(name = "apple_support", version = "1.5.0")
 bazel_dep(name = "abseil-cpp", version = "20220623.1")
 bazel_dep(name = "c-ares", version = "1.15.0")
@@ -211,7 +211,7 @@ java_toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains"
 use_repo(
     java_toolchains,
     "local_jdk",
-    # The following are required for visibility from TEST_REPOS in distdir_deps.bzl
+    # The following are required for visibility in //src:test_repos
     "remote_java_tools",
     "remote_java_tools_darwin_arm64",
     "remote_java_tools_darwin_x86_64",
