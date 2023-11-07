@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.config.transitions;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableMap;
@@ -24,11 +25,9 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Pair;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.StringJoiner;
 import java.util.TreeMap;
@@ -160,10 +159,11 @@ public class ComparingTransition implements PatchTransition {
       String activeVal = combined.getValue().getFirst();
       String altVal = combined.getValue().getSecond();
       if (activeVal.equals("DOES NOT EXIST")) {
-        s2.add(String.format("   only in %s mode: --%s=%s", activeTransitionDesc, option, altVal));
+        s2.add(String.format("   only in %s mode: --%s=%s", altTransitionDesc, option, altVal));
         diffs++;
       } else if (altVal.equals("DOES NOT EXIST")) {
-        s2.add(String.format("   only in %s mode: --%s=%s", altTransitionDesc, option, activeVal));
+        s2.add(
+            String.format("   only in %s mode: --%s=%s", activeTransitionDesc, option, activeVal));
         diffs++;
       } else if (!activeVal.equals(altVal)) {
         s2.add(
@@ -194,39 +194,54 @@ public class ComparingTransition implements PatchTransition {
     for (FragmentOptions f : o.getNativeOptions()) {
       for (Map.Entry<String, Object> op : f.asMap().entrySet()) {
         if (op.getKey().equals("define")) {
-          for (Map.Entry<String, String> define :
-              o.get(CoreOptions.class).getNormalizedCommandLineBuildVariables().entrySet()) {
-            ans.put("user-defined define=" + define.getKey(), define.getValue());
-          }
+          ans.putAll(
+              serializeUserDefinedOption(
+                  o.get(CoreOptions.class).commandLineBuildVariables.stream()
+                      .map(d -> Map.entry(d.getKey(), d.getValue()))
+                      .collect(toImmutableList()),
+                  "define"));
         } else if (op.getKey().equals("features")) {
-          var seen = new HashMap<String, Integer>();
-          for (String feature : o.get(CoreOptions.class).defaultFeatures) {
-            String suffix = "";
-            if (seen.containsKey(feature)) {
-              int dupeNum = seen.get(feature) + 1;
-              suffix = String.format(" (%d)", dupeNum);
-              seen.put(feature, dupeNum);
-            }
-            ans.put(String.format("user-defined feature=%s%s", feature, suffix), "");
-          }
+          ans.putAll(
+              serializeUserDefinedOption(
+                  o.get(CoreOptions.class).defaultFeatures.stream()
+                      .map(d -> Map.entry(d, ""))
+                      .collect(toImmutableList()),
+                  "feature"));
         } else if (op.getKey().equals("host_features")) {
-          var seen = new HashMap<String, Integer>();
-          for (String feature : o.get(CoreOptions.class).hostFeatures) {
-            String suffix = "";
-            if (seen.containsKey(feature)) {
-              int dupeNum = seen.get(feature) + 1;
-              suffix = String.format(" (%d)", dupeNum);
-              seen.put(feature, dupeNum);
-            }
-            ans.put(String.format("user-defined host_feature=%s%s", feature, suffix), "");
-          }
+          ans.putAll(
+              serializeUserDefinedOption(
+                  o.get(CoreOptions.class).hostFeatures.stream()
+                      .map(d -> Map.entry(d, ""))
+                      .collect(toImmutableList()),
+                  "host feature"));
         } else {
           ans.put(prettyClassName(f.getClass()) + " " + op.getKey(), String.valueOf(op.getValue()));
         }
       }
     }
-    for (Map.Entry<Label, Object> starlarkOption : o.getStarlarkOptions().entrySet()) {
-      ans.put("user-defined " + starlarkOption.getKey(), starlarkOption.getValue().toString());
+    ans.putAll(
+        serializeUserDefinedOption(
+            o.getStarlarkOptions().entrySet().stream()
+                .map(d -> Map.entry(d.getKey().toString(), d.getValue().toString()))
+                .collect(toImmutableList()),
+            ""));
+    return ans.buildOrThrow();
+  }
+
+  /**
+   * Expands a {@link BuildOptions} native flag that represents a set of user-defined options.
+   *
+   * <p>For example: <code>--define</code> or <code>--features</code>.
+   */
+  private static ImmutableMap<String, String> serializeUserDefinedOption(
+      Iterable<Map.Entry<String, String>> userDefinedOption, String desc) {
+    ImmutableMap.Builder<String, String> ans = ImmutableMap.builder();
+    int index = 0;
+    for (Map.Entry<String, String> entry : userDefinedOption) {
+      ans.put(
+          String.format("user-defined %s %s (index %d)", desc, entry.getKey(), index),
+          entry.getValue());
+      index++;
     }
     return ans.buildOrThrow();
   }

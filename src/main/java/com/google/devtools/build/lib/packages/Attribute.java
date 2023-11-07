@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.util.FileType;
@@ -1657,9 +1657,9 @@ public final class Attribute implements Comparable<Attribute> {
     }
   }
 
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   static class AlwaysNullLateBoundDefault extends SimpleLateBoundDefault<Void, Void> {
-    @SerializationConstant @AutoCodec.VisibleForSerialization
+    @SerializationConstant @VisibleForSerialization
     static final AlwaysNullLateBoundDefault INSTANCE = new AlwaysNullLateBoundDefault();
 
     private AlwaysNullLateBoundDefault() {

@@ -14,17 +14,16 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeSet;
 import javax.annotation.Nullable;
 
 /** Command-line build options for a Blaze module. */
@@ -86,11 +85,20 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
    * duplicates, it picks a deterministic ordering. The fact that the determinisitic ordering is
    * based on sorting is an accident and should NOT be relied upon.
    */
-  protected static List<String> dedupAndSort(List<String> values) {
-    // We use TreeSet instead of HashSet, so the ordering is deterministic also.
-    ImmutableList<String> result = ImmutableList.sortedCopyOf(new TreeSet<>(values));
+  protected static ImmutableList<String> dedupAndSort(@Nullable List<String> values) {
+    if (values == null || values.isEmpty()) {
+      return ImmutableList.of();
+    }
+
+    ImmutableList<String> result =
+        values.stream()
+            // Use the natural String ordering.
+            .sorted()
+            .distinct()
+            .collect(toImmutableList());
+
     // If the value is already deduped and sorted return the exact same instance we got.
-    return result.equals(values) ? values : result;
+    return result.equals(values) ? ImmutableList.copyOf(values) : result;
   }
 
   /**
@@ -100,18 +108,14 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
    *
    * <p>Example: [a, b, a, c, b] -> [a, b, c]
    */
-  protected static List<String> dedupeOnly(List<String> values) {
-    HashSet<String> alreadySeen = new HashSet<>();
-    List<String> result = new ArrayList<>();
-    for (String value : values) {
-      // Add to result only the first time we see the value
-      if (alreadySeen.add(value)) {
-        result.add(value);
-      }
+  protected static ImmutableList<String> dedupeOnly(@Nullable List<String> values) {
+    if (values == null || values.isEmpty()) {
+      return ImmutableList.of();
     }
+    ImmutableList<String> result = values.stream().distinct().collect(toImmutableList());
     // If there were no duplicates, return the exact same instance we got.
     if (result.size() == values.size()) {
-      return values;
+      return ImmutableList.copyOf(values);
     } else {
       return result;
     }

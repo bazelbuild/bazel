@@ -332,6 +332,10 @@ public final class StarlarkRuleContext
     this.lockedForSubruleEvaluation = isLocked;
   }
 
+  boolean getLockedForSubrule() {
+    return lockedForSubruleEvaluation;
+  }
+
   /**
    * Represents `ctx.outputs`.
    *
@@ -455,7 +459,7 @@ public final class StarlarkRuleContext
    */
   public void close() {
     // Check super was called
-    if (ruleClassUnderEvaluation.getStarlarkParent() != null && !superCalled) {
+    if (ruleClassUnderEvaluation.getStarlarkParent() != null && !superCalled && !isForAspect()) {
       ruleContext.ruleError("'super' was not called.");
     }
 
@@ -585,7 +589,7 @@ public final class StarlarkRuleContext
       BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_RULE_EXTENSION_API);
     }
     checkMutable("super()");
-    if (aspectDescriptor != null) {
+    if (isForAspect()) {
       throw Starlark.errorf("Can't use 'super' call in an aspect.");
     }
     if (ruleClassUnderEvaluation.getStarlarkParent() == null) {

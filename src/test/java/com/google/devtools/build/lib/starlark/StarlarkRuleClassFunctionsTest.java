@@ -2997,7 +2997,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void initializer_failsSettingInheritedPublicParameter() throws Exception {
+  public void initializer_failsSettingBaseAttribute() throws Exception {
+    // 'args' is an attribute defined for all executable rules
     scratch.file(
         "initializer_testing/b.bzl",
         "def initializer(srcs = [], deps = []):",
@@ -3020,8 +3021,66 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     reporter.addHandler(ev.getEventCollector());
     getConfiguredTarget("//initializer_testing:my_target");
 
-    ev.assertContainsError(
-        "Initializer can only set public, Starlark defined attributes, not 'args'");
+    ev.assertContainsError("Initializer can only set Starlark defined attributes, not 'args'");
+  }
+
+  @Test
+  public void initializer_failsSettingPrivateAttribute_outsideBuiltins() throws Exception {
+    scratch.file(
+        "initializer_testing/b.bzl",
+        "def initializer(srcs = [], deps = []):",
+        "  return {'srcs': srcs, '_tool': ':my_tool'}",
+        "def impl(ctx): ",
+        "  pass",
+        "my_rule = rule(impl,",
+        "  initializer = initializer,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files = ['ml']),",
+        "    '_tool': attr.label(),",
+        "  })");
+    scratch.file(
+        "initializer_testing/BUILD", //
+        "load(':b.bzl','my_rule')",
+        "filegroup(name='my_tool')",
+        "my_rule(name = 'my_target', srcs = ['a.ml'])");
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//initializer_testing:my_target");
+
+    ev.assertContainsError("file '//initializer_testing:b.bzl' cannot use private API");
+  }
+
+  @Test
+  public void initializer_settingPrivateAttribute_insideBuiltins() throws Exception {
+    scratch.file("initializer_testing/builtins/BUILD");
+    scratch.file(
+        "initializer_testing/builtins/b.bzl",
+        "def initializer(srcs = [], deps = []):",
+        "  return {'srcs': srcs, '_tool': ':my_tool'}",
+        "MyInfo = provider()",
+        "def impl(ctx): ",
+        "  return MyInfo(_tool = str(ctx.attr._tool.label))",
+        "my_rule = rule(impl,",
+        "  initializer = initializer,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files = ['ml']),",
+        "    '_tool': attr.label(),",
+        "  })");
+    scratch.file(
+        "initializer_testing/BUILD", //
+        "load('//initializer_testing/builtins:b.bzl','my_rule')",
+        "filegroup(name='my_tool')",
+        "my_rule(name = 'my_target', srcs = ['a.ml'])");
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//initializer_testing:my_target");
+    StructImpl info =
+        (StructImpl)
+            myTarget.get(
+                new StarlarkProvider.Key(
+                    Label.parseCanonical("//initializer_testing/builtins:b.bzl"), "MyInfo"));
+
+    assertThat(info.getValue("_tool").toString()).isEqualTo("@@//initializer_testing:my_tool");
   }
 
   @Test
@@ -3227,6 +3286,85 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
                 .map(ConfiguredTarget::getLabel)
                 .map(Label::getName))
         .containsExactly("dep");
+    StarlarkProvider.Key parentInfoKey =
+        new StarlarkProvider.Key(
+            Label.parseCanonicalUnchecked("//extend_rule_testing/parent:parent.bzl"), "ParentInfo");
+    assertThat(myTarget.get(parentInfoKey)).isNotNull();
+  }
+
+  @Test
+  public void extendRule_withInitializers() throws Exception {
+    scratch.file("extend_rule_testing/parent/BUILD");
+    scratch.file(
+        "extend_rule_testing/parent/parent.bzl",
+        "ParentInfo = provider()",
+        "def _parent_initializer(srcs, deps):", // only parents attributes
+        "  return {'deps': deps + ['//extend_rule_testing:parent_dep']}",
+        "def _impl(ctx):",
+        "  return [ParentInfo()]",
+        "parent_library = rule(",
+        "  implementation = _impl,",
+        "  initializer = _parent_initializer,",
+        "  extendable = True,",
+        "  attrs = { ",
+        "    'srcs': attr.label_list(allow_files = ['.parent']),",
+        "    'deps': attr.label_list(),",
+        "  },",
+        ")");
+    scratch.file(
+        "extend_rule_testing/child.bzl",
+        "load('//extend_rule_testing/parent:parent.bzl', 'parent_library')",
+        "ChildInfo = provider()",
+        "def _child_initializer(srcs, deps, runtime_deps = []):",
+        "  return {'deps': deps + [':child_dep'], 'runtime_deps': runtime_deps + [':runtime_dep']}",
+        "def _impl(ctx):",
+        "  return ctx.super() + [ChildInfo(",
+        "    srcs = ctx.files.srcs,",
+        "    deps = ctx.attr.deps,",
+        "    runtime_deps = ctx.attr.runtime_deps)]",
+        "child_library = rule(",
+        "  implementation = _impl,",
+        "  initializer = _child_initializer,",
+        "  parent = parent_library,",
+        "  attrs = {",
+        "    'runtime_deps': attr.label_list(),",
+        "  }",
+        ")");
+    scratch.file(
+        "extend_rule_testing/BUILD",
+        "load(':child.bzl', 'child_library')",
+        "child_library(name = 'my_target', srcs = ['a.parent'], deps = [':dep'])",
+        "filegroup(name = 'dep')",
+        "filegroup(name = 'child_dep')",
+        "filegroup(name = 'parent_dep')",
+        "filegroup(name = 'runtime_dep')");
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//extend_rule_testing:my_target");
+    Rule rule = getRuleContext(myTarget).getRule();
+    StarlarkProvider.Key myInfoKey =
+        new StarlarkProvider.Key(
+            Label.parseCanonicalUnchecked("//extend_rule_testing:child.bzl"), "ChildInfo");
+    StarlarkInfo myInfo = (StarlarkInfo) myTarget.get(myInfoKey);
+
+    assertNoEvents();
+    assertThat(rule.getRuleClassObject().isExecutableStarlark()).isFalse();
+    assertThat(rule.getRuleClassObject().getRuleClassType()).isEqualTo(RuleClassType.NORMAL);
+    assertThat(
+            Sequence.cast(myInfo.getValue("srcs"), Artifact.class, "srcs").stream()
+                .map(Artifact::getFilename))
+        .containsExactly("a.parent");
+    assertThat(
+            Sequence.cast(myInfo.getValue("deps"), ConfiguredTarget.class, "deps").stream()
+                .map(ConfiguredTarget::getLabel)
+                .map(Label::getName))
+        .containsExactly("dep", "child_dep", "parent_dep")
+        .inOrder();
+    assertThat(
+            Sequence.cast(myInfo.getValue("runtime_deps"), ConfiguredTarget.class, "runtime_deps")
+                .stream()
+                .map(ConfiguredTarget::getLabel)
+                .map(Label::getName))
+        .containsExactly("runtime_dep");
     StarlarkProvider.Key parentInfoKey =
         new StarlarkProvider.Key(
             Label.parseCanonicalUnchecked("//extend_rule_testing/parent:parent.bzl"), "ParentInfo");

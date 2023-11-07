@@ -59,6 +59,7 @@ JavaToolchainInfo, _new_javatoolchaininfo = provider(
         "_header_compiler_direct": _PRIVATE_API_DOC_STRING,
         "_javabuilder": _PRIVATE_API_DOC_STRING,
         "_javacopts": _PRIVATE_API_DOC_STRING,
+        "_javacopts_list": _PRIVATE_API_DOC_STRING,
         "_javac_supports_workers": _PRIVATE_API_DOC_STRING,
         "_javac_supports_multiplex_workers": _PRIVATE_API_DOC_STRING,
         "_javac_supports_worker_cancellation": _PRIVATE_API_DOC_STRING,
@@ -75,6 +76,7 @@ JavaToolchainInfo, _new_javatoolchaininfo = provider(
 )
 
 def _java_toolchain_impl(ctx):
+    javac_opts_list = _get_javac_opts(ctx)
     bootclasspath_info = _get_bootclasspath_info(ctx)
     java_toolchain_info = _new_javatoolchaininfo(
         bootclasspath = bootclasspath_info.bootclasspath,
@@ -100,7 +102,8 @@ def _java_toolchain_impl(ctx):
         _header_compiler_builtin_processors = depset(ctx.attr.header_compiler_builtin_processors),
         _header_compiler_direct = _get_tool_from_executable(ctx, "header_compiler_direct"),
         _javabuilder = _get_tool_from_ctx(ctx, "javabuilder", "javabuilder_data", "javabuilder_jvm_opts"),
-        _javacopts = _get_javac_opts(ctx),
+        _javacopts = helper.detokenize_javacopts(javac_opts_list),
+        _javacopts_list = javac_opts_list,
         _javac_supports_workers = ctx.attr.javac_supports_workers,
         _javac_supports_multiplex_workers = ctx.attr.javac_supports_multiplex_workers,
         _javac_supports_worker_cancellation = ctx.attr.javac_supports_worker_cancellation,
@@ -141,7 +144,7 @@ def _get_javac_opts(ctx):
         opts.append("-Xlint:" + ",".join(ctx.attr.xlint))
     opts.extend(_java_common_internal.expand_java_opts(ctx, "misc", tokenize = True))
     opts.extend(_java_common_internal.expand_java_opts(ctx, "javacopts", tokenize = True))
-    return helper.detokenize_javacopts(opts)
+    return opts
 
 def _get_android_lint_tool(ctx):
     if not ctx.attr.android_lint_runner:

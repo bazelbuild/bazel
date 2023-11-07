@@ -151,6 +151,39 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testSubruleCallingUndeclaredSibling_fails() throws Exception {
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _subrule1_impl(ctx):",
+        "  return 'result from subrule1'",
+        "_my_subrule1 = subrule(implementation = _subrule1_impl)",
+        "",
+        "def _subrule2_impl(ctx):",
+        "  return _my_subrule1()",
+        "_my_subrule2 = subrule(implementation = _subrule2_impl)",
+        "",
+        "MyInfo=provider()",
+        "def _rule_impl(ctx):",
+        "  res = _my_subrule2()",
+        "  return [MyInfo(result = res)]",
+        "",
+        "my_rule = rule(_rule_impl, subrules = [_my_subrule2, _my_subrule1])");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    AssertionError error =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//subrule_testing:foo"));
+
+    assertThat(error).isNotNull();
+    assertThat(error)
+        .hasMessageThat()
+        .contains("Error in _my_subrule1: subrules cannot call other subrules");
+  }
+
+  @Test
   public void testSubrule_implementationMustAcceptSubruleContext() throws Exception {
     scratch.file(
         "subrule_testing/myrule.bzl",

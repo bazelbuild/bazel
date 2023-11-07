@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import net.starlark.java.eval.EvalException;
@@ -59,12 +60,9 @@ public final class BuiltinRestriction {
       return new AutoValue_BuiltinRestriction_AllowlistEntry(apparentRepoName, packagePrefix);
     }
 
-    final boolean allows(BazelModuleContext moduleContext) {
-      return moduleContext
-              .label()
-              .getRepository()
-              .equals(moduleContext.repoMapping().get(apparentRepoName()))
-          && moduleContext.label().getPackageFragment().startsWith(packagePrefix());
+    final boolean allows(Label label, RepositoryMapping repoMapping) {
+      return label.getRepository().equals(repoMapping.get(apparentRepoName()))
+          && label.getPackageFragment().startsWith(packagePrefix());
     }
   }
 
@@ -95,12 +93,21 @@ public final class BuiltinRestriction {
    */
   public static void failIfModuleOutsideAllowlist(
       BazelModuleContext moduleContext, Collection<AllowlistEntry> allowlist) throws EvalException {
-    if (moduleContext.label().getRepository().getNameWithAt().equals("@_builtins")) {
+    failIfLabelOutsideAllowlist(moduleContext.label(), moduleContext.repoMapping(), allowlist);
+  }
+
+  /**
+   * Throws {@code EvalException} if the given {@link Label} is not within either 1) the builtins
+   * repository, or 2) a package or subpackage of an entry in the given allowlist.
+   */
+  public static void failIfLabelOutsideAllowlist(
+      Label label, RepositoryMapping repoMapping, Collection<AllowlistEntry> allowlist)
+      throws EvalException {
+    if (label.getRepository().getNameWithAt().equals("@_builtins")) {
       return;
     }
-    if (allowlist.stream().noneMatch(e -> e.allows(moduleContext))) {
-      throw Starlark.errorf(
-          "file '%s' cannot use private API", moduleContext.label().getCanonicalForm());
+    if (allowlist.stream().noneMatch(e -> e.allows(label, repoMapping))) {
+      throw Starlark.errorf("file '%s' cannot use private API", label.getCanonicalForm());
     }
   }
 }

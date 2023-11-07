@@ -84,7 +84,7 @@ function test_legacy_runfiles_change() {
 new_local_repository(
     name = "bar",
     path = ".",
-    build_file = "BUILD",
+    build_file = "//:BUILD",
 )
 EOF
   cat > BUILD <<EOF

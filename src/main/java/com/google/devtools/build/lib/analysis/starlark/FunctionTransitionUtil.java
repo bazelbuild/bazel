@@ -449,16 +449,16 @@ public final class FunctionTransitionUtil {
       }
     }
 
-    if (!changedStarlarkOptions.isEmpty()) {
-      toOptions =
-          BuildOptions.builder()
-              .merge(toOptions == null ? fromOptions.clone() : toOptions)
-              .addStarlarkOptions(changedStarlarkOptions)
-              .build();
-    }
-    if (toOptions == null) {
+    if (toOptions == null && changedStarlarkOptions.isEmpty()) {
       return fromOptions;
     }
+    // Note that rebuilding also calls FragmentOptions.getNormalized() to guarantee --define,
+    // --features, and similar flags are consistently ordered.
+    toOptions =
+        BuildOptions.builder()
+            .merge(toOptions == null ? fromOptions.clone() : toOptions)
+            .addStarlarkOptions(changedStarlarkOptions)
+            .build();
     if (starlarkTransition.isForAnalysisTesting()) {
       // We need to record every time we change a configuration option.
       // see {@link #updateOutputDirectoryNameFragment} for usage.

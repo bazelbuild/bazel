@@ -1025,6 +1025,7 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         /* key= */ name,
         RuleClassType.NORMAL,
         /* starlarkParent= */ null,
+        /* initializer= */ null,
         /* isStarlark= */ starlarkExecutable,
         /* extendable= */ false,
         /* extendableAllowlist= */ null,
@@ -1334,5 +1335,21 @@ public final class RuleClassTest extends PackageLoadingTestCase {
     assertThat(expected)
         .hasMessageThat()
         .matches("Attribute myclass\\.x{150}'s name is too long \\(150 > 128\\)");
+  }
+
+  @Test
+  public void testPackageMetadataAlternateName() throws Exception {
+    RuleClass noopClass =
+        new RuleClass.Builder("noop", RuleClassType.NORMAL, false)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .add(attr("tags", STRING_LIST))
+            .add(attr(RuleClass.APPLICABLE_METADATA_ATTR, LABEL_LIST).legacyAllowAnyFileType())
+            .build();
+    Map<String, Object> attributeValues = new LinkedHashMap<>();
+    attributeValues.put("applicable_licenses", Lists.newArrayList(":info"));
+    Rule noopRule = createRule(noopClass, "noop", attributeValues);
+
+    assertThat(noopRule.getAttr(RuleClass.APPLICABLE_METADATA_ATTR, LABEL_LIST))
+        .isEqualTo(Lists.newArrayList(Label.parseCanonical("//testpackage:info")));
   }
 }

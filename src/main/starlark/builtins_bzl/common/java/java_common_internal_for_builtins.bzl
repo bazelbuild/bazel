@@ -23,6 +23,7 @@ load(
     "merge_plugin_info_without_outputs",
 )
 load(":common/java/java_semantics.bzl", "semantics")
+load(":common/java/java_toolchain.bzl", "JavaToolchainInfo")
 load(":common/java/sharded_javac.bzl", "experimental_sharded_javac", "use_sharded_javac")
 load(":common/paths.bzl", "paths")
 
@@ -111,15 +112,13 @@ def compile(
     Returns:
         (JavaInfo)
     """
+    _java_common_internal.check_provider_instances([java_toolchain], "java_toolchain", JavaToolchainInfo)
     _java_common_internal.check_provider_instances(plugins, "plugins", JavaPluginInfo)
 
     plugin_info = merge_plugin_info_without_outputs(plugins + deps)
 
     all_javac_opts = []  # [depset[str]]
-    all_javac_opts.append(_java_common_internal.default_javac_opts(
-        java_toolchain = java_toolchain,
-        as_depset = True,
-    ))
+    all_javac_opts.append(java_toolchain._javacopts)
 
     all_javac_opts.append(ctx.fragments.java.default_javac_flags_depset)
     all_javac_opts.append(semantics.compatible_javac_options(

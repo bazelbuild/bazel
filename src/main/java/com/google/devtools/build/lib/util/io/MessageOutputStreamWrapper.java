@@ -22,9 +22,9 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 
-/** Creating a MessageOutputStream from an OutputStream */
+/** Creates a MessageOutputStream from an OutputStream. */
 public class MessageOutputStreamWrapper {
-  /** Outputs the messages in binary format */
+  /** Outputs the messages in delimited protobuf binary format. */
   public static class BinaryOutputStreamWrapper implements MessageOutputStream {
     private final OutputStream stream;
 

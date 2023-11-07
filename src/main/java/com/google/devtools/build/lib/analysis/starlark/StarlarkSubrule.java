@@ -107,6 +107,9 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
         BazelRuleAnalysisThreadContext.fromOrFail(thread, getName())
             .getRuleContext()
             .getStarlarkRuleContext();
+    if (ruleContext.getLockedForSubrule()) {
+      throw Starlark.errorf("subrules cannot call other subrules");
+    }
     ImmutableSet<? extends StarlarkSubruleApi> declaredSubrules = ruleContext.getSubrules();
     if (!declaredSubrules.contains(this)) {
       throw getUndeclaredSubruleError(ruleContext);

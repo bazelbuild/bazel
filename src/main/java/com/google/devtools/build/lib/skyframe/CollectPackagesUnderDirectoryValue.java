@@ -17,10 +17,9 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -54,7 +53,7 @@ import javax.annotation.Nullable;
  * directories above that one, but they don't need to be re-run.
  */
 public abstract class CollectPackagesUnderDirectoryValue implements SkyValue {
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   protected final ImmutableMap<RootedPath, Boolean>
       subdirectoryTransitivelyContainsPackagesOrErrors;
 
@@ -236,10 +235,10 @@ public abstract class CollectPackagesUnderDirectoryValue implements SkyValue {
     return Key.create(repository, rootedPath, excludedPaths);
   }
 
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   @AutoCodec
   static class Key extends RecursivePkgSkyKey {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private Key(
         RepositoryName repositoryName,
@@ -248,7 +247,7 @@ public abstract class CollectPackagesUnderDirectoryValue implements SkyValue {
       super(repositoryName, rootedPath, excludedPaths);
     }
 
-    @AutoCodec.VisibleForSerialization
+    @VisibleForSerialization
     @AutoCodec.Instantiator
     static Key create(
         RepositoryName repositoryName,
@@ -260,6 +259,11 @@ public abstract class CollectPackagesUnderDirectoryValue implements SkyValue {
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.COLLECT_PACKAGES_UNDER_DIRECTORY;
+    }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
     }
   }
 }

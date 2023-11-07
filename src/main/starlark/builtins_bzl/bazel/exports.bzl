@@ -19,6 +19,7 @@ load("@_builtins//:common/java/java_import.bzl", "java_import")
 load("@_builtins//:common/java/java_library.bzl", "JAVA_LIBRARY_ATTRS", "bazel_java_library_rule", "java_library", "make_sharded_java_library")
 load("@_builtins//:common/java/java_plugin.bzl", "java_plugin")
 load("@_builtins//:common/java/proto/java_proto_library.bzl", "java_proto_library")
+load("@_builtins//:common/proto/proto_library.bzl", "proto_library")
 load("@_builtins//:common/python/py_binary_macro.bzl", "py_binary")
 load("@_builtins//:common/python/py_internal.bzl", "py_internal")
 load("@_builtins//:common/python/py_library_macro.bzl", "py_library")
@@ -38,6 +39,7 @@ exported_toplevels = {
     "py_internal": py_internal,
 }
 exported_rules = {
+    "proto_library": proto_library,
     "java_library": java_library,
     "java_plugin": java_plugin,
     "java_import": java_import,

@@ -2959,7 +2959,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a:r");
-    assertContainsEvent("got value of type 'ToolchainInfo', want 'JavaToolchainInfo'");
+    assertContainsEvent("got element of type ToolchainInfo, want JavaToolchainInfo");
   }
 
   @Test

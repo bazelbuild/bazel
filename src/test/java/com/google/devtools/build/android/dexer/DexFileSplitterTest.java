@@ -48,7 +48,6 @@ public class DexFileSplitterTest {
   private static final Path INPUT_JAR2;
   private static final Path MIXED_JAR;
   private static final Path MAIN_DEX_LIST_FILE;
-  static final String DEX_PREFIX = "classes";
 
   static {
     try {

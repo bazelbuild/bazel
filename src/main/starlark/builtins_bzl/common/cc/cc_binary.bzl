@@ -14,6 +14,8 @@
 
 """cc_binary Starlark implementation replacing native"""
 
+load(":common/cc/cc_binary_attrs.bzl", "cc_binary_attrs")
+load(":common/cc/cc_shared_library.bzl", "cc_shared_library_initializer")
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper", "linker_mode")
 load(":common/cc/cc_info.bzl", "CcInfo")
@@ -340,7 +342,7 @@ def _filter_libraries_that_are_linked_dynamically(ctx, feature_configuration, cc
     static_linker_inputs = []
     linker_inputs = cc_linking_context.linker_inputs.to_list()
 
-    all_deps = ctx.attr.deps + semantics.get_cc_runtimes(ctx, _is_link_shared(ctx))
+    all_deps = ctx.attr._deps_analyzed_by_graph_structure_aspect
     graph_structure_aspect_nodes = [dep[GraphNodeInfo] for dep in all_deps if GraphNodeInfo in dep]
 
     can_be_linked_dynamically = {}
@@ -908,21 +910,20 @@ def _impl(ctx):
 
     return providers
 
-def make_cc_binary(cc_binary_attrs, **kwargs):
-    return rule(
-        implementation = _impl,
-        attrs = cc_binary_attrs,
-        outputs = {
-            "stripped_binary": "%{name}.stripped",
-            "dwp_file": "%{name}.dwp",
-        },
-        fragments = ["cpp"] + semantics.additional_fragments(),
-        exec_groups = {
-            "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
-        },
-        toolchains = cc_helper.use_cpp_toolchain() +
-                     semantics.get_runtimes_toolchain(),
-        executable = True,
-        provides = [CcInfo],
-        **kwargs
-    )
+cc_binary = rule(
+    implementation = _impl,
+    initializer = cc_shared_library_initializer,
+    attrs = cc_binary_attrs,
+    outputs = {
+        "stripped_binary": "%{name}.stripped",
+        "dwp_file": "%{name}.dwp",
+    },
+    fragments = ["cpp"] + semantics.additional_fragments(),
+    exec_groups = {
+        "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
+    },
+    toolchains = cc_helper.use_cpp_toolchain() +
+                 semantics.get_runtimes_toolchain(),
+    provides = [CcInfo],
+    executable = True,
+)

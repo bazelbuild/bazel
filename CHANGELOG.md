@@ -1,3 +1,46 @@
+## Release 7.0.0-pre.20231018.3 (2023-11-07)
+
+```
+Baseline: eeb9c911bf16271f807c687e8eae246edaecd005
+
+Cherry picks:
+
+   + bb7fb2d32f055f2a70a5ab394cf5aef29bc74b2e:
+     Automatically add function transition allow list when needed
+   + c59739e72a2b4ee50f4ba205fb1561f10f0b344d:
+     Automated rollback of commit
+     f7946d0107dd75b2f45bcc79b91c016d075a756d.
+   + f6eabdc51eb54416361be4b3528d67717a11fdfd:
+     Automated rollback of commit
+     774fdb4be128b642332531f1d0376810b4c5377f.
+```
+
+Incompatible changes:
+
+  - The sandboxfs sandboxing strategy is removed. It hadn't been
+    maintained for a long time, it didn't work for most users and it
+    was not consistently faster while being complex to set up.
+    sandboxfs performance is heavily dependent on the specific setup
+    (setup costs are lower, but you have to pay a penalty for the use
+    of each input) and there are scenarios where it is faster and
+    scenarios where it is slower. Overall it is not worth its weight.
+  - Bzlmod is enabled by default, please consider migrating your
+    external dependencies from WORKSPACE to MODULE.bazel. Find more
+    details at https://github.com/bazelbuild/bazel/issues/18958
+
+Important changes:
+
+  - Directories used by sandboxed non-worker execution may be reused
+    to
+    avoid unnecessary setup costs. Disable behavior with
+    --noreuse_sandbox_directories.
+  - Symlink trees created by sandboxing will be deleted
+    asynchronously.
+    Disable behavior with
+    --experimental_sandbox_async_tree_delete_idle_threads=0.
+
+This release contains contributions from many people at Google, as well as Antoine Musso, Benjamin Peterson, Fabian Meumertzheim, Nick Biryulin, Steve Barrau, Thi Don.
+
 ## Release 7.0.0-pre.20231011.2 (2023-10-23)
 
 ```

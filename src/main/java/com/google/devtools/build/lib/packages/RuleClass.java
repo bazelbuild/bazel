@@ -51,8 +51,8 @@ import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.Missin
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.AttributeValues;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
 import com.google.devtools.build.lib.util.HashCodes;
@@ -79,6 +79,7 @@ import javax.annotation.concurrent.Immutable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.spelling.SpellChecker;
 
@@ -162,7 +163,8 @@ public class RuleClass implements RuleClassData {
   /*
    * The attribute that declares the set of metadata labels which apply to this target.
    */
-  public static final String APPLICABLE_METADATA_ATTR = "applicable_licenses";
+  public static final String APPLICABLE_METADATA_ATTR = "package_metadata";
+  public static final String APPLICABLE_METADATA_ATTR_ALT = "applicable_licenses";
 
   /**
    * A constraint for the package name of the Rule instances.
@@ -752,6 +754,7 @@ public class RuleClass implements RuleClassData {
     private ImmutableList<StarlarkThread.CallStackEntry> callstack = ImmutableList.of();
     private final RuleClassType type;
     @Nullable private RuleClass starlarkParent = null;
+    @Nullable private StarlarkFunction initializer = null;
     // The extendable may take 3 value, null means that the default allowlist should be use when
     // rule is extendable in practice.
     @Nullable private Boolean extendable = null;
@@ -825,7 +828,7 @@ public class RuleClass implements RuleClassData {
       if (parents.length == 1
           && parents[0].isStarlark()
           && parents[0].getRuleClassType() != RuleClassType.ABSTRACT) {
-        // the condition removes {@link StarlarkRuleClasssFunctions.baseRule} and binaryBaseRule,
+        // the condition removes {@link StarlarkRuleClassFunctions.baseRule} and binaryBaseRule,
         // which are marked as Starlark (because of Stardoc) && abstract at the same time
         starlarkParent = parents[0];
         Preconditions.checkArgument(starlarkParent.isExtendable());
@@ -959,6 +962,7 @@ public class RuleClass implements RuleClassData {
           key,
           type,
           starlarkParent,
+          initializer,
           starlark,
           extendable,
           extendableAllowlist,
@@ -1036,6 +1040,12 @@ public class RuleClass implements RuleClassData {
           "Concrete Starlark rule classes can't have null labels: %s %s",
           ruleDefinitionEnvironmentLabel,
           type);
+    }
+
+    @CanIgnoreReturnValue
+    public Builder initializer(StarlarkFunction initializer) {
+      this.initializer = initializer;
+      return this;
     }
 
     public void setExtendableByAllowlist(Label extendableAllowlist) {
@@ -1670,6 +1680,7 @@ public class RuleClass implements RuleClassData {
 
   private final RuleClassType type;
   @Nullable private final RuleClass starlarkParent;
+  @Nullable private final StarlarkFunction initializer;
   private final boolean isStarlark;
   private final boolean extendable;
   @Nullable private final Label extendableAllowlist;
@@ -1806,6 +1817,7 @@ public class RuleClass implements RuleClassData {
       String key,
       RuleClassType type,
       RuleClass starlarkParent,
+      @Nullable StarlarkFunction initializer,
       boolean isStarlark,
       boolean extendable,
       @Nullable Label extendableAllowlist,
@@ -1844,6 +1856,7 @@ public class RuleClass implements RuleClassData {
     this.key = key;
     this.type = type;
     this.starlarkParent = starlarkParent;
+    this.initializer = initializer;
     this.isStarlark = isStarlark;
     this.extendable = extendable;
     this.extendableAllowlist = extendableAllowlist;
@@ -1942,6 +1955,11 @@ public class RuleClass implements RuleClassData {
 
   public RuleClass getStarlarkParent() {
     return this.starlarkParent;
+  }
+
+  @Nullable
+  public StarlarkFunction getInitializer() {
+    return initializer;
   }
 
   /**
@@ -2183,6 +2201,12 @@ public class RuleClass implements RuleClassData {
       // Ignore all None values.
       if (attributeValue == Starlark.NONE && !failOnUnknownAttributes) {
         continue;
+      }
+
+      // If the user sets "applicable_liceneses", change it to the correct name.
+      // TODO(aiuto): In the time frame of Bazel 9, remove this alternate spelling.
+      if (attributeName.equals(APPLICABLE_METADATA_ATTR_ALT)) {
+        attributeName = APPLICABLE_METADATA_ATTR;
       }
 
       // Check that the attribute's name belongs to a valid attribute for this rule class.
