@@ -115,7 +115,7 @@ genrule(
       cmd = "echo hello > $(location out.txt)"
 )
 EOF
-  bazel build //:all --experimental_execution_log_file output 2>&1 >> $TEST_log || fail "could not build"
+  bazel build //:all --execution_log_binary_file output 2>&1 >> $TEST_log || fail "could not build"
   wc output || fail "no output produced"
 }
 
@@ -135,7 +135,7 @@ genrule(
     cmd = "echo hello > $(location out.txt)"
 )
 EOF
-  bazel build //:rule --experimental_execution_log_file output 2>&1 >> $TEST_log || fail "could not build"
+  bazel build //:rule --execution_log_binary_file output 2>&1 >> $TEST_log || fail "could not build"
   [[ -e output ]] || fail "no output produced"
 }
 
@@ -147,11 +147,6 @@ genrule(
       cmd = "echo hello > $(location out.txt)"
 )
 EOF
-  bazel build //:all --experimental_execution_log_file=output --experimental_execution_log_file= 2>&1 >> $TEST_log || fail "could not build"
-  if [[ -e output ]]; then
-    fail "file shouldn't exist"
-  fi
-
   bazel build //:all --execution_log_json_file=output --execution_log_json_file= 2>&1 >> $TEST_log || fail "could not build"
   if [[ -e output ]]; then
     fail "file shouldn't exist"
