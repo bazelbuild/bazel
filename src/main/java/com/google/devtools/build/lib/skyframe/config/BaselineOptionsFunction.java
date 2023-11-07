@@ -90,9 +90,7 @@ public final class BaselineOptionsFunction implements SkyFunction {
                               ? key.newPlatform()
                               : Label.parseCanonicalUnchecked(
                                   "//this_is_a_faked_exec_platform_for_blaze_internals"))
-                      // TODO(b/309007312): Uncomment below to re-enable the Starlark exec
-                      // transition.
-                      // .analysisData(starlarkExecTransition.orElse(null))
+                      .analysisData(starlarkExecTransition.orElse(null))
                       .build());
       adjustedBaselineOptions =
           execTransition.patch(
