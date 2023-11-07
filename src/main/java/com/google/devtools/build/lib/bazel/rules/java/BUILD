@@ -1,4 +1,4 @@
-load("//:distdir_deps.bzl", "gen_workspace_stanza")
+load("//:workspace_deps.bzl", "gen_workspace_stanza")
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(
