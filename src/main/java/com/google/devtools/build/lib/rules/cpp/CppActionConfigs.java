@@ -1491,6 +1491,9 @@ public class CppActionConfigs {
                         "    action: 'c++-header-parsing'",
                         "    action: 'c++-module-compile'",
                         "    action: 'c++-module-codegen'",
+                        "    action: 'c++20-deps-scanning'",
+                        "    action: 'c++20-module-compile'",
+                        "    action: 'c++20-module-codegen'",
                         "    action: 'lto-backend'",
                         "    action: 'clif-match'",
                         "    flag_group {",
@@ -1527,6 +1530,32 @@ public class CppActionConfigs {
                         "    flag_group {",
                         "      expand_if_all_available: 'sysroot'",
                         "      flag: '--sysroot=%{sysroot}'",
+                        "    }",
+                        "  }")));
+      }
+      if (!existingFeatureNames.contains("cpp20_module")) {
+        featureBuilder.add(
+            getFeature(
+                Joiner.on("\n")
+                    .join(
+                        "  name: 'cpp20_module'",
+                        "  enabled: false"
+                        )));
+      }
+      if (!existingFeatureNames.contains("cpp20_modmap_file")) {
+        featureBuilder.add(
+            getFeature(
+                Joiner.on("\n")
+                    .join(
+                        "  name: 'cpp20_modmap_file'",
+                        "  enabled: true",
+                        "  flag_set {",
+                        "    action: 'c++-compile'",
+                        "    action: 'c++20-module-compile'",
+                        "    action: 'c++20-module-codegen'",
+                        "    flag_group {",
+                        "      expand_if_all_available: 'cpp20_modmap_file'",
+                        "      flag: '@%{cpp20_modmap_file}'",
                         "    }",
                         "  }")));
       }
@@ -1585,6 +1614,7 @@ public class CppActionConfigs {
                 Joiner.on("\n")
                     .join(
                         "  name: 'compile_modmap_file'",
+                        "  enabled: true",
                         "  flag_set {",
                         "    action: 'c++-compile'",
                         "    action: 'c++20-module-compile'",
