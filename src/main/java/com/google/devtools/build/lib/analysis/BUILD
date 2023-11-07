@@ -165,7 +165,7 @@ java_library(
         "AnalysisRootCauseEvent.java",
         "AnalysisUtils.java",
         "AspectCompleteEvent.java",
-        "AspectOnRuleContext.java",
+        "AspectContext.java",
         "AspectResolutionHelpers.java",
         "AspectValue.java",
         "BaseRuleClasses.java",

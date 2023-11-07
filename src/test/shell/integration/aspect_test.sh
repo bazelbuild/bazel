@@ -1675,22 +1675,29 @@ EOF
   expect_log "aspect on @@\?//test:t1 can see its dep flag val = v2"
 }
 
-#TODO(b/293304543): the main aspect attributes should not overwrite the underlying
-# rule and base aspects attributes that have the same name.
 function test_merge_of_aspects_and_rule_conflicting_attributes() {
   local package="test"
   mkdir -p "${package}"
 
   cat > "${package}/defs.bzl" <<EOF
 prov_b = provider()
+prov_c = provider()
 
 def _aspect_a_impl(target, ctx):
   prefix = 'aspect_a on target {}'.format(target.label)
   same_attr_message = 'aspect_a _tool={} and merged_rule_and_base_aspects _tool={}'.format(ctx.attr._tool.label, ctx.rule.attr._tool.label)
-  diff_attr_message = '_tool_a={}, _tool_r1={}, _tool_b={}'.format(ctx.attr._tool_a.label, ctx.rule.attr._tool_r1.label, ctx.rule.attr._tool_b.label)
+
+  diff_attr_message = '_tool_a={}, _tool_r1={}, _tool_b={}, _tool_c={}'.format(
+    ctx.attr._tool_a.label,
+    ctx.rule.attr._tool_r1.label,
+    ctx.rule.attr._tool_b.label,
+    ctx.rule.attr._tool_c.label)
+
+  base_aspects_attr_message = '_base_aspects_tool={}'.format(ctx.rule.attr._base_aspects_tool.label)
 
   print('{}: {}'.format(prefix, same_attr_message))
   print('{}: {}'.format(prefix, diff_attr_message))
+  print('{}: {}'.format(prefix, base_aspects_attr_message))
 
   return []
 
@@ -1706,8 +1713,8 @@ aspect_a = aspect(
 
 def _aspect_b_impl(target, ctx):
   prefix = 'aspect_b on target {}'.format(target.label)
-  same_attr_message = 'aspect_b _tool={} and rule _tool={}'.format(ctx.attr._tool.label, ctx.rule.attr._tool.label)
-  diff_attr_message = '_tool_b={} and _tool_r1={}'.format(ctx.attr._tool_b.label, ctx.rule.attr._tool_r1.label)
+  same_attr_message = 'aspect_b _tool={}, rule _tool={}'.format(ctx.attr._tool.label, ctx.rule.attr._tool.label)
+  diff_attr_message = '_tool_b={}, _tool_r1={}, _tool_c={}'.format(ctx.attr._tool_b.label, ctx.rule.attr._tool_r1.label, ctx.rule.attr._tool_c.label)
 
   print('{}: {}'.format(prefix, same_attr_message))
   print('{}: {}'.format(prefix, diff_attr_message))
@@ -1720,8 +1727,31 @@ aspect_b = aspect(
     attrs = {
      '_tool' : attr.label(default = "//${package}:aspect_b_tool"),
      '_tool_b' : attr.label(default = "//${package}:aspect_b_diff_tool"),
+     '_base_aspects_tool': attr.label(default = "//${package}:aspect_b_tool"),
     },
     provides = [prov_b],
+    required_aspect_providers = [prov_c]
+)
+
+def _aspect_c_impl(target, ctx):
+  prefix = 'aspect_c on target {}'.format(target.label)
+  same_attr_message = 'aspect_c _tool={}, rule _tool={}'.format(ctx.attr._tool.label, ctx.rule.attr._tool.label)
+  diff_attr_message = '_tool_c={}, _tool_r1={}'.format(ctx.attr._tool_c.label, ctx.rule.attr._tool_r1.label)
+
+  print('{}: {}'.format(prefix, same_attr_message))
+  print('{}: {}'.format(prefix, diff_attr_message))
+
+  return [prov_c()]
+
+aspect_c = aspect(
+    implementation = _aspect_c_impl,
+    attr_aspects = ['dep'],
+    attrs = {
+     '_tool' : attr.label(default = "//${package}:aspect_c_tool"),
+     '_tool_c' : attr.label(default = "//${package}:aspect_c_diff_tool"),
+     '_base_aspects_tool': attr.label(default = "//${package}:aspect_c_tool"),
+    },
+    provides = [prov_c],
 )
 
 def _rule_impl(ctx):
@@ -1748,22 +1778,35 @@ r1(
 
 sh_binary(name = "aspect_a_tool", srcs = ["tool.sh"])
 sh_binary(name = "aspect_b_tool", srcs = ["tool.sh"])
+sh_binary(name = "aspect_c_tool", srcs = ["tool.sh"])
+
 sh_binary(name = "r1_tool", srcs = ["tool.sh"])
 
 sh_binary(name = "aspect_a_diff_tool", srcs = ["tool.sh"])
 sh_binary(name = "aspect_b_diff_tool", srcs = ["tool.sh"])
+sh_binary(name = "aspect_c_diff_tool", srcs = ["tool.sh"])
 sh_binary(name = "r1_diff_tool", srcs = ["tool.sh"])
 EOF
 
   bazel build "//${package}:t1" \
-    --aspects="//${package}:defs.bzl%aspect_b,//${package}:defs.bzl%aspect_a" \
+    --aspects="//${package}:defs.bzl%aspect_c,//${package}:defs.bzl%aspect_b,//${package}:defs.bzl%aspect_a" \
+    --separate_aspect_deps \
       &> $TEST_log || fail "Build failed"
 
-  expect_log "aspect_b on target @@\?//test:t1: aspect_b _tool=@@\?//test:aspect_b_tool and rule _tool=@@\?//test:aspect_b_tool"
-  expect_log "aspect_b on target @@\?//test:t1: _tool_b=@@\?//test:aspect_b_diff_tool and _tool_r1=@@\?//test:r1_diff_tool"
+  expect_log "aspect_c on target @@\?//test:t1: aspect_c _tool=@@\?//test:aspect_c_tool, rule _tool=@@\?//test:r1_tool"
+  expect_log "aspect_c on target @@\?//test:t1: _tool_c=@@\?//test:aspect_c_diff_tool, _tool_r1=@@\?//test:r1_diff_tool"
 
-  expect_log "aspect_a on target @@\?//test:t1: aspect_a _tool=@@\?//test:aspect_a_tool and merged_rule_and_base_aspects _tool=@@\?//test:aspect_a_tool"
-  expect_log "aspect_a on target @@\?//test:t1: _tool_a=@@\?//test:aspect_a_diff_tool, _tool_r1=@@\?//test:r1_diff_tool, _tool_b=@@\?//test:aspect_b_diff_tool"
+  expect_log "aspect_b on target @@\?//test:t1: aspect_b _tool=@@\?//test:aspect_b_tool, rule _tool=@@\?//test:r1_tool"
+  expect_log "aspect_b on target @@\?//test:t1: _tool_b=@@\?//test:aspect_b_diff_tool, _tool_r1=@@\?//test:r1_diff_tool, _tool_c=@@\?//test:aspect_c_diff_tool"
+
+  # in aspect_a, `ctx.attr._tool` gets its value from the main aspect (aspect_a)
+  # `ctx.rule.attr._tool` gets its value from the rule (r1) attribute with that name
+  # `ctx.rule.attr._base_aspects_tool` is not there in the rule (r1) attributes so it
+  # gets its value from the first aspect that has it in the aspects path
+  # which is aspect_c.
+  expect_log "aspect_a on target @@\?//test:t1: aspect_a _tool=@@\?//test:aspect_a_tool and merged_rule_and_base_aspects _tool=@@\?//test:r1_tool"
+  expect_log "aspect_a on target @@\?//test:t1: _tool_a=@@\?//test:aspect_a_diff_tool, _tool_r1=@@\?//test:r1_diff_tool, _tool_b=@@\?//test:aspect_b_diff_tool, _tool_c=@@\?//test:aspect_c_diff_tool"
+  expect_log "aspect_a on target @@\?//test:t1: _base_aspects_tool=@@\?//test:aspect_c_tool"
 
 }
 

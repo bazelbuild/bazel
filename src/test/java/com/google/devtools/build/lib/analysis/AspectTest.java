@@ -1031,7 +1031,7 @@ public class AspectTest extends AnalysisTestCase {
   }
 
   @Test
-  public void aspectWithExtraAttributeDependsOnNotApplicable_usesAttributeFromDependentAspect()
+  public void aspectWithExtraAttributeDependsOnNotApplicable_usesItsOwnAttribute()
       throws Exception {
     ExtraAttributeAspect aspectApplies =
         new ExtraAttributeAspect(
@@ -1043,6 +1043,7 @@ public class AspectTest extends AnalysisTestCase {
         ImmutableList.of(TestAspects.BASE_RULE, TestAspects.SIMPLE_RULE));
     scratch.file("extra/BUILD", "simple(name='extra')", "simple(name='extra2')");
     scratch.file("a/BUILD", "genrule(name='gen_a', outs=['a'], cmd='touch $@')");
+    useConfiguration("--separate_aspect_deps");
 
     AnalysisResult analysisResult =
         update(
@@ -1055,7 +1056,7 @@ public class AspectTest extends AnalysisTestCase {
     ExtraAttributeAspect.Provider provider =
         getAspectByName(analysisResult.getAspectsMap(), aspectApplies.getName())
             .getProvider(ExtraAttributeAspect.Provider.class);
-    assertThat(provider.label()).isEqualTo("//extra:extra2");
+    assertThat(provider.label()).isEqualTo("//extra:extra");
     assertThat(
             getAspectByName(analysisResult.getAspectsMap(), aspectDoesNotApply.getName())
                 .getProviders()

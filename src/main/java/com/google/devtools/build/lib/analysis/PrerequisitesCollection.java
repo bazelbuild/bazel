@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
@@ -36,7 +35,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -44,80 +42,61 @@ import javax.annotation.Nullable;
 /** Collection of the attributes dependencies available in a {@link RuleContext}. */
 public final class PrerequisitesCollection {
 
+  private interface AttributesMapper {
+    Attribute getAttribute(String attributeName);
+  }
+
   private final ImmutableSortedKeyListMultimap<String, ConfiguredTargetAndData>
       attributeToPrerequisitesMap;
-  private final AttributeMap attributes;
+  private final AttributesMapper attributesMapper;
+
   private final RuleErrorConsumer ruleErrorConsumer;
   private final Rule rule;
   private final String ruleClassNameForLogging;
 
-  static PrerequisitesCollection create(
-      AttributeMap attributes,
-      ImmutableListMultimap<DependencyKind, ConfiguredTargetAndData> prerequisitesMap,
-      ImmutableList<Aspect> aspects,
+  PrerequisitesCollection(
+      ImmutableSortedKeyListMultimap<String, ConfiguredTargetAndData> attributeToPrerequisitesMap,
+      ImmutableMap<String, Attribute> attributes,
       RuleErrorConsumer ruleErrorConsumer,
       Rule rule,
       String ruleClassNameForLogging) {
-    return new PrerequisitesCollection(
-        attributes,
-        mergePrerequisites(aspects, prerequisitesMap),
+    this(
+        attributeToPrerequisitesMap,
+        /* attributesMapper= */ attributes::get,
         ruleErrorConsumer,
         rule,
         ruleClassNameForLogging);
   }
 
-  /**
-   * Merges the rule prerequisites with the aspects prerequisites giving precedence to aspects
-   * prerequisites if any.
-   *
-   * <p>TODO(b/293304543) merging prerequisites should be not needed after completing the solution
-   * to isolate main aspect dependencies from the underlying rule and aspects dependencies.
-   */
-  private static ImmutableSortedKeyListMultimap<String, ConfiguredTargetAndData> mergePrerequisites(
-      ImmutableList<Aspect> aspects,
-      ImmutableListMultimap<DependencyKind, ConfiguredTargetAndData> targetsMap) {
-
-    ImmutableSortedKeyListMultimap.Builder<String, ConfiguredTargetAndData>
-        attributeNameToTargetsMap = ImmutableSortedKeyListMultimap.builder();
-    HashSet<String> processedAttributes = new HashSet<>();
-
-    // add aspects prerequisites
-    for (Aspect aspect : aspects) {
-      for (Attribute attribute : aspect.getDefinition().getAttributes().values()) {
-        DependencyKind key =
-            DependencyKind.AttributeDependencyKind.forAspect(attribute, aspect.getAspectClass());
-        if (targetsMap.containsKey(key)) {
-          if (processedAttributes.add(attribute.getName())) {
-            attributeNameToTargetsMap.putAll(attribute.getName(), targetsMap.get(key));
-          }
-        }
-      }
-    }
-
-    // add rule prerequisites
-    for (var entry : targetsMap.asMap().entrySet()) {
-      if (entry.getKey().getOwningAspect() == null) {
-        if (!processedAttributes.contains(entry.getKey().getAttribute().getName())) {
-          attributeNameToTargetsMap.putAll(
-              entry.getKey().getAttribute().getName(), entry.getValue());
-        }
-      }
-    }
-
-    return attributeNameToTargetsMap.build();
-  }
-
-  private PrerequisitesCollection(
+  PrerequisitesCollection(
+      ImmutableSortedKeyListMultimap<String, ConfiguredTargetAndData> attributeToPrerequisitesMap,
       AttributeMap attributes,
-      ImmutableSortedKeyListMultimap<String, ConfiguredTargetAndData> prerequisitesMap,
       RuleErrorConsumer ruleErrorConsumer,
       Rule rule,
       String ruleClassNameForLogging) {
-    this.attributes = attributes;
-    this.attributeToPrerequisitesMap = prerequisitesMap;
+    this(
+        attributeToPrerequisitesMap,
+        /* attributesMapper= */ attributes::getAttributeDefinition,
+        ruleErrorConsumer,
+        rule,
+        ruleClassNameForLogging);
+  }
+
+  private PrerequisitesCollection(
+      ImmutableSortedKeyListMultimap<String, ConfiguredTargetAndData> attributeToPrerequisitesMap,
+      AttributesMapper attributesMapper,
+      RuleErrorConsumer ruleErrorConsumer,
+      Rule rule,
+      String ruleClassNameForLogging) {
+    this.attributeToPrerequisitesMap = attributeToPrerequisitesMap;
+    this.attributesMapper = attributesMapper;
     this.ruleErrorConsumer = ruleErrorConsumer;
     this.rule = rule;
     this.ruleClassNameForLogging = ruleClassNameForLogging;
+  }
+
+  boolean has(String attributeName) {
+    return attributesMapper.getAttribute(attributeName) != null;
   }
 
   /** Returns a list of all prerequisites as {@code ConfiguredTarget} objects. */
@@ -137,7 +116,7 @@ public final class PrerequisitesCollection {
    * specified attribute.
    */
   public List<? extends TransitiveInfoCollection> getPrerequisites(String attributeName) {
-    Attribute attribute = attributes.getAttributeDefinition(attributeName);
+    Attribute attribute = attributesMapper.getAttribute(attributeName);
     if (attribute == null) {
       return ImmutableList.of();
     }
@@ -301,7 +280,7 @@ public final class PrerequisitesCollection {
    */
   @Nullable
   public FilesToRunProvider getExecutablePrerequisite(String attributeName) {
-    Attribute ruleDefinition = attributes.getAttributeDefinition(attributeName);
+    Attribute ruleDefinition = attributesMapper.getAttribute(attributeName);
 
     Preconditions.checkNotNull(
         ruleDefinition, "%s attribute %s is not defined", ruleClassNameForLogging, attributeName);
@@ -366,7 +345,7 @@ public final class PrerequisitesCollection {
   }
 
   private void checkAttributeIsDependency(String attributeName) {
-    Attribute attributeDefinition = attributes.getAttributeDefinition(attributeName);
+    Attribute attributeDefinition = attributesMapper.getAttribute(attributeName);
     Preconditions.checkNotNull(
         attributeDefinition,
         "%s: %s attribute %s is not defined",
