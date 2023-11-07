@@ -16,27 +16,6 @@
 
 load(":common/cc/cc_common.bzl", "cc_common")
 
-_CPU_TO_PLATFORM = {
-    "darwin_x86_64": "@build_bazel_apple_support//platforms:darwin_x86_64",
-    "darwin_arm64": "@build_bazel_apple_support//platforms:darwin_arm64",
-    "darwin_arm64e": "@build_bazel_apple_support//platforms:darwin_arm64e",
-    "ios_x86_64": "@build_bazel_apple_support//platforms:ios_x86_64",
-    "ios_arm64": "@build_bazel_apple_support//platforms:ios_arm64",
-    "ios_sim_arm64": "@build_bazel_apple_support//platforms:ios_sim_arm64",
-    "ios_arm64e": "@build_bazel_apple_support//platforms:ios_arm64e",
-    "tvos_sim_arm64": "@build_bazel_apple_support//platforms:tvos_sim_arm64",
-    "tvos_arm64": "@build_bazel_apple_support//platforms:tvos_arm64",
-    "tvos_x86_64": "@build_bazel_apple_support//platforms:tvos_x86_64",
-    "visionos_arm64": "@build_bazel_apple_support//platforms:visionos_arm64",
-    "visionos_sim_arm64": "@build_bazel_apple_support//platforms:visionos_sim_arm64",
-    "watchos_armv7k": "@build_bazel_apple_support//platforms:watchos_armv7k",
-    "watchos_arm64": "@build_bazel_apple_support//platforms:watchos_arm64",
-    "watchos_device_arm64": "@build_bazel_apple_support//platforms:watchos_arm64",
-    "watchos_device_arm64e": "@build_bazel_apple_support//platforms:watchos_arm64e",
-    "watchos_arm64_32": "@build_bazel_apple_support//platforms:watchos_arm64_32",
-    "watchos_x86_64": "@build_bazel_apple_support//platforms:watchos_x86_64",
-}
-
 def _check_toolchain_supports_objc_compile(ctx, cc_toolchain):
     feature_configuration = cc_common.configure_features(
         ctx = ctx,
@@ -64,5 +43,4 @@ semantics = struct(
     check_toolchain_supports_objc_compile = _check_toolchain_supports_objc_compile,
     get_repo = _get_repo,
     get_licenses_attr = _get_licenses_attr,
-    cpu_to_platform = lambda cpu: _CPU_TO_PLATFORM[cpu],
 )

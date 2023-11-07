@@ -2940,7 +2940,7 @@
         "bzlTransitiveDigest": "DNJM0epQeVejZo36Ukn/eoamqYgSvq9zGHhuPLb7338=",
         "recordedFileInputs": {
           "@@//MODULE.bazel": "a53edbe40f270471ecb000b29c44cd7668eb7d02692665f95a7193035d3b2b37",
-          "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "bc8e96063c5f9a9a3852468646c597b45163a1449c77183f08a9e1f9e9b7ef51"
+          "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "3456217a786a4f52053517867af9cb9df33608a8fc01a3728152d1bd37ce5bf1"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -2960,7 +2960,6 @@
             "attributes": {
               "repos": [
                 "abseil-cpp~",
-                "apple_support~",
                 "bazel_skylib~",
                 "buildozer~",
                 "googletest~",

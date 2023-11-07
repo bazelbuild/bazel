@@ -1018,15 +1018,6 @@ public abstract class CcModule
   }
 
   @Override
-  public boolean getIncompatibleDisableObjcLibraryTransition(StarlarkThread thread)
-      throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    return thread
-        .getSemantics()
-        .getBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION);
-  }
-
-  @Override
   public CcLinkingContext createCcLinkingInfo(
       Object linkerInputs,
       Object librariesToLinkObject,

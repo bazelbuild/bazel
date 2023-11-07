@@ -126,8 +126,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         )
         """);
 
-    setBuildLanguageOptions("--incompatible_disable_objc_library_transition");
     useConfiguration("--macos_cpus=arm64,x86_64", "--cpu=k8");
+
     ConfiguredTarget cc = getConfiguredTarget("//bin:cc");
     Artifact objcObject =
         ActionsTestUtil.getFirstArtifactEndingWith(

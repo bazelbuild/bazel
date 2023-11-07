@@ -80,11 +80,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
               Label.parseCanonicalUnchecked("@_builtins//:common/objc/linking_support.bzl")),
           "AppleExecutableBinaryInfo");
 
-  @Before
-  public void setUp() throws Exception {
-    setBuildLanguageOptions("--noincompatible_disable_objc_library_transition");
-  }
-
   /** Specification of code coverage behavior. */
   public enum CodeCoverageMode {
     // No code coverage information.
@@ -583,6 +578,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     switch (codeCoverageMode) {
       case NONE:
         useConfiguration(
+            "--platforms=" + MockObjcSupport.IOS_X86_64,
             "--apple_platform_type=ios",
             "--compilation_mode=" + compilationModeFlag(mode),
             "--cpu=k8");
@@ -590,6 +586,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       case GCOV:
         allExpectedCoptsBuilder.addAll(CompilationSupport.CLANG_GCOV_COVERAGE_FLAGS);
         useConfiguration(
+            "--platforms=" + MockObjcSupport.IOS_X86_64,
             "--apple_platform_type=ios",
             "--collect_code_coverage",
             "--compilation_mode=" + compilationModeFlag(mode),
@@ -598,6 +595,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       case LLVMCOV:
         allExpectedCoptsBuilder.addAll(CompilationSupport.CLANG_LLVM_COVERAGE_FLAGS);
         useConfiguration(
+            "--platforms=" + MockObjcSupport.IOS_X86_64,
             "--apple_platform_type=ios",
             "--collect_code_coverage",
             "--experimental_use_llvm_covmap",
@@ -621,6 +619,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             .addAll(ObjcConfiguration.DBG_COPTS);
 
     useConfiguration(
+        "--platforms=" + MockObjcSupport.IOS_X86_64,
         "--apple_platform_type=ios",
         "--compilation_mode=dbg",
         "--objc_debug_with_GLIBCXX=false",
