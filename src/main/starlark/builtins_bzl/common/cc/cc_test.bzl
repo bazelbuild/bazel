@@ -15,7 +15,8 @@
 """cc_test Starlark implementation."""
 
 load(":common/cc/cc_binary.bzl", "cc_binary_impl")
-load(":common/cc/cc_binary_attrs.bzl", "cc_binary_attrs_with_aspects", "cc_binary_attrs_without_aspects")
+load(":common/cc/cc_binary_attrs.bzl", "cc_binary_attrs")
+load(":common/cc/cc_shared_library.bzl", "cc_shared_library_initializer")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/semantics.bzl", "semantics")
 load(":common/paths.bzl", "paths")
@@ -77,58 +78,44 @@ def _impl(ctx):
     providers.extend(test_providers)
     return providers
 
-def make_cc_test(with_aspects = False):
-    """Makes one of the cc_test rule variants.
+_cc_test_attrs = dict(cc_binary_attrs)
 
-    This function shall only be used internally in CC ruleset.
+# Update cc_test defaults:
+_cc_test_attrs.update(
+    _is_test = attr.bool(default = True),
+    _apple_constraints = attr.label_list(
+        default = [
+            "@" + paths.join(semantics.get_platforms_root(), "os:ios"),
+            "@" + paths.join(semantics.get_platforms_root(), "os:macos"),
+            "@" + paths.join(semantics.get_platforms_root(), "os:tvos"),
+            "@" + paths.join(semantics.get_platforms_root(), "os:watchos"),
+        ],
+    ),
+    # Starlark tests don't get `env_inherit` by default.
+    env_inherit = attr.string_list(),
+    stamp = attr.int(values = [-1, 0, 1], default = 0),
+    linkstatic = attr.bool(default = False),
+)
+_cc_test_attrs.update(semantics.get_test_malloc_attr())
+_cc_test_attrs.update(semantics.get_coverage_attrs())
 
-    Args:
-      with_aspects: Attaches graph_structure_aspect to `deps` attribute and
-        implicit deps.
-    Returns:
-      A cc_test rule class.
-    """
-    _cc_test_attrs = None
-    if with_aspects:
-        _cc_test_attrs = dict(cc_binary_attrs_with_aspects)
-    else:
-        _cc_test_attrs = dict(cc_binary_attrs_without_aspects)
-
-    # Update cc_test defaults:
-    _cc_test_attrs.update(
-        _is_test = attr.bool(default = True),
-        _apple_constraints = attr.label_list(
-            default = [
-                "@" + paths.join(semantics.get_platforms_root(), "os:ios"),
-                "@" + paths.join(semantics.get_platforms_root(), "os:macos"),
-                "@" + paths.join(semantics.get_platforms_root(), "os:tvos"),
-                "@" + paths.join(semantics.get_platforms_root(), "os:watchos"),
-            ],
-        ),
-        # Starlark tests don't get `env_inherit` by default.
-        env_inherit = attr.string_list(),
-        stamp = attr.int(values = [-1, 0, 1], default = 0),
-        linkstatic = attr.bool(default = False),
-    )
-    _cc_test_attrs.update(semantics.get_test_malloc_attr())
-    _cc_test_attrs.update(semantics.get_coverage_attrs())
-
-    return rule(
-        implementation = _impl,
-        attrs = _cc_test_attrs,
-        outputs = {
-            # TODO(b/198254254): Handle case for windows.
-            "stripped_binary": "%{name}.stripped",
-            "dwp_file": "%{name}.dwp",
-        },
-        fragments = ["cpp", "coverage"] + semantics.additional_fragments(),
-        exec_groups = {
-            "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
-            # testing.ExecutionInfo defaults to an exec_group of "test".
-            "test": exec_group(toolchains = [config_common.toolchain_type(_CC_TEST_TOOLCHAIN_TYPE, mandatory = False)]),
-        },
-        toolchains = [] +
-                     cc_helper.use_cpp_toolchain() +
-                     semantics.get_runtimes_toolchain(),
-        test = True,
-    )
+cc_test = rule(
+    initializer = cc_shared_library_initializer,
+    implementation = _impl,
+    attrs = _cc_test_attrs,
+    outputs = {
+        # TODO(b/198254254): Handle case for windows.
+        "stripped_binary": "%{name}.stripped",
+        "dwp_file": "%{name}.dwp",
+    },
+    fragments = ["cpp", "coverage"] + semantics.additional_fragments(),
+    exec_groups = {
+        "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
+        # testing.ExecutionInfo defaults to an exec_group of "test".
+        "test": exec_group(toolchains = [config_common.toolchain_type(_CC_TEST_TOOLCHAIN_TYPE, mandatory = False)]),
+    },
+    toolchains = [] +
+                 cc_helper.use_cpp_toolchain() +
+                 semantics.get_runtimes_toolchain(),
+    test = True,
+)
