@@ -27,7 +27,7 @@ bazel_dep(name = "rules_cc", version = "0.0.9")
 bazel_dep(name = "rules_java", version = "7.1.0")
 bazel_dep(name = "rules_proto", version = "5.3.0-21.7")
 bazel_dep(name = "rules_jvm_external", version = "5.2")
-bazel_dep(name = "rules_python", version = "0.24.0")
+bazel_dep(name = "rules_python", version = "0.26.0")
 bazel_dep(name = "rules_testing", version = "0.0.4")
 bazel_dep(name = "googletest", version = "1.12.1", repo_name = "com_google_googletest")
 
