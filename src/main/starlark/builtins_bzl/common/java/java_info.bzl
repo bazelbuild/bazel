@@ -18,6 +18,7 @@ Definition of JavaInfo and JavaPluginInfo provider.
 
 load(":common/cc/cc_common.bzl", "CcNativeLibraryInfo", "cc_common")
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/java/java_semantics.bzl", "semantics")
 
 # TODO(hvd): remove this when:
 # - we have a general provider-type checking API
@@ -456,8 +457,7 @@ def java_info_for_compilation(
             # only differs from the usual java_info.transitive_source_jars in the order of deps
             transitive = [dep.transitive_source_jars for dep in concatenated_deps.runtimedeps_exports_deps],
         ),
-        # the JavaInfo constructor does not add flags from runtime_deps nor support
-        # adding this target's exports/opens
+        # the JavaInfo constructor does not add flags from runtime_deps
         module_flags_info = _create_module_flags_info(
             add_exports = depset(add_exports, transitive = [
                 dep.module_flags_info.add_exports
@@ -663,7 +663,9 @@ def _javainfo_init(
         exports = [],
         exported_plugins = [],
         jdeps = None,
-        native_libraries = []):
+        native_libraries = [],
+        add_exports = [],
+        add_opens = []):
     """The JavaInfo constructor
 
     Args:
@@ -693,10 +695,15 @@ def _javainfo_init(
             is typically produced by a compiler. IDEs and other tools can use this information for
             more efficient processing. Optional.
         native_libraries: ([CcInfo]) Native library dependencies that are needed for this library.
+        add_exports: ([str]) The <module>/<package>s this library was given access to.
+        add_opens: ([str]) The <module>/<package>s this library was given reflective access to.
 
     Returns:
         (dict) arguments to the JavaInfo provider constructor
     """
+    if add_exports or add_opens:
+        semantics.check_java_info_opens_exports()
+
     result, concatenated_deps = _javainfo_init_base(
         output_jar,
         compile_jar,
@@ -734,11 +741,11 @@ def _javainfo_init(
             ],
         ),
         module_flags_info = _create_module_flags_info(
-            add_exports = depset(transitive = [
+            add_exports = depset(add_exports, transitive = [
                 dep.module_flags_info.add_exports
                 for dep in concatenated_deps.deps_exports
             ]),
-            add_opens = depset(transitive = [
+            add_opens = depset(add_opens, transitive = [
                 dep.module_flags_info.add_opens
                 for dep in concatenated_deps.deps_exports
             ]),
