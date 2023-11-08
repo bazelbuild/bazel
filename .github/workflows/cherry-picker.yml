@@ -6,6 +6,9 @@ on:
   issues:
     types: [closed, milestoned]
 
+permissions:
+  contents: read
+
 env:
   GH_TOKEN: ${{ secrets.BAZEL_IO_TOKEN }}
 
