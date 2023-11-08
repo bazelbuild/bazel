@@ -20,7 +20,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
+import com.google.devtools.build.lib.analysis.config.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
@@ -123,7 +123,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
         }
         OptionsDiff diff = new OptionsDiff();
         for (BuildOptions options : dep.options()) {
-          diff = BuildOptions.diff(diff, config.getOptions(), options);
+          diff = OptionsDiff.diff(diff, config.getOptions(), options);
         }
         diff.getPrettyPrintList().forEach(singleDiff -> addResult("    " + singleDiff));
       }
