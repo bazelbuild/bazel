@@ -17,15 +17,21 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction.VENDOR_DIRECTORY;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -35,6 +41,8 @@ import javax.annotation.Nullable;
  * result (empty value is returned).
  */
 public class BazelFetchAllFunction implements SkyFunction {
+
+  private static final String VENDOR_IGNORE = ".vendorignore";
 
   @Override
   @Nullable
@@ -85,6 +93,24 @@ public class BazelFetchAllFunction implements SkyFunction {
         if (StarlarkRepositoryFunction.isConfigureRule(repoRuleValue.getRule())) {
           reposToFetch.add(RepositoryName.createUnvalidated(repoRuleValue.getRule().getName()));
         }
+      }
+    }
+
+    // If this is vendor mode: don't fetch ignored repos
+    if(VENDOR_DIRECTORY.get(env).isPresent()) {
+      try {
+        Path vendorIgnore = VENDOR_DIRECTORY.get(env).get().getRelative(VENDOR_IGNORE);
+        if(vendorIgnore.exists()) {
+          ImmutableList<String> ignoredRepos = FileSystemUtils.readLines(vendorIgnore, UTF_8);
+          reposToFetch = reposToFetch.stream()
+              .filter(repo -> !ignoredRepos.contains(repo.getName()))
+              .collect(toImmutableList());
+        } else {
+          FileSystemUtils.createEmptyFile(vendorIgnore);
+        }
+      } catch (IOException e) {
+        //TODO handle this
+        throw new RuntimeException(e);
       }
     }
 
