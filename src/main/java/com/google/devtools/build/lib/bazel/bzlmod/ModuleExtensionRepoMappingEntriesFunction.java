@@ -71,6 +71,6 @@ public class ModuleExtensionRepoMappingEntriesFunction implements SkyFunction {
     ImmutableMap.Builder<String, RepositoryName> entries = ImmutableMap.builder();
     entries.putAll(bazelDepGraphValue.getFullRepoMapping(moduleKey).entries());
     entries.putAll(extensionEvalValue.getCanonicalRepoNameToInternalNames().inverse());
-    return new ModuleExtensionRepoMappingEntriesValue(entries.buildKeepingLast(), moduleKey);
+    return ModuleExtensionRepoMappingEntriesValue.create(entries.buildKeepingLast(), moduleKey);
   }
 }

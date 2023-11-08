@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -26,23 +27,17 @@ import com.google.devtools.build.skyframe.SkyValue;
 
 /** The value for {@link ModuleExtensionRepoMappingEntriesFunction}. */
 @AutoCodec
-public final class ModuleExtensionRepoMappingEntriesValue implements SkyValue {
+@AutoValue
+public abstract class ModuleExtensionRepoMappingEntriesValue implements SkyValue {
 
-  private final ImmutableMap<String, RepositoryName> entries;
-  private final ModuleKey moduleKey;
+  public abstract ImmutableMap<String, RepositoryName> getEntries();
 
-  public ModuleExtensionRepoMappingEntriesValue(
+  public abstract ModuleKey getModuleKey();
+
+  @AutoCodec.Instantiator
+  public static ModuleExtensionRepoMappingEntriesValue create(
       ImmutableMap<String, RepositoryName> entries, ModuleKey moduleKey) {
-    this.entries = entries;
-    this.moduleKey = moduleKey;
-  }
-
-  public ImmutableMap<String, RepositoryName> getEntries() {
-    return entries;
-  }
-
-  public ModuleKey getModuleKey() {
-    return moduleKey;
+    return new AutoValue_ModuleExtensionRepoMappingEntriesValue(entries, moduleKey);
   }
 
   public static ModuleExtensionRepoMappingEntriesValue.Key key(ModuleExtensionId id) {
