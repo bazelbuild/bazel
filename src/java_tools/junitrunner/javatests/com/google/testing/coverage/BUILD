@@ -26,3 +26,18 @@ java_test(
         "//third_party/java/jacoco:report",
     ],
 )
+
+sh_test(
+    name = "jacoco_runner_integration_test",
+    size = "medium",
+    srcs = ["jacoco_runner_integration_tests.sh"],
+    args = [
+        "$(location //src/test/shell:unittest.bash)",
+        "$(location //src/java_tools/junitrunner/java/com/google/testing/coverage:JacocoCoverage)",
+    ],
+    data = [
+        "//src/java_tools/junitrunner/java/com/google/testing/coverage:JacocoCoverage",
+        "//src/test/shell:bashunit",
+        "//src/test/shell:unittest.bash",
+    ],
+)
