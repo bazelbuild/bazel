@@ -1604,6 +1604,14 @@ public class RemoteExecutionService {
     if (spawnScrubber == null) {
       return false;
     }
+    if (!spawnScrubber.getSalt().isEmpty()) {
+      return true;
+    }
+    for (String arg : spawn.getArguments()) {
+      if (!arg.equals(spawnScrubber.transformArgument(arg))) {
+        return true;
+      }
+    }
     var inputFiles = spawn.getInputFiles();
     for (ActionInput inputFile : inputFiles.getLeaves()) {
       if (spawnScrubber.shouldOmitInput(inputFile)) {
