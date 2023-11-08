@@ -26,6 +26,7 @@ load("//tools/distributions/debian:deps.bzl", "debian_deps")
 
 ### Dependencies for building Bazel
 def _bazel_build_deps(_ctx):
+    _ctx.path(Label("//:MODULE.bazel")) # Make sure the `bootstrap_repo_cache` repo is updated when MODULE.bazel changes.
     embedded_jdk_repositories()
     debian_deps()
     repo_cache_tar(name = "bootstrap_repo_cache", repos = DIST_ARCHIVE_REPOS, dirname = "derived/repository_cache")
