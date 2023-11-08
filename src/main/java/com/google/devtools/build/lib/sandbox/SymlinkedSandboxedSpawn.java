@@ -61,7 +61,7 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
         sandboxDebugPath,
         statisticsPath,
         mnemonic);
-    this.mnemonic = isNullOrEmpty(mnemonic) ? mnemonic : "_NoMnemonic_";
+    this.mnemonic = isNullOrEmpty(mnemonic) ? "_NoMnemonic_" : mnemonic;
   }
 
   @Override
