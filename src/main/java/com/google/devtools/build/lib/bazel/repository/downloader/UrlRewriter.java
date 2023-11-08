@@ -36,7 +36,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
-import java.io.UncheckedIOException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -98,7 +97,7 @@ public class UrlRewriter {
     try (BufferedReader reader = Files.newBufferedReader(Paths.get(configPath))) {
       return new UrlRewriter(log, configPath, reader);
     } catch (IOException e) {
-      throw new UncheckedIOException(e);
+      throw new UrlRewriterParseException(e.getMessage());
     }
   }
 
