@@ -20,6 +20,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.FileValue;
@@ -50,7 +51,9 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
@@ -70,6 +73,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   public static final Precomputed<Map<RepositoryName, PathFragment>> REPOSITORY_OVERRIDES =
       new Precomputed<>("repository_overrides");
 
+  public static final String FORCE_FETCH_DISABLED = "";
+
   public static final Precomputed<String> FORCE_FETCH =
       new Precomputed<>("dependency_for_force_fetching_repository");
 
@@ -79,7 +84,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   public static final Precomputed<Optional<RootedPath>> RESOLVED_FILE_INSTEAD_OF_WORKSPACE =
       new Precomputed<>("resolved_file_instead_of_workspace");
 
-  public static final String FORCE_FETCH_DISABLED = "";
+  public static final Precomputed<Boolean> VENDOR_COMMAND =
+      new Precomputed<>("call_from_vendor_command");
+
+  public static final Precomputed<Optional<Path>> VENDOR_DIRECTORY =
+      new Precomputed<>("vendor_directory");
 
   // The marker file version is inject in the rule key digest so the rule key is always different
   // when we decide to update the format.
@@ -127,12 +136,16 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
               repositoryName.getName(), repositoryName.getOwnerRepoDisplayString()));
     }
 
-    Path repoRoot =
-        RepositoryFunction.getExternalRepositoryDirectory(directories)
-            .getRelative(repositoryName.getName());
+    // Decide where to store the fetched repos (/external or vendor folder)
+    boolean vendorMode = VENDOR_DIRECTORY.get(env).isPresent();
+    Path repoCacheDir = vendorMode ? VENDOR_DIRECTORY.get(env).get()
+        : RepositoryFunction.getExternalRepositoryDirectory(directories);
+    Path markerPath = repoCacheDir.getChild("@" + repositoryName.getName() + ".marker");
+    Path repoRoot = repoCacheDir.getRelative(repositoryName.getName());
+
     Map<RepositoryName, PathFragment> overrides = REPOSITORY_OVERRIDES.get(env);
     if (Preconditions.checkNotNull(overrides).containsKey(repositoryName)) {
-      DigestWriter.clearMarkerFile(directories, repositoryName);
+      DigestWriter.clearMarkerFile(markerPath);
       return setupOverride(overrides.get(repositoryName), env, repoRoot, repositoryName.getName());
     }
 
@@ -169,7 +182,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           String.format("'%s' is not a repository rule", repositoryName.getCanonicalForm()));
     }
 
-    DigestWriter digestWriter = new DigestWriter(directories, repositoryName, rule);
+    DigestWriter digestWriter = new DigestWriter(markerPath, rule);
     if (shouldUseCachedRepos(env, handler, repoRoot, rule)) {
       // Make sure marker file is up-to-date; correctly describes the current repository state
       byte[] markerHash = digestWriter.areRepositoryAndMarkerFileConsistent(handler, env);
@@ -178,6 +191,20 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       }
       if (markerHash != null) {
         return RepositoryDirectoryValue.builder().setPath(repoRoot).setDigest(markerHash).build();
+      }
+      /* There are three cases here:
+       * 1. Vendor command
+       * 2. Build with vendor mode
+       * 3. Build without vendor mode
+       * We only fail in the second one; We should only use what is in the vendor folder
+       * and if it is not found or not valid anymore, we fail and require re-vendoring*/
+      else if (!VENDOR_COMMAND.get(env) && vendorMode) {
+        throw new RepositoryFunctionException(
+            new IOException(
+                "External repository " + repositoryName.getNameWithAt()
+                    + " not found or not up-to-date and vendor mode is on. "
+                    + "To fix run 'bazel vendor'"),
+            Transience.TRANSIENT);
       }
     }
 
@@ -189,7 +216,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       // and the marker file exists on disk, a new call of this method may treat this repository as
       // valid even though it is in an inconsistent state. Clear the marker file and only recreate
       // it after fetching is done to prevent this scenario.
-      DigestWriter.clearMarkerFile(directories, repositoryName);
+      DigestWriter.clearMarkerFile(markerPath);
       RepositoryDirectoryValue.Builder builder =
           fetchRepository(skyKey, repoRoot, env, digestWriter.getMarkerData(), handler, rule);
       if (builder == null) {
@@ -496,9 +523,9 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     private final TreeMap<String, String> markerData;
     private final String ruleKey;
 
-    DigestWriter(BlazeDirectories directories, RepositoryName repositoryName, Rule rule) {
+    DigestWriter(Path markerPath, Rule rule) {
       ruleKey = computeRuleKey(rule);
-      markerPath = getMarkerPath(directories, repositoryName.getName());
+      this.markerPath = markerPath;
       this.rule = rule;
       markerData = Maps.newTreeMap();
     }
@@ -601,15 +628,13 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           .hexDigestAndReset();
     }
 
-    private static Path getMarkerPath(BlazeDirectories directories, String ruleName) {
-      return RepositoryFunction.getExternalRepositoryDirectory(directories)
-          .getChild("@" + ruleName + ".marker");
+    static Path getMarkerPath(Path repoParentDir, String ruleName) {
+      return repoParentDir.getChild("@" + ruleName + ".marker");
     }
 
-    static void clearMarkerFile(BlazeDirectories directories, RepositoryName repoName)
-        throws RepositoryFunctionException {
+    static void clearMarkerFile(Path markerPath) throws RepositoryFunctionException {
       try {
-        getMarkerPath(directories, repoName.getName()).delete();
+        markerPath.delete();
       } catch (IOException e) {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }

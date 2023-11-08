@@ -313,6 +313,17 @@ public class RepositoryOptions extends OptionsBase {
               + " to the lockfile.")
   public LockfileMode lockfileMode;
 
+  @Option(
+      name = "vendor_dir",
+      defaultValue = "null",
+      converter = OptionsUtils.PathFragmentConverter.class,
+      documentationCategory = OptionDocumentationCategory.BZLMOD,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "Specifies the directory that should hold the vendored repositories, whether for the "
+              + "purpose of vendoring them into it or reading them from it.")
+  public PathFragment vendorDirectory;
+
   /** An enum for specifying different modes for checking direct dependency accuracy. */
   public enum CheckDirectDepsMode {
     OFF, // Don't check direct dependency accuracy.
