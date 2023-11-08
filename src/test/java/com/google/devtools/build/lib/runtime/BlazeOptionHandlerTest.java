@@ -70,11 +70,11 @@ public class BlazeOptionHandlerTest {
   private static ListMultimap<String, RcChunkOfArgs> structuredArgsFrom2SimpleRcsWithOnlyResidue() {
     ListMultimap<String, RcChunkOfArgs> structuredArgs = ArrayListMultimap.create();
     // first add all lines of rc1, then rc2, to simulate a simple, import free, 2 rc file setup.
-    structuredArgs.put("c0", new RcChunkOfArgs("rc1", ImmutableList.of("a")));
-    structuredArgs.put("c0:config", new RcChunkOfArgs("rc1", ImmutableList.of("b")));
+    structuredArgs.put("build", new RcChunkOfArgs("rc1", ImmutableList.of("a")));
+    structuredArgs.put("build:config", new RcChunkOfArgs("rc1", ImmutableList.of("b")));
 
     structuredArgs.put("common", new RcChunkOfArgs("rc2", ImmutableList.of("c")));
-    structuredArgs.put("c0", new RcChunkOfArgs("rc2", ImmutableList.of("d", "e")));
+    structuredArgs.put("build", new RcChunkOfArgs("rc2", ImmutableList.of("d", "e")));
     structuredArgs.put("c1:other", new RcChunkOfArgs("rc2", ImmutableList.of("f", "g")));
     return structuredArgs;
   }
@@ -82,14 +82,15 @@ public class BlazeOptionHandlerTest {
   private static ListMultimap<String, RcChunkOfArgs> structuredArgsFrom2SimpleRcsWithFlags() {
     ListMultimap<String, RcChunkOfArgs> structuredArgs = ArrayListMultimap.create();
     structuredArgs.put(
-        "c0", new RcChunkOfArgs("rc1", ImmutableList.of("--test_multiple_string=foo")));
+        "build", new RcChunkOfArgs("rc1", ImmutableList.of("--test_multiple_string=foo")));
     structuredArgs.put(
-        "c0:config", new RcChunkOfArgs("rc1", ImmutableList.of("--test_multiple_string=config")));
+        "build:config",
+        new RcChunkOfArgs("rc1", ImmutableList.of("--test_multiple_string=config")));
 
     structuredArgs.put(
         "common", new RcChunkOfArgs("rc2", ImmutableList.of("--test_multiple_string=common")));
     structuredArgs.put(
-        "c0", new RcChunkOfArgs("rc2", ImmutableList.of("--test_multiple_string=bar")));
+        "build", new RcChunkOfArgs("rc2", ImmutableList.of("--test_multiple_string=bar")));
     structuredArgs.put(
         "c1:other", new RcChunkOfArgs("rc2", ImmutableList.of("--test_multiple_string=other")));
     return structuredArgs;
@@ -100,26 +101,29 @@ public class BlazeOptionHandlerTest {
     ListMultimap<String, RcChunkOfArgs> structuredArgs = ArrayListMultimap.create();
     // first add all lines of rc1, then rc2, but then jump back to 1 as if rc2 was loaded in an
     // import statement halfway through rc1.
-    structuredArgs.put("c0", new RcChunkOfArgs("rc1", ImmutableList.of("a")));
-    structuredArgs.put("c0:config", new RcChunkOfArgs("rc1", ImmutableList.of("b")));
+    structuredArgs.put("build", new RcChunkOfArgs("rc1", ImmutableList.of("a")));
+    structuredArgs.put("build:config", new RcChunkOfArgs("rc1", ImmutableList.of("b")));
 
     structuredArgs.put("common", new RcChunkOfArgs("rc2", ImmutableList.of("c")));
-    structuredArgs.put("c0", new RcChunkOfArgs("rc2", ImmutableList.of("d", "e")));
+    structuredArgs.put("build", new RcChunkOfArgs("rc2", ImmutableList.of("d", "e")));
     structuredArgs.put("c1:other", new RcChunkOfArgs("rc2", ImmutableList.of("f", "g")));
 
-    structuredArgs.put("c0", new RcChunkOfArgs("rc1", ImmutableList.of("h")));
+    structuredArgs.put("build", new RcChunkOfArgs("rc1", ImmutableList.of("h")));
     return structuredArgs;
   }
 
   private static ListMultimap<String, RcChunkOfArgs> structuredArgsForDifferentPlatforms() {
     ListMultimap<String, RcChunkOfArgs> structuredArgs = ArrayListMultimap.create();
-    structuredArgs.put("c0:linux", new RcChunkOfArgs("rc1", ImmutableList.of("command_linux")));
-    structuredArgs.put("c0:windows", new RcChunkOfArgs("rc1", ImmutableList.of("command_windows")));
-    structuredArgs.put("c0:macos", new RcChunkOfArgs("rc1", ImmutableList.of("command_macos")));
-    structuredArgs.put("c0:freebsd", new RcChunkOfArgs("rc1", ImmutableList.of("command_freebsd")));
-    structuredArgs.put("c0:openbsd", new RcChunkOfArgs("rc1", ImmutableList.of("command_openbsd")));
+    structuredArgs.put("build:linux", new RcChunkOfArgs("rc1", ImmutableList.of("command_linux")));
     structuredArgs.put(
-        "c0:platform_config",
+        "build:windows", new RcChunkOfArgs("rc1", ImmutableList.of("command_windows")));
+    structuredArgs.put("build:macos", new RcChunkOfArgs("rc1", ImmutableList.of("command_macos")));
+    structuredArgs.put(
+        "build:freebsd", new RcChunkOfArgs("rc1", ImmutableList.of("command_freebsd")));
+    structuredArgs.put(
+        "build:openbsd", new RcChunkOfArgs("rc1", ImmutableList.of("command_openbsd")));
+    structuredArgs.put(
+        "build:platform_config",
         new RcChunkOfArgs("rc1", ImmutableList.of("--enable_platform_specific_config")));
     return structuredArgs;
   }
@@ -131,7 +135,7 @@ public class BlazeOptionHandlerTest {
             eventHandler,
             Arrays.asList("rc1", "rc2"),
             Arrays.asList(),
-            ImmutableSet.of("c0", "c1"));
+            ImmutableSet.of("build", "c1"));
     assertThat(structuredRc).isEmpty();
     assertThat(eventHandler.isEmpty()).isTrue();
   }
@@ -141,8 +145,8 @@ public class BlazeOptionHandlerTest {
     BlazeOptionHandler.structureRcOptionsAndConfigs(
         eventHandler,
         Arrays.asList("rc1", "rc2"),
-        Arrays.asList(new ClientOptions.OptionOverride(0, "c0:none", "a")),
-        ImmutableSet.of("c0"));
+        Arrays.asList(new ClientOptions.OptionOverride(0, "build:none", "a")),
+        ImmutableSet.of("build"));
     assertThat(eventHandler.isEmpty()).isTrue();
   }
 
@@ -152,7 +156,7 @@ public class BlazeOptionHandlerTest {
         eventHandler,
         Arrays.asList("rc1", "rc2"),
         Arrays.asList(new ClientOptions.OptionOverride(0, "c1", "a")),
-        ImmutableSet.of("c0"));
+        ImmutableSet.of("build"));
     assertThat(eventHandler.getEvents())
         .contains(
             Event.warn("while reading option defaults file 'rc1':\n  invalid command name 'c1'."));
@@ -165,14 +169,14 @@ public class BlazeOptionHandlerTest {
             eventHandler,
             Arrays.asList("rc1", "rc2"),
             Arrays.asList(
-                new ClientOptions.OptionOverride(0, "c0", "a"),
-                new ClientOptions.OptionOverride(0, "c0:config", "b"),
+                new ClientOptions.OptionOverride(0, "build", "a"),
+                new ClientOptions.OptionOverride(0, "build:config", "b"),
                 new ClientOptions.OptionOverride(1, "common", "c"),
-                new ClientOptions.OptionOverride(1, "c0", "d"),
-                new ClientOptions.OptionOverride(1, "c0", "e"),
+                new ClientOptions.OptionOverride(1, "build", "d"),
+                new ClientOptions.OptionOverride(1, "build", "e"),
                 new ClientOptions.OptionOverride(1, "c1:other", "f"),
                 new ClientOptions.OptionOverride(1, "c1:other", "g")),
-            ImmutableSet.of("c0", "c1"));
+            ImmutableSet.of("build", "c1"));
     assertThat(structuredRc).isEqualTo(structuredArgsFrom2SimpleRcsWithOnlyResidue());
     assertThat(eventHandler.isEmpty()).isTrue();
   }
@@ -184,15 +188,15 @@ public class BlazeOptionHandlerTest {
             eventHandler,
             Arrays.asList("rc1", "rc2"),
             Arrays.asList(
-                new ClientOptions.OptionOverride(0, "c0", "a"),
-                new ClientOptions.OptionOverride(0, "c0:config", "b"),
+                new ClientOptions.OptionOverride(0, "build", "a"),
+                new ClientOptions.OptionOverride(0, "build:config", "b"),
                 new ClientOptions.OptionOverride(1, "common", "c"),
-                new ClientOptions.OptionOverride(1, "c0", "d"),
-                new ClientOptions.OptionOverride(1, "c0", "e"),
+                new ClientOptions.OptionOverride(1, "build", "d"),
+                new ClientOptions.OptionOverride(1, "build", "e"),
                 new ClientOptions.OptionOverride(1, "c1:other", "f"),
                 new ClientOptions.OptionOverride(1, "c1:other", "g"),
-                new ClientOptions.OptionOverride(0, "c0", "h")),
-            ImmutableSet.of("c0", "c1"));
+                new ClientOptions.OptionOverride(0, "build", "h")),
+            ImmutableSet.of("build", "c1"));
     assertThat(structuredRc).isEqualTo(structuredArgsFromImportedRcsWithOnlyResidue());
     assertThat(eventHandler.isEmpty()).isTrue();
   }
@@ -204,16 +208,16 @@ public class BlazeOptionHandlerTest {
             eventHandler,
             Arrays.asList("rc1", "rc2"),
             Arrays.asList(
-                new ClientOptions.OptionOverride(0, "c0", "a"),
-                new ClientOptions.OptionOverride(0, "c0:config", "b"),
+                new ClientOptions.OptionOverride(0, "build", "a"),
+                new ClientOptions.OptionOverride(0, "build:config", "b"),
                 new ClientOptions.OptionOverride(2, "c4:other", "z"),
                 new ClientOptions.OptionOverride(-1, "c3:other", "q"),
                 new ClientOptions.OptionOverride(1, "common", "c"),
-                new ClientOptions.OptionOverride(1, "c0", "d"),
-                new ClientOptions.OptionOverride(1, "c0", "e"),
+                new ClientOptions.OptionOverride(1, "build", "d"),
+                new ClientOptions.OptionOverride(1, "build", "e"),
                 new ClientOptions.OptionOverride(1, "c1:other", "f"),
                 new ClientOptions.OptionOverride(1, "c1:other", "g")),
-            ImmutableSet.of("c0", "c1"));
+            ImmutableSet.of("build", "c1"));
     assertThat(structuredRc).isEqualTo(structuredArgsFrom2SimpleRcsWithOnlyResidue());
     assertThat(eventHandler.getEvents())
         .containsAtLeast(
@@ -263,7 +267,7 @@ public class BlazeOptionHandlerTest {
     optionHandler.expandConfigOptions(eventHandler, structuredArgsFrom2SimpleRcsWithOnlyResidue());
     assertThat(parser.getResidue()).containsExactly("b");
     assertThat(optionHandler.getRcfileNotes())
-        .containsExactly("Found applicable config definition c0:config in file rc1: b");
+        .containsExactly("Found applicable config definition build:config in file rc1: b");
   }
 
   @Test
@@ -346,13 +350,13 @@ public class BlazeOptionHandlerTest {
   public void testExpandConfigOptions_skippedArgsOrderPreserved() throws Exception {
     ImmutableListMultimap<String, RcChunkOfArgs> rcContent =
         ImmutableListMultimap.of(
-            "c0:config1",
+            "build:config1",
             new RcChunkOfArgs("rc1", ImmutableList.of("--//f=2", "--//f=3")),
-            "c0:config2b",
+            "build:config2b",
             new RcChunkOfArgs("rc1", ImmutableList.of("--//f=6")),
-            "c0:config2",
+            "build:config2",
             new RcChunkOfArgs("rc1", ImmutableList.of("--config=config2a", "--config=config2b")),
-            "c0:config2a",
+            "build:config2a",
             new RcChunkOfArgs("rc1", ImmutableList.of("--//f=5")));
     parser.parse(
         "--test_multiple_string=1",
@@ -423,7 +427,7 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testParseOptions_argless() {
-    optionHandler.parseOptions(ImmutableList.of("c0"), eventHandler);
+    optionHandler.parseOptions(ImmutableList.of("build"), eventHandler);
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes()).isEmpty();
@@ -431,7 +435,7 @@ public class BlazeOptionHandlerTest {
 
   @Test
   public void testParseOptions_residue() {
-    optionHandler.parseOptions(ImmutableList.of("c0", "res"), eventHandler);
+    optionHandler.parseOptions(ImmutableList.of("build", "res"), eventHandler);
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).contains("res");
     assertThat(optionHandler.getRcfileNotes()).isEmpty();
@@ -440,7 +444,7 @@ public class BlazeOptionHandlerTest {
   @Test
   public void testParseOptions_explicitOption() {
     optionHandler.parseOptions(
-        ImmutableList.of("c0", "--test_multiple_string=explicit"), eventHandler);
+        ImmutableList.of("build", "--test_multiple_string=explicit"), eventHandler);
     assertThat(eventHandler.getEvents()).isEmpty();
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes()).isEmpty();
@@ -453,9 +457,9 @@ public class BlazeOptionHandlerTest {
   public void testParseOptions_rcOption() {
     optionHandler.parseOptions(
         ImmutableList.of(
-            "c0",
-            "--default_override=0:c0=--test_multiple_string=rc_a",
-            "--default_override=0:c0=--test_multiple_string=rc_b",
+            "build",
+            "--default_override=0:build=--test_multiple_string=rc_a",
+            "--default_override=0:build=--test_multiple_string=rc_b",
             "--rc_source=/somewhere/.blazerc"),
         eventHandler);
     assertThat(eventHandler.getEvents()).isEmpty();
@@ -463,8 +467,8 @@ public class BlazeOptionHandlerTest {
     // Check that multiple options in the same rc chunk are collapsed into 1 announce_rc entry.
     assertThat(optionHandler.getRcfileNotes())
         .containsExactly(
-            "Reading rc options for 'c0' from /somewhere/.blazerc:\n"
-                + "  'c0' options: --test_multiple_string=rc_a --test_multiple_string=rc_b");
+            "Reading rc options for 'build' from /somewhere/.blazerc:\n"
+                + "  'build' options: --test_multiple_string=rc_a --test_multiple_string=rc_b");
     TestOptions options = parser.getOptions(TestOptions.class);
     assertThat(options).isNotNull();
     assertThat(options.testMultipleString).containsExactly("rc_a", "rc_b");
@@ -474,10 +478,10 @@ public class BlazeOptionHandlerTest {
   public void testParseOptions_multipleRcs() {
     optionHandler.parseOptions(
         ImmutableList.of(
-            "c0",
-            "--default_override=0:c0=--test_multiple_string=rc1_a",
-            "--default_override=1:c0=--test_multiple_string=rc2",
-            "--default_override=0:c0=--test_multiple_string=rc1_b",
+            "build",
+            "--default_override=0:build=--test_multiple_string=rc1_a",
+            "--default_override=1:build=--test_multiple_string=rc2",
+            "--default_override=0:build=--test_multiple_string=rc1_b",
             "--rc_source=/somewhere/.blazerc",
             "--rc_source=/some/other/.blazerc"),
         eventHandler);
@@ -485,12 +489,12 @@ public class BlazeOptionHandlerTest {
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes())
         .containsExactly(
-            "Reading rc options for 'c0' from /somewhere/.blazerc:\n"
-                + "  'c0' options: --test_multiple_string=rc1_a",
-            "Reading rc options for 'c0' from /some/other/.blazerc:\n"
-                + "  'c0' options: --test_multiple_string=rc2",
-            "Reading rc options for 'c0' from /somewhere/.blazerc:\n"
-                + "  'c0' options: --test_multiple_string=rc1_b");
+            "Reading rc options for 'build' from /somewhere/.blazerc:\n"
+                + "  'build' options: --test_multiple_string=rc1_a",
+            "Reading rc options for 'build' from /some/other/.blazerc:\n"
+                + "  'build' options: --test_multiple_string=rc2",
+            "Reading rc options for 'build' from /somewhere/.blazerc:\n"
+                + "  'build' options: --test_multiple_string=rc1_b");
     TestOptions options = parser.getOptions(TestOptions.class);
     assertThat(options).isNotNull();
     assertThat(options.testMultipleString).containsExactly("rc1_a", "rc2", "rc1_b").inOrder();
@@ -500,11 +504,11 @@ public class BlazeOptionHandlerTest {
   public void testParseOptions_multipleRcsWithMultipleCommands() {
     optionHandler.parseOptions(
         ImmutableList.of(
-            "c0",
-            "--default_override=0:c0=--test_multiple_string=rc1_a",
-            "--default_override=1:c0=--test_multiple_string=rc2",
+            "build",
+            "--default_override=0:build=--test_multiple_string=rc1_a",
+            "--default_override=1:build=--test_multiple_string=rc2",
             "--default_override=1:common=--test_multiple_string=rc2_common",
-            "--default_override=0:c0=--test_multiple_string=rc1_b",
+            "--default_override=0:build=--test_multiple_string=rc1_b",
             "--default_override=0:common=--test_multiple_string=rc1_common",
             "--rc_source=/somewhere/.blazerc",
             "--rc_source=/some/other/.blazerc"),
@@ -513,16 +517,16 @@ public class BlazeOptionHandlerTest {
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes())
         .containsExactly(
-            "Reading rc options for 'c0' from /some/other/.blazerc:\n"
+            "Reading rc options for 'build' from /some/other/.blazerc:\n"
                 + "  Inherited 'common' options: --test_multiple_string=rc2_common",
-            "Reading rc options for 'c0' from /somewhere/.blazerc:\n"
+            "Reading rc options for 'build' from /somewhere/.blazerc:\n"
                 + "  Inherited 'common' options: --test_multiple_string=rc1_common",
-            "Reading rc options for 'c0' from /somewhere/.blazerc:\n"
-                + "  'c0' options: --test_multiple_string=rc1_a",
-            "Reading rc options for 'c0' from /some/other/.blazerc:\n"
-                + "  'c0' options: --test_multiple_string=rc2",
-            "Reading rc options for 'c0' from /somewhere/.blazerc:\n"
-                + "  'c0' options: --test_multiple_string=rc1_b");
+            "Reading rc options for 'build' from /somewhere/.blazerc:\n"
+                + "  'build' options: --test_multiple_string=rc1_a",
+            "Reading rc options for 'build' from /some/other/.blazerc:\n"
+                + "  'build' options: --test_multiple_string=rc2",
+            "Reading rc options for 'build' from /somewhere/.blazerc:\n"
+                + "  'build' options: --test_multiple_string=rc1_b");
     TestOptions options = parser.getOptions(TestOptions.class);
     assertThat(options).isNotNull();
     assertThat(options.testMultipleString)
@@ -534,8 +538,8 @@ public class BlazeOptionHandlerTest {
   public void testParseOptions_rcOptionAndExplicit() {
     optionHandler.parseOptions(
         ImmutableList.of(
-            "c0",
-            "--default_override=0:c0=--test_multiple_string=rc",
+            "build",
+            "--default_override=0:build=--test_multiple_string=rc",
             "--rc_source=/somewhere/.blazerc",
             "--test_multiple_string=explicit"),
         eventHandler);
@@ -543,8 +547,8 @@ public class BlazeOptionHandlerTest {
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes())
         .containsExactly(
-            "Reading rc options for 'c0' from /somewhere/.blazerc:\n"
-                + "  'c0' options: --test_multiple_string=rc");
+            "Reading rc options for 'build' from /somewhere/.blazerc:\n"
+                + "  'build' options: --test_multiple_string=rc");
     TestOptions options = parser.getOptions(TestOptions.class);
     assertThat(options).isNotNull();
     assertThat(options.testMultipleString).containsExactly("rc", "explicit").inOrder();
@@ -554,10 +558,10 @@ public class BlazeOptionHandlerTest {
   public void testParseOptions_multiCommandRcOptionAndExplicit() {
     optionHandler.parseOptions(
         ImmutableList.of(
-            "c0",
-            "--default_override=0:c0=--test_multiple_string=rc_c0_1",
+            "build",
+            "--default_override=0:build=--test_multiple_string=rc_build_1",
             "--default_override=0:common=--test_multiple_string=rc_common",
-            "--default_override=0:c0=--test_multiple_string=rc_c0_2",
+            "--default_override=0:build=--test_multiple_string=rc_build_2",
             "--rc_source=/somewhere/.blazerc",
             "--test_multiple_string=explicit"),
         eventHandler);
@@ -565,14 +569,15 @@ public class BlazeOptionHandlerTest {
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes())
         .containsExactly(
-            "Reading rc options for 'c0' from /somewhere/.blazerc:\n"
+            "Reading rc options for 'build' from /somewhere/.blazerc:\n"
                 + "  Inherited 'common' options: --test_multiple_string=rc_common",
-            "Reading rc options for 'c0' from /somewhere/.blazerc:\n"
-                + "  'c0' options: --test_multiple_string=rc_c0_1 --test_multiple_string=rc_c0_2");
+            "Reading rc options for 'build' from /somewhere/.blazerc:\n"
+                + "  'build' options: --test_multiple_string=rc_build_1"
+                + " --test_multiple_string=rc_build_2");
     TestOptions options = parser.getOptions(TestOptions.class);
     assertThat(options).isNotNull();
     assertThat(options.testMultipleString)
-        .containsExactly("rc_common", "rc_c0_1", "rc_c0_2", "explicit")
+        .containsExactly("rc_common", "rc_build_1", "rc_build_2", "explicit")
         .inOrder();
   }
 
@@ -580,12 +585,12 @@ public class BlazeOptionHandlerTest {
   public void testParseOptions_multipleRcsWithMultipleCommandsPlusExplicitOption() {
     optionHandler.parseOptions(
         ImmutableList.of(
-            "c0",
-            "--default_override=0:c0=--test_multiple_string=rc1_a",
-            "--default_override=1:c0=--test_multiple_string=rc2",
+            "build",
+            "--default_override=0:build=--test_multiple_string=rc1_a",
+            "--default_override=1:build=--test_multiple_string=rc2",
             "--test_multiple_string=explicit",
             "--default_override=1:common=--test_multiple_string=rc2_common",
-            "--default_override=0:c0=--test_multiple_string=rc1_b",
+            "--default_override=0:build=--test_multiple_string=rc1_b",
             "--default_override=0:common=--test_multiple_string=rc1_common",
             "--rc_source=/somewhere/.blazerc",
             "--rc_source=/some/other/.blazerc"),
@@ -594,16 +599,16 @@ public class BlazeOptionHandlerTest {
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes())
         .containsExactly(
-            "Reading rc options for 'c0' from /some/other/.blazerc:\n"
+            "Reading rc options for 'build' from /some/other/.blazerc:\n"
                 + "  Inherited 'common' options: --test_multiple_string=rc2_common",
-            "Reading rc options for 'c0' from /somewhere/.blazerc:\n"
+            "Reading rc options for 'build' from /somewhere/.blazerc:\n"
                 + "  Inherited 'common' options: --test_multiple_string=rc1_common",
-            "Reading rc options for 'c0' from /somewhere/.blazerc:\n"
-                + "  'c0' options: --test_multiple_string=rc1_a",
-            "Reading rc options for 'c0' from /some/other/.blazerc:\n"
-                + "  'c0' options: --test_multiple_string=rc2",
-            "Reading rc options for 'c0' from /somewhere/.blazerc:\n"
-                + "  'c0' options: --test_multiple_string=rc1_b");
+            "Reading rc options for 'build' from /somewhere/.blazerc:\n"
+                + "  'build' options: --test_multiple_string=rc1_a",
+            "Reading rc options for 'build' from /some/other/.blazerc:\n"
+                + "  'build' options: --test_multiple_string=rc2",
+            "Reading rc options for 'build' from /somewhere/.blazerc:\n"
+                + "  'build' options: --test_multiple_string=rc1_b");
     TestOptions options = parser.getOptions(TestOptions.class);
     assertThat(options).isNotNull();
     assertThat(options.testMultipleString)
@@ -615,9 +620,9 @@ public class BlazeOptionHandlerTest {
   public void testParseOptions_explicitConfig() {
     optionHandler.parseOptions(
         ImmutableList.of(
-            "c0",
-            "--default_override=0:c0=--test_multiple_string=rc",
-            "--default_override=0:c0:conf=--test_multiple_string=config",
+            "build",
+            "--default_override=0:build=--test_multiple_string=rc",
+            "--default_override=0:build:conf=--test_multiple_string=config",
             "--rc_source=/somewhere/.blazerc",
             "--test_multiple_string=explicit",
             "--config=conf"),
@@ -626,9 +631,9 @@ public class BlazeOptionHandlerTest {
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes())
         .containsExactly(
-            "Reading rc options for 'c0' from /somewhere/.blazerc:\n"
-                + "  'c0' options: --test_multiple_string=rc",
-            "Found applicable config definition c0:conf in file /somewhere/.blazerc: "
+            "Reading rc options for 'build' from /somewhere/.blazerc:\n"
+                + "  'build' options: --test_multiple_string=rc",
+            "Found applicable config definition build:conf in file /somewhere/.blazerc: "
                 + "--test_multiple_string=config");
 
     // "config" is expanded from --config=conf, which occurs last.
@@ -641,10 +646,10 @@ public class BlazeOptionHandlerTest {
   public void testParseOptions_rcSpecifiedConfig() {
     optionHandler.parseOptions(
         ImmutableList.of(
-            "c0",
-            "--default_override=0:c0=--config=conf",
-            "--default_override=0:c0=--test_multiple_string=rc",
-            "--default_override=0:c0:conf=--test_multiple_string=config",
+            "build",
+            "--default_override=0:build=--config=conf",
+            "--default_override=0:build=--test_multiple_string=rc",
+            "--default_override=0:build:conf=--test_multiple_string=config",
             "--rc_source=/somewhere/.blazerc",
             "--test_multiple_string=explicit"),
         eventHandler);
@@ -652,9 +657,9 @@ public class BlazeOptionHandlerTest {
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes())
         .containsExactly(
-            "Reading rc options for 'c0' from /somewhere/.blazerc:\n"
-                + "  'c0' options: --config=conf --test_multiple_string=rc",
-            "Found applicable config definition c0:conf in file /somewhere/.blazerc: "
+            "Reading rc options for 'build' from /somewhere/.blazerc:\n"
+                + "  'build' options: --config=conf --test_multiple_string=rc",
+            "Found applicable config definition build:conf in file /somewhere/.blazerc: "
                 + "--test_multiple_string=config");
 
     // "config" is expanded from --config=conf, which occurs before the explicit mention of "rc".
@@ -667,12 +672,12 @@ public class BlazeOptionHandlerTest {
   public void testParseOptions_recursiveConfig() {
     optionHandler.parseOptions(
         ImmutableList.of(
-            "c0",
-            "--default_override=0:c0=--config=conf",
-            "--default_override=0:c0=--test_multiple_string=rc",
-            "--default_override=0:c0:other=--test_multiple_string=other",
-            "--default_override=0:c0:conf=--test_multiple_string=config1",
-            "--default_override=0:c0:conf=--config=other",
+            "build",
+            "--default_override=0:build=--config=conf",
+            "--default_override=0:build=--test_multiple_string=rc",
+            "--default_override=0:build:other=--test_multiple_string=other",
+            "--default_override=0:build:conf=--test_multiple_string=config1",
+            "--default_override=0:build:conf=--config=other",
             "--default_override=0:common:other=--test_multiple_string=othercommon",
             "--rc_source=/somewhere/.blazerc",
             "--test_multiple_string=explicit"),
@@ -681,13 +686,13 @@ public class BlazeOptionHandlerTest {
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes())
         .containsExactly(
-            "Reading rc options for 'c0' from /somewhere/.blazerc:\n"
-                + "  'c0' options: --config=conf --test_multiple_string=rc",
-            "Found applicable config definition c0:conf in file /somewhere/.blazerc: "
+            "Reading rc options for 'build' from /somewhere/.blazerc:\n"
+                + "  'build' options: --config=conf --test_multiple_string=rc",
+            "Found applicable config definition build:conf in file /somewhere/.blazerc: "
                 + "--test_multiple_string=config1 --config=other",
             "Found applicable config definition common:other in file /somewhere/.blazerc: "
                 + "--test_multiple_string=othercommon",
-            "Found applicable config definition c0:other in file /somewhere/.blazerc: "
+            "Found applicable config definition build:other in file /somewhere/.blazerc: "
                 + "--test_multiple_string=other");
 
     // The 2nd config, --config=other, is added by --config=conf after conf adds its own value.
@@ -702,12 +707,12 @@ public class BlazeOptionHandlerTest {
   public void testParseOptions_recursiveConfigWithDifferentTokens() {
     optionHandler.parseOptions(
         ImmutableList.of(
-            "c0",
-            "--default_override=0:c0=--test_multiple_string=rc",
-            "--default_override=0:c0:other=--test_multiple_string=other",
-            "--default_override=0:c0:conf=--test_multiple_string=config1",
-            "--default_override=0:c0:conf=--config",
-            "--default_override=0:c0:conf=other",
+            "build",
+            "--default_override=0:build=--test_multiple_string=rc",
+            "--default_override=0:build:other=--test_multiple_string=other",
+            "--default_override=0:build:conf=--test_multiple_string=config1",
+            "--default_override=0:build:conf=--config",
+            "--default_override=0:build:conf=other",
             "--rc_source=/somewhere/.blazerc",
             "--config=conf"),
         eventHandler);
@@ -725,19 +730,19 @@ public class BlazeOptionHandlerTest {
   public void testParseOptions_complexConfigOrder() {
     optionHandler.parseOptions(
         ImmutableList.of(
-            "c0",
-            "--default_override=0:c0=--test_multiple_string=rc1",
-            "--default_override=0:c0=--config=foo",
-            "--default_override=0:c0=--test_multiple_string=rc2",
+            "build",
+            "--default_override=0:build=--test_multiple_string=rc1",
+            "--default_override=0:build=--config=foo",
+            "--default_override=0:build=--test_multiple_string=rc2",
             "--default_override=0:common:baz=--test_multiple_string=baz1",
-            "--default_override=0:c0:baz=--test_multiple_string=baz2",
+            "--default_override=0:build:baz=--test_multiple_string=baz2",
             "--default_override=0:common:foo=--test_multiple_string=foo1",
             "--default_override=0:common:foo=--config=bar",
-            "--default_override=0:c0:foo=--test_multiple_string=foo3",
+            "--default_override=0:build:foo=--test_multiple_string=foo3",
             "--default_override=0:common:foo=--test_multiple_string=foo2",
-            "--default_override=0:c0:foo=--test_multiple_string=foo4",
+            "--default_override=0:build:foo=--test_multiple_string=foo4",
             "--default_override=0:common:bar=--test_multiple_string=bar1",
-            "--default_override=0:c0:bar=--test_multiple_string=bar2",
+            "--default_override=0:build:bar=--test_multiple_string=bar2",
             "--rc_source=/somewhere/.blazerc",
             "--test_multiple_string=explicit1",
             "--config=baz",
@@ -747,19 +752,19 @@ public class BlazeOptionHandlerTest {
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes())
         .containsExactly(
-            "Reading rc options for 'c0' from /somewhere/.blazerc:\n  'c0' options: "
+            "Reading rc options for 'build' from /somewhere/.blazerc:\n  'build' options: "
                 + "--test_multiple_string=rc1 --config=foo --test_multiple_string=rc2",
             "Found applicable config definition common:foo in file /somewhere/.blazerc: "
                 + "--test_multiple_string=foo1 --config=bar --test_multiple_string=foo2",
             "Found applicable config definition common:bar in file /somewhere/.blazerc: "
                 + "--test_multiple_string=bar1",
-            "Found applicable config definition c0:bar in file /somewhere/.blazerc: "
+            "Found applicable config definition build:bar in file /somewhere/.blazerc: "
                 + "--test_multiple_string=bar2",
-            "Found applicable config definition c0:foo in file /somewhere/.blazerc: "
+            "Found applicable config definition build:foo in file /somewhere/.blazerc: "
                 + "--test_multiple_string=foo3 --test_multiple_string=foo4",
             "Found applicable config definition common:baz in file /somewhere/.blazerc: "
                 + "--test_multiple_string=baz1",
-            "Found applicable config definition c0:baz in file /somewhere/.blazerc: "
+            "Found applicable config definition build:baz in file /somewhere/.blazerc: "
                 + "--test_multiple_string=baz2");
     TestOptions options = parser.getOptions(TestOptions.class);
     assertThat(options).isNotNull();
@@ -784,13 +789,13 @@ public class BlazeOptionHandlerTest {
   public void testParseOptions_repeatSubConfig() {
     optionHandler.parseOptions(
         ImmutableList.of(
-            "c0",
-            "--default_override=0:c0=--config=foo",
-            "--default_override=0:c0=--test_multiple_string=rc",
-            "--default_override=0:c0:foo=--test_multiple_string=foo",
-            "--default_override=0:c0:foo=--config=bar",
-            "--default_override=0:c0:foo=--config=bar",
-            "--default_override=0:c0:bar=--test_multiple_string=bar",
+            "build",
+            "--default_override=0:build=--config=foo",
+            "--default_override=0:build=--test_multiple_string=rc",
+            "--default_override=0:build:foo=--test_multiple_string=foo",
+            "--default_override=0:build:foo=--config=bar",
+            "--default_override=0:build:foo=--config=bar",
+            "--default_override=0:build:bar=--test_multiple_string=bar",
             "--rc_source=/somewhere/.blazerc",
             "--test_multiple_string=explicit"),
         eventHandler);
@@ -802,13 +807,13 @@ public class BlazeOptionHandlerTest {
                     + "repeats are counted twice and may lead to unexpected behavior."));
     assertThat(optionHandler.getRcfileNotes())
         .containsExactly(
-            "Reading rc options for 'c0' from /somewhere/.blazerc:\n"
-                + "  'c0' options: --config=foo --test_multiple_string=rc",
-            "Found applicable config definition c0:foo in file /somewhere/.blazerc: "
+            "Reading rc options for 'build' from /somewhere/.blazerc:\n"
+                + "  'build' options: --config=foo --test_multiple_string=rc",
+            "Found applicable config definition build:foo in file /somewhere/.blazerc: "
                 + "--test_multiple_string=foo --config=bar --config=bar",
-            "Found applicable config definition c0:bar in file /somewhere/.blazerc: "
+            "Found applicable config definition build:bar in file /somewhere/.blazerc: "
                 + "--test_multiple_string=bar",
-            "Found applicable config definition c0:bar in file /somewhere/.blazerc: "
+            "Found applicable config definition build:bar in file /somewhere/.blazerc: "
                 + "--test_multiple_string=bar");
     TestOptions options = parser.getOptions(TestOptions.class);
     assertThat(options).isNotNull();
@@ -822,11 +827,11 @@ public class BlazeOptionHandlerTest {
   public void testParseOptions_repeatConfig() {
     optionHandler.parseOptions(
         ImmutableList.of(
-            "c0",
-            "--default_override=0:c0:foo=--test_multiple_string=foo",
-            "--default_override=0:c0:foo=--config=bar",
-            "--default_override=0:c0:bar=--test_multiple_string=bar",
-            "--default_override=0:c0:baz=--test_multiple_string=baz",
+            "build",
+            "--default_override=0:build:foo=--test_multiple_string=foo",
+            "--default_override=0:build:foo=--config=bar",
+            "--default_override=0:build:bar=--test_multiple_string=bar",
+            "--default_override=0:build:baz=--test_multiple_string=baz",
             "--rc_source=/somewhere/.blazerc",
             "--config=foo",
             "--config=baz",
@@ -841,17 +846,17 @@ public class BlazeOptionHandlerTest {
                     + "flags, repeats are counted twice and may lead to unexpected behavior."));
     assertThat(optionHandler.getRcfileNotes())
         .containsExactly(
-            "Found applicable config definition c0:foo in file /somewhere/.blazerc: "
+            "Found applicable config definition build:foo in file /somewhere/.blazerc: "
                 + "--test_multiple_string=foo --config=bar",
-            "Found applicable config definition c0:bar in file /somewhere/.blazerc: "
+            "Found applicable config definition build:bar in file /somewhere/.blazerc: "
                 + "--test_multiple_string=bar",
-            "Found applicable config definition c0:baz in file /somewhere/.blazerc: "
+            "Found applicable config definition build:baz in file /somewhere/.blazerc: "
                 + "--test_multiple_string=baz",
-            "Found applicable config definition c0:foo in file /somewhere/.blazerc: "
+            "Found applicable config definition build:foo in file /somewhere/.blazerc: "
                 + "--test_multiple_string=foo --config=bar",
-            "Found applicable config definition c0:bar in file /somewhere/.blazerc: "
+            "Found applicable config definition build:bar in file /somewhere/.blazerc: "
                 + "--test_multiple_string=bar",
-            "Found applicable config definition c0:bar in file /somewhere/.blazerc: "
+            "Found applicable config definition build:bar in file /somewhere/.blazerc: "
                 + "--test_multiple_string=bar");
     TestOptions options = parser.getOptions(TestOptions.class);
     assertThat(options).isNotNull();
@@ -865,11 +870,11 @@ public class BlazeOptionHandlerTest {
   public void testParseOptions_configCycleLength1() {
     optionHandler.parseOptions(
         ImmutableList.of(
-            "c0",
-            "--default_override=0:c0=--config=foo",
-            "--default_override=0:c0=--test_multiple_string=rc",
-            "--default_override=0:c0:foo=--test_multiple_string=foo",
-            "--default_override=0:c0:foo=--config=foo",
+            "build",
+            "--default_override=0:build=--config=foo",
+            "--default_override=0:build=--test_multiple_string=rc",
+            "--default_override=0:build:foo=--test_multiple_string=foo",
+            "--default_override=0:build:foo=--config=foo",
             "--rc_source=/somewhere/.blazerc",
             "--test_multiple_string=explicit"),
         eventHandler);
@@ -884,13 +889,13 @@ public class BlazeOptionHandlerTest {
   public void testParseOptions_configCycleLength2() {
     optionHandler.parseOptions(
         ImmutableList.of(
-            "c0",
-            "--default_override=0:c0=--config=foo",
-            "--default_override=0:c0=--test_multiple_string=rc",
-            "--default_override=0:c0:foo=--test_multiple_string=foo",
-            "--default_override=0:c0:foo=--config=bar",
-            "--default_override=0:c0:bar=--test_multiple_string=bar",
-            "--default_override=0:c0:bar=--config=foo",
+            "build",
+            "--default_override=0:build=--config=foo",
+            "--default_override=0:build=--test_multiple_string=rc",
+            "--default_override=0:build:foo=--test_multiple_string=foo",
+            "--default_override=0:build:foo=--config=bar",
+            "--default_override=0:build:bar=--test_multiple_string=bar",
+            "--default_override=0:build:bar=--config=foo",
             "--rc_source=/somewhere/.blazerc",
             "--test_multiple_string=explicit"),
         eventHandler);
@@ -905,13 +910,13 @@ public class BlazeOptionHandlerTest {
   public void testParseOptions_recursiveConfigWasAlreadyPresent() {
     optionHandler.parseOptions(
         ImmutableList.of(
-            "c0",
-            "--default_override=0:c0=--config=other",
-            "--default_override=0:c0=--config=conf",
-            "--default_override=0:c0=--test_multiple_string=rc",
-            "--default_override=0:c0:other=--test_multiple_string=other",
-            "--default_override=0:c0:conf=--test_multiple_string=config1",
-            "--default_override=0:c0:conf=--config=other",
+            "build",
+            "--default_override=0:build=--config=other",
+            "--default_override=0:build=--config=conf",
+            "--default_override=0:build=--test_multiple_string=rc",
+            "--default_override=0:build:other=--test_multiple_string=other",
+            "--default_override=0:build:conf=--test_multiple_string=config1",
+            "--default_override=0:build:conf=--config=other",
             "--default_override=0:common:other=--test_multiple_string=othercommon",
             "--rc_source=/somewhere/.blazerc",
             "--test_multiple_string=explicit"),
@@ -927,17 +932,17 @@ public class BlazeOptionHandlerTest {
     // both initially present. The "common" definition is therefore first. other is expanded twice.
     assertThat(optionHandler.getRcfileNotes())
         .containsExactly(
-            "Reading rc options for 'c0' from /somewhere/.blazerc:\n"
-                + "  'c0' options: --config=other --config=conf --test_multiple_string=rc",
+            "Reading rc options for 'build' from /somewhere/.blazerc:\n"
+                + "  'build' options: --config=other --config=conf --test_multiple_string=rc",
             "Found applicable config definition common:other in file /somewhere/.blazerc: "
                 + "--test_multiple_string=othercommon",
-            "Found applicable config definition c0:other in file /somewhere/.blazerc: "
+            "Found applicable config definition build:other in file /somewhere/.blazerc: "
                 + "--test_multiple_string=other",
-            "Found applicable config definition c0:conf in file /somewhere/.blazerc: "
+            "Found applicable config definition build:conf in file /somewhere/.blazerc: "
                 + "--test_multiple_string=config1 --config=other",
             "Found applicable config definition common:other in file /somewhere/.blazerc: "
                 + "--test_multiple_string=othercommon",
-            "Found applicable config definition c0:other in file /somewhere/.blazerc: "
+            "Found applicable config definition build:other in file /somewhere/.blazerc: "
                 + "--test_multiple_string=other");
     TestOptions options = parser.getOptions(TestOptions.class);
     assertThat(options).isNotNull();
@@ -949,35 +954,35 @@ public class BlazeOptionHandlerTest {
 
   private static final ImmutableList<String> GREEK_ALPHABET_CHAIN =
       ImmutableList.of(
-          "--default_override=0:c0:alpha=--test_multiple_string=alpha",
-          "--default_override=0:c0:alpha=--config=beta",
-          "--default_override=0:c0:beta=--test_multiple_string=beta",
-          "--default_override=0:c0:beta=--config=gamma",
-          "--default_override=0:c0:gamma=--test_multiple_string=gamma",
-          "--default_override=0:c0:gamma=--config=delta",
-          "--default_override=0:c0:delta=--test_multiple_string=delta",
-          "--default_override=0:c0:delta=--config=epsilon",
-          "--default_override=0:c0:epsilon=--test_multiple_string=epsilon",
-          "--default_override=0:c0:epsilon=--config=zeta",
-          "--default_override=0:c0:zeta=--test_multiple_string=zeta",
-          "--default_override=0:c0:zeta=--config=eta",
-          "--default_override=0:c0:eta=--test_multiple_string=eta",
-          "--default_override=0:c0:eta=--config=theta",
-          "--default_override=0:c0:theta=--test_multiple_string=theta",
-          "--default_override=0:c0:theta=--config=iota",
-          "--default_override=0:c0:iota=--test_multiple_string=iota",
-          "--default_override=0:c0:iota=--config=kappa",
-          "--default_override=0:c0:kappa=--test_multiple_string=kappa",
-          "--default_override=0:c0:kappa=--config=lambda",
-          "--default_override=0:c0:lambda=--test_multiple_string=lambda",
-          "--default_override=0:c0:lambda=--config=mu",
-          "--default_override=0:c0:mu=--test_multiple_string=mu");
+          "--default_override=0:build:alpha=--test_multiple_string=alpha",
+          "--default_override=0:build:alpha=--config=beta",
+          "--default_override=0:build:beta=--test_multiple_string=beta",
+          "--default_override=0:build:beta=--config=gamma",
+          "--default_override=0:build:gamma=--test_multiple_string=gamma",
+          "--default_override=0:build:gamma=--config=delta",
+          "--default_override=0:build:delta=--test_multiple_string=delta",
+          "--default_override=0:build:delta=--config=epsilon",
+          "--default_override=0:build:epsilon=--test_multiple_string=epsilon",
+          "--default_override=0:build:epsilon=--config=zeta",
+          "--default_override=0:build:zeta=--test_multiple_string=zeta",
+          "--default_override=0:build:zeta=--config=eta",
+          "--default_override=0:build:eta=--test_multiple_string=eta",
+          "--default_override=0:build:eta=--config=theta",
+          "--default_override=0:build:theta=--test_multiple_string=theta",
+          "--default_override=0:build:theta=--config=iota",
+          "--default_override=0:build:iota=--test_multiple_string=iota",
+          "--default_override=0:build:iota=--config=kappa",
+          "--default_override=0:build:kappa=--test_multiple_string=kappa",
+          "--default_override=0:build:kappa=--config=lambda",
+          "--default_override=0:build:lambda=--test_multiple_string=lambda",
+          "--default_override=0:build:lambda=--config=mu",
+          "--default_override=0:build:mu=--test_multiple_string=mu");
 
   @Test
   public void testParseOptions_longChain() {
     ImmutableList<String> args =
         ImmutableList.<String>builder()
-            .add("c0")
+            .add("build")
             .addAll(GREEK_ALPHABET_CHAIN)
             .add("--rc_source=/somewhere/.blazerc")
             .add("--config=alpha")
@@ -987,29 +992,29 @@ public class BlazeOptionHandlerTest {
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes())
         .containsExactly(
-            "Found applicable config definition c0:alpha in file /somewhere/.blazerc: "
+            "Found applicable config definition build:alpha in file /somewhere/.blazerc: "
                 + "--test_multiple_string=alpha --config=beta",
-            "Found applicable config definition c0:beta in file /somewhere/.blazerc: "
+            "Found applicable config definition build:beta in file /somewhere/.blazerc: "
                 + "--test_multiple_string=beta --config=gamma",
-            "Found applicable config definition c0:gamma in file /somewhere/.blazerc: "
+            "Found applicable config definition build:gamma in file /somewhere/.blazerc: "
                 + "--test_multiple_string=gamma --config=delta",
-            "Found applicable config definition c0:delta in file /somewhere/.blazerc: "
+            "Found applicable config definition build:delta in file /somewhere/.blazerc: "
                 + "--test_multiple_string=delta --config=epsilon",
-            "Found applicable config definition c0:epsilon in file /somewhere/.blazerc: "
+            "Found applicable config definition build:epsilon in file /somewhere/.blazerc: "
                 + "--test_multiple_string=epsilon --config=zeta",
-            "Found applicable config definition c0:zeta in file /somewhere/.blazerc: "
+            "Found applicable config definition build:zeta in file /somewhere/.blazerc: "
                 + "--test_multiple_string=zeta --config=eta",
-            "Found applicable config definition c0:eta in file /somewhere/.blazerc: "
+            "Found applicable config definition build:eta in file /somewhere/.blazerc: "
                 + "--test_multiple_string=eta --config=theta",
-            "Found applicable config definition c0:theta in file /somewhere/.blazerc: "
+            "Found applicable config definition build:theta in file /somewhere/.blazerc: "
                 + "--test_multiple_string=theta --config=iota",
-            "Found applicable config definition c0:iota in file /somewhere/.blazerc: "
+            "Found applicable config definition build:iota in file /somewhere/.blazerc: "
                 + "--test_multiple_string=iota --config=kappa",
-            "Found applicable config definition c0:kappa in file /somewhere/.blazerc: "
+            "Found applicable config definition build:kappa in file /somewhere/.blazerc: "
                 + "--test_multiple_string=kappa --config=lambda",
-            "Found applicable config definition c0:lambda in file /somewhere/.blazerc: "
+            "Found applicable config definition build:lambda in file /somewhere/.blazerc: "
                 + "--test_multiple_string=lambda --config=mu",
-            "Found applicable config definition c0:mu in file /somewhere/.blazerc: "
+            "Found applicable config definition build:mu in file /somewhere/.blazerc: "
                 + "--test_multiple_string=mu");
     TestOptions options = parser.getOptions(TestOptions.class);
     assertThat(options).isNotNull();
@@ -1031,7 +1036,7 @@ public class BlazeOptionHandlerTest {
   public void testParseOptions_2LongChains() {
     ImmutableList<String> args =
         ImmutableList.<String>builder()
-            .add("c0")
+            .add("build")
             .addAll(GREEK_ALPHABET_CHAIN)
             .add("--rc_source=/somewhere/.blazerc")
             .add("--config=alpha")
@@ -1070,7 +1075,7 @@ public class BlazeOptionHandlerTest {
   public void testWarningFlag() {
     optionHandler.parseOptions(
         ImmutableList.of(
-            "c0",
+            "build",
             "--unconditional_warning",
             "You are forcing this warning to print for no apparent reason"),
         eventHandler);
@@ -1085,8 +1090,8 @@ public class BlazeOptionHandlerTest {
   public void testWarningFlag_byConfig_notTriggered() {
     optionHandler.parseOptions(
         ImmutableList.of(
-            "c0",
-            "--default_override=0:c0:conf=--unconditional_warning="
+            "build",
+            "--default_override=0:build:conf=--unconditional_warning="
                 + "config \"conf\" is deprecated, please stop using!",
             "--rc_source=/somewhere/.blazerc"),
         eventHandler);
@@ -1099,9 +1104,9 @@ public class BlazeOptionHandlerTest {
   public void testWarningFlag_byConfig_triggered() {
     optionHandler.parseOptions(
         ImmutableList.of(
-            "c0",
+            "build",
             "--config=conf",
-            "--default_override=0:c0:conf=--unconditional_warning="
+            "--default_override=0:build:conf=--unconditional_warning="
                 + "config \"conf\" is deprecated, please stop using!",
             "--rc_source=/somewhere/.blazerc"),
         eventHandler);
@@ -1110,7 +1115,7 @@ public class BlazeOptionHandlerTest {
     assertThat(parser.getResidue()).isEmpty();
     assertThat(optionHandler.getRcfileNotes())
         .containsExactly(
-            "Found applicable config definition c0:conf in file /somewhere/.blazerc: "
+            "Found applicable config definition build:conf in file /somewhere/.blazerc: "
                 + "--unconditional_warning=config \"conf\" is deprecated, please stop using!");
   }
 
@@ -1118,10 +1123,10 @@ public class BlazeOptionHandlerTest {
   public void testConfigAfterExplicit() {
     optionHandler.parseOptions(
         ImmutableList.of(
-            "c0",
+            "build",
             "--test_string=explicitValue",
             "--config=conf",
-            "--default_override=0:c0:conf=--test_string=fromConf",
+            "--default_override=0:build:conf=--test_string=fromConf",
             "--rc_source=/somewhere/.blazerc"),
         eventHandler);
     TestOptions parseResult = parser.getOptions(TestOptions.class);
@@ -1136,7 +1141,7 @@ public class BlazeOptionHandlerTest {
     assertThat(parseResult.testString).isEqualTo("fromConf");
     assertThat(optionHandler.getRcfileNotes())
         .containsExactly(
-            "Found applicable config definition c0:conf in file /somewhere/.blazerc: "
+            "Found applicable config definition build:conf in file /somewhere/.blazerc: "
                 + "--test_string=fromConf");
   }
 
@@ -1144,10 +1149,10 @@ public class BlazeOptionHandlerTest {
   public void testExplicitOverridesConfig() {
     optionHandler.parseOptions(
         ImmutableList.of(
-            "c0",
+            "build",
             "--config=conf",
             "--test_string=explicitValue",
-            "--default_override=0:c0:conf=--test_string=fromConf",
+            "--default_override=0:build:conf=--test_string=fromConf",
             "--rc_source=/somewhere/.blazerc"),
         eventHandler);
     TestOptions parseResult = parser.getOptions(TestOptions.class);
@@ -1155,7 +1160,7 @@ public class BlazeOptionHandlerTest {
     assertThat(parseResult.testString).isEqualTo("explicitValue");
     assertThat(optionHandler.getRcfileNotes())
         .containsExactly(
-            "Found applicable config definition c0:conf in file /somewhere/.blazerc: "
+            "Found applicable config definition build:conf in file /somewhere/.blazerc: "
                 + "--test_string=fromConf");
   }
 }
