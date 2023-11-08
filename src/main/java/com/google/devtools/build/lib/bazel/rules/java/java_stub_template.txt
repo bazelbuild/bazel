@@ -241,9 +241,11 @@ fi
 # Set JAVABIN to the path to the JVM launcher.
 %javabin%
 
-# Cygwin will not accept any backslashes in JAVABIN when trying to execute it.
 if is_windows; then
+  # Cygwin will not accept any backslashes in JAVABIN when trying to execute it.
   JAVABIN="$(cygpath --unix $JAVABIN)"
+  # Ensure we have .exe suffix, JARBIN resolution fails without it.
+  JAVABIN="${JAVABIN%.exe}.exe"
 fi
 
 if [[ "$PRINT_JAVABIN" == 1 || "%java_start_class%" == "--print_javabin" ]]; then
