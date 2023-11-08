@@ -544,7 +544,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
     }
 
     Stopwatch executionStopwatch = Stopwatch.createStarted();
-    try {
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.WORKER_SETUP, "sending request")) {
       worker.putRequest(request);
     } catch (IOException e) {
       restoreInterrupt(e);
