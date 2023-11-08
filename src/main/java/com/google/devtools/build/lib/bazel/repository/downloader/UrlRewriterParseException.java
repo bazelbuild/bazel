@@ -13,17 +13,24 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
+import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
 /** An {@link Exception} thrown when failed to parse {@link UrlRewriterConfig}. */
 public class UrlRewriterParseException extends Exception {
-  private final Location location;
 
-  public UrlRewriterParseException(String message, Location location) {
+  @Nullable private final Location location;
+
+  public UrlRewriterParseException(String message) {
+    this(message, /* location= */ null);
+  }
+
+  public UrlRewriterParseException(String message, @Nullable Location location) {
     super(message);
     this.location = location;
   }
 
+  @Nullable
   public Location getLocation() {
     return location;
   }
