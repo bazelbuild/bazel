@@ -37,7 +37,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
@@ -186,9 +185,7 @@ public class CollectLocalResourceUsage extends Thread {
         try (SilentCloseable c = Profiler.instance().profile("Worker metrics collection")) {
           workerMemoryUsageMb =
               this.workerMetricsCollector.collectMetrics().stream()
-                      .map(WorkerMetric::getWorkerStat)
-                      .filter(Objects::nonNull)
-                      .mapToInt(WorkerMetric.WorkerStat::getUsedMemoryInKB)
+                      .mapToInt(WorkerMetric::getUsedMemoryInKb)
                       .sum()
                   / 1024;
         }

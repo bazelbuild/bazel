@@ -285,29 +285,28 @@ public final class ProfilerTest {
 
   @Test
   public void testProfilerWorkerMetrics() throws Exception {
-    ImmutableList<WorkerMetric> workerMetrics =
-        ImmutableList.of(
-            WorkerMetric.create(
-                WorkerMetric.WorkerProperties.create(
-                    /* workerIds= */ ImmutableList.of(1),
-                    /* processId= */ 1,
-                    /* mnemonic= */ "dummy1",
-                    /* isMultiplex= */ true,
-                    /* isSandboxed= */ true,
-                    /* workerKeyHash= */ 0),
-                WorkerMetric.WorkerStat.create(1024, Instant.now(), Instant.now()),
-                /* isMeasurable= */ true),
-            WorkerMetric.create(
-                WorkerMetric.WorkerProperties.create(
-                    /* workerIds= */ ImmutableList.of(1),
-                    /* processId= */ 1,
-                    /* mnemonic= */ "dummy2",
-                    /* isMultiplex= */ false,
-                    /* isSandboxed= */ false,
-                    /* workerKeyHash= */ 0),
-                WorkerMetric.WorkerStat.create(2048, Instant.now(), Instant.now()),
-                /* isMeasurable= */ true));
+    Instant collectionTime = BlazeClock.instance().now();
+    WorkerMetric workerMetric1 =
+        new WorkerMetric(
+            /* workerId= */ 1,
+            /* processId= */ 1,
+            /* mnemonic= */ "dummy1",
+            /* isMultiplex= */ true,
+            /* isSandbox= */ true,
+            /* workerKeyHash= */ 1);
+    workerMetric1.addCollectedMetrics(1024, /* isMeasurable= */ true, collectionTime);
 
+    WorkerMetric workerMetric2 =
+        new WorkerMetric(
+            /* workerId= */ 2,
+            /* processId= */ 2,
+            /* mnemonic= */ "dummy2",
+            /* isMultiplex= */ false,
+            /* isSandbox= */ false,
+            /* workerKeyHash= */ 2);
+    workerMetric2.addCollectedMetrics(2048, /* isMeasurable= */ true, collectionTime);
+
+    ImmutableList<WorkerMetric> workerMetrics = ImmutableList.of(workerMetric1, workerMetric2);
     WorkerMetricsCollector workerMetricsCollector = mock(WorkerMetricsCollector.class);
     when(workerMetricsCollector.collectMetrics()).thenReturn(workerMetrics);
 
@@ -412,8 +411,8 @@ public final class ProfilerTest {
     // Add some fast tasks - these shouldn't show up in the slowest.
     for (int i = 0; i < 30; i++) {
       profiler.logSimpleTask(
-          /*startTimeNanos=*/ 1,
-          /*stopTimeNanos=*/ ProfilerTask.VFS_STAT.minDuration + 10,
+          /* startTimeNanos= */ 1,
+          /* stopTimeNanos= */ ProfilerTask.VFS_STAT.minDuration + 10,
           ProfilerTask.VFS_STAT,
           "stat");
     }
@@ -423,8 +422,8 @@ public final class ProfilerTest {
     for (int i = 0; i < 30; i++) {
       long fakeDuration = ProfilerTask.VFS_STAT.minDuration + i + 10_000;
       profiler.logSimpleTask(
-          /*startTimeNanos=*/ 1,
-          /*stopTimeNanos=*/ fakeDuration + 1,
+          /* startTimeNanos= */ 1,
+          /* stopTimeNanos= */ fakeDuration + 1,
           ProfilerTask.VFS_STAT,
           "stat");
       expectedSlowestDurations.add(fakeDuration);
@@ -441,8 +440,8 @@ public final class ProfilerTest {
                 () -> {
                   for (int j = 0; j < 100; j++) {
                     profiler.logSimpleTask(
-                        /*startTimeNanos=*/ 1,
-                        /*stopTimeNanos=*/ ProfilerTask.VFS_STAT.minDuration + j + 1,
+                        /* startTimeNanos= */ 1,
+                        /* stopTimeNanos= */ ProfilerTask.VFS_STAT.minDuration + j + 1,
                         ProfilerTask.VFS_STAT,
                         "stat");
                   }
@@ -929,11 +928,11 @@ public final class ProfilerTest {
 
   @Test
   public void testSlimProfileSize() throws Exception {
-    ByteArrayOutputStream fatOutputStream = getJsonProfileOutputStream(/*slimProfile=*/ false);
+    ByteArrayOutputStream fatOutputStream = getJsonProfileOutputStream(/* slimProfile= */ false);
     String fatOutput = fatOutputStream.toString();
     assertThat(fatOutput).doesNotContain("merged");
 
-    ByteArrayOutputStream slimOutputStream = getJsonProfileOutputStream(/*slimProfile=*/ true);
+    ByteArrayOutputStream slimOutputStream = getJsonProfileOutputStream(/* slimProfile= */ true);
     String slimOutput = slimOutputStream.toString();
     assertThat(slimOutput).contains("merged");
 

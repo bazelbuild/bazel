@@ -44,207 +44,262 @@ public class WorkerMetricsCollectorTest {
     spyCollector.setClock(clock);
   }
 
+  private static final int WORKER_ID_1 = 1;
+  private static final int WORKER_ID_2 = 2;
+  private static final int WORKER_ID_3 = 3;
+  private static final long PROCESS_ID_1 = 100L;
+  private static final long PROCESS_ID_2 = 200L;
+  private static final long PROCESS_ID_3 = 300L;
+  private static final int WORKER_KEY_HASH_1 = 1;
+  private static final int WORKER_KEY_HASH_2 = 2;
+  private static final int WORKER_KEY_HASH_3 = 3;
+  private static final String JAVAC_MNEMONIC = "Javac";
+  private static final String CPP_COMPILE_MNEMONIC = "CppCompile";
+  private static final String PROTO_MNEMONIC = "Proto";
+
+  private void assertWorkerMetricContains(
+      WorkerMetric workerMetric,
+      ImmutableList<Integer> expectedWorkerIds,
+      Long expectedProcessId,
+      String expectedMnemonic,
+      boolean expectedIsMultiplex,
+      boolean expectedIsSandboxed,
+      int expectedWorkerKeyHash,
+      boolean expectedIsMeasurable,
+      Instant expectedLastCallTime,
+      Instant expectedCollectedTime) {
+    assertThat(workerMetric).isNotNull();
+    assertThat(workerMetric.getWorkerIds()).containsExactlyElementsIn(expectedWorkerIds);
+    assertThat(workerMetric.getProcessId()).isEqualTo(expectedProcessId);
+    assertThat(workerMetric.getMnemonic()).isEqualTo(expectedMnemonic);
+    assertThat(workerMetric.isMultiplex()).isEqualTo(expectedIsMultiplex);
+    assertThat(workerMetric.isSandboxed()).isEqualTo(expectedIsSandboxed);
+    assertThat(workerMetric.getWorkerKeyHash()).isEqualTo(expectedWorkerKeyHash);
+    assertThat(workerMetric.isMeasurable()).isEqualTo(expectedIsMeasurable);
+    assertThat(workerMetric.getLastCallTime().get()).isEqualTo(expectedLastCallTime);
+    if (expectedCollectedTime == null) {
+      assertThat(workerMetric.getLastCollectedTime().isEmpty()).isTrue();
+    } else {
+      assertThat(workerMetric.getLastCollectedTime().isPresent()).isTrue();
+      assertThat(workerMetric.getLastCollectedTime().get()).isEqualTo(expectedCollectedTime);
+    }
+  }
+
   @Test
   public void testRegisterWorker_insertDifferent() throws Exception {
-    WorkerMetric.WorkerProperties props1 =
-        WorkerMetric.WorkerProperties.create(
-            /* workerIds= */ ImmutableList.of(1),
-            /* processId= */ 100,
-            /* mnemonic= */ "Javac",
-            /* isMultiplex= */ true,
-            /* isSandboxed= */ false,
-            /* workerKeyHash= */ 1);
-    WorkerMetric.WorkerProperties props2 =
-        WorkerMetric.WorkerProperties.create(
-            /* workerIds= */ ImmutableList.of(2),
-            /* processId= */ 200,
-            /* mnemonic= */ "CppCompile",
-            /* isMultiplex= */ false,
-            /* isSandboxed= */ true,
-            /* workerKeyHash= */ 2);
-    ImmutableMap<Long, WorkerMetric.WorkerProperties> map =
-        ImmutableMap.of(100L, props1, 200L, props2);
-
     spyCollector.registerWorker(
-        props1.getWorkerIds().get(0),
-        props1.getProcessId(),
-        props1.getMnemonic(),
-        props1.isMultiplex(),
-        props1.isSandboxed(),
-        props1.getWorkerKeyHash());
-    assertThat(spyCollector.getProcessIdToWorkerProperties()).hasSize(1);
+        WORKER_ID_1,
+        PROCESS_ID_1,
+        JAVAC_MNEMONIC,
+        /* isMultiplex= */ true,
+        /* isSandboxed= */ false,
+        WORKER_KEY_HASH_1);
+    assertThat(spyCollector.getProcessIdToWorkerMetrics().keySet()).containsExactly(PROCESS_ID_1);
     spyCollector.registerWorker(
-        props2.getWorkerIds().get(0),
-        props2.getProcessId(),
-        props2.getMnemonic(),
-        props2.isMultiplex(),
-        props2.isSandboxed(),
-        props2.getWorkerKeyHash());
-    assertThat(spyCollector.getProcessIdToWorkerProperties()).hasSize(2);
-    assertThat(spyCollector.getProcessIdToWorkerProperties()).isEqualTo(map);
+        WORKER_ID_2,
+        PROCESS_ID_2,
+        CPP_COMPILE_MNEMONIC,
+        /* isMultiplex= */ false,
+        /* isSandboxed= */ true,
+        WORKER_KEY_HASH_2);
+    assertThat(spyCollector.getProcessIdToWorkerMetrics().keySet())
+        .containsExactly(PROCESS_ID_1, PROCESS_ID_2);
+    assertWorkerMetricContains(
+        spyCollector.getProcessIdToWorkerMetrics().get(PROCESS_ID_1),
+        ImmutableList.of(WORKER_ID_1),
+        PROCESS_ID_1,
+        JAVAC_MNEMONIC,
+        /* expectedIsMultiplex= */ true,
+        /* expectedIsSandboxed= */ false,
+        WORKER_KEY_HASH_1,
+        /* expectedIsMeasurable= */ false,
+        /* expectedLastCallTime= */ DEFAULT_CLOCK_START_INSTANT,
+        /* expectedCollectedTime= */ null);
+    assertWorkerMetricContains(
+        spyCollector.getProcessIdToWorkerMetrics().get(PROCESS_ID_2),
+        ImmutableList.of(WORKER_ID_2),
+        PROCESS_ID_2,
+        CPP_COMPILE_MNEMONIC,
+        /* expectedIsMultiplex= */ false,
+        /* expectedIsSandboxed= */ true,
+        WORKER_KEY_HASH_2,
+        /* expectedIsMeasurable= */ false,
+        /* expectedLastCallTime= */ DEFAULT_CLOCK_START_INSTANT,
+        /* expectedCollectedTime= */ null);
   }
 
   @Test
   public void testRegisterWorker_insertMultiplex() throws Exception {
-    WorkerMetric.WorkerProperties props1 =
-        WorkerMetric.WorkerProperties.create(
-            /* workerIds= */ ImmutableList.of(1),
-            /* processId= */ 100L,
-            /* mnemonic= */ "Javac",
-            /* isMultiplex= */ true,
-            /* isSandboxed= */ true,
-            /* workerKeyHash= */ 1);
-    WorkerMetric.WorkerProperties props2 =
-        WorkerMetric.WorkerProperties.create(
-            /* workerIds= */ ImmutableList.of(2),
-            /* processId= */ 100L,
-            /* mnemonic= */ "Javac",
-            /* isMultiplex= */ true,
-            /* isSandboxed= */ true,
-            /* workerKeyHash= */ 1);
-    Instant registrationTime1 = Instant.ofEpochSecond(1000);
-    Instant registrationTime2 = registrationTime1.plusSeconds(10);
-    ImmutableMap<Long, WorkerMetric.WorkerProperties> map =
-        ImmutableMap.of(
-            100L,
-            WorkerMetric.WorkerProperties.create(
-                /* workerIds= */ ImmutableList.of(1, 2),
-                /* processId= */ 100L,
-                /* mnemonic= */ "Javac",
-                /* isMultiplex= */ true,
-                /* isSandboxed= */ true,
-                /* workerKeyHash= */ 1));
-    ImmutableMap<Long, Instant> lastCallMap1 = ImmutableMap.of(100L, registrationTime1);
-    ImmutableMap<Long, Instant> lastCallMap2 = ImmutableMap.of(100L, registrationTime2);
+    spyCollector.registerWorker(
+        WORKER_ID_1,
+        PROCESS_ID_1,
+        JAVAC_MNEMONIC,
+        /* isMultiplex= */ true,
+        /* isSandboxed= */ true,
+        WORKER_KEY_HASH_1);
+    assertThat(spyCollector.getProcessIdToWorkerMetrics().keySet()).containsExactly(PROCESS_ID_1);
+    assertWorkerMetricContains(
+        spyCollector.getProcessIdToWorkerMetrics().get(PROCESS_ID_1),
+        ImmutableList.of(WORKER_ID_1),
+        PROCESS_ID_1,
+        JAVAC_MNEMONIC,
+        /* expectedIsMultiplex= */ true,
+        /* expectedIsSandboxed= */ true,
+        WORKER_KEY_HASH_1,
+        /* expectedIsMeasurable= */ false,
+        /* expectedLastCallTime= */ DEFAULT_CLOCK_START_INSTANT,
+        /* expectedCollectedTime= */ null);
 
-    clock.setTime(registrationTime1.toEpochMilli());
-    registerWorker(spyCollector, props1);
+    Instant secondTime = DEFAULT_CLOCK_START_INSTANT.plusSeconds(10);
+    clock.setTime(secondTime.toEpochMilli());
 
-    assertThat(spyCollector.getProcessIdToWorkerProperties()).hasSize(1);
-    assertThat(spyCollector.getWorkerLastCallTime()).isEqualTo(lastCallMap1);
-
-    clock.setTime(registrationTime2.toEpochMilli());
-    registerWorker(spyCollector, props2);
-
-    assertThat(spyCollector.getProcessIdToWorkerProperties()).hasSize(1);
-    assertThat(spyCollector.getProcessIdToWorkerProperties()).isEqualTo(map);
-    assertThat(spyCollector.getWorkerLastCallTime()).isEqualTo(lastCallMap2);
+    spyCollector.registerWorker(
+        WORKER_ID_2,
+        PROCESS_ID_1,
+        JAVAC_MNEMONIC,
+        /* isMultiplex= */ true,
+        /* isSandboxed= */ true,
+        WORKER_KEY_HASH_1);
+    assertThat(spyCollector.getProcessIdToWorkerMetrics().keySet()).containsExactly(PROCESS_ID_1);
+    assertWorkerMetricContains(
+        spyCollector.getProcessIdToWorkerMetrics().get(PROCESS_ID_1),
+        ImmutableList.of(WORKER_ID_1, WORKER_ID_2),
+        PROCESS_ID_1,
+        JAVAC_MNEMONIC,
+        /* expectedIsMultiplex= */ true,
+        /* expectedIsSandboxed= */ true,
+        WORKER_KEY_HASH_1,
+        /* expectedIsMeasurable= */ false,
+        /* expectedLastCallTime= */ secondTime,
+        /* expectedCollectedTime= */ null);
   }
 
   @Test
   public void testRegisterWorker_insertSame() throws Exception {
-    WorkerMetric.WorkerProperties props1 =
-        WorkerMetric.WorkerProperties.create(
-            /* workerIds= */ ImmutableList.of(1),
-            /* processId= */ 100,
-            /* mnemonic= */ "Javac",
-            /* isMultiplex= */ true,
-            /* isSandboxed= */ false,
-            /* workerKeyHash= */ 1);
-    WorkerMetric.WorkerProperties props2 =
-        WorkerMetric.WorkerProperties.create(
-            /* workerIds= */ ImmutableList.of(1),
-            /* processId= */ 100,
-            /* mnemonic= */ "Javac",
-            /* isMultiplex= */ true,
-            /* isSandboxed= */ false,
-            /* workerKeyHash= */ 2);
-    Instant registrationTime1 = Instant.ofEpochSecond(1000);
-    Instant registrationTime2 = registrationTime1.plusSeconds(10);
-    ImmutableMap<Long, WorkerMetric.WorkerProperties> propertiesMap = ImmutableMap.of(100L, props1);
-    ImmutableMap<Long, Instant> lastCallMap1 = ImmutableMap.of(100L, registrationTime1);
-    ImmutableMap<Long, Instant> lastCallMap2 = ImmutableMap.of(100L, registrationTime2);
+    spyCollector.registerWorker(
+        WORKER_ID_1,
+        PROCESS_ID_1,
+        JAVAC_MNEMONIC,
+        /* isMultiplex= */ true,
+        /* isSandboxed= */ true,
+        WORKER_KEY_HASH_1);
+    assertThat(spyCollector.getProcessIdToWorkerMetrics().keySet()).containsExactly(PROCESS_ID_1);
+    assertWorkerMetricContains(
+        spyCollector.getProcessIdToWorkerMetrics().get(PROCESS_ID_1),
+        ImmutableList.of(WORKER_ID_1),
+        PROCESS_ID_1,
+        JAVAC_MNEMONIC,
+        /* expectedIsMultiplex= */ true,
+        /* expectedIsSandboxed= */ true,
+        WORKER_KEY_HASH_1,
+        /* expectedIsMeasurable= */ false,
+        /* expectedLastCallTime= */ DEFAULT_CLOCK_START_INSTANT,
+        /* expectedCollectedTime= */ null);
 
-    clock.setTime(registrationTime1.toEpochMilli());
-    registerWorker(spyCollector, props1);
-    assertThat(spyCollector.getProcessIdToWorkerProperties()).isEqualTo(propertiesMap);
-    assertThat(spyCollector.getWorkerLastCallTime()).isEqualTo(lastCallMap1);
+    Instant secondTime = DEFAULT_CLOCK_START_INSTANT.plusSeconds(10);
+    clock.setTime(secondTime.toEpochMilli());
 
-    clock.setTime(registrationTime2.toEpochMilli());
-    registerWorker(spyCollector, props2);
-    assertThat(spyCollector.getProcessIdToWorkerProperties()).isEqualTo(propertiesMap);
-    assertThat(spyCollector.getWorkerLastCallTime()).isEqualTo(lastCallMap2);
+    // When it is the same worker, it should only update the last call time.
+    spyCollector.registerWorker(
+        WORKER_ID_1,
+        PROCESS_ID_1,
+        JAVAC_MNEMONIC,
+        /* isMultiplex= */ true,
+        /* isSandboxed= */ true,
+        WORKER_KEY_HASH_1);
+    assertThat(spyCollector.getProcessIdToWorkerMetrics().keySet()).containsExactly(PROCESS_ID_1);
+    assertWorkerMetricContains(
+        spyCollector.getProcessIdToWorkerMetrics().get(PROCESS_ID_1),
+        ImmutableList.of(WORKER_ID_1),
+        PROCESS_ID_1,
+        JAVAC_MNEMONIC,
+        /* expectedIsMultiplex= */ true,
+        /* expectedIsSandboxed= */ true,
+        WORKER_KEY_HASH_1,
+        /* expectedIsMeasurable= */ false,
+        /* expectedLastCallTime= */ secondTime,
+        /* expectedCollectedTime= */ null);
   }
 
   @Test
-  public void testcollectMetrics() throws Exception {
-    WorkerMetric.WorkerProperties props1 =
-        WorkerMetric.WorkerProperties.create(
-            /* workerIds= */ ImmutableList.of(1),
-            /* processId= */ 100,
-            /* mnemonic= */ "Javac",
-            /* isMultiplex= */ true,
-            /* isSandboxed= */ false,
-            /* workerKeyHash= */ 1);
-    WorkerMetric.WorkerProperties props2 =
-        WorkerMetric.WorkerProperties.create(
-            /* workerIds= */ ImmutableList.of(2),
-            /* processId= */ 200,
-            /* mnemonic= */ "CppCompile",
-            /* isMultiplex= */ false,
-            /* isSandboxed= */ true,
-            /* workerKeyHash= */ 2);
-    WorkerMetric.WorkerProperties props3 =
-        WorkerMetric.WorkerProperties.create(
-            /* workerIds= */ ImmutableList.of(3),
-            /* processId= */ 300,
-            /* mnemonic= */ "Proto",
-            /* isMultiplex= */ true,
-            /* isSandboxed= */ true,
-            /* workerKeyHash= */ 3);
-    Instant registrationTime = Instant.ofEpochSecond(1000);
-    Instant collectionTime = registrationTime.plusSeconds(10);
-    WorkerMetric.WorkerStat stat1 =
-        WorkerMetric.WorkerStat.create(1234, registrationTime, collectionTime);
-    WorkerMetric.WorkerStat stat2 =
-        WorkerMetric.WorkerStat.create(2345, registrationTime, collectionTime);
-    WorkerMetric.WorkerStat stat3 =
-        WorkerMetric.WorkerStat.create(0, registrationTime, collectionTime);
-    WorkerMetric workerMetric1 = WorkerMetric.create(props1, stat1, true);
-    WorkerMetric workerMetric2 = WorkerMetric.create(props2, stat2, true);
-    WorkerMetric workerMetric3 = WorkerMetric.create(props3, stat3, false);
-    ImmutableSet<Long> expectedPids = ImmutableSet.of(100L, 200L, 300L);
-    ImmutableMap<Long, WorkerMetric.WorkerProperties> propsMap =
-        ImmutableMap.of(
-            100L, props1,
-            200L, props2);
+  public void testCollectMetrics() throws Exception {
+    spyCollector.registerWorker(
+        WORKER_ID_1,
+        PROCESS_ID_1,
+        JAVAC_MNEMONIC,
+        /* isMultiplex= */ true,
+        /* isSandboxed= */ false,
+        WORKER_KEY_HASH_1);
+    spyCollector.registerWorker(
+        WORKER_ID_2,
+        PROCESS_ID_2,
+        CPP_COMPILE_MNEMONIC,
+        /* isMultiplex= */ false,
+        /* isSandboxed= */ true,
+        WORKER_KEY_HASH_2);
+    spyCollector.registerWorker(
+        WORKER_ID_3,
+        PROCESS_ID_3,
+        PROTO_MNEMONIC,
+        /* isMultiplex= */ true,
+        /* isSandboxed= */ true,
+        WORKER_KEY_HASH_3);
+
     ImmutableMap<Long, Integer> memoryUsageMap =
         ImmutableMap.of(
-            100L, stat1.getUsedMemoryInKB(),
-            200L, stat2.getUsedMemoryInKB());
-
+            PROCESS_ID_1, 1234,
+            PROCESS_ID_2, 2345);
+    ImmutableSet<Long> expectedPids = ImmutableSet.of(PROCESS_ID_1, PROCESS_ID_2, PROCESS_ID_3);
+    Instant collectionTime = DEFAULT_CLOCK_START_INSTANT.plusSeconds(10);
     PsInfoCollector.ResourceSnapshot resourceSnapshot =
         PsInfoCollector.ResourceSnapshot.create(memoryUsageMap, collectionTime);
-    ImmutableList<WorkerMetric> expectedMetrics =
-        ImmutableList.of(workerMetric1, workerMetric2, workerMetric3);
-
     doReturn(resourceSnapshot).when(spyCollector).collectMemoryUsageByPid(any(), eq(expectedPids));
-
-    clock.setTime(registrationTime.toEpochMilli());
-
-    registerWorker(spyCollector, props1);
-    registerWorker(spyCollector, props2);
-    registerWorker(spyCollector, props3);
+    clock.setTime(collectionTime.toEpochMilli());
 
     ImmutableList<WorkerMetric> metrics = spyCollector.collectMetrics();
 
-    assertThat(metrics).containsExactlyElementsIn(expectedMetrics);
-    assertThat(spyCollector.getProcessIdToWorkerProperties()).isEqualTo(propsMap);
+    assertThat(metrics).hasSize(3);
+    assertWorkerMetricContains(
+        metrics.stream().filter(wm -> wm.getWorkerIds().contains(WORKER_ID_1)).findFirst().get(),
+        ImmutableList.of(WORKER_ID_1),
+        PROCESS_ID_1,
+        JAVAC_MNEMONIC,
+        /* expectedIsMultiplex= */ true,
+        /* expectedIsSandboxed= */ false,
+        WORKER_KEY_HASH_1,
+        /* expectedIsMeasurable= */ true,
+        /* expectedLastCallTime= */ DEFAULT_CLOCK_START_INSTANT,
+        /* expectedCollectedTime= */ collectionTime);
+    assertWorkerMetricContains(
+        metrics.stream().filter(wm -> wm.getWorkerIds().contains(WORKER_ID_2)).findFirst().get(),
+        ImmutableList.of(WORKER_ID_2),
+        PROCESS_ID_2,
+        CPP_COMPILE_MNEMONIC,
+        /* expectedIsMultiplex= */ false,
+        /* expectedIsSandboxed= */ true,
+        WORKER_KEY_HASH_2,
+        /* expectedIsMeasurable= */ true,
+        /* expectedLastCallTime= */ DEFAULT_CLOCK_START_INSTANT,
+        /* expectedCollectedTime= */ collectionTime);
+    assertWorkerMetricContains(
+        metrics.stream().filter(wm -> wm.getWorkerIds().contains(WORKER_ID_3)).findFirst().get(),
+        ImmutableList.of(WORKER_ID_3),
+        PROCESS_ID_3,
+        PROTO_MNEMONIC,
+        /* expectedIsMultiplex= */ true,
+        /* expectedIsSandboxed= */ true,
+        WORKER_KEY_HASH_3,
+        /* expectedIsMeasurable= */ false,
+        /* expectedLastCallTime= */ DEFAULT_CLOCK_START_INSTANT,
+        /* expectedCollectedTime= */ collectionTime);
   }
 
-  private static void registerWorker(
-      WorkerMetricsCollector collector, WorkerMetric.WorkerProperties props) {
-    collector.registerWorker(
-        props.getWorkerIds().get(0),
-        props.getProcessId(),
-        props.getMnemonic(),
-        props.isMultiplex(),
-        props.isSandboxed(),
-        props.getWorkerKeyHash());
-  }
+  private static final long DEFAULT_CLOCK_START_TIME = 0L;
+  private static final Instant DEFAULT_CLOCK_START_INSTANT =
+      Instant.ofEpochMilli(DEFAULT_CLOCK_START_TIME);
 
   private static class ManualClock implements Clock {
-    private long currentTime = 0L;
+    private long currentTime = DEFAULT_CLOCK_START_TIME;
 
     ManualClock() {}
 

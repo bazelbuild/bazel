@@ -13,96 +13,148 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics.WorkerStats;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
 
 /**
  * Contains data about worker statistics during execution. This class contains data for {@link
  * com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics}
  */
-@AutoValue
-public abstract class WorkerMetric {
+public class WorkerMetric {
 
-  public abstract WorkerProperties getWorkerProperties();
+  private final List<Integer> workerIds;
 
-  public abstract WorkerStat getWorkerStat();
+  private final long processId;
 
-  public abstract boolean isMeasurable();
+  private final String mnemonic;
 
-  public static WorkerMetric create(
-      WorkerProperties workerProperties, WorkerStat workerStat, boolean isMeasurable) {
-    return new AutoValue_WorkerMetric(workerProperties, workerStat, isMeasurable);
+  private final boolean isMultiplex;
+
+  private final boolean isSandbox;
+
+  private boolean isMeasurable = false;
+
+  private final int workerKeyHash;
+
+  private int memoryInKb = 0;
+
+  private Optional<Instant> lastCallTime = Optional.empty();
+
+  private Optional<Instant> lastCollectedTime = Optional.empty();
+
+  public WorkerMetric(
+      List<Integer> workerIds,
+      long processId,
+      String mnemonic,
+      boolean isMultiplex,
+      boolean isSandbox,
+      int workerKeyHash) {
+    this.workerIds = workerIds;
+    this.processId = processId;
+    this.mnemonic = mnemonic;
+    this.isMultiplex = isMultiplex;
+    this.isSandbox = isSandbox;
+    this.workerKeyHash = workerKeyHash;
   }
 
-  /** Worker measurement of used memory. */
-  @AutoValue
-  public abstract static class WorkerStat {
-    public abstract int getUsedMemoryInKB();
-
-    public abstract Instant getLastCallTime();
-
-    public abstract Instant getCollectTime();
-
-    public static WorkerStat create(int usedMemoryInKB, Instant lastCallTime, Instant collectTime) {
-      return new AutoValue_WorkerMetric_WorkerStat(usedMemoryInKB, lastCallTime, collectTime);
-    }
+  public WorkerMetric(
+      int workerId,
+      long processId,
+      String mnemonic,
+      boolean isMultiplex,
+      boolean isSandbox,
+      int workerKeyHash) {
+    this(
+        new ArrayList<>(Arrays.asList(workerId)),
+        processId,
+        mnemonic,
+        isMultiplex,
+        isSandbox,
+        workerKeyHash);
   }
 
-  /** Worker properties */
-  @AutoValue
-  public abstract static class WorkerProperties {
-    public abstract ImmutableList<Integer> getWorkerIds();
-
-    public abstract long getProcessId();
-
-    public abstract String getMnemonic();
-
-    public abstract boolean isMultiplex();
-
-    public abstract boolean isSandboxed();
-
-    public abstract int getWorkerKeyHash();
-
-    public static WorkerProperties create(
-        ImmutableList<Integer> workerIds,
-        long processId,
-        String mnemonic,
-        boolean isMultiplex,
-        boolean isSandboxed,
-        int workerKeyHash) {
-      return new AutoValue_WorkerMetric_WorkerProperties(
-          workerIds, processId, mnemonic, isMultiplex, isSandboxed, workerKeyHash);
+  public void maybeAddWorkerId(int workerId) {
+    // Multiplex workers have multiple worker ids, make sure not to include duplicate worker ids.
+    if (workerIds.contains(workerId)) {
+      return;
     }
+    workerIds.add(workerId);
+  }
+
+  public void addCollectedMetrics(int memoryInKb, boolean isMeasurable, Instant collectionTime) {
+    this.memoryInKb = memoryInKb;
+    this.isMeasurable = isMeasurable;
+    this.lastCollectedTime = Optional.of(collectionTime);
+  }
+
+  public Optional<Instant> getLastCallTime() {
+    return lastCallTime;
+  }
+
+  public Optional<Instant> getLastCollectedTime() {
+    return lastCollectedTime;
+  }
+
+  public void setLastCallTime(Instant lastCallTime) {
+    this.lastCallTime = Optional.of(lastCallTime);
+  }
+
+  public boolean isMeasurable() {
+    return isMeasurable;
+  }
+
+  public ImmutableList<Integer> getWorkerIds() {
+    return ImmutableList.copyOf(workerIds);
+  }
+
+  public long getProcessId() {
+    return processId;
+  }
+
+  public String getMnemonic() {
+    return mnemonic;
+  }
+
+  public boolean isMultiplex() {
+    return isMultiplex;
+  }
+
+  public boolean isSandboxed() {
+    return isSandbox;
+  }
+
+  public int getWorkerKeyHash() {
+    return workerKeyHash;
+  }
+
+  public int getUsedMemoryInKb() {
+    return memoryInKb;
   }
 
   public WorkerMetrics toProto() {
-    WorkerProperties workerProperties = getWorkerProperties();
-    WorkerStat workerStat = getWorkerStat();
-
-    WorkerMetrics.Builder builder =
-        WorkerMetrics.newBuilder()
-            .addAllWorkerIds(workerProperties.getWorkerIds())
-            .setProcessId((int) workerProperties.getProcessId())
-            .setMnemonic(workerProperties.getMnemonic())
-            .setIsSandbox(workerProperties.isSandboxed())
-            .setIsMultiplex(workerProperties.isMultiplex())
-            .setIsMeasurable(isMeasurable())
-            .setWorkerKeyHash(workerProperties.getWorkerKeyHash());
-
-    if (workerStat != null) {
-      WorkerStats stats =
-          WorkerMetrics.WorkerStats.newBuilder()
-              .setCollectTimeInMs(workerStat.getCollectTime().toEpochMilli())
-              .setWorkerMemoryInKb(workerStat.getUsedMemoryInKB())
-              .setLastActionStartTimeInMs(workerStat.getLastCallTime().toEpochMilli())
-              .build();
-      builder.addWorkerStats(stats);
+    WorkerMetrics.WorkerStats.Builder statsBuilder =
+        WorkerMetrics.WorkerStats.newBuilder().setWorkerMemoryInKb(memoryInKb);
+    if (lastCollectedTime.isPresent()) {
+      statsBuilder.setCollectTimeInMs(lastCollectedTime.get().toEpochMilli());
+    }
+    if (lastCallTime.isPresent()) {
+      statsBuilder.setLastActionStartTimeInMs(lastCallTime.get().toEpochMilli());
     }
 
-    return builder.build();
+    return WorkerMetrics.newBuilder()
+        .addAllWorkerIds(workerIds)
+        .setProcessId((int) processId)
+        .setMnemonic(mnemonic)
+        .setIsSandbox(isSandbox)
+        .setIsMultiplex(isMultiplex)
+        .setIsMeasurable(isMeasurable)
+        .setWorkerKeyHash(workerKeyHash)
+        .addWorkerStats(statsBuilder.build())
+        .build();
   }
-
 }
