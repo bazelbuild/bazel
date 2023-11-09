@@ -36,9 +36,11 @@ import java.util.Map;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.Tuple;
 
 /** Helps serialize/deserialize {@link AttributeValues}, which contains Starlark values. */
 public class AttributeValuesAdapter extends TypeAdapter<AttributeValues> {
@@ -88,9 +90,11 @@ public class AttributeValuesAdapter extends TypeAdapter<AttributeValues> {
         jsonObject.add(serializeObjToString(entry.getKey()), serializeObject(entry.getValue()));
       }
       return jsonObject;
-    } else if (obj instanceof StarlarkList) {
+    } else if (obj instanceof Iterable) {
+      // ListType supports any kind of Iterable, including Tuples and StarlarkLists. All of them
+      // are converted to an equivalent StarlarkList during deserialization.
       JsonArray jsonArray = new JsonArray();
-      for (Object item : (StarlarkList<?>) obj) {
+      for (Object item : (Iterable<?>) obj) {
         jsonArray.add(serializeObject(item));
       }
       return jsonArray;
