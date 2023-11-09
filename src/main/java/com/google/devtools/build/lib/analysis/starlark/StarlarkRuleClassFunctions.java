@@ -1254,6 +1254,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       StarlarkFunction implementation,
       Dict<?, ?> attrsUnchecked,
       Sequence<?> toolchainsUnchecked,
+      Sequence<?> fragmentsUnchecked,
       StarlarkThread thread)
       throws EvalException {
     if (!thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_RULE_EXTENSION_API)) {
@@ -1261,6 +1262,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     }
     ImmutableMap<String, Descriptor> attrs =
         ImmutableMap.copyOf(Dict.cast(attrsUnchecked, String.class, Descriptor.class, "attrs"));
+    ImmutableList<String> fragments =
+        Sequence.noneableCast(fragmentsUnchecked, String.class, "fragments").getImmutableList();
     for (Entry<String, Descriptor> attr : attrs.entrySet()) {
       String attrName = attr.getKey();
       Descriptor descriptor = attr.getValue();
@@ -1294,7 +1297,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     if (toolchains.size() > 1) {
       throw Starlark.errorf("subrules may require at most 1 toolchain, got: %s", toolchains);
     }
-    return new StarlarkSubrule(implementation, attrs, toolchains);
+    return new StarlarkSubrule(implementation, attrs, toolchains, ImmutableSet.copyOf(fragments));
   }
 
   private static ImmutableSet<ToolchainTypeRequirement> parseToolchainTypes(

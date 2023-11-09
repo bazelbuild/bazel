@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
+import com.google.common.base.Joiner;
 import com.google.devtools.build.docgen.annot.DocCategory;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Structure;
@@ -32,4 +34,17 @@ import net.starlark.java.eval.Structure;
             + " fragment reference</a> for a list of available fragments and the <a"
             + " href=\"https://bazel.build/extending/rules#configuration_fragments\">rules"
             + " documentation</a> for how to use them.")
-public interface FragmentCollectionApi extends Structure, StarlarkValue {}
+public interface FragmentCollectionApi extends Structure, StarlarkValue {
+
+  @Override
+  @Nullable
+  default String getErrorMessageForUnknownField(String name) {
+    return String.format(
+        "There is no configuration fragment named '%s'. Available fragments: %s",
+        name, fieldsToString());
+  }
+
+  default String fieldsToString() {
+    return String.format("'%s'", Joiner.on("', '").join(getFieldNames()));
+  }
+}

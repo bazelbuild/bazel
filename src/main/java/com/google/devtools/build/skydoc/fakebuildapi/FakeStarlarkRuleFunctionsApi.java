@@ -251,6 +251,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi {
       StarlarkFunction implementation,
       Dict<?, ?> attrs,
       Sequence<?> toolchains,
+      Sequence<?> fragments,
       StarlarkThread thread) {
     return new FakeStarlarkSubrule();
   }

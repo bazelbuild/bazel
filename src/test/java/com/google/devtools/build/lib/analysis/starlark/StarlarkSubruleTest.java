@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CppConfigurationApi;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import net.starlark.java.eval.BuiltinFunction;
 import net.starlark.java.eval.Sequence;
@@ -1018,6 +1019,158 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
     assertThat(action).isNotNull();
     assertThat(action.getOwner())
         .isEqualTo(getRuleContext(target).getActionOwner(TestConstants.JAVA_TOOLCHAIN_TYPE));
+  }
+
+  @Test
+  public void testSubruleFragments_errorForInvalidFragments() throws Exception {
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _subrule_impl(ctx):",
+        "  return ctx.fragments.foobar",
+        "_my_subrule = subrule(",
+        "  implementation = _subrule_impl, fragments = ['java', 'cpp']",
+        ")",
+        "MyInfo = provider()",
+        "def _rule_impl(ctx):",
+        "  res = _my_subrule()",
+        "  return MyInfo(result = res)",
+        "",
+        "my_rule = rule(_rule_impl, subrules = [_my_subrule])");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    AssertionError assertionError =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//subrule_testing:foo"));
+
+    assertThat(assertionError)
+        .hasMessageThat()
+        .contains(
+            "There is no configuration fragment named 'foobar'. Available fragments: 'java',"
+                + " 'cpp'");
+  }
+
+  @Test
+  public void testSubruleFragments_onlyDeclaredFragmentsAreVisible() throws Exception {
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _subrule_impl(ctx):",
+        "  return dir(ctx.fragments)",
+        "_my_subrule = subrule(",
+        "  implementation = _subrule_impl,",
+        "  fragments = ['cpp', 'python']",
+        ")",
+        "MyInfo = provider()",
+        "def _rule_impl(ctx):",
+        "  res = _my_subrule()",
+        "  return MyInfo(result = res)",
+        "",
+        "my_rule = rule(_rule_impl, subrules = [_my_subrule], fragments = ['java'])");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    Sequence<String> fragments =
+        Sequence.cast(
+            getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo")
+                .getValue("result"),
+            String.class,
+            "ctx.fragments");
+
+    assertThat(fragments).isNotNull();
+    assertThat(fragments).containsExactly("cpp", "python");
+  }
+
+  @Test
+  public void testSubruleFragments_ruleCannotAccessSubruleFragments() throws Exception {
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _subrule_impl(ctx):",
+        "  pass",
+        "_my_subrule = subrule(",
+        "  implementation = _subrule_impl,",
+        "  fragments = ['cpp']",
+        ")",
+        "def _rule_impl(ctx):",
+        "  ctx.fragments.cpp",
+        "  return []",
+        "",
+        "my_rule = rule(_rule_impl, subrules = [_my_subrule])");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    AssertionError assertionError =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//subrule_testing:foo"));
+
+    assertThat(assertionError)
+        .hasMessageThat()
+        .contains("my_rule has to declare 'cpp' as a required fragment in order to access it");
+  }
+
+  @Test
+  public void testSubruleFragments_canAccessDeclaredFragments() throws Exception {
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _subrule_impl(ctx):",
+        "  return ctx.fragments.cpp",
+        "_my_subrule = subrule(",
+        "  implementation = _subrule_impl,",
+        "  fragments = ['cpp']",
+        ")",
+        "MyInfo = provider()",
+        "def _rule_impl(ctx):",
+        "  res = _my_subrule()",
+        "  return MyInfo(result = res)",
+        "",
+        "my_rule = rule(_rule_impl, subrules = [_my_subrule], fragments = ['java'])");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    CppConfigurationApi<?> fragment =
+        getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo")
+            .getValue("result", CppConfigurationApi.class);
+
+    assertThat(fragment).isNotNull();
+  }
+
+  @Test
+  public void testSubruleFragments_mustDeclareFragmentsIfAccessed() throws Exception {
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _subrule_impl(ctx):",
+        "  ctx.fragments.java",
+        "_my_subrule = subrule(",
+        "  implementation = _subrule_impl,",
+        "  fragments = ['cpp', 'python']",
+        ")",
+        "",
+        "def _rule_impl(ctx):",
+        "  res = _my_subrule()",
+        "  return []",
+        "",
+        "my_rule = rule(_rule_impl, subrules = [_my_subrule], fragments = ['java'])");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    AssertionError assertionError =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//subrule_testing:foo"));
+
+    assertThat(assertionError)
+        .hasMessageThat()
+        .contains("_my_subrule has to declare 'java' as a required fragment in order to access it");
   }
 
   @Test
