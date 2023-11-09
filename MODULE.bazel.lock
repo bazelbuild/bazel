@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "7e1f2fc93f64ae90a2357eb11c8fc6522051132630d0c1abe84f64cee5482a40",
+  "moduleFileHash": "016812bd09c1de57c7cbfd60192cc76e75a4f564caafc4af0a018cd66ffb0cae",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -132,7 +132,7 @@
                   "javax.inject:javax.inject:1",
                   "net.bytebuddy:byte-buddy-agent:1.14.5",
                   "net.bytebuddy:byte-buddy:1.14.5",
-                  "org.apache.commons:commons-compress:1.19",
+                  "org.apache.commons:commons-compress:1.20",
                   "org.apache.commons:commons-pool2:2.8.0",
                   "org.apache.tomcat:tomcat-annotations-api:8.0.5",
                   "org.apache.velocity:velocity:1.7",
@@ -2180,7 +2180,7 @@
         "bzlTransitiveDigest": "U0PdF0Y6pi1ibjV47I9znaKyMppoEOhJX/RSf+0SYm8=",
         "accumulatedFileDigests": {
           "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "57004ac9cc0c88944c08f5156a299addbe3ff1caa9209ec0809edda9a4315b31",
-          "@@//:MODULE.bazel": "7e1f2fc93f64ae90a2357eb11c8fc6522051132630d0c1abe84f64cee5482a40"
+          "@@//:MODULE.bazel": "016812bd09c1de57c7cbfd60192cc76e75a4f564caafc4af0a018cd66ffb0cae"
         },
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -4241,7 +4241,7 @@
       "general": {
         "bzlTransitiveDigest": "WAWsskOl4eHIskcL0TuHZGIMjV8sMJaAbAo2luMqofo=",
         "accumulatedFileDigests": {
-          "@@//:maven_install.json": "adce9cfafa421be79599c4cd752cfe3967c7f21aa1f2d40de674a81da4dc9071",
+          "@@//:maven_install.json": "cc2396f3421ceaeca5bf2852dc5aa14b83e5a918f4c3dee5a1214b127214584c",
           "@@rules_jvm_external~5.2//:rules_jvm_external_deps_install.json": "3ab1f67b0de4815df110bc72ccd6c77882b3b21d3d1e0a84445847b6ce3235a3",
           "@@//src/tools/android:maven_android_install.json": "09bff3e33d291336046f7c9201630fb5e014f0e60b78b6f09b84e4f5f73ed04f"
         },
@@ -4836,7 +4836,7 @@
                 "{ \"group\": \"javax.inject\", \"artifact\": \"javax.inject\", \"version\": \"1\" }",
                 "{ \"group\": \"net.bytebuddy\", \"artifact\": \"byte-buddy-agent\", \"version\": \"1.14.5\" }",
                 "{ \"group\": \"net.bytebuddy\", \"artifact\": \"byte-buddy\", \"version\": \"1.14.5\" }",
-                "{ \"group\": \"org.apache.commons\", \"artifact\": \"commons-compress\", \"version\": \"1.19\" }",
+                "{ \"group\": \"org.apache.commons\", \"artifact\": \"commons-compress\", \"version\": \"1.20\" }",
                 "{ \"group\": \"org.apache.commons\", \"artifact\": \"commons-pool2\", \"version\": \"2.8.0\" }",
                 "{ \"group\": \"org.apache.tomcat\", \"artifact\": \"tomcat-annotations-api\", \"version\": \"8.0.5\" }",
                 "{ \"group\": \"org.apache.velocity\", \"artifact\": \"velocity\", \"version\": \"1.7\" }",
@@ -5560,7 +5560,6 @@
               "name": "rules_jvm_external~5.2~maven~org_apache_commons_commons_compress_1_20",
               "sha256": "0aeb625c948c697ea7b205156e112363b59ed5e2551212cd4e460bdb72c7c06e",
               "urls": [
-                "https://dl.google.com/android/maven2/org/apache/commons/commons-compress/1.20/commons-compress-1.20.jar",
                 "https://repo1.maven.org/maven2/org/apache/commons/commons-compress/1.20/commons-compress-1.20.jar"
               ],
               "downloaded_file_path": "org/apache/commons/commons-compress/1.20/commons-compress-1.20.jar"
@@ -5817,18 +5816,6 @@
                 "https://repo1.maven.org/maven2/com/google/guava/guava/32.1.1-jre/guava-32.1.1-jre.jar"
               ],
               "downloaded_file_path": "com/google/guava/guava/32.1.1-jre/guava-32.1.1-jre.jar"
-            }
-          },
-          "org_apache_commons_commons_compress_1_19": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "name": "rules_jvm_external~5.2~maven~org_apache_commons_commons_compress_1_19",
-              "sha256": "ff2d59fad74e867630fbc7daab14c432654712ac624dbee468d220677b124dd5",
-              "urls": [
-                "https://repo1.maven.org/maven2/org/apache/commons/commons-compress/1.19/commons-compress-1.19.jar"
-              ],
-              "downloaded_file_path": "org/apache/commons/commons-compress/1.19/commons-compress-1.19.jar"
             }
           },
           "com_android_tools_sdklib_30_1_3": {
@@ -7360,7 +7347,7 @@
                 "{ \"group\": \"javax.inject\", \"artifact\": \"javax.inject\", \"version\": \"1\" }",
                 "{ \"group\": \"net.bytebuddy\", \"artifact\": \"byte-buddy-agent\", \"version\": \"1.14.5\" }",
                 "{ \"group\": \"net.bytebuddy\", \"artifact\": \"byte-buddy\", \"version\": \"1.14.5\" }",
-                "{ \"group\": \"org.apache.commons\", \"artifact\": \"commons-compress\", \"version\": \"1.19\" }",
+                "{ \"group\": \"org.apache.commons\", \"artifact\": \"commons-compress\", \"version\": \"1.20\" }",
                 "{ \"group\": \"org.apache.commons\", \"artifact\": \"commons-pool2\", \"version\": \"2.8.0\" }",
                 "{ \"group\": \"org.apache.tomcat\", \"artifact\": \"tomcat-annotations-api\", \"version\": \"8.0.5\" }",
                 "{ \"group\": \"org.apache.velocity\", \"artifact\": \"velocity\", \"version\": \"1.7\" }",
