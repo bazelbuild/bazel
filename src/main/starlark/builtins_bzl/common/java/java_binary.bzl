@@ -453,7 +453,6 @@ def _filter_validation_output_group(ctx, output_group):
                attr_name not in [
                    "deploy_env",
                    "applicable_licenses",
-                   "package_metadata",
                    "plugins",
                    "translations",
                    # special ignored attributes

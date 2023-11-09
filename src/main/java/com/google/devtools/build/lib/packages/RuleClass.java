@@ -163,8 +163,7 @@ public class RuleClass implements RuleClassData {
   /*
    * The attribute that declares the set of metadata labels which apply to this target.
    */
-  public static final String APPLICABLE_METADATA_ATTR = "package_metadata";
-  public static final String APPLICABLE_METADATA_ATTR_ALT = "applicable_licenses";
+  public static final String APPLICABLE_METADATA_ATTR = "applicable_licenses";
 
   /**
    * A constraint for the package name of the Rule instances.
@@ -828,7 +827,7 @@ public class RuleClass implements RuleClassData {
       if (parents.length == 1
           && parents[0].isStarlark()
           && parents[0].getRuleClassType() != RuleClassType.ABSTRACT) {
-        // the condition removes {@link StarlarkRuleClassFunctions.baseRule} and binaryBaseRule,
+        // the condition removes {@link StarlarkRuleClasssFunctions.baseRule} and binaryBaseRule,
         // which are marked as Starlark (because of Stardoc) && abstract at the same time
         starlarkParent = parents[0];
         Preconditions.checkArgument(starlarkParent.isExtendable());
@@ -2201,12 +2200,6 @@ public class RuleClass implements RuleClassData {
       // Ignore all None values.
       if (attributeValue == Starlark.NONE && !failOnUnknownAttributes) {
         continue;
-      }
-
-      // If the user sets "applicable_liceneses", change it to the correct name.
-      // TODO(aiuto): In the time frame of Bazel 9, remove this alternate spelling.
-      if (attributeName.equals(APPLICABLE_METADATA_ATTR_ALT)) {
-        attributeName = APPLICABLE_METADATA_ATTR;
       }
 
       // Check that the attribute's name belongs to a valid attribute for this rule class.
