@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "93aebd3a9f96d5d6e6148fc4ccd29b673d842f81a91eb2494a3008f4c2c56504",
+  "moduleFileHash": "016812bd09c1de57c7cbfd60192cc76e75a4f564caafc4af0a018cd66ffb0cae",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -2179,8 +2179,8 @@
       "general": {
         "bzlTransitiveDigest": "U0PdF0Y6pi1ibjV47I9znaKyMppoEOhJX/RSf+0SYm8=",
         "accumulatedFileDigests": {
-          "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "8d144d3e597e69c9cb6f572e9cae8333cc991ba75d61fff1c4d9bd2ad4e2d429",
-          "@@//:MODULE.bazel": "93aebd3a9f96d5d6e6148fc4ccd29b673d842f81a91eb2494a3008f4c2c56504"
+          "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "57004ac9cc0c88944c08f5156a299addbe3ff1caa9209ec0809edda9a4315b31",
+          "@@//:MODULE.bazel": "016812bd09c1de57c7cbfd60192cc76e75a4f564caafc4af0a018cd66ffb0cae"
         },
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -4241,7 +4241,7 @@
       "general": {
         "bzlTransitiveDigest": "WAWsskOl4eHIskcL0TuHZGIMjV8sMJaAbAo2luMqofo=",
         "accumulatedFileDigests": {
-          "@@//:maven_install.json": "52c0fa6f02e2586937be9b90917383c9cd9ac8dc577105c73513b02104e731a2",
+          "@@//:maven_install.json": "3e2558d536a39072781c540260a1c77b4bffec371c7946c3d13a8d6b09798eac",
           "@@rules_jvm_external~5.2//:rules_jvm_external_deps_install.json": "3ab1f67b0de4815df110bc72ccd6c77882b3b21d3d1e0a84445847b6ce3235a3",
           "@@//src/tools/android:maven_android_install.json": "09bff3e33d291336046f7c9201630fb5e014f0e60b78b6f09b84e4f5f73ed04f"
         },
