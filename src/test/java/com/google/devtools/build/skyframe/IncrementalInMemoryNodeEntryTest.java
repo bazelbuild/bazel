@@ -864,4 +864,44 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
             lateDirtyParent,
             lateNewParent);
   }
+
+  @Test
+  public void rewindOnDirtyNodeIgnored(@TestParameter boolean valueChanges)
+      throws InterruptedException {
+    InMemoryNodeEntry entry = createEntry();
+    entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
+    entry.markRebuilding();
+
+    // Dep added on initial build that stays on incremental build.
+    SkyKey dep = key("dep");
+    entry.addSingletonTemporaryDirectDep(dep);
+    entry.signalDep(initialVersion, dep);
+
+    // Initial build completes.
+    SkyValue oldValue = new IntegerValue(1);
+    setValue(entry, oldValue, /* errorInfo= */ null, initialVersion);
+
+    // Start of incremental build.
+    entry.markDirty(DirtyType.DIRTY);
+    entry.addReverseDepAndCheckIfDone(null);
+
+    // Attempt to rewind node while it is dirty.
+    entry.markDirty(DirtyType.REWIND);
+
+    // Add back same dep.
+    entry.addSingletonTemporaryDirectDep(dep);
+    assertThat(entry.signalDep(incrementalVersion, dep)).isTrue();
+    entry.markRebuilding();
+    assertThat(entry.getTemporaryDirectDeps()).containsExactly(ImmutableList.of(dep));
+
+    // Set value and check version.
+    SkyValue newValue = valueChanges ? new IntegerValue(2) : oldValue;
+    setValue(entry, newValue, /* errorInfo= */ null, incrementalVersion);
+
+    if (valueChanges) {
+      assertThat(entry.getVersion()).isEqualTo(incrementalVersion);
+    } else {
+      assertThat(entry.getVersion()).isEqualTo(initialVersion); // Change pruning.
+    }
+  }
 }

@@ -342,13 +342,17 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
     // node changed twice. The end result of racing markers must be a changed node, since one of the
     // markers is trying to mark the node changed.
     checkState(value == null, "Value should have been reset already %s", this);
-    if (dirtyType == DirtyType.CHANGE) {
-      // If the changed marker lost the race, we just need to mark changed in this method -- all
-      // other work was done by the dirty marker.
-      checkState(!isChanged(), "Cannot mark node changed twice: %s", this);
-      checkNotNull(dirtyBuildingState, this).markChanged();
-    } else {
-      checkState(isChanged(), "Cannot mark node dirty twice: %s", this);
+    switch (dirtyType) {
+      case CHANGE:
+        checkState(!isChanged(), "Cannot mark node changed twice: %s", this);
+        checkNotNull(dirtyBuildingState, this).markChanged();
+        break;
+      case DIRTY:
+        checkState(isChanged(), "Cannot mark node dirty twice: %s", this);
+        break;
+      case REWIND:
+        // Rewinding is legal at any time in the node's lifecycle, but is no-op when it is not done.
+        break;
     }
     return null;
   }
