@@ -62,6 +62,10 @@ class BazelFetchTest(test_base.TestBase):
     self.ScratchFile('tools_mock/MODULE.bazel', ['module(name="bazel_tools")'])
     self.ScratchFile('tools_mock/tools/build_defs/repo/BUILD')
     self.CopyFile(
+        self.Rlocation('io_bazel/tools/build_defs/repo/cache.bzl'),
+        'tools_mock/tools/build_defs/repo/cache.bzl',
+    )
+    self.CopyFile(
         self.Rlocation('io_bazel/tools/build_defs/repo/http.bzl'),
         'tools_mock/tools/build_defs/repo/http.bzl',
     )
