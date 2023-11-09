@@ -25,7 +25,7 @@ import java.util.Optional;
  * Contains data about worker statistics during execution. This class contains data for {@link
  * com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics}
  */
-public class WorkerMetric {
+public class WorkerProcessMetrics {
 
   private final List<Integer> workerIds;
 
@@ -47,7 +47,7 @@ public class WorkerMetric {
 
   private Optional<Instant> lastCollectedTime = Optional.empty();
 
-  public WorkerMetric(
+  public WorkerProcessMetrics(
       List<Integer> workerIds,
       long processId,
       String mnemonic,
@@ -62,7 +62,7 @@ public class WorkerMetric {
     this.workerKeyHash = workerKeyHash;
   }
 
-  public WorkerMetric(
+  public WorkerProcessMetrics(
       int workerId,
       long processId,
       String mnemonic,

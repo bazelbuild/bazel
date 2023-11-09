@@ -33,9 +33,10 @@ import org.junit.runners.JUnit4;
 
 /** Unit tests for the WorkerSpawnRunner. */
 @RunWith(JUnit4.class)
-public class WorkerMetricsCollectorTest {
+public class WorkerProcessMetricsCollectorTest {
 
-  private final WorkerMetricsCollector spyCollector = spy(WorkerMetricsCollector.instance());
+  private final WorkerProcessMetricsCollector spyCollector =
+      spy(WorkerProcessMetricsCollector.instance());
   ManualClock clock = new ManualClock();
 
   @Before
@@ -58,7 +59,7 @@ public class WorkerMetricsCollectorTest {
   private static final String PROTO_MNEMONIC = "Proto";
 
   private void assertWorkerMetricContains(
-      WorkerMetric workerMetric,
+      WorkerProcessMetrics workerMetric,
       ImmutableList<Integer> expectedWorkerIds,
       Long expectedProcessId,
       String expectedMnemonic,
@@ -94,7 +95,8 @@ public class WorkerMetricsCollectorTest {
         /* isMultiplex= */ true,
         /* isSandboxed= */ false,
         WORKER_KEY_HASH_1);
-    assertThat(spyCollector.getProcessIdToWorkerMetrics().keySet()).containsExactly(PROCESS_ID_1);
+    assertThat(spyCollector.getProcessIdToWorkerProcessMetrics().keySet())
+        .containsExactly(PROCESS_ID_1);
     spyCollector.registerWorker(
         WORKER_ID_2,
         PROCESS_ID_2,
@@ -102,10 +104,10 @@ public class WorkerMetricsCollectorTest {
         /* isMultiplex= */ false,
         /* isSandboxed= */ true,
         WORKER_KEY_HASH_2);
-    assertThat(spyCollector.getProcessIdToWorkerMetrics().keySet())
+    assertThat(spyCollector.getProcessIdToWorkerProcessMetrics().keySet())
         .containsExactly(PROCESS_ID_1, PROCESS_ID_2);
     assertWorkerMetricContains(
-        spyCollector.getProcessIdToWorkerMetrics().get(PROCESS_ID_1),
+        spyCollector.getProcessIdToWorkerProcessMetrics().get(PROCESS_ID_1),
         ImmutableList.of(WORKER_ID_1),
         PROCESS_ID_1,
         JAVAC_MNEMONIC,
@@ -116,7 +118,7 @@ public class WorkerMetricsCollectorTest {
         /* expectedLastCallTime= */ DEFAULT_CLOCK_START_INSTANT,
         /* expectedCollectedTime= */ null);
     assertWorkerMetricContains(
-        spyCollector.getProcessIdToWorkerMetrics().get(PROCESS_ID_2),
+        spyCollector.getProcessIdToWorkerProcessMetrics().get(PROCESS_ID_2),
         ImmutableList.of(WORKER_ID_2),
         PROCESS_ID_2,
         CPP_COMPILE_MNEMONIC,
@@ -137,9 +139,10 @@ public class WorkerMetricsCollectorTest {
         /* isMultiplex= */ true,
         /* isSandboxed= */ true,
         WORKER_KEY_HASH_1);
-    assertThat(spyCollector.getProcessIdToWorkerMetrics().keySet()).containsExactly(PROCESS_ID_1);
+    assertThat(spyCollector.getProcessIdToWorkerProcessMetrics().keySet())
+        .containsExactly(PROCESS_ID_1);
     assertWorkerMetricContains(
-        spyCollector.getProcessIdToWorkerMetrics().get(PROCESS_ID_1),
+        spyCollector.getProcessIdToWorkerProcessMetrics().get(PROCESS_ID_1),
         ImmutableList.of(WORKER_ID_1),
         PROCESS_ID_1,
         JAVAC_MNEMONIC,
@@ -160,9 +163,10 @@ public class WorkerMetricsCollectorTest {
         /* isMultiplex= */ true,
         /* isSandboxed= */ true,
         WORKER_KEY_HASH_1);
-    assertThat(spyCollector.getProcessIdToWorkerMetrics().keySet()).containsExactly(PROCESS_ID_1);
+    assertThat(spyCollector.getProcessIdToWorkerProcessMetrics().keySet())
+        .containsExactly(PROCESS_ID_1);
     assertWorkerMetricContains(
-        spyCollector.getProcessIdToWorkerMetrics().get(PROCESS_ID_1),
+        spyCollector.getProcessIdToWorkerProcessMetrics().get(PROCESS_ID_1),
         ImmutableList.of(WORKER_ID_1, WORKER_ID_2),
         PROCESS_ID_1,
         JAVAC_MNEMONIC,
@@ -183,9 +187,10 @@ public class WorkerMetricsCollectorTest {
         /* isMultiplex= */ true,
         /* isSandboxed= */ true,
         WORKER_KEY_HASH_1);
-    assertThat(spyCollector.getProcessIdToWorkerMetrics().keySet()).containsExactly(PROCESS_ID_1);
+    assertThat(spyCollector.getProcessIdToWorkerProcessMetrics().keySet())
+        .containsExactly(PROCESS_ID_1);
     assertWorkerMetricContains(
-        spyCollector.getProcessIdToWorkerMetrics().get(PROCESS_ID_1),
+        spyCollector.getProcessIdToWorkerProcessMetrics().get(PROCESS_ID_1),
         ImmutableList.of(WORKER_ID_1),
         PROCESS_ID_1,
         JAVAC_MNEMONIC,
@@ -207,9 +212,10 @@ public class WorkerMetricsCollectorTest {
         /* isMultiplex= */ true,
         /* isSandboxed= */ true,
         WORKER_KEY_HASH_1);
-    assertThat(spyCollector.getProcessIdToWorkerMetrics().keySet()).containsExactly(PROCESS_ID_1);
+    assertThat(spyCollector.getProcessIdToWorkerProcessMetrics().keySet())
+        .containsExactly(PROCESS_ID_1);
     assertWorkerMetricContains(
-        spyCollector.getProcessIdToWorkerMetrics().get(PROCESS_ID_1),
+        spyCollector.getProcessIdToWorkerProcessMetrics().get(PROCESS_ID_1),
         ImmutableList.of(WORKER_ID_1),
         PROCESS_ID_1,
         JAVAC_MNEMONIC,
@@ -256,7 +262,7 @@ public class WorkerMetricsCollectorTest {
     doReturn(resourceSnapshot).when(spyCollector).collectMemoryUsageByPid(any(), eq(expectedPids));
     clock.setTime(collectionTime.toEpochMilli());
 
-    ImmutableList<WorkerMetric> metrics = spyCollector.collectMetrics();
+    ImmutableList<WorkerProcessMetrics> metrics = spyCollector.collectMetrics();
 
     assertThat(metrics).hasSize(3);
     assertWorkerMetricContains(

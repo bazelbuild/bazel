@@ -61,7 +61,7 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTarge
 import com.google.devtools.build.lib.worker.WorkerCreatedEvent;
 import com.google.devtools.build.lib.worker.WorkerDestroyedEvent;
 import com.google.devtools.build.lib.worker.WorkerEvictedEvent;
-import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
+import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.util.Durations;
@@ -110,7 +110,7 @@ class MetricsCollector {
     this.numAnalyses = numAnalyses;
     this.numBuilds = numBuilds;
     env.getEventBus().register(this);
-    WorkerMetricsCollector.instance().setClock(env.getClock());
+    WorkerProcessMetricsCollector.instance().setClock(env.getClock());
     this.buildAccountedFor = new AtomicBoolean();
   }
 
@@ -310,7 +310,8 @@ class MetricsCollector {
             .setCumulativeMetrics(createCumulativeMetrics())
             .setArtifactMetrics(artifactMetrics.build())
             .setBuildGraphMetrics(buildGraphMetrics.build())
-            .addAllWorkerMetrics(WorkerMetricsCollector.instance().createWorkerMetricsProto())
+            .addAllWorkerMetrics(
+                WorkerProcessMetricsCollector.instance().createWorkerMetricsProto())
             .setWorkerPoolMetrics(createWorkerPoolMetrics());
 
     NetworkMetrics networkMetrics = NetworkMetricsCollector.instance().collectMetrics();

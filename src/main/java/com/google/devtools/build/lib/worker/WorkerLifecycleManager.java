@@ -91,12 +91,12 @@ final class WorkerLifecycleManager extends Thread {
         break;
       }
 
-      ImmutableList<WorkerMetric> workerMetrics =
-          WorkerMetricsCollector.instance().collectMetrics();
+      ImmutableList<WorkerProcessMetrics> workerProcessMetrics =
+          WorkerProcessMetricsCollector.instance().collectMetrics();
 
       if (options.totalWorkerMemoryLimitMb > 0) {
         try {
-          evictWorkers(workerMetrics);
+          evictWorkers(workerProcessMetrics);
         } catch (InterruptedException e) {
           logger.atInfo().withCause(e).log("received interrupt in worker life cycle manager");
           break;
@@ -104,7 +104,7 @@ final class WorkerLifecycleManager extends Thread {
       }
 
       if (options.workerMemoryLimitMb > 0) {
-        killLargeWorkers(workerMetrics, options.workerMemoryLimitMb);
+        killLargeWorkers(workerProcessMetrics, options.workerMemoryLimitMb);
       }
     }
 
@@ -116,13 +116,13 @@ final class WorkerLifecycleManager extends Thread {
   }
 
   /** Kills any worker that uses more than {@code limitMb} MB of memory. */
-  void killLargeWorkers(ImmutableList<WorkerMetric> workerMetrics, int limitMb) {
-    ImmutableList<WorkerMetric> large =
-        workerMetrics.stream()
+  void killLargeWorkers(ImmutableList<WorkerProcessMetrics> workerProcessMetrics, int limitMb) {
+    ImmutableList<WorkerProcessMetrics> large =
+        workerProcessMetrics.stream()
             .filter(m -> m.getUsedMemoryInKb() / 1000 > limitMb)
             .collect(toImmutableList());
 
-    for (WorkerMetric l : large) {
+    for (WorkerProcessMetrics l : large) {
       String msg;
 
       ImmutableList<Integer> workerIds = l.getWorkerIds();
@@ -151,22 +151,23 @@ final class WorkerLifecycleManager extends Thread {
   }
 
   @VisibleForTesting // productionVisibility = Visibility.PRIVATE
-  void evictWorkers(ImmutableList<WorkerMetric> workerMetrics) throws InterruptedException {
+  void evictWorkers(ImmutableList<WorkerProcessMetrics> workerProcessMetrics)
+      throws InterruptedException {
 
     if (options.totalWorkerMemoryLimitMb == 0) {
       return;
     }
 
     int workerMemoryUsage =
-        workerMetrics.stream().mapToInt(metric -> metric.getUsedMemoryInKb() / 1000).sum();
+        workerProcessMetrics.stream().mapToInt(metric -> metric.getUsedMemoryInKb() / 1000).sum();
 
     // TODO: Remove after b/274608075 is fixed.
-    if (!workerMetrics.isEmpty()) {
+    if (!workerProcessMetrics.isEmpty()) {
       logger.atInfo().atMostEvery(1, TimeUnit.MINUTES).log(
           "total worker memory %dMB while limit is %dMB - details: %s",
           workerMemoryUsage,
           options.totalWorkerMemoryLimitMb,
-          workerMetrics.stream()
+          workerProcessMetrics.stream()
               .map(
                   metric ->
                       metric.getWorkerIds()
@@ -184,7 +185,7 @@ final class WorkerLifecycleManager extends Thread {
 
     ImmutableSet<Integer> candidates =
         collectEvictionCandidates(
-            workerMetrics, options.totalWorkerMemoryLimitMb, workerMemoryUsage);
+            workerProcessMetrics, options.totalWorkerMemoryLimitMb, workerMemoryUsage);
 
     if (!candidates.isEmpty() || !emptyEvictionWasLogged) {
       String msg;
@@ -220,7 +221,7 @@ final class WorkerLifecycleManager extends Thread {
     }
 
     if (eventBus != null) {
-      for (WorkerMetric metric : workerMetrics) {
+      for (WorkerProcessMetrics metric : workerProcessMetrics) {
 
         for (Integer workerId : metric.getWorkerIds()) {
           if (evictedWorkers.contains(workerId)) {
@@ -231,13 +232,13 @@ final class WorkerLifecycleManager extends Thread {
     }
 
     if (options.shrinkWorkerPool) {
-      List<WorkerMetric> notEvictedWorkerMetrics =
-          workerMetrics.stream()
+      List<WorkerProcessMetrics> notEvictedWorkerProcessMetrics =
+          workerProcessMetrics.stream()
               .filter(metric -> !evictedWorkers.containsAll(metric.getWorkerIds()))
               .collect(Collectors.toList());
 
       int notEvictedWorkerMemoryUsage =
-          notEvictedWorkerMetrics.stream()
+          notEvictedWorkerProcessMetrics.stream()
               .mapToInt(metric -> metric.getUsedMemoryInKb() / 1000)
               .sum();
 
@@ -245,14 +246,15 @@ final class WorkerLifecycleManager extends Thread {
         return;
       }
 
-      postponeInvalidation(notEvictedWorkerMetrics, notEvictedWorkerMemoryUsage);
+      postponeInvalidation(notEvictedWorkerProcessMetrics, notEvictedWorkerMemoryUsage);
     }
   }
 
   private void postponeInvalidation(
-      List<WorkerMetric> workerMetrics, int notEvictedWorkerMemoryUsage) {
+      List<WorkerProcessMetrics> workerProcessMetrics, int notEvictedWorkerMemoryUsage) {
     ImmutableSet<Integer> potentialCandidates =
-        getCandidates(workerMetrics, options.totalWorkerMemoryLimitMb, notEvictedWorkerMemoryUsage);
+        getCandidates(
+            workerProcessMetrics, options.totalWorkerMemoryLimitMb, notEvictedWorkerMemoryUsage);
 
     if (!potentialCandidates.isEmpty()) {
       String msg = String.format("New doomed workers candidates %s", potentialCandidates);
@@ -278,16 +280,18 @@ final class WorkerLifecycleManager extends Thread {
   /** Collects worker candidates to evict. Chooses workers with the largest memory consumption. */
   @SuppressWarnings("JdkCollectors")
   ImmutableSet<Integer> collectEvictionCandidates(
-      ImmutableList<WorkerMetric> workerMetrics, int memoryLimitMb, int workerMemoryUsageMb)
+      ImmutableList<WorkerProcessMetrics> workerProcessMetrics,
+      int memoryLimitMb,
+      int workerMemoryUsageMb)
       throws InterruptedException {
     Set<Integer> idleWorkers = getIdleWorkers();
 
-    List<WorkerMetric> idleWorkerMetrics =
-        workerMetrics.stream()
+    List<WorkerProcessMetrics> idleWorkerProcessMetrics =
+        workerProcessMetrics.stream()
             .filter(metric -> idleWorkers.containsAll(metric.getWorkerIds()))
             .collect(Collectors.toList());
 
-    return getCandidates(idleWorkerMetrics, memoryLimitMb, workerMemoryUsageMb);
+    return getCandidates(idleWorkerProcessMetrics, memoryLimitMb, workerMemoryUsageMb);
   }
 
   /**
@@ -295,12 +299,12 @@ final class WorkerLifecycleManager extends Thread {
    * memory usage is less than memoryLimitMb.
    */
   private static ImmutableSet<Integer> getCandidates(
-      List<WorkerMetric> workerMetrics, int memoryLimitMb, int usedMemoryMb) {
+      List<WorkerProcessMetrics> workerProcessMetrics, int memoryLimitMb, int usedMemoryMb) {
 
-    workerMetrics.sort(new MemoryComparator());
+    workerProcessMetrics.sort(new MemoryComparator());
     ImmutableSet.Builder<Integer> candidates = ImmutableSet.builder();
     int freeMemoryMb = 0;
-    for (WorkerMetric metric : workerMetrics) {
+    for (WorkerProcessMetrics metric : workerProcessMetrics) {
       candidates.addAll(metric.getWorkerIds());
       freeMemoryMb += metric.getUsedMemoryInKb() / 1000;
 
@@ -370,9 +374,9 @@ final class WorkerLifecycleManager extends Thread {
   }
 
   /** Compare worker metrics by memory consumption in descending order. */
-  private static class MemoryComparator implements Comparator<WorkerMetric> {
+  private static class MemoryComparator implements Comparator<WorkerProcessMetrics> {
     @Override
-    public int compare(WorkerMetric m1, WorkerMetric m2) {
+    public int compare(WorkerProcessMetrics m1, WorkerProcessMetrics m2) {
       return m2.getUsedMemoryInKb() - m1.getUsedMemoryInKb();
     }
   }

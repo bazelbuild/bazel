@@ -31,10 +31,10 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Collects and populates system metrics about persistent workers. */
-public class WorkerMetricsCollector {
+public class WorkerProcessMetricsCollector {
 
   /** The metrics collector (a static singleton instance). Inactive by default. */
-  private static final WorkerMetricsCollector instance = new WorkerMetricsCollector();
+  private static final WorkerProcessMetricsCollector instance = new WorkerProcessMetricsCollector();
 
   private Clock clock;
 
@@ -42,11 +42,12 @@ public class WorkerMetricsCollector {
    * Mapping of worker process ids to their properties. One process could be mapped to multiple
    * workers because of multiplex workers.
    */
-  private final Map<Long, WorkerMetric> processIdToWorkerMetrics = new ConcurrentHashMap<>();
+  private final Map<Long, WorkerProcessMetrics> processIdToWorkerProcessMetrics =
+      new ConcurrentHashMap<>();
 
-  private WorkerMetricsCollector() {}
+  private WorkerProcessMetricsCollector() {}
 
-  public static WorkerMetricsCollector instance() {
+  public static WorkerProcessMetricsCollector instance() {
     return instance;
   }
 
@@ -68,18 +69,18 @@ public class WorkerMetricsCollector {
     return PsInfoCollector.instance().collectResourceUsage(processIds);
   }
 
-  public ImmutableList<WorkerMetric> collectMetrics() {
+  public ImmutableList<WorkerProcessMetrics> collectMetrics() {
     PsInfoCollector.ResourceSnapshot resourceSnapshot =
         collectMemoryUsageByPid(
-            OS.getCurrent(), ImmutableSet.copyOf(processIdToWorkerMetrics.keySet()));
+            OS.getCurrent(), ImmutableSet.copyOf(processIdToWorkerProcessMetrics.keySet()));
 
     ImmutableMap<Long, Integer> pidToMemoryInKb = resourceSnapshot.getPidToMemoryInKb();
     Instant collectionTime = resourceSnapshot.getCollectionTime();
 
     List<Long> nonMeasurableProcessIds = new ArrayList<>();
-    ImmutableList.Builder<WorkerMetric> workerMetrics = new ImmutableList.Builder<>();
-    for (Map.Entry<Long, WorkerMetric> entry : processIdToWorkerMetrics.entrySet()) {
-      WorkerMetric workerMetric = entry.getValue();
+    ImmutableList.Builder<WorkerProcessMetrics> workerMetrics = new ImmutableList.Builder<>();
+    for (Map.Entry<Long, WorkerProcessMetrics> entry : processIdToWorkerProcessMetrics.entrySet()) {
+      WorkerProcessMetrics workerMetric = entry.getValue();
       Long pid = workerMetric.getProcessId();
       workerMetric.addCollectedMetrics(
           /* memoryInKb= */ pidToMemoryInKb.getOrDefault(pid, 0),
@@ -93,22 +94,22 @@ public class WorkerMetricsCollector {
       }
     }
 
-    processIdToWorkerMetrics.keySet().removeAll(nonMeasurableProcessIds);
+    processIdToWorkerProcessMetrics.keySet().removeAll(nonMeasurableProcessIds);
 
     return workerMetrics.build();
   }
 
   public ImmutableList<WorkerMetrics> createWorkerMetricsProto() {
-    return collectMetrics().stream().map(WorkerMetric::toProto).collect(toImmutableList());
+    return collectMetrics().stream().map(WorkerProcessMetrics::toProto).collect(toImmutableList());
   }
 
   public void clear() {
-    processIdToWorkerMetrics.clear();
+    processIdToWorkerProcessMetrics.clear();
   }
 
   @VisibleForTesting
-  Map<Long, WorkerMetric> getProcessIdToWorkerMetrics() {
-    return processIdToWorkerMetrics;
+  Map<Long, WorkerProcessMetrics> getProcessIdToWorkerProcessMetrics() {
+    return processIdToWorkerProcessMetrics;
   }
 
   /**
@@ -122,11 +123,11 @@ public class WorkerMetricsCollector {
       boolean isMultiplex,
       boolean isSandboxed,
       int workerKeyHash) {
-    WorkerMetric workerMetric =
-        processIdToWorkerMetrics.computeIfAbsent(
+    WorkerProcessMetrics workerMetric =
+        processIdToWorkerProcessMetrics.computeIfAbsent(
             processId,
             (pid) ->
-                new WorkerMetric(
+                new WorkerProcessMetrics(
                     workerId, processId, mnemonic, isMultiplex, isSandboxed, workerKeyHash));
 
     workerMetric.setLastCallTime(Instant.ofEpochMilli(clock.currentTimeMillis()));

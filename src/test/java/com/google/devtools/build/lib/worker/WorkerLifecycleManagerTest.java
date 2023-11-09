@@ -101,7 +101,7 @@ public final class WorkerLifecycleManagerTest {
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     workerPool.returnObject(key, w1);
-    ImmutableList<WorkerMetric> workerMetrics =
+    ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(createWorkerMetric(w1, PROCESS_ID_1, /* memoryInKb= */ 1024));
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 1024 * 100;
@@ -128,7 +128,7 @@ public final class WorkerLifecycleManagerTest {
     Worker w1 = workerPool.borrowObject(key);
     workerPool.returnObject(key, w1);
 
-    ImmutableList<WorkerMetric> workerMetrics =
+    ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(createWorkerMetric(w1, PROCESS_ID_1, /* memoryInKb= */ 1024));
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 0;
@@ -153,7 +153,7 @@ public final class WorkerLifecycleManagerTest {
     Worker w1 = workerPool.borrowObject(key);
     workerPool.returnObject(key, w1);
 
-    ImmutableList<WorkerMetric> workerMetrics = ImmutableList.of();
+    ImmutableList<WorkerProcessMetrics> workerMetrics = ImmutableList.of();
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 1;
 
@@ -176,7 +176,7 @@ public final class WorkerLifecycleManagerTest {
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     workerPool.returnObject(key, w1);
-    ImmutableList<WorkerMetric> workerMetrics =
+    ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(createWorkerMetric(w1, PROCESS_ID_1, /* memoryInKb= */ 2000));
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 1;
@@ -208,7 +208,7 @@ public final class WorkerLifecycleManagerTest {
     workerPool.returnObject(key, w2);
     workerPool.returnObject(key, w3);
 
-    ImmutableList<WorkerMetric> workerMetrics =
+    ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(
             createWorkerMetric(w1, PROCESS_ID_1, /* memoryInKb= */ 2000),
             createWorkerMetric(w2, PROCESS_ID_2, /* memoryInKb= */ 1000),
@@ -244,7 +244,7 @@ public final class WorkerLifecycleManagerTest {
     workerPool.returnObject(key, w3);
     workerPool.returnObject(key, w4);
 
-    ImmutableList<WorkerMetric> workerMetrics =
+    ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(
             createWorkerMetric(w1, PROCESS_ID_1, /* memoryInKb= */ 2000),
             createWorkerMetric(w2, PROCESS_ID_2, /* memoryInKb= */ 2000),
@@ -280,7 +280,7 @@ public final class WorkerLifecycleManagerTest {
     workerPool.returnObject(key2, w2);
     workerPool.returnObject(key2, w3);
 
-    ImmutableList<WorkerMetric> workerMetrics =
+    ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(
             createWorkerMetric(w1, PROCESS_ID_1, /* memoryInKb= */ 3000),
             createWorkerMetric(w2, PROCESS_ID_2, /* memoryInKb= */ 3000),
@@ -315,7 +315,7 @@ public final class WorkerLifecycleManagerTest {
     workerPool.returnObject(key, w1);
     workerPool.returnObject(key, w2);
 
-    ImmutableList<WorkerMetric> workerMetrics =
+    ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(
             createWorkerMetric(w1, PROCESS_ID_1, /* memoryInKb= */ 2000),
             createWorkerMetric(w2, PROCESS_ID_2, /* memoryInKb= */ 1000),
@@ -352,7 +352,7 @@ public final class WorkerLifecycleManagerTest {
     workerPool.returnObject(key2, w3);
     workerPool.returnObject(key2, w4);
 
-    ImmutableList<WorkerMetric> workerMetrics =
+    ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(
             createWorkerMetric(w1, PROCESS_ID_1, /* memoryInKb= */ 1000),
             createWorkerMetric(w2, PROCESS_ID_2, /* memoryInKb= */ 4000),
@@ -389,7 +389,7 @@ public final class WorkerLifecycleManagerTest {
     Worker w1 = workerPool.borrowObject(key);
     Worker w2 = workerPool.borrowObject(key);
 
-    ImmutableList<WorkerMetric> workerMetrics =
+    ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(
             createWorkerMetric(w1, PROCESS_ID_1, /* memoryInKb= */ 2000),
             createWorkerMetric(w2, PROCESS_ID_2, /* memoryInKb= */ 2000));
@@ -425,7 +425,7 @@ public final class WorkerLifecycleManagerTest {
     workerPool.returnObject(key, w1);
     workerPool.returnObject(key, w2);
 
-    ImmutableList<WorkerMetric> workerMetrics =
+    ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(
             createWorkerMetric(w1, PROCESS_ID_1, /* memoryInKb= */ 2000),
             createWorkerMetric(w2, PROCESS_ID_2, /* memoryInKb= */ 1000),
@@ -461,7 +461,7 @@ public final class WorkerLifecycleManagerTest {
     Worker w2 = workerPool.borrowObject(key);
     workerPool.returnObject(key, w1);
     workerPool.returnObject(key, w2);
-    ImmutableList<WorkerMetric> workerMetrics =
+    ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(
             createMultiplexWorkerMetric(
                 ImmutableList.of(w1, w2), PROCESS_ID_1, /* memoryInKb= */ 4000));
@@ -486,7 +486,7 @@ public final class WorkerLifecycleManagerTest {
     Worker w1 = workerPool.borrowObject(key);
     Worker w2 = workerPool.borrowObject(key);
     workerPool.returnObject(key, w1);
-    ImmutableList<WorkerMetric> workerMetrics =
+    ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(
             createMultiplexWorkerMetric(
                 ImmutableList.of(w1, w2), PROCESS_ID_1, /* memoryInKb= */ 4000));
@@ -505,10 +505,11 @@ public final class WorkerLifecycleManagerTest {
 
   private static final Instant DEFAULT_INSTANT = BlazeClock.instance().now();
 
-  private static WorkerMetric createWorkerMetric(Worker worker, long processId, int memoryInKb) {
+  private static WorkerProcessMetrics createWorkerMetric(
+      Worker worker, long processId, int memoryInKb) {
     // We need to override the processId.
-    WorkerMetric wm =
-        new WorkerMetric(
+    WorkerProcessMetrics wm =
+        new WorkerProcessMetrics(
             worker.getWorkerId(),
             processId,
             worker.getWorkerKey().getMnemonic(),
@@ -520,19 +521,19 @@ public final class WorkerLifecycleManagerTest {
     return wm;
   }
 
-  private static WorkerMetric createMultiplexWorkerMetric(
+  private static WorkerProcessMetrics createMultiplexWorkerMetric(
       ImmutableList<Worker> workers, long processId, int memoryInKb) {
-    WorkerMetric wm =
-        new WorkerMetric(
+    WorkerProcessMetrics workerProcessMetrics =
+        new WorkerProcessMetrics(
             workers.stream().map(Worker::getWorkerId).collect(toImmutableList()),
             processId,
             workers.get(0).getWorkerKey().getMnemonic(),
             workers.get(0).getWorkerKey().isMultiplex(),
             workers.get(0).getWorkerKey().isSandboxed(),
             workers.get(0).getWorkerKey().hashCode());
-    wm.addCollectedMetrics(
+    workerProcessMetrics.addCollectedMetrics(
         memoryInKb, /* isMeasurable= */ true, /* collectionTime= */ DEFAULT_INSTANT);
-    return wm;
+    return workerProcessMetrics;
   }
 
   private static ImmutableList<Entry<String, Integer>> emptyEntryList() {

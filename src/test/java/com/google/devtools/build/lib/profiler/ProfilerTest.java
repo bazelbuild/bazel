@@ -32,8 +32,8 @@ import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.profiler.Profiler.SlowTask;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.worker.WorkerMetric;
-import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
+import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
+import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -116,7 +116,7 @@ public final class ProfilerTest {
         /* collectPressureStallIndicators= */ false,
         /* collectResourceEstimation= */ false,
         ResourceManager.instance(),
-        WorkerMetricsCollector.instance(),
+        WorkerProcessMetricsCollector.instance(),
         BugReporter.defaultInstance());
     return buffer;
   }
@@ -141,7 +141,7 @@ public final class ProfilerTest {
         /* collectPressureStallIndicators= */ false,
         /* collectResourceEstimation= */ false,
         ResourceManager.instance(),
-        WorkerMetricsCollector.instance(),
+        WorkerProcessMetricsCollector.instance(),
         BugReporter.defaultInstance());
   }
 
@@ -251,7 +251,7 @@ public final class ProfilerTest {
         /* collectPressureStallIndicators= */ false,
         /* collectResourceEstimation= */ false,
         ResourceManager.instance(),
-        WorkerMetricsCollector.instance(),
+        WorkerProcessMetricsCollector.instance(),
         BugReporter.defaultInstance());
     try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION, "action task")) {
       // Next task takes less than 10 ms but should be recorded anyway.
@@ -286,8 +286,8 @@ public final class ProfilerTest {
   @Test
   public void testProfilerWorkerMetrics() throws Exception {
     Instant collectionTime = BlazeClock.instance().now();
-    WorkerMetric workerMetric1 =
-        new WorkerMetric(
+    WorkerProcessMetrics workerMetric1 =
+        new WorkerProcessMetrics(
             /* workerId= */ 1,
             /* processId= */ 1,
             /* mnemonic= */ "dummy1",
@@ -296,8 +296,8 @@ public final class ProfilerTest {
             /* workerKeyHash= */ 1);
     workerMetric1.addCollectedMetrics(1024, /* isMeasurable= */ true, collectionTime);
 
-    WorkerMetric workerMetric2 =
-        new WorkerMetric(
+    WorkerProcessMetrics workerMetric2 =
+        new WorkerProcessMetrics(
             /* workerId= */ 2,
             /* processId= */ 2,
             /* mnemonic= */ "dummy2",
@@ -306,9 +306,11 @@ public final class ProfilerTest {
             /* workerKeyHash= */ 2);
     workerMetric2.addCollectedMetrics(2048, /* isMeasurable= */ true, collectionTime);
 
-    ImmutableList<WorkerMetric> workerMetrics = ImmutableList.of(workerMetric1, workerMetric2);
-    WorkerMetricsCollector workerMetricsCollector = mock(WorkerMetricsCollector.class);
-    when(workerMetricsCollector.collectMetrics()).thenReturn(workerMetrics);
+    ImmutableList<WorkerProcessMetrics> workerMetrics =
+        ImmutableList.of(workerMetric1, workerMetric2);
+    WorkerProcessMetricsCollector workerProcessMetricsCollector =
+        mock(WorkerProcessMetricsCollector.class);
+    when(workerProcessMetricsCollector.collectMetrics()).thenReturn(workerMetrics);
 
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
     profiler.start(
@@ -330,7 +332,7 @@ public final class ProfilerTest {
         /* collectPressureStallIndicators= */ false,
         /* collectResourceEstimation= */ false,
         ResourceManager.instance(),
-        workerMetricsCollector,
+        workerProcessMetricsCollector,
         BugReporter.defaultInstance());
     Thread.sleep(400);
     profiler.stop();
@@ -366,7 +368,7 @@ public final class ProfilerTest {
         /* collectPressureStallIndicators= */ false,
         /* collectResourceEstimation= */ false,
         ResourceManager.instance(),
-        WorkerMetricsCollector.instance(),
+        WorkerProcessMetricsCollector.instance(),
         BugReporter.defaultInstance());
     profiler.logSimpleTask(10000, 20000, ProfilerTask.VFS_STAT, "stat");
     // Unlike the VFS_STAT event above, the remote execution event will not be recorded since we
@@ -496,7 +498,7 @@ public final class ProfilerTest {
         /* collectPressureStallIndicators= */ false,
         /* collectResourceEstimation= */ false,
         ResourceManager.instance(),
-        WorkerMetricsCollector.instance(),
+        WorkerProcessMetricsCollector.instance(),
         BugReporter.defaultInstance());
     profiler.logSimpleTask(10000, 20000, ProfilerTask.VFS_STAT, "stat");
 
@@ -699,7 +701,7 @@ public final class ProfilerTest {
         /* collectPressureStallIndicators= */ false,
         /* collectResourceEstimation= */ false,
         ResourceManager.instance(),
-        WorkerMetricsCollector.instance(),
+        WorkerProcessMetricsCollector.instance(),
         BugReporter.defaultInstance());
     profiler.logSimpleTask(badClock.nanoTime(), ProfilerTask.INFO, "some task");
     profiler.stop();
@@ -765,7 +767,7 @@ public final class ProfilerTest {
         /* collectPressureStallIndicators= */ false,
         /* collectResourceEstimation= */ false,
         ResourceManager.instance(),
-        WorkerMetricsCollector.instance(),
+        WorkerProcessMetricsCollector.instance(),
         BugReporter.defaultInstance());
     profiler.logSimpleTaskDuration(
         Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
@@ -801,7 +803,7 @@ public final class ProfilerTest {
         /* collectPressureStallIndicators= */ false,
         /* collectResourceEstimation= */ false,
         ResourceManager.instance(),
-        WorkerMetricsCollector.instance(),
+        WorkerProcessMetricsCollector.instance(),
         BugReporter.defaultInstance());
     profiler.logSimpleTaskDuration(
         Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
@@ -832,7 +834,7 @@ public final class ProfilerTest {
         /* collectPressureStallIndicators= */ false,
         /* collectResourceEstimation= */ false,
         ResourceManager.instance(),
-        WorkerMetricsCollector.instance(),
+        WorkerProcessMetricsCollector.instance(),
         BugReporter.defaultInstance());
     try (SilentCloseable c = profiler.profileAction(ProfilerTask.ACTION, "test", "foo.out", "")) {
       profiler.logEvent(ProfilerTask.PHASE, "event1");
@@ -871,7 +873,7 @@ public final class ProfilerTest {
         /* collectPressureStallIndicators= */ false,
         /* collectResourceEstimation= */ false,
         ResourceManager.instance(),
-        WorkerMetricsCollector.instance(),
+        WorkerProcessMetricsCollector.instance(),
         BugReporter.defaultInstance());
     try (SilentCloseable c =
         profiler.profileAction(ProfilerTask.ACTION, "test", "foo.out", "//foo:bar")) {
@@ -909,7 +911,7 @@ public final class ProfilerTest {
         /* collectPressureStallIndicators= */ false,
         /* collectResourceEstimation= */ false,
         ResourceManager.instance(),
-        WorkerMetricsCollector.instance(),
+        WorkerProcessMetricsCollector.instance(),
         BugReporter.defaultInstance());
     long curTime = Profiler.nanoTimeMaybe();
     for (int i = 0; i < 100_000; i++) {

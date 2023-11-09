@@ -161,7 +161,7 @@ public class WorkerModule extends BlazeModule {
     if (workerPool == null) {
       workerPool = new WorkerPoolImpl(newConfig);
       // If workerPool is restarted then we should recreate metrics.
-      WorkerMetricsCollector.instance().clear();
+      WorkerProcessMetricsCollector.instance().clear();
     }
 
     // Start collecting after a pool is defined
@@ -193,7 +193,7 @@ public class WorkerModule extends BlazeModule {
             env.getLocalResourceManager(),
             RunfilesTreeUpdater.forCommandEnvironment(env),
             env.getOptions().getOptions(WorkerOptions.class),
-            WorkerMetricsCollector.instance(),
+            WorkerProcessMetricsCollector.instance(),
             env.getClock());
     ExecutionOptions executionOptions =
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));

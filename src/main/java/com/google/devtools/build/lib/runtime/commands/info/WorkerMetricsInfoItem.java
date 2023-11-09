@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics.WorkerStats;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
-import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
+import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import java.util.List;
 
 /** Info item for persistent worker metrics. */
@@ -38,7 +38,7 @@ public final class WorkerMetricsInfoItem extends InfoItem {
       Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env) {
 
     ImmutableList<WorkerMetrics> proto =
-        WorkerMetricsCollector.instance().createWorkerMetricsProto();
+        WorkerProcessMetricsCollector.instance().createWorkerMetricsProto();
     if (proto.isEmpty()) {
       return print("No persistent workers active.");
     } else {
