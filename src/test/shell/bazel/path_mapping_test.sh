@@ -214,7 +214,6 @@ bazelcon_greeting = rule(
     _bazelcon_greeting_impl,
     cfg = _location_transition,
     attrs = {
-        "_allowlist_function_transition": attr.label(default = "@bazel_tools//tools/allowlists/function_transition_allowlist"),
         "location": attr.string(),
     },
 )
