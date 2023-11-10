@@ -181,7 +181,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
     assertThat(error).isNotNull();
     assertThat(error)
         .hasMessageThat()
-        .contains("Error in _my_subrule1: subrules cannot call other subrules");
+        .contains("subrule _my_subrule2 must declare _my_subrule1 in 'subrules'");
   }
 
   @Test
@@ -1171,6 +1171,231 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
     assertThat(assertionError)
         .hasMessageThat()
         .contains("_my_subrule has to declare 'java' as a required fragment in order to access it");
+  }
+
+  @Test
+  public void testTransitiveSubrules_subruleMustDeclareCalledSubrule() throws Exception {
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _A_impl(ctx):",
+        "  return 'from subruleA'",
+        "_A = subrule(implementation = _A_impl)",
+        "",
+        "def _B_impl(ctx):",
+        "  return _A()",
+        "_B = subrule(implementation = _B_impl)",
+        "",
+        "def _rule_impl(ctx):",
+        "  res = _B()",
+        "",
+        "my_rule = rule(_rule_impl, subrules = [_B])");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    AssertionError assertionError =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//subrule_testing:foo"));
+
+    assertThat(assertionError)
+        .hasMessageThat()
+        .contains("Error in _A: subrule _B must declare _A in 'subrules'");
+  }
+
+  @Test
+  public void testTransitiveSubrules_ruleCannotCallUndeclaredTransitiveSubrule() throws Exception {
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _A_impl(ctx):",
+        "  return 'from subruleA'",
+        "_A = subrule(implementation = _A_impl)",
+        "",
+        "def _B_impl(ctx):",
+        "  return _A()",
+        "_B = subrule(implementation = _B_impl, subrules = [_A])",
+        "",
+        "def _rule_impl(ctx):",
+        "  _A()",
+        "",
+        "my_rule = rule(_rule_impl, subrules = [_B])");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    AssertionError assertionError =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//subrule_testing:foo"));
+
+    assertThat(assertionError)
+        .hasMessageThat()
+        .contains("rule 'my_rule' must declare '_A' in 'subrules'");
+  }
+
+  @Test
+  public void testTransitiveSubrules_subruleCanCallDeclaredSubrule() throws Exception {
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _A_impl(ctx):",
+        "  return 'from subruleA'",
+        "_A = subrule(implementation = _A_impl)",
+        "",
+        "def _B_impl(ctx):",
+        "  return _A()",
+        "_B = subrule(implementation = _B_impl, subrules = [_A])",
+        "",
+        "MyInfo = provider()",
+        "def _rule_impl(ctx):",
+        "  res = _B()",
+        "  return MyInfo(result = res)",
+        "",
+        "my_rule = rule(_rule_impl, subrules = [_B])");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    String result =
+        getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo")
+            .getValue("result", String.class);
+
+    assertThat(result).isEqualTo("from subruleA");
+  }
+
+  @Test
+  public void testTransitiveSubrules_arbitrarilyLongTransitiveChainsAreResolved() throws Exception {
+    scratch.file("a/BUILD", "genrule(name = 'tool', cmd = '', outs = ['tool.out'])");
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _A_impl(ctx, _tool):",
+        "  return 'tool name: ' + _tool.label.name",
+        "_A = subrule(implementation=_A_impl, attrs = {'_tool':attr.label(default = '//a:tool')})",
+        "_B = subrule(implementation=lambda ctx: _A(), subrules = [_A])",
+        "_C = subrule(implementation=lambda ctx: _B(), subrules = [_B])",
+        "_D = subrule(implementation=lambda ctx: _C(), subrules = [_C])",
+        "",
+        "MyInfo = provider()",
+        "def _rule_impl(ctx):",
+        "  return MyInfo(result = _D())",
+        "",
+        "my_rule = rule(_rule_impl, subrules = [_D])");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    String result =
+        getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo")
+            .getValue("result", String.class);
+
+    assertThat(result).isEqualTo("tool name: tool");
+  }
+
+  @Test
+  public void testTransitiveSubrules_ruleAndSubruleCanHaveCommonSubruleDependency()
+      throws Exception {
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _A_impl(ctx):",
+        "  return 'from subruleA'",
+        "_A = subrule(implementation = _A_impl)",
+        "",
+        "def _B_impl(ctx):",
+        "  _A()",
+        "  return 'from subruleB'",
+        "_B = subrule(implementation = _B_impl, subrules = [_A])",
+        "",
+        "MyInfo = provider()",
+        "def _rule_impl(ctx):",
+        "  resA = _A()",
+        "  resB = _B()",
+        "  return MyInfo(resA = resA, resB = resB)",
+        "",
+        "my_rule = rule(_rule_impl, subrules = [_A, _B])");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    String resA =
+        getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo")
+            .getValue("resA", String.class);
+    String resB =
+        getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo")
+            .getValue("resB", String.class);
+
+    assertThat(resA).isEqualTo("from subruleA");
+    assertThat(resB).isEqualTo("from subruleB");
+  }
+
+  @Test
+  public void testTransitiveSubrules_callerSubruleCtxIsLocked() throws Exception {
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _A_impl(ctx, ctxB):",
+        "  return ctxB.label",
+        "_A = subrule(implementation = _A_impl)",
+        "",
+        "def _B_impl(ctx):",
+        "  return _A(ctx)",
+        "_B = subrule(implementation = _B_impl, subrules = [_A])",
+        "",
+        "MyInfo = provider()",
+        "def _rule_impl(ctx):",
+        "  res = _B()",
+        "  return MyInfo(result = res)",
+        "",
+        "my_rule = rule(_rule_impl, subrules = [_B])");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    AssertionError error =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//subrule_testing:foo"));
+
+    assertThat(error)
+        .hasMessageThat()
+        .contains(
+            "cannot access field or method 'label' of subrule context outside of its own"
+                + " implementation function");
+  }
+
+  @Test
+  public void testTransitiveSubrules_callerSubruleCtxIsUnlockedUponResumption() throws Exception {
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        "def _A_impl(ctx):",
+        "  return 'from A'",
+        "_A = subrule(implementation = _A_impl)",
+        "",
+        "def _B_impl(ctx):",
+        "  _A()",
+        "  return 'from B: ' + ctx.label.name",
+        "_B = subrule(implementation = _B_impl, subrules = [_A])",
+        "",
+        "MyInfo = provider()",
+        "def _rule_impl(ctx):",
+        "  res = _B()",
+        "  return MyInfo(result = res)",
+        "",
+        "my_rule = rule(_rule_impl, subrules = [_B])");
+    scratch.file(
+        "subrule_testing/BUILD",
+        //
+        "load('myrule.bzl', 'my_rule')",
+        "my_rule(name = 'foo')");
+
+    String result =
+        getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo")
+            .getValue("result", String.class);
+
+    assertThat(result).isEqualTo("from B: foo");
   }
 
   @Test

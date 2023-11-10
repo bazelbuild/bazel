@@ -849,7 +849,14 @@ public interface StarlarkRuleFunctionsApi {
             defaultValue = "[]",
             doc =
                 "List of names of configuration fragments that the subrule requires in target"
-                    + " configuration.")
+                    + " configuration."),
+        @Param(
+            name = "subrules",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = StarlarkSubruleApi.class)},
+            named = true,
+            positional = false,
+            defaultValue = "[]",
+            doc = "List of other subrules needed by this subrule.")
       },
       useStarlarkThread = true)
   StarlarkSubruleApi subrule(
@@ -857,6 +864,7 @@ public interface StarlarkRuleFunctionsApi {
       Dict<?, ?> attrs,
       Sequence<?> toolchains,
       Sequence<?> fragments,
+      Sequence<?> subrules,
       StarlarkThread thread)
       throws EvalException;
 }
