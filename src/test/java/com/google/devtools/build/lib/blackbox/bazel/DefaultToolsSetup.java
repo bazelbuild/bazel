@@ -78,6 +78,9 @@ public class DefaultToolsSetup implements ToolsSetup {
     String sharedRepoCache = System.getenv("REPOSITORY_CACHE");
     if (sharedRepoCache != null) {
       lines.add("common --repository_cache=" + sharedRepoCache);
+      // TODO: Remove this flag once all dependencies are mirrored.
+      // See https://github.com/bazelbuild/bazel/pull/19549 for more context.
+      lines.add("common --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0");
       if (OS.getCurrent() == OS.DARWIN) {
         // For reducing SSD usage on our physical Mac machines.
         lines.add("common --experimental_repository_cache_hardlinks");
