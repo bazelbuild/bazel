@@ -98,7 +98,7 @@ public class WorkerSpawnRunnerTest {
   @Mock InputMetadataProvider inputFileCache;
   @Mock Worker worker;
   @Mock WorkerOptions options;
-  @Mock WorkerMetricsCollector metricsCollector;
+  @Mock WorkerProcessMetricsCollector metricsCollector;
   @Mock ResourceManager.ResourceHandle resourceHandle;
 
   @Before

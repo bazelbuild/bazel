@@ -348,7 +348,6 @@ public class BazelRepositoryModule extends BlazeModule {
       if (repoOptions.repositoryDownloaderRetries >= 0) {
         downloadManager.setRetries(repoOptions.repositoryDownloaderRetries);
       }
-      downloadManager.setUrlsAsDefaultCanonicalId(repoOptions.urlsAsDefaultCanonicalId);
 
       repositoryCache.setHardlink(repoOptions.useHardlinks);
       if (repoOptions.experimentalScaleTimeouts > 0.0) {
@@ -414,7 +413,9 @@ public class BazelRepositoryModule extends BlazeModule {
         throw new AbruptExitException(
             detailedExitCode(
                 String.format(
-                    "Failed to parse downloader config at %s: %s", e.getLocation(), e.getMessage()),
+                    "Failed to parse downloader config%s: %s",
+                    e.getLocation() != null ? String.format(" at %s", e.getLocation()) : "",
+                    e.getMessage()),
                 Code.BAD_DOWNLOADER_CONFIG));
       }
 

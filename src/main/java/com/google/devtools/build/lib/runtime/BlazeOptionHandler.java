@@ -87,6 +87,10 @@ public final class BlazeOptionHandler {
   // being ignored as long as they are recognized by at least one (other) command.
   private static final String COMMON_PSEUDO_COMMAND = "common";
 
+  private static final String BUILD_COMMAND = "build";
+  private static final ImmutableSet<String> BUILD_COMMAND_ANCESTORS =
+      ImmutableSet.of(BUILD_COMMAND, COMMON_PSEUDO_COMMAND, ALWAYS_PSEUDO_COMMAND);
+
   // Marks an event to indicate a parsing error.
   static final String BAD_OPTION_TAG = "invalidOption";
   // Separates the invalid tag from the full error message for easier parsing.
@@ -611,12 +615,16 @@ public final class BlazeOptionHandler {
           // In production, "build" is always a valid command, but not necessarily in tests.
           // Particularly C0Command, which some tests use for low-level options parsing logic. We
           // don't want to interfere with those.
-          && validCommands.contains("build")
-          && !override.command.equals("build")) {
+          && validCommands.contains(BUILD_COMMAND)
+          && !BUILD_COMMAND_ANCESTORS.contains(override.command)) {
         throw new OptionsParsingException(
             String.format(
-                "%s: \"%s %s\" disallowed. --%s only supports the \"build\" command.",
-                rcFile, override.command, override.option, Converters.BLAZE_ALIASING_FLAG));
+                "%s: \"%s %s\" disallowed. --%s only supports these commands: %s",
+                rcFile,
+                override.command,
+                override.option,
+                Converters.BLAZE_ALIASING_FLAG,
+                String.join(", ", BUILD_COMMAND_ANCESTORS)));
       }
       String command = override.command;
       int index = command.indexOf(':');

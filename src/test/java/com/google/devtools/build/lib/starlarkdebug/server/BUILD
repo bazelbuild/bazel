@@ -27,6 +27,7 @@ java_test(
     name = "StarlarkDebugServerTest",
     size = "medium",
     srcs = ["StarlarkDebugServerTest.java"],
+    jvm_flags = ["-Djava.net.preferIPv6Addresses=true"],  # https://github.com/bazelbuild/bazel/issues/5206
     deps = [
         ":utils",
         "//src/main/java/com/google/devtools/build/lib/events",

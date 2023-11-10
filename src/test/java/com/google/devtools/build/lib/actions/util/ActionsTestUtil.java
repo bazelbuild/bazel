@@ -26,9 +26,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -75,9 +73,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
@@ -87,7 +83,6 @@ import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -96,18 +91,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.build.skyframe.AbstractSkyFunctionEnvironmentForTesting;
-import com.google.devtools.build.skyframe.ErrorInfo;
-import com.google.devtools.build.skyframe.EvaluationContext;
-import com.google.devtools.build.skyframe.EvaluationResult;
-import com.google.devtools.build.skyframe.MemoizingEvaluator;
-import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrUntypedException;
-import com.google.devtools.build.skyframe.Version;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
@@ -117,7 +102,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -125,7 +109,6 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -212,26 +195,6 @@ public final class ActionsTestUtil {
         DiscoveredModulesPruner.DEFAULT,
         SyscallCache.NO_CACHE,
         ThreadStateReceiver.NULL_INSTANCE);
-  }
-
-  public static ActionExecutionContext createContextForInputDiscovery(
-      Executor executor,
-      ExtendedEventHandler eventHandler,
-      ActionKeyContext actionKeyContext,
-      FileOutErr fileOutErr,
-      Path execRoot,
-      OutputMetadataStore outputMetadataStore,
-      MemoizingEvaluator evaluator,
-      DiscoveredModulesPruner discoveredModulesPruner) {
-    return createContextForInputDiscovery(
-        executor,
-        eventHandler,
-        actionKeyContext,
-        fileOutErr,
-        execRoot,
-        outputMetadataStore,
-        new BlockingSkyFunctionEnvironment(evaluator, eventHandler),
-        discoveredModulesPruner);
   }
 
   public static ActionExecutionContext createContextForInputDiscovery(
@@ -370,97 +333,6 @@ public final class ActionsTestUtil {
         out.write(contents.getBytes(UTF_8));
       }
     };
-  }
-
-  /**
-   * {@link SkyFunction.Environment} that internally makes a full Skyframe evaluate call for the
-   * requested keys, blocking until the values are ready.
-   */
-  private static final class BlockingSkyFunctionEnvironment
-      extends AbstractSkyFunctionEnvironmentForTesting {
-    private final MemoizingEvaluator evaluator;
-    private final EventHandler eventHandler;
-
-    private BlockingSkyFunctionEnvironment(
-        MemoizingEvaluator evaluator, EventHandler eventHandler) {
-      this.evaluator = evaluator;
-      this.eventHandler = eventHandler;
-    }
-
-    @Override
-    protected ValueOrUntypedException getSingleValueOrUntypedException(SkyKey depKey)
-        throws InterruptedException {
-      return getOrderedValueOrUntypedExceptions(ImmutableList.of(depKey)).get(0);
-    }
-
-    @Override
-    protected Map<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
-        Iterable<? extends SkyKey> depKeys) {
-      EvaluationResult<SkyValue> evaluationResult;
-      Map<SkyKey, ValueOrUntypedException> result = new HashMap<>();
-      try {
-        EvaluationContext evaluationContext =
-            EvaluationContext.newBuilder()
-                .setKeepGoing(false)
-                .setParallelism(ResourceUsage.getAvailableProcessors())
-                .setEventHandler(new Reporter(new EventBus(), eventHandler))
-                .build();
-        evaluationResult = evaluator.evaluate(depKeys, evaluationContext);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        for (SkyKey key : depKeys) {
-          result.put(key, ValueOrUntypedException.ofNull());
-        }
-        return result;
-      }
-      for (SkyKey key : depKeys) {
-        SkyValue value = evaluationResult.get(key);
-        if (value != null) {
-          result.put(key, ValueOrUntypedException.ofValueUntyped(value));
-          continue;
-        }
-        ErrorInfo errorInfo = evaluationResult.getError(key);
-        if (errorInfo == null || errorInfo.getException() == null) {
-          result.put(key, ValueOrUntypedException.ofNull());
-          continue;
-        }
-        result.put(key, ValueOrUntypedException.ofExn(errorInfo.getException()));
-      }
-      return result;
-    }
-
-    @Override
-    protected List<ValueOrUntypedException> getOrderedValueOrUntypedExceptions(
-        Iterable<? extends SkyKey> depKeys) {
-      Map<SkyKey, ValueOrUntypedException> mapResult = getValueOrUntypedExceptions(depKeys);
-      return ImmutableList.copyOf(Iterables.transform(depKeys, mapResult::get));
-    }
-
-    @Override
-    public ExtendedEventHandler getListener() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void registerDependencies(Iterable<SkyKey> keys) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors() {
-      return false;
-    }
-
-    @Override
-    public <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier) {
-      return stateSupplier.get();
-    }
-
-    @Override
-    @Nullable
-    public Version getMaxTransitiveSourceVersionSoFar() {
-      throw new UnsupportedOperationException();
-    }
   }
 
   @SerializationConstant

@@ -76,7 +76,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
-import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
+import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
@@ -347,7 +347,7 @@ public class BlazeRuntimeWrapper {
               /* collectPressureStallIndicators= */ false,
               /* collectResourceEstimation= */ false,
               ResourceManager.instance(),
-              WorkerMetricsCollector.instance(),
+              WorkerProcessMetricsCollector.instance(),
               runtime.getBugReporter());
 
       StoredEventHandler storedEventHandler = new StoredEventHandler();

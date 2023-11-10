@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
+import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import java.util.List;
 import org.junit.After;
 import org.junit.Assume;
@@ -82,7 +82,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
 
   @Before
   public void setUpWorkerMetricsCollecto() {
-    WorkerMetricsCollector.instance().setClock(new JavaClock());
+    WorkerProcessMetricsCollector.instance().setClock(new JavaClock());
   }
 
   @After

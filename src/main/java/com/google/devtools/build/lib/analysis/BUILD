@@ -165,7 +165,7 @@ java_library(
         "AnalysisRootCauseEvent.java",
         "AnalysisUtils.java",
         "AspectCompleteEvent.java",
-        "AspectOnRuleContext.java",
+        "AspectContext.java",
         "AspectResolutionHelpers.java",
         "AspectValue.java",
         "BaseRuleClasses.java",
@@ -985,6 +985,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/net/starlark/java/eval",
+        "//third_party:caffeine",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -1655,6 +1656,7 @@ java_library(
         ":config/fragment_registry",
         ":config/invalid_configuration_exception",
         ":config/optioninfo",
+        ":config/options_diff",
         ":config/run_under",
         ":config/starlark_defined_config_transition",
         ":platform_options",
@@ -1699,6 +1701,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
@@ -1950,6 +1953,21 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "config/options_diff",
+    srcs = [
+        "config/OptionsDiff.java",
+    ],
+    deps = [
+        ":config/build_options",
+        ":config/fragment_options",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
     ],
 )
 
@@ -2479,6 +2497,7 @@ java_library(
         ":config/core_options",
         ":config/fragment_options",
         ":config/optioninfo",
+        ":config/options_diff",
         ":config/starlark_defined_config_transition",
         ":config/transitions/configuration_transition",
         ":test/test_configuration",

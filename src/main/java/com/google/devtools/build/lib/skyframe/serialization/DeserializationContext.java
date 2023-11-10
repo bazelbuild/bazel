@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ClassToInstanceMap;
@@ -34,7 +35,7 @@ import javax.annotation.Nullable;
  * thread-safe and should only be accessed on a single thread for deserializing one serialized
  * object (that may contain other serialized objects inside it).
  */
-public class DeserializationContext implements SerializationDependencyProvider {
+public class DeserializationContext implements AsyncDeserializationContext {
   private final ObjectCodecRegistry registry;
   private final ImmutableClassToInstanceMap<Object> dependencies;
   @Nullable private final Memoizer.Deserializer deserializer;
@@ -59,12 +60,38 @@ public class DeserializationContext implements SerializationDependencyProvider {
     this(AutoRegistry.get(), dependencies);
   }
 
-  // TODO(shahan): consider making codedIn a member of this class.
+  @Nullable
   @SuppressWarnings({"TypeParameterUnusedInFormals"})
   public <T> T deserialize(CodedInputStream codedIn) throws IOException, SerializationException {
     return deserializeInternal(codedIn, /*customMemoizationStrategy=*/ null);
   }
 
+  @Override
+  public void deserialize(CodedInputStream codedIn, Object obj, long offset)
+      throws IOException, SerializationException {
+    Object value = deserializeInternal(codedIn, /* customMemoizationStrategy= */ null);
+    if (value == null) {
+      return;
+    }
+    unsafe().putObject(obj, offset, value);
+  }
+
+  /**
+   * Deserializes into {@code obj} using {@code setter}.
+   *
+   * <p>This allows custom processing of the deserialized object.
+   */
+  @Override
+  public void deserialize(CodedInputStream codedIn, Object obj, FieldSetter setter)
+      throws IOException, SerializationException {
+    Object value = deserializeInternal(codedIn, /* customMemoizationStrategy= */ null);
+    if (value == null) {
+      return;
+    }
+    setter.set(obj, value);
+  }
+
+  @Nullable
   @SuppressWarnings({"TypeParameterUnusedInFormals"})
   public <T> T deserializeWithAdHocMemoizationStrategy(
       CodedInputStream codedIn, MemoizationStrategy memoizationStrategy)
@@ -72,6 +99,7 @@ public class DeserializationContext implements SerializationDependencyProvider {
     return deserializeInternal(codedIn, memoizationStrategy);
   }
 
+  @Nullable
   @SuppressWarnings({"TypeParameterUnusedInFormals", "unchecked"})
   private <T> T deserializeInternal(
       CodedInputStream codedIn, @Nullable MemoizationStrategy customMemoizationStrategy)
@@ -100,14 +128,8 @@ public class DeserializationContext implements SerializationDependencyProvider {
     }
   }
 
-
-  /**
-   * Register an initial value for the currently deserializing value, for use by child objects that
-   * may have references to it.
-   *
-   * <p>This is a noop when memoization is disabled.
-   */
-  public <T> void registerInitialValue(T initialValue) {
+  @Override
+  public void registerInitialValue(Object initialValue) {
     if (deserializer != null) {
       deserializer.registerInitialValue(initialValue);
     }

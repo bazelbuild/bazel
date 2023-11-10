@@ -62,8 +62,14 @@ public final class PrerequisiteArtifacts {
   }
 
   public static NestedSet<Artifact> nestedSet(RuleContext ruleContext, String attributeName) {
+    return nestedSet(ruleContext.getOwningPrerequisitesCollection(attributeName), attributeName);
+  }
+
+  public static NestedSet<Artifact> nestedSet(
+      PrerequisitesCollection prerequisitesCollection, String attributeName) {
     NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
-    for (FileProvider target : ruleContext.getPrerequisites(attributeName, FileProvider.class)) {
+    for (FileProvider target :
+        prerequisitesCollection.getPrerequisites(attributeName, FileProvider.class)) {
       result.addTransitive(target.getFilesToBuild());
     }
     return result.build();

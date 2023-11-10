@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.worker.TestUtils.createWorkerKey;
 import static org.mockito.ArgumentMatchers.any;
@@ -67,6 +68,13 @@ public final class WorkerLifecycleManagerTest {
     }
   }
 
+  private static final String DUMMY_MNEMONIC = "dummy";
+  private static final long PROCESS_ID_1 = 1L;
+  private static final long PROCESS_ID_2 = 2L;
+  private static final long PROCESS_ID_3 = 3L;
+  private static final long PROCESS_ID_4 = 4L;
+  private static final long PROCESS_ID_5 = 5L;
+
   @Before
   public void setUp() throws Exception {
     fileSystem = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
@@ -89,17 +97,12 @@ public final class WorkerLifecycleManagerTest {
   public void testEvictWorkers_doNothing_lowMemoryUsage() throws Exception {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
-            new WorkerPoolConfig(factoryMock, entryList("dummy", 1), emptyEntryList()));
-    WorkerKey key = createWorkerKey("dummy", fileSystem);
+            new WorkerPoolConfig(factoryMock, entryList(DUMMY_MNEMONIC, 1), emptyEntryList()));
+    WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     workerPool.returnObject(key, w1);
-
-    ImmutableList<WorkerMetric> workerMetrics =
-        ImmutableList.of(
-            WorkerMetric.create(
-                createWorkerProperties(w1.getWorkerId(), 1L, "dummy"),
-                createWorkerStat(1024),
-                true));
+    ImmutableList<WorkerProcessMetrics> workerMetrics =
+        ImmutableList.of(createWorkerMetric(w1, PROCESS_ID_1, /* memoryInKb= */ 1024));
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 1024 * 100;
 
@@ -120,17 +123,13 @@ public final class WorkerLifecycleManagerTest {
   public void testEvictWorkers_doNothing_zeroThreshold() throws Exception {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
-            new WorkerPoolConfig(factoryMock, entryList("dummy", 1), emptyEntryList()));
-    WorkerKey key = createWorkerKey("dummy", fileSystem);
+            new WorkerPoolConfig(factoryMock, entryList(DUMMY_MNEMONIC, 1), emptyEntryList()));
+    WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     workerPool.returnObject(key, w1);
 
-    ImmutableList<WorkerMetric> workerMetrics =
-        ImmutableList.of(
-            WorkerMetric.create(
-                createWorkerProperties(w1.getWorkerId(), 1L, "dummy"),
-                createWorkerStat(1024),
-                true));
+    ImmutableList<WorkerProcessMetrics> workerMetrics =
+        ImmutableList.of(createWorkerMetric(w1, PROCESS_ID_1, /* memoryInKb= */ 1024));
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 0;
 
@@ -149,12 +148,12 @@ public final class WorkerLifecycleManagerTest {
   public void testEvictWorkers_doNothing_emptyMetrics() throws Exception {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
-            new WorkerPoolConfig(factoryMock, entryList("dummy", 1), emptyEntryList()));
-    WorkerKey key = createWorkerKey("dummy", fileSystem);
+            new WorkerPoolConfig(factoryMock, entryList(DUMMY_MNEMONIC, 1), emptyEntryList()));
+    WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     workerPool.returnObject(key, w1);
 
-    ImmutableList<WorkerMetric> workerMetrics = ImmutableList.of();
+    ImmutableList<WorkerProcessMetrics> workerMetrics = ImmutableList.of();
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 1;
 
@@ -173,16 +172,12 @@ public final class WorkerLifecycleManagerTest {
   public void testGetEvictionCandidates_selectOnlyWorker() throws Exception {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
-            new WorkerPoolConfig(factoryMock, entryList("dummy", 1), emptyEntryList()));
-    WorkerKey key = createWorkerKey("dummy", fileSystem);
+            new WorkerPoolConfig(factoryMock, entryList(DUMMY_MNEMONIC, 1), emptyEntryList()));
+    WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     workerPool.returnObject(key, w1);
-    ImmutableList<WorkerMetric> workerMetrics =
-        ImmutableList.of(
-            WorkerMetric.create(
-                createWorkerProperties(w1.getWorkerId(), 1L, "dummy", w1.getWorkerKey().hashCode()),
-                createWorkerStat(2000),
-                true));
+    ImmutableList<WorkerProcessMetrics> workerMetrics =
+        ImmutableList.of(createWorkerMetric(w1, PROCESS_ID_1, /* memoryInKb= */ 2000));
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 1;
     WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
@@ -204,8 +199,8 @@ public final class WorkerLifecycleManagerTest {
   public void testGetEvictionCandidates_evictLargestWorkers() throws Exception {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
-            new WorkerPoolConfig(factoryMock, entryList("dummy", 3), emptyEntryList()));
-    WorkerKey key = createWorkerKey("dummy", fileSystem);
+            new WorkerPoolConfig(factoryMock, entryList(DUMMY_MNEMONIC, 3), emptyEntryList()));
+    WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     Worker w2 = workerPool.borrowObject(key);
     Worker w3 = workerPool.borrowObject(key);
@@ -213,20 +208,11 @@ public final class WorkerLifecycleManagerTest {
     workerPool.returnObject(key, w2);
     workerPool.returnObject(key, w3);
 
-    ImmutableList<WorkerMetric> workerMetrics =
+    ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(
-            WorkerMetric.create(
-                createWorkerProperties(w1.getWorkerId(), 1L, "dummy"),
-                createWorkerStat(2000),
-                true),
-            WorkerMetric.create(
-                createWorkerProperties(w2.getWorkerId(), 2L, "dummy"),
-                createWorkerStat(1000),
-                true),
-            WorkerMetric.create(
-                createWorkerProperties(w3.getWorkerId(), 3L, "dummy"),
-                createWorkerStat(4000),
-                true));
+            createWorkerMetric(w1, PROCESS_ID_1, /* memoryInKb= */ 2000),
+            createWorkerMetric(w2, PROCESS_ID_2, /* memoryInKb= */ 1000),
+            createWorkerMetric(w3, PROCESS_ID_3, /* memoryInKb= */ 4000));
 
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 2;
@@ -247,8 +233,8 @@ public final class WorkerLifecycleManagerTest {
       throws Exception {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
-            new WorkerPoolConfig(factoryMock, entryList("dummy", 4), emptyEntryList()));
-    WorkerKey key = createWorkerKey("dummy", fileSystem);
+            new WorkerPoolConfig(factoryMock, entryList(DUMMY_MNEMONIC, 4), emptyEntryList()));
+    WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     Worker w2 = workerPool.borrowObject(key);
     Worker w3 = workerPool.borrowObject(key);
@@ -258,24 +244,12 @@ public final class WorkerLifecycleManagerTest {
     workerPool.returnObject(key, w3);
     workerPool.returnObject(key, w4);
 
-    ImmutableList<WorkerMetric> workerMetrics =
+    ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(
-            WorkerMetric.create(
-                createWorkerProperties(w1.getWorkerId(), 1L, "dummy"),
-                createWorkerStat(2000),
-                true),
-            WorkerMetric.create(
-                createWorkerProperties(w2.getWorkerId(), 2L, "dummy"),
-                createWorkerStat(2000),
-                true),
-            WorkerMetric.create(
-                createWorkerProperties(w3.getWorkerId(), 3L, "dummy"),
-                createWorkerStat(4000),
-                true),
-            WorkerMetric.create(
-                createWorkerProperties(w4.getWorkerId(), 4L, "dummy"),
-                createWorkerStat(4000),
-                true));
+            createWorkerMetric(w1, PROCESS_ID_1, /* memoryInKb= */ 2000),
+            createWorkerMetric(w2, PROCESS_ID_2, /* memoryInKb= */ 2000),
+            createWorkerMetric(w3, PROCESS_ID_3, /* memoryInKb= */ 4000),
+            createWorkerMetric(w4, PROCESS_ID_4, /* memoryInKb= */ 4000));
 
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 1;
@@ -295,9 +269,9 @@ public final class WorkerLifecycleManagerTest {
       throws Exception {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
-            new WorkerPoolConfig(factoryMock, entryList("dummy", 3), emptyEntryList()));
-    WorkerKey key1 = createWorkerKey("dummy", fileSystem);
-    WorkerKey key2 = createWorkerKey("dummy", fileSystem, true);
+            new WorkerPoolConfig(factoryMock, entryList(DUMMY_MNEMONIC, 3), emptyEntryList()));
+    WorkerKey key1 = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
+    WorkerKey key2 = createWorkerKey(DUMMY_MNEMONIC, fileSystem, true);
 
     Worker w1 = workerPool.borrowObject(key1);
     Worker w2 = workerPool.borrowObject(key2);
@@ -306,20 +280,11 @@ public final class WorkerLifecycleManagerTest {
     workerPool.returnObject(key2, w2);
     workerPool.returnObject(key2, w3);
 
-    ImmutableList<WorkerMetric> workerMetrics =
+    ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(
-            WorkerMetric.create(
-                createWorkerProperties(w1.getWorkerId(), 1L, "dummy"),
-                createWorkerStat(3000),
-                true),
-            WorkerMetric.create(
-                createWorkerProperties(w2.getWorkerId(), 2L, "dummy"),
-                createWorkerStat(3000),
-                true),
-            WorkerMetric.create(
-                createWorkerProperties(w3.getWorkerId(), 3L, "dummy"),
-                createWorkerStat(1000),
-                true));
+            createWorkerMetric(w1, PROCESS_ID_1, /* memoryInKb= */ 3000),
+            createWorkerMetric(w2, PROCESS_ID_2, /* memoryInKb= */ 3000),
+            createWorkerMetric(w3, PROCESS_ID_3, /* memoryInKb= */ 1000));
 
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 2;
@@ -342,28 +307,19 @@ public final class WorkerLifecycleManagerTest {
   public void testGetEvictionCandidates_evictOnlyIdleWorkers() throws Exception {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
-            new WorkerPoolConfig(factoryMock, entryList("dummy", 3), emptyEntryList()));
-    WorkerKey key = createWorkerKey("dummy", fileSystem);
+            new WorkerPoolConfig(factoryMock, entryList(DUMMY_MNEMONIC, 3), emptyEntryList()));
+    WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     Worker w2 = workerPool.borrowObject(key);
     Worker w3 = workerPool.borrowObject(key);
     workerPool.returnObject(key, w1);
     workerPool.returnObject(key, w2);
 
-    ImmutableList<WorkerMetric> workerMetrics =
+    ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(
-            WorkerMetric.create(
-                createWorkerProperties(w1.getWorkerId(), 1L, "dummy"),
-                createWorkerStat(2000),
-                true),
-            WorkerMetric.create(
-                createWorkerProperties(w2.getWorkerId(), 2L, "dummy"),
-                createWorkerStat(1000),
-                true),
-            WorkerMetric.create(
-                createWorkerProperties(w3.getWorkerId(), 3L, "dummy"),
-                createWorkerStat(4000),
-                true));
+            createWorkerMetric(w1, PROCESS_ID_1, /* memoryInKb= */ 2000),
+            createWorkerMetric(w2, PROCESS_ID_2, /* memoryInKb= */ 1000),
+            createWorkerMetric(w3, PROCESS_ID_3, /* memoryInKb= */ 4000));
 
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 2;
@@ -383,8 +339,9 @@ public final class WorkerLifecycleManagerTest {
   public void testGetEvictionCandidates_evictDifferentWorkerKeys() throws Exception {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
-            new WorkerPoolConfig(factoryMock, entryList("dummy", 2, "smart", 2), emptyEntryList()));
-    WorkerKey key1 = createWorkerKey("dummy", fileSystem);
+            new WorkerPoolConfig(
+                factoryMock, entryList(DUMMY_MNEMONIC, 2, "smart", 2), emptyEntryList()));
+    WorkerKey key1 = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     WorkerKey key2 = createWorkerKey("smart", fileSystem);
     Worker w1 = workerPool.borrowObject(key1);
     Worker w2 = workerPool.borrowObject(key1);
@@ -395,24 +352,12 @@ public final class WorkerLifecycleManagerTest {
     workerPool.returnObject(key2, w3);
     workerPool.returnObject(key2, w4);
 
-    ImmutableList<WorkerMetric> workerMetrics =
+    ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(
-            WorkerMetric.create(
-                createWorkerProperties(w1.getWorkerId(), 1L, "dummy"),
-                createWorkerStat(1000),
-                true),
-            WorkerMetric.create(
-                createWorkerProperties(w2.getWorkerId(), 2L, "dummy"),
-                createWorkerStat(4000),
-                true),
-            WorkerMetric.create(
-                createWorkerProperties(w3.getWorkerId(), 3L, "smart"),
-                createWorkerStat(3000),
-                true),
-            WorkerMetric.create(
-                createWorkerProperties(w4.getWorkerId(), 4L, "smart"),
-                createWorkerStat(1000),
-                true));
+            createWorkerMetric(w1, PROCESS_ID_1, /* memoryInKb= */ 1000),
+            createWorkerMetric(w2, PROCESS_ID_2, /* memoryInKb= */ 4000),
+            createWorkerMetric(w3, PROCESS_ID_3, /* memoryInKb= */ 3000),
+            createWorkerMetric(w4, PROCESS_ID_4, /* memoryInKb= */ 1000));
 
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 2;
@@ -439,21 +384,15 @@ public final class WorkerLifecycleManagerTest {
   public void testGetEvictionCandidates_testDoomedWorkers() throws Exception {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
-            new WorkerPoolConfig(factoryMock, entryList("dummy", 2), emptyEntryList()));
-    WorkerKey key = createWorkerKey("dummy", fileSystem);
+            new WorkerPoolConfig(factoryMock, entryList(DUMMY_MNEMONIC, 2), emptyEntryList()));
+    WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     Worker w2 = workerPool.borrowObject(key);
 
-    ImmutableList<WorkerMetric> workerMetrics =
+    ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(
-            WorkerMetric.create(
-                createWorkerProperties(w1.getWorkerId(), 1L, "dummy"),
-                createWorkerStat(2000),
-                true),
-            WorkerMetric.create(
-                createWorkerProperties(w2.getWorkerId(), 2L, "dummy"),
-                createWorkerStat(2000),
-                true));
+            createWorkerMetric(w1, PROCESS_ID_1, /* memoryInKb= */ 2000),
+            createWorkerMetric(w2, PROCESS_ID_2, /* memoryInKb= */ 2000));
 
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 1;
@@ -476,8 +415,8 @@ public final class WorkerLifecycleManagerTest {
   public void testGetEvictionCandidates_testDoomedAndIdleWorkers() throws Exception {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
-            new WorkerPoolConfig(factoryMock, entryList("dummy", 5), emptyEntryList()));
-    WorkerKey key = createWorkerKey("dummy", fileSystem);
+            new WorkerPoolConfig(factoryMock, entryList(DUMMY_MNEMONIC, 5), emptyEntryList()));
+    WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     Worker w2 = workerPool.borrowObject(key);
     Worker w3 = workerPool.borrowObject(key);
@@ -486,28 +425,13 @@ public final class WorkerLifecycleManagerTest {
     workerPool.returnObject(key, w1);
     workerPool.returnObject(key, w2);
 
-    ImmutableList<WorkerMetric> workerMetrics =
+    ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(
-            WorkerMetric.create(
-                createWorkerProperties(w1.getWorkerId(), 1L, "dummy"),
-                createWorkerStat(2000),
-                true),
-            WorkerMetric.create(
-                createWorkerProperties(w2.getWorkerId(), 2L, "dummy"),
-                createWorkerStat(1000),
-                true),
-            WorkerMetric.create(
-                createWorkerProperties(w3.getWorkerId(), 3L, "dummy"),
-                createWorkerStat(4000),
-                true),
-            WorkerMetric.create(
-                createWorkerProperties(w4.getWorkerId(), 4L, "dummy"),
-                createWorkerStat(5000),
-                true),
-            WorkerMetric.create(
-                createWorkerProperties(w5.getWorkerId(), 5L, "dummy"),
-                createWorkerStat(1000),
-                true));
+            createWorkerMetric(w1, PROCESS_ID_1, /* memoryInKb= */ 2000),
+            createWorkerMetric(w2, PROCESS_ID_2, /* memoryInKb= */ 1000),
+            createWorkerMetric(w3, PROCESS_ID_3, /* memoryInKb= */ 4000),
+            createWorkerMetric(w4, PROCESS_ID_4, /* memoryInKb= */ 5000),
+            createWorkerMetric(w5, PROCESS_ID_5, /* memoryInKb= */ 1000));
 
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 2;
@@ -530,20 +454,17 @@ public final class WorkerLifecycleManagerTest {
   public void evictWorkers_testMultiplexWorkers() throws Exception {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
-            new WorkerPoolConfig(factoryMock, emptyEntryList(), entryList("dummy", 2)));
+            new WorkerPoolConfig(factoryMock, emptyEntryList(), entryList(DUMMY_MNEMONIC, 2)));
     WorkerKey key =
-        createWorkerKey("dummy", fileSystem, /* multiplex= */ true, /* sandboxed= */ false);
+        createWorkerKey(DUMMY_MNEMONIC, fileSystem, /* multiplex= */ true, /* sandboxed= */ false);
     Worker w1 = workerPool.borrowObject(key);
     Worker w2 = workerPool.borrowObject(key);
     workerPool.returnObject(key, w1);
     workerPool.returnObject(key, w2);
-    ImmutableList<WorkerMetric> workerMetrics =
+    ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(
-            WorkerMetric.create(
-                createMultiplexWorkerProperties(
-                    ImmutableList.of(w1.getWorkerId(), w2.getWorkerId()), 1L, "dummy"),
-                createWorkerStat(4000),
-                true));
+            createMultiplexWorkerMetric(
+                ImmutableList.of(w1, w2), PROCESS_ID_1, /* memoryInKb= */ 4000));
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 1;
     WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
@@ -556,21 +477,19 @@ public final class WorkerLifecycleManagerTest {
 
   @Test
   public void evictWorkers_doomMultiplexWorker() throws Exception {
+    String dummyMnemonic = DUMMY_MNEMONIC;
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
-            new WorkerPoolConfig(factoryMock, emptyEntryList(), entryList("dummy", 2)));
+            new WorkerPoolConfig(factoryMock, emptyEntryList(), entryList(dummyMnemonic, 2)));
     WorkerKey key =
-        createWorkerKey("dummy", fileSystem, /* multiplex= */ true, /* sandboxed= */ false);
+        createWorkerKey(dummyMnemonic, fileSystem, /* multiplex= */ true, /* sandboxed= */ false);
     Worker w1 = workerPool.borrowObject(key);
     Worker w2 = workerPool.borrowObject(key);
     workerPool.returnObject(key, w1);
-    ImmutableList<WorkerMetric> workerMetrics =
+    ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(
-            WorkerMetric.create(
-                createMultiplexWorkerProperties(
-                    ImmutableList.of(w1.getWorkerId(), w2.getWorkerId()), 1L, "dummy"),
-                createWorkerStat(4000),
-                true));
+            createMultiplexWorkerMetric(
+                ImmutableList.of(w1, w2), PROCESS_ID_1, /* memoryInKb= */ 4000));
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 1;
     options.shrinkWorkerPool = true;
@@ -584,31 +503,37 @@ public final class WorkerLifecycleManagerTest {
         .isEqualTo(Sets.newHashSet(w1.getWorkerId(), w2.getWorkerId()));
   }
 
-  private static WorkerMetric.WorkerProperties createWorkerProperties(
-      int workerId, long processId, String mnemonic, int workerKeyHash) {
-    return WorkerMetric.WorkerProperties.create(
-        ImmutableList.of(workerId),
-        processId,
-        mnemonic,
-        /* isMultiplex= */ false,
-        /* isSandboxed= */ false,
-        workerKeyHash);
+  private static final Instant DEFAULT_INSTANT = BlazeClock.instance().now();
+
+  private static WorkerProcessMetrics createWorkerMetric(
+      Worker worker, long processId, int memoryInKb) {
+    // We need to override the processId.
+    WorkerProcessMetrics wm =
+        new WorkerProcessMetrics(
+            worker.getWorkerId(),
+            processId,
+            worker.getWorkerKey().getMnemonic(),
+            worker.getWorkerKey().isMultiplex(),
+            worker.getWorkerKey().isSandboxed(),
+            worker.getWorkerKey().hashCode());
+    wm.addCollectedMetrics(
+        memoryInKb, /* isMeasurable= */ true, /* collectionTime= */ DEFAULT_INSTANT);
+    return wm;
   }
 
-  private static WorkerMetric.WorkerProperties createWorkerProperties(
-      int workerId, long processId, String mnemonic) {
-    return createWorkerProperties(workerId, processId, mnemonic, /* workerKeyHash= */ 0);
-  }
-
-  private static WorkerMetric.WorkerProperties createMultiplexWorkerProperties(
-      ImmutableList<Integer> workerIds, long processId, String mnemonic) {
-    return WorkerMetric.WorkerProperties.create(
-        workerIds, processId, mnemonic, true, /* isSandboxed= */ false, /* workerKeyHash= */ 0);
-  }
-
-  private static WorkerMetric.WorkerStat createWorkerStat(int memoryUsage) {
-    return WorkerMetric.WorkerStat.create(
-        memoryUsage, /*lastCallTimestamp */ Instant.now(), /* timestamp*/ Instant.now());
+  private static WorkerProcessMetrics createMultiplexWorkerMetric(
+      ImmutableList<Worker> workers, long processId, int memoryInKb) {
+    WorkerProcessMetrics workerProcessMetrics =
+        new WorkerProcessMetrics(
+            workers.stream().map(Worker::getWorkerId).collect(toImmutableList()),
+            processId,
+            workers.get(0).getWorkerKey().getMnemonic(),
+            workers.get(0).getWorkerKey().isMultiplex(),
+            workers.get(0).getWorkerKey().isSandboxed(),
+            workers.get(0).getWorkerKey().hashCode());
+    workerProcessMetrics.addCollectedMetrics(
+        memoryInKb, /* isMeasurable= */ true, /* collectionTime= */ DEFAULT_INSTANT);
+    return workerProcessMetrics;
   }
 
   private static ImmutableList<Entry<String, Integer>> emptyEntryList() {

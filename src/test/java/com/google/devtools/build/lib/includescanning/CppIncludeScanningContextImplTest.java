@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.includescanning;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.MoreCollectors.onlyElement;
+import static com.google.common.collect.Streams.stream;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -53,13 +54,9 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrUntypedException;
-import com.google.devtools.build.skyframe.Version;
 import java.io.IOException;
 import java.util.Collection;
-import java.util.List;
 import java.util.function.Function;
-import java.util.function.Supplier;
-import java.util.stream.StreamSupport;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
@@ -224,20 +221,10 @@ public final class CppIncludeScanningContextImplTest extends BuildViewTestCase {
 
   private static Environment environmentWithValues(ImmutableMap<SkyKey, SkyValue> values) {
     return new AbstractSkyFunctionEnvironmentForTesting() {
-      @Nullable
-      @Override
-      protected ValueOrUntypedException getSingleValueOrUntypedException(SkyKey depKey) {
-        @Nullable SkyValue value = values.get(depKey);
-        if (value == null) {
-          return null;
-        }
-        return ValueOrUntypedException.ofValueUntyped(value);
-      }
-
       @Override
       protected ImmutableMap<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
           Iterable<? extends SkyKey> depKeys) {
-        return StreamSupport.stream(depKeys.spliterator(), /* parallel= */ false)
+        return stream(depKeys)
             .collect(
                 toImmutableMap(
                     Function.identity(),
@@ -250,35 +237,8 @@ public final class CppIncludeScanningContextImplTest extends BuildViewTestCase {
       }
 
       @Override
-      protected List<ValueOrUntypedException> getOrderedValueOrUntypedExceptions(
-          Iterable<? extends SkyKey> depKeys) {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
       public ExtendedEventHandler getListener() {
         throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public void registerDependencies(Iterable<SkyKey> keys) {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public boolean inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors() {
-        return false;
-      }
-
-      @Override
-      public <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier) {
-        throw new UnsupportedOperationException();
-      }
-
-      @Nullable
-      @Override
-      public Version getMaxTransitiveSourceVersionSoFar() {
-        return null;
       }
     };
   }

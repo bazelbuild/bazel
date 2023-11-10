@@ -32,8 +32,8 @@ import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.profiler.Profiler.SlowTask;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.worker.WorkerMetric;
-import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
+import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
+import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -116,7 +116,7 @@ public final class ProfilerTest {
         /* collectPressureStallIndicators= */ false,
         /* collectResourceEstimation= */ false,
         ResourceManager.instance(),
-        WorkerMetricsCollector.instance(),
+        WorkerProcessMetricsCollector.instance(),
         BugReporter.defaultInstance());
     return buffer;
   }
@@ -141,7 +141,7 @@ public final class ProfilerTest {
         /* collectPressureStallIndicators= */ false,
         /* collectResourceEstimation= */ false,
         ResourceManager.instance(),
-        WorkerMetricsCollector.instance(),
+        WorkerProcessMetricsCollector.instance(),
         BugReporter.defaultInstance());
   }
 
@@ -251,7 +251,7 @@ public final class ProfilerTest {
         /* collectPressureStallIndicators= */ false,
         /* collectResourceEstimation= */ false,
         ResourceManager.instance(),
-        WorkerMetricsCollector.instance(),
+        WorkerProcessMetricsCollector.instance(),
         BugReporter.defaultInstance());
     try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION, "action task")) {
       // Next task takes less than 10 ms but should be recorded anyway.
@@ -285,31 +285,32 @@ public final class ProfilerTest {
 
   @Test
   public void testProfilerWorkerMetrics() throws Exception {
-    ImmutableList<WorkerMetric> workerMetrics =
-        ImmutableList.of(
-            WorkerMetric.create(
-                WorkerMetric.WorkerProperties.create(
-                    /* workerIds= */ ImmutableList.of(1),
-                    /* processId= */ 1,
-                    /* mnemonic= */ "dummy1",
-                    /* isMultiplex= */ true,
-                    /* isSandboxed= */ true,
-                    /* workerKeyHash= */ 0),
-                WorkerMetric.WorkerStat.create(1024, Instant.now(), Instant.now()),
-                /* isMeasurable= */ true),
-            WorkerMetric.create(
-                WorkerMetric.WorkerProperties.create(
-                    /* workerIds= */ ImmutableList.of(1),
-                    /* processId= */ 1,
-                    /* mnemonic= */ "dummy2",
-                    /* isMultiplex= */ false,
-                    /* isSandboxed= */ false,
-                    /* workerKeyHash= */ 0),
-                WorkerMetric.WorkerStat.create(2048, Instant.now(), Instant.now()),
-                /* isMeasurable= */ true));
+    Instant collectionTime = BlazeClock.instance().now();
+    WorkerProcessMetrics workerMetric1 =
+        new WorkerProcessMetrics(
+            /* workerId= */ 1,
+            /* processId= */ 1,
+            /* mnemonic= */ "dummy1",
+            /* isMultiplex= */ true,
+            /* isSandbox= */ true,
+            /* workerKeyHash= */ 1);
+    workerMetric1.addCollectedMetrics(1024, /* isMeasurable= */ true, collectionTime);
 
-    WorkerMetricsCollector workerMetricsCollector = mock(WorkerMetricsCollector.class);
-    when(workerMetricsCollector.collectMetrics()).thenReturn(workerMetrics);
+    WorkerProcessMetrics workerMetric2 =
+        new WorkerProcessMetrics(
+            /* workerId= */ 2,
+            /* processId= */ 2,
+            /* mnemonic= */ "dummy2",
+            /* isMultiplex= */ false,
+            /* isSandbox= */ false,
+            /* workerKeyHash= */ 2);
+    workerMetric2.addCollectedMetrics(2048, /* isMeasurable= */ true, collectionTime);
+
+    ImmutableList<WorkerProcessMetrics> workerMetrics =
+        ImmutableList.of(workerMetric1, workerMetric2);
+    WorkerProcessMetricsCollector workerProcessMetricsCollector =
+        mock(WorkerProcessMetricsCollector.class);
+    when(workerProcessMetricsCollector.collectMetrics()).thenReturn(workerMetrics);
 
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
     profiler.start(
@@ -331,7 +332,7 @@ public final class ProfilerTest {
         /* collectPressureStallIndicators= */ false,
         /* collectResourceEstimation= */ false,
         ResourceManager.instance(),
-        workerMetricsCollector,
+        workerProcessMetricsCollector,
         BugReporter.defaultInstance());
     Thread.sleep(400);
     profiler.stop();
@@ -367,7 +368,7 @@ public final class ProfilerTest {
         /* collectPressureStallIndicators= */ false,
         /* collectResourceEstimation= */ false,
         ResourceManager.instance(),
-        WorkerMetricsCollector.instance(),
+        WorkerProcessMetricsCollector.instance(),
         BugReporter.defaultInstance());
     profiler.logSimpleTask(10000, 20000, ProfilerTask.VFS_STAT, "stat");
     // Unlike the VFS_STAT event above, the remote execution event will not be recorded since we
@@ -412,8 +413,8 @@ public final class ProfilerTest {
     // Add some fast tasks - these shouldn't show up in the slowest.
     for (int i = 0; i < 30; i++) {
       profiler.logSimpleTask(
-          /*startTimeNanos=*/ 1,
-          /*stopTimeNanos=*/ ProfilerTask.VFS_STAT.minDuration + 10,
+          /* startTimeNanos= */ 1,
+          /* stopTimeNanos= */ ProfilerTask.VFS_STAT.minDuration + 10,
           ProfilerTask.VFS_STAT,
           "stat");
     }
@@ -423,8 +424,8 @@ public final class ProfilerTest {
     for (int i = 0; i < 30; i++) {
       long fakeDuration = ProfilerTask.VFS_STAT.minDuration + i + 10_000;
       profiler.logSimpleTask(
-          /*startTimeNanos=*/ 1,
-          /*stopTimeNanos=*/ fakeDuration + 1,
+          /* startTimeNanos= */ 1,
+          /* stopTimeNanos= */ fakeDuration + 1,
           ProfilerTask.VFS_STAT,
           "stat");
       expectedSlowestDurations.add(fakeDuration);
@@ -441,8 +442,8 @@ public final class ProfilerTest {
                 () -> {
                   for (int j = 0; j < 100; j++) {
                     profiler.logSimpleTask(
-                        /*startTimeNanos=*/ 1,
-                        /*stopTimeNanos=*/ ProfilerTask.VFS_STAT.minDuration + j + 1,
+                        /* startTimeNanos= */ 1,
+                        /* stopTimeNanos= */ ProfilerTask.VFS_STAT.minDuration + j + 1,
                         ProfilerTask.VFS_STAT,
                         "stat");
                   }
@@ -497,7 +498,7 @@ public final class ProfilerTest {
         /* collectPressureStallIndicators= */ false,
         /* collectResourceEstimation= */ false,
         ResourceManager.instance(),
-        WorkerMetricsCollector.instance(),
+        WorkerProcessMetricsCollector.instance(),
         BugReporter.defaultInstance());
     profiler.logSimpleTask(10000, 20000, ProfilerTask.VFS_STAT, "stat");
 
@@ -700,7 +701,7 @@ public final class ProfilerTest {
         /* collectPressureStallIndicators= */ false,
         /* collectResourceEstimation= */ false,
         ResourceManager.instance(),
-        WorkerMetricsCollector.instance(),
+        WorkerProcessMetricsCollector.instance(),
         BugReporter.defaultInstance());
     profiler.logSimpleTask(badClock.nanoTime(), ProfilerTask.INFO, "some task");
     profiler.stop();
@@ -766,7 +767,7 @@ public final class ProfilerTest {
         /* collectPressureStallIndicators= */ false,
         /* collectResourceEstimation= */ false,
         ResourceManager.instance(),
-        WorkerMetricsCollector.instance(),
+        WorkerProcessMetricsCollector.instance(),
         BugReporter.defaultInstance());
     profiler.logSimpleTaskDuration(
         Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
@@ -802,7 +803,7 @@ public final class ProfilerTest {
         /* collectPressureStallIndicators= */ false,
         /* collectResourceEstimation= */ false,
         ResourceManager.instance(),
-        WorkerMetricsCollector.instance(),
+        WorkerProcessMetricsCollector.instance(),
         BugReporter.defaultInstance());
     profiler.logSimpleTaskDuration(
         Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
@@ -833,7 +834,7 @@ public final class ProfilerTest {
         /* collectPressureStallIndicators= */ false,
         /* collectResourceEstimation= */ false,
         ResourceManager.instance(),
-        WorkerMetricsCollector.instance(),
+        WorkerProcessMetricsCollector.instance(),
         BugReporter.defaultInstance());
     try (SilentCloseable c = profiler.profileAction(ProfilerTask.ACTION, "test", "foo.out", "")) {
       profiler.logEvent(ProfilerTask.PHASE, "event1");
@@ -872,7 +873,7 @@ public final class ProfilerTest {
         /* collectPressureStallIndicators= */ false,
         /* collectResourceEstimation= */ false,
         ResourceManager.instance(),
-        WorkerMetricsCollector.instance(),
+        WorkerProcessMetricsCollector.instance(),
         BugReporter.defaultInstance());
     try (SilentCloseable c =
         profiler.profileAction(ProfilerTask.ACTION, "test", "foo.out", "//foo:bar")) {
@@ -910,7 +911,7 @@ public final class ProfilerTest {
         /* collectPressureStallIndicators= */ false,
         /* collectResourceEstimation= */ false,
         ResourceManager.instance(),
-        WorkerMetricsCollector.instance(),
+        WorkerProcessMetricsCollector.instance(),
         BugReporter.defaultInstance());
     long curTime = Profiler.nanoTimeMaybe();
     for (int i = 0; i < 100_000; i++) {
@@ -929,11 +930,11 @@ public final class ProfilerTest {
 
   @Test
   public void testSlimProfileSize() throws Exception {
-    ByteArrayOutputStream fatOutputStream = getJsonProfileOutputStream(/*slimProfile=*/ false);
+    ByteArrayOutputStream fatOutputStream = getJsonProfileOutputStream(/* slimProfile= */ false);
     String fatOutput = fatOutputStream.toString();
     assertThat(fatOutput).doesNotContain("merged");
 
-    ByteArrayOutputStream slimOutputStream = getJsonProfileOutputStream(/*slimProfile=*/ true);
+    ByteArrayOutputStream slimOutputStream = getJsonProfileOutputStream(/* slimProfile= */ true);
     String slimOutput = slimOutputStream.toString();
     assertThat(slimOutput).contains("merged");
 

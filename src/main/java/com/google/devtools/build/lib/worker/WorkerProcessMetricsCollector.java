@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.metrics.PsInfoCollector;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.worker.WorkerMetric.WorkerStat;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,10 +31,10 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Collects and populates system metrics about persistent workers. */
-public class WorkerMetricsCollector {
+public class WorkerProcessMetricsCollector {
 
   /** The metrics collector (a static singleton instance). Inactive by default. */
-  private static final WorkerMetricsCollector instance = new WorkerMetricsCollector();
+  private static final WorkerProcessMetricsCollector instance = new WorkerProcessMetricsCollector();
 
   private Clock clock;
 
@@ -43,14 +42,12 @@ public class WorkerMetricsCollector {
    * Mapping of worker process ids to their properties. One process could be mapped to multiple
    * workers because of multiplex workers.
    */
-  private final Map<Long, WorkerMetric.WorkerProperties> processIdToWorkerProperties =
+  private final Map<Long, WorkerProcessMetrics> processIdToWorkerProcessMetrics =
       new ConcurrentHashMap<>();
 
-  private final Map<Long, Instant> workerLastCallTime = new ConcurrentHashMap<>();
+  private WorkerProcessMetricsCollector() {}
 
-  private WorkerMetricsCollector() {}
-
-  public static WorkerMetricsCollector instance() {
+  public static WorkerProcessMetricsCollector instance() {
     return instance;
   }
 
@@ -72,64 +69,52 @@ public class WorkerMetricsCollector {
     return PsInfoCollector.instance().collectResourceUsage(processIds);
   }
 
-  public ImmutableList<WorkerMetric> collectMetrics() {
+  public ImmutableList<WorkerProcessMetrics> collectMetrics() {
     PsInfoCollector.ResourceSnapshot resourceSnapshot =
         collectMemoryUsageByPid(
-            OS.getCurrent(), ImmutableSet.copyOf(processIdToWorkerProperties.keySet()));
+            OS.getCurrent(), ImmutableSet.copyOf(processIdToWorkerProcessMetrics.keySet()));
 
-    return buildWorkerMetrics(resourceSnapshot);
-  }
-
-  private ImmutableList<WorkerMetric> buildWorkerMetrics(
-      PsInfoCollector.ResourceSnapshot resourceSnapshot) {
     ImmutableMap<Long, Integer> pidToMemoryInKb = resourceSnapshot.getPidToMemoryInKb();
     Instant collectionTime = resourceSnapshot.getCollectionTime();
 
-    ImmutableList.Builder<WorkerMetric> workerMetrics = new ImmutableList.Builder<>();
     List<Long> nonMeasurableProcessIds = new ArrayList<>();
-    for (WorkerMetric.WorkerProperties workerProperties : processIdToWorkerProperties.values()) {
-      Long pid = workerProperties.getProcessId();
+    ImmutableList.Builder<WorkerProcessMetrics> workerMetrics = new ImmutableList.Builder<>();
+    for (Map.Entry<Long, WorkerProcessMetrics> entry : processIdToWorkerProcessMetrics.entrySet()) {
+      WorkerProcessMetrics workerMetric = entry.getValue();
+      Long pid = workerMetric.getProcessId();
+      workerMetric.addCollectedMetrics(
+          /* memoryInKb= */ pidToMemoryInKb.getOrDefault(pid, 0),
+          /* isMeasurable= */ pidToMemoryInKb.containsKey(pid),
+          /* collectionTime= */ collectionTime);
 
-      WorkerStat workerStats =
-          WorkerStat.create(
-              pidToMemoryInKb.getOrDefault(pid, 0), workerLastCallTime.get(pid), collectionTime);
-
-      workerMetrics.add(
-          WorkerMetric.create(
-              workerProperties, workerStats, /* isMeasurable= */ pidToMemoryInKb.containsKey(pid)));
+      workerMetrics.add(workerMetric);
 
       if (!pidToMemoryInKb.containsKey(pid)) {
         nonMeasurableProcessIds.add(pid);
       }
     }
 
-    processIdToWorkerProperties.keySet().removeAll(nonMeasurableProcessIds);
+    processIdToWorkerProcessMetrics.keySet().removeAll(nonMeasurableProcessIds);
 
     return workerMetrics.build();
   }
 
   public ImmutableList<WorkerMetrics> createWorkerMetricsProto() {
-    return collectMetrics().stream().map(WorkerMetric::toProto).collect(toImmutableList());
+    return collectMetrics().stream().map(WorkerProcessMetrics::toProto).collect(toImmutableList());
   }
 
   public void clear() {
-    processIdToWorkerProperties.clear();
-    workerLastCallTime.clear();
+    processIdToWorkerProcessMetrics.clear();
   }
 
   @VisibleForTesting
-  Map<Long, WorkerMetric.WorkerProperties> getProcessIdToWorkerProperties() {
-    return processIdToWorkerProperties;
-  }
-
-  @VisibleForTesting
-  Map<Long, Instant> getWorkerLastCallTime() {
-    return workerLastCallTime;
+  Map<Long, WorkerProcessMetrics> getProcessIdToWorkerProcessMetrics() {
+    return processIdToWorkerProcessMetrics;
   }
 
   /**
    * Initializes workerIdToWorkerProperties for workers. If worker metrics already exists for this
-   * worker, only updates workerLastCallTime.
+   * worker, only updates the last call time and maybe adds the multiplex worker id.
    */
   public synchronized void registerWorker(
       int workerId,
@@ -138,38 +123,15 @@ public class WorkerMetricsCollector {
       boolean isMultiplex,
       boolean isSandboxed,
       int workerKeyHash) {
-    WorkerMetric.WorkerProperties existingWorkerProperties =
-        processIdToWorkerProperties.get(processId);
+    WorkerProcessMetrics workerMetric =
+        processIdToWorkerProcessMetrics.computeIfAbsent(
+            processId,
+            (pid) ->
+                new WorkerProcessMetrics(
+                    workerId, processId, mnemonic, isMultiplex, isSandboxed, workerKeyHash));
 
-    workerLastCallTime.put(processId, Instant.ofEpochMilli(clock.currentTimeMillis()));
-
-    if (existingWorkerProperties == null) {
-      processIdToWorkerProperties.put(
-          processId,
-          WorkerMetric.WorkerProperties.create(
-              ImmutableList.of(workerId),
-              processId,
-              mnemonic,
-              isMultiplex,
-              isSandboxed,
-              workerKeyHash));
-      return;
-    }
-
-    if (existingWorkerProperties.getWorkerIds().contains(workerId)) {
-      return;
-    }
-
-    ImmutableList<Integer> updatedWorkerIds =
-        ImmutableList.<Integer>builder()
-            .addAll(existingWorkerProperties.getWorkerIds())
-            .add(workerId)
-            .build();
-
-    WorkerMetric.WorkerProperties updatedWorkerProperties =
-        WorkerMetric.WorkerProperties.create(
-            updatedWorkerIds, processId, mnemonic, isMultiplex, isSandboxed, workerKeyHash);
-    processIdToWorkerProperties.put(processId, updatedWorkerProperties);
+    workerMetric.setLastCallTime(Instant.ofEpochMilli(clock.currentTimeMillis()));
+    workerMetric.maybeAddWorkerId(workerId);
   }
 
   // TODO(b/238416583) Add deregister function

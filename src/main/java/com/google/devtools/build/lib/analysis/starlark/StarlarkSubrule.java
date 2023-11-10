@@ -19,6 +19,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.BazelRuleAnalysisThreadContext;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.StarlarkActionContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule.Descriptor;
@@ -39,6 +41,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
+import com.google.devtools.build.lib.starlarkbuildapi.FragmentCollectionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainContextApi;
@@ -71,6 +74,7 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
 
   private final StarlarkFunction implementation;
   private final ImmutableSet<ToolchainTypeRequirement> toolchains;
+  private final ImmutableSet<String> fragments;
 
   // following fields are set on export
   @Nullable private String exportedName = null;
@@ -79,10 +83,12 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
   public StarlarkSubrule(
       StarlarkFunction implementation,
       ImmutableMap<String, Descriptor> attributes,
-      ImmutableSet<ToolchainTypeRequirement> toolchains) {
+      ImmutableSet<ToolchainTypeRequirement> toolchains,
+      ImmutableSet<String> fragments) {
     this.implementation = implementation;
     this.attributes = SubruleAttribute.from(attributes);
     this.toolchains = toolchains;
+    this.fragments = fragments;
   }
 
   @Override
@@ -154,7 +160,7 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
       namedArgs.put(attr.attrName, value == null ? Starlark.NONE : value);
     }
     SubruleContext subruleContext =
-        new SubruleContext(ruleContext, toolchains, runfilesFromDeps.build());
+        new SubruleContext(this, ruleContext, toolchains, runfilesFromDeps.build());
     ImmutableList<Object> positionals =
         ImmutableList.builder().add(subruleContext).addAll(args).build();
     try {
@@ -269,15 +275,19 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
   private static class SubruleContext implements StarlarkActionContext {
     // these fields are effectively final, set to null once this instance is no longer usable by
     // Starlark
+    private StarlarkSubrule subrule;
     private StarlarkRuleContext starlarkRuleContext;
     private ImmutableSet<Label> requestedToolchains;
     private ImmutableSet<FilesToRunProvider> runfilesFromDeps;
     private StarlarkActionFactory actions;
+    private FragmentCollectionApi fragmentCollection;
 
     private SubruleContext(
+        StarlarkSubrule subrule,
         StarlarkRuleContext ruleContext,
         ImmutableSet<ToolchainTypeRequirement> requestedToolchains,
         ImmutableSet<FilesToRunProvider> runfilesFromDeps) {
+      this.subrule = subrule;
       this.starlarkRuleContext = ruleContext;
       this.requestedToolchains =
           requestedToolchains.stream()
@@ -285,6 +295,7 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
               .collect(toImmutableSet());
       this.runfilesFromDeps = runfilesFromDeps;
       this.actions = new StarlarkActionFactory(this);
+      this.fragmentCollection = new SubruleFragmentCollection(this);
     }
 
     @StarlarkMethod(
@@ -333,6 +344,15 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
       return starlarkRuleContext.getAutomaticExecGroupLabels().stream()
           .filter(label -> requestedToolchains.contains(label))
           .collect(toImmutableSet());
+    }
+
+    @StarlarkMethod(
+        name = "fragments",
+        doc = "Allows access to configuration fragments in target configuration.",
+        structField = true)
+    public FragmentCollectionApi getFragmentCollection() throws EvalException {
+      checkMutable("fragments");
+      return fragmentCollection;
     }
 
     @Override
@@ -406,10 +426,12 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
     }
 
     private void nullify() {
+      this.subrule = null;
       this.starlarkRuleContext = null;
       this.actions = null;
       this.requestedToolchains = null;
       this.runfilesFromDeps = null;
+      this.fragmentCollection = null;
     }
   }
 
@@ -469,5 +491,42 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
       throws EvalException {
     return valueSource.convertToNativeName(
         "_" + label.getCanonicalForm() + "%" + exportedName + "%" + attrName);
+  }
+
+  private static class SubruleFragmentCollection implements FragmentCollectionApi {
+
+    private final SubruleContext subruleContext;
+
+    private SubruleFragmentCollection(SubruleContext subruleContext) {
+      this.subruleContext = subruleContext;
+    }
+
+    @Override
+    @Nullable
+    public Object getValue(String name) throws EvalException {
+      Class<? extends Fragment> fragmentClass =
+          subruleContext.getRuleContext().getConfiguration().getStarlarkFragmentByName(name);
+      if (fragmentClass == null) {
+        return null;
+      }
+      if (!subruleContext.subrule.fragments.contains(name)) {
+        throw Starlark.errorf(
+            "%s has to declare '%s' as a required fragment in order to access it."
+                + " Please update the 'fragments' argument of the subrule definition "
+                + "(for example: fragments = [\"%s\"])",
+            subruleContext.subrule.getName(), name, name);
+      }
+      return subruleContext.getRuleContext().getConfiguration().getFragment(fragmentClass);
+    }
+
+    @Override
+    public ImmutableCollection<String> getFieldNames() {
+      return subruleContext.subrule.fragments;
+    }
+
+    @Override
+    public String toString() {
+      return "[ " + fieldsToString() + "]";
+    }
   }
 }

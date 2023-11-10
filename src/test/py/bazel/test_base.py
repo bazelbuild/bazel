@@ -127,6 +127,12 @@ class TestBase(absltest.TestCase):
       shared_repo_cache = os.environ.get('REPOSITORY_CACHE')
       if shared_repo_cache:
         f.write('common --repository_cache={}\n'.format(shared_repo_cache))
+        # TODO(pcloudy): Remove this flag once all dependencies are mirrored.
+        # See https://github.com/bazelbuild/bazel/pull/19549 for more context.
+        f.write(
+            'common'
+            ' --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0\n'
+        )
         if TestBase.IsDarwin():
           # For reducing SSD usage on our physical Mac machines.
           f.write('common --experimental_repository_cache_hardlinks\n')

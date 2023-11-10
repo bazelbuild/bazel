@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.PredicateBasedStatRecorder.RecorderAndPredicate;
 import com.google.devtools.build.lib.profiler.StatRecorder.VfsHeuristics;
-import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
+import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.gson.stream.JsonWriter;
 import com.sun.management.OperatingSystemMXBean;
 import java.io.IOException;
@@ -453,7 +453,7 @@ public final class Profiler {
       boolean collectPressureStallIndicators,
       boolean collectResourceEstimation,
       ResourceEstimator resourceEstimator,
-      WorkerMetricsCollector workerMetricsCollector,
+      WorkerProcessMetricsCollector workerProcessMetricsCollector,
       BugReporter bugReporter)
       throws IOException {
     checkState(!isActive(), "Profiler already active");
@@ -498,7 +498,7 @@ public final class Profiler {
     resourceUsageThread =
         new CollectLocalResourceUsage(
             bugReporter,
-            workerMetricsCollector,
+            workerProcessMetricsCollector,
             resourceEstimator,
             collectWorkerDataInProfiler,
             collectLoadAverage,

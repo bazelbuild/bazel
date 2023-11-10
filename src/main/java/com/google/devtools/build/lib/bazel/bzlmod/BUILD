@@ -182,6 +182,7 @@ java_library(
         "Discovery.java",
         "GsonTypeAdapterUtil.java",
         "ModuleExtensionContext.java",
+        "ModuleExtensionEvaluationProgress.java",
         "ModuleExtensionRepoMappingEntriesFunction.java",
         "ModuleFileFunction.java",
         "ModuleFileGlobals.java",

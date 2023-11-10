@@ -97,7 +97,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
   private final WorkerOptions workerOptions;
   private final WorkerParser workerParser;
   private final AtomicInteger requestIdCounter = new AtomicInteger(1);
-  private final WorkerMetricsCollector metricsCollector;
+  private final WorkerProcessMetricsCollector metricsCollector;
 
   public WorkerSpawnRunner(
       SandboxHelpers helpers,
@@ -110,7 +110,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       ResourceManager resourceManager,
       RunfilesTreeUpdater runfilesTreeUpdater,
       WorkerOptions workerOptions,
-      WorkerMetricsCollector workerMetricsCollector,
+      WorkerProcessMetricsCollector workerProcessMetricsCollector,
       Clock clock) {
     this.helpers = helpers;
     this.execRoot = execRoot;
@@ -121,7 +121,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     this.workerParser = new WorkerParser(execRoot, workerOptions, localEnvProvider, binTools);
     this.workerOptions = workerOptions;
     this.resourceManager.setWorkerPool(workers);
-    this.metricsCollector = workerMetricsCollector;
+    this.metricsCollector = workerProcessMetricsCollector;
     this.metricsCollector.setClock(clock);
   }
 
@@ -544,7 +544,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
     }
 
     Stopwatch executionStopwatch = Stopwatch.createStarted();
-    try {
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.WORKER_SETUP, "sending request")) {
       worker.putRequest(request);
     } catch (IOException e) {
       restoreInterrupt(e);

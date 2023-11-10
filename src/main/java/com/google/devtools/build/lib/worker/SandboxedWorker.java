@@ -22,6 +22,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.sandbox.CgroupsInfo;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.BindMount;
@@ -211,7 +213,9 @@ final class SandboxedWorker extends SingleplexWorker {
   public void prepareExecution(
       SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
       throws IOException, InterruptedException, UserExecException {
-    workerExecRoot.createFileSystem(workerFiles, inputFiles, outputs);
+    try (SilentCloseable c = Profiler.instance().profile("workerExecRoot.createFileSystem")) {
+      workerExecRoot.createFileSystem(workerFiles, inputFiles, outputs);
+    }
 
     super.prepareExecution(inputFiles, outputs, workerFiles);
   }

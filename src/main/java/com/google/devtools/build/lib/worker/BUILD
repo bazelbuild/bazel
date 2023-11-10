@@ -148,15 +148,14 @@ java_library(
 java_library(
     name = "worker_metric",
     srcs = [
-        "WorkerMetric.java",
-        "WorkerMetricsCollector.java",
+        "WorkerProcessMetrics.java",
+        "WorkerProcessMetricsCollector.java",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/metrics:ps_info_collector",
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//third_party:auto_value",
         "//third_party:guava",
     ],
 )
@@ -267,6 +266,7 @@ java_library(
         ":worker_key",
         ":worker_protocol",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox",
         "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox_command_line_builder",
         "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox_util",

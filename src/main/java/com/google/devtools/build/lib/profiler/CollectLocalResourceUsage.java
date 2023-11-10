@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.profiler.NetworkMetricsCollector.SystemNetw
 import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ResourceUsage;
-import com.google.devtools.build.lib.worker.WorkerMetric;
-import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
+import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
+import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.sun.management.OperatingSystemMXBean;
 import java.io.IOException;
@@ -37,7 +37,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
@@ -63,14 +62,14 @@ public class CollectLocalResourceUsage extends Thread {
 
   private Stopwatch stopwatch;
 
-  private final WorkerMetricsCollector workerMetricsCollector;
+  private final WorkerProcessMetricsCollector workerProcessMetricsCollector;
 
   private final ResourceEstimator resourceEstimator;
   private final boolean collectPressureStallIndicators;
 
   CollectLocalResourceUsage(
       BugReporter bugReporter,
-      WorkerMetricsCollector workerMetricsCollector,
+      WorkerProcessMetricsCollector workerProcessMetricsCollector,
       ResourceEstimator resourceEstimator,
       boolean collectWorkerDataInProfiler,
       boolean collectLoadAverage,
@@ -80,7 +79,7 @@ public class CollectLocalResourceUsage extends Thread {
     super("collect-local-resources");
     this.bugReporter = checkNotNull(bugReporter);
     this.collectWorkerDataInProfiler = collectWorkerDataInProfiler;
-    this.workerMetricsCollector = workerMetricsCollector;
+    this.workerProcessMetricsCollector = workerProcessMetricsCollector;
     this.collectLoadAverage = collectLoadAverage;
     this.collectSystemNetworkUsage = collectSystemNetworkUsage;
     this.collectResourceManagerEstimation = collectResourceManagerEstimation;
@@ -185,10 +184,8 @@ public class CollectLocalResourceUsage extends Thread {
       if (collectWorkerDataInProfiler) {
         try (SilentCloseable c = Profiler.instance().profile("Worker metrics collection")) {
           workerMemoryUsageMb =
-              this.workerMetricsCollector.collectMetrics().stream()
-                      .map(WorkerMetric::getWorkerStat)
-                      .filter(Objects::nonNull)
-                      .mapToInt(WorkerMetric.WorkerStat::getUsedMemoryInKB)
+              this.workerProcessMetricsCollector.collectMetrics().stream()
+                      .mapToInt(WorkerProcessMetrics::getUsedMemoryInKb)
                       .sum()
                   / 1024;
         }

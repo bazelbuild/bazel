@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.AliasProvider;
+import com.google.devtools.build.lib.analysis.AspectContext;
 import com.google.devtools.build.lib.analysis.BashCommandConstructor;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
@@ -269,7 +270,8 @@ public final class StarlarkRuleContext
       this.outputsObject = outputs;
 
       // Populate ctx.attr.
-      StarlarkAttributesCollection.Builder builder = StarlarkAttributesCollection.builder(this);
+      StarlarkAttributesCollection.Builder builder =
+          StarlarkAttributesCollection.builder(this, ruleContext.getRulePrerequisitesCollection());
       for (Attribute attribute : attributes) {
         Object value = ruleContext.attributes().get(attribute.getName(), attribute.getType());
         builder.addAttribute(attribute, value);
@@ -284,7 +286,8 @@ public final class StarlarkRuleContext
           ruleContext.getMainAspect().getDefinition().getAttributes().values();
 
       StarlarkAttributesCollection.Builder aspectBuilder =
-          StarlarkAttributesCollection.builder(this);
+          StarlarkAttributesCollection.builder(
+              this, ((AspectContext) ruleContext).getMainAspectPrerequisitesCollection());
       for (Attribute attribute : attributes) {
         Object defaultValue = attribute.getDefaultValue(null);
         if (defaultValue instanceof ComputedDefault) {
@@ -295,7 +298,8 @@ public final class StarlarkRuleContext
       this.attributesCollection = aspectBuilder.build();
 
       this.splitAttributes = null;
-      StarlarkAttributesCollection.Builder ruleBuilder = StarlarkAttributesCollection.builder(this);
+      StarlarkAttributesCollection.Builder ruleBuilder =
+          StarlarkAttributesCollection.builder(this, ruleContext.getRulePrerequisitesCollection());
 
       for (Attribute attribute : rule.getAttributes()) {
         Object value = ruleContext.attributes().get(attribute.getName(), attribute.getType());

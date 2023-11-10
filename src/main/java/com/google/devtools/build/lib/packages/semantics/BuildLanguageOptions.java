@@ -690,6 +690,20 @@ public final class BuildLanguageOptions extends OptionsBase {
       help = "Enable experimental rule extension API and subrule APIs")
   public boolean experimentalRuleExtensionApi;
 
+  @Option(
+      name = "separate_aspect_deps",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "If enabled, the dependencies of the main aspect in an aspect path will be"
+              + " separated from those of the target and the base aspects. ctx.attr.{attr_name}"
+              + " will always get the attribute value from the main aspect and"
+              + " ctx.rule.attr.{attr_name} will get the value from the rule if it has an attribute"
+              + " with that name or from the base aspects attributes (first one in"
+              + " the aspects path wins).")
+  public boolean separateAspectDeps;
+
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -792,6 +806,7 @@ public final class BuildLanguageOptions extends OptionsBase {
                 INCOMPATIBLE_DISABLE_NON_EXECUTABLE_JAVA_BINARY,
                 incompatibleDisableNonExecutableJavaBinary)
             .setBool(EXPERIMENTAL_RULE_EXTENSION_API, experimentalRuleExtensionApi)
+            .setBool(SEPARATE_ASPECT_DEPS, separateAspectDeps)
             .build();
     return INTERNER.intern(semantics);
   }
@@ -884,6 +899,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String INCOMPATIBLE_DISABLE_NON_EXECUTABLE_JAVA_BINARY =
       "-incompatible_disable_non_executable_java_binary";
   public static final String EXPERIMENTAL_RULE_EXTENSION_API = "-experimental_rule_extension_api";
+  public static final String SEPARATE_ASPECT_DEPS = "-separate_aspect_deps";
 
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =

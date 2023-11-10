@@ -37,6 +37,9 @@ def _get_default_resource_path(path, segment_extractor):
 def _compatible_javac_options(*_args):
     return depset()
 
+def _check_java_info_opens_exports():
+    pass
+
 semantics = struct(
     JAVA_TOOLCHAIN_LABEL = "@bazel_tools//tools/jdk:current_java_toolchain",
     JAVA_TOOLCHAIN_TYPE = "@bazel_tools//tools/jdk:toolchain_type",
@@ -72,4 +75,5 @@ semantics = struct(
     JAVA_PROTO_TOOLCHAIN = "@rules_java//java/proto:toolchain_type",
     JAVA_LITE_PROTO_TOOLCHAIN = "@rules_java//java/proto:lite_toolchain_type",
     PROGUARD_ALLOWLISTER_LABEL = "@bazel_tools//tools/jdk:proguard_whitelister",
+    check_java_info_opens_exports = _check_java_info_opens_exports,
 )

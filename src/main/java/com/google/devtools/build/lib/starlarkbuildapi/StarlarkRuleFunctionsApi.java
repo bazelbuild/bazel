@@ -840,13 +840,23 @@ public interface StarlarkRuleFunctionsApi {
                 "If set, the set of toolchains this subrule requires. The list can contain String,"
                     + " Label, or StarlarkToolchainTypeApi objects, in any combination. Toolchains"
                     + " will be found by checking the current platform, and provided to the subrule"
-                    + " implementation via <code>ctx.toolchains</code>.")
+                    + " implementation via <code>ctx.toolchains</code>."),
+        @Param(
+            name = "fragments",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            named = true,
+            positional = false,
+            defaultValue = "[]",
+            doc =
+                "List of names of configuration fragments that the subrule requires in target"
+                    + " configuration.")
       },
       useStarlarkThread = true)
   StarlarkSubruleApi subrule(
       StarlarkFunction implementation,
       Dict<?, ?> attrs,
       Sequence<?> toolchains,
+      Sequence<?> fragments,
       StarlarkThread thread)
       throws EvalException;
 }
