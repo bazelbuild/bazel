@@ -75,6 +75,7 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
   private final StarlarkFunction implementation;
   private final ImmutableSet<ToolchainTypeRequirement> toolchains;
   private final ImmutableSet<String> fragments;
+  private final ImmutableSet<StarlarkSubrule> subrules;
 
   // following fields are set on export
   @Nullable private String exportedName = null;
@@ -84,11 +85,13 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
       StarlarkFunction implementation,
       ImmutableMap<String, Descriptor> attributes,
       ImmutableSet<ToolchainTypeRequirement> toolchains,
-      ImmutableSet<String> fragments) {
+      ImmutableSet<String> fragments,
+      ImmutableSet<StarlarkSubrule> subrules) {
     this.implementation = implementation;
     this.attributes = SubruleAttribute.from(attributes);
     this.toolchains = toolchains;
     this.fragments = fragments;
+    this.subrules = subrules;
   }
 
   @Override
@@ -113,11 +116,14 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
         BazelRuleAnalysisThreadContext.fromOrFail(thread, getName())
             .getRuleContext()
             .getStarlarkRuleContext();
-    if (ruleContext.getLockedForSubrule()) {
-      throw Starlark.errorf("subrules cannot call other subrules");
-    }
-    ImmutableSet<? extends StarlarkSubruleApi> declaredSubrules = ruleContext.getSubrules();
-    if (!declaredSubrules.contains(this)) {
+    SubruleContext callerSubruleContext = ruleContext.getLockedForSubrule();
+    if (callerSubruleContext != null) {
+      if (!callerSubruleContext.subrule.getDeclaredSubrules().contains(this)) {
+        throw Starlark.errorf(
+            "subrule %s must declare %s in 'subrules'",
+            callerSubruleContext.subrule.getName(), getName());
+      }
+    } else if (!ruleContext.getSubrules().contains(this)) {
       throw getUndeclaredSubruleError(ruleContext);
     }
     ImmutableSet.Builder<FilesToRunProvider> runfilesFromDeps = ImmutableSet.builder();
@@ -164,13 +170,19 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
     ImmutableList<Object> positionals =
         ImmutableList.builder().add(subruleContext).addAll(args).build();
     try {
-      ruleContext.setLockedForSubrule(true);
+      ruleContext.setLockedForSubrule(subruleContext);
       return Starlark.call(
           thread, implementation, positionals, Dict.immutableCopyOf(namedArgs.buildOrThrow()));
     } finally {
       subruleContext.nullify();
-      ruleContext.setLockedForSubrule(false);
+      // callerSubruleContext may be null if this subrule was called from the rule itself, but in
+      // that case null is exactly what we want to set here
+      ruleContext.setLockedForSubrule(callerSubruleContext);
     }
+  }
+
+  private ImmutableSet<StarlarkSubrule> getDeclaredSubrules() {
+    return subrules;
   }
 
   private EvalException getUndeclaredSubruleError(StarlarkRuleContext starlarkRuleContext) {
@@ -229,16 +241,9 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
    */
   static ImmutableList<Pair<String, Descriptor>> discoverAttributes(
       ImmutableList<? extends StarlarkSubruleApi> subrules) throws EvalException {
-    ImmutableSet.Builder<StarlarkSubruleApi> uniqueSubrules = ImmutableSet.builder();
-    for (StarlarkSubruleApi subrule : subrules) {
-      // TODO: b/293304174 - use all transitive subrules once subrules can depend on other subrules
-      uniqueSubrules.add(subrule);
-    }
     ImmutableList.Builder<Pair<String, Descriptor>> attributes = ImmutableList.builder();
-    for (StarlarkSubruleApi subrule : uniqueSubrules.build()) {
-      if (subrule instanceof StarlarkSubrule) {
-        attributes.addAll(((StarlarkSubrule) subrule).attributesForRule());
-      }
+    for (StarlarkSubrule subrule : getTransitiveSubrules(subrules)) {
+      attributes.addAll(subrule.attributesForRule());
     }
     return attributes.build();
   }
@@ -246,18 +251,23 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
   /** Returns all toolchain types to be lifted from the given subrules to a rule/aspect */
   static ImmutableSet<ToolchainTypeRequirement> discoverToolchains(
       ImmutableList<? extends StarlarkSubruleApi> subrules) {
-    ImmutableSet.Builder<StarlarkSubruleApi> uniqueSubrules = ImmutableSet.builder();
-    for (StarlarkSubruleApi subrule : subrules) {
-      // TODO: b/293304174 - use all transitive subrules once subrules can depend on other subrules
-      uniqueSubrules.add(subrule);
-    }
     ImmutableSet.Builder<ToolchainTypeRequirement> toolchains = ImmutableSet.builder();
-    for (StarlarkSubruleApi subrule : uniqueSubrules.build()) {
-      if (subrule instanceof StarlarkSubrule) {
-        toolchains.addAll(((StarlarkSubrule) subrule).toolchains);
-      }
+    for (StarlarkSubrule subrule : getTransitiveSubrules(subrules)) {
+      toolchains.addAll(subrule.toolchains);
     }
     return toolchains.build();
+  }
+
+  private static ImmutableSet<StarlarkSubrule> getTransitiveSubrules(
+      ImmutableCollection<? extends StarlarkSubruleApi> subrules) {
+    ImmutableSet.Builder<StarlarkSubrule> uniqueSubrules = ImmutableSet.builder();
+    for (StarlarkSubruleApi subruleApi : subrules) {
+      if (subruleApi instanceof StarlarkSubrule) {
+        StarlarkSubrule subrule = (StarlarkSubrule) subruleApi;
+        uniqueSubrules.add(subrule).addAll(getTransitiveSubrules(subrule.getDeclaredSubrules()));
+      }
+    }
+    return uniqueSubrules.build();
   }
 
   /**
@@ -272,7 +282,7 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
       name = "subrule_ctx",
       category = DocCategory.BUILTIN,
       doc = "A context object passed to the implementation function of a subrule.")
-  private static class SubruleContext implements StarlarkActionContext {
+  static class SubruleContext implements StarlarkActionContext {
     // these fields are effectively final, set to null once this instance is no longer usable by
     // Starlark
     private StarlarkSubrule subrule;
@@ -362,7 +372,6 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
 
     @Override
     public void checkMutable(String attrName) throws EvalException {
-      // TODO: b/293304174 - check if subrule is locked once subrules can call other subrules
       if (isImmutable()) {
         throw Starlark.errorf(
             "cannot access field or method '%s' of subrule context outside of its own"
@@ -373,7 +382,7 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
 
     @Override
     public boolean isImmutable() {
-      return starlarkRuleContext == null;
+      return starlarkRuleContext == null || starlarkRuleContext.getLockedForSubrule() != this;
     }
 
     @Override
@@ -425,6 +434,7 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
           : Iterables.getOnlyElement(requestedToolchains);
     }
 
+    // TODO: b/293304174 - maybe simplify all this by just relying on starlarkRuleContext
     private void nullify() {
       this.subrule = null;
       this.starlarkRuleContext = null;

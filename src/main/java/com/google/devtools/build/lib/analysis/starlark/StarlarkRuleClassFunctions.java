@@ -1268,6 +1268,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Dict<?, ?> attrsUnchecked,
       Sequence<?> toolchainsUnchecked,
       Sequence<?> fragmentsUnchecked,
+      Sequence<?> subrulesUnchecked,
       StarlarkThread thread)
       throws EvalException {
     if (!thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_RULE_EXTENSION_API)) {
@@ -1310,7 +1311,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     if (toolchains.size() > 1) {
       throw Starlark.errorf("subrules may require at most 1 toolchain, got: %s", toolchains);
     }
-    return new StarlarkSubrule(implementation, attrs, toolchains, ImmutableSet.copyOf(fragments));
+    return new StarlarkSubrule(
+        implementation,
+        attrs,
+        toolchains,
+        ImmutableSet.copyOf(fragments),
+        ImmutableSet.copyOf(Sequence.cast(subrulesUnchecked, StarlarkSubrule.class, "subrules")));
   }
 
   private static ImmutableSet<ToolchainTypeRequirement> parseToolchainTypes(

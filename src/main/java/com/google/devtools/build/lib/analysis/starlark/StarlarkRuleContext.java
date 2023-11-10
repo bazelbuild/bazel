@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.StarlarkActionContext;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkSubrule.SubruleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -191,8 +192,9 @@ public final class StarlarkRuleContext
    */
   private int resolveCommandScriptCounter = 0;
 
-  // for temporarily freezing mutability, such as while evaluating a subrule
-  private boolean lockedForSubruleEvaluation = false;
+  // for temporarily freezing mutability, while evaluating a subrule this is set to the
+  // corresponding subrule context, or is null otherwise
+  @Nullable private SubruleContext lockedForSubruleEvaluation = null;
 
   /**
    * Creates a new StarlarkRuleContext wrapping ruleContext.
@@ -328,11 +330,11 @@ public final class StarlarkRuleContext
     }
   }
 
-  void setLockedForSubrule(boolean isLocked) {
-    this.lockedForSubruleEvaluation = isLocked;
+  void setLockedForSubrule(@Nullable SubruleContext lockedBy) {
+    this.lockedForSubruleEvaluation = lockedBy;
   }
 
-  boolean getLockedForSubrule() {
+  SubruleContext getLockedForSubrule() {
     return lockedForSubruleEvaluation;
   }
 
@@ -560,7 +562,7 @@ public final class StarlarkRuleContext
 
   @Override
   public boolean isImmutable() {
-    return ruleContext == null || lockedForSubruleEvaluation;
+    return ruleContext == null || lockedForSubruleEvaluation != null;
   }
 
   @Override
