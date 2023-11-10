@@ -390,35 +390,17 @@ public class ExecutionOptions extends OptionsBase {
   public boolean statsSummary;
 
   @Option(
-      name = "experimental_execution_log_file",
-      defaultValue = "null",
-      category = "verbosity",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      converter = OptionsUtils.PathFragmentConverter.class,
-      help =
-          "Log the executed spawns into this file as delimited Spawn protos, according to "
-              + "src/main/protobuf/spawn.proto. This file is written in order of the execution "
-              + "of the Spawns. Related flags:"
-              + " --execution_log_binary_file (ordered binary protobuf format),"
-              + " --execution_log_json_file (ordered text json format),"
-              + " --subcommands (for displaying subcommands in terminal output).")
-  public PathFragment executionLogFile;
-
-  @Option(
       name = "execution_log_binary_file",
       defaultValue = "null",
       category = "verbosity",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      converter = OptionsUtils.PathFragmentConverter.class,
+      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
       help =
           "Log the executed spawns into this file as delimited Spawn protos, according to"
-              + " src/main/protobuf/spawn.proto. The log is first written unordered and is then,"
-              + " at the end of the invocation, sorted in a stable order (can be CPU and memory"
-              + " intensive). Related flags:"
-              + " --execution_log_json_file (ordered text json format),"
-              + " --experimental_execution_log_file (unordered binary protobuf format),"
+              + " src/main/protobuf/spawn.proto. Related flags:"
+              + " --execution_log_json_file (text JSON format),"
+              + " --execution_log_sort (whether to sort the execution log),"
               + " --subcommands (for displaying subcommands in terminal output).")
   public PathFragment executionLogBinaryFile;
 
@@ -428,14 +410,12 @@ public class ExecutionOptions extends OptionsBase {
       category = "verbosity",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      converter = OptionsUtils.PathFragmentConverter.class,
+      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
       help =
-          "Log the executed spawns into this file as json representation of the delimited Spawn"
-              + " protos, according to src/main/protobuf/spawn.proto. The log is first written"
-              + " unordered and is then, at the end of the invocation, sorted in a stable order"
-              + " (can be CPU and memory intensive). Related flags:"
-              + " Related flags: --execution_log_binary_file (ordered binary protobuf format),"
-              + " --experimental_execution_log_file (unordered binary protobuf format),"
+          "Log the executed spawns into this file as a JSON representation of the delimited Spawn"
+              + " protos, according to src/main/protobuf/spawn.proto. Related flags:"
+              + " --execution_log_binary_file (binary protobuf format),"
+              + " --execution_log_sort (whether to sort the execution log),"
               + " --subcommands (for displaying subcommands in terminal output).")
   public PathFragment executionLogJsonFile;
 
@@ -445,8 +425,9 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Whether to sort the execution log. Set to false to improve memory"
-              + " performance, at the cost of producing the log in nondeterministic"
+          "Whether to sort the execution log, making it easier to compare logs across invocations."
+              + " Set to false to avoid potentially significant CPU and memory usage at the end of"
+              + " the invocation, at the cost of producing the log in nondeterministic execution"
               + " order.")
   public boolean executionLogSort;
 
