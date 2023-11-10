@@ -412,8 +412,6 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    *
    * <p>Unlike {@link #getDisplayForm}, this method elides the name part of the label if possible.
    *
-   * <p>Unlike {@link #toShorthandString}, this method respects {@link RepositoryMapping}.
-   *
    * @param mainRepositoryMapping the {@link RepositoryMapping} of the main repository
    */
   public String getShorthandDisplayForm(RepositoryMapping mainRepositoryMapping) {
@@ -441,27 +439,6 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   public String getWorkspaceName() throws EvalException {
     checkRepoVisibilityForStarlark("workspace_name");
     return packageIdentifier.getRepository().getName();
-  }
-
-  /**
-   * Renders this label in shorthand form.
-   *
-   * <p>Labels with canonical form {@code //foo/bar:bar} have the shorthand form {@code //foo/bar}.
-   * All other labels have identical shorthand and canonical forms.
-   *
-   * <p>Unlike {@link #getShorthandDisplayForm}, this method does not respect repository mapping.
-   */
-  public String toShorthandString() {
-    if (!getPackageFragment().getBaseName().equals(name)) {
-      return toString();
-    }
-    String repository;
-    if (packageIdentifier.getRepository().isMain()) {
-      repository = "";
-    } else {
-      repository = packageIdentifier.getRepository().getNameWithAt();
-    }
-    return repository + "//" + getPackageFragment();
   }
 
   /**

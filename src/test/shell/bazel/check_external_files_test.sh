@@ -120,7 +120,7 @@ test_check_external_files() {
   bazel build --noexperimental_check_external_repository_files @remote//:g >& "$TEST_log" || fail "Expected build to succeed"
 
   bazel build @remote//:g >& "$TEST_log" && fail "Expected build to fail" || true
-  expect_log "no such target '@remote//:g'"
+  expect_log "no such target '@@remote//:g'"
 }
 
 test_check_all_flags_fast() {
@@ -157,7 +157,7 @@ run_local_repository_isnt_affected() {
     $extra_args \
     @local_rep//:g >& "$TEST_log" && fail "Expected build to fail" || true
   bazel build --noexperimental_check_external_repository_files @local_rep//:g >& "$TEST_log" && fail "Expected build to fail" || true
-  expect_log "no such target '@local_rep//:g'"
+  expect_log "no such target '@@local_rep//:g'"
 }
 
 test_local_repository_isnt_affected() {
@@ -175,7 +175,7 @@ run_override_repository_isnt_affected() {
   setup_local
   create_workspace_with_default_repos WORKSPACE
   bazel build @local_rep//:g >& "$TEST_log" && fail "Expected build to fail" || true
-  expect_log "no such package '@local_rep//'"
+  expect_log "no such package '@@local_rep//'"
 
   argv="--override_repository=local_rep=$(pwd)/../local_rep"
   bazel build "$argv" $extra_args @local_rep//:g >& "$TEST_log" || fail "Expected build to succeed"
@@ -187,7 +187,7 @@ run_override_repository_isnt_affected() {
     "$argv" \
     $extra_args \
     @local_rep//:g >& "$TEST_log" && fail "Expected build to fail" || true
-  expect_log "no such target '@local_rep//:g'"
+  expect_log "no such target '@@local_rep//:g'"
 }
 
 test_override_repository_isnt_affected() {
@@ -205,7 +205,7 @@ test_no_fetch_then_fetch() {
     --noexperimental_check_output_files \
     --watchfs \
     @remote//:g >& "$TEST_log" && fail "Expected build to fail" || true
-  expect_log "no such package '@bazel_tools//tools/build_defs/repo'"
+  expect_log "no such package '@@bazel_tools//tools/build_defs/repo'"
   bazel build \
     --fetch \
     --noexperimental_check_external_repository_files \

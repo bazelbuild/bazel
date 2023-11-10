@@ -189,27 +189,7 @@ public class LabelTest {
     }
     {
       Label l = Label.parseCanonical("@foo");
-      assertThat(l.toString()).isEqualTo("@foo//:foo");
-    }
-  }
-
-  @Test
-  public void testToShorthandString() throws Exception {
-    {
-      Label l = Label.parseCanonical("//bar/baz:baz");
-      assertThat(l.toShorthandString()).isEqualTo("//bar/baz");
-    }
-    {
-      Label l = Label.parseCanonical("//bar/baz:bat");
-      assertThat(l.toShorthandString()).isEqualTo("//bar/baz:bat");
-    }
-    {
-      Label l = Label.parseCanonical("@foo//bar/baz:baz");
-      assertThat(l.toShorthandString()).isEqualTo("@foo//bar/baz");
-    }
-    {
-      Label l = Label.parseCanonical("@foo//bar/baz:bat");
-      assertThat(l.toShorthandString()).isEqualTo("@foo//bar/baz:bat");
+      assertThat(l.toString()).isEqualTo("@@foo//:foo");
     }
   }
 
@@ -322,7 +302,7 @@ public class LabelTest {
   @Test
   public void testRepoLabel() throws Exception {
     Label label = Label.parseCanonical("@foo//bar/baz:bat/boo");
-    assertThat(label.toString()).isEqualTo("@foo//bar/baz:bat/boo");
+    assertThat(label.toString()).isEqualTo("@@foo//bar/baz:bat/boo");
   }
 
   @Test
@@ -349,7 +329,7 @@ public class LabelTest {
         assertThrows(LabelSyntaxException.class, () -> Label.parseCanonical("@foo:xyz"));
     assertThat(e)
         .hasMessageThat()
-        .containsMatch("invalid repository name '@foo:xyz': repo names may contain only");
+        .containsMatch("invalid repository name 'foo:xyz': repo names may contain only");
   }
 
   @Test
@@ -393,7 +373,7 @@ public class LabelTest {
                         PathFragment.create("baz")),
                     "quux")
                 .getUnambiguousCanonicalForm())
-        .isEqualTo("@@[unknown repo 'foo' requested from @bar]//baz:quux");
+        .isEqualTo("@@[unknown repo 'foo' requested from @@bar]//baz:quux");
   }
 
   private static String displayFormFor(String rawLabel, RepositoryMapping repositoryMapping)
@@ -428,7 +408,7 @@ public class LabelTest {
             Label.parseWithRepoContext(
                     "@bad//abc", RepoContext.of(RepositoryName.MAIN, repositoryMapping))
                 .getDisplayForm(repositoryMapping))
-        .isEqualTo("@@[unknown repo 'bad' requested from @]//abc:abc");
+        .isEqualTo("@@[unknown repo 'bad' requested from @@]//abc:abc");
 
     assertThat(displayFormFor("@unremapped//:unremapped", RepositoryMapping.ALWAYS_FALLBACK))
         .isEqualTo("@unremapped//:unremapped");
@@ -472,7 +452,7 @@ public class LabelTest {
             Label.parseWithRepoContext(
                     "@bad//abc", RepoContext.of(RepositoryName.MAIN, repositoryMapping))
                 .getShorthandDisplayForm(repositoryMapping))
-        .isEqualTo("@@[unknown repo 'bad' requested from @]//abc");
+        .isEqualTo("@@[unknown repo 'bad' requested from @@]//abc");
 
     assertThat(
             shorthandDisplayFormFor("@unremapped//:unremapped", RepositoryMapping.ALWAYS_FALLBACK))
@@ -489,7 +469,7 @@ public class LabelTest {
 
     label = Label.parseCanonical("@hello//x");
     assertThat(Starlark.str(label, StarlarkSemantics.DEFAULT)).isEqualTo("@@hello//x:x");
-    assertThat(Starlark.repr(label)).isEqualTo("Label(\"@hello//x:x\")");
+    assertThat(Starlark.repr(label)).isEqualTo("Label(\"@@hello//x:x\")");
   }
 
   @Test
