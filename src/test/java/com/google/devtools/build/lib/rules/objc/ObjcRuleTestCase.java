@@ -69,6 +69,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
+import org.junit.Before;
 
 /**
  * Superclass for all Obj-C rule tests.
@@ -88,6 +89,11 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       DottedVersion.fromStringUnchecked(AppleCommandLineOptions.DEFAULT_IOS_SDK_VERSION);
 
   protected static final String OUTPUTDIR = TestConstants.PRODUCT_NAME + "-out//bin";
+
+  @Before
+  public void setUp() throws Exception {
+    setBuildLanguageOptions("--noincompatible_disable_objc_library_transition");
+  }
 
   /** Specification of code coverage behavior. */
   public enum CodeCoverageMode {
