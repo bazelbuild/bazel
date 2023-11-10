@@ -119,7 +119,11 @@ public final class BuildInfoFileWriteAction extends AbstractAction {
     Object substitutionDictObject = null;
     try (Mutability mutability = Mutability.create("translate_build_info_file")) {
       try {
-        StarlarkThread thread = new StarlarkThread(mutability, semantics);
+        StarlarkThread thread =
+            new StarlarkThread(
+                mutability,
+                semantics,
+                isVolatile() ? "transform_version_file callback" : "transform_info_file callback");
         substitutionDictObject =
             Starlark.call(
                 thread,

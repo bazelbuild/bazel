@@ -848,7 +848,7 @@ public final class Starlark {
 
   private static String createUncheckedEvalMessage(Throwable cause, StarlarkThread thread) {
     String msg = cause.getClass().getSimpleName() + " thrown during Starlark evaluation";
-    String context = thread.getContextForUncheckedException();
+    String context = thread.getContextDescription();
     return isNullOrEmpty(context) ? msg : msg + " (" + context + ")";
   }
 

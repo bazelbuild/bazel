@@ -1068,7 +1068,8 @@ public abstract class CcModule
       if (!userLinkFlagsFlattened.isEmpty()) {
         LinkOptions options =
             LinkOptions.of(
-                userLinkFlagsFlattened, BazelStarlarkContext.from(thread).getSymbolGenerator());
+                userLinkFlagsFlattened,
+                BazelStarlarkContext.fromOrFail(thread).getSymbolGenerator());
         optionsBuilder.add(options);
       }
     } else if (userLinkFlagsObject instanceof Sequence) {
@@ -1080,13 +1081,14 @@ public abstract class CcModule
               LinkOptions.of(
                   Sequence.cast(userLinkFlagsObject, String.class, "user_link_flags[]")
                       .getImmutableList(),
-                  BazelStarlarkContext.from(thread).getSymbolGenerator()));
+                  BazelStarlarkContext.fromOrFail(thread).getSymbolGenerator()));
         } else if (options.get(0) instanceof Sequence) {
           for (Object optionObject : options) {
             ImmutableList<String> option =
                 Sequence.cast(optionObject, String.class, "user_link_flags[][]").getImmutableList();
             optionsBuilder.add(
-                LinkOptions.of(option, BazelStarlarkContext.from(thread).getSymbolGenerator()));
+                LinkOptions.of(
+                    option, BazelStarlarkContext.fromOrFail(thread).getSymbolGenerator()));
           }
         } else {
           throw Starlark.errorf(
@@ -1154,7 +1156,7 @@ public abstract class CcModule
               ImmutableList.of(
                   CcLinkingContext.LinkOptions.of(
                       userLinkFlags.getImmutableList(),
-                      BazelStarlarkContext.from(thread).getSymbolGenerator())));
+                      BazelStarlarkContext.fromOrFail(thread).getSymbolGenerator())));
         }
         @SuppressWarnings("unchecked")
         Sequence<String> nonCodeInputs = nullIfNone(nonCodeInputsObject, Sequence.class);
@@ -1988,7 +1990,7 @@ public abstract class CcModule
                     .getActionConstructionContext()
                     .getConfiguration()
                     .getFragment(CppConfiguration.class),
-                BazelStarlarkContext.from(thread).getSymbolGenerator(),
+                BazelStarlarkContext.fromOrFail(thread).getSymbolGenerator(),
                 TargetUtils.getExecutionInfo(
                     actions.getRuleContext().getRule(),
                     actions.getRuleContext().isAllowTagsPropagation()))
@@ -2767,7 +2769,7 @@ public abstract class CcModule
                 fdoContext,
                 buildConfiguration,
                 cppConfiguration,
-                BazelStarlarkContext.from(thread).getSymbolGenerator(),
+                BazelStarlarkContext.fromOrFail(thread).getSymbolGenerator(),
                 TargetUtils.getExecutionInfo(
                     actions.getRuleContext().getRule(),
                     actions.getRuleContext().isAllowTagsPropagation()))
