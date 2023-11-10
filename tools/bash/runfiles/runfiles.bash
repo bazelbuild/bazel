@@ -246,7 +246,7 @@ function runfiles_current_repository() {
     # Escape $caller_path for use in the grep regex below. Also replace \ with / since the manifest
     # uses / as the path separator even on Windows.
     local -r normalized_caller_path="$(echo "$caller_path" | sed 's|\\\\*|/|g')"
-    local -r escaped_caller_path="$(echo "$normalized_caller_path" | sed 's/[^-A-Za-z0-9_/]/\\&/g')"
+    local -r escaped_caller_path="$(echo "$normalized_caller_path" | sed 's/[.[\*^$]/\\&/g')"
     rlocation_path=$(__runfiles_maybe_grep -m1 "^[^ ]* ${escaped_caller_path}$" "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 1)
     if [[ -z "$rlocation_path" ]]; then
       if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then

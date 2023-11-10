@@ -109,6 +109,24 @@ public final class OptionsUtils {
     }
   }
 
+  /** Converter from String to PathFragment. If the input is empty returns {@code null} instead. */
+  public static class EmptyToNullPathFragmentConverter extends Converter.Contextless<PathFragment> {
+
+    @Override
+    @Nullable
+    public PathFragment convert(String input) throws OptionsParsingException {
+      if (input.isEmpty()) {
+        return null;
+      }
+      return convertOptionsPathFragment(input);
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a path";
+    }
+  }
+
   /** Converter from String to PathFragment requiring the provided path to be absolute. */
   public static class AbsolutePathFragmentConverter extends Converter.Contextless<PathFragment> {
 
@@ -127,7 +145,10 @@ public final class OptionsUtils {
     }
   }
 
-  /** Converter from String to PathFragment. If the input is empty returns {@code null} instead. */
+  /**
+   * Converter from String to PathFragment requiring the provided path to be relative. If the input
+   * is empty returns {@code null} instead.
+   */
   public static class EmptyToNullRelativePathFragmentConverter
       extends Converter.Contextless<PathFragment> {
 

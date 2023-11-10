@@ -70,7 +70,7 @@ filegroup(
     srcs = [
         ":WORKSPACE",
         ":distdir.bzl",
-        ":distdir_deps.bzl",
+        ":workspace_deps.bzl",
     ],
     visibility = [
         "//src/test/shell/bazel:__subpackages__",
@@ -307,6 +307,7 @@ default_java_toolchain(
 
 default_java_toolchain(
     name = "bazel_rbe_java_toolchain",
+    bootclasspath = ["@bazel_tools//tools/jdk:platformclasspath"],
     source_version = "11",
     target_version = "11",
 )

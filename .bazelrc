@@ -46,7 +46,7 @@ common:bzlmod --enable_bzlmod
 common:bzlmod --check_direct_dependencies=error
 common:bzlmod --experimental_downloader_config=bazel_downloader.cfg
 common --config=bzlmod
-common --lockfile_mode=off
+common --lockfile_mode=update
 
 # Enable Java 11 language features (https://github.com/bazelbuild/bazel/issues/14592)
 build --java_language_version=11
@@ -67,7 +67,11 @@ try-import %workspace%/user.bazelrc
 build:docs --workspace_status_command=scripts/docs/get_workspace_status.sh
 
 # Flags for CI builds
+## Common
+common:ci-common --lockfile_mode=error
+
 ## For Linux
+common:ci-linux --config=ci-common
 build:ci-linux --repository_cache=/var/lib/buildkite-agent/bazeltest/repo_cache
 test:ci-linux --test_env=TEST_INSTALL_BASE=/var/lib/buildkite-agent/bazeltest/install_base
 test:ci-linux --test_env=REPOSITORY_CACHE=/var/lib/buildkite-agent/bazeltest/repo_cache
@@ -76,6 +80,7 @@ test:ci-linux --sandbox_writable_path=/var/lib/buildkite-agent/bazeltest
 test:ci-linux --sandbox_default_allow_network=false
 
 ## For macOS
+common:ci-macos --config=ci-common
 build:ci-macos --repository_cache=/Users/buildkite/bazeltest/repo_cache
 test:ci-macos --test_env=TEST_INSTALL_BASE=/Users/buildkite/bazeltest/install_base
 test:ci-macos --test_env=REPOSITORY_CACHE=/Users/buildkite/bazeltest/repo_cache
@@ -84,6 +89,7 @@ test:ci-macos --sandbox_writable_path=/Users/buildkite/bazeltest
 test:ci-macos --sandbox_default_allow_network=false
 
 ## For Windows
+common:ci-windows --config=ci-common
 build:ci-windows --repository_cache=C:/b/bazeltest_repo_cache
 test:ci-windows --test_env=BAZEL_VC
 test:ci-windows --test_env=JAVA_HOME
