@@ -17,6 +17,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
@@ -382,10 +383,10 @@ public abstract class PackageLookupValue implements SkyValue {
    * a non-existent repository.
    */
   public static class NoRepositoryPackageLookupValue extends UnsuccessfulPackageLookupValue {
-    private final String repositoryName;
+    private final RepositoryName repositoryName;
     private final String reason;
 
-    NoRepositoryPackageLookupValue(String repositoryName, String reason) {
+    NoRepositoryPackageLookupValue(RepositoryName repositoryName, String reason) {
       this.repositoryName = repositoryName;
       this.reason = reason;
     }

@@ -618,7 +618,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     BazelStarlarkContext.checkLoadingPhase(thread, "native.repository_name");
     PackageIdentifier packageId =
         PackageFactory.getContext(thread).getBuilder().getPackageIdentifier();
-    return packageId.getRepository().getNameWithAt();
+    // for legacy reasons, this is prefixed with a single '@'.
+    return '@' + packageId.getRepository().getName();
   }
 
   @Override

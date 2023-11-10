@@ -148,7 +148,7 @@ EOF
 function test_execute2() {
   set_workspace_command 'repository_ctx.execute(["echo", "test_contents"], 21, {"Arg1": "Val1"}, True)'
 
-  build_and_process_log --exclude_rule "repository @local_config_cc"
+  build_and_process_log --exclude_rule "repository @@local_config_cc"
 
   ensure_contains_exactly 'location: .*repos.bzl:2:25' 1
   ensure_contains_exactly 'arguments: "echo"' 1
@@ -158,13 +158,13 @@ function test_execute2() {
   ensure_contains_exactly 'key: "Arg1"' 1
   ensure_contains_exactly 'value: "Val1"' 1
   # Workspace contains 2 file commands
-  ensure_contains_atleast 'context: "repository @repo"' 3
+  ensure_contains_atleast 'context: "repository @@repo"' 3
 }
 
 function test_execute_quiet2() {
   set_workspace_command 'repository_ctx.execute(["echo", "test2"], 32, {"A1": "V1"}, False)'
 
-  build_and_process_log --exclude_rule "repository @local_config_cc"
+  build_and_process_log --exclude_rule "repository @@local_config_cc"
 
   ensure_contains_exactly 'location: .*repos.bzl:2:25' 1
   ensure_contains_exactly 'arguments: "echo"' 1
@@ -176,7 +176,7 @@ function test_execute_quiet2() {
   ensure_contains_exactly 'key: "A1"' 1
   ensure_contains_exactly 'value: "V1"' 1
   # Workspace contains 2 file commands
-  ensure_contains_atleast 'context: "repository @repo"' 3
+  ensure_contains_atleast 'context: "repository @@repo"' 3
 }
 
 function test_download() {
@@ -192,10 +192,10 @@ function test_download() {
 
   set_workspace_command "repository_ctx.download(\"http://localhost:${fileserver_port}/file.txt\", \"file.txt\", \"${file_sha256}\")"
 
-  build_and_process_log --exclude_rule "repository @local_config_cc"
+  build_and_process_log --exclude_rule "repository @@local_config_cc"
 
   ensure_contains_exactly 'location: .*repos.bzl:2:26' 1
-  ensure_contains_atleast 'context: "repository @repo"' 1
+  ensure_contains_atleast 'context: "repository @@repo"' 1
   ensure_contains_exactly 'download_event' 1
   ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/file.txt\"" 1
   ensure_contains_exactly 'output: "file.txt"' 1
@@ -220,10 +220,10 @@ function test_download_multiple() {
 
   set_workspace_command "repository_ctx.download([\"http://localhost:${fileserver_port}/file1.txt\",\"http://localhost:${fileserver_port}/file2.txt\"], \"out_for_list.txt\", sha256='${sha256}')"
 
-  build_and_process_log --exclude_rule "repository @local_config_cc"
+  build_and_process_log --exclude_rule "repository @@local_config_cc"
 
   ensure_contains_exactly 'location: .*repos.bzl:2:26' 1
-  ensure_contains_atleast 'context: "repository @repo"' 1
+  ensure_contains_atleast 'context: "repository @@repo"' 1
   ensure_contains_exactly 'download_event' 1
   ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/file1.txt\"" 1
   ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/file2.txt\"" 1
@@ -247,10 +247,10 @@ function test_download_integrity_sha256() {
 
   set_workspace_command "repository_ctx.download(\"http://localhost:${fileserver_port}/file.txt\", \"file.txt\", integrity=\"${file_integrity}\")"
 
-  build_and_process_log --exclude_rule "repository @local_config_cc"
+  build_and_process_log --exclude_rule "repository @@local_config_cc"
 
   ensure_contains_exactly 'location: .*repos.bzl:2:26' 1
-  ensure_contains_atleast 'context: "repository @repo"' 1
+  ensure_contains_atleast 'context: "repository @@repo"' 1
   ensure_contains_exactly 'download_event' 1
   ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/file.txt\"" 1
   ensure_contains_exactly 'output: "file.txt"' 1
@@ -276,10 +276,10 @@ function test_download_integrity_sha512() {
 
   set_workspace_command "repository_ctx.download(\"http://localhost:${fileserver_port}/file.txt\", \"file.txt\", integrity=\"${file_integrity}\")"
 
-  build_and_process_log --exclude_rule "repository @local_config_cc"
+  build_and_process_log --exclude_rule "repository @@local_config_cc"
 
   ensure_contains_exactly 'location: .*repos.bzl:2:26' 1
-  ensure_contains_atleast 'context: "repository @repo"' 1
+  ensure_contains_atleast 'context: "repository @@repo"' 1
   ensure_contains_exactly 'download_event' 1
   ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/file.txt\"" 1
   ensure_contains_exactly 'output: "file.txt"' 1
@@ -336,11 +336,11 @@ function test_download_then_extract() {
   repository_ctx.download(\"http://localhost:${fileserver_port}/download_then_extract.zip\", \"downloaded_file.zip\", \"${file_sha256}\")
   repository_ctx.extract(\"downloaded_file.zip\", \"out_dir\", \"server_dir/\")"
 
-  build_and_process_log --exclude_rule "repository @local_config_cc"
+  build_and_process_log --exclude_rule "repository @@local_config_cc"
 
   ensure_contains_exactly 'location: .*repos.bzl:3:26' 1
   ensure_contains_exactly 'location: .*repos.bzl:4:25' 1
-  ensure_contains_atleast 'context: "repository @repo"' 2
+  ensure_contains_atleast 'context: "repository @@repo"' 2
   ensure_contains_exactly 'download_event' 1
   ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/download_then_extract.zip\"" 1
   ensure_contains_exactly 'output: "downloaded_file.zip"' 1
@@ -373,11 +373,11 @@ function test_download_then_extract_tar() {
   repository_ctx.download(\"http://localhost:${fileserver_port}/download_then_extract.tar.gz\", \"downloaded_file.tar.gz\", \"${file_sha256}\")
   repository_ctx.extract(\"downloaded_file.tar.gz\", \"out_dir\", \"data_dir/\")"
 
-  build_and_process_log --exclude_rule "repository @local_config_cc"
+  build_and_process_log --exclude_rule "repository @@local_config_cc"
 
   ensure_contains_exactly 'location: .*repos.bzl:3:26' 1
   ensure_contains_exactly 'location: .*repos.bzl:4:25' 1
-  ensure_contains_atleast 'context: "repository @repo"' 2
+  ensure_contains_atleast 'context: "repository @@repo"' 2
   ensure_contains_exactly 'download_event' 1
   ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/download_then_extract.tar.gz\"" 1
   ensure_contains_exactly 'output: "downloaded_file.tar.gz"' 1
@@ -407,10 +407,10 @@ function test_download_and_extract() {
 
   set_workspace_command "repository_ctx.download_and_extract(\"http://localhost:${fileserver_port}/download_and_extract.zip\", \"out_dir\", \"${file_sha256}\", \"zip\", \"server_dir/\")"
 
-  build_and_process_log --exclude_rule "repository @local_config_cc"
+  build_and_process_log --exclude_rule "repository @@local_config_cc"
 
   ensure_contains_exactly 'location: .*repos.bzl:2:38' 1
-  ensure_contains_atleast 'context: "repository @repo"' 1
+  ensure_contains_atleast 'context: "repository @@repo"' 1
   ensure_contains_exactly 'download_and_extract_event' 1
   ensure_contains_exactly "url: \"http://localhost:${fileserver_port}/download_and_extract.zip\"" 1
   ensure_contains_exactly 'output: "out_dir"' 1
@@ -440,10 +440,10 @@ function test_extract_rename_files() {
     'prefix/A.txt': 'prefix/renamed-A.txt',
   })"
 
-  build_and_process_log --exclude_rule "repository @local_config_cc"
+  build_and_process_log --exclude_rule "repository @@local_config_cc"
 
   ensure_contains_exactly 'location: .*repos.bzl:3:25' 1
-  ensure_contains_atleast 'context: "repository @repo"' 2
+  ensure_contains_atleast 'context: "repository @@repo"' 2
   ensure_contains_exactly 'extract_event' 1
   ensure_contains_exactly 'rename_files' 1
   ensure_contains_exactly 'key: "prefix/A.txt"' 1
@@ -468,10 +468,10 @@ function test_extract_pax_tar_non_ascii_utf8_file_names() {
   set_workspace_command "
   repository_ctx.extract('${archive_tar}', 'out_dir', 'Ä_pax_∅/')"
 
-  build_and_process_log --exclude_rule "repository @local_config_cc"
+  build_and_process_log --exclude_rule "repository @@local_config_cc"
 
   ensure_contains_exactly 'location: .*repos.bzl:3:25' 1
-  ensure_contains_atleast 'context: "repository @repo"' 2
+  ensure_contains_atleast 'context: "repository @@repo"' 2
   ensure_contains_exactly 'extract_event' 1
 
   ensure_output_contains_exactly_once "external/repo/out_dir/Ä_foo_∅.txt" "bar"
@@ -491,10 +491,10 @@ function test_extract_ustar_tar_non_ascii_utf8_file_names() {
   set_workspace_command "
   repository_ctx.extract('${archive_tar}', 'out_dir', 'Ä_ustar_∅/')"
 
-  build_and_process_log --exclude_rule "repository @local_config_cc"
+  build_and_process_log --exclude_rule "repository @@local_config_cc"
 
   ensure_contains_exactly 'location: .*repos.bzl:3:25' 1
-  ensure_contains_atleast 'context: "repository @repo"' 2
+  ensure_contains_atleast 'context: "repository @@repo"' 2
   ensure_contains_exactly 'extract_event' 1
 
   ensure_output_contains_exactly_once "external/repo/out_dir/Ä_foo_∅.txt" "bar"
@@ -519,10 +519,10 @@ function test_extract_ustar_tar_non_ascii_non_utf8_file_names() {
   set_workspace_command "
   repository_ctx.extract('${archive_tar}', 'out_dir', 'Ä_ustar_latin1_∅/')"
 
-  build_and_process_log --exclude_rule "repository @local_config_cc"
+  build_and_process_log --exclude_rule "repository @@local_config_cc"
 
   ensure_contains_exactly 'location: .*repos.bzl:3:25' 1
-  ensure_contains_atleast 'context: "repository @repo"' 2
+  ensure_contains_atleast 'context: "repository @@repo"' 2
   ensure_contains_exactly 'extract_event' 1
 
   ensure_output_contains_exactly_once "$(echo -e 'external/repo/out_dir/\xC4_foo_latin1_\xD6.txt')" "bar"
@@ -540,10 +540,10 @@ function test_extract_default_zip_non_ascii_utf8_file_names() {
   set_workspace_command "
   repository_ctx.extract('${archive_tar}', 'out_dir', 'Ä_default_∅/')"
 
-  build_and_process_log --exclude_rule "repository @local_config_cc"
+  build_and_process_log --exclude_rule "repository @@local_config_cc"
 
   ensure_contains_exactly 'location: .*repos.bzl:3:25' 1
-  ensure_contains_atleast 'context: "repository @repo"' 2
+  ensure_contains_atleast 'context: "repository @@repo"' 2
   ensure_contains_exactly 'extract_event' 1
 
   ensure_output_contains_exactly_once "external/repo/out_dir/Ä_foo_∅.txt" "bar"
@@ -552,10 +552,10 @@ function test_extract_default_zip_non_ascii_utf8_file_names() {
 function test_file() {
   set_workspace_command 'repository_ctx.file("filefile.sh", "echo filefile", True)'
 
-  build_and_process_log --exclude_rule "repository @local_config_cc"
+  build_and_process_log --exclude_rule "repository @@local_config_cc"
 
   ensure_contains_exactly 'location: .*repos.bzl:2:22' 1
-  ensure_contains_atleast 'context: "repository @repo"' 1
+  ensure_contains_atleast 'context: "repository @@repo"' 1
 
   # There are 3 file_event in external:repo as it is currently set up
   ensure_contains_exactly 'file_event' 3
@@ -567,10 +567,10 @@ function test_file() {
 function test_file_nonascii() {
   set_workspace_command 'repository_ctx.file("filefile.sh", "echo fïlëfïlë", True)'
 
-  build_and_process_log --exclude_rule "repository @local_config_cc"
+  build_and_process_log --exclude_rule "repository @@local_config_cc"
 
   ensure_contains_exactly 'location: .*repos.bzl:2:22' 1
-  ensure_contains_atleast 'context: "repository @repo"' 1
+  ensure_contains_atleast 'context: "repository @@repo"' 1
 
   # There are 3 file_event in external:repo as it is currently set up
   ensure_contains_exactly 'file_event' 3
@@ -598,11 +598,11 @@ function test_read() {
   if read_result != content:
     fail("read(): expected %r, got %r" % (content, read_result))'
 
-  build_and_process_log --exclude_rule "repository @local_config_cc"
+  build_and_process_log --exclude_rule "repository @@local_config_cc"
 
   ensure_contains_exactly 'location: .*repos.bzl:4:22' 1
   ensure_contains_exactly 'location: .*repos.bzl:5:36' 1
-  ensure_contains_atleast 'context: "repository @repo"' 1
+  ensure_contains_atleast 'context: "repository @@repo"' 1
 
   ensure_contains_exactly 'read_event' 1
   ensure_contains_exactly 'path: ".*filefile.sh"' 2
@@ -619,7 +619,7 @@ function test_read_roundtrip_legacy_utf8() {
   if read_result != corrupted_content:
     fail("read(): expected %r, got %r" % (corrupted_content, read_result))'
 
-  build_and_process_log --exclude_rule "repository @local_config_cc"
+  build_and_process_log --exclude_rule "repository @@local_config_cc"
 }
 
 function test_read_roundtrip_nolegacy_utf8() {
@@ -630,15 +630,15 @@ function test_read_roundtrip_nolegacy_utf8() {
   if read_result != content:
     fail("read(): expected %r, got %r" % (content, read_result))'
 
-  build_and_process_log --exclude_rule "repository @local_config_cc"
+  build_and_process_log --exclude_rule "repository @@local_config_cc"
 }
 
 function test_os() {
   set_workspace_command 'print(repository_ctx.os.name)'
 
-  build_and_process_log --exclude_rule "repository @local_config_cc"
+  build_and_process_log --exclude_rule "repository @@local_config_cc"
 
-  ensure_contains_atleast 'context: "repository @repo"' 1
+  ensure_contains_atleast 'context: "repository @@repo"' 1
   ensure_contains_exactly 'os_event' 1
 }
 
@@ -646,10 +646,10 @@ function test_symlink() {
   set_workspace_command 'repository_ctx.file("symlink.txt", "something")
   repository_ctx.symlink("symlink.txt", "symlink_out.txt")'
 
-  build_and_process_log --exclude_rule "repository @local_config_cc"
+  build_and_process_log --exclude_rule "repository @@local_config_cc"
 
   ensure_contains_exactly 'location: .*repos.bzl:2:22' 1
-  ensure_contains_atleast 'context: "repository @repo"' 1
+  ensure_contains_atleast 'context: "repository @@repo"' 1
   ensure_contains_exactly 'symlink_event' 1
   ensure_contains_exactly 'target: ".*symlink.txt"' 1
   ensure_contains_exactly 'path: ".*symlink_out.txt"' 1
@@ -659,10 +659,10 @@ function test_template() {
   set_workspace_command 'repository_ctx.file("template_in.txt", "%{subKey}", False)
   repository_ctx.template("template_out.txt", "template_in.txt", {"subKey": "subVal"}, True)'
 
-  build_and_process_log --exclude_rule "repository @local_config_cc"
+  build_and_process_log --exclude_rule "repository @@local_config_cc"
 
   ensure_contains_exactly 'location: .*repos.bzl:2:22' 1
-  ensure_contains_atleast 'context: "repository @repo"' 1
+  ensure_contains_atleast 'context: "repository @@repo"' 1
   ensure_contains_exactly 'template_event' 1
   ensure_contains_exactly 'path: ".*template_out.txt"' 1
   ensure_contains_exactly 'template: ".*template_in.txt"' 1
@@ -674,10 +674,10 @@ function test_template() {
 function test_which() {
   set_workspace_command 'print(repository_ctx.which("which_prog"))'
 
-  build_and_process_log --exclude_rule "repository @local_config_cc"
+  build_and_process_log --exclude_rule "repository @@local_config_cc"
 
   ensure_contains_exactly 'location: .*repos.bzl:2:29' 1
-  ensure_contains_atleast 'context: "repository @repo"' 1
+  ensure_contains_atleast 'context: "repository @@repo"' 1
   ensure_contains_exactly 'which_event' 1
   ensure_contains_exactly 'program: "which_prog"' 1
 }

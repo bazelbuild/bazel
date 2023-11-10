@@ -4187,10 +4187,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     Rule rule = getRuleContext(myTarget).getRule();
 
     assertNoEvents();
-    assertThat(
-            rule.getRuleClassObject().getExecutionPlatformConstraints().stream()
-                .map(Label::toString))
-        .containsExactly(constr1, constr2);
+    assertThat(rule.getRuleClassObject().getExecutionPlatformConstraints())
+        .containsExactly(
+            Label.parseCanonicalUnchecked(constr1), Label.parseCanonicalUnchecked(constr2));
   }
 
   @Test
@@ -4500,14 +4499,14 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
                 EvalException.class, () -> eval(module, "Label('@//foo:bar').workspace_name")))
         .hasMessageThat()
         .isEqualTo(
-            "'workspace_name' is not allowed on invalid Label @[unknown repo '' requested from"
-                + " @module~1.2.3]//foo:bar");
+            "'workspace_name' is not allowed on invalid Label @@[unknown repo '' requested from"
+                + " @@module~1.2.3]//foo:bar");
     assertThat(
             assertThrows(
                 EvalException.class, () -> eval(module, "Label('@//foo:bar').workspace_root")))
         .hasMessageThat()
         .isEqualTo(
-            "'workspace_root' is not allowed on invalid Label @[unknown repo '' requested from"
-                + " @module~1.2.3]//foo:bar");
+            "'workspace_root' is not allowed on invalid Label @@[unknown repo '' requested from"
+                + " @@module~1.2.3]//foo:bar");
   }
 }

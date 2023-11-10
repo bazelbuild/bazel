@@ -79,10 +79,10 @@ public class BazelJavaSemantics implements JavaSemantics {
   private static final String BAZEL_TEST_RUNNER_MAIN_CLASS =
       "com.google.testing.junit.runner.BazelTestRunner";
 
-  private BazelJavaSemantics() {
-  }
+  private BazelJavaSemantics() {}
 
-  private static final String JAVA_TOOLCHAIN_TYPE = "@bazel_tools//tools/jdk:toolchain_type";
+  private static final String JAVA_TOOLCHAIN_TYPE =
+      Label.parseCanonicalUnchecked("@bazel_tools//tools/jdk:toolchain_type").toString();
   private static final Label JAVA_RUNITME_TOOLCHAIN_TYPE =
       Label.parseCanonicalUnchecked("@bazel_tools//tools/jdk:runtime_toolchain_type");
 

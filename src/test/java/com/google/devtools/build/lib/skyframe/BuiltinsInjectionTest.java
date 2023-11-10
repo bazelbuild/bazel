@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -382,7 +381,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     writePkgBzl("load('@@_builtins//:exports.bzl', 'exported_toplevels')");
 
     buildAndAssertFailure();
-    assertContainsEvent("The repository '@_builtins' could not be resolved");
+    assertContainsEvent("The repository '@@_builtins' could not be resolved");
   }
 
   @Test

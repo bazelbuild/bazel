@@ -218,7 +218,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         update(ImmutableList.of("@local//:aspect.bzl%MyAspect"), "//test:xxx");
     assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:xxx");
     assertThat(getAspectDescriptions(analysisResult))
-        .containsExactly("@local//:aspect.bzl%MyAspect(//test:xxx)");
+        .containsExactly("@@local//:aspect.bzl%MyAspect(//test:xxx)");
   }
 
   private static Iterable<String> getLabelsToBuild(AnalysisResult analysisResult) {

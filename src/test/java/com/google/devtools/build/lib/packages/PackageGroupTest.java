@@ -436,10 +436,10 @@ public class PackageGroupTest extends PackageLoadingTestCase {
         .containsExactly(
             "a",
             "",
-            "@other//z",
+            "@@other//z",
             "a/b/...",
             "//...",
-            "@other//...",
+            "@@other//...",
             "-c",
             "-",
             "-c/d/...",
@@ -456,8 +456,8 @@ public class PackageGroupTest extends PackageLoadingTestCase {
             "-//...",
             "//",
             "-//",
-            "@other//z",
-            "@other//...",
+            "@@other//z",
+            "@@other//...",
             "public",
             "private");
     assertThat(contents.packageStringsWithDoubleSlashAndWithoutRepository())

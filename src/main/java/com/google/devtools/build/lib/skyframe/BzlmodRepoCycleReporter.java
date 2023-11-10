@@ -104,7 +104,7 @@ public class BzlmodRepoCycleReporter implements CyclesReporter.SingleCycleReport
           rawInput -> {
             SkyKey input = (SkyKey) rawInput;
             if (input instanceof RepositoryDirectoryValue.Key) {
-              return ((RepositoryDirectoryValue.Key) input).argument().getNameWithAt();
+              return ((RepositoryDirectoryValue.Key) input).argument().toString();
             } else if (input.argument() instanceof ModuleExtensionId) {
               ModuleExtensionId id = (ModuleExtensionId) input.argument();
               return String.format(
