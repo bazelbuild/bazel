@@ -27,6 +27,11 @@ java_test(
     ],
 )
 
+java_library(
+    name = "jar+with+plus",
+    srcs = ["TestClass.java"],
+)
+
 sh_test(
     name = "jacoco_runner_integration_test",
     size = "medium",
@@ -34,10 +39,12 @@ sh_test(
     args = [
         "$(location //src/test/shell:unittest.bash)",
         "$(location //src/java_tools/junitrunner/java/com/google/testing/coverage:JacocoCoverage)",
+        "$(location :jar+with+plus)",
     ],
     data = [
         "//src/java_tools/junitrunner/java/com/google/testing/coverage:JacocoCoverage",
         "//src/test/shell:bashunit",
         "//src/test/shell:unittest.bash",
+        ":jar+with+plus",
     ],
 )

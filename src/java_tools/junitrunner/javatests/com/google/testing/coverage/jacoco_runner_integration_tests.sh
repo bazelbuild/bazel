@@ -26,18 +26,15 @@ source "$1" || \
 set +o errexit
 
 JACOCO_RUNNER="${PWD}/$2"
-shift 2
+JAR_WITH_PLUS="${PWD}/$3"
+shift 3
 
 JACOCO_CMD="${JACOCO_RUNNER} --main_advice=com.google.testing.coverage.JacocoCoverageRunner"
 #######################
 
 function test_jar_with_plus_in_the_filename() {
-  touch "Test.class"
-  JAR_WITH_PLUS='file+with+plus.jar'
-  zip -qo ${JAR_WITH_PLUS} "Test.class"
-  export JACOCO_MAIN_CLASS="Test"
-  ${JACOCO_CMD} \
-  --main_advice_classpath="${JAR_WITH_PLUS}" >& $TEST_log && fail "expected build failure"
+  export JACOCO_MAIN_CLASS="TestClass"
+  ${JACOCO_CMD} --main_advice_classpath="${JAR_WITH_PLUS}" >& $TEST_log
   expect_not_log "java.nio.file.NoSuchFileException"
 }
 
