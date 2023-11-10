@@ -19,6 +19,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -45,8 +46,8 @@ public class BazelShTestConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration("--collect_code_coverage");
     reporter.removeHandler(failFastHandler);
     ConfiguredTarget ct = getConfiguredTarget("//:test");
-    assertThat(getRuleContext(ct).getPrerequisite(":lcov_merger").getLabel().toString())
-        .isEqualTo("@bazel_tools//tools/test:lcov_merger");
+    assertThat(getRuleContext(ct).getPrerequisite(":lcov_merger").getLabel())
+        .isEqualTo(Label.parseCanonicalUnchecked("@bazel_tools//tools/test:lcov_merger"));
   }
 
   @Test

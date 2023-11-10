@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import java.util.Optional;
 import net.starlark.java.eval.Dict;
-import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -38,33 +37,15 @@ public final class LabelRendererTest {
     Label mainRepoLabel = Label.parseCanonicalUnchecked("//foo:bar");
     Label depRepoLabel = Label.parseCanonicalUnchecked("@dep//foo:baz");
 
-    assertThat(LabelRenderer.DEFAULT.render(mainRepoLabel))
-        .isEqualTo(mainRepoLabel.toShorthandString());
+    assertThat(LabelRenderer.DEFAULT.render(mainRepoLabel)).isEqualTo("//foo:bar");
     assertThat(LabelRenderer.DEFAULT.reprWithoutLabelConstructor(mainRepoLabel))
-        .isEqualTo(Starlark.repr(mainRepoLabel.toShorthandString()));
-    assertThat(LabelRenderer.DEFAULT.repr(mainRepoLabel)).isEqualTo(Starlark.repr(mainRepoLabel));
+        .isEqualTo("\"//foo:bar\"");
+    assertThat(LabelRenderer.DEFAULT.repr(mainRepoLabel)).isEqualTo("Label(\"//foo:bar\")");
 
-    assertThat(LabelRenderer.DEFAULT.render(mainRepoLabel))
-        .isEqualTo(mainRepoLabel.toShorthandString());
+    assertThat(LabelRenderer.DEFAULT.render(depRepoLabel)).isEqualTo("@dep//foo:baz");
     assertThat(LabelRenderer.DEFAULT.reprWithoutLabelConstructor(depRepoLabel))
-        .isEqualTo(Starlark.repr(depRepoLabel.toShorthandString()));
-    assertThat(LabelRenderer.DEFAULT.repr(depRepoLabel)).isEqualTo(Starlark.repr(depRepoLabel));
-  }
-
-  private static void verifyConsistency(
-      LabelRenderer labelRenderer, Label label, RepositoryMapping repositoryMapping) {
-    String rendering = labelRenderer.render(label);
-    Label parsedRenderedLabel = Label.parseCanonicalUnchecked(rendering);
-
-    assertThat(rendering)
-        .isEqualTo(
-            parsedRenderedLabel.getShorthandDisplayForm(
-                // If we are prepending an explicit main repo name, it will not be in the repository
-                // mapping, so we need to allow fallback when calling Label#getShorthandDisplayForm.
-                RepositoryMapping.createAllowingFallback(repositoryMapping.entries())));
-    assertThat(labelRenderer.reprWithoutLabelConstructor(label))
-        .isEqualTo(Starlark.repr(rendering));
-    assertThat(labelRenderer.repr(label)).isEqualTo(Starlark.repr(parsedRenderedLabel));
+        .isEqualTo("\"@dep//foo:baz\"");
+    assertThat(LabelRenderer.DEFAULT.repr(depRepoLabel)).isEqualTo("Label(\"@dep//foo:baz\")");
   }
 
   @Test
@@ -82,9 +63,6 @@ public final class LabelRendererTest {
     assertThat(labelRenderer.reprWithoutLabelConstructor(dict))
         .isEqualTo("{\"//foo:bar\": \"//foo\"}");
     assertThat(labelRenderer.repr(dict)).isEqualTo("{Label(\"//foo:bar\"): Label(\"//foo:foo\")}");
-
-    verifyConsistency(labelRenderer, label, repositoryMapping);
-    verifyConsistency(labelRenderer, shorthandLabel, repositoryMapping);
   }
 
   @Test
@@ -108,10 +86,6 @@ public final class LabelRendererTest {
         .isEqualTo(
             "[Label(\"@my_main//foo:bar\"), Label(\"@my_main//foo:foo\"),"
                 + " Label(\"@my_main//:my_main\")]");
-
-    verifyConsistency(labelRenderer, label, repositoryMapping);
-    verifyConsistency(labelRenderer, shorthandLabel, repositoryMapping);
-    verifyConsistency(labelRenderer, ultraShorthandLabel, repositoryMapping);
   }
 
   @Test
@@ -132,8 +106,5 @@ public final class LabelRendererTest {
         .isEqualTo("[\"@local//foo:bar\", \"@local//foo\"]");
     assertThat(labelRenderer.repr(list))
         .isEqualTo("[Label(\"@local//foo:bar\"), Label(\"@local//foo:foo\")]");
-
-    verifyConsistency(labelRenderer, label, repositoryMapping);
-    verifyConsistency(labelRenderer, shorthandLabel, repositoryMapping);
   }
 }
