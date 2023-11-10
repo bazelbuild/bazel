@@ -36,19 +36,19 @@ public class RepositoryNameTest {
 
   @Test
   public void testValidateRepositoryName() throws Exception {
-    assertThat(RepositoryName.create("foo").getNameWithAt()).isEqualTo("@foo");
-    assertThat(RepositoryName.create("").getNameWithAt()).isEqualTo("@");
+    assertThat(RepositoryName.create("foo").getName()).isEqualTo("foo");
+    assertThat(RepositoryName.create("").getName()).isEqualTo("");
     assertThat(RepositoryName.create("")).isSameInstanceAs(RepositoryName.MAIN);
-    assertThat(RepositoryName.create("foo_bar").getNameWithAt()).isEqualTo("@foo_bar");
-    assertThat(RepositoryName.create("foo-bar").getNameWithAt()).isEqualTo("@foo-bar");
-    assertThat(RepositoryName.create("foo.bar").getNameWithAt()).isEqualTo("@foo.bar");
-    assertThat(RepositoryName.create("..foo").getNameWithAt()).isEqualTo("@..foo");
-    assertThat(RepositoryName.create("foo..").getNameWithAt()).isEqualTo("@foo..");
-    assertThat(RepositoryName.create(".foo").getNameWithAt()).isEqualTo("@.foo");
-    assertThat(RepositoryName.create("foo~bar").getNameWithAt()).isEqualTo("@foo~bar");
+    assertThat(RepositoryName.create("foo_bar").getName()).isEqualTo("foo_bar");
+    assertThat(RepositoryName.create("foo-bar").getName()).isEqualTo("foo-bar");
+    assertThat(RepositoryName.create("foo.bar").getName()).isEqualTo("foo.bar");
+    assertThat(RepositoryName.create("..foo").getName()).isEqualTo("..foo");
+    assertThat(RepositoryName.create("foo..").getName()).isEqualTo("foo..");
+    assertThat(RepositoryName.create(".foo").getName()).isEqualTo(".foo");
+    assertThat(RepositoryName.create("foo~bar").getName()).isEqualTo("foo~bar");
 
-    assertNotValid(".", "repo names are not allowed to be '@.'");
-    assertNotValid("..", "repo names are not allowed to be '@..'");
+    assertNotValid(".", "repo names are not allowed to be '.'");
+    assertNotValid("..", "repo names are not allowed to be '..'");
     assertNotValid("foo/bar", "repo names may contain only A-Z, a-z, 0-9, '-', '_', '.' and '~'");
     assertNotValid("foo@", "repo names may contain only A-Z, a-z, 0-9, '-', '_', '.' and '~'");
     assertNotValid("foo\0", "repo names may contain only A-Z, a-z, 0-9, '-', '_', '.' and '~'");
@@ -79,7 +79,7 @@ public class RepositoryNameTest {
   @Test
   public void testGetDefaultCanonicalForm() throws Exception {
     assertThat(RepositoryName.create("").getCanonicalForm()).isEqualTo("");
-    assertThat(RepositoryName.create("foo").getCanonicalForm()).isEqualTo("@foo");
+    assertThat(RepositoryName.create("foo").getCanonicalForm()).isEqualTo("@@foo");
   }
 
   @Test
@@ -98,11 +98,11 @@ public class RepositoryNameTest {
             RepositoryName.create("")
                 .toNonVisible(RepositoryName.create("owner"))
                 .getDisplayForm(repositoryMapping))
-        .isEqualTo("@@[unknown repo '' requested from @owner]");
+        .isEqualTo("@@[unknown repo '' requested from @@owner]");
     assertThat(
             RepositoryName.create("local")
                 .toNonVisible(RepositoryName.create("owner"))
                 .getDisplayForm(repositoryMapping))
-        .isEqualTo("@@[unknown repo 'local' requested from @owner]");
+        .isEqualTo("@@[unknown repo 'local' requested from @@owner]");
   }
 }

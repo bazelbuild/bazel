@@ -654,7 +654,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       hasFunctionTransitionAllowlist = true;
     }
     if (hasStarlarkDefinedTransition) {
-      if (!bzlFile.getRepository().getNameWithAt().equals("@_builtins")) {
+      if (!bzlFile.getRepository().getName().equals("_builtins")) {
         if (!hasFunctionTransitionAllowlist) {
           // add the allowlist automatically
           builder.add(

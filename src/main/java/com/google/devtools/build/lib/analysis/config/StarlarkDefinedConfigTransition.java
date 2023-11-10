@@ -120,9 +120,10 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
     return packageContext;
   }
 
-  /** Which .bzl file defines this transition? */
-  public String parentLabel() {
-    return parentLabel.getCanonicalForm();
+  /** Is this transition the same one specified by --experimental_exec_config? */
+  public boolean matchesExecConfigFlag(String starlarkExecConfig) {
+    return starlarkExecConfig.contains(parentLabel.getPackageName())
+        && starlarkExecConfig.contains(parentLabel.getName());
   }
 
   /**

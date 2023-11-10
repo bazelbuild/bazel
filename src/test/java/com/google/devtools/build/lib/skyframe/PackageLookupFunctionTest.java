@@ -517,14 +517,14 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     public static List<Object[]> parameters() {
       List<Object[]> params = new ArrayList<>();
 
-      params.add(new String[] {"simpleRepo_emptyPackage", "local", "", "@local//"});
-      params.add(new String[] {"simpleRepo_singlePackage", "local", "package", "@local//package"});
+      params.add(new String[] {"simpleRepo_emptyPackage", "local", "", "@@local//"});
+      params.add(new String[] {"simpleRepo_singlePackage", "local", "package", "@@local//package"});
       params.add(
           new String[] {
-            "simpleRepo_subPackage", "local", "package/subpackage", "@local//package/subpackage"
+            "simpleRepo_subPackage", "local", "package/subpackage", "@@local//package/subpackage"
           });
-      params.add(new String[] {"deepRepo_emptyPackage", "local/repo", "", "@local//"});
-      params.add(new String[] {"deepRepo_subPackage", "local/repo", "package", "@local//package"});
+      params.add(new String[] {"deepRepo_emptyPackage", "local/repo", "", "@@local//"});
+      params.add(new String[] {"deepRepo_subPackage", "local/repo", "package", "@@local//package"});
 
       return params;
     }

@@ -1013,7 +1013,7 @@ EOF
     && fail "Bazel passed unexpectedly."
 
   expect_log 'ERROR:.* Target //target_skipping:pass_on_foo3_and_bar2 is incompatible and cannot be built, but was explicitly requested'
-  expect_log "^    //target_skipping:pass_on_foo3_and_bar2 (.*)   <-- target platform (//target_skipping:foo1_bar1_platform) didn't satisfy constraint @platforms//:incompatible$"
+  expect_log "^    //target_skipping:pass_on_foo3_and_bar2 (.*)   <-- target platform (//target_skipping:foo1_bar1_platform) didn't satisfy constraint @\?@platforms//:incompatible$"
   expect_log 'ERROR: Build did NOT complete successfully'
 }
 

@@ -259,7 +259,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
 
     // Check for implicit toolchain dependencies
     assertThat(evalToListOfStrings("deps(//test:my_rule)"))
-        .containsAtLeast(explicits, implicits, PLATFORM_LABEL);
+        .containsAtLeast(explicits, implicits, evalToString(PLATFORM_LABEL));
 
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
     ImmutableList<String> filteredDeps = evalToListOfStrings("deps(//test:my_rule)");
@@ -370,7 +370,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
 
     // Check for implicit toolchain dependencies
     assertThat(evalToListOfStrings("deps(//test:my_rule)"))
-        .containsAtLeast(explicits, implicits, PLATFORM_LABEL);
+        .containsAtLeast(explicits, implicits, evalToString(PLATFORM_LABEL));
 
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
     ImmutableList<String> filteredDeps = evalToListOfStrings("deps(//test:my_rule)");

@@ -317,7 +317,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
     assertThat(value.getClass()).isEqualTo(NoContainingPackage.class);
     assertThat(value.getReasonForNoContainingPackage())
         .isEqualTo(
-            "The repository '@some_repo' could not be resolved: Repository '@some_repo' is not"
+            "The repository '@@some_repo' could not be resolved: Repository '@@some_repo' is not"
                 + " defined");
   }
 

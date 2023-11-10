@@ -202,7 +202,7 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
             // and Bazel recognizes that there is a terminal, so progress events will be displayed
             .withFlags("--experimental_ui_debug_all_events", "--curses=yes");
 
-    final String progressMessage = "PROGRESS <no location>: Loading package: @ext//";
+    final String progressMessage = "PROGRESS <no location>: Loading package: @@ext//";
 
     ProcessResult result = bazel.query("@ext//:all");
     assertThat(result.outString()).contains(progressMessage);
@@ -261,6 +261,6 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     context().write("BUILD");
     ProcessResult result = context().bazel().shouldFail().build("//...");
     assertThat(result.errString())
-        .contains("Error in local_repository: invalid repository name '@@a'");
+        .contains("Error in local_repository: invalid repository name '@a'");
   }
 }
