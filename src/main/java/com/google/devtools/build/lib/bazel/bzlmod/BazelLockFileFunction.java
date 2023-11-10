@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -36,11 +35,15 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
+import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.io.InputStreamReader;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** Reads the contents of the lock file into its value. */
@@ -48,8 +51,7 @@ public class BazelLockFileFunction implements SkyFunction {
 
   public static final Precomputed<LockfileMode> LOCKFILE_MODE = new Precomputed<>("lockfile_mode");
 
-  private static final Pattern LOCKFILE_VERSION_PATTERN =
-      Pattern.compile("\"lockFileVersion\":\\s*(\\d+)");
+  private static final String LOCK_FILE_VERSION_KEY = "lockFileVersion";
 
   private final Path rootDirectory;
 
@@ -97,30 +99,49 @@ public class BazelLockFileFunction implements SkyFunction {
   }
 
   public static BazelLockFileValue getLockfileValue(RootedPath lockfilePath) throws IOException {
-    BazelLockFileValue bazelLockFileValue;
     try {
-      String json = FileSystemUtils.readContent(lockfilePath.asPath(), UTF_8);
-      Matcher matcher = LOCKFILE_VERSION_PATTERN.matcher(json);
-      int version = matcher.find() ? Integer.parseInt(matcher.group(1)) : -1;
-      if (version == BazelLockFileValue.LOCK_FILE_VERSION) {
-        bazelLockFileValue =
-            GsonTypeAdapterUtil.createLockFileGson(
-                    lockfilePath
-                        .asPath()
-                        .getParentDirectory()
-                        .getRelative(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME))
-                .fromJson(json, BazelLockFileValue.class);
-      } else {
-        // This is an old version, needs to be updated
-        // Keep old version to recognize the problem in error mode
-        bazelLockFileValue = EMPTY_LOCKFILE.toBuilder().setLockFileVersion(version).build();
+      Gson gson =
+          GsonTypeAdapterUtil.createLockFileGson(
+              lockfilePath
+                  .asPath()
+                  .getParentDirectory()
+                  .getRelative(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME));
+      int version;
+      try (var reader =
+          new BufferedReader(
+              new InputStreamReader(lockfilePath.asPath().getInputStream(), UTF_8))) {
+        BazelLockFileValue bazelLockFileValue = gson.fromJson(reader, BazelLockFileValue.class);
+        version = bazelLockFileValue.getLockFileVersion();
+        if (version == BazelLockFileValue.LOCK_FILE_VERSION) {
+          // Happy path, the lockfile could be parsed and has the correct version.
+          return bazelLockFileValue;
+        }
+      } catch (JsonSyntaxException e) {
+        // The lockfile is not a valid JSON encoding of a BazelLockFileValue or not valid JSON at
+        // all. Try to read just the lockfile version to report better messages in error mode.
+        try (var reader =
+            new BufferedReader(
+                new InputStreamReader(lockfilePath.asPath().getInputStream(), UTF_8))) {
+          JsonObject jsonObject = gson.fromJson(reader, JsonObject.class);
+          version =
+              Optional.ofNullable(jsonObject.get(LOCK_FILE_VERSION_KEY))
+                  .map(JsonElement::getAsInt)
+                  .orElse(-1);
+        } catch (NumberFormatException unused) {
+          version = -1;
+        }
+        if (version == BazelLockFileValue.LOCK_FILE_VERSION) {
+          // Invalid lockfile, but correct version.
+          throw e;
+        }
       }
+      // This is an old version, needs to be updated
+      // Keep old version to recognize the problem in error mode
+      return EMPTY_LOCKFILE.toBuilder().setLockFileVersion(version).build();
     } catch (FileNotFoundException e) {
-      bazelLockFileValue = EMPTY_LOCKFILE;
+      return EMPTY_LOCKFILE;
     }
-    return bazelLockFileValue;
   }
-
 
   static final class BazelLockfileFunctionException extends SkyFunctionException {
 
