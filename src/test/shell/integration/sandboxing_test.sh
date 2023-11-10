@@ -735,6 +735,7 @@ EOF
 
   touch "${temp_dir}/file"
   bazel test //pkg:tmp_test \
+    --sandbox_add_mount_pair=/tmp \
     --test_output=errors &>$TEST_log || fail "Expected test to pass"
 }
 
@@ -812,6 +813,7 @@ EOF
   chmod +x pkg/tmp_test.sh
 
   bazel test //pkg:tmp_test \
+    --sandbox_add_mount_pair=/tmp \
     --test_output=errors &>$TEST_log || fail "Expected test to pass"
   [[ -f "${temp_dir}/file" ]] || fail "Expected ${temp_dir}/file to exist"
 }
