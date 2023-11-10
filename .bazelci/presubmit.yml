@@ -1,7 +1,7 @@
 ---
 tasks:
   macos:
-    xcode_version: 14.3
+    xcode_version: "14.3"
     shards: 5
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -73,7 +73,7 @@ tasks:
       - build
       - test
   macos_qa:
-    xcode_version: 14.3.1
+    xcode_version: "14.3.1"
     shards: 5
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
