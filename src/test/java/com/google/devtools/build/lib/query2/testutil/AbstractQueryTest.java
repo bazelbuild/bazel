@@ -2329,12 +2329,12 @@ public abstract class AbstractQueryTest<T> {
     helper.setMainRepoTargetParser(mapping);
   }
 
-  protected static final String REPO_A_RULES = "@repo~1.0//a:a_shar";
-  protected static final String REPO_AB_RULES = "@repo~1.0//a/b:a_b_shar";
+  protected static final String REPO_A_RULES = "@@repo~1.0//a:a_shar";
+  protected static final String REPO_AB_RULES = "@@repo~1.0//a/b:a_b_shar";
   protected static final String REPO_AB_ALL =
-      "@repo~1.0//a/b:BUILD @repo~1.0//a/b:a_b_shar @repo~1.0//a/b:p @repo~1.0//a/b:q";
+      "@@repo~1.0//a/b:BUILD @@repo~1.0//a/b:a_b_shar @@repo~1.0//a/b:p @@repo~1.0//a/b:q";
   protected static final String REPO_A_ALL =
-      "@repo~1.0//a:BUILD @repo~1.0//a:a_shar @repo~1.0//a:x @repo~1.0//a:y @repo~1.0//a:z";
+      "@@repo~1.0//a:BUILD @@repo~1.0//a:a_shar @@repo~1.0//a:x @@repo~1.0//a:y @@repo~1.0//a:z";
   protected static final String REPO_A_AB_RULES = REPO_AB_RULES + " " + REPO_A_RULES;
   protected static final String REPO_A_AB_ALL = REPO_AB_ALL + " " + REPO_A_ALL;
 

@@ -30,6 +30,7 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.Tuple;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -88,5 +89,25 @@ public class AttributeValuesAdapterTest extends FoundationTestCase {
     // Verify that the String "Hello String" is preserved as is, without any additional escaping.
     assertThat(jsonString).contains(":\"Hello String\"");
     assertThat((Map<?, ?>) attributeValues.attributes()).containsExactlyEntriesIn(builtDict);
+  }
+
+  @Test
+  public void testTuple() throws IOException {
+    Dict.Builder<String, Object> dict = new Dict.Builder<>();
+    dict.put("Tuple", Tuple.of("bzl", "mod"));
+
+    Dict<String, Object> builtDict = dict.buildImmutable();
+    AttributeValuesAdapter attrAdapter = new AttributeValuesAdapter();
+    String jsonString;
+    try (StringWriter stringWriter = new StringWriter()) {
+      attrAdapter.write(new JsonWriter(stringWriter), AttributeValues.create(builtDict));
+      jsonString = stringWriter.toString();
+    }
+    AttributeValues attributeValues;
+    try (StringReader stringReader = new StringReader(jsonString)) {
+      attributeValues = attrAdapter.read(new JsonReader(stringReader));
+    }
+    assertThat((Map<?, ?>) attributeValues.attributes())
+        .containsExactly("Tuple", StarlarkList.of(Mutability.IMMUTABLE, "bzl", "mod"));
   }
 }

@@ -13,11 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.comparing;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -41,6 +46,7 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.IdentityHashMap;
 import java.util.Map.Entry;
 import java.util.UUID;
 import javax.annotation.Nullable;
@@ -52,19 +58,28 @@ public final class RepoMappingManifestAction extends AbstractFileWriteAction
 
   private static final UUID MY_UUID = UUID.fromString("458e351c-4d30-433d-b927-da6cddd4737f");
 
+  private static final LoadingCache<ImmutableMap<String, RepositoryName>, String>
+      repoMappingFingerprintCache =
+          Caffeine.newBuilder()
+              .weakKeys()
+              .build(
+                  repoMapping -> {
+                    Fingerprint fp = new Fingerprint();
+                    fp.addInt(repoMapping.size());
+                    repoMapping.forEach(
+                        (apparentName, canonicalName) -> {
+                          fp.addString(apparentName);
+                          fp.addString(canonicalName.getName());
+                        });
+                    return fp.hexDigestAndReset();
+                  });
+
   // Uses MapFn's args parameter just like Fingerprint#addString to compute a cacheable fingerprint
   // of just the repo name and mapping of a given Package.
   private static final MapFn<Package> REPO_AND_MAPPING_DIGEST_FN =
       (pkg, args) -> {
         args.accept(pkg.getPackageIdentifier().getRepository().getName());
-
-        var mapping = pkg.getRepositoryMapping().entries();
-        args.accept(String.valueOf(mapping.size()));
-        mapping.forEach(
-            (apparentName, canonicalName) -> {
-              args.accept(apparentName);
-              args.accept(canonicalName.getName());
-            });
+        args.accept(repoMappingFingerprintCache.get(pkg.getRepositoryMapping().entries()));
       };
 
   private static final MapFn<Artifact> OWNER_REPO_FN =
@@ -144,67 +159,88 @@ public final class RepoMappingManifestAction extends AbstractFileWriteAction
     return out -> {
       PrintWriter writer = new PrintWriter(out, /* autoFlush= */ false, ISO_8859_1);
 
-      var reposInRunfilePaths = ImmutableSet.<String>builder();
-
+      var reposInRunfilesPathsBuilder = ImmutableSet.<String>builder();
       // The runfiles paths of symlinks are always prefixed with the main workspace name, *not* the
       // name of the repository adding the symlink.
       if (hasRunfilesSymlinks) {
-        reposInRunfilePaths.add(RepositoryName.MAIN.getName());
+        reposInRunfilesPathsBuilder.add(RepositoryName.MAIN.getName());
       }
 
       // Since root symlinks are the only way to stage a runfile at a specific path under the
       // current repository's runfiles directory, recognize canonical repository names that appear
       // as the first segment of their runfiles paths.
       for (SymlinkEntry symlink : runfilesRootSymlinks.toList()) {
-        reposInRunfilePaths.add(symlink.getPath().getSegment(0));
+        reposInRunfilesPathsBuilder.add(symlink.getPath().getSegment(0));
       }
 
       for (Artifact artifact : runfilesArtifacts.toList()) {
         Label owner = artifact.getOwner();
         if (owner != null) {
-          reposInRunfilePaths.add(owner.getRepository().getName());
+          reposInRunfilesPathsBuilder.add(owner.getRepository().getName());
         }
       }
+      var reposInRunfilesPaths = reposInRunfilesPathsBuilder.build();
 
-      transitivePackages.toList().stream()
-          .collect(
-              toImmutableSortedMap(
-                  comparing(RepositoryName::getName),
-                  pkg -> pkg.getPackageIdentifier().getRepository(),
-                  Package::getRepositoryMapping,
-                  // All packages in a given repository have the same repository mapping, so the
-                  // particular way of resolving duplicates does not matter.
-                  (first, second) -> first))
-          .forEach(
-              (repoName, mapping) ->
-                  writeRepoMapping(writer, reposInRunfilePaths.build(), repoName, mapping));
+      ImmutableSortedMap<RepositoryName, RepositoryMapping> sortedRepoMappings =
+          transitivePackages.toList().stream()
+              .collect(
+                  toImmutableSortedMap(
+                      comparing(RepositoryName::getName),
+                      pkg -> pkg.getPackageIdentifier().getRepository(),
+                      Package::getRepositoryMapping,
+                      // All packages in a given repository have the same repository mapping, so the
+                      // particular way of resolving duplicates does not matter.
+                      (first, second) -> first));
+      // All repositories generated by a module extension have the same Map instance as the entries
+      // of their RepositoryMapping, with every repo appearing as an entry. If a module extension
+      // generates N repos and all of them are in transitivePackages, iterating over the packages
+      // and then over each mapping's entries would thus require time quadratic in N. We prevent
+      // this by caching the relevant (target apparent name, target canonical name) pairs per entry
+      // map instance.
+      IdentityHashMap<
+              ImmutableMap<String, RepositoryName>, ImmutableList<Entry<String, RepositoryName>>>
+          cachedRelevantEntries = new IdentityHashMap<>();
+      for (var repoAndMapping : sortedRepoMappings.entrySet()) {
+        cachedRelevantEntries
+            .computeIfAbsent(
+                repoAndMapping.getValue().entries(),
+                entries -> computeRelevantEntries(reposInRunfilesPaths, entries))
+            .forEach(
+                mappingEntry -> {
+                  // The canonical name of the main repo is the empty string, which is not a valid
+                  // name for a directory, so the "workspace name" is used the name of the directory
+                  // under the runfiles tree for it.
+                  String targetRepoDirectoryName =
+                      mappingEntry.getValue().isMain()
+                          ? workspaceName
+                          : mappingEntry.getValue().getName();
+                  writer.format(
+                      "%s,%s,%s\n",
+                      repoAndMapping.getKey().getName(),
+                      mappingEntry.getKey(),
+                      targetRepoDirectoryName);
+                });
+      }
       writer.flush();
     };
   }
 
-  private void writeRepoMapping(
-      PrintWriter writer,
+  private ImmutableList<Entry<String, RepositoryName>> computeRelevantEntries(
       ImmutableSet<String> reposInRunfilesPaths,
-      RepositoryName repoName,
-      RepositoryMapping repoMapping) {
-    for (Entry<String, RepositoryName> mappingEntry :
-        ImmutableSortedMap.copyOf(repoMapping.entries()).entrySet()) {
-      if (mappingEntry.getKey().isEmpty()) {
+      ImmutableMap<String, RepositoryName> mappingEntries) {
+    // TODO: If this becomes a hotspot, consider iterating over reposInRunfilesPaths and looking
+    //  up the apparent name in the inverse of mappingEntries, which ensures that the runtime is
+    //  always linear in the number of entries ultimately emitted into the manifest and independent
+    //  of the size of the individual mappings. This requires making RepositoryMapping#entries() an
+    //  ImmutableBiMap, or even ImmutableMultimap since repositories can have multiple apparent
+    //  names.
+    return mappingEntries.entrySet().stream()
         // The apparent repo name can only be empty for the main repo. We skip this line as
         // Rlocation paths can't reference an empty apparent name anyway.
-        continue;
-      }
-      if (!reposInRunfilesPaths.contains(mappingEntry.getValue().getName())) {
+        .filter(mappingEntry -> !mappingEntry.getKey().isEmpty())
         // We only write entries for repos whose canonical names appear in runfiles paths.
-        continue;
-      }
-      // The canonical name of the main repo is the empty string, which is not a valid name for a
-      // directory, so the "workspace name" is used the name of the directory under the runfiles
-      // tree for it.
-      String targetRepoDirectoryName =
-          mappingEntry.getValue().isMain() ? workspaceName : mappingEntry.getValue().getName();
-      writer.format(
-          "%s,%s,%s\n", repoName.getName(), mappingEntry.getKey(), targetRepoDirectoryName);
-    }
+        .filter(entry -> reposInRunfilesPaths.contains(entry.getValue().getName()))
+        .sorted(Entry.comparingByKey())
+        .collect(toImmutableList());
   }
 }

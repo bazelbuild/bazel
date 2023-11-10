@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionRepoMappingEntriesFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoSpecFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
@@ -259,6 +260,9 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                     new BzlmodRepoRuleFunction(ruleClassProvider, directories))
                 .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction(registryFactory))
                 .put(
+                    SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
+                    new ModuleExtensionRepoMappingEntriesFunction())
+                .put(
                     SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE,
                     new ClientEnvironmentFunction(new AtomicReference<>(ImmutableMap.of())))
                 .build(),
@@ -408,7 +412,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     assertThat(result.hasError()).isFalse();
     RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
     assertThat(repositoryDirectoryValue.repositoryExists()).isFalse();
-    assertThat(repositoryDirectoryValue.getErrorMsg()).contains("Repository '@foo' is not defined");
+    assertThat(repositoryDirectoryValue.getErrorMsg())
+        .contains("Repository '@@foo' is not defined");
   }
 
   @Test
@@ -478,7 +483,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
     assertThat(repositoryDirectoryValue.repositoryExists()).isFalse();
     assertThat(repositoryDirectoryValue.getErrorMsg())
-        .contains("No repository visible as '@foo' from repository '@fake_owner_repo'");
+        .contains("No repository visible as '@foo' from repository '@@fake_owner_repo'");
   }
 
   @Test

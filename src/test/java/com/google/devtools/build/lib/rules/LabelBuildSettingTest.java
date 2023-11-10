@@ -344,7 +344,7 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
     getConfiguredTarget("//test:arizona");
 
     assertContainsEvent(
-        "Error in transition: invalid transition input '@[unknown repo 'foobar' requested from @]"
+        "Error in transition: invalid transition input '@@[unknown repo 'foobar' requested from @@]"
             + "//test:formation': no repo visible as @foobar from main repository");
   }
 }

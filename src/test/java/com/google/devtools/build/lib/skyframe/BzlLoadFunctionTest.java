@@ -342,8 +342,8 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     SkyKey skyKey = key(label);
     EvaluationResult<BzlLoadValue> result = get(skyKey);
     // Ensure that the file has been processed by checking its Module for the label field.
-    assertThat(label)
-        .isEqualTo(BazelModuleContext.of(result.get(skyKey).getModule()).label().toString());
+    assertThat(Label.parseCanonicalUnchecked(label))
+        .isEqualTo(BazelModuleContext.of(result.get(skyKey).getModule()).label());
   }
 
   /* Loads a .bzl with the given label and asserts BzlLoadFailedException with the given message. */
@@ -806,7 +806,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     checkFailingLookup(
         "//pkg:foo2.bzl", "module //pkg:foo2.bzl contains .bzl load visibility violations");
     assertContainsEvent(
-        "Starlark file @repo//lib:bar.bzl is not visible for loading from package //pkg.");
+        "Starlark file @@repo//lib:bar.bzl is not visible for loading from package //pkg.");
   }
 
   // TODO(#16365): This test case can be deleted once --incompatible_package_group_has_public_syntax
@@ -861,9 +861,9 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     checkFailingLookup(
-        "@repo//a:foo.bzl", "module @repo//a:foo.bzl contains .bzl load visibility violations");
+        "@repo//a:foo.bzl", "module @@repo//a:foo.bzl contains .bzl load visibility violations");
     assertContainsEvent(
-        "Starlark file //b:bar.bzl is not visible for loading from package @repo//a.");
+        "Starlark file //b:bar.bzl is not visible for loading from package @@repo//a.");
   }
 
   @Test
@@ -1013,8 +1013,8 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         .hasExceptionThat()
         .hasMessageThat()
         .contains(
-            "Unable to find package for @repository//dir:file.bzl: The repository '@repository' "
-                + "could not be resolved: Repository '@repository' is not defined.");
+            "Unable to find package for @@repository//dir:file.bzl: The repository '@@repository' "
+                + "could not be resolved: Repository '@@repository' is not defined.");
   }
 
   @Test

@@ -195,7 +195,7 @@ public final class PackageIdentifier implements SkyKey, Comparable<PackageIdenti
    * package.
    */
   public String getUnambiguousCanonicalForm() {
-    return String.format("@%s//%s", repository.getNameWithAt(), pkgName);
+    return repository.getNameWithAt() + "//" + pkgName;
   }
 
   /**
@@ -216,7 +216,7 @@ public final class PackageIdentifier implements SkyKey, Comparable<PackageIdenti
    *           from the main module
    */
   public String getDisplayForm(RepositoryMapping mainRepositoryMapping) {
-    return String.format("%s//%s", repository.getDisplayForm(mainRepositoryMapping), pkgName);
+    return repository.getDisplayForm(mainRepositoryMapping) + "//" + pkgName;
   }
 
   @Override

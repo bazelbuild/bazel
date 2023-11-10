@@ -153,12 +153,12 @@ public final class RepositoryName {
     // Some special cases for more user-friendly error messages.
     if (name.equals(".") || name.equals("..")) {
       throw LabelParser.syntaxErrorf(
-          "invalid repository name '@%s': repo names are not allowed to be '@%s'", name, name);
+          "invalid repository name '%s': repo names are not allowed to be '%s'", name, name);
     }
 
     if (!VALID_REPO_NAME.matcher(name).matches()) {
       throw LabelParser.syntaxErrorf(
-          "invalid repository name '@%s': repo names may contain only A-Z, a-z, 0-9, '-', '_', '.'"
+          "invalid repository name '%s': repo names may contain only A-Z, a-z, 0-9, '-', '_', '.'"
               + " and '~' and must not start with '~'",
           StringUtilities.sanitizeControlChars(name));
     }
@@ -203,7 +203,7 @@ public final class RepositoryName {
     if (ownerRepoIfNotVisible.isMain()) {
       return "main repository";
     } else {
-      return String.format("repository '%s'", ownerRepoIfNotVisible.getNameWithAt());
+      return String.format("repository '%s'", ownerRepoIfNotVisible);
     }
   }
 
@@ -212,20 +212,23 @@ public final class RepositoryName {
     return equals(MAIN);
   }
 
-  /** Returns the repository name, with leading "{@literal @}". */
+  /**
+   * Returns the repository name, with two leading "{@literal @}"s, indicating that this is a
+   * canonical repo name.
+   */
+  // TODO(bazel-team): Rename to "getCanonicalForm".
   public String getNameWithAt() {
     if (!isVisible()) {
-      return String.format(
-          "@[unknown repo '%s' requested from %s]", name, ownerRepoIfNotVisible.getNameWithAt());
+      return String.format("@@[unknown repo '%s' requested from %s]", name, ownerRepoIfNotVisible);
     }
-    return '@' + name;
+    return "@@" + name;
   }
 
   /**
-   * Returns the repository name with leading "{@literal @}" except for the main repo, which is just
-   * the empty string.
+   * Returns the repository name with leading "{@literal @}"s except for the main repo, which is
+   * just the empty string.
    */
-  // TODO(bazel-team): Consider renaming to "getDefaultForm".
+  // TODO(bazel-team): Rename to "getDefaultForm".
   public String getCanonicalForm() {
     return isMain() ? "" : getNameWithAt();
   }
@@ -252,7 +255,7 @@ public final class RepositoryName {
     Preconditions.checkArgument(
         mainRepositoryMapping.ownerRepo() == null || mainRepositoryMapping.ownerRepo().isMain());
     if (!isVisible()) {
-      return '@' + getNameWithAt();
+      return getNameWithAt();
     }
     if (isMain()) {
       // Packages in the main repository can always use repo-relative form.
@@ -262,14 +265,14 @@ public final class RepositoryName {
       // If the main repository mapping is not using strict visibility, then Bzlmod is certainly
       // disabled, which means that canonical and apparent names can be used interchangeably from
       // the context of the main repository.
-      return getNameWithAt();
+      return '@' + getName();
     }
     // If possible, represent the repository with a non-canonical label using the apparent name the
     // main repository has for it, otherwise fall back to a canonical label.
     return mainRepositoryMapping
         .getInverse(this)
         .map(apparentName -> "@" + apparentName)
-        .orElse("@" + getNameWithAt());
+        .orElse(getNameWithAt());
   }
 
   /**
@@ -300,7 +303,7 @@ public final class RepositoryName {
         : PathFragment.create("..").getRelative(getName());
   }
 
-  /** Returns the repository name, with leading "{@literal @}". */
+  /** Same as {@link #getNameWithAt}. */
   @Override
   public String toString() {
     return getNameWithAt();

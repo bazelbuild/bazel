@@ -110,7 +110,7 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
     assertThat(result.getStarlarkOptions()).hasSize(2);
     assertThat(result.getStarlarkOptions().get("//test:my_int_setting"))
         .isEqualTo(StarlarkInt.of(666));
-    assertThat(result.getStarlarkOptions().get("@repo2//:flag2")).isEqualTo(StarlarkInt.of(222));
+    assertThat(result.getStarlarkOptions().get("@@repo2//:flag2")).isEqualTo(StarlarkInt.of(222));
     assertThat(result.getResidue()).isEmpty();
   }
 

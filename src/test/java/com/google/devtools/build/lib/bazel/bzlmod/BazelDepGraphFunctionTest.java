@@ -131,6 +131,9 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, resolutionFunctionMock)
                 .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction(registryFactory))
                 .put(
+                    SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
+                    new ModuleExtensionRepoMappingEntriesFunction())
+                .put(
                     SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE,
                     new ClientEnvironmentFunction(
                         new AtomicReference<>(ImmutableMap.of("BZLMOD_ALLOW_YANKED_VERSIONS", ""))))
