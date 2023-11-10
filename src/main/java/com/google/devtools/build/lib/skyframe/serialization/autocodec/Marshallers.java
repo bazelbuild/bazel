@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.PrimitiveValueSerializationCodeGenerator;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationProcessorUtil.SerializationProcessingFailedException;
 import com.squareup.javapoet.TypeName;
+import java.lang.reflect.Array;
+import java.nio.ByteBuffer;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ArrayType;
@@ -152,9 +154,11 @@ class Marshallers {
 
           String resultName = context.makeName("result");
           context.builder.addStatement(
-              "$T[] $L = new $T[$L]",
+              "$T[] $L = ($T[]) $T.newInstance($T.class, $L)",
               repeated.getTypeName(),
               resultName,
+              repeated.getTypeName(),
+              Array.class,
               repeated.getTypeName(),
               lengthName);
           String indexName = context.makeName("i");
@@ -164,6 +168,52 @@ class Marshallers {
           context.builder.addStatement("$L[$L] = $L", resultName, indexName, repeated.name);
           context.builder.endControlFlow();
           context.builder.addStatement("$L = $L", context.name, resultName);
+        }
+      };
+
+  private static final PrimitiveValueSerializationCodeGenerator SHORT_CODE_GENERATOR =
+      new PrimitiveValueSerializationCodeGenerator() {
+        @Override
+        public boolean matches(PrimitiveType type) {
+          return type.getKind() == TypeKind.SHORT;
+        }
+
+        @Override
+        public void addSerializationCode(Context context) {
+          context.builder.addStatement(
+              "codedOut.writeRawBytes($T.allocate(2).putShort($L))",
+              ByteBuffer.class,
+              context.name);
+        }
+
+        @Override
+        public void addDeserializationCode(Context context) {
+          context.builder.addStatement(
+              "$L = $T.allocate(2).put(codedIn.readRawBytes(2)).getShort(0)",
+              context.name,
+              ByteBuffer.class);
+        }
+      };
+
+  private static final PrimitiveValueSerializationCodeGenerator CHAR_CODE_GENERATOR =
+      new PrimitiveValueSerializationCodeGenerator() {
+        @Override
+        public boolean matches(PrimitiveType type) {
+          return type.getKind() == TypeKind.CHAR;
+        }
+
+        @Override
+        public void addSerializationCode(Context context) {
+          context.builder.addStatement(
+              "codedOut.writeRawBytes($T.allocate(2).putChar($L))", ByteBuffer.class, context.name);
+        }
+
+        @Override
+        public void addDeserializationCode(Context context) {
+          context.builder.addStatement(
+              "$L = $T.allocate(2).put(codedIn.readRawBytes(2)).getChar(0)",
+              context.name,
+              ByteBuffer.class);
         }
       };
 
@@ -257,6 +307,24 @@ class Marshallers {
         }
       };
 
+  private static final PrimitiveValueSerializationCodeGenerator FLOAT_CODE_GENERATOR =
+      new PrimitiveValueSerializationCodeGenerator() {
+        @Override
+        public boolean matches(PrimitiveType type) {
+          return type.getKind() == TypeKind.FLOAT;
+        }
+
+        @Override
+        public void addSerializationCode(Context context) {
+          context.builder.addStatement("codedOut.writeFloatNoTag($L)", context.name);
+        }
+
+        @Override
+        public void addDeserializationCode(Context context) {
+          context.builder.addStatement("$L = codedIn.readFloat()", context.name);
+        }
+      };
+
   private final Marshaller charSequenceMarshaller =
       new Marshaller() {
         @Override
@@ -329,7 +397,10 @@ class Marshallers {
           LONG_CODE_GENERATOR,
           BYTE_CODE_GENERATOR,
           BOOLEAN_CODE_GENERATOR,
-          DOUBLE_CODE_GENERATOR);
+          DOUBLE_CODE_GENERATOR,
+          FLOAT_CODE_GENERATOR,
+          CHAR_CODE_GENERATOR,
+          SHORT_CODE_GENERATOR);
 
   private final ImmutableList<Marshaller> marshallers =
       ImmutableList.of(
