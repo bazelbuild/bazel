@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
+import static com.google.common.base.Ascii.toLowerCase;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationProcessorUtil.sanitizeTypeParameter;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationProcessorUtil.writeGeneratedClassToFile;
@@ -22,7 +23,6 @@ import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Marshaller;
@@ -111,17 +111,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
     for (Element element : roundEnv.getElementsAnnotatedWith(AutoCodecUtil.ANNOTATION)) {
       AutoCodec annotation = element.getAnnotation(AutoCodecUtil.ANNOTATION);
       TypeElement encodedType = (TypeElement) element;
-      TypeSpec.Builder codecClassBuilder;
-      switch (annotation.strategy()) {
-        case INSTANTIATOR:
-          codecClassBuilder = buildClassWithInstantiatorStrategy(encodedType, annotation);
-          break;
-        case AUTO_VALUE_BUILDER:
-          codecClassBuilder = buildClassWithAutoValueBuilderStrategy(encodedType, annotation);
-          break;
-        default:
-          throw new IllegalArgumentException("Unknown strategy: " + annotation.strategy());
-      }
+      TypeSpec.Builder codecClassBuilder = buildClassWithInstantiator(encodedType, annotation);
       codecClassBuilder.addMethod(
           AutoCodecUtil.initializeGetEncodedClassMethod(encodedType, env)
               .addStatement(
@@ -135,8 +125,8 @@ public class AutoCodecProcessor extends AbstractProcessor {
     }
   }
 
-  private TypeSpec.Builder buildClassWithInstantiatorStrategy(
-      TypeElement encodedType, AutoCodec annotation) throws SerializationProcessingFailedException {
+  private TypeSpec.Builder buildClassWithInstantiator(TypeElement encodedType, AutoCodec annotation)
+      throws SerializationProcessingFailedException {
     ExecutableElement constructor = selectInstantiator(encodedType);
     List<? extends VariableElement> fields = constructor.getParameters();
 
@@ -156,35 +146,6 @@ public class AutoCodecProcessor extends AbstractProcessor {
         AutoCodecUtil.initializeDeserializeMethodBuilder(encodedType, env);
     buildDeserializeBody(deserializeBuilder, fields);
     addReturnNew(deserializeBuilder, encodedType, constructor, /*builderVar=*/ null, env);
-    codecClassBuilder.addMethod(deserializeBuilder.build());
-
-    return codecClassBuilder;
-  }
-
-  private TypeSpec.Builder buildClassWithAutoValueBuilderStrategy(
-      TypeElement encodedType, AutoCodec annotation) throws SerializationProcessingFailedException {
-    TypeElement builderType = findBuilderType(encodedType);
-    List<ExecutableElement> getters = findGettersFromType(encodedType, builderType);
-    ExecutableElement builderCreationMethod = findBuilderCreationMethod(encodedType, builderType);
-    ExecutableElement buildMethod = findBuildMethod(encodedType, builderType);
-    TypeSpec.Builder codecClassBuilder =
-        AutoCodecUtil.initializeCodecClassBuilder(encodedType, env);
-    MethodSpec.Builder serializeBuilder =
-        AutoCodecUtil.initializeSerializeMethodBuilder(encodedType, annotation, env);
-    for (ExecutableElement getter : getters) {
-      marshallers.writeSerializationCode(
-          new Marshaller.Context(
-              serializeBuilder,
-              getter.getReturnType(),
-              turnGetterIntoExpression(getter.getSimpleName().toString())));
-    }
-    codecClassBuilder.addMethod(serializeBuilder.build());
-    MethodSpec.Builder deserializeBuilder =
-        AutoCodecUtil.initializeDeserializeMethodBuilder(encodedType, env);
-    String builderVarName =
-        buildDeserializeBodyWithBuilder(
-            encodedType, builderType, deserializeBuilder, getters, builderCreationMethod);
-    addReturnNew(deserializeBuilder, encodedType, buildMethod, builderVarName, env);
     codecClassBuilder.addMethod(deserializeBuilder.build());
 
     return codecClassBuilder;
@@ -226,204 +187,6 @@ public class AutoCodecProcessor extends AbstractProcessor {
 
   private static boolean hasInstantiatorAnnotation(Element elt) {
     return elt.getAnnotation(AutoCodec.Instantiator.class) != null;
-  }
-
-  private static TypeElement findBuilderType(TypeElement encodedType)
-      throws SerializationProcessingFailedException {
-    TypeElement builderType = null;
-    for (Element element : encodedType.getEnclosedElements()) {
-      if (element instanceof TypeElement
-          && element.getModifiers().contains(Modifier.STATIC)
-          && element.getAnnotation(AutoValue.Builder.class) != null) {
-        if (builderType != null) {
-          throw new SerializationProcessingFailedException(
-              encodedType,
-              "Type %s had multiple inner classes annotated as @AutoValue.Builder: %s and %s",
-              encodedType,
-              builderType,
-              element);
-        }
-        builderType = (TypeElement) element;
-      }
-    }
-    if (builderType == null) {
-      throw new SerializationProcessingFailedException(
-          encodedType,
-          "Couldn't find @AutoValue.Builder-annotated static class inside %s",
-          encodedType);
-    }
-    return builderType;
-  }
-
-  private List<ExecutableElement> findGettersFromType(
-      TypeElement encodedType, TypeElement builderTypeForFiltering)
-      throws SerializationProcessingFailedException {
-    List<ExecutableElement> result = new ArrayList<>();
-    for (ExecutableElement method :
-        ElementFilter.methodsIn(env.getElementUtils().getAllMembers(encodedType))) {
-      if (!method.getModifiers().contains(Modifier.STATIC)
-          && method.getModifiers().contains(Modifier.ABSTRACT)
-          && method.getParameters().isEmpty()
-          && method.getReturnType().getKind() != TypeKind.VOID
-          && (!method.getReturnType().getKind().equals(TypeKind.DECLARED)
-              || !builderTypeForFiltering.equals(
-                  env.getTypeUtils().asElement(method.getReturnType())))) {
-        result.add(method);
-      }
-    }
-    if (result.isEmpty()) {
-      throw new SerializationProcessingFailedException(
-          encodedType, "Couldn't find any properties for %s", encodedType);
-    }
-    return result;
-  }
-
-  private static String getNameFromGetter(ExecutableElement method) {
-    String name = method.getSimpleName().toString();
-    if (name.startsWith("get")) {
-      return name.substring(3, 4).toLowerCase() + name.substring(4);
-    } else if (name.startsWith("is")) {
-      return name.substring(2, 3).toLowerCase() + name.substring(3);
-    } else {
-      return name;
-    }
-  }
-
-  private ExecutableElement findBuilderCreationMethod(
-      TypeElement encodedType, TypeElement builderType)
-      throws SerializationProcessingFailedException {
-    ExecutableElement builderMethod = null;
-    for (ExecutableElement method :
-        ElementFilter.methodsIn(env.getElementUtils().getAllMembers(encodedType))) {
-      if (method.getModifiers().contains(Modifier.STATIC)
-          && !method.getModifiers().contains(Modifier.ABSTRACT)
-          && method.getParameters().isEmpty()
-          && isSameReturnType(method, builderType)) {
-        if (builderMethod != null) {
-          throw new SerializationProcessingFailedException(
-              encodedType,
-              "Type %s had multiple static methods to create an element of type %s: %s and %s",
-              encodedType,
-              builderType,
-              builderMethod,
-              method);
-        }
-        builderMethod = method;
-      }
-    }
-    if (builderMethod == null) {
-      throw new SerializationProcessingFailedException(
-          builderType,
-          "Couldn't find builder creation method for %s and %s",
-          encodedType,
-          builderType);
-    }
-    return builderMethod;
-  }
-
-  private ExecutableElement findBuildMethod(TypeElement encodedType, TypeElement builderType)
-      throws SerializationProcessingFailedException {
-    ExecutableElement abstractBuildMethod = null;
-    for (ExecutableElement method :
-        ElementFilter.methodsIn(env.getElementUtils().getAllMembers(builderType))) {
-      if (method.getModifiers().contains(Modifier.STATIC)) {
-        continue;
-      }
-      if (method.getParameters().isEmpty()
-          && isSameReturnType(method, encodedType)
-          && method.getModifiers().contains(Modifier.ABSTRACT)) {
-        if (abstractBuildMethod != null) {
-          throw new SerializationProcessingFailedException(
-              builderType,
-              "Type %s had multiple abstract methods to create an element of type %s: %s and %s",
-              builderType,
-              encodedType,
-              abstractBuildMethod,
-              method);
-        }
-        abstractBuildMethod = method;
-      }
-    }
-    if (abstractBuildMethod == null) {
-      throw new SerializationProcessingFailedException(
-          builderType, "Couldn't find build method for %s and %s", encodedType, builderType);
-    }
-    return abstractBuildMethod;
-  }
-
-  private String buildDeserializeBodyWithBuilder(
-      TypeElement encodedType,
-      TypeElement builderType,
-      MethodSpec.Builder builder,
-      List<ExecutableElement> fields,
-      ExecutableElement builderCreationMethod)
-      throws SerializationProcessingFailedException {
-    String builderVarName = "objectBuilder";
-    builder.addStatement(
-        "$T $L = $T.$L()",
-        builderCreationMethod.getReturnType(),
-        builderVarName,
-        encodedType,
-        builderCreationMethod.getSimpleName());
-    for (ExecutableElement getter : fields) {
-      String paramName = getNameFromGetter(getter) + "_";
-      marshallers.writeDeserializationCode(
-          new Marshaller.Context(builder, getter.getReturnType(), paramName));
-      setValueInBuilder(builderType, getter, paramName, builderVarName, builder);
-    }
-    return builderVarName;
-  }
-
-  private void setValueInBuilder(
-      TypeElement builderType,
-      ExecutableElement getter,
-      String paramName,
-      String builderVarName,
-      MethodSpec.Builder methodBuilder)
-      throws SerializationProcessingFailedException {
-    ExecutableElement setterMethod = findSetterGivenGetter(getter, builderType);
-    methodBuilder.addStatement(
-        "$L.$L($L)", builderVarName, setterMethod.getSimpleName(), paramName);
-  }
-
-  private ExecutableElement findSetterGivenGetter(ExecutableElement getter, TypeElement builderType)
-      throws SerializationProcessingFailedException {
-    List<ExecutableElement> methods =
-        ElementFilter.methodsIn(env.getElementUtils().getAllMembers(builderType));
-    String varName = getNameFromGetter(getter);
-    TypeMirror type = getter.getReturnType();
-    ImmutableSet<String> setterNames = ImmutableSet.of(varName, addCamelCasePrefix(varName, "set"));
-
-    ExecutableElement setterMethod = null;
-    for (ExecutableElement method : methods) {
-      if (!method.getModifiers().contains(Modifier.STATIC)
-          && !method.getModifiers().contains(Modifier.PRIVATE)
-          && setterNames.contains(method.getSimpleName().toString())
-          && isSameReturnType(method, builderType)
-          && method.getParameters().size() == 1
-          && env.getTypeUtils()
-              .isSubtype(type, Iterables.getOnlyElement(method.getParameters()).asType())) {
-        if (setterMethod != null) {
-          throw new SerializationProcessingFailedException(
-              builderType,
-              "Multiple setter methods for %s found in %s: %s and %s",
-              getter,
-              builderType,
-              setterMethod,
-              method);
-        }
-        setterMethod = method;
-      }
-    }
-    if (setterMethod != null) {
-      return setterMethod;
-    }
-
-    throw new SerializationProcessingFailedException(
-        builderType,
-        "No setter found corresponding to getter %s, %s",
-        getter.getSimpleName(),
-        type);
   }
 
   private enum Relation {
@@ -515,7 +278,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
             parameter.getSimpleName(),
             sanitizeTypeParameter(parameter.asType(), env),
             UnsafeProvider.class,
-            typeKind.isPrimitive() ? firstLetterUpper(typeKind.toString().toLowerCase()) : "Object",
+            typeKind.isPrimitive() ? firstLetterUpper(toLowerCase(typeKind.toString())) : "Object",
             parameter.getSimpleName());
         marshallers.writeSerializationCode(
             new SerializationCodeGenerator.Context(
@@ -718,10 +481,6 @@ public class AutoCodecProcessor extends AbstractProcessor {
           name);
     }
     return Optional.empty();
-  }
-
-  private boolean isSameReturnType(ExecutableElement method, TypeElement typeElement) {
-    return env.getTypeUtils().isSameType(method.getReturnType(), typeElement.asType());
   }
 
   /** Emits a note to BUILD log during annotation processing for debugging. */
