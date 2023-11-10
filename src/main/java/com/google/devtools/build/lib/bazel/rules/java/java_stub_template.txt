@@ -268,6 +268,10 @@ else
   fi
   CLASSPATH=%classpath%
   if is_windows; then
+    # We need to ensure we are using ';' as the classpath separator on windows. When cross
+    # building from Linux ':' will be used here. We take advantage of absolute paths in
+    # windows starting with e.g. C: and replace :C: -> ;C:. The expression has no effect
+    # if ';' is already used as the classpath separator.
     CLASSPATH="$(sed -E 's/:([A-Z]):/;\1:/g' <<< "$CLASSPATH")"
   fi
 fi
