@@ -103,7 +103,7 @@ public final class BuiltinRestriction {
   public static void failIfLabelOutsideAllowlist(
       Label label, RepositoryMapping repoMapping, Collection<AllowlistEntry> allowlist)
       throws EvalException {
-    if (label.getRepository().getNameWithAt().equals("@_builtins")) {
+    if (label.getRepository().getName().equals("_builtins")) {
       return;
     }
     if (allowlist.stream().noneMatch(e -> e.allows(label, repoMapping))) {
