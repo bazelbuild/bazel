@@ -122,7 +122,7 @@ public class TemplateDict implements TemplateDictApi {
     @Override
     public String getValue() throws EvalException {
       try (Mutability mutability = Mutability.create("expand_template")) {
-        StarlarkThread execThread = new StarlarkThread(mutability, semantics);
+        StarlarkThread execThread = new StarlarkThread(mutability, semantics, "map_each callback");
         ImmutableList<?> values = valuesSet.toList();
         List<String> parts = new ArrayList<>(values.size());
         for (Object val : values) {

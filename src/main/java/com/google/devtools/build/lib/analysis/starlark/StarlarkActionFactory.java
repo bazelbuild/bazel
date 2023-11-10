@@ -899,7 +899,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     @Override
     public ResourceSet buildResourceSet(OS os, int inputsSize) throws ExecException {
       try (Mutability mu = Mutability.create("resource_set_builder_function")) {
-        StarlarkThread thread = new StarlarkThread(mu, semantics);
+        StarlarkThread thread = new StarlarkThread(mu, semantics, "resource_set callback");
         StarlarkInt inputInt = StarlarkInt.of(inputsSize);
         Object response =
             Starlark.call(

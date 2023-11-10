@@ -99,7 +99,6 @@ import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
@@ -3110,7 +3109,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  @Ignore("TODO - b/298561048")
   public void initializer_failsCreatingAnotherRule() throws Exception {
     scratch.file(
         "initializer_testing/b.bzl",
@@ -3134,11 +3132,11 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     reporter.addHandler(ev.getEventCollector());
     getConfiguredTarget("//initializer_testing:my_target");
 
-    ev.assertContainsError("TODO");
+    ev.assertContainsError(
+        "A rule can only be instantiated in a BUILD file, or a macro invoked from a BUILD file");
   }
 
   @Test
-  @Ignore("TODO - b/298561048")
   public void initializer_failsWithExistingRules() throws Exception {
     scratch.file(
         "initializer_testing/b.bzl",
@@ -3162,7 +3160,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     reporter.addHandler(ev.getEventCollector());
     getConfiguredTarget("//initializer_testing:my_target");
 
-    ev.assertContainsError("TODO");
+    ev.assertContainsError("'native.existing_rules' cannot be called from an initializer");
   }
 
   @Test
