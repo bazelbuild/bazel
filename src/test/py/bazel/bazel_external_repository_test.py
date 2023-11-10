@@ -290,8 +290,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         allow_failure=True,
     )
     self.AssertExitCode(exit_code, 1, stderr)
-    self.assertIn('\'@other_repo//pkg/ignore\' is a subpackage',
-                  ''.join(stderr))
+    self.assertIn("'@@other_repo//pkg/ignore' is a subpackage", ''.join(stderr))
 
     self.RunBazel(
         args=[
@@ -328,8 +327,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         allow_failure=True,
     )
     self.AssertExitCode(exit_code, 1, stderr)
-    self.assertIn('\'@other_repo//pkg/ignore\' is a subpackage',
-                  ''.join(stderr))
+    self.assertIn("'@@other_repo//pkg/ignore' is a subpackage", ''.join(stderr))
 
     self.ScratchFile('other_repo/.bazelignore', [
         'pkg/ignore',
@@ -347,8 +345,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         args=['build', '//:all_files'], cwd=work_dir, allow_failure=True
     )
     self.AssertExitCode(exit_code, 1, stderr)
-    self.assertIn('no such package \'@other_repo//pkg/ignore\'',
-                  ''.join(stderr))
+    self.assertIn("no such package '@@other_repo//pkg/ignore'", ''.join(stderr))
 
   def testUniverseScopeWithBazelIgnoreInExternalRepo(self):
     self.ScratchFile('other_repo/WORKSPACE')

@@ -23,7 +23,7 @@ import net.starlark.java.eval.Printer;
  * A wrapper around a Starlark value printer which prints the Starlark representation of a value
  * with any embedded {@link Label} values rendered in a form suitable for API documentation.
  *
- * <p>Labels are rendered via {@link label#getShorthandDisplayForm} with a provided repository
+ * <p>Labels are rendered via {@link Label#getShorthandDisplayForm} with a provided repository
  * mapping, further adding an optional explicit repo name to labels in the main repo, and allowing
  * the {@code Label} constructor to be either included or omitted (rendering label objects as string
  * values).

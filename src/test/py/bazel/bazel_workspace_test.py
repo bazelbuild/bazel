@@ -75,7 +75,7 @@ class BazelWorkspaceTest(test_base.TestBase):
         args=["build", ":bin"], cwd=work_dir, allow_failure=True
     )
     self.AssertExitCode(exit_code, 1, stderr)
-    self.assertIn("no such package '@A//'", "".join(stderr))
+    self.assertIn("no such package '@@A//'", "".join(stderr))
 
     # Test a WORKSPACE.bazel directory won't confuse Bazel
     self.ScratchFile("B/WORKSPACE",

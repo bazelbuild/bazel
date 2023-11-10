@@ -307,7 +307,7 @@ class BzlmodQueryTest(test_base.TestBase):
     self.assertIsNotNone(output_file)
     output = output_file.readlines()
     output_file.close()
-    self.assertListEqual(['@aaa~1.0//:lib_aaa\n'], output)
+    self.assertListEqual(['@@aaa~1.0//:lib_aaa\n'], output)
 
   def testQueryCannotResolveRepoMapping_malformedModuleFile(self):
     self.ScratchFile('MODULE.bazel', [

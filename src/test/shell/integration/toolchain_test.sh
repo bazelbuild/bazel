@@ -2631,7 +2631,7 @@ EOF
   # Test the build.
   bazel build \
     "//${pkg}/demo:demo" &> $TEST_log || fail "Build failed"
-  expect_log "foo_tool = <target @rules_foo//foo_tools:foo_tool>"
+  expect_log "foo_tool = <target @@rules_foo//foo_tools:foo_tool>"
 }
 
 function test_exec_platform_order_with_mandatory_toolchains {

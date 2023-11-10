@@ -419,7 +419,7 @@ EOF
 
   bazel query --experimental_ui_debug_all_events \
         @flower//daisy:all >& "$TEST_log" || fail "Expected success"
-  expect_log "Loading package: @flower//daisy"
+  expect_log "Loading package: @@flower//daisy"
   expect_log "@flower//daisy:daisy"
 
   # Change mapping in tree/WORKSPACE
@@ -441,7 +441,7 @@ EOF
   # Test that packages in the flower workspace are reloaded
   bazel query --experimental_ui_debug_all_events \
         @flower//daisy:all >& "$TEST_log" || fail "Expected success"
-  expect_log "Loading package: @flower//daisy"
+  expect_log "Loading package: @@flower//daisy"
   expect_log "@flower//daisy:daisy"
 }
 
