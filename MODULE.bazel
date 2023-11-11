@@ -13,7 +13,7 @@ module(
 # =========================================
 
 bazel_dep(name = "rules_license", version = "0.0.7")
-bazel_dep(name = "bazel_skylib", version = "1.4.1")
+bazel_dep(name = "bazel_skylib", version = "1.5.0")
 bazel_dep(name = "protobuf", version = "21.7", repo_name = "com_google_protobuf")
 bazel_dep(name = "grpc", version = "1.48.1.bcr.1", repo_name = "com_github_grpc_grpc")
 bazel_dep(name = "platforms", version = "0.0.8")
@@ -24,6 +24,7 @@ bazel_dep(name = "blake3", version = "1.3.3.bcr.1")
 bazel_dep(name = "zlib", version = "1.3")
 bazel_dep(name = "rules_cc", version = "0.0.9")
 bazel_dep(name = "rules_java", version = "7.1.0")
+bazel_dep(name = "rules_graalvm", version = "0.10.3")
 bazel_dep(name = "rules_proto", version = "5.3.0-21.7")
 bazel_dep(name = "rules_jvm_external", version = "5.2")
 bazel_dep(name = "rules_python", version = "0.26.0")
@@ -52,7 +53,7 @@ local_path_override(
 
 # The following Bazel modules are not direct dependencies for building Bazel,
 # but are required for visibility from DIST_ARCHIVE_REPOS in repositories.bzl
-bazel_dep(name = "apple_support", version = "1.5.0")
+bazel_dep(name = "apple_support", version = "1.8.1")
 bazel_dep(name = "abseil-cpp", version = "20220623.1")
 bazel_dep(name = "c-ares", version = "1.15.0")
 bazel_dep(name = "rules_go", version = "0.39.1")
@@ -296,6 +297,16 @@ use_repo(bazel_rbe_deps, "rbe_ubuntu2004_java11")
 
 remote_coverage_tools_extension = use_extension("//tools/test:extensions.bzl", "remote_coverage_tools_extension")
 use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
+
+gvm = use_extension("@rules_graalvm//:extensions.bzl", "graalvm")
+gvm.graalvm(
+    name = "graalvm",
+    distribution = "ce",
+    java_version = "20",
+    version = "20.0.2",
+)
+use_repo(gvm, "graalvm_toolchains")
+register_toolchains("@graalvm_toolchains//:gvm")
 
 # =========================================
 # Register platforms & toolchains
