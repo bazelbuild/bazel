@@ -74,6 +74,13 @@ PYTHON_BINARY = '%python_binary%'
 if IsWindows() and not HasWindowsExecutableExtension(PYTHON_BINARY):
   PYTHON_BINARY = PYTHON_BINARY + '.exe'
 
+# The main Python source file.
+# The magic string percent-main-percent is replaced with the runfiles-relative
+# filename of the main file of the Python binary in BazelPythonSemantics.java.
+MAIN_REL_PATH = '%main%'
+if IsWindows():
+  MAIN_REL_PATH = MAIN_REL_PATH.replace('/', os.sep)
+
 def SearchPath(name):
   """Finds a file in a given search path."""
   search_path = os.getenv('PATH', os.defpath).split(os.pathsep)
@@ -129,7 +136,7 @@ def CreatePythonPathEntries(python_imports, module_space):
   parts = python_imports.split(':')
   return [module_space] + ['%s/%s' % (module_space, path) for path in parts]
 
-def FindModuleSpace(main_rel_path):
+def FindModuleSpace():
   """Finds the runfiles tree."""
   # When the calling process used the runfiles manifest to resolve the
   # location of this stub script, the path may be expanded. This means
@@ -144,7 +151,7 @@ def FindModuleSpace(main_rel_path):
       runfiles_dir = runfiles_manifest_file[:-9]
   # Be defensive: the runfiles dir should contain our main entry point. If
   # it doesn't, then it must not be our runfiles directory.
-  if runfiles_dir and os.path.exists(os.path.join(runfiles_dir, main_rel_path)):
+  if runfiles_dir and os.path.exists(os.path.join(runfiles_dir, MAIN_REL_PATH)):
     return runfiles_dir
 
   stub_filename = sys.argv[0]
@@ -443,18 +450,11 @@ def Main():
 
   new_env = {}
 
-  # The main Python source file.
-  # The magic string percent-main-percent is replaced with the runfiles-relative
-  # filename of the main file of the Python binary in BazelPythonSemantics.java.
-  main_rel_path = '%main%'
-  if IsWindows():
-    main_rel_path = main_rel_path.replace('/', os.sep)
-
   if IsRunningFromZip():
     module_space = CreateModuleSpace()
     delete_module_space = True
   else:
-    module_space = FindModuleSpace(main_rel_path)
+    module_space = FindModuleSpace()
     delete_module_space = False
 
   python_imports = '%imports%'
@@ -485,7 +485,7 @@ def Main():
   # See: https://docs.python.org/3.11/using/cmdline.html#envvar-PYTHONSAFEPATH
   new_env['PYTHONSAFEPATH'] = '1'
 
-  main_filename = os.path.join(module_space, main_rel_path)
+  main_filename = os.path.join(module_space, MAIN_REL_PATH)
   main_filename = GetWindowsPathWithUNCPrefix(main_filename)
   assert os.path.exists(main_filename), \
          'Cannot exec() %r: file not found.' % main_filename
