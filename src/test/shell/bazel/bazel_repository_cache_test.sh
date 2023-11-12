@@ -124,7 +124,7 @@ EOF
     zip -0 -ry "$repo2_zip" WORKSPACE fox >& $TEST_log
     repo2_name=$(basename "$repo2_zip")
     sha256=$(sha256sum "$repo2_zip" | cut -f 1 -d ' ')
-    integrity="sha256-$(cat repo.zip | openssl dgst -sha256 -binary | openssl base64 -A)"
+    integrity="sha256-$(cat "$repo2_zip" | openssl dgst -sha256 -binary | openssl base64 -A)"
   fi
   serve_file "$repo2_zip"
 
