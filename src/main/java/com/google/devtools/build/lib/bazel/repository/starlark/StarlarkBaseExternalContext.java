@@ -358,7 +358,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
 
     // For compatibility with older Bazel versions that don't support non-SHA256 checksums.
     if (finalChecksum.getKeyType() == KeyType.SHA256) {
-      out.put("sha256", finalChecksum.toString());
+      out.put("sha256", finalChecksum.toHexString());
     }
     return StarlarkInfo.create(StructProvider.STRUCT, out.buildOrThrow(), Location.BUILTIN);
   }

@@ -1104,6 +1104,7 @@ function test_integrity_incorrect() {
   create_workspace_with_default_repos WORKSPACE
   touch BUILD
   zip -r repo.zip *
+  integrity="sha256-$(cat repo.zip | openssl dgst -sha256 -binary | openssl base64 -A)"
   startup_server $PWD
   cd -
 
@@ -1118,7 +1119,7 @@ EOF
   bazel build @repo//... &> $TEST_log 2>&1 && fail "Expected to fail"
   expect_log "Error downloading \\[http://127.0.0.1:$fileserver_port/repo.zip\\] to"
   # Bazel translates the integrity value back to the sha256 checksum.
-  expect_log "but wanted 61a6f762aaf60652cbf332879b8dcc2cfd81be2129a061da957d039eae77f0b0"
+  expect_log "Checksum was $integrity but wanted sha256-Yab3Yqr2BlLL8zKHm43MLP2BviEpoGHalX0Dnq538LA="
   shutdown_server
 }
 
