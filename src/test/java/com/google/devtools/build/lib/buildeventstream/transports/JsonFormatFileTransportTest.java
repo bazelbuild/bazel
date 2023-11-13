@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.mockito.Mockito.when;
 
+import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions.BesUploadMode;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
@@ -90,7 +91,8 @@ public class JsonFormatFileTransportTest {
             defaultOpts,
             new LocalFilesArtifactUploader(),
             artifactGroupNamer,
-            SPAWN_EXEC_TYPE_REGISTRY);
+            SPAWN_EXEC_TYPE_REGISTRY,
+            BesUploadMode.WAIT_FOR_UPLOAD_COMPLETE);
   }
 
   @Test
@@ -171,7 +173,8 @@ public class JsonFormatFileTransportTest {
             defaultOpts,
             new LocalFilesArtifactUploader(),
             artifactGroupNamer,
-            SPAWN_EXEC_TYPE_REGISTRY);
+            SPAWN_EXEC_TYPE_REGISTRY,
+            BesUploadMode.WAIT_FOR_UPLOAD_COMPLETE);
 
     BuildEventStreamProtos.BuildEvent started =
         BuildEventStreamProtos.BuildEvent.newBuilder()
