@@ -48,6 +48,14 @@ common:bzlmod --experimental_downloader_config=bazel_downloader.cfg
 common --config=bzlmod
 common --lockfile_mode=update
 
+# Enable modern C++ features
+build:linux --cxxopt=-std=c++17
+build:linux --host_cxxopt=-std=c++17
+build:macos --cxxopt=-std=c++17
+build:macos --host_cxxopt=-std=c++17
+build:windows --cxxopt=/std:c++17
+build:windows --host_cxxopt=/std:c++17
+
 # Enable Java 11 language features (https://github.com/bazelbuild/bazel/issues/14592)
 build --java_language_version=11
 build --tool_java_language_version=11
