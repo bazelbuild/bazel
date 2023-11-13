@@ -112,10 +112,6 @@ public class Checksum {
 
   @Override
   public String toString() {
-    return emitOtherHashInSameFormat(hashCode);
-  }
-
-  public String toHexString() {
     return hashCode.toString();
   }
 
