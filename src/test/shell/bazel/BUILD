@@ -1307,6 +1307,20 @@ sh_test(
 )
 
 sh_test(
+    name = "path_mapping_test",
+    srcs = ["path_mapping_test.sh"],
+    data = [
+        ":test-deps",
+        "//src/tools/remote:worker",
+    ],
+    tags = ["no_windows"],
+    deps = [
+        "//src/test/shell/bazel/remote:remote_utils",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "platforms_test",
     srcs = ["platforms_test.sh"],
     data = [":test-deps"],
