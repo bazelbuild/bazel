@@ -70,7 +70,6 @@ import net.starlark.java.eval.Tuple;
  */
 public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, StarlarkSubruleApi {
   // TODO(hvd) this class is a WIP, will be implemented over many commits
-  // TODO: b/293304174 - Fix all user-facing Starlark documentation
 
   private final StarlarkFunction implementation;
   private final ImmutableSet<ToolchainTypeRequirement> toolchains;
@@ -153,7 +152,6 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
       } else if (attribute.getType() == BuildType.LABEL_LIST) {
         value = ruleContext.getRuleContext().getPrerequisites(attribute.getName());
       } else if (attribute.getType() == BuildType.LABEL) {
-        // TODO: b/293304174 - document this behavior
         if (attribute.isSingleArtifact()) {
           value = ruleContext.getRuleContext().getPrerequisiteArtifact(attribute.getName());
         } else {
