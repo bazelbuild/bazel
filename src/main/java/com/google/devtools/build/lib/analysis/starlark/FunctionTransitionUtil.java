@@ -97,7 +97,7 @@ public final class FunctionTransitionUtil {
       BuildOptions baselineToOptions = maybeGetExecDefaults(fromOptions, starlarkTransition);
 
       ImmutableMap<String, Map<String, Object>> transitions =
-          starlarkTransition.evaluate(settings, attrObject, handler);
+          starlarkTransition.evaluate(settings, attrObject, optionInfoMap, handler);
       if (transitions == null) {
         return null; // errors reported to handler
       } else if (transitions.isEmpty()) {
@@ -377,7 +377,7 @@ public final class FunctionTransitionUtil {
           Field field = def.getField();
           // TODO(b/153867317): check for crashing options types in this logic.
           Object convertedValue;
-          if (def.getType() == List.class && optionValue instanceof List && !def.allowsMultiple()) {
+          if (def.getType() == List.class && optionValue instanceof List) {
             // This is possible with Starlark code like "{ //command_line_option:foo: ["a", "b"] }".
             // In that case def.getType() == List.class while optionValue.type == StarlarkList.
             // Unfortunately we can't check the *element* types because OptionDefinition won't tell
@@ -387,13 +387,10 @@ public final class FunctionTransitionUtil {
             // generically safe way to do this. We convert its elements with .toString() with a ","
             // separator, which happens to work for most implementations. But that's not universally
             // guaranteed.
-            // TODO(b/153867317): support allowMultiple options too. This is subtle: see the
-            // description of allowMultiple in Option.java. allowMultiple converts have the choice
-            // of returning either a scalar or list.
             List<?> optionValueAsList = (List<?>) optionValue;
             if (optionValueAsList.isEmpty()) {
               convertedValue = ImmutableList.of();
-            } else {
+            } else if (!def.allowsMultiple()) {
               convertedValue =
                   def.getConverter()
                       .convert(
@@ -405,6 +402,21 @@ public final class FunctionTransitionUtil {
                                           : element.toString())
                               .collect(joining(",")),
                           starlarkTransition.getPackageContext());
+            } else {
+              var valueBuilder = ImmutableList.builder();
+              // We can't use streams because def.getConverter().convert may throw an
+              // OptionsParsingException.
+              for (Object e : optionValueAsList) {
+                Object converted =
+                    def.getConverter()
+                        .convert(e.toString(), starlarkTransition.getPackageContext());
+                if (converted instanceof List) {
+                  valueBuilder.addAll((List<?>) converted);
+                } else {
+                  valueBuilder.add(converted);
+                }
+              }
+              convertedValue = valueBuilder.build();
             }
           } else if (def.getType() == List.class && optionValue == null) {
             throw ValidationException.format(

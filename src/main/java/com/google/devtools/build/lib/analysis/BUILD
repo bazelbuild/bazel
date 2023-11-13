@@ -2008,6 +2008,7 @@ java_library(
     srcs = ["config/StarlarkDefinedConfigTransition.java"],
     deps = [
         ":config/core_options",
+        ":config/optioninfo",
         ":config/transitions/configuration_transition",
         ":config/transitions/patch_transition",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
