@@ -87,7 +87,8 @@ final class HashInputStream extends InputStream {
       throw new UnrecoverableHttpException(
           String.format(
               "Checksum was %s but wanted %s",
-              checksum.emitOtherHashInSameFormat(actual), checksum));
+              checksum.emitOtherHashInSameFormat(actual), 
+              checksum.emitOtherHashInSameFormat(checksum.getHashCode())));
     }
   }
 }
