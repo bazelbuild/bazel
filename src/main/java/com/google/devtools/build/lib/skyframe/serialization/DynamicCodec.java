@@ -30,7 +30,7 @@ import java.util.Collections;
 import java.util.Comparator;
 
 /** A codec that serializes arbitrary types. */
-public final class DynamicCodec implements ObjectCodec<Object> {
+public final class DynamicCodec extends AsyncObjectCodec<Object> {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -45,11 +45,6 @@ public final class DynamicCodec implements ObjectCodec<Object> {
   @Override
   public Class<?> getEncodedClass() {
     return type;
-  }
-
-  @Override
-  public MemoizationStrategy getStrategy() {
-    return ObjectCodec.MemoizationStrategy.MEMOIZE_BEFORE;
   }
 
   @Override
@@ -70,7 +65,7 @@ public final class DynamicCodec implements ObjectCodec<Object> {
 
   @Override
   @SuppressWarnings("LogAndThrow") // Want the full stack trace.
-  public Object deserialize(DeserializationContext context, CodedInputStream codedIn)
+  public Object deserializeAsync(AsyncDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     Object instance;
     try {
