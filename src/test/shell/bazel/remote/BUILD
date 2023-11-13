@@ -14,6 +14,7 @@ sh_library(
         "//src/tools/remote:worker",
         "//src/tools/remote:worker_deploy.jar",
     ],
+    visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
 sh_test(
