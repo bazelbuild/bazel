@@ -335,10 +335,10 @@ test_http_return_value() {
   touch a/f.txt
 
   zip a.zip a/*
-  expected_sha256="$(sha256sum "${EXTREPODIR}/a.zip" | head -c 64)"
+  expected_integrity="sha256-$(cat "${EXTREPODIR}/a.zip" | openssl dgst -sha256 -binary | openssl base64 -A)"
   rm -rf a
 
-  # http_archive rule doesn't specify the sha256 attribute
+  # http_archive rule doesn't specify the integrity attribute
   mkdir -p main
   cat > main/WORKSPACE <<EOF
 workspace(name = "main")
@@ -355,7 +355,7 @@ EOF
   bazel sync \
       --experimental_repository_resolved_file=../repo.bzl
 
-  grep ${expected_sha256} ../repo.bzl || fail "didn't return commit"
+  grep ${expected_integrity} ../repo.bzl || fail "didn't return integrity"
 }
 
 test_sync_calls_all() {
