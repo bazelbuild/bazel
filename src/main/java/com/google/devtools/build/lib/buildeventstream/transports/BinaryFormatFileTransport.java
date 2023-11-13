@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.buildeventstream.transports;
 
+import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions.BesUploadMode;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
@@ -34,8 +35,9 @@ public final class BinaryFormatFileTransport extends FileTransport {
       BufferedOutputStream outputStream,
       BuildEventProtocolOptions options,
       BuildEventArtifactUploader uploader,
-      ArtifactGroupNamer namer) {
-    super(outputStream, options, uploader, namer);
+      ArtifactGroupNamer namer,
+      BesUploadMode besUploadMode) {
+    super(outputStream, options, uploader, namer, besUploadMode);
   }
 
   @Override

@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions.BesUploadMode;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -37,6 +38,7 @@ import javax.annotation.Nullable;
 public class BuildEventServiceTransport implements BuildEventTransport {
   private final BuildEventServiceUploader besUploader;
   private final Duration besTimeout;
+  private final BesUploadMode besUploadMode;
 
   private BuildEventServiceTransport(
       BuildEventServiceClient besClient,
@@ -49,7 +51,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
       EventBus eventBus,
       Duration closeTimeout,
       Sleeper sleeper,
-      Timestamp commandStartTime) {
+      Timestamp commandStartTime,
+      BesUploadMode besUploadMode) {
     this.besTimeout = closeTimeout;
     this.besUploader =
         new BuildEventServiceUploader.Builder()
@@ -64,6 +67,7 @@ public class BuildEventServiceTransport implements BuildEventTransport {
             .eventBus(eventBus)
             .commandStartTime(commandStartTime)
             .build();
+    this.besUploadMode = besUploadMode;
   }
 
   @Override
@@ -89,6 +93,11 @@ public class BuildEventServiceTransport implements BuildEventTransport {
   @Override
   public boolean mayBeSlow() {
     return true;
+  }
+
+  @Override
+  public BesUploadMode getBesUploadMode() {
+    return besUploadMode;
   }
 
   @Override
@@ -188,7 +197,8 @@ public class BuildEventServiceTransport implements BuildEventTransport {
           checkNotNull(eventBus),
           (besOptions.besTimeout != null) ? besOptions.besTimeout : Duration.ZERO,
           sleeper != null ? sleeper : new JavaSleeper(),
-          checkNotNull(commandStartTime));
+          checkNotNull(commandStartTime),
+          besOptions.besUploadMode);
     }
   }
 }
