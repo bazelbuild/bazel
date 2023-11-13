@@ -16,6 +16,9 @@ package com.google.devtools.build.lib.buildeventstream.transports;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions.BesUploadMode;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
@@ -34,8 +37,9 @@ public final class JsonFormatFileTransport extends FileTransport {
       BufferedOutputStream outputStream,
       BuildEventProtocolOptions options,
       BuildEventArtifactUploader uploader,
-      ArtifactGroupNamer namer) {
-    super(outputStream, options, uploader, namer);
+      ArtifactGroupNamer namer,
+      BesUploadMode besUploadMode) {
+    super(outputStream, options, uploader, namer, besUploadMode);
   }
 
   @Override

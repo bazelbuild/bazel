@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildeventservice;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -78,9 +79,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.Duration;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -111,6 +114,9 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
   private boolean isRunsPerTestOverTheLimit;
   private BuildEventArtifactUploaderFactory uploaderFactoryToCleanup;
 
+  private BuildEventOutputStreamFactory buildEventOutputStreamFactory =
+      file -> new BufferedOutputStream(Files.newOutputStream(Paths.get(file)));
+
   /**
    * Holds the close futures for the upload of each transport with timeouts attached to them using
    * {@link #constructCloseFuturesMapWithTimeouts(ImmutableMap)} obtained from {@link
@@ -130,8 +136,6 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
    */
   private ImmutableMap<BuildEventTransport, ListenableFuture<Void>>
       halfCloseFuturesWithTimeoutsMap = ImmutableMap.of();
-
-  private BesUploadMode previousUploadMode = BesUploadMode.WAIT_FOR_UPLOAD_COMPLETE;
 
   // TODO(lpino): Use Optional instead of @Nullable for the members below.
   @Nullable private OutErr outErr;
@@ -196,6 +200,17 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     resetPendingUploads();
   }
 
+  private void removeFromPendingUploads(
+      Map<BuildEventTransport, ListenableFuture<Void>> transportFutures) {
+    transportFutures
+        .values()
+        .forEach(closeFuture -> closeFuture.cancel(/* mayInterruptIfRunning= */ true));
+    closeFuturesWithTimeoutsMap =
+        closeFuturesWithTimeoutsMap.entrySet().stream()
+            .filter(entry -> !transportFutures.containsKey(entry.getKey()))
+            .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+  }
+
   private static boolean isTimeoutException(ExecutionException e) {
     return e.getCause() instanceof TimeoutException;
   }
@@ -217,20 +232,31 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
       return;
     }
 
-    ImmutableMap<BuildEventTransport, ListenableFuture<Void>> waitingFutureMap = null;
-    boolean cancelCloseFutures = true;
-    switch (previousUploadMode) {
-      case FULLY_ASYNC:
-        waitingFutureMap =
-            isShutdown ? closeFuturesWithTimeoutsMap : halfCloseFuturesWithTimeoutsMap;
-        cancelCloseFutures = false;
-        break;
-      case WAIT_FOR_UPLOAD_COMPLETE:
-      case NOWAIT_FOR_UPLOAD_COMPLETE:
-        waitingFutureMap = closeFuturesWithTimeoutsMap;
-        cancelCloseFutures = true;
-        break;
-    }
+    ImmutableMap<BuildEventTransport, ListenableFuture<Void>> waitingFutureMap =
+        closeFuturesWithTimeoutsMap.entrySet().stream()
+            .map(
+                entry -> {
+                  var transport = entry.getKey();
+                  var closeFuture = entry.getValue();
+                  ListenableFuture<Void> future = closeFuture;
+                  if (transport.getBesUploadMode() == BesUploadMode.FULLY_ASYNC) {
+                    future =
+                        isShutdown ? closeFuture : halfCloseFuturesWithTimeoutsMap.get(transport);
+                    if (future == null) {
+                      future = closeFuture;
+                    }
+                  }
+                  return new SimpleEntry<>(transport, future);
+                })
+            .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+    ImmutableMap<BuildEventTransport, ListenableFuture<Void>> cancelCloseFutures =
+        closeFuturesWithTimeoutsMap.entrySet().stream()
+            .filter(
+                entry -> {
+                  var transport = entry.getKey();
+                  return transport.getBesUploadMode() != BesUploadMode.FULLY_ASYNC;
+                })
+            .collect(toImmutableMap(Entry::getKey, Entry::getValue));
 
     Stopwatch stopwatch = Stopwatch.createStarted();
     try {
@@ -259,7 +285,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
               waitedMillis / 1000, waitedMillis % 1000);
       reporter.handle(Event.warn(msg));
       logger.atWarning().withCause(exception).log("%s", msg);
-      cancelCloseFutures = true;
+      cancelCloseFutures = closeFuturesWithTimeoutsMap;
     } catch (ExecutionException e) {
       String msg;
       // Futures.withTimeout wraps the TimeoutException in an ExecutionException when the future
@@ -279,13 +305,12 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
       }
       reporter.handle(Event.warn(msg));
       logger.atWarning().withCause(e).log("%s", msg);
-      cancelCloseFutures = true;
+      cancelCloseFutures = closeFuturesWithTimeoutsMap;
     } finally {
-      if (cancelCloseFutures) {
-        cancelAndResetPendingUploads();
-      } else {
-        resetPendingUploads();
-      }
+      cancelCloseFutures
+          .values()
+          .forEach(closeFuture -> closeFuture.cancel(/* mayInterruptIfRunning= */ true));
+      resetPendingUploads();
     }
   }
 
@@ -479,8 +504,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
   }
 
   private void waitForBuildEventTransportsToClose(
-      Map<BuildEventTransport, ListenableFuture<Void>> transportFutures,
-      boolean besUploadModeIsSynchronous)
+      Map<BuildEventTransport, ListenableFuture<Void>> transportFutures)
       throws AbruptExitException {
     final ScheduledExecutorService executor =
         Executors.newSingleThreadScheduledExecutor(
@@ -517,9 +541,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
               e.getCause().getMessage()),
           e);
     } finally {
-      if (besUploadModeIsSynchronous) {
-        cancelAndResetPendingUploads();
-      }
+      removeFromPendingUploads(transportFutures);
       executor.shutdown();
     }
   }
@@ -577,17 +599,16 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
   }
 
   private void closeBepTransports() throws AbruptExitException {
-    previousUploadMode = besOptions.besUploadMode;
     closeFuturesWithTimeoutsMap =
         constructCloseFuturesMapWithTimeouts(streamer.getCloseFuturesMap());
     halfCloseFuturesWithTimeoutsMap =
         constructCloseFuturesMapWithTimeouts(streamer.getHalfClosedMap());
-    boolean besUploadModeIsSynchronous =
-        besOptions.besUploadMode == BesUploadMode.WAIT_FOR_UPLOAD_COMPLETE;
     Map<BuildEventTransport, ListenableFuture<Void>> blockingTransportFutures = new HashMap<>();
     for (Map.Entry<BuildEventTransport, ListenableFuture<Void>> entry :
         closeFuturesWithTimeoutsMap.entrySet()) {
       BuildEventTransport bepTransport = entry.getKey();
+      boolean besUploadModeIsSynchronous =
+          bepTransport.getBesUploadMode() == BesUploadMode.WAIT_FOR_UPLOAD_COMPLETE;
       if (!bepTransport.mayBeSlow() || besUploadModeIsSynchronous) {
         blockingTransportFutures.put(bepTransport, entry.getValue());
       } else {
@@ -597,7 +618,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
       }
     }
     if (!blockingTransportFutures.isEmpty()) {
-      waitForBuildEventTransportsToClose(blockingTransportFutures, besUploadModeIsSynchronous);
+      waitForBuildEventTransportsToClose(blockingTransportFutures);
     }
   }
 
@@ -752,16 +773,18 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     if (!Strings.isNullOrEmpty(besStreamOptions.buildEventTextFile)) {
       try {
         BufferedOutputStream bepTextOutputStream =
-            new BufferedOutputStream(
-                Files.newOutputStream(Paths.get(besStreamOptions.buildEventTextFile)));
-
+            buildEventOutputStreamFactory.create(besStreamOptions.buildEventTextFile);
         BuildEventArtifactUploader localFileUploader =
             besStreamOptions.buildEventTextFilePathConversion
                 ? uploaderSupplier.get()
                 : new LocalFilesArtifactUploader();
         bepTransportsBuilder.add(
             new TextFormatFileTransport(
-                bepTextOutputStream, bepOptions, localFileUploader, artifactGroupNamer));
+                bepTextOutputStream,
+                bepOptions,
+                localFileUploader,
+                artifactGroupNamer,
+                besStreamOptions.buildEventTextFileUploadMode));
       } catch (IOException exception) {
         // TODO(b/125216340): Consider making this a warning instead of an error once the
         //  associated bug has been resolved.
@@ -779,16 +802,18 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     if (!Strings.isNullOrEmpty(besStreamOptions.buildEventBinaryFile)) {
       try {
         BufferedOutputStream bepBinaryOutputStream =
-            new BufferedOutputStream(
-                Files.newOutputStream(Paths.get(besStreamOptions.buildEventBinaryFile)));
-
+            buildEventOutputStreamFactory.create(besStreamOptions.buildEventBinaryFile);
         BuildEventArtifactUploader localFileUploader =
             besStreamOptions.buildEventBinaryFilePathConversion
                 ? uploaderSupplier.get()
                 : new LocalFilesArtifactUploader();
         bepTransportsBuilder.add(
             new BinaryFormatFileTransport(
-                bepBinaryOutputStream, bepOptions, localFileUploader, artifactGroupNamer));
+                bepBinaryOutputStream,
+                bepOptions,
+                localFileUploader,
+                artifactGroupNamer,
+                besStreamOptions.buildEventBinaryFileUploadMode));
       } catch (IOException exception) {
         // TODO(b/125216340): Consider making this a warning instead of an error once the
         //  associated bug has been resolved.
@@ -806,15 +831,18 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     if (!Strings.isNullOrEmpty(besStreamOptions.buildEventJsonFile)) {
       try {
         BufferedOutputStream bepJsonOutputStream =
-            new BufferedOutputStream(
-                Files.newOutputStream(Paths.get(besStreamOptions.buildEventJsonFile)));
+            buildEventOutputStreamFactory.create(besStreamOptions.buildEventJsonFile);
         BuildEventArtifactUploader localFileUploader =
             besStreamOptions.buildEventJsonFilePathConversion
                 ? uploaderSupplier.get()
                 : new LocalFilesArtifactUploader();
         bepTransportsBuilder.add(
             new JsonFormatFileTransport(
-                bepJsonOutputStream, bepOptions, localFileUploader, artifactGroupNamer));
+                bepJsonOutputStream,
+                bepOptions,
+                localFileUploader,
+                artifactGroupNamer,
+                besStreamOptions.buildEventJsonFileUploadMode));
       } catch (IOException exception) {
         // TODO(b/125216340): Consider making this a warning instead of an error once the
         //  associated bug has been resolved.
@@ -860,6 +888,11 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
   protected abstract void clearBesClient();
 
   protected abstract Set<String> allowedCommands(OptionsT besOptions);
+
+  @VisibleForTesting
+  void setBuildEventOutputStreamFactory(BuildEventOutputStreamFactory factory) {
+    this.buildEventOutputStreamFactory = factory;
+  }
 
   protected ImmutableSet<String> getBesKeywords(
       OptionsT besOptions, @Nullable OptionsParsingResult startupOptionsProvider) {
@@ -916,5 +949,10 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
       }
       throw exception;
     }
+  }
+
+  @VisibleForTesting
+  interface BuildEventOutputStreamFactory {
+    BufferedOutputStream create(String file) throws IOException;
   }
 }
