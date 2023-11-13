@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
-import com.google.devtools.common.options.Converters.BooleanConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -252,16 +251,6 @@ public final class BazelRulesModule extends BlazeModule {
         },
         help = "This option is deprecated and has no effect and will be removed in the future.")
     public boolean deferParamFiles;
-
-    @Option(
-        name = "experimental_throttle_action_cache_check",
-        defaultValue = "true",
-        converter = BooleanConverter.class,
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        metadataTags = OptionMetadataTag.EXPERIMENTAL,
-        effectTags = {OptionEffectTag.EXECUTION},
-        help = "no-op")
-    public boolean throttleActionCacheCheck;
 
     @Option(
         name = "check_fileset_dependencies_recursively",
