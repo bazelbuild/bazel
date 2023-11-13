@@ -98,10 +98,10 @@ public final class SpawnLogModule extends BlazeModule {
     // pointless conversion at the end. Otherwise, use a temporary path.
     if (executionOptions.executionLogBinaryFile != null && !executionOptions.executionLogSort) {
       rawOutputPath = workingDirectory.getRelative(executionOptions.executionLogBinaryFile);
-      mayDeleteRawOutputPath = true;
+      mayDeleteRawOutputPath = false;
     } else {
       rawOutputPath = outputBase.getRelative("execution.log");
-      mayDeleteRawOutputPath = false;
+      mayDeleteRawOutputPath = true;
     }
     rawOutputStream = new AsynchronousFileOutputStream(rawOutputPath);
 
