@@ -127,7 +127,7 @@ public class BazelDepGraphFunction implements SkyFunction {
     ImmutableBiMap<String, ModuleExtensionId> extensionUniqueNames =
         calculateUniqueNameForUsedExtensionId(extensionUsagesById);
 
-    if (!lockfileMode.equals(LockfileMode.OFF)) {
+    if (lockfileMode.equals(LockfileMode.UPDATE)) {
       // This will keep all module extension evaluation results, some of which may be stale due to
       // changed usages. They will be removed in BazelLockFileModule.
       BazelLockFileValue updateLockfile =
