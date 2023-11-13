@@ -117,6 +117,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs/bazel",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:cache_salt_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:remote_scrubbing_java_proto",
         "//src/main/protobuf:spawn_java_proto",

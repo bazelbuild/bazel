@@ -83,7 +83,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.exec.Protos.CacheSalt;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
@@ -97,6 +96,7 @@ import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRem
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.salt.CacheSalt;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
