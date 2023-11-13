@@ -519,7 +519,7 @@ public interface StarlarkRuleFunctionsApi {
             named = true,
             defaultValue = "[]",
             positional = false,
-            doc = "Experimental, DO NOT USE!"),
+            doc = "Experimental: List of subrules used by this rule."),
       },
       useStarlarkThread = true)
   StarlarkCallable rule(
@@ -739,7 +739,7 @@ public interface StarlarkRuleFunctionsApi {
             named = true,
             defaultValue = "[]",
             positional = false,
-            doc = "Experimental, DO NOT USE!")
+            doc = "Experimental: list of subrules used by this aspect.")
       },
       useStarlarkThread = true)
   StarlarkAspectApi aspect(
@@ -815,7 +815,9 @@ public interface StarlarkRuleFunctionsApi {
 
   @StarlarkMethod(
       name = "subrule",
-      doc = "experimental, DO NOT USE!",
+      doc =
+          "Constructs a new instance of a subrule. The result of this function must be stored in "
+              + "a global variable before it can be used.",
       parameters = {
         @Param(
             name = "implementation",
@@ -829,7 +831,22 @@ public interface StarlarkRuleFunctionsApi {
             named = true,
             positional = false,
             defaultValue = "{}",
-            doc = "dictionary to declare all the (private) attributes of the subrule."),
+            doc =
+                "A dictionary to declare all the (private) attributes of the subrule. "
+                    + "<p/>Subrules may only have private attributes that are label-typed (i.e. "
+                    + "label or label-list). The resolved values corresponding to these labels are"
+                    + " automatically passed by Bazel to the subrule's implementation function as"
+                    + " named arguments (thus the implementation function is required to accept"
+                    + " named parameters matching the attribute names). The types of these values"
+                    + " will be: "
+                    + "<ul><li><code>FilesToRunProvider</code> for label attributes with"
+                    + " <code>executable=True</code></li>"
+                    + "<li><code>File</code> for label attributes"
+                    + " with <code>allow_single_file=True</code></li>"
+                    + "<li><code>Target</code> for"
+                    + " all other label attributes</li>"
+                    + "<li><code>[Target]</code> for all label-list"
+                    + " attributes</li></ul>"),
         @Param(
             name = "toolchains",
             allowedTypes = {@ParamType(type = Sequence.class)},

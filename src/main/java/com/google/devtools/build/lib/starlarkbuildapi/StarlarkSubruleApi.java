@@ -19,5 +19,11 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.StarlarkValue;
 
 /** The interface for Starlark-defined subrules in the Build API. */
-@StarlarkBuiltin(name = "Subrule", category = DocCategory.BUILTIN, documented = false)
+@StarlarkBuiltin(
+    name = "Subrule",
+    category = DocCategory.BUILTIN,
+    doc =
+        "Experimental: a building block for writing rules with shared code. For more information,"
+            + " please see the subrule proposal:"
+            + " https://docs.google.com/document/d/1RbNC88QieKvBEwir7iV5zZU08AaMlOzxhVkPnmKDedQ")
 public interface StarlarkSubruleApi extends StarlarkValue {}
