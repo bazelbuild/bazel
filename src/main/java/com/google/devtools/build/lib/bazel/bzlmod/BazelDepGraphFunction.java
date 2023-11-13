@@ -97,7 +97,7 @@ public class BazelDepGraphFunction implements SkyFunction {
         throw new BazelDepGraphFunctionException(
             ExternalDepsException.withMessage(
                 Code.BAD_MODULE,
-                "Lock file is no longer up-to-date because: %s. "
+                "MODULE.bazel.lock is no longer up-to-date because: %s. "
                     + "Please run `bazel mod deps --lockfile_mode=update` to update your lockfile.",
                 String.join(", ", diffLockfile)),
             Transience.PERSISTENT);
