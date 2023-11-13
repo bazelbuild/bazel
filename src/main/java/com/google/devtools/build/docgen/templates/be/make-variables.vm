@@ -356,7 +356,7 @@
 <p>
   <code>execpaths</code>, <code>rootpaths</code>, <code>rlocationpaths</code>,
   and <code>locations</code> are the plural variations of <code>execpath</code>,
-  <code>rootpath</code>, <code>rlocationpaths</code>, and<code>location</code>,
+  <code>rootpath</code>, <code>rlocationpath</code>, and<code>location</code>,
   respectively. They support labels producing multiple outputs, in which case
   each output is listed separated by a space. Zero-output rules and malformed
   labels produce build errors.
