@@ -13,7 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.devtools.build.lib.skyframe.serialization.CodecHelpers.readChar;
+import static com.google.devtools.build.lib.skyframe.serialization.CodecHelpers.readShort;
+import static com.google.devtools.build.lib.skyframe.serialization.CodecHelpers.writeChar;
+import static com.google.devtools.build.lib.skyframe.serialization.CodecHelpers.writeShort;
 import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
 
 import com.google.common.flogger.GoogleLogger;
@@ -21,10 +24,8 @@ import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserialization
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -140,16 +141,6 @@ public final class DynamicCodec extends AsyncObjectCodec<Object> {
     }
   }
 
-  private static void writeShort(CodedOutputStream codedOut, short value) throws IOException {
-    ByteBuffer buffer = ByteBuffer.allocate(2).putShort(value);
-    codedOut.writeRawBytes(buffer);
-  }
-
-  private static short readShort(CodedInputStream codedIn) throws IOException {
-    ByteBuffer buffer = ByteBuffer.allocate(2).put(codedIn.readRawBytes(2));
-    return buffer.getShort(0);
-  }
-
   private static final class ShortHandler implements FieldHandler {
     private final long offset;
 
@@ -169,16 +160,6 @@ public final class DynamicCodec extends AsyncObjectCodec<Object> {
         throws IOException {
       unsafe().putShort(obj, offset, readShort(codedIn));
     }
-  }
-
-  private static void writeChar(CodedOutputStream codedOut, char value) throws IOException {
-    ByteBuffer buffer = ByteBuffer.allocate(2).putChar(value);
-    codedOut.writeRawBytes(buffer);
-  }
-
-  private static char readChar(CodedInputStream codedIn) throws IOException {
-    ByteBuffer buffer = ByteBuffer.allocate(2).put(codedIn.readRawBytes(2));
-    return buffer.getChar(0);
   }
 
   private static final class CharHandler implements FieldHandler {
@@ -325,11 +306,12 @@ public final class DynamicCodec extends AsyncObjectCodec<Object> {
   }
 
   private static final class ArrayHandler implements FieldHandler {
+    private final ArrayProcessor arrayProcessor;
     private final Class<?> type;
     private final long offset;
 
     private ArrayHandler(Class<?> type, long offset) {
-      checkArgument(type.isArray(), type);
+      this.arrayProcessor = ArrayProcessor.forType(type);
       this.type = type;
       this.offset = offset;
     }
@@ -337,193 +319,14 @@ public final class DynamicCodec extends AsyncObjectCodec<Object> {
     @Override
     public void serialize(SerializationContext context, CodedOutputStream codedOut, Object obj)
         throws IOException, SerializationException {
-      serializeArray(context, codedOut, type, obj, offset);
-    }
-
-    /**
-     * Serializes an array.
-     *
-     * <p>A {@code (obj, offset)} tuple specifies the array. Note that this representation works
-     * regardless of whether the containing {@code obj} is an array or non-array object. This method
-     * is used in both cases.
-     *
-     * @param type the type of the array.
-     * @param obj the object containing the array. {@code obj} could be an array also.
-     * @param offset offset within obj of the array.
-     */
-    private static void serializeArray(
-        SerializationContext context,
-        CodedOutputStream codedOut,
-        Class<?> type,
-        Object obj,
-        long offset)
-        throws IOException, SerializationException {
-      Object arr = unsafe().getObject(obj, offset);
-
-      Class<?> componentType = type.getComponentType();
-      if (componentType.equals(byte.class)) {
-        // Special case uses `CodedOutputStream.writeByteArrayNoTag` for byte array. Uses a
-        // different convention for tagging arrays to avoid writing length twice.
-        if (arr == null) {
-          codedOut.writeBoolNoTag(false);
-        } else {
-          codedOut.writeBoolNoTag(true);
-          codedOut.writeByteArrayNoTag((byte[]) arr);
-        }
-        return;
-      }
-
-      // Writes a tag indicating the size of the array to come.
-      //   * 0 for null; or
-      //   * length + 1 otherwise.
-      // -1 could make sense for nulls, but nulls are fairly common and -1 has a 10 byte signed
-      // integer representation.
-      if (arr == null) {
-        codedOut.writeInt32NoTag(0);
-        return;
-      }
-
-      int length = Array.getLength(arr);
-      // This could overflow for a length of Integer.MAX_INT, but it's impossible to serialize an
-      // array of that length anyway.
-      codedOut.writeInt32NoTag(length + 1);
-      if (length == 0) {
-        return;
-      }
-
-      // It's a non-empty array if this is reached.
-      int base = unsafe().arrayBaseOffset(type);
-      int scale = unsafe().arrayIndexScale(type);
-      if (scale == 0) {
-        throw new SerializationException("Failed to get index scale for type: " + type);
-      }
-
-      if (componentType.equals(boolean.class)) {
-        // It's possible to use BitSet here to better pack the Booleans on the wire, but if the
-        // array were long enough to make this efficient, the underlying code would have used a
-        // different representation anyway.
-        for (int i = 0; i < length; ++i) {
-          codedOut.writeBoolNoTag(unsafe().getBoolean(arr, base + scale * i));
-        }
-      } else if (componentType.equals(short.class)) {
-        for (int i = 0; i < length; ++i) {
-          writeShort(codedOut, unsafe().getShort(arr, base + scale * i));
-        }
-      } else if (componentType.equals(char.class)) {
-        for (int i = 0; i < length; ++i) {
-          writeChar(codedOut, unsafe().getChar(arr, base + scale * i));
-        }
-      } else if (componentType.equals(int.class)) {
-        for (int i = 0; i < length; ++i) {
-          codedOut.writeInt32NoTag(unsafe().getInt(arr, base + scale * i));
-        }
-      } else if (componentType.equals(long.class)) {
-        for (int i = 0; i < length; ++i) {
-          codedOut.writeInt64NoTag(unsafe().getLong(arr, base + scale * i));
-        }
-      } else if (componentType.equals(float.class)) {
-        for (int i = 0; i < length; ++i) {
-          codedOut.writeFloatNoTag(unsafe().getFloat(arr, base + scale * i));
-        }
-      } else if (componentType.equals(double.class)) {
-        for (int i = 0; i < length; ++i) {
-          codedOut.writeDoubleNoTag(unsafe().getDouble(arr, base + scale * i));
-        }
-      } else if (componentType.isArray()) {
-        // It's a multidimensional array. Serializes each component array recursively.
-        for (int i = 0; i < length; ++i) {
-          serializeArray(context, codedOut, componentType, arr, base + scale * i);
-        }
-      } else {
-        // Otherwise, the components have some arbitrary object type.
-        for (int i = 0; i < length; ++i) {
-          context.serialize(unsafe().getObject(arr, base + scale * i), codedOut);
-        }
-      }
+      arrayProcessor.serialize(context, codedOut, type, unsafe().getObject(obj, offset));
     }
 
     @Override
     public void deserialize(
         AsyncDeserializationContext context, CodedInputStream codedIn, Object obj)
         throws IOException, SerializationException {
-      deserializeArray(context, codedIn, type, obj, offset);
-    }
-
-    private static void deserializeArray(
-        AsyncDeserializationContext context,
-        CodedInputStream codedIn,
-        Class<?> type,
-        Object obj,
-        long offset)
-        throws IOException, SerializationException {
-      Class<?> componentType = type.getComponentType();
-
-      if (componentType.equals(byte.class)) {
-        if (codedIn.readBool()) {
-          unsafe().putObject(obj, offset, codedIn.readByteArray());
-        } // Otherwise, it was null.
-        return;
-      }
-
-      int length = codedIn.readInt32();
-      if (length == 0) {
-        return; // It was null.
-      }
-      length--; // Shifts the length back. They were shifted to allow 0 to be used for null.
-      Object arr = Array.newInstance(componentType, length);
-      unsafe().putObject(obj, offset, arr);
-
-      if (length == 0) {
-        return; // Empty array.
-      }
-
-      // It's a non-empty array if this is reached.
-      int base = unsafe().arrayBaseOffset(type);
-      int scale = unsafe().arrayIndexScale(type);
-      if (scale == 0) {
-        throw new SerializationException("Failed to get index scale for type: " + type);
-      }
-
-      if (componentType.equals(boolean.class)) {
-        for (int i = 0; i < length; ++i) {
-          unsafe().putBoolean(arr, base + scale * i, codedIn.readBool());
-        }
-      } else if (componentType.equals(short.class)) {
-        for (int i = 0; i < length; ++i) {
-          unsafe().putShort(arr, base + scale * i, readShort(codedIn));
-        }
-      } else if (componentType.equals(char.class)) {
-        for (int i = 0; i < length; ++i) {
-          unsafe().putChar(arr, base + scale * i, readChar(codedIn));
-        }
-        return;
-      } else if (componentType.equals(int.class)) {
-        for (int i = 0; i < length; ++i) {
-          unsafe().putInt(arr, base + scale * i, codedIn.readInt32());
-        }
-      } else if (componentType.equals(long.class)) {
-        for (int i = 0; i < length; ++i) {
-          unsafe().putLong(arr, base + scale * i, codedIn.readInt64());
-        }
-      } else if (componentType.equals(float.class)) {
-        for (int i = 0; i < length; ++i) {
-          unsafe().putFloat(arr, base + scale * i, codedIn.readFloat());
-        }
-      } else if (componentType.equals(double.class)) {
-        for (int i = 0; i < length; ++i) {
-          unsafe().putDouble(arr, base + scale * i, codedIn.readDouble());
-        }
-      } else if (componentType.isArray()) {
-        // It's a multidimensional array. Deserializes each component array recursively.
-        for (int i = 0; i < length; ++i) {
-          deserializeArray(context, codedIn, componentType, arr, base + scale * i);
-        }
-      } else {
-        // Otherwise, the components have some arbitrary object type.
-        for (int i = 0; i < length; ++i) {
-          context.deserialize(codedIn, arr, base + scale * i);
-        }
-      }
+      arrayProcessor.deserialize(context, codedIn, type, obj, offset);
     }
   }
 
