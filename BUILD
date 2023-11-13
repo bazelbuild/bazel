@@ -52,15 +52,6 @@ filegroup(
 )
 
 filegroup(
-    name = "git",
-    srcs = glob(
-        [".git/**"],
-        allow_empty = True,
-        exclude = [".git/**/*[*"],  # gitk creates temp files with []
-    ),
-)
-
-filegroup(
     name = "dummy",
     visibility = ["//visibility:public"],
 )
