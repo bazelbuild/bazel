@@ -275,6 +275,7 @@ public class ExecutionTool {
               singleSourceRoot,
               env.getEventBus(),
               env.getDirectories().getProductName() + "-",
+              skyframeExecutor.getIgnoredPaths(),
               request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout,
               runtime.getWorkspace().doesAllowExternalRepositories());
       if (shouldSymlinksBePlanted) {

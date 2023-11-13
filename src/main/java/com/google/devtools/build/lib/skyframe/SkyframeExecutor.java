@@ -446,6 +446,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @Nullable private final WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver;
   private Set<String> previousClientEnvironment = ImmutableSet.of();
 
+  // Contain the paths in the .bazelignore file.
+  private ImmutableSet<Path> ignoredPaths = ImmutableSet.of();
+
   Duration sourceDiffCheckingDuration = Duration.ofSeconds(-1L);
 
   final class PathResolverFactoryImpl implements PathResolverFactory {
@@ -1300,6 +1303,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   public AtomicReference<PathPackageLocator> getPackageLocator() {
     return pkgLocator;
+  }
+
+  public ImmutableSet<Path> getIgnoredPaths() {
+    return ignoredPaths;
   }
 
   protected Differencer.Diff getDiff(
@@ -3144,7 +3151,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         // Ignored package prefixes are specified relative to the workspace root
         // by definition of .bazelignore. So, we only use ignored paths when the
         // package root is equal to the workspace path.
-        ImmutableSet<Path> ignoredPaths = ImmutableSet.of();
         if (workspacePath != null && workspacePath.equals(pathEntry.asPath())) {
           ignoredPaths =
               ignoredPackagePrefixesValue.getPatterns().stream()
