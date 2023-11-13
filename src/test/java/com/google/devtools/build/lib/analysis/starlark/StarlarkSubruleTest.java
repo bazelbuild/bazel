@@ -20,8 +20,10 @@ import static com.google.devtools.build.lib.analysis.starlark.StarlarkSubrule.ge
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
@@ -578,6 +580,11 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
                 String.class,
                 "")
             .getImmutableList();
+    ImmutableMap<String, Attribute> aspectAttributes =
+        ((AspectValue) getAspect("//subrule_testing:myrule.bzl%my_aspect"))
+            .getAspect()
+            .getDefinition()
+            .getAttributes();
     String ruleAttrName =
         getRuleAttrName(
             Label.parseCanonical("//subrule_testing:myrule.bzl"),
@@ -585,6 +592,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
             "_foo",
             AttributeValueSource.DIRECT);
 
+    assertThat(aspectAttributes).containsKey(ruleAttrName);
     assertThat(attributesVisibleToStarlark).doesNotContain(ruleAttrName);
   }
 
