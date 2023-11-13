@@ -140,7 +140,7 @@ public class SymlinkForest {
     for (Path target : mainRepoRoot.getDirectoryEntries()) {
       String baseName = target.getBaseName();
       Path execPath = execroot.getRelative(baseName);
-      if (symlinkShouldBePlanted(prefix, siblingRepositoryLayout, baseName)) {
+      if (symlinkShouldBePlanted(prefix, siblingRepositoryLayout, baseName, target)) {
         execPath.createSymbolicLink(target);
         plantedSymlinks.add(execPath);
         // TODO(jingwen-external): is this creating execroot/io_bazel/external?
@@ -384,7 +384,11 @@ public class SymlinkForest {
    * @return a set of potentially conflicting baseNames, all in lowercase.
    */
   public static ImmutableSet<String> eagerlyPlantSymlinkForestSinglePackagePath(
-      Path execroot, Path sourceRoot, String prefix, boolean siblingRepositoryLayout)
+      Path execroot,
+      Path sourceRoot,
+      String prefix,
+      ImmutableSet<Path> ignoredPaths,
+      boolean siblingRepositoryLayout)
       throws IOException {
     deleteTreesBelowNotPrefixed(execroot, prefix);
     deleteSiblingRepositorySymlinks(siblingRepositoryLayout, execroot);
@@ -406,7 +410,8 @@ public class SymlinkForest {
         Path target = Iterables.getOnlyElement(targets);
         String originalBaseName = target.getBaseName();
         Path link = execroot.getRelative(originalBaseName);
-        if (symlinkShouldBePlanted(prefix, siblingRepositoryLayout, originalBaseName)) {
+        if (symlinkShouldBePlanted(
+            prefix, ignoredPaths, siblingRepositoryLayout, originalBaseName, target)) {
           link.createSymbolicLink(target);
         }
       } else {
@@ -416,11 +421,22 @@ public class SymlinkForest {
     return ImmutableSet.copyOf(potentiallyConflictingBaseNamesLowercase);
   }
 
+  static boolean symlinkShouldBePlanted(
+      String prefix, boolean siblingRepositoryLayout, String baseName, Path target) {
+    return symlinkShouldBePlanted(
+        prefix, ImmutableSet.of(), siblingRepositoryLayout, baseName, target);
+  }
+
   public static boolean symlinkShouldBePlanted(
-      String prefix, boolean siblingRepositoryLayout, String baseName) {
+      String prefix,
+      ImmutableSet<Path> ignoredPaths,
+      boolean siblingRepositoryLayout,
+      String baseName,
+      Path target) {
     // Create any links that don't start with bazel-, and ignore external/ directory if
     // user has it in the source tree because it conflicts with external repository location.
     return !baseName.startsWith(prefix)
+        && !ignoredPaths.contains(target)
         && (siblingRepositoryLayout
             || !baseName.equals(LabelConstants.EXTERNAL_PATH_PREFIX.getBaseName()));
   }
