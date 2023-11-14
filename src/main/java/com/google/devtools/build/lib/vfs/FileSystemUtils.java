@@ -600,6 +600,9 @@ public class FileSystemUtils {
       throw new IllegalArgumentException(to + " is a subdirectory of " + from);
     }
 
+    // Actions can make output directories non-writable, which would cause the move to fail.
+    from.setWritable(true);
+
     Collection<Path> entries = from.getDirectoryEntries();
     for (Path entry : entries) {
       if (entry.isDirectory(Symlinks.NOFOLLOW)) {
