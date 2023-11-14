@@ -139,9 +139,6 @@ message SpawnExec {
   // The Spawn timeout.
   int64 timeout_millis = 8;
 
-  // A user-friendly text message representing the spawn progress.
-  string progress_message = 9;
-
   // An opaque string that identifies the type of the Spawn's action.
   string mnemonic = 10;
 
@@ -191,4 +188,6 @@ message SpawnExec {
 
   // Timing, size and memory statistics.
   SpawnMetrics metrics = 20;
+
+  reserved 9;
 }
