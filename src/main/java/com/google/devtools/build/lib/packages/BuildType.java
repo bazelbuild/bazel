@@ -454,6 +454,12 @@ public final class BuildType {
     }
 
     @Override
+    public Object copyAndLiftStarlarkValue(
+        Object x, Object what, @Nullable LabelConverter labelConverter) throws ConversionException {
+      return STRING_LIST.copyAndLiftStarlarkValue(x, what, labelConverter);
+    }
+
+    @Override
     public License getDefaultValue() {
       return License.NO_LICENSE;
     }

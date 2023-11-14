@@ -102,7 +102,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
-
 /** Tests for StarlarkRuleClassFunctions. */
 @RunWith(TestParameterInjector.class)
 public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
@@ -2822,6 +2821,67 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void initializer_wrongType() throws Exception {
+    scratch.file(
+        "initializer_testing/b.bzl",
+        "MyInfo = provider()",
+        "def initializer(srcs = []):",
+        "  return {'srcs': ['a.ml']}",
+        "def impl(ctx): ",
+        "  return [MyInfo(",
+        "    srcs = [s.short_path for s in ctx.files.srcs])]",
+        "my_rule = rule(impl,",
+        "  initializer = initializer,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files = ['ml']),",
+        "  })");
+    scratch.file(
+        "initializer_testing/BUILD", //
+        "load(':b.bzl','my_rule')",
+        "my_rule(name = 'my_target', srcs = 'default_files')");
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//initializer_testing:my_target");
+
+    ev.assertContainsError(
+        "expected value of type 'list(label)' for attribute 'srcs' in 'my_rule' rule, but got"
+            + " \"default_files\" (string)");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void initializer_withSelect() throws Exception {
+    scratch.file(
+        "initializer_testing/b.bzl",
+        "MyInfo = provider()",
+        "def initializer(srcs = []):",
+        "  return {'srcs': srcs + ['b.ml']}",
+        "def impl(ctx): ",
+        "  return [MyInfo(",
+        "    srcs = [s.short_path for s in ctx.files.srcs])]",
+        "my_rule = rule(impl,",
+        "  initializer = initializer,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files = ['ml']),",
+        "  })");
+    scratch.file(
+        "initializer_testing/BUILD", //
+        "load(':b.bzl','my_rule')",
+        "my_rule(name = 'my_target', srcs = select({'//conditions:default': ['a.ml']}))");
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//initializer_testing:my_target");
+    StructImpl info =
+        (StructImpl)
+            myTarget.get(
+                new StarlarkProvider.Key(
+                    Label.parseCanonical("//initializer_testing:b.bzl"), "MyInfo"));
+
+    assertThat((List<String>) info.getValue("srcs"))
+        .containsExactly("initializer_testing/a.ml", "initializer_testing/b.ml");
+  }
+
+  @Test
   public void initializer_passThrough() throws Exception {
     scratch.file(
         "initializer_testing/b.bzl",
@@ -2923,8 +2983,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "def initializer(srcs):",
         "  return {'srcs': srcs}",
         "def impl(ctx): ",
-        "  return [MyInfo(",
-        "    deps = [str(d.label) for d in ctx.attr.deps])]",
+        "  pass",
         "my_rule = rule(impl,",
         "  initializer = initializer,",
         "  attrs = {",
@@ -2934,14 +2993,38 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "initializer_testing/BUILD", //
         "load(':b.bzl','my_rule')",
         "my_rule(name = 'my_target')");
-    // TODO: b/298561048 - Behavior with `srcs=[]` or `srcs=None` is different. Fix that when
-    // lifting parameters types.
 
     reporter.removeHandler(failFastHandler);
     reporter.addHandler(ev.getEventCollector());
     getConfiguredTarget("//initializer_testing:my_target");
 
     // TODO: b/298561048 - Fix error messages to match a rule without initializer
+    ev.assertContainsError("initializer() missing 1 required positional argument: srcs");
+  }
+
+  @Test
+  public void initializer_noneValueIsNotPassed() throws Exception {
+    scratch.file(
+        "initializer_testing/b.bzl",
+        "MyInfo = provider()",
+        "def initializer(srcs):",
+        "  return {'srcs': srcs}",
+        "def impl(ctx): ",
+        "  pass",
+        "my_rule = rule(impl,",
+        "  initializer = initializer,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(),",
+        "  })");
+    scratch.file(
+        "initializer_testing/BUILD", //
+        "load(':b.bzl','my_rule')",
+        "my_rule(name = 'my_target', srcs = None)");
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//initializer_testing:my_target");
+
     ev.assertContainsError("initializer() missing 1 required positional argument: srcs");
   }
 
@@ -3052,7 +3135,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void initializer_settingPrivateAttribute_insideBuiltins() throws Exception {
-    scratch.file("initializer_testing/builtins/BUILD");
+    // Because it's hard to test something that needs to be in builtins,
+    // this is also allowed in a special testing location: {@link
+    // StarlarkRuleClassFunctions.ALLOWLIST_RULE_EXTENSION_API_EXPERIMENTAL}
+    scratch.file("initializer_testing/builtins/BUILD", "filegroup(name='my_tool')");
     scratch.file(
         "initializer_testing/builtins/b.bzl",
         "def initializer(srcs = [], deps = []):",
@@ -3069,7 +3155,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "initializer_testing/BUILD", //
         "load('//initializer_testing/builtins:b.bzl','my_rule')",
-        "filegroup(name='my_tool')",
         "my_rule(name = 'my_target', srcs = ['a.ml'])");
 
     ConfiguredTarget myTarget = getConfiguredTarget("//initializer_testing:my_target");
@@ -3079,7 +3164,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
                 new StarlarkProvider.Key(
                     Label.parseCanonical("//initializer_testing/builtins:b.bzl"), "MyInfo"));
 
-    assertThat(info.getValue("_tool").toString()).isEqualTo("@@//initializer_testing:my_tool");
+    assertThat(info.getValue("_tool").toString())
+        .isEqualTo("@@//initializer_testing/builtins:my_tool");
   }
 
   @Test

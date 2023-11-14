@@ -753,6 +753,8 @@ public class RuleClass implements RuleClassData {
     private final RuleClassType type;
     @Nullable private RuleClass starlarkParent = null;
     @Nullable private StarlarkFunction initializer = null;
+    @Nullable private LabelConverter labelConverterForInitializer = null;
+
     // The extendable may take 3 value, null means that the default allowlist should be use when
     // rule is extendable in practice.
     @Nullable private Boolean extendable = null;
@@ -961,6 +963,7 @@ public class RuleClass implements RuleClassData {
           type,
           starlarkParent,
           initializer,
+          labelConverterForInitializer,
           starlark,
           extendable,
           extendableAllowlist,
@@ -1041,8 +1044,10 @@ public class RuleClass implements RuleClassData {
     }
 
     @CanIgnoreReturnValue
-    public Builder initializer(StarlarkFunction initializer) {
+    public Builder initializer(
+        StarlarkFunction initializer, LabelConverter labelConverterForInitializer) {
       this.initializer = initializer;
+      this.labelConverterForInitializer = labelConverterForInitializer;
       return this;
     }
 
@@ -1679,6 +1684,7 @@ public class RuleClass implements RuleClassData {
   private final RuleClassType type;
   @Nullable private final RuleClass starlarkParent;
   @Nullable private final StarlarkFunction initializer;
+  @Nullable private final LabelConverter labelConverterForInitializer;
   private final boolean isStarlark;
   private final boolean extendable;
   @Nullable private final Label extendableAllowlist;
@@ -1816,6 +1822,7 @@ public class RuleClass implements RuleClassData {
       RuleClassType type,
       RuleClass starlarkParent,
       @Nullable StarlarkFunction initializer,
+      @Nullable LabelConverter labelConverterForInitializer,
       boolean isStarlark,
       boolean extendable,
       @Nullable Label extendableAllowlist,
@@ -1855,6 +1862,7 @@ public class RuleClass implements RuleClassData {
     this.type = type;
     this.starlarkParent = starlarkParent;
     this.initializer = initializer;
+    this.labelConverterForInitializer = labelConverterForInitializer;
     this.isStarlark = isStarlark;
     this.extendable = extendable;
     this.extendableAllowlist = extendableAllowlist;
@@ -1958,6 +1966,11 @@ public class RuleClass implements RuleClassData {
   @Nullable
   public StarlarkFunction getInitializer() {
     return initializer;
+  }
+
+  @Nullable
+  public LabelConverter getLabelConverterForInitializer() {
+    return labelConverterForInitializer;
   }
 
   /**
