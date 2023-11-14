@@ -276,9 +276,6 @@ public abstract class Type<T> {
   /** The type of a boolean. */
   @SerializationConstant public static final Type<Boolean> BOOLEAN = new BooleanType();
 
-  /** The type of a list of not-yet-typed objects. */
-  @SerializationConstant public static final ObjectListType OBJECT_LIST = new ObjectListType();
-
   /** The type of a list of strings. */
   @SerializationConstant public static final ListType<String> STRING_LIST = ListType.create(STRING);
 
