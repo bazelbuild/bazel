@@ -840,6 +840,34 @@ cc_shared_library = rule(
     fragments = ["cpp"] + semantics.additional_fragments(),
 )
 
+def cc_shared_library_initializer(**kwargs):
+    """Initializes dynamic_deps_attrs"""
+    if "dynamic_deps" in kwargs and cc_helper.is_non_empty_list_or_select(kwargs["dynamic_deps"], "dynamic_deps"):
+        # Propagate an aspect if dynamic_deps attribute is specified.
+        all_deps = []
+        if "deps" in kwargs:
+            all_deps.extend(kwargs["deps"])
+
+        if "linkshared" not in kwargs or not kwargs["linkshared"]:
+            if "link_extra_lib" in kwargs:
+                all_deps.append(kwargs["link_extra_lib"])
+            if "malloc" in kwargs:
+                all_deps.append(kwargs["malloc"])
+
+        return kwargs | {"_deps_analyzed_by_graph_structure_aspect": all_deps}
+    return kwargs
+
+dynamic_deps_attrs = {
+    "dynamic_deps": attr.label_list(
+        allow_files = False,
+        providers = [CcSharedLibraryInfo],
+    ),
+    "_deps_analyzed_by_graph_structure_aspect": attr.label_list(
+        providers = [CcInfo],
+        aspects = [graph_structure_aspect],
+    ),
+}
+
 for_testing_dont_use_check_if_target_under_path = _check_if_target_under_path
 merge_cc_shared_library_infos = _merge_cc_shared_library_infos
 build_link_once_static_libs_map = _build_link_once_static_libs_map

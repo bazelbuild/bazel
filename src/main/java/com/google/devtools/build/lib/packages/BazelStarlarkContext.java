@@ -72,14 +72,14 @@ public class BazelStarlarkContext implements StarlarkThread.UncheckedExceptionCo
   }
 
   /**
-   * Retrieves this context from a Starlark thread, or throws {@link IllegalStateException} if
-   * unavailable.
+   * Retrieves this context from a Starlark thread, or throws {@link EvalException} if unavailable.
    */
-  public static BazelStarlarkContext from(StarlarkThread thread) {
+  public static BazelStarlarkContext fromOrFail(StarlarkThread thread) throws EvalException {
     BazelStarlarkContext ctx = thread.getThreadLocal(BazelStarlarkContext.class);
-    // ISE rather than NPE for symmetry with subclasses.
-    Preconditions.checkState(
-        ctx != null, "Expected BazelStarlarkContext to be available in this Starlark thread");
+    if (ctx == null) {
+      throw Starlark.errorf(
+          "this function cannot be called from %s", thread.getContextDescription());
+    }
     return ctx;
   }
 
@@ -136,8 +136,14 @@ public class BazelStarlarkContext implements StarlarkThread.UncheckedExceptionCo
    */
   // TODO(b/236456122): The Phase enum is incomplete. Ex: `Args.map_each` evaluation happens at
   // execution time. So this is a misnomer and possibly wrong in those contexts.
-  public void checkLoadingOrWorkspacePhase(String function) throws EvalException {
-    if (phase == Phase.ANALYSIS) {
+  public static void checkLoadingOrWorkspacePhase(StarlarkThread thread, String function)
+      throws EvalException {
+    BazelStarlarkContext ctx = thread.getThreadLocal(BazelStarlarkContext.class);
+    if (ctx == null) {
+      throw Starlark.errorf(
+          "'%s' cannot be called from %s", function, thread.getContextDescription());
+    }
+    if (ctx.phase == Phase.ANALYSIS) {
       throw Starlark.errorf("'%s' cannot be called during the analysis phase", function);
     }
   }
@@ -147,9 +153,17 @@ public class BazelStarlarkContext implements StarlarkThread.UncheckedExceptionCo
    *
    * @param function name of a function that requires this check
    */
-  public void checkLoadingPhase(String function) throws EvalException {
-    if (phase != Phase.LOADING) {
-      throw Starlark.errorf("'%s' can only be called during the loading phase", function);
+  public static void checkLoadingPhase(StarlarkThread thread, String function)
+      throws EvalException {
+    BazelStarlarkContext ctx = thread.getThreadLocal(BazelStarlarkContext.class);
+    if (ctx == null) {
+      throw Starlark.errorf(
+          "'%s' cannot be called from %s", function, thread.getContextDescription());
+    }
+    if (ctx.phase != Phase.LOADING) {
+      throw Starlark.errorf(
+          "'%s' can only be called from a BUILD file, or a macro invoked from a BUILD file",
+          function);
     }
   }
 
@@ -158,8 +172,14 @@ public class BazelStarlarkContext implements StarlarkThread.UncheckedExceptionCo
    *
    * @param function name of a function that requires this check
    */
-  public void checkWorkspacePhase(String function) throws EvalException {
-    if (phase != Phase.WORKSPACE) {
+  public static void checkWorkspacePhase(StarlarkThread thread, String function)
+      throws EvalException {
+    BazelStarlarkContext ctx = thread.getThreadLocal(BazelStarlarkContext.class);
+    if (ctx == null) {
+      throw Starlark.errorf(
+          "'%s' cannot be called from %s", function, thread.getContextDescription());
+    }
+    if (ctx.phase != Phase.WORKSPACE) {
       throw Starlark.errorf("'%s' can only be called during workspace loading", function);
     }
   }

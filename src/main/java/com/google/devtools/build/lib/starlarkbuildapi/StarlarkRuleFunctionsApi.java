@@ -464,23 +464,26 @@ public interface StarlarkRuleFunctionsApi {
             defaultValue = "None",
             positional = false,
             doc =
-                "Experimental: the Stalark function initializing the attributes of the rule."
-                    + "The function is "
-                    + "called at load time for each instance of the rule. It's called with values "
-                    + "of public attributes defined by the rule (not with generic attributes, "
-                    + "for example <code>name</code> or <code>tags</code>). It has to return a "
-                    + "dictionary from the attribute names to the desired values. The attributes "
-                    + " that are not returned are unaffected. Returning <code>None</code> as value"
-                    + " results in using the default value specified in the attribute definition."
-                    + "<p>Initializers are evaluated before the default values specified in an"
-                    + "attribute definition. Consequently, if a parameter in the initializer's "
+                "Experimental: the Stalark function initializing the attributes of the rule. "
+                    + "<p>The function is called at load time for each instance of the rule. It's "
+                    + "called with values of public attributes defined by the rule (not with "
+                    + "generic attributes, for example <code>name</code> or <code>tags</code>). "
+                    + "<p>It has to return a dictionary from the attribute names to the desired "
+                    + "values. The attributes that are not returned are unaffected. Returning "
+                    + "<code>None</code> as value results in using the default value specified in "
+                    + "the attribute definition. "
+                    + "<p>Initializers are evaluated before the default values specified in "
+                    + "an attribute definition. Consequently, if a parameter in the initializer's "
                     + "signature contains a default values, it overwrites the default from the "
-                    + "attribute definition (except if returning <code>None</code>)."
+                    + "attribute definition (except if returning <code>None</code>). "
                     + "<p>Similarly, if a parameter in the initializer's signature doesn't have a "
-                    + "default, the parameter will become mandatory. It's a good practice to omit"
-                    + " default/mandatory settings on an attribute definition in such cases."
-                    + "<p>It's a good practice to use <code>**kwargs</code> for attributes "
-                    + " that are not handled."),
+                    + "default, the parameter will become mandatory. It's a good practice to omit "
+                    + "default/mandatory settings on an attribute definition in such cases. "
+                    + "<p>It's a good practice to use <code>**kwargs</code> for attributes that "
+                    + "are not handled."
+                    + "<p>In case of extended rules, all initializers are called proceeding from "
+                    + "child to ancestors. Each initializer is passed only the public attributes "
+                    + "it knows about."),
         @Param(
             name = "parent",
             named = true,
@@ -494,6 +497,21 @@ public interface StarlarkRuleFunctionsApi {
                     + " <code>exec_compatible_with</code>, and <code>exec_groups</code> are"
                     + " merged. Legacy or deprecated parameters may not be set."),
         @Param(
+            name = "extendable",
+            named = true,
+            defaultValue = "None",
+            positional = false,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            doc =
+                "Experimental: A label of an allowlist defining which rules can extending this"
+                    + " rule. It can be set also to True/False to always allow/disallow extending."
+                    + " Bazel defaults to always allowing extensions."),
+        @Param(
             name = "subrules",
             allowedTypes = {
               @ParamType(type = Sequence.class, generic1 = StarlarkSubruleApi.class),
@@ -501,7 +519,7 @@ public interface StarlarkRuleFunctionsApi {
             named = true,
             defaultValue = "[]",
             positional = false,
-            doc = "Experimental, DO NOT USE!"),
+            doc = "Experimental: List of subrules used by this rule."),
       },
       useStarlarkThread = true)
   StarlarkCallable rule(
@@ -525,6 +543,7 @@ public interface StarlarkRuleFunctionsApi {
       Object execGroups,
       Object initializer,
       Object parentUnchecked,
+      Object extendableUnchecked,
       Sequence<?> subrules,
       StarlarkThread thread)
       throws EvalException;
@@ -720,7 +739,7 @@ public interface StarlarkRuleFunctionsApi {
             named = true,
             defaultValue = "[]",
             positional = false,
-            doc = "Experimental, DO NOT USE!")
+            doc = "Experimental: list of subrules used by this aspect.")
       },
       useStarlarkThread = true)
   StarlarkAspectApi aspect(
@@ -796,7 +815,9 @@ public interface StarlarkRuleFunctionsApi {
 
   @StarlarkMethod(
       name = "subrule",
-      doc = "experimental, DO NOT USE!",
+      doc =
+          "Constructs a new instance of a subrule. The result of this function must be stored in "
+              + "a global variable before it can be used.",
       parameters = {
         @Param(
             name = "implementation",
@@ -810,7 +831,22 @@ public interface StarlarkRuleFunctionsApi {
             named = true,
             positional = false,
             defaultValue = "{}",
-            doc = "dictionary to declare all the (private) attributes of the subrule."),
+            doc =
+                "A dictionary to declare all the (private) attributes of the subrule. "
+                    + "<p/>Subrules may only have private attributes that are label-typed (i.e. "
+                    + "label or label-list). The resolved values corresponding to these labels are"
+                    + " automatically passed by Bazel to the subrule's implementation function as"
+                    + " named arguments (thus the implementation function is required to accept"
+                    + " named parameters matching the attribute names). The types of these values"
+                    + " will be: "
+                    + "<ul><li><code>FilesToRunProvider</code> for label attributes with"
+                    + " <code>executable=True</code></li>"
+                    + "<li><code>File</code> for label attributes"
+                    + " with <code>allow_single_file=True</code></li>"
+                    + "<li><code>Target</code> for"
+                    + " all other label attributes</li>"
+                    + "<li><code>[Target]</code> for all label-list"
+                    + " attributes</li></ul>"),
         @Param(
             name = "toolchains",
             allowedTypes = {@ParamType(type = Sequence.class)},
@@ -821,13 +857,31 @@ public interface StarlarkRuleFunctionsApi {
                 "If set, the set of toolchains this subrule requires. The list can contain String,"
                     + " Label, or StarlarkToolchainTypeApi objects, in any combination. Toolchains"
                     + " will be found by checking the current platform, and provided to the subrule"
-                    + " implementation via <code>ctx.toolchains</code>.")
+                    + " implementation via <code>ctx.toolchains</code>."),
+        @Param(
+            name = "fragments",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            named = true,
+            positional = false,
+            defaultValue = "[]",
+            doc =
+                "List of names of configuration fragments that the subrule requires in target"
+                    + " configuration."),
+        @Param(
+            name = "subrules",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = StarlarkSubruleApi.class)},
+            named = true,
+            positional = false,
+            defaultValue = "[]",
+            doc = "List of other subrules needed by this subrule.")
       },
       useStarlarkThread = true)
   StarlarkSubruleApi subrule(
       StarlarkFunction implementation,
       Dict<?, ?> attrs,
       Sequence<?> toolchains,
+      Sequence<?> fragments,
+      Sequence<?> subrules,
       StarlarkThread thread)
       throws EvalException;
 }

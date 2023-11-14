@@ -14,9 +14,9 @@
 
 """Compilation helper for C++ rules."""
 
+load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/paths.bzl", "paths")
-load(":common/cc/cc_common.bzl", "cc_common")
 
 cc_internal = _builtins.internal.cc_internal
 
@@ -195,8 +195,6 @@ def _init_cc_compilation_context(
         public_textual_headers,
         private_headers_artifacts,
         additional_inputs,
-        headers_checking_mode,
-        loose_include_dirs,
         separate_module_headers,
         generate_module_map,
         generate_pic_action,
@@ -227,7 +225,6 @@ def _init_cc_compilation_context(
     external = repo_name != "" and _enabled(feature_configuration, "external_include_paths")
     external_include_dirs = []
     declared_include_srcs = []
-    loose_hdrs_dirs = []
 
     if not external:
         system_include_dirs_for_context = list(system_include_dirs)
@@ -271,10 +268,6 @@ def _init_cc_compilation_context(
     declared_include_srcs.extend(public_textual_headers)
     declared_include_srcs.extend(private_headers_artifacts)
     declared_include_srcs.extend(additional_inputs)
-
-    if headers_checking_mode == "LOOSE":
-        loose_hdrs_dirs.append(label.package)
-        loose_hdrs_dirs.extend(loose_include_dirs)
 
     generates_pic_header_module = _generates_header_module(feature_configuration, public_headers_artifacts, private_headers_artifacts, generate_pic_action)
     generates_no_pic_header_module = _generates_header_module(feature_configuration, public_headers_artifacts, private_headers_artifacts, generate_no_pic_action)
@@ -410,7 +403,6 @@ def _init_cc_compilation_context(
         direct_public_headers = public_headers.headers,
         direct_private_headers = private_headers_artifacts,
         direct_textual_headers = public_textual_headers,
-        loose_hdrs_dirs = loose_hdrs_dirs,
         propagate_module_map_to_compile_action = propagate_module_map_to_compile_action,
         module_map = module_map,
         pic_header_module = pic_header_module,
@@ -418,7 +410,6 @@ def _init_cc_compilation_context(
         separate_module_headers = separate_public_headers.headers,
         separate_module = separate_module,
         separate_pic_module = separate_pic_module,
-        headers_checking_mode = headers_checking_mode,
         purpose = purpose,
         add_public_headers_to_modular_headers = False,
     )
@@ -441,7 +432,6 @@ def _init_cc_compilation_context(
             direct_public_headers = public_headers.headers,
             direct_private_headers = private_headers_artifacts,
             direct_textual_headers = public_textual_headers,
-            loose_hdrs_dirs = loose_hdrs_dirs,
             propagate_module_map_to_compile_action = propagate_module_map_to_compile_action,
             module_map = module_map,
             pic_header_module = pic_header_module,
@@ -449,7 +439,6 @@ def _init_cc_compilation_context(
             separate_module_headers = separate_public_headers.headers,
             separate_module = separate_module,
             separate_pic_module = separate_pic_module,
-            headers_checking_mode = headers_checking_mode,
             purpose = purpose + "_impl",
             add_public_headers_to_modular_headers = False,
         )

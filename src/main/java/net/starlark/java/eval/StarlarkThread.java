@@ -350,7 +350,7 @@ public final class StarlarkThread {
     this.uncheckedExceptionContext = Preconditions.checkNotNull(uncheckedExceptionContext);
   }
 
-  String getContextForUncheckedException() {
+  public String getContextDescription() {
     return uncheckedExceptionContext.getContextForUncheckedException();
   }
 
@@ -408,6 +408,22 @@ public final class StarlarkThread {
     this.mutability = mu;
     this.semantics = semantics;
     this.allowRecursion = semantics.getBool(StarlarkSemantics.ALLOW_RECURSION);
+  }
+
+  /**
+   * Constructs a StarlarkThread.
+   *
+   * @param mu the (non-frozen) mutability of values created by this thread.
+   * @param semantics the StarlarkSemantics for this thread. Note that it is generally a code smell
+   *     to use {@link StarlarkSemantics#DEFAULT} if the application permits customizing the
+   *     semantics (e.g. via command line flags). Usually, all Starlark evaluation contexts within
+   *     the same application would use the same {@code StarlarkSemantics} instance.
+   * @param contextDescription a short description of this evaluation, add as context when an
+   *     exception is thrown
+   */
+  public StarlarkThread(Mutability mu, StarlarkSemantics semantics, String contextDescription) {
+    this(mu, semantics);
+    setUncheckedExceptionContext(() -> contextDescription);
   }
 
   /**
