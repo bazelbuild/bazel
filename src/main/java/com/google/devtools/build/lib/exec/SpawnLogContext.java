@@ -189,10 +189,6 @@ public class SpawnLogContext implements ActionContext {
       builder.setDigest(result.getDigest());
     }
 
-    String progressMessage = spawn.getResourceOwner().getProgressMessage();
-    if (progressMessage != null) {
-      builder.setProgressMessage(progressMessage);
-    }
     builder.setMnemonic(spawn.getMnemonic());
     builder.setWalltime(millisToProto(result.getMetrics().executionWallTimeInMs()));
 

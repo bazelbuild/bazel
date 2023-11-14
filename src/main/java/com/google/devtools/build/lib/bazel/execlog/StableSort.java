@@ -111,7 +111,6 @@ public final class StableSort {
                   stripped.addAllEnvironmentVariables(o.getEnvironmentVariablesList());
                   stripped.setPlatform(o.getPlatform());
                   stripped.addAllInputs(o.getInputsList());
-                  stripped.setProgressMessage(o.getProgressMessage());
                   stripped.setMnemonic(o.getMnemonic());
 
                   return "2_" + stripped.build();

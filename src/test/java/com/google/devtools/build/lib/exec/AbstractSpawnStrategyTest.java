@@ -398,7 +398,6 @@ public class AbstractSpawnStrategyTest {
             .withEnvironment("FOO", "v1")
             .withEnvironment("BAR", "v2")
             .withMnemonic("MyMnemonic")
-            .withProgressMessage("my progress message")
             .withInputs(fileInput, dirInput)
             .withOutputs(fileOutput, dirOutput)
             .build();
@@ -465,7 +464,6 @@ public class AbstractSpawnStrategyTest {
             .setRemotable(true)
             .setCacheable(true)
             .setRemoteCacheable(true)
-            .setProgressMessage("my progress message")
             .setMnemonic("MyMnemonic")
             .setRunner("runner")
             .setWalltime(Duration.getDefaultInstance())
@@ -681,7 +679,6 @@ public class AbstractSpawnStrategyTest {
         .addCommandArgs(cmd)
         .setRemotable(true)
         .setCacheable(true)
-        .setProgressMessage("progress message")
         .setMnemonic("Mnemonic")
         .setRunner("runner")
         .setStatus("NON_ZERO_EXIT")
