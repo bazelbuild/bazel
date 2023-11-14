@@ -129,7 +129,6 @@ public final class CcToolchainProvider extends NativeInfo
 
   private final LicensesProvider licensesProvider;
   private final PackageSpecificationProvider allowlistForLayeringCheck;
-  private final PackageSpecificationProvider allowListForLooseHeaderCheck;
 
   private final String objcopyExecutable;
   private final String compilerExecutable;
@@ -195,7 +194,6 @@ public final class CcToolchainProvider extends NativeInfo
       ImmutableMap<String, String> additionalMakeVariables,
       String legacyCcFlagsMakeVariable,
       PackageSpecificationProvider allowlistForLayeringCheck,
-      PackageSpecificationProvider allowListForLooseHeaderCheck,
       String objcopyExecutable,
       String compilerExecutable,
       String preprocessorExecutable,
@@ -261,7 +259,6 @@ public final class CcToolchainProvider extends NativeInfo
     this.additionalMakeVariables = additionalMakeVariables;
     this.legacyCcFlagsMakeVariable = legacyCcFlagsMakeVariable;
     this.allowlistForLayeringCheck = allowlistForLayeringCheck;
-    this.allowListForLooseHeaderCheck = allowListForLooseHeaderCheck;
 
     this.objcopyExecutable = objcopyExecutable;
     this.compilerExecutable = compilerExecutable;
@@ -1064,10 +1061,6 @@ public final class CcToolchainProvider extends NativeInfo
 
   public PackageSpecificationProvider getAllowlistForLayeringCheck() {
     return allowlistForLayeringCheck;
-  }
-
-  public PackageSpecificationProvider getAllowlistForLooseHeaderCheck() {
-    return allowListForLooseHeaderCheck;
   }
 
   public OutputGroupInfo getCcBuildInfoTranslator() {

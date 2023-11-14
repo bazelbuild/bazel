@@ -77,8 +77,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       Object doc, // <String> or Starlark.NONE
       StarlarkThread thread)
       throws EvalException {
-    BazelStarlarkContext context = BazelStarlarkContext.from(thread);
-    context.checkLoadingOrWorkspacePhase("repository_rule");
+    BazelStarlarkContext.checkLoadingOrWorkspacePhase(thread, "repository_rule");
     // We'll set the name later, pass the empty string for now.
     RuleClass.Builder builder = new RuleClass.Builder("", RuleClassType.WORKSPACE, true);
 
@@ -241,7 +240,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
 
     private Object createRuleLegacy(StarlarkThread thread, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
-      BazelStarlarkContext.from(thread).checkWorkspacePhase("repository rule " + exportedName);
+      BazelStarlarkContext.checkWorkspacePhase(thread, "repository rule " + exportedName);
       String ruleClassName = getRuleClassName();
       try {
         RuleClass ruleClass = builder.build(ruleClassName, ruleClassName);

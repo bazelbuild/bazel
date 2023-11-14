@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.common.base.Joiner;
@@ -34,14 +33,12 @@ import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.util.Pair;
@@ -49,7 +46,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -429,91 +425,7 @@ public final class CcCommon implements StarlarkValue {
 
   @StarlarkMethod(name = "loose_include_dirs", structField = true, documented = false)
   public Sequence<String> getLooseIncludeDirsForStarlark() {
-    return StarlarkList.immutableCopyOf(
-        getLooseIncludeDirs().stream().map(PathFragment::toString).collect(toImmutableList()));
-  }
-
-  /**
-   * Determines a list of loose include directories that are only allowed to be referenced when
-   * headers checking is {@link HeadersCheckingMode#LOOSE}.
-   */
-  Set<PathFragment> getLooseIncludeDirs() {
-    ImmutableSet.Builder<PathFragment> result = ImmutableSet.builder();
-    // The package directory of the rule contributes includes. Note that this also covers all
-    // non-subpackage sub-directories.
-    PathFragment rulePackage =
-        ruleContext
-            .getLabel()
-            .getPackageIdentifier()
-            .getExecPath(ruleContext.getConfiguration().isSiblingRepositoryLayout());
-    result.add(rulePackage);
-
-    if (ruleContext.getRule().isAttributeValueExplicitlySpecified("includes")) {
-      PathFragment packageFragment =
-          ruleContext
-              .getLabel()
-              .getPackageIdentifier()
-              .getExecPath(ruleContext.getConfiguration().isSiblingRepositoryLayout());
-      // For now, anything with an 'includes' needs a blanket declaration
-      result.add(packageFragment.getRelative("**"));
-    }
-    return result.build();
-  }
-
-  List<PathFragment> getSystemIncludeDirs() throws InterruptedException {
-    boolean siblingRepositoryLayout = ruleContext.getConfiguration().isSiblingRepositoryLayout();
-    List<PathFragment> result = new ArrayList<>();
-    PackageIdentifier packageIdentifier = ruleContext.getLabel().getPackageIdentifier();
-    PathFragment packageExecPath = packageIdentifier.getExecPath(siblingRepositoryLayout);
-    PathFragment packageSourceRoot = packageIdentifier.getPackagePath(siblingRepositoryLayout);
-    for (String includesAttr : ruleContext.getExpander().list("includes")) {
-      if (includesAttr.startsWith("/")) {
-        ruleContext.attributeWarning("includes",
-            "ignoring invalid absolute path '" + includesAttr + "'");
-        continue;
-      }
-      PathFragment includesPath = packageExecPath.getRelative(includesAttr);
-      if (!siblingRepositoryLayout && includesPath.containsUplevelReferences()) {
-        ruleContext.attributeError("includes",
-            "Path references a path above the execution root.");
-      }
-      if (includesPath.isEmpty()) {
-        ruleContext.attributeError(
-            "includes",
-            "'"
-                + includesAttr
-                + "' resolves to the workspace root, which would allow this rule and all of its "
-                + "transitive dependents to include any file in your workspace. Please include only"
-                + " what you need");
-      } else if (!includesPath.startsWith(packageExecPath)) {
-        ruleContext.attributeWarning(
-            "includes",
-            "'"
-                + includesAttr
-                + "' resolves to '"
-                + includesPath
-                + "' not below the relative path of its package '"
-                + packageExecPath
-                + "'. This will be an error in the future");
-      }
-      result.add(includesPath);
-      // We don't need to perform the above checks against outIncludesPath again since any errors
-      // must have manifested in includesPath already.
-      PathFragment outIncludesPath = packageSourceRoot.getRelative(includesAttr);
-      if (ruleContext.getConfiguration().hasSeparateGenfilesDirectory()) {
-        result.add(ruleContext.getGenfilesFragment().getRelative(outIncludesPath));
-      }
-      result.add(ruleContext.getBinFragment().getRelative(outIncludesPath));
-    }
-    return result;
-  }
-
-  /**
-   * Returns all additional linker inputs specified in the |additional_linker_inputs| attribute of
-   * the rule.
-   */
-  List<Artifact> getAdditionalLinkerInputs() {
-    return ruleContext.getPrerequisiteArtifacts("additional_linker_inputs").list();
+    return StarlarkList.empty();
   }
 
   public String getPurpose(CppSemantics semantics) {

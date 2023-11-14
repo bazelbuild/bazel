@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableCollection;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -45,18 +44,6 @@ public class FragmentCollection implements FragmentCollectionApi {
   @Override
   public ImmutableCollection<String> getFieldNames() {
     return ruleContext.getStarlarkFragmentNames();
-  }
-
-  @Override
-  @Nullable
-  public String getErrorMessageForUnknownField(String name) {
-    return String.format(
-        "There is no configuration fragment named '%s'. Available fragments: %s",
-        name, fieldsToString());
-  }
-
-  private String fieldsToString() {
-    return String.format("'%s'", Joiner.on("', '").join(getFieldNames()));
   }
 
   @Override

@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.analysis.starlark;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
-import static com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.ALLOWLIST_EXTEND_RULE;
+import static com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.ALLOWLIST_RULE_EXTENSION_API;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 
 import com.google.common.base.Optional;
@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.StarlarkActionContext;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkSubrule.SubruleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -77,6 +78,7 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -190,8 +192,9 @@ public final class StarlarkRuleContext
    */
   private int resolveCommandScriptCounter = 0;
 
-  // for temporarily freezing mutability, such as while evaluating a subrule
-  private boolean lockedForSubruleEvaluation = false;
+  // for temporarily freezing mutability, while evaluating a subrule this is set to the
+  // corresponding subrule context, or is null otherwise
+  @Nullable private SubruleContext lockedForSubruleEvaluation = null;
 
   /**
    * Creates a new StarlarkRuleContext wrapping ruleContext.
@@ -327,8 +330,12 @@ public final class StarlarkRuleContext
     }
   }
 
-  void setLockedForSubrule(boolean isLocked) {
-    this.lockedForSubruleEvaluation = isLocked;
+  void setLockedForSubrule(@Nullable SubruleContext lockedBy) {
+    this.lockedForSubruleEvaluation = lockedBy;
+  }
+
+  SubruleContext getLockedForSubrule() {
+    return lockedForSubruleEvaluation;
   }
 
   /**
@@ -555,7 +562,7 @@ public final class StarlarkRuleContext
 
   @Override
   public boolean isImmutable() {
-    return ruleContext == null || lockedForSubruleEvaluation;
+    return ruleContext == null || lockedForSubruleEvaluation != null;
   }
 
   @Override
@@ -580,7 +587,9 @@ public final class StarlarkRuleContext
 
   @Override
   public Object callParent(StarlarkThread thread) throws EvalException, InterruptedException {
-    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_EXTEND_RULE);
+    if (!thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_RULE_EXTENSION_API)) {
+      BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_RULE_EXTENSION_API);
+    }
     checkMutable("super()");
     if (aspectDescriptor != null) {
       throw Starlark.errorf("Can't use 'super' call in an aspect.");

@@ -166,7 +166,6 @@ def _aspect_impl(target, ctx):
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
         compilation_contexts = cc_helper.get_compilation_contexts_from_deps(deps),
-        hdrs_checking_mode = "loose",
         # Don't instrument the generated C++ files even when --collect_code_coverage is set.
         code_coverage_enabled = False,
         srcs = sources,

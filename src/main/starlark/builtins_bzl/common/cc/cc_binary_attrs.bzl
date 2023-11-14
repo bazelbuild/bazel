@@ -15,13 +15,13 @@
 """Attributes for cc_binary.
 """
 
-load(":common/cc/semantics.bzl", "semantics")
-load(":common/cc/cc_shared_library.bzl", "CcSharedLibraryInfo", "graph_structure_aspect")
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/cc_shared_library.bzl", "dynamic_deps_attrs")
+load(":common/cc/semantics.bzl", "semantics")
 
 cc_internal = _builtins.internal.cc_internal
 
-cc_binary_attrs_with_aspects = {
+cc_binary_attrs = {
     "srcs": attr.label_list(
         flags = ["DIRECT_COMPILE_TIME_INPUT"],
         allow_files = True,
@@ -54,26 +54,19 @@ cc_binary_attrs_with_aspects = {
         allow_rules = semantics.ALLOWED_RULES_IN_DEPS + semantics.ALLOWED_RULES_WITH_WARNINGS_IN_DEPS,
         flags = ["SKIP_ANALYSIS_TIME_FILETYPE_CHECK"],
         providers = [CcInfo],
-        aspects = [graph_structure_aspect],
-    ),
-    "dynamic_deps": attr.label_list(
-        allow_files = False,
-        providers = [CcSharedLibraryInfo],
     ),
     "malloc": attr.label(
         default = Label("@" + semantics.get_repo() + "//tools/cpp:malloc"),
         allow_files = False,
         providers = [CcInfo],
-        aspects = [graph_structure_aspect],
+        allow_rules = ["cc_library"],
     ),
     "_default_malloc": attr.label(
         default = configuration_field(fragment = "cpp", name = "custom_malloc"),
-        aspects = [graph_structure_aspect],
     ),
     "link_extra_lib": attr.label(
         default = Label("@" + semantics.get_repo() + "//tools/cpp:link_extra_lib"),
         providers = [CcInfo],
-        aspects = [graph_structure_aspect],
     ),
     "stamp": attr.int(
         values = [-1, 0, 1],
@@ -98,25 +91,5 @@ cc_binary_attrs_with_aspects = {
     "_use_auto_exec_groups": attr.bool(default = True),
 }
 
-cc_binary_attrs_with_aspects.update(semantics.get_distribs_attr())
-cc_binary_attrs_with_aspects.update(semantics.get_loose_mode_in_hdrs_check_allowed_attr())
-
-# Update attributes to contain no aspect implementation.
-cc_binary_attrs_without_aspects = dict(cc_binary_attrs_with_aspects)
-cc_binary_attrs_without_aspects["deps"] = attr.label_list(
-    allow_files = semantics.ALLOWED_FILES_IN_DEPS,
-    allow_rules = semantics.ALLOWED_RULES_IN_DEPS + semantics.ALLOWED_RULES_WITH_WARNINGS_IN_DEPS,
-    flags = ["SKIP_ANALYSIS_TIME_FILETYPE_CHECK"],
-    providers = [CcInfo],
-)
-cc_binary_attrs_without_aspects["malloc"] = attr.label(
-    default = Label("@" + semantics.get_repo() + "//tools/cpp:malloc"),
-    allow_files = False,
-    allow_rules = ["cc_library"],
-)
-cc_binary_attrs_without_aspects["_default_malloc"] = attr.label(
-    default = configuration_field(fragment = "cpp", name = "custom_malloc"),
-)
-cc_binary_attrs_without_aspects["link_extra_lib"] = attr.label(
-    default = Label("@" + semantics.get_repo() + "//tools/cpp:link_extra_lib"),
-)
+cc_binary_attrs.update(dynamic_deps_attrs)
+cc_binary_attrs.update(semantics.get_distribs_attr())
