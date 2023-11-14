@@ -220,11 +220,6 @@ public abstract class Type<T> {
     GENQUERY_SCOPE_REFERENCE,
     /** Used for types which use labels to declare an output path. */
     OUTPUT,
-    /**
-     * Used for types which contain Fileset entries, which contain labels but do not produce normal
-     * dependencies.
-     */
-    FILESET_ENTRY
   }
 
   /** Returns the class of labels contained by this type, if any. */
