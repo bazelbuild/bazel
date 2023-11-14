@@ -69,7 +69,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
-import com.google.protobuf.Duration;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
@@ -466,7 +465,6 @@ public class AbstractSpawnStrategyTest {
             .setRemoteCacheable(true)
             .setMnemonic("MyMnemonic")
             .setRunner("runner")
-            .setWalltime(Duration.getDefaultInstance())
             .setTargetLabel("//dummy:label")
             .setMetrics(Protos.SpawnMetrics.getDefaultInstance())
             .setDigest(DIGEST)
@@ -684,7 +682,6 @@ public class AbstractSpawnStrategyTest {
         .setStatus("NON_ZERO_EXIT")
         .setExitCode(23)
         .setRemoteCacheable(true)
-        .setWalltime(Duration.getDefaultInstance())
         .setTargetLabel("//dummy:label")
         .setDigest(DIGEST)
         .setMetrics(Protos.SpawnMetrics.getDefaultInstance());

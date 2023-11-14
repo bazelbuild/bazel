@@ -173,10 +173,6 @@ message SpawnExec {
   // Was the Spawn result allowed to be cached remotely.
   bool remote_cacheable = 16;
 
-  // The wall time it took to execute the Spawn. This is only the time spent in
-  // the subprocess, not including the time doing setup and teardown.
-  google.protobuf.Duration walltime = 17;
-
   // Canonical label of the target that emitted this spawn, may not always be
   // set.
   string target_label = 18;
@@ -189,5 +185,5 @@ message SpawnExec {
   // Timing, size and memory statistics.
   SpawnMetrics metrics = 20;
 
-  reserved 9;
+  reserved 9, 17;
 }
