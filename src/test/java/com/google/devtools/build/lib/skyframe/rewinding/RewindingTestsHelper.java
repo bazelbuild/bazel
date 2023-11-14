@@ -169,7 +169,7 @@ public class RewindingTestsHelper {
     return new ControllableActionStrategyModule(spawnController, identifier);
   }
 
-  final ImmutableList<String> getExecutedSpawnDescriptions() {
+  public final ImmutableList<String> getExecutedSpawnDescriptions() {
     return spawnController.getExecutedSpawnDescriptions();
   }
 
