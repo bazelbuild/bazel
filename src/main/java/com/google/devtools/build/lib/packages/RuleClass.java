@@ -33,7 +33,6 @@ import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -2238,7 +2237,8 @@ public class RuleClass implements RuleClassData {
       if (attributeValues.valuesAreBuildLanguageTyped()) {
         try {
           nativeAttributeValue =
-              convertFromBuildLangType(rule, attr, attributeValue, labelConverter, listInterner);
+              BuildType.convertFromBuildLangType(
+                  rule.getRuleClass(), attr, attributeValue, labelConverter, listInterner);
         } catch (ConversionException e) {
           rule.reportError(String.format("%s: %s", rule.getLabel(), e.getMessage()), eventHandler);
           continue;
@@ -2474,69 +2474,6 @@ public class RuleClass implements RuleClassData {
                 "In rule '%s', timeout '%s' is not a valid timeout.", rule.getName(), timeout),
             eventHandler);
       }
-    }
-  }
-
-  /**
-   * Converts the build-language-typed {@code buildLangValue} to a native value via {@link
-   * BuildType#selectableConvert}. Canonicalizes the value's order if it is a {@link List} type and
-   * {@code attr.isOrderIndependent()} returns {@code true}.
-   *
-   * <p>Throws {@link ConversionException} if the conversion fails, or if {@code buildLangValue} is
-   * a selector expression but {@code attr.isConfigurable()} is {@code false}.
-   */
-  private static Object convertFromBuildLangType(
-      Rule rule,
-      Attribute attr,
-      Object buildLangValue,
-      LabelConverter labelConverter,
-      Interner<ImmutableList<?>> listInterner)
-      throws ConversionException {
-    Object converted =
-        BuildType.selectableConvert(
-            attr.getType(),
-            buildLangValue,
-            new AttributeConversionContext(attr.getName(), rule.getRuleClass()),
-            labelConverter);
-
-    if ((converted instanceof SelectorList<?>) && !attr.isConfigurable()) {
-      throw new ConversionException(
-          String.format("attribute \"%s\" is not configurable", attr.getName()));
-    }
-
-    if (converted instanceof List<?>) {
-      if (attr.isOrderIndependent()) {
-        @SuppressWarnings("unchecked")
-        List<? extends Comparable<?>> list = (List<? extends Comparable<?>>) converted;
-        converted = Ordering.natural().sortedCopy(list);
-      }
-      // It's common for multiple rule instances in the same package to have the same value for some
-      // attributes. As a concrete example, consider a package having several 'java_test' instances,
-      // each with the same exact 'tags' attribute value.
-      converted = listInterner.intern(ImmutableList.copyOf((List<?>) converted));
-    }
-
-    return converted;
-  }
-
-  /**
-   * Provides a {@link #toString()} description of the attribute being converted for
-   * {@link BuildType#selectableConvert}. This is preferred over a raw string to avoid uselessly
-   * constructing strings which are never used. A separate class instead of inline to avoid
-   * accidental memory leaks.
-   */
-  private static class AttributeConversionContext {
-    private final String attrName;
-    private final String ruleClass;
-
-    AttributeConversionContext(String attrName, String ruleClass) {
-      this.attrName = attrName;
-      this.ruleClass = ruleClass;
-    }
-
-    @Override
-    public String toString() {
-      return "attribute '" + attrName + "' in '" + ruleClass + "' rule";
     }
   }
 
