@@ -559,7 +559,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_multi_release_deploy_jars",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
