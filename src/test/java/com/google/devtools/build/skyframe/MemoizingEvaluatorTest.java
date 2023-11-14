@@ -4997,7 +4997,7 @@ public abstract class MemoizingEvaluatorTest {
           if (!synchronizeThreads.get()) {
             return;
           }
-          if (type == EventType.GET_DIRTY_STATE && key.equals(failingKey)) {
+          if (type == EventType.GET_LIFECYCLE_STATE && key.equals(failingKey)) {
             // Wait for the build to abort or for the other node to incorrectly build.
             try {
               assertThat(slowBuilt.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))

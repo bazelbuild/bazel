@@ -21,8 +21,8 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
-import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
+import com.google.devtools.build.skyframe.NodeEntry.LifecycleState;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -73,7 +73,7 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
         .isEqualTo(isPartialReevaluation);
     SkyKey parent = key("parent");
     entry.addReverseDepAndCheckIfDone(parent);
-    assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.CHECK_DEPENDENCIES);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.CHECK_DEPENDENCIES);
     assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep);
     entry.addSingletonTemporaryDirectDep(dep);
     entry.signalDep(incrementalVersion, dep);
@@ -107,7 +107,7 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
     assertThat(entry.hasUnsignaledDeps()).isFalse();
     SkyKey parent = key("parent");
     entry.addReverseDepAndCheckIfDone(parent);
-    assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.NEEDS_REBUILDING);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.NEEDS_REBUILDING);
     assertThat(entry.isReadyToEvaluate()).isTrue();
     assertThat(entry.hasUnsignaledDeps()).isFalse();
     assertThat(entry.getTemporaryDirectDeps()).isEmpty();
@@ -236,7 +236,7 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
         .isEqualTo(DependencyState.NEEDS_SCHEDULING);
     assertThat(entry.isReadyToEvaluate()).isTrue();
     assertThat(entry.hasUnsignaledDeps()).isFalse();
-    assertThat(entry.getDirtyState()).isEqualTo(DirtyState.CHECK_DEPENDENCIES);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.CHECK_DEPENDENCIES);
     assertThat(entry.isReadyToEvaluate()).isTrue();
     assertThat(entry.hasUnsignaledDeps()).isFalse();
     assertThat(entry.getTemporaryDirectDeps()).isEmpty();
@@ -244,11 +244,11 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
     assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep);
     entry.addSingletonTemporaryDirectDep(dep);
     assertThat(entry.signalDep(initialVersion, dep)).isTrue();
-    assertThat(entry.getDirtyState()).isEqualTo(DirtyState.CHECK_DEPENDENCIES);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.CHECK_DEPENDENCIES);
 
     assertThat(entry.getNextDirtyDirectDeps()).containsExactly(ErrorTransienceValue.KEY);
     entry.forceRebuild();
-    assertThat(entry.getDirtyState()).isEqualTo(DirtyState.REBUILDING);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.REBUILDING);
 
     assertThat(setValue(entry, new SkyValue() {}, /* errorInfo= */ null, incrementalVersion))
         .containsExactly(parent);
@@ -310,11 +310,11 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
     assertThat(entry.hasUnsignaledDeps()).isFalse();
     SkyKey parent = key("parent");
     entry.addReverseDepAndCheckIfDone(parent);
-    assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.CHECK_DEPENDENCIES);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.CHECK_DEPENDENCIES);
     assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep);
     entry.addSingletonTemporaryDirectDep(dep);
     entry.signalDep(initialVersion, /* childForDebugging= */ null);
-    assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.VERIFIED_CLEAN);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.VERIFIED_CLEAN);
     assertThat(entry.markClean().getRdepsToSignal()).containsExactly(parent);
     assertThat(entry.isDone()).isTrue();
     assertThat(entry.getVersion()).isEqualTo(initialVersion);
@@ -331,12 +331,12 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
     setValue(entry, new IntegerValue(5), /* errorInfo= */ null, initialVersion);
     entry.markDirty(DirtyType.DIRTY);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
-    assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.CHECK_DEPENDENCIES);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.CHECK_DEPENDENCIES);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep);
     entry.addSingletonTemporaryDirectDep(dep);
     entry.signalDep(incrementalVersion, /* childForDebugging= */ null);
-    assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.NEEDS_REBUILDING);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.NEEDS_REBUILDING);
     assertThatNodeEntry(entry).hasTemporaryDirectDepsThat().containsExactly(dep);
     entry.markRebuilding();
     setValue(entry, new IntegerValue(5), /* errorInfo= */ null, incrementalVersion);
@@ -366,11 +366,11 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
     assertThat(entry.hasUnsignaledDeps()).isFalse();
     SkyKey parent = key("parent");
     entry.addReverseDepAndCheckIfDone(parent);
-    assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.CHECK_DEPENDENCIES);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.CHECK_DEPENDENCIES);
     assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep);
     entry.addSingletonTemporaryDirectDep(dep);
     entry.signalDep(incrementalVersion, /* childForDebugging= */ null);
-    assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.NEEDS_REBUILDING);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.NEEDS_REBUILDING);
     assertThatNodeEntry(entry).hasTemporaryDirectDepsThat().containsExactly(dep);
     ReifiedSkyFunctionException exception =
         new ReifiedSkyFunctionException(
@@ -410,11 +410,11 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
     assertThat(entry.isReadyToEvaluate()).isTrue();
     assertThat(entry.hasUnsignaledDeps()).isFalse();
     entry.addReverseDepAndCheckIfDone(null);
-    assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.CHECK_DEPENDENCIES);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.CHECK_DEPENDENCIES);
     assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep);
     entry.addSingletonTemporaryDirectDep(dep);
     entry.signalDep(incrementalVersion, /* childForDebugging= */ null);
-    assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.NEEDS_REBUILDING);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.NEEDS_REBUILDING);
     assertThatNodeEntry(entry).hasTemporaryDirectDepsThat().containsExactly(dep);
     entry.markRebuilding();
     entry.addTemporaryDirectDepGroup(ImmutableList.of(dep2InGroup, dep1InGroup));
@@ -442,11 +442,11 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
     setValue(entry, /* value= */ null, errorInfo, initialVersion);
     entry.markDirty(DirtyType.DIRTY);
     entry.addReverseDepAndCheckIfDone(null); // Restart evaluation.
-    assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.CHECK_DEPENDENCIES);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.CHECK_DEPENDENCIES);
     assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep);
     entry.addSingletonTemporaryDirectDep(dep);
     entry.signalDep(incrementalVersion, /* childForDebugging= */ null);
-    assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.NEEDS_REBUILDING);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.NEEDS_REBUILDING);
     assertThatNodeEntry(entry).hasTemporaryDirectDepsThat().containsExactly(dep);
     entry.markRebuilding();
     setValue(entry, /* value= */ null, errorInfo, incrementalVersion);
@@ -471,12 +471,12 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
     setValue(entry, /* value= */ new IntegerValue(5), null, initialVersion);
     entry.markDirty(DirtyType.DIRTY);
     entry.addReverseDepAndCheckIfDone(null); // Restart evaluation.
-    assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.CHECK_DEPENDENCIES);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.CHECK_DEPENDENCIES);
     assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep, dep2);
     entry.addTemporaryDirectDepGroup(ImmutableList.of(dep, dep2));
     entry.signalDep(initialVersion, /* childForDebugging= */ null);
     entry.signalDep(initialVersion, /* childForDebugging= */ null);
-    assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.CHECK_DEPENDENCIES);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.CHECK_DEPENDENCIES);
     assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep3);
   }
 
@@ -503,11 +503,11 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
     setValue(entry, null, ErrorInfo.fromException(exception, false), initialVersion);
     entry.markDirty(DirtyType.DIRTY);
     entry.addReverseDepAndCheckIfDone(null); // Restart evaluation.
-    assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.CHECK_DEPENDENCIES);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.CHECK_DEPENDENCIES);
     assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep);
     entry.addSingletonTemporaryDirectDep(dep);
     entry.signalDep(initialVersion, dep);
-    assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.CHECK_DEPENDENCIES);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.CHECK_DEPENDENCIES);
     assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep4);
   }
 
@@ -522,11 +522,11 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
     setValue(entry, new IntegerValue(5), /* errorInfo= */ null, initialVersion);
     entry.markDirty(DirtyType.DIRTY);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
-    assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.CHECK_DEPENDENCIES);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.CHECK_DEPENDENCIES);
     assertThat(entry.getNextDirtyDirectDeps()).containsExactly(dep);
     entry.addSingletonTemporaryDirectDep(dep);
     assertThat(entry.signalDep(incrementalVersion, /* childForDebugging= */ null)).isTrue();
-    assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.NEEDS_REBUILDING);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.NEEDS_REBUILDING);
     assertThatNodeEntry(entry).hasTemporaryDirectDepsThat().containsExactly(dep);
     entry.markRebuilding();
     entry.addSingletonTemporaryDirectDep(key("dep2"));
@@ -551,15 +551,15 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
     setValue(entry, new IntegerValue(5), /* errorInfo= */ null, initialVersion);
     entry.markDirty(DirtyType.DIRTY);
     entry.addReverseDepAndCheckIfDone(null); // Start new evaluation.
-    assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.CHECK_DEPENDENCIES);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.CHECK_DEPENDENCIES);
     for (int ii = 0; ii < 10; ii++) {
       assertThat(entry.getNextDirtyDirectDeps()).containsExactly(deps.get(ii));
       entry.addSingletonTemporaryDirectDep(deps.get(ii));
       assertThat(entry.signalDep(initialVersion, /* childForDebugging= */ null)).isTrue();
       if (ii < 9) {
-        assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.CHECK_DEPENDENCIES);
+        assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.CHECK_DEPENDENCIES);
       } else {
-        assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.VERIFIED_CLEAN);
+        assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.VERIFIED_CLEAN);
       }
     }
   }
@@ -573,9 +573,9 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
     entry.markDirty(DirtyType.CHANGE);
     SkyKey newParent = key("new parent");
     entry.addReverseDepAndCheckIfDone(newParent);
-    assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.NEEDS_REBUILDING);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.NEEDS_REBUILDING);
     entry.markRebuilding();
-    assertThat(entry.getDirtyState()).isEqualTo(NodeEntry.DirtyState.REBUILDING);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.REBUILDING);
     assertThat(setValue(entry, new SkyValue() {}, /* errorInfo= */ null, incrementalVersion))
         .containsExactly(newParent);
   }
@@ -747,7 +747,7 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
 
     // Reset clears temporary direct deps.
     entry.resetEvaluationFromScratch();
-    assertThat(entry.getDirtyState()).isEqualTo(DirtyState.REBUILDING);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.REBUILDING);
     assertThat(entry.getTemporaryDirectDeps()).isEmpty();
     assertThat(entry.getTemporaryDirectDeps() instanceof GroupedDeps.WithHashSet)
         .isEqualTo(isPartialReevaluation);
@@ -826,9 +826,9 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
     // Parent declares dep again after resetting.
     assertThat(entry.checkIfDoneForDirtyReverseDep(resetDirtyParent))
         .isEqualTo(DependencyState.NEEDS_SCHEDULING);
-    assertThat(entry.getDirtyState()).isEqualTo(DirtyState.NEEDS_REBUILDING);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.NEEDS_REBUILDING);
     entry.markRebuilding();
-    assertThat(entry.getDirtyState()).isEqualTo(DirtyState.REBUILDING);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.REBUILDING);
 
     // Rdep removed after rewinding was initiated.
     entry.removeReverseDep(lateOldParent);
@@ -884,9 +884,11 @@ public class IncrementalInMemoryNodeEntryTest extends InMemoryNodeEntryTest<IntV
     // Start of incremental build.
     entry.markDirty(DirtyType.DIRTY);
     entry.addReverseDepAndCheckIfDone(null);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.CHECK_DEPENDENCIES);
 
-    // Attempt to rewind node while it is dirty.
+    // Attempt to rewind node while it is dirty. Its lifecycle state does not change.
     entry.markDirty(DirtyType.REWIND);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.CHECK_DEPENDENCIES);
 
     // Add back same dep.
     entry.addSingletonTemporaryDirectDep(dep);

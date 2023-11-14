@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Reportable;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
-import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
+import com.google.devtools.build.skyframe.NodeEntry.LifecycleState;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -85,8 +85,10 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
   @Test
   public void entryAtStartOfEvaluation() {
     InMemoryNodeEntry entry = createEntry();
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.NOT_YET_EVALUATING);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     assertThat(entry.isDone()).isFalse();
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.NEEDS_REBUILDING);
     assertThat(entry.isReadyToEvaluate()).isTrue();
     assertThat(entry.hasUnsignaledDeps()).isFalse();
     assertThat(entry.isDirty()).isTrue();
@@ -123,6 +125,7 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
     assertThat(entry.hasUnsignaledDeps()).isFalse();
     assertThat(setValue(entry, new SkyValue() {}, /* errorInfo= */ null, initialVersion)).isEmpty();
     assertThat(entry.isDone()).isTrue();
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.DONE);
     assertThat(entry.getVersion()).isEqualTo(initialVersion);
 
     if (!entry.keepsEdges()) {
@@ -188,6 +191,7 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
     ErrorInfo errorInfo = ErrorInfo.fromException(exception, false);
     assertThat(setValue(entry, /* value= */ null, errorInfo, initialVersion)).isEmpty();
     assertThat(entry.isDone()).isTrue();
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.DONE);
     assertThat(entry.getValue()).isNull();
     assertThat(entry.getErrorInfo()).isEqualTo(errorInfo);
   }
@@ -203,6 +207,7 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
     ErrorInfo errorInfo = ErrorInfo.fromException(exception, false);
     setValue(entry, new SkyValue() {}, errorInfo, initialVersion);
     assertThat(entry.isDone()).isTrue();
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.DONE);
     assertThat(entry.getErrorInfo()).isEqualTo(errorInfo);
   }
 
@@ -364,7 +369,7 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
 
     // Reset clears temporary direct deps.
     entry.resetEvaluationFromScratch();
-    assertThat(entry.getDirtyState()).isEqualTo(DirtyState.REBUILDING);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.REBUILDING);
     assertThat(entry.getTemporaryDirectDeps()).isEmpty();
     assertThat(entry.getTemporaryDirectDeps() instanceof GroupedDeps.WithHashSet)
         .isEqualTo(isPartialReevaluation);
@@ -480,12 +485,12 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
             ? entry.checkIfDoneForDirtyReverseDep(resetParent)
             : entry.addReverseDepAndCheckIfDone(resetParent);
     assertThat(dependencyState).isEqualTo(DependencyState.NEEDS_SCHEDULING);
-    assertThat(entry.getDirtyState()).isEqualTo(DirtyState.NEEDS_REBUILDING);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.NEEDS_REBUILDING);
     assertThat(entry.isReadyToEvaluate()).isTrue();
     assertThat(entry.hasUnsignaledDeps()).isFalse();
     assertThat(entry.getTemporaryDirectDeps()).isEmpty();
     entry.markRebuilding();
-    assertThat(entry.getDirtyState()).isEqualTo(DirtyState.REBUILDING);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.REBUILDING);
 
     // Rewound evaluation completes. The parent that initiated rewinding is signalled.
     assertThat(setValue(entry, new IntegerValue(2), /* errorInfo= */ null, initialVersion))
@@ -509,7 +514,7 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
     assertThat(entry.isDirty()).isTrue();
     assertThat(entry.isChanged()).isTrue();
     assertThat(entry.isDone()).isFalse();
-    assertThat(entry.getDirtyState()).isEqualTo(DirtyState.NEEDS_REBUILDING);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.NEEDS_REBUILDING);
   }
 
   @CanIgnoreReturnValue

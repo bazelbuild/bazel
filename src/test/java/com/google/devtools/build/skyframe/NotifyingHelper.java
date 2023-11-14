@@ -156,7 +156,7 @@ public class NotifyingHelper {
     MARK_DIRTY,
     MARK_CLEAN,
     IS_CHANGED,
-    GET_DIRTY_STATE,
+    GET_LIFECYCLE_STATE,
     GET_VALUE_WITH_METADATA,
     IS_DIRTY,
     IS_READY,
@@ -305,11 +305,11 @@ public class NotifyingHelper {
     }
 
     @Override
-    public DirtyState getDirtyState() {
-      graphListener.accept(myKey, EventType.GET_DIRTY_STATE, Order.BEFORE, this);
-      DirtyState dirtyState = super.getDirtyState();
-      graphListener.accept(myKey, EventType.GET_DIRTY_STATE, Order.AFTER, dirtyState);
-      return dirtyState;
+    public LifecycleState getLifecycleState() {
+      graphListener.accept(myKey, EventType.GET_LIFECYCLE_STATE, Order.BEFORE, this);
+      LifecycleState lifecycleState = super.getLifecycleState();
+      graphListener.accept(myKey, EventType.GET_LIFECYCLE_STATE, Order.AFTER, lifecycleState);
+      return lifecycleState;
     }
 
     @Override
