@@ -203,10 +203,10 @@ class BazelLockfileTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 48, stderr)
     self.assertIn(
         (
-            'ERROR: Error computing the main repository mapping: Lock file is'
-            ' no longer up-to-date because: the root MODULE.bazel has been'
-            ' modified, the value of --check_direct_dependencies flag has'
-            ' been modified. Please run'
+            'ERROR: Error computing the main repository mapping:'
+            ' MODULE.bazel.lock is no longer up-to-date because: the root'
+            ' MODULE.bazel has been modified, the value of'
+            ' --check_direct_dependencies flag has been modified. Please run'
             ' `bazel mod deps --lockfile_mode=update` to update your lockfile.'
         ),
         stderr,
@@ -248,10 +248,11 @@ class BazelLockfileTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 48, stderr)
     self.assertIn(
         (
-            'ERROR: Error computing the main repository mapping: Lock file is'
-            ' no longer up-to-date because: The MODULE.bazel file has changed'
-            ' for the overriden module: bar. Please run'
-            ' `bazel mod deps --lockfile_mode=update` to update your lockfile.'
+            'ERROR: Error computing the main repository mapping:'
+            ' MODULE.bazel.lock is no longer up-to-date because: The'
+            ' MODULE.bazel file has changed for the overriden module: bar.'
+            ' Please run `bazel mod deps --lockfile_mode=update` to update your'
+            ' lockfile.'
         ),
         stderr,
     )
@@ -575,7 +576,7 @@ class BazelLockfileTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 48, stderr)
     self.assertIn(
         (
-            'ERROR: Lock file is no longer up-to-date because: The '
+            'ERROR: MODULE.bazel.lock is no longer up-to-date because: The '
             'implementation of the extension '
             "'ModuleExtensionId{bzlFileLabel=//:extension.bzl, "
             "extensionName=lockfile_ext, isolationKey=Optional.empty}' or one "
@@ -762,8 +763,8 @@ class BazelLockfileTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 48, stderr)
     self.assertIn(
         (
-            'ERROR: Lock file is no longer up-to-date because: The environment'
-            ' variables the extension'
+            'ERROR: MODULE.bazel.lock is no longer up-to-date because: The'
+            ' environment variables the extension'
             " 'ModuleExtensionId{bzlFileLabel=//:extension.bzl,"
             " extensionName=lockfile_ext, isolationKey=Optional.empty}' depends"
             ' on (or their values) have changed. Please run'
@@ -842,9 +843,9 @@ class BazelLockfileTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 48, stderr)
     self.assertIn(
         (
-            'ERROR: Error computing the main repository mapping: Lock file is'
-            ' no longer up-to-date because: the version of the lockfile is not'
-            ' compatible with the current Bazel. Please run'
+            'ERROR: Error computing the main repository mapping:'
+            ' MODULE.bazel.lock is no longer up-to-date because: the version of'
+            ' the lockfile is not compatible with the current Bazel. Please run'
             ' `bazel mod deps --lockfile_mode=update` to update your lockfile.'
         ),
         stderr,
