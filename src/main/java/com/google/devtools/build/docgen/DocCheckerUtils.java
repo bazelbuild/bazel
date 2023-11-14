@@ -36,8 +36,8 @@ public class DocCheckerUtils {
       + ">",
       Pattern.CASE_INSENSITIVE);
 
-  private static final Pattern COMMENT_PATTERN = Pattern.compile(
-      "<!--.*?-->",
+  private static final Pattern COMMENT_OR_BACKTICK_PATTERN = Pattern.compile(
+      "<!--.*?-->|`.*`",
       Pattern.CASE_INSENSITIVE);
 
   /**
@@ -57,7 +57,7 @@ public class DocCheckerUtils {
   // TODO(bazel-team): run this on the Starlark docs too.
   @Nullable
   private static String getFirstUnclosedTag(String src, boolean printHelp) {
-    Matcher commentMatcher = COMMENT_PATTERN.matcher(src);
+    Matcher commentMatcher = COMMENT_OR_BACKTICK_PATTERN.matcher(src);
     src = commentMatcher.replaceAll("");
     Matcher tagMatcher = TAG_PATTERN.matcher(src);
     Deque<String> tagStack = new ArrayDeque<>();
