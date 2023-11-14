@@ -154,8 +154,11 @@ particular rule with the `_use_auto_exec_groups` attribute.
 ### Error messages while migrating to AEGs {:#potential-problems}
 
 #### Couldn't identify if tools are from implicit dependencies or a toolchain. Please set the toolchain parameter. If you're not using a toolchain, set it to 'None'.
-  * This means that you've set the toolchain parameter on the action but didn't
-register it on the rule. Register the toolchain or set `None` inside the action.
+  * In this case you get a stack of calls before the error happened and you can
+    clearly see which exact action needs the toolchain parameter. Check which
+    toolchain is used for the action and set it with the toolchain param. If no
+    toolchain is used inside the action for tools or executable, set it to
+    `None`.
 
 #### Action declared for non-existent toolchain '[toolchain_type]'.
   * This means that you've set the toolchain parameter on the action but didn't
