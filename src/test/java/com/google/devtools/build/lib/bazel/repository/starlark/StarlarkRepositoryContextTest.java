@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
+import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -139,7 +140,8 @@ public final class StarlarkRepositoryContextTest {
             RootedPath.toRootedPath(root, workspaceFile),
             "runfiles",
             RepositoryMapping.ALWAYS_FALLBACK,
-            starlarkSemantics);
+            starlarkSemantics,
+            PackageOverheadEstimator.NOOP_ESTIMATOR);
     ExtendedEventHandler listener = Mockito.mock(ExtendedEventHandler.class);
     Rule rule =
         WorkspaceFactoryHelper.createAndAddRepositoryRule(

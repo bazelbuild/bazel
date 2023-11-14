@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages.metrics;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.protobuf.util.Durations;
-import java.util.OptionalLong;
 import javax.annotation.concurrent.GuardedBy;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -44,10 +43,7 @@ public class PackageMetricsPackageLoadingListener implements PackageLoadingListe
 
   @Override
   public synchronized void onLoadingCompleteAndSuccessful(
-      Package pkg,
-      StarlarkSemantics starlarkSemantics,
-      long loadTimeNanos,
-      OptionalLong packageOverhead) {
+      Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeNanos) {
     if (recorder == null) {
       // Micro-optimization - no need to track.
       return;
@@ -60,8 +56,8 @@ public class PackageMetricsPackageLoadingListener implements PackageLoadingListe
             .setNumTargets(pkg.getTargets().size())
             .setNumTransitiveLoads(pkg.countTransitivelyLoadedStarlarkFiles());
 
-    if (packageOverhead.isPresent()) {
-      builder.setPackageOverhead(packageOverhead.getAsLong());
+    if (pkg.getPackageOverhead().isPresent()) {
+      builder.setPackageOverhead(pkg.getPackageOverhead().getAsLong());
     }
 
     recorder.recordMetrics(pkg.getPackageIdentifier(), builder.build());

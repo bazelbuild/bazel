@@ -105,10 +105,10 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
         loadingMock
             .getPackageFactoryBuilderForTesting(directories)
             .setPackageValidator(
-                (pkg, pkgOverhead, handler) -> {
+                (pkg, handler) -> {
                   // Delegate to late-bound this.validator.
                   if (validator != null) {
-                    validator.validate(pkg, pkgOverhead, handler);
+                    validator.validate(pkg, handler);
                   }
                 })
             .build(ruleClassProvider, fileSystem);

@@ -72,6 +72,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.Semaphore;
@@ -110,6 +111,9 @@ public class Package {
    * @see #isRepoRulePackage()
    */
   private static final String DUMMY_WORKSPACE_NAME_FOR_BZLMOD_PACKAGES = "__dummy_workspace_bzlmod";
+
+  /** Sentinel value for package overhead being empty. */
+  private static final long PACKAGE_OVERHEAD_UNSET = -1;
 
   /** Common superclass for all name-conflict exceptions. */
   public static class NameConflictException extends Exception {
@@ -236,6 +240,25 @@ public class Package {
    * package.
    */
   private RepositoryMapping mainRepositoryMapping;
+
+  /**
+   * A rough approximation of the memory and general accounting costs associated with a loaded
+   * package. A value of -1 means it is unset. Stored as a long to take up less memory per pkg.
+   */
+  private long packageOverhead = PACKAGE_OVERHEAD_UNSET;
+
+  /** Returns package overhead as configured by the configured {@link PackageOverheadEstimator}. */
+  public OptionalLong getPackageOverhead() {
+    return packageOverhead == PACKAGE_OVERHEAD_UNSET
+        ? OptionalLong.empty()
+        : OptionalLong.of(packageOverhead);
+  }
+
+  /** Sets package overhead as configured by the configured {@link PackageOverheadEstimator}. */
+  void setPackageOverhead(OptionalLong packageOverhead) {
+    this.packageOverhead =
+        packageOverhead.isPresent() ? packageOverhead.getAsLong() : PACKAGE_OVERHEAD_UNSET;
+  }
 
   private ImmutableList<TargetPattern> registeredExecutionPlatforms;
   private ImmutableList<TargetPattern> registeredToolchains;
@@ -417,6 +440,7 @@ public class Package {
     builder.externalPackageRepositoryMappings.forEach((k, v) ->
         repositoryMappingsBuilder.put(k, ImmutableMap.copyOf(v)));
     this.externalPackageRepositoryMappings = repositoryMappingsBuilder.buildOrThrow();
+    setPackageOverhead(builder.packageOverheadEstimator.estimatePackageOverhead(this));
   }
 
   private static boolean isWorkspaceFile(String baseFileName) {
@@ -784,7 +808,8 @@ public class Package {
       RootedPath workspacePath,
       String workspaceName,
       RepositoryMapping mainRepoMapping,
-      StarlarkSemantics starlarkSemantics) {
+      StarlarkSemantics starlarkSemantics,
+      PackageOverheadEstimator packageOverheadEstimator) {
     return new Builder(
             helper,
             LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
@@ -794,7 +819,8 @@ public class Package {
             starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
             mainRepoMapping,
             mainRepoMapping,
-            /* cpuBoundSemaphore= */ null)
+            /* cpuBoundSemaphore= */ null,
+            packageOverheadEstimator)
         .setFilename(workspacePath);
   }
 
@@ -815,7 +841,8 @@ public class Package {
             // construct a query command in an error message and the package built here can't be
             // seen by query, the particular value does not matter.
             RepositoryMapping.ALWAYS_FALLBACK,
-            /* cpuBoundSemaphore= */ null)
+            /* cpuBoundSemaphore= */ null,
+            PackageOverheadEstimator.NOOP_ESTIMATOR)
         .setFilename(moduleFilePath)
         .setLoads(ImmutableList.of());
   }
@@ -900,6 +927,9 @@ public class Package {
     private final RepositoryMapping mainRepositoryMapping;
     /** Converts label literals to Label objects within this package. */
     private final LabelConverter labelConverter;
+
+    /** Estimates the package overhead of this package. */
+    private final PackageOverheadEstimator packageOverheadEstimator;
 
     /**
      * Semaphore held by the Skyframe thread when performing CPU work.
@@ -1025,7 +1055,8 @@ public class Package {
         boolean noImplicitFileExport,
         RepositoryMapping repositoryMapping,
         RepositoryMapping mainRepositoryMapping,
-        @Nullable Semaphore cpuBoundSemaphore) {
+        @Nullable Semaphore cpuBoundSemaphore,
+        PackageOverheadEstimator packageOverheadEstimator) {
       this.pkg =
           new Package(
               id,
@@ -1042,6 +1073,7 @@ public class Package {
         mergePackageArgsFrom(PackageArgs.builder().setDefaultTestOnly(true));
       }
       this.cpuBoundSemaphore = cpuBoundSemaphore;
+      this.packageOverheadEstimator = packageOverheadEstimator;
     }
 
     PackageIdentifier getPackageIdentifier() {
