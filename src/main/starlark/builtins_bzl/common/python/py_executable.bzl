@@ -84,7 +84,12 @@ filename in `srcs`, `main` must be specified.
         ),
     },
     create_srcs_version_attr(values = SRCS_VERSION_ALL_VALUES),
-    create_srcs_attr(mandatory = True),
+    create_srcs_attr(mandatory = True, doc = """
+        The list of source (<code>.py</code>) files that are processed to create the target.
+        This includes all your checked-in code and any generated source files. Library targets
+        belong in <code>deps</code> instead, while other binary files needed at runtime belong in
+        <code>data</code>.
+    """),
     allow_none = True,
 )
 
