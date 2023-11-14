@@ -87,9 +87,8 @@ public final class BlazeOptionHandler {
   // being ignored as long as they are recognized by at least one (other) command.
   private static final String COMMON_PSEUDO_COMMAND = "common";
 
-  private static final String BUILD_COMMAND = "build";
   private static final ImmutableSet<String> BUILD_COMMAND_ANCESTORS =
-      ImmutableSet.of(BUILD_COMMAND, COMMON_PSEUDO_COMMAND, ALWAYS_PSEUDO_COMMAND);
+      ImmutableSet.of("build", COMMON_PSEUDO_COMMAND, ALWAYS_PSEUDO_COMMAND);
 
   // Marks an event to indicate a parsing error.
   static final String BAD_OPTION_TAG = "invalidOption";
@@ -612,10 +611,6 @@ public final class BlazeOptionHandler {
       // canonicalize-flags can't recognize.
       if ((override.option.startsWith("--" + Converters.BLAZE_ALIASING_FLAG + "=")
               || override.option.equals("--" + Converters.BLAZE_ALIASING_FLAG))
-          // In production, "build" is always a valid command, but not necessarily in tests.
-          // Particularly C0Command, which some tests use for low-level options parsing logic. We
-          // don't want to interfere with those.
-          && validCommands.contains(BUILD_COMMAND)
           && !BUILD_COMMAND_ANCESTORS.contains(override.command)) {
         throw new OptionsParsingException(
             String.format(
