@@ -222,6 +222,21 @@ java_library_srcs(
 )
 
 proto_library(
+    name = "cache_salt_proto",
+    srcs = ["cache_salt.proto"],
+)
+
+java_proto_library(
+    name = "cache_salt_java_proto",
+    deps = [":cache_salt_proto"],
+)
+
+java_library_srcs(
+    name = "cache_salt_java_proto_srcs",
+    deps = [":cache_salt_java_proto"],
+)
+
+proto_library(
     name = "remote_scrubbing_proto",
     srcs = ["remote_scrubbing.proto"],
 )
@@ -284,6 +299,7 @@ filegroup(
     name = "dist_jars",
     srcs = [s + "_java_proto_srcs" for s in FILES] + [
         ":analysis_v2_java_proto_srcs",
+        ":cache_salt_java_proto_srcs",
         ":command_line_java_proto_srcs",
         ":command_server_java_grpc_srcs",
         ":command_server_java_proto_srcs",
