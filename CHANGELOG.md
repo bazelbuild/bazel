@@ -1,3 +1,63 @@
+## Release 8.0.0-pre.20231030.2 (2023-11-14)
+
+```
+Baseline: 8cab6aa21fa765985a962e59264e12251e4d479f
+
+Cherry picks:
+
+   + d78bdd2f7143da31087c3ab88298b52defb90fdc:
+     Temporarily disable `BaselineOptionsFunction` + Starlark exec
+     transition.
+```
+
+Incompatible changes:
+
+  - Java runtime toolchains created via `local_java_repository` from
+    `@bazel_tools//tools/jdk:local_java_repository.bzl`, which
+    includes `local_jdk`, now have `target_compatible_with` set to
+    the auto-detected host constraints. This can result in errors
+    about toolchain resolution failures for
+    `@bazel_tools//tools/jdk:runtime_toolchain_type`, especially when
+    cross-compiling. These failures can be fixed in the following
+    ways (listed in decreasing order of preference):
+    * Replace `java_binary` targets that aren't meant to be run with
+    `bazel run` or as tools during the build with `java_single_jar`
+    (available in `@rules_java//java:java_single_jar.bzl`). Such
+    targets do not require a Java runtime for the target
+    configuration.
+    * Set `--java_runtime_version=remotejdk_N` for some Java version
+    `N` to let Bazel choose and download an appropriate remote JDK
+    for the current target platform. This setting defaults to
+    `local_jdk`, which means that Bazel can only use the local JDK,
+    which isn't compatible with any other platform.
+    * Manually define and register a `local_java_runtime` with no
+    value set for `exec_compatible_with` (defaults to `[]`) and
+    select it by setting `--java_runtime_version` to its `name`. This
+    fully restores the previous behavior, but can result in incorrect
+    results when cross-compiling (see #18265).
+  - transition is removed from objc_library
+    (https://github.com/bazelbuild/bazel/issues/19688)
+
+New features:
+
+  - "bazel aquery" now returns the headers C++ compilation actions
+    can include if the --include_scheduling_dependencies command line
+    option is set.
+
+Important changes:
+
+  - Enable Platforms and Toolchains for Android. Android projects
+    will need to stop passing the legacy flag `--fat_apk_cpu`, and
+    instead use `--android_platforms` using platforms defined with
+    the `@platforms//os:android` constraint. The
+    https://github.com/bazelbuild/rules_android repository defines
+    four standard Android platforms for projects that use those
+    rules, `@rules_android//:armeabi-v7a`,
+    `@rules_android//:arm64-v8a`, `@rules_android//:x86`,
+    `@rules_android//:x86_64`.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Fabian Meumertzheim, Fredrik Medley, Guillaume Maudoux, Ulf Adams, Wade Carpenter.
+
 ## Release 7.0.0-pre.20231018.3 (2023-11-07)
 
 ```
