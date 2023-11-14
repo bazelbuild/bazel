@@ -1,3 +1,106 @@
+## Release 8.0.0-pre.20231030.2 (2023-11-14)
+
+```
+Baseline: 8cab6aa21fa765985a962e59264e12251e4d479f
+
+Cherry picks:
+
+   + d78bdd2f7143da31087c3ab88298b52defb90fdc:
+     Temporarily disable `BaselineOptionsFunction` + Starlark exec
+     transition.
+```
+
+Incompatible changes:
+
+  - Java runtime toolchains created via `local_java_repository` from
+    `@bazel_tools//tools/jdk:local_java_repository.bzl`, which
+    includes `local_jdk`, now have `target_compatible_with` set to
+    the auto-detected host constraints. This can result in errors
+    about toolchain resolution failures for
+    `@bazel_tools//tools/jdk:runtime_toolchain_type`, especially when
+    cross-compiling. These failures can be fixed in the following
+    ways (listed in decreasing order of preference):
+    * Replace `java_binary` targets that aren't meant to be run with
+    `bazel run` or as tools during the build with `java_single_jar`
+    (available in `@rules_java//java:java_single_jar.bzl`). Such
+    targets do not require a Java runtime for the target
+    configuration.
+    * Set `--java_runtime_version=remotejdk_N` for some Java version
+    `N` to let Bazel choose and download an appropriate remote JDK
+    for the current target platform. This setting defaults to
+    `local_jdk`, which means that Bazel can only use the local JDK,
+    which isn't compatible with any other platform.
+    * Manually define and register a `local_java_runtime` with no
+    value set for `exec_compatible_with` (defaults to `[]`) and
+    select it by setting `--java_runtime_version` to its `name`. This
+    fully restores the previous behavior, but can result in incorrect
+    results when cross-compiling (see #18265).
+  - transition is removed from objc_library
+    (https://github.com/bazelbuild/bazel/issues/19688)
+
+New features:
+
+  - "bazel aquery" now returns the headers C++ compilation actions
+    can include if the --include_scheduling_dependencies command line
+    option is set.
+
+Important changes:
+
+  - Enable Platforms and Toolchains for Android. Android projects
+    will need to stop passing the legacy flag `--fat_apk_cpu`, and
+    instead use `--android_platforms` using platforms defined with
+    the `@platforms//os:android` constraint. The
+    https://github.com/bazelbuild/rules_android repository defines
+    four standard Android platforms for projects that use those
+    rules, `@rules_android//:armeabi-v7a`,
+    `@rules_android//:arm64-v8a`, `@rules_android//:x86`,
+    `@rules_android//:x86_64`.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Fabian Meumertzheim, Fredrik Medley, Guillaume Maudoux, Ulf Adams, Wade Carpenter.
+
+## Release 7.0.0-pre.20231018.3 (2023-11-07)
+
+```
+Baseline: eeb9c911bf16271f807c687e8eae246edaecd005
+
+Cherry picks:
+
+   + bb7fb2d32f055f2a70a5ab394cf5aef29bc74b2e:
+     Automatically add function transition allow list when needed
+   + c59739e72a2b4ee50f4ba205fb1561f10f0b344d:
+     Automated rollback of commit
+     f7946d0107dd75b2f45bcc79b91c016d075a756d.
+   + f6eabdc51eb54416361be4b3528d67717a11fdfd:
+     Automated rollback of commit
+     774fdb4be128b642332531f1d0376810b4c5377f.
+```
+
+Incompatible changes:
+
+  - The sandboxfs sandboxing strategy is removed. It hadn't been
+    maintained for a long time, it didn't work for most users and it
+    was not consistently faster while being complex to set up.
+    sandboxfs performance is heavily dependent on the specific setup
+    (setup costs are lower, but you have to pay a penalty for the use
+    of each input) and there are scenarios where it is faster and
+    scenarios where it is slower. Overall it is not worth its weight.
+  - Bzlmod is enabled by default, please consider migrating your
+    external dependencies from WORKSPACE to MODULE.bazel. Find more
+    details at https://github.com/bazelbuild/bazel/issues/18958
+
+Important changes:
+
+  - Directories used by sandboxed non-worker execution may be reused
+    to
+    avoid unnecessary setup costs. Disable behavior with
+    --noreuse_sandbox_directories.
+  - Symlink trees created by sandboxing will be deleted
+    asynchronously.
+    Disable behavior with
+    --experimental_sandbox_async_tree_delete_idle_threads=0.
+
+This release contains contributions from many people at Google, as well as Antoine Musso, Benjamin Peterson, Fabian Meumertzheim, Nick Biryulin, Steve Barrau, Thi Don.
+
 ## Release 7.0.0-pre.20231011.2 (2023-10-23)
 
 ```
