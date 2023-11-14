@@ -49,8 +49,6 @@ upper_tabs:
         path: /install/os-x
       - title: Windows
         path: /install/windows
-      - title: Fedora/CentOS
-        path: /install/redhat
       - title: Ubuntu
         path: /install/ubuntu
       - title: openSUSE
