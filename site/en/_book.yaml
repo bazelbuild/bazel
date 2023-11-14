@@ -284,6 +284,8 @@ upper_tabs:
         path: /extending/toolchains
       - title: Execution groups
         path: /extending/exec-groups
+      - title: Automatic execution groups
+        path: /extending/auto-exec-groups
     - name: Writing rules
       contents:
       - title: Creating a rule
