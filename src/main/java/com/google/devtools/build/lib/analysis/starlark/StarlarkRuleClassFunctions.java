@@ -496,7 +496,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       builder = new RuleClass.Builder("", type, true, baseParent);
     }
 
-    builder.initializer(initializer);
+    builder.initializer(initializer, labelConverter);
 
     builder.setDefaultExtendableAllowlist(
         ruleDefinitionEnvironment.getToolsLabel("//tools/allowlists/extend_rule_allowlist"));
@@ -1028,6 +1028,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       if (ruleClass == null) {
         throw new EvalException("Invalid rule class hasn't been exported by a bzl file");
       }
+      PackageContext pkgContext = thread.getThreadLocal(PackageContext.class);
+      if (pkgContext == null) {
+        throw new EvalException(
+            "Cannot instantiate a rule when loading a .bzl file. "
+                + "Rules may be instantiated only in a BUILD thread.");
+      }
 
       validateRulePropagatedAspects(ruleClass);
 
@@ -1050,8 +1056,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
             continue;
           }
 
-          // TODO: b/298561048 - lift parameters to more accurate type - for example strings to
-          // Labels
           // You might feel tempted to inspect the signature of the initializer function. The
           // temptation might come from handling default values, making them work for better for the
           // users.
@@ -1060,7 +1064,17 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           for (var attr : currentRuleClass.getAttributes()) {
             if (attr.isPublic() && attr.starlarkDefined()) {
               if (kwargs.containsKey(attr.getName())) {
-                initializerKwargs.put(attr.getName(), kwargs.get(attr.getName()));
+                Object value = kwargs.get(attr.getName());
+                if (value == Starlark.NONE) {
+                  continue;
+                }
+                Object reifiedValue =
+                    BuildType.copyAndLiftStarlarkValue(
+                        currentRuleClass.getName(),
+                        attr,
+                        value,
+                        pkgContext.getBuilder().getLabelConverter());
+                initializerKwargs.put(attr.getName(), reifiedValue);
               }
             }
           }
@@ -1091,7 +1105,17 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
               throw Starlark.errorf(
                   "Initializer can only set Starlark defined attributes, not '%s'", arg);
             }
-            kwargs.putEntry(nativeName, newKwargs.get(arg));
+            Object value = newKwargs.get(arg);
+            Object reifiedValue =
+                attr == null || value == Starlark.NONE
+                    ? value
+                    : BuildType.copyAndLiftStarlarkValue(
+                        currentRuleClass.getName(),
+                        attr,
+                        value,
+                        // Reify to the location of the initializer definition
+                        currentRuleClass.getLabelConverterForInitializer());
+            kwargs.putEntry(nativeName, reifiedValue);
           }
         }
       } finally {
@@ -1101,12 +1125,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       BuildLangTypedAttributeValuesMap attributeValues =
           new BuildLangTypedAttributeValuesMap(kwargs);
       try {
-        PackageContext pkgContext = thread.getThreadLocal(PackageContext.class);
-        if (pkgContext == null) {
-          throw new EvalException(
-              "Cannot instantiate a rule when loading a .bzl file. "
-                  + "Rules may be instantiated only in a BUILD thread.");
-        }
         RuleFactory.createAndAddRule(
             pkgContext.getBuilder(),
             ruleClass,
