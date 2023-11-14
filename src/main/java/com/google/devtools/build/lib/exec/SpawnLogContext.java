@@ -190,7 +190,6 @@ public class SpawnLogContext implements ActionContext {
     }
 
     builder.setMnemonic(spawn.getMnemonic());
-    builder.setWalltime(millisToProto(result.getMetrics().executionWallTimeInMs()));
 
     if (spawn.getTargetLabel() != null) {
       builder.setTargetLabel(spawn.getTargetLabel());
