@@ -95,7 +95,7 @@ public abstract class Type<T> {
    * <p>x must be directly convertible to this type. This therefore disqualifies "selector
    * expressions" of the form "{ config1: 'value1_of_orig_type', config2: 'value2_of_orig_type; }"
    * (which support configurable attributes). To handle those expressions, see {@link
-   * com.google.devtools.build.lib.packages.BuildType#selectableConvert}.
+   * com.google.devtools.build.lib.packages.BuildType#convertFromBuildLangType}.
    *
    * @param x The Starlark value to convert.
    * @param what An object whose toString method returns a description of the purpose of x.
@@ -108,6 +108,7 @@ public abstract class Type<T> {
    */
   public abstract T convert(Object x, Object what, @Nullable LabelConverter labelConverter)
       throws ConversionException;
+
   // TODO(bazel-team): Check external calls (e.g. in PackageFactory), verify they always want
   // this over selectableConvert.
 
