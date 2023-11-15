@@ -37,6 +37,7 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
     "rules_go",
     "rules_java",
     "rules_jvm_external",
+    "rules_graalvm",
     "rules_license",
     "rules_pkg",
     "rules_proto",
