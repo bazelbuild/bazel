@@ -283,6 +283,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     boolean forceFetchConfigureEnabled =
         handler.isConfigure(rule) && !FORCE_FETCH_CONFIGURE.get(env).isEmpty();
 
+    //Always use cache when vendoring or building with vendor mode on
+    if(VENDOR_DIRECTORY.get(env).isPresent()) {
+      return true;
+    }
+
     /* If fetching is enabled & this is a local repo: do NOT use cache!
      * Local repository are generally fast and do not rely on non-local data, making caching them
      * across server instances impractical. */
