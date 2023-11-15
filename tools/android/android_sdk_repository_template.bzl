@@ -199,9 +199,6 @@ def create_android_sdk_rules(
         native.toolchain(
             name = "sdk-%d-toolchain" % api_level,
             exec_compatible_with = HOST_CONSTRAINTS,
-            target_compatible_with = [
-                "@platforms//os:android",
-            ],
             toolchain = ":sdk-%d" % api_level,
             toolchain_type = "@bazel_tools//tools/android:sdk_toolchain_type",
         )

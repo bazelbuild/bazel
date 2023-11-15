@@ -115,7 +115,7 @@ function resolve_android_toolchains() {
     echo "This test uses platform-based Android toolchain resolution."
     add_to_bazelrc "build --incompatible_enable_android_toolchain_resolution"
     add_to_bazelrc "build --incompatible_enable_cc_toolchain_resolution"
-    add_to_bazelrc "build --platforms=//test_android_platforms:simple"
+    add_to_bazelrc "build --android_platforms=//test_android_platforms:simple"
   else
     echo "This test uses legacy Android toolchains."
     add_to_bazelrc "build --noincompatible_enable_android_toolchain_resolution"
