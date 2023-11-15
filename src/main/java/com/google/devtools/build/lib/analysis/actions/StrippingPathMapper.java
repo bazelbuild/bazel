@@ -78,6 +78,8 @@ import javax.annotation.Nullable;
 public final class StrippingPathMapper {
   static final String GUID = "8eb2ad5a-85d4-435b-858f-5c192e91997d";
 
+  private static final String FIXED_CONFIG_SEGMENT = "cfg";
+
   /**
    * Creates a new {@link PathMapper} that strips config prefixes if the particular action instance
    * supports it.
@@ -209,7 +211,7 @@ public final class StrippingPathMapper {
     }
 
     public String strip(String str) {
-      return pattern.matcher(str).replaceAll(outputRoot + "/");
+      return pattern.matcher(str).replaceAll(outputRoot + "/" + FIXED_CONFIG_SEGMENT + "/");
     }
   }
 
@@ -271,7 +273,12 @@ public final class StrippingPathMapper {
    * Strips the configuration prefix from an output artifact's exec path.
    */
   private static PathFragment strip(PathFragment execPath) {
-    return execPath.subFragment(0, 1).getRelative(execPath.subFragment(2));
+    return execPath
+        .subFragment(0, 1)
+        // Keep the config segment, but replace it with a fixed string to improve cacheability while
+        // still preserving the general segment structure of the execpath.
+        .getRelative(FIXED_CONFIG_SEGMENT)
+        .getRelative(execPath.subFragment(2));
   }
 
   private StrippingPathMapper() {}
