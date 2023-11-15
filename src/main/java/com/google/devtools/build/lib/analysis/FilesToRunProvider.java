@@ -68,7 +68,15 @@ public class FilesToRunProvider implements TransitiveInfoProvider, FilesToRunPro
     return true; // immutable and Starlark-hashable
   }
 
-  /** Returns artifacts needed to run the executable for this target. */
+  /**
+   * Returns artifacts needed to run the executable for this target.
+   *
+   * <p>This method should not be used because its semantics are complicated and confusing. Instead,
+   * either use {@link #getExecutable()} if only the executable is desired, {@link
+   * #getRunfilesSupplier()} if you also want its runfiles or {@link #getRunfilesSupport()} if you
+   * know what you are doing and it's something very arcane.
+   */
+  @Deprecated
   public final NestedSet<Artifact> getFilesToRun() {
     return filesToRun;
   }
