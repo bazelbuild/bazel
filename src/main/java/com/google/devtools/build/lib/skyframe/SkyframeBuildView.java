@@ -872,7 +872,7 @@ public final class SkyframeBuildView {
     enableAnalysis(false);
 
     eventBus.post(
-        AnalysisPhaseCompleteEvent.fromSkymeld(
+        new AnalysisPhaseCompleteEvent(
             buildResultListener.getAnalyzedTargets(),
             getEvaluatedCounts(),
             getEvaluatedActionCounts(),
