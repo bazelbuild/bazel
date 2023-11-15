@@ -38,7 +38,6 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -439,7 +438,7 @@ public class JacocoCoverageRunner {
     if (urls != null) {
       metadataFiles = new File[urls.length];
       for (int i = 0; i < urls.length; i++) {
-        String file = URLDecoder.decode(urls[i].getFile(), "UTF-8");
+        String file = urls[i].toURI().getPath();
         metadataFiles[i] = new File(file);
         // Special case for when there is only one deploy jar on the classpath.
         if (file.endsWith("_deploy.jar")) {
