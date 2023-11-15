@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -212,9 +211,8 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     inputs.addTransitive(resolvedSrcs);
     inputs.addTransitive(commandHelper.getResolvedTools());
     if (cmdType == CommandType.BASH) {
-      FilesToRunProvider genruleSetup =
-          ruleContext.getPrerequisite("$genrule_setup", FilesToRunProvider.class);
-      inputs.addTransitive(genruleSetup.getFilesToRun());
+      FileProvider genruleSetup = ruleContext.getPrerequisite("$genrule_setup", FileProvider.class);
+      inputs.addTransitive(genruleSetup.getFilesToBuild());
     }
     if (ruleContext.hasErrors()) {
       return null;
