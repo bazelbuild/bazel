@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -264,6 +265,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     } catch (CommandLineExpansionException e) {
       throw createCommandLineException(e);
     } catch (ExecException e) {
+      if (e instanceof SpawnExecException) {
+        throw ((SpawnExecException) e).toActionExecutionException(this);
+      }
       throw ActionExecutionException.fromExecException(e, this);
     }
   }

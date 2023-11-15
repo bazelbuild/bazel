@@ -22,14 +22,10 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.JavaRule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
-import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
 import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
 
 /**
@@ -41,7 +37,6 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
     return builder
-        .requiresConfigurationFragments(JavaConfiguration.class, CppConfiguration.class)
         /* <!-- #BLAZE_RULE(java_library).IMPLICIT_OUTPUTS -->
         <ul>
           <li><code>lib<var>name</var>.jar</code>: A Java archive containing the class files.</li>
@@ -49,8 +44,6 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
             jar").</li>
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS --> */
-        .setImplicitOutputsFunction(BazelJavaRuleClasses.JAVA_LIBRARY_IMPLICIT_OUTPUTS)
-
         /* <!-- #BLAZE_RULE(java_library).ATTRIBUTE(data) -->
         The list of files needed by this library at runtime.
         See general comments about <code>data</code> at
@@ -112,11 +105,7 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
           <code>deps</code>.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(
-            attr("exports", LABEL_LIST)
-                .allowedRuleClasses(BazelJavaRuleClasses.ALLOWED_RULES_IN_DEPS)
-                .allowedFileTypes(/*May not have files in exports!*/ )
-                .mandatoryProvidersList(BazelJavaRuleClasses.MANDATORY_JAVA_PROVIDER_ONLY))
+        .add(attr("exports", LABEL_LIST).allowedFileTypes())
         /* <!-- #BLAZE_RULE(java_library).ATTRIBUTE(neverlink) -->
         Whether this library should only be used for compilation and not at runtime.
         Useful if the library will be provided by the runtime environment during execution. Examples
@@ -146,11 +135,7 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
           labels in <code><a href="${link java_library.plugins}">plugins</a></code>.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(
-            attr("exported_plugins", LABEL_LIST)
-                .cfg(ExecutionTransitionFactory.createFactory())
-                .mandatoryProviders(JavaPluginInfo.PROVIDER.id())
-                .allowedFileTypes())
+        .add(attr("exported_plugins", LABEL_LIST).allowedFileTypes())
         .advertiseStarlarkProvider(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
         .build();
   }

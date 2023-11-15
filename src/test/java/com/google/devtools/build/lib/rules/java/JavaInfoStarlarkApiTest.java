@@ -857,20 +857,53 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
         "java_library(",
         "    name = 'my_java_lib_direct',",
         "    srcs = ['java/A.java'],",
+        "    add_exports = ['java.base/java.lang'],",
         "    add_opens = ['java.base/java.lang'],",
+        ")",
+        "java_library(",
+        "    name = 'my_java_lib_runtime',",
+        "    srcs = ['java/A.java'],",
+        "    add_opens = ['java.base/java.util'],",
+        ")",
+        "java_library(",
+        "    name = 'my_java_lib_exports',",
+        "    srcs = ['java/A.java'],",
+        "    add_opens = ['java.base/java.math'],",
         ")",
         "my_rule(",
         "    name = 'my_starlark_rule',",
         "    dep = [':my_java_lib_direct'],",
+        "    dep_runtime = [':my_java_lib_runtime'],",
+        "    dep_exports = [':my_java_lib_exports'],",
         "    output_jar = 'my_starlark_rule_lib.jar',",
+        "    add_exports = ['java.base/java.lang.invoke'],",
         ")");
     assertNoEvents();
 
     JavaModuleFlagsProvider ruleOutputs =
         fetchJavaInfo().getProvider(JavaModuleFlagsProvider.class);
 
-    assertThat(ruleOutputs.toFlags())
-        .containsExactly("--add-opens=java.base/java.lang=ALL-UNNAMED");
+    if (analysisMock.isThisBazel()) {
+      assertThat(ruleOutputs.toFlags())
+          .containsExactly(
+              "--add-exports=java.base/java.lang=ALL-UNNAMED",
+              "--add-exports=java.base/java.lang.invoke=ALL-UNNAMED",
+              // NB: no java.base/java.util as the JavaInfo constructor doesn't
+              // look at runtime_deps for module flags.
+              "--add-opens=java.base/java.lang=ALL-UNNAMED",
+              "--add-opens=java.base/java.math=ALL-UNNAMED")
+          .inOrder();
+    } else {
+      // add_exports/add_opens ignored in JavaInfo constructor in #newJavaInfo below
+      assertThat(ruleOutputs.toFlags())
+          .containsExactly(
+              "--add-exports=java.base/java.lang=ALL-UNNAMED",
+              // NB: no java.base/java.util as the JavaInfo constructor doesn't
+              // look at runtime_deps for module flags.
+              "--add-opens=java.base/java.lang=ALL-UNNAMED",
+              "--add-opens=java.base/java.math=ALL-UNNAMED")
+          .inOrder();
+    }
   }
 
   @Test
@@ -1239,8 +1272,14 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
           "    generated_source_jar = ctx.file.generated_source_jar,",
           "    native_headers_jar = ctx.file.native_headers_jar,",
           "    manifest_proto = ctx.file.manifest_proto,",
-          "    native_libraries = dp_libs,",
-          "  )",
+          "    native_libraries = dp_libs,");
+      if (analysisMock.isThisBazel()) {
+        lines.add(
+            "    add_exports = ctx.attr.add_exports,", //
+            "    add_opens = ctx.attr.add_opens,");
+      }
+      lines.add(
+          "  )", //
           "  return [result(property = javaInfo)]");
       return lines.build().toArray(new String[] {});
     }
@@ -1271,6 +1310,8 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
           "    'generated_source_jar' : attr.label(allow_single_file=True),",
           "    'native_headers_jar' : attr.label(allow_single_file=True),",
           "    'manifest_proto' : attr.label(allow_single_file=True),",
+          "    'add_exports' : attr.string_list(),",
+          "    'add_opens' : attr.string_list(),",
           useIJar || stampJar || sourceFiles
               ? "    '_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),"
               : "",

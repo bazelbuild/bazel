@@ -83,6 +83,11 @@ message Action {
   // input discovery, the contents of this set might change during execution.
   repeated uint32 input_dep_set_ids = 8;
 
+  // The set of scheduling dependency dep sets the action depends on.
+  // Only set of both --include_artifacts and --include_scheduling_dependencies
+  // is set to true.
+  repeated uint32 scheduling_dep_dep_set_ids = 20;
+
   // The list of Artifact IDs that represent the output files that this action
   // will generate.
   repeated uint32 output_ids = 9;

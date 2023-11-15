@@ -5301,12 +5301,13 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(e)
         .hasMessageThat()
         .contains(
-            "'a.ifso' does not have any of the allowed extensions .so, .dylib, .dll, .pyd or"
-                + " .wasm");
+            "'a.ifso' does not have any of the allowed extensions .so, .dylib, .dll, .pyd, .wasm,"
+                + " .tgt or .vpi");
     assertThat(e)
         .hasMessageThat()
         .contains(
-            "'a.lib' does not have any of the allowed extensions .so, .dylib, .dll, .pyd or .wasm");
+            "'a.lib' does not have any of the allowed extensions .so, .dylib, .dll, .pyd, .wasm,"
+                + " .tgt or .vpi");
     assertThat(e)
         .hasMessageThat()
         .contains(
@@ -8133,6 +8134,64 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         ")");
 
     getConfiguredTarget("//tools/build_defs/android:custom");
+  }
+
+  @Test
+  public void testDwoObjectsAllowlistBlocksPrivateParameter() throws Exception {
+    scratch.file(
+        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  cc_common.create_compilation_outputs(dwo_objects = depset())",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        ")");
+
+    AssertionError e =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
+
+    assertThat(e).hasMessageThat().contains("cannot use private API");
+  }
+
+  @Test
+  public void testPicDwoObjectsAllowlistBlocksPrivateParameter() throws Exception {
+    scratch.file(
+        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  cc_common.create_compilation_outputs(pic_dwo_objects = depset())",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        ")");
+
+    AssertionError e =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
+
+    assertThat(e).hasMessageThat().contains("cannot use private API");
+  }
+
+  @Test
+  public void testPicDwoObjectsAllowlistAllowsPrivateParameter() throws Exception {
+    scratch.file(
+        "bazel_internal/test_rules/cc/BUILD",
+        "load(':custom_rule.bzl', 'custom_rule')",
+        "custom_rule(name = 'custom')");
+    scratch.file(
+        "bazel_internal/test_rules/cc/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  cc_common.create_compilation_outputs(",
+        "    dwo_objects = depset(),",
+        "    pic_dwo_objects = depset(),",
+        ")",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        ")");
+    getConfiguredTarget("//bazel_internal/test_rules/cc:custom");
   }
 
   // grep_includes is not supported by Bazel.

@@ -59,6 +59,12 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
     }
   }
 
+  private final String unavailableXcodeCommand;
+
+  protected XcodeConfig(String unavailableXcodeCommand) {
+    this.unavailableXcodeCommand = unavailableXcodeCommand;
+  }
+
   @Override
   @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
@@ -208,6 +214,7 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
     }
     return false;
   }
+
   /**
    * Returns the {@link XcodeVersionProperties} selected by the {@code--xcode_version} flag from the
    * {@code versions} attribute of the {@code xcode_config} target explicitly defined in the {@code
@@ -289,7 +296,7 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
    * If {@code --xcode_version} is unspecified, then this will return the newest mutually available
    * version if possibls, otherwise the default local version.
    */
-  private static Map.Entry<XcodeVersionRuleData, Availability> resolveXcodeFromLocalAndRemote(
+  private Map.Entry<XcodeVersionRuleData, Availability> resolveXcodeFromLocalAndRemote(
       AvailableXcodesInfo localVersions,
       AvailableXcodesInfo remoteVersions,
       RuleContext ruleContext,
@@ -396,10 +403,10 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
             String.format(
                 "--xcode_version=%1$s specified, but it is not available locally. Your build will"
                     + " fail if any actions require a local Xcode. If you believe you have '%1$s'"
-                    + " installed, try running \"blaze sync --configure\", and then re-run your"
-                    + " command.  localy available versions: [%2$s]. remotely available versions:"
-                    + " [%3$s]",
+                    + " installed, try running \"%2$s\", and then re-run your command. Locally"
+                    + " available versions: [%3$s]. Remotely available versions: [%4$s]",
                 versionOverrideFlag,
+                unavailableXcodeCommand,
                 printableXcodeVersions(localVersions.getAvailableVersions()),
                 printableXcodeVersions(remoteVersions.getAvailableVersions())));
         return Maps.immutableEntry(specifiedVersionFromRemote, Availability.REMOTE);
@@ -407,10 +414,11 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
         ruleContext.throwWithRuleError(
             String.format(
                 "--xcode_version=%1$s specified, but '%1$s' is not an available Xcode version."
-                    + " localy available versions: [%2$s]. remotely available versions:"
-                    + " [%3$s]. If you believe you have '%1$s' installed, try running \"blaze"
-                    + " sync --configure\", and then re-run your command.",
+                    + " Locally available versions: [%3$s]. Remotely available versions: [%4$s]. If"
+                    + " you believe you have '%1$s' installed, try running \"%2$s\", and then"
+                    + " re-run your command.",
                 versionOverrideFlag,
+                unavailableXcodeCommand,
                 printableXcodeVersions(localVersions.getAvailableVersions()),
                 printableXcodeVersions(remoteVersions.getAvailableVersions())));
       }
@@ -532,7 +540,6 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
 
   public static XcodeConfigInfo getXcodeConfigInfo(RuleContext ruleContext) {
     return ruleContext.getPrerequisite(
-        XcodeConfigRule.XCODE_CONFIG_ATTR_NAME,
-        XcodeConfigInfo.PROVIDER);
+        XcodeConfigRule.XCODE_CONFIG_ATTR_NAME, XcodeConfigInfo.PROVIDER);
   }
 }

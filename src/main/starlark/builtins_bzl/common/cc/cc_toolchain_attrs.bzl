@@ -129,11 +129,6 @@ cc_toolchain_attrs_exec = {
         allow_single_file = True,
         cfg = "exec",
     ),
-    "_default_zipper": attr.label(
-        default = configuration_field(fragment = "cpp", name = "default_zipper"),
-        allow_single_file = True,
-        cfg = "exec",
-    ),
     "_target_libc_top": attr.label(
         default = configuration_field(fragment = "cpp", name = "target_libc_top_DO_NOT_USE_ONLY_FOR_CC_TOOLCHAIN"),
         cfg = "target",
@@ -181,11 +176,6 @@ cc_toolchain_attrs_exec = {
     ),
     "_whitelist_disabling_parse_headers_and_layering_check_allowed": attr.label(
         default = "@" + semantics.get_repo() + "//tools/build_defs/cc/whitelists/parse_headers_and_layering_check:disabling_parse_headers_and_layering_check_allowed",
-        providers = [PackageSpecificationInfo],
-        cfg = "exec",
-    ),
-    "_whitelist_loose_header_check_allowed_in_toolchain": attr.label(
-        default = "@" + semantics.get_repo() + "//tools/build_defs/cc/whitelists/starlark_hdrs_check:loose_header_check_allowed_in_toolchain",
         providers = [PackageSpecificationInfo],
         cfg = "exec",
     ),

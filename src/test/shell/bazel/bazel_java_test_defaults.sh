@@ -243,7 +243,7 @@ EOF
 function test_executable_java_binary_compiles_for_platform_without_cc_toolchain() {
   cat > MODULE.bazel <<'EOF'
 # This version should always be at most as high as the version in MODULE.tools.
-bazel_dep(name = "rules_java", version = "6.3.1")
+bazel_dep(name = "rules_java", version = "7.1.0")
 java_toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
 use_repo(java_toolchains, "remotejdk17_linux")
 register_toolchains(
@@ -306,6 +306,52 @@ EOF
     //pkg:foo_deploy.jar &>"$TEST_log" || fail "Build should succeed"
 }
 
+function test_java_library_compiles_for_any_platform_with_local_jdk() {
+  mkdir -p pkg
+  cat > pkg/BUILD.bazel <<'EOF'
+platform(name = "exotic_platform")
+java_library(
+  name = "foo",
+  srcs = ["Foo.java"],
+)
+EOF
+
+    cat > pkg/Foo.java <<'EOF'
+package com.example;
+public class Foo {
+  public static void main(String[] args) {
+    System.out.println("Hello World!");
+  }
+}
+EOF
+
+  bazel build --platforms=//pkg:exotic_platform --java_runtime_version=local_jdk \
+    //pkg:foo &>"$TEST_log" || fail "Build should succeed"
+}
+
+function test_java_library_compiles_for_any_platform_with_remote_jdk() {
+  mkdir -p pkg
+  cat > pkg/BUILD.bazel <<'EOF'
+platform(name = "exotic_platform")
+java_library(
+  name = "foo",
+  srcs = ["Foo.java"],
+)
+EOF
+
+    cat > pkg/Foo.java <<'EOF'
+package com.example;
+public class Foo {
+  public static void main(String[] args) {
+    System.out.println("Hello World!");
+  }
+}
+EOF
+
+  bazel build --platforms=//pkg:exotic_platform --java_runtime_version=remotejdk_11 \
+    //pkg:foo &>"$TEST_log" || fail "Build should succeed"
+}
+
 function test_non_executable_java_binary_compiles_for_any_platform_with_local_jdk() {
   mkdir -p pkg
   cat > pkg/BUILD.bazel <<'EOF'
@@ -330,6 +376,91 @@ EOF
     //pkg:foo &>"$TEST_log" || fail "Build should succeed"
   bazel build --platforms=//pkg:exotic_platform --java_runtime_version=local_jdk \
     //pkg:foo_deploy.jar &>"$TEST_log" || fail "Build should succeed"
+}
+
+function test_non_executable_java_binary_compiles_for_any_platform_with_remote_jdk() {
+  mkdir -p pkg
+  cat > pkg/BUILD.bazel <<'EOF'
+platform(name = "exotic_platform")
+java_binary(
+  name = "foo",
+  srcs = ["Foo.java"],
+  create_executable = False,
+)
+EOF
+
+    cat > pkg/Foo.java <<'EOF'
+package com.example;
+public class Foo {
+  public static void main(String[] args) {
+    System.out.println("Hello World!");
+  }
+}
+EOF
+
+  bazel build --platforms=//pkg:exotic_platform --java_runtime_version=remotejdk_11 \
+    //pkg:foo &>"$TEST_log" || fail "Build should succeed"
+
+  bazel build --platforms=//pkg:exotic_platform --java_runtime_version=remotejdk_11 \
+    //pkg:foo_deploy.jar &>"$TEST_log" || fail "Build should succeed"
+}
+
+function test_executable_java_binary_fails_without_runtime_with_local_jdk() {
+  mkdir -p pkg
+  cat > pkg/BUILD.bazel <<'EOF'
+platform(name = "exotic_platform")
+java_binary(
+  name = "foo",
+  srcs = ["Foo.java"],
+  main_class = "com.example.Foo",
+)
+EOF
+
+    cat > pkg/Foo.java <<'EOF'
+package com.example;
+public class Foo {
+  public static void main(String[] args) {
+    System.out.println("Hello World!");
+  }
+}
+EOF
+
+  bazel build --platforms=//pkg:exotic_platform --java_runtime_version=local_jdk \
+    //pkg:foo &>"$TEST_log" && fail "Build should fail"
+  expect_log "While resolving toolchains for target //pkg:foo ([0-9a-f]*): No matching toolchains found for types @bazel_tools//tools/jdk:runtime_toolchain_type"
+
+  bazel build --platforms=//pkg:exotic_platform --java_runtime_version=local_jdk \
+    //pkg:foo_deploy.jar &>"$TEST_log" && fail "Build should fail"
+  expect_log "While resolving toolchains for target //pkg:foo_deployjars_internal_rule ([0-9a-f]*): No matching toolchains found for types @bazel_tools//tools/jdk:runtime_toolchain_type"
+}
+
+function test_executable_java_binary_fails_without_runtime_with_remote_jdk() {
+  mkdir -p pkg
+  cat > pkg/BUILD.bazel <<'EOF'
+platform(name = "exotic_platform")
+java_binary(
+  name = "foo",
+  srcs = ["Foo.java"],
+  main_class = "com.example.Foo",
+)
+EOF
+
+    cat > pkg/Foo.java <<'EOF'
+package com.example;
+public class Foo {
+  public static void main(String[] args) {
+    System.out.println("Hello World!");
+  }
+}
+EOF
+
+  bazel build --platforms=//pkg:exotic_platform --java_runtime_version=remotejdk_11 \
+    //pkg:foo &>"$TEST_log" && fail "Build should fail"
+  expect_log "While resolving toolchains for target //pkg:foo ([0-9a-f]*): No matching toolchains found for types @bazel_tools//tools/jdk:runtime_toolchain_type"
+
+  bazel build --platforms=//pkg:exotic_platform --java_runtime_version=remotejdk_11 \
+    //pkg:foo_deploy.jar &>"$TEST_log" && fail "Build should fail"
+  expect_log "While resolving toolchains for target //pkg:foo_deployjars_internal_rule ([0-9a-f]*): No matching toolchains found for types @bazel_tools//tools/jdk:runtime_toolchain_type"
 }
 
 run_suite "Java toolchains tests, configured using flags or the default_java_toolchain macro."

@@ -2338,8 +2338,8 @@ function test_empty_tree_artifact_as_inputs() {
   bazel build \
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_remote_discard_merkle_trees \
-    //pkg:a &>$TEST_log || fail "expected build to succeed with Merkle tree discarding"
+    --experimental_remote_discard_merkle_trees=false \
+    //pkg:a &>$TEST_log || fail "expected build to succeed without Merkle tree discarding"
 
   bazel clean --expunge
   bazel build \
@@ -2419,8 +2419,8 @@ function test_create_tree_artifact_outputs() {
   bazel build \
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_remote_discard_merkle_trees \
-    //pkg:a &>$TEST_log || fail "expected build to succeed with Merkle tree discarding"
+    --experimental_remote_discard_merkle_trees=false \
+    //pkg:a &>$TEST_log || fail "expected build to succeed without Merkle tree discarding"
   [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
   [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
 
@@ -3180,8 +3180,8 @@ EOF
     build \
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_remote_discard_merkle_trees \
-    //pkg:b &>$TEST_log || fail "expected build to succeed with Merkle tree discarding"
+    --experimental_remote_discard_merkle_trees=false \
+    //pkg:b &>$TEST_log || fail "expected build to succeed without Merkle tree discarding"
 
   if [[ "$(cat bazel-bin/pkg/b.txt)" != "$link_target" ]]; then
     fail "expected symlink target to be $link_target"

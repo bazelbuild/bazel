@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyCacher;
@@ -426,11 +425,6 @@ public final class LtoBackendActionTemplate extends ActionKeyCacher
   @Override
   public NestedSet<Artifact> getSchedulingDependencies() {
     return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-  }
-
-  @Override
-  public boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action) {
-    return this != action;
   }
 
   @Override

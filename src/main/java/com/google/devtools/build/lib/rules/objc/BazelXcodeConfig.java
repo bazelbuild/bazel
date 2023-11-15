@@ -1,4 +1,4 @@
-// Copyright 2016 The Bazel Authors. All rights reserved.
+// Copyright 2023 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,15 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+package com.google.devtools.build.lib.rules.objc;
 
-package com.google.devtools.build.lib.rules.proto;
+/** An {@code xcode_config} rule with the default "Xcode unavailable" error message. */
+public class BazelXcodeConfig extends XcodeConfig {
+  private static final String UNAVAILABLE_XCODE_COMMAND = "bazel sync --configure";
 
-import com.google.common.annotations.VisibleForTesting;
-
-/** Constructs actions to run the protocol compiler to generate sources from .proto files. */
-public class ProtoCompileActionBuilder {
-
-  @VisibleForTesting
-  public static final String STRICT_DEPS_FLAG_TEMPLATE =
-      "--direct_dependencies_violation_msg=" + ProtoConstants.STRICT_PROTO_DEPS_VIOLATION_MESSAGE;
+  public BazelXcodeConfig() {
+    super(UNAVAILABLE_XCODE_COMMAND);
+  }
 }

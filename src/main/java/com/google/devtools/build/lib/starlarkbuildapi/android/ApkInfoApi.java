@@ -15,15 +15,18 @@ package com.google.devtools.build.lib.starlarkbuildapi.android;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
+import net.starlark.java.eval.Sequence;
 
 /** A provider for targets that produce an apk file. */
 @StarlarkBuiltin(
@@ -120,15 +123,73 @@ public interface ApkInfoApi<FileT extends FileApi> extends StructApi {
           "Do not use this module. It is intended for migration purposes only. If you depend on "
               + "it, you will be broken when it is removed.",
       documented = false)
-  interface ApkInfoApiProvider extends ProviderApi {
+  interface ApkInfoApiProvider<FileT extends FileApi> extends ProviderApi {
 
     @StarlarkMethod(
         name = "ApkInfo",
-        // This is left undocumented as it throws a "not-implemented in Starlark" error when
-        // invoked.
+        doc = "The <code>ApkInfo<code> constructor.",
         documented = false,
-        extraKeywords = @Param(name = "kwargs"),
+        parameters = {
+          @Param(
+              name = "signed_apk",
+              doc = "The signed APK file.",
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+              },
+              named = true),
+          @Param(
+              name = "unsigned_apk",
+              doc = "The unsigned APK file.",
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+              },
+              named = true),
+          @Param(
+              name = "deploy_jar",
+              doc = "The deploy jar file.",
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+              },
+              named = true),
+          @Param(
+              name = "coverage_metadata",
+              doc = "The coverage metadata file generated in the transitive closure.",
+              allowedTypes = {@ParamType(type = FileApi.class), @ParamType(type = NoneType.class)},
+              named = true),
+          @Param(
+              name = "merged_manifest",
+              doc = "The merged manifest file.",
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+              },
+              named = true),
+          @Param(
+              name = "signing_keys",
+              doc = "The list of signing keys used to sign the APK.",
+              allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)},
+              named = true),
+          @Param(
+              name = "signing_lineage",
+              doc = "The signing lineage file. If present, that was used to sign the APK",
+              allowedTypes = {@ParamType(type = FileApi.class), @ParamType(type = NoneType.class)},
+              named = true),
+          @Param(
+              name = "signing_min_v3_rotation_api_version",
+              doc = "The minimum API version for signing the APK with key rotation.",
+              allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+              named = true),
+        },
         selfCall = true)
-    ApkInfoApi<?> createInfo(Dict<String, Object> kwargs) throws EvalException;
+    @StarlarkConstructor
+    ApkInfoApi<FileT> createInfo(
+        FileT signedApk,
+        FileT unsignedApk,
+        FileT deployJar,
+        Object coverageMetadata,
+        FileT mergedManifest,
+        Sequence<?> signingKeys, // <Artifact> expected
+        Object signingLineage,
+        Object signingMinV3RotationApiVersion)
+        throws EvalException;
   }
 }

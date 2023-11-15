@@ -2003,6 +2003,14 @@ public final class OptionsParserTest {
       defaultValue = "defaultValue"
     )
     public String flag;
+
+    @Option(
+        name = "new_boolean_name",
+        oldName = "old_boolean_name",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false")
+    public boolean booleanFlag;
   }
 
   @Test
@@ -2041,6 +2049,107 @@ public final class OptionsParserTest {
   public void testOldNameCanonicalization() throws Exception {
     assertThat(canonicalize(OldNameExample.class, "--old_name=foo"))
         .containsExactly("--new_name=foo");
+  }
+
+  @Test
+  public void testOldName_booleanTrue() throws OptionsParsingException {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
+    parser.parse("--old_boolean_name=true");
+    OldNameExample result = parser.getOptions(OldNameExample.class);
+    assertThat(result.booleanFlag).isTrue();
+    // Using old option name should cause a warning.
+    assertThat(parser.getWarnings())
+        .contains("Option 'old_boolean_name' is deprecated: Use --new_boolean_name instead");
+    assertThat(parser.getWarnings()).containsNoDuplicates();
+
+    parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
+    parser.parse("--new_boolean_name=true");
+    result = parser.getOptions(OldNameExample.class);
+    assertThat(result.booleanFlag).isTrue();
+    // Should be no warnings if the new name is used.
+    assertThat(parser.getWarnings()).isEmpty();
+  }
+
+  @Test
+  public void testOldName_booleanFalse() throws OptionsParsingException {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
+    parser.parse("--old_boolean_name=false");
+    OldNameExample result = parser.getOptions(OldNameExample.class);
+    assertThat(result.booleanFlag).isFalse();
+    // Using old option name should cause a warning.
+    assertThat(parser.getWarnings())
+        .contains("Option 'old_boolean_name' is deprecated: Use --new_boolean_name instead");
+    assertThat(parser.getWarnings()).containsNoDuplicates();
+
+    parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
+    parser.parse("--new_boolean_name=false");
+    result = parser.getOptions(OldNameExample.class);
+    assertThat(result.booleanFlag).isFalse();
+    // Should be no warnings if the new name is used.
+    assertThat(parser.getWarnings()).isEmpty();
+  }
+
+  @Test
+  public void testOldName_specialBooleanSyntax() throws OptionsParsingException {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
+    parser.parse("--old_boolean_name");
+    OldNameExample result = parser.getOptions(OldNameExample.class);
+    assertThat(result.booleanFlag).isTrue();
+    // Using old option name should cause a warning.
+    assertThat(parser.getWarnings())
+        .contains("Option 'old_boolean_name' is deprecated: Use --new_boolean_name instead");
+    assertThat(parser.getWarnings()).containsNoDuplicates();
+
+    parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
+    parser.parse("--new_boolean_name");
+    result = parser.getOptions(OldNameExample.class);
+    assertThat(result.booleanFlag).isTrue();
+    // Should be no warnings if the new name is used.
+    assertThat(parser.getWarnings()).isEmpty();
+  }
+
+  @Test
+  public void testOldName_negatedSpecialBooleanSyntax() throws OptionsParsingException {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
+    parser.parse("--noold_boolean_name");
+    OldNameExample result = parser.getOptions(OldNameExample.class);
+    assertThat(result.booleanFlag).isFalse();
+    // Using old option name should cause a warning.
+    assertThat(parser.getWarnings())
+        .contains("Option 'old_boolean_name' is deprecated: Use --new_boolean_name instead");
+    assertThat(parser.getWarnings()).containsNoDuplicates();
+
+    parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
+    parser.parse("--nonew_boolean_name");
+    result = parser.getOptions(OldNameExample.class);
+    assertThat(result.booleanFlag).isFalse();
+    // Should be no warnings if the new name is used.
+    assertThat(parser.getWarnings()).isEmpty();
+  }
+
+  @Test
+  public void testOldName_repeatedBooleanFlag() throws OptionsParsingException {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
+    parser.parse("--old_boolean_name=false", "--old_boolean_name");
+    OldNameExample result = parser.getOptions(OldNameExample.class);
+    assertThat(result.booleanFlag).isTrue();
+    // Using old option name should cause a single warning even if the old name was specified
+    // multiple times.
+    assertThat(parser.getWarnings())
+        .contains("Option 'old_boolean_name' is deprecated: Use --new_boolean_name instead");
+    assertThat(parser.getWarnings()).containsNoDuplicates();
+  }
+
+  @Test
+  public void testOldName_overriddenByNewName() throws OptionsParsingException {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
+    parser.parse("--old_boolean_name=false", "--new_boolean_name");
+    OldNameExample result = parser.getOptions(OldNameExample.class);
+    assertThat(result.booleanFlag).isTrue();
+    // Using old option name should cause a warning even when overridden by new name.
+    assertThat(parser.getWarnings())
+        .contains("Option 'old_boolean_name' is deprecated: Use --new_boolean_name instead");
+    assertThat(parser.getWarnings()).containsNoDuplicates();
   }
 
   public static class OldNameNoWarningExample extends OptionsBase {

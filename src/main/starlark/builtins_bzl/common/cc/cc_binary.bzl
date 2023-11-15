@@ -14,11 +14,13 @@
 
 """cc_binary Starlark implementation replacing native"""
 
-load(":common/cc/semantics.bzl", "semantics")
-load(":common/cc/cc_shared_library.bzl", "GraphNodeInfo", "add_unused_dynamic_deps", "build_exports_map_from_only_dynamic_deps", "build_link_once_static_libs_map", "merge_cc_shared_library_infos", "separate_static_and_dynamic_link_libraries", "sort_linker_inputs", "throw_linked_but_not_exported_errors")
+load(":common/cc/cc_binary_attrs.bzl", "cc_binary_attrs")
+load(":common/cc/cc_shared_library.bzl", "cc_shared_library_initializer")
+load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper", "linker_mode")
 load(":common/cc/cc_info.bzl", "CcInfo")
-load(":common/cc/cc_common.bzl", "cc_common")
+load(":common/cc/cc_shared_library.bzl", "GraphNodeInfo", "add_unused_dynamic_deps", "build_exports_map_from_only_dynamic_deps", "build_link_once_static_libs_map", "merge_cc_shared_library_infos", "separate_static_and_dynamic_link_libraries", "sort_linker_inputs", "throw_linked_but_not_exported_errors")
+load(":common/cc/semantics.bzl", "semantics")
 
 DebugPackageInfo = _builtins.toplevel.DebugPackageInfo
 cc_internal = _builtins.internal.cc_internal
@@ -340,7 +342,7 @@ def _filter_libraries_that_are_linked_dynamically(ctx, feature_configuration, cc
     static_linker_inputs = []
     linker_inputs = cc_linking_context.linker_inputs.to_list()
 
-    all_deps = ctx.attr.deps + semantics.get_cc_runtimes(ctx, _is_link_shared(ctx))
+    all_deps = ctx.attr._deps_analyzed_by_graph_structure_aspect
     graph_structure_aspect_nodes = [dep[GraphNodeInfo] for dep in all_deps if GraphNodeInfo in dep]
 
     can_be_linked_dynamically = {}
@@ -633,7 +635,6 @@ def cc_binary_impl(ctx, additional_linkopts):
         user_compile_flags = cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions),
         defines = cc_helper.defines(ctx, additional_make_variable_substitutions),
         local_defines = cc_helper.local_defines(ctx, additional_make_variable_substitutions) + cc_helper.get_local_defines_for_runfiles_lookup(ctx),
-        loose_includes = common.loose_include_dirs,
         system_includes = cc_helper.system_include_dirs(ctx, additional_make_variable_substitutions),
         private_hdrs = cc_helper.get_private_hdrs(ctx),
         public_hdrs = cc_helper.get_public_hdrs(ctx),
@@ -641,7 +642,6 @@ def cc_binary_impl(ctx, additional_linkopts):
         srcs = cc_helper.get_srcs(ctx),
         compilation_contexts = compilation_context_deps,
         code_coverage_enabled = cc_helper.is_code_coverage_enabled(ctx = ctx),
-        hdrs_checking_mode = semantics.determine_headers_checking_mode(ctx),
     )
     precompiled_file_objects = cc_common.create_compilation_outputs(
         objects = depset(precompiled_files[0]),  # objects
@@ -910,20 +910,20 @@ def _impl(ctx):
 
     return providers
 
-def make_cc_binary(cc_binary_attrs, **kwargs):
-    return rule(
-        implementation = _impl,
-        attrs = cc_binary_attrs,
-        outputs = {
-            "stripped_binary": "%{name}.stripped",
-            "dwp_file": "%{name}.dwp",
-        },
-        fragments = ["cpp"] + semantics.additional_fragments(),
-        exec_groups = {
-            "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
-        },
-        toolchains = cc_helper.use_cpp_toolchain() +
-                     semantics.get_runtimes_toolchain(),
-        executable = True,
-        **kwargs
-    )
+cc_binary = rule(
+    implementation = _impl,
+    initializer = cc_shared_library_initializer,
+    attrs = cc_binary_attrs,
+    outputs = {
+        "stripped_binary": "%{name}.stripped",
+        "dwp_file": "%{name}.dwp",
+    },
+    fragments = ["cpp"] + semantics.additional_fragments(),
+    exec_groups = {
+        "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
+    },
+    toolchains = cc_helper.use_cpp_toolchain() +
+                 semantics.get_runtimes_toolchain(),
+    provides = [CcInfo],
+    executable = True,
+)

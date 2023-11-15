@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RepoMappingManifestAction;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.SourceManifestAction;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
@@ -264,44 +263,6 @@ public abstract class PyBuiltins implements StarlarkValue {
         .getExpander(builder.buildOrThrow())
         .withDataLocations() // Enables $(location) expansion.
         .expand(attributeName, expression);
-  }
-
-  // TODO(b/232136319): Remove this once the --experimental_build_transitive_python_runfiles
-  // flag is flipped and removed.
-  @StarlarkMethod(
-      name = "new_empty_runfiles_with_middleman",
-      doc = "Create an empty runfiles object with the current ctx's middleman attached.",
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true, defaultValue = "unbound"),
-        @Param(
-            name = "runfiles_for_runfiles_support",
-            positional = false,
-            named = true,
-            defaultValue = "unbound",
-            doc =
-                "Runfiles used to create RunfilesSupport; they are not added to the "
-                    + "returned runfiles object."),
-        @Param(
-            name = "executable_for_runfiles_support",
-            positional = false,
-            named = true,
-            defaultValue = "unbound",
-            doc =
-                "File; used to create RunfilesSupport; they are not added to the "
-                    + "returned runfiles object."),
-      })
-  public Object newEmptyRunfilesWithMiddleman(
-      StarlarkRuleContext starlarkCtx, Runfiles runfiles, Artifact executable)
-      throws EvalException, InterruptedException {
-    // NOTE: The RunfilesSupport created here must exactly match the one done as part of Starlark
-    // rule processing, otherwise action output conflicts occur. See
-    // https://github.com/bazelbuild/bazel/blob/1940c5d68136ce2079efa8ff74d4e5fdf63ee3e6/src/main/java/com/google/devtools/build/lib/analysis/starlark/StarlarkRuleConfiguredTargetUtil.java#L642-L651
-    RunfilesSupport runfilesSupport =
-        RunfilesSupport.withExecutable(starlarkCtx.getRuleContext(), runfiles, executable);
-    return new Runfiles.Builder(
-            starlarkCtx.getWorkspaceName(), starlarkCtx.getConfiguration().legacyExternalRunfiles())
-        .addLegacyExtraMiddleman(runfilesSupport.getRunfilesMiddleman())
-        .build();
   }
 
   @StarlarkMethod(

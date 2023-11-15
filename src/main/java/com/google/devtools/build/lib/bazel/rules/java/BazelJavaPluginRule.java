@@ -22,7 +22,6 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClass;
 
 /**
@@ -39,9 +38,6 @@ public final class BazelJavaPluginRule implements RuleDefinition {
           <li><code><var>libname</var>.jar</code>: A Java archive.</li>
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS --> */
-        .setImplicitOutputsFunction(BazelJavaRuleClasses.JAVA_LIBRARY_IMPLICIT_OUTPUTS)
-        .override(builder.copy("deps").validityPredicate(Attribute.ANY_EDGE))
-        .override(builder.copy("srcs").validityPredicate(Attribute.ANY_EDGE))
         /* <!-- #BLAZE_RULE(java_plugin).ATTRIBUTE(processor_class) -->
         The processor class is the fully qualified type of the class that the Java compiler should
         use as entry point to the annotation processor. If not specified, this rule will not

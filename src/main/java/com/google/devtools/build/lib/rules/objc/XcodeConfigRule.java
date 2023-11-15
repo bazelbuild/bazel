@@ -35,6 +35,12 @@ public class XcodeConfigRule implements RuleDefinition {
   static final String REMOTE_VERSIONS_ATTR_NAME = "remote_versions";
   static final String LOCAL_VERSIONS_ATTR_NAME = "local_versions";
 
+  private final Class<? extends XcodeConfig> xcodeConfigFactory;
+
+  public XcodeConfigRule(Class<? extends XcodeConfig> xcodeConfigFactory) {
+    this.xcodeConfigFactory = xcodeConfigFactory;
+  }
+
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
@@ -93,7 +99,7 @@ public class XcodeConfigRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("xcode_config")
         .ancestors(BaseRuleClasses.NativeBuildRule.class)
-        .factoryClass(XcodeConfig.class)
+        .factoryClass(xcodeConfigFactory)
         .build();
   }
 }

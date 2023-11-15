@@ -446,17 +446,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean incompatibleVisibilityPrivateAttributesAtDefinition;
 
   @Option(
-      name = "incompatible_new_actions_api",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, the API to create actions is only available on `ctx.actions`, "
-              + "not on `ctx`.")
-  public boolean incompatibleNewActionsApi;
-
-  @Option(
       name = "incompatible_no_attr_license",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -651,7 +640,7 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_disable_objc_library_transition",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -700,6 +689,20 @@ public final class BuildLanguageOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "Enable experimental rule extension API and subrule APIs")
   public boolean experimentalRuleExtensionApi;
+
+  @Option(
+      name = "separate_aspect_deps",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "If enabled, the dependencies of the main aspect in an aspect path will be"
+              + " separated from those of the target and the base aspects. ctx.attr.{attr_name}"
+              + " will always get the attribute value from the main aspect and"
+              + " ctx.rule.attr.{attr_name} will get the value from the rule if it has an attribute"
+              + " with that name or from the base aspects attributes (first one in"
+              + " the aspects path wins).")
+  public boolean separateAspectDeps;
 
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
@@ -754,7 +757,6 @@ public final class BuildLanguageOptions extends OptionsBase {
                 INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX,
                 incompatibleFixPackageGroupReporootSyntax)
             .setBool(INCOMPATIBLE_JAVA_COMMON_PARAMETERS, incompatibleJavaCommonParameters)
-            .setBool(INCOMPATIBLE_NEW_ACTIONS_API, incompatibleNewActionsApi)
             .setBool(INCOMPATIBLE_NO_ATTR_LICENSE, incompatibleNoAttrLicense)
             .setBool(INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT, incompatibleNoImplicitFileExport)
             .setBool(INCOMPATIBLE_NO_PACKAGE_DISTRIBS, incompatibleNoPackageDistribs)
@@ -804,6 +806,7 @@ public final class BuildLanguageOptions extends OptionsBase {
                 INCOMPATIBLE_DISABLE_NON_EXECUTABLE_JAVA_BINARY,
                 incompatibleDisableNonExecutableJavaBinary)
             .setBool(EXPERIMENTAL_RULE_EXTENSION_API, experimentalRuleExtensionApi)
+            .setBool(SEPARATE_ASPECT_DEPS, separateAspectDeps)
             .build();
     return INTERNER.intern(semantics);
   }
@@ -861,7 +864,6 @@ public final class BuildLanguageOptions extends OptionsBase {
       "+incompatible_do_not_split_linking_cmdline";
   public static final String INCOMPATIBLE_JAVA_COMMON_PARAMETERS =
       "+incompatible_java_common_parameters";
-  public static final String INCOMPATIBLE_NEW_ACTIONS_API = "+incompatible_new_actions_api";
   public static final String INCOMPATIBLE_NO_ATTR_LICENSE = "+incompatible_no_attr_license";
   public static final String INCOMPATIBLE_NO_PACKAGE_DISTRIBS = "-incompatible_no_package_distribs";
   public static final String INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT =
@@ -889,7 +891,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String INCOMPATIBLE_OBJC_PROVIDER_REMOVE_LINKING_INFO =
       "-incompatible_objc_provider_remove_linking_info";
   public static final String INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION =
-      "-incompatible_disable_objc_library_transition";
+      "+incompatible_disable_objc_library_transition";
   public static final String INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES =
       "+incompatible_fail_on_unknown_attributes";
   public static final String INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION =
@@ -897,6 +899,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String INCOMPATIBLE_DISABLE_NON_EXECUTABLE_JAVA_BINARY =
       "-incompatible_disable_non_executable_java_binary";
   public static final String EXPERIMENTAL_RULE_EXTENSION_API = "-experimental_rule_extension_api";
+  public static final String SEPARATE_ASPECT_DEPS = "-separate_aspect_deps";
 
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =

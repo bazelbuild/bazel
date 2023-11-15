@@ -58,7 +58,6 @@ def _cc_library_impl(ctx):
         user_compile_flags = cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions),
         defines = cc_helper.defines(ctx, additional_make_variable_substitutions),
         local_defines = cc_helper.local_defines(ctx, additional_make_variable_substitutions) + cc_helper.get_local_defines_for_runfiles_lookup(ctx),
-        loose_includes = common.loose_include_dirs,
         system_includes = cc_helper.system_include_dirs(ctx, additional_make_variable_substitutions),
         copts_filter = cc_helper.copts_filter(ctx, additional_make_variable_substitutions),
         purpose = "cc_library-compile",
@@ -68,7 +67,6 @@ def _cc_library_impl(ctx):
         code_coverage_enabled = cc_helper.is_code_coverage_enabled(ctx),
         compilation_contexts = compilation_contexts,
         implementation_compilation_contexts = implementation_compilation_contexts,
-        hdrs_checking_mode = semantics.determine_headers_checking_mode(ctx),
         textual_hdrs = ctx.files.textual_hdrs,
         include_prefix = ctx.attr.include_prefix,
         strip_include_prefix = ctx.attr.strip_include_prefix,
@@ -608,7 +606,6 @@ attrs = {
     "_use_auto_exec_groups": attr.bool(default = True),
 }
 attrs.update(semantics.get_distribs_attr())
-attrs.update(semantics.get_loose_mode_in_hdrs_check_allowed_attr())
 attrs.update(semantics.get_implementation_deps_allowed_attr())
 attrs.update(semantics.get_nocopts_attr())
 

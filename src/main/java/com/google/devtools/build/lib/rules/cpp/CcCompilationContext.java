@@ -64,7 +64,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
   private final CommandLineCcCompilationContext commandLineCcCompilationContext;
 
-  private final NestedSet<PathFragment> looseHdrsDirs;
   private final NestedSet<Artifact> declaredIncludeSrcs;
 
   /** Module maps from direct dependencies. */
@@ -87,8 +86,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   // Derived from depsContexts.
   private final NestedSet<Artifact> compilationPrerequisites;
 
-  private final CppConfiguration.HeadersCheckingMode headersCheckingMode;
-
   // Each pair maps the Bazel generated paths of virtual include headers back to their original path
   // relative to the workspace directory.
   // For example it can map
@@ -109,7 +106,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   private CcCompilationContext(
       CommandLineCcCompilationContext commandLineCcCompilationContext,
       NestedSet<Artifact> compilationPrerequisites,
-      NestedSet<PathFragment> looseHdrsDirs,
       NestedSet<Artifact> declaredIncludeSrcs,
       NestedSet<Artifact> nonCodeInputs,
       HeaderInfo headerInfo,
@@ -119,12 +115,10 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       ImmutableList<CppModuleMap> exportingModuleMaps,
       CppModuleMap cppModuleMap,
       boolean propagateModuleMapAsActionInput,
-      CppConfiguration.HeadersCheckingMode headersCheckingMode,
       NestedSet<Tuple> virtualToOriginalHeaders,
       NestedSet<Artifact> headerTokens) {
     Preconditions.checkNotNull(commandLineCcCompilationContext);
     this.commandLineCcCompilationContext = commandLineCcCompilationContext;
-    this.looseHdrsDirs = looseHdrsDirs;
     this.declaredIncludeSrcs = declaredIncludeSrcs;
     this.directModuleMaps = directModuleMaps;
     this.exportingModuleMaps = exportingModuleMaps;
@@ -135,7 +129,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     this.nonCodeInputs = nonCodeInputs;
     this.compilationPrerequisites = compilationPrerequisites;
     this.propagateModuleMapAsActionInput = propagateModuleMapAsActionInput;
-    this.headersCheckingMode = headersCheckingMode;
     this.virtualToOriginalHeaders = virtualToOriginalHeaders;
     this.transitiveHeaderCount = -1;
     this.headerTokens = headerTokens;
@@ -347,14 +340,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
    */
   public ImmutableList<PathFragment> getExternalIncludeDirs() {
     return commandLineCcCompilationContext.externalIncludeDirs;
-  }
-
-  /**
-   * Returns the immutable set of declared include directories, relative to a "-I" or "-iquote"
-   * directory" (possibly empty but never null).
-   */
-  public NestedSet<PathFragment> getLooseHdrsDirs() {
-    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
   /**
@@ -653,7 +638,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     return new CcCompilationContext(
         ccCompilationContext.commandLineCcCompilationContext,
         ccCompilationContext.compilationPrerequisites,
-        ccCompilationContext.looseHdrsDirs,
         ccCompilationContext.declaredIncludeSrcs,
         ccCompilationContext.nonCodeInputs,
         ccCompilationContext.headerInfo,
@@ -663,7 +647,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         ccCompilationContext.exportingModuleMaps,
         ccCompilationContext.cppModuleMap,
         ccCompilationContext.propagateModuleMapAsActionInput,
-        ccCompilationContext.headersCheckingMode,
         ccCompilationContext.virtualToOriginalHeaders,
         headerTokens.build());
   }
@@ -731,7 +714,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         new TransitiveSetHelper<>();
     private final TransitiveSetHelper<PathFragment> externalIncludeDirs =
         new TransitiveSetHelper<>();
-    private final NestedSetBuilder<PathFragment> looseHdrsDirs = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> declaredIncludeSrcs = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> nonCodeInputs = NestedSetBuilder.stableOrder();
     private final HeaderInfo.Builder headerInfoBuilder = new HeaderInfo.Builder();
@@ -742,8 +724,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     private final Set<String> localDefines = new LinkedHashSet<>();
     private CppModuleMap cppModuleMap;
     private boolean propagateModuleMapAsActionInput = true;
-    private CppConfiguration.HeadersCheckingMode headersCheckingMode =
-        CppConfiguration.HeadersCheckingMode.STRICT;
     private final NestedSetBuilder<Tuple> virtualToOriginalHeaders = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
 
@@ -793,7 +773,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       systemIncludeDirs.addTransitive(otherCcCompilationContext.getSystemIncludeDirs());
       frameworkIncludeDirs.addTransitive(otherCcCompilationContext.getFrameworkIncludeDirs());
       externalIncludeDirs.addTransitive(otherCcCompilationContext.getExternalIncludeDirs());
-      looseHdrsDirs.addTransitive(otherCcCompilationContext.getLooseHdrsDirs());
       declaredIncludeSrcs.addTransitive(otherCcCompilationContext.getDeclaredIncludeSrcs());
       headerInfoBuilder.addDep(otherCcCompilationContext.headerInfo);
 
@@ -968,13 +947,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       return this;
     }
 
-    /** Add a single declared include dir, relative to a "-I" or "-iquote" directory". */
-    @CanIgnoreReturnValue
-    public Builder addLooseHdrsDir(PathFragment dir) {
-      looseHdrsDirs.add(dir);
-      return this;
-    }
-
     /**
      * Adds a header that has been declared in the {@code src} or {@code headers attribute}. The
      * header will also be added to the compilation prerequisites.
@@ -1096,13 +1068,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     }
 
     @CanIgnoreReturnValue
-    public Builder setHeadersCheckingMode(
-        CppConfiguration.HeadersCheckingMode headersCheckingMode) {
-      this.headersCheckingMode = headersCheckingMode;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
     public Builder addVirtualToOriginalHeaders(NestedSet<Tuple> virtualToOriginalHeaders) {
       this.virtualToOriginalHeaders.addTransitive(virtualToOriginalHeaders);
       return this;
@@ -1139,7 +1104,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
               allDefines.getMergedResult(),
               ImmutableList.copyOf(localDefines)),
           constructedPrereq,
-          looseHdrsDirs.build(),
           declaredIncludeSrcs.build(),
           nonCodeInputs.build(),
           headerInfo,
@@ -1149,7 +1113,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
           ImmutableList.copyOf(exportingModuleMaps),
           cppModuleMap,
           propagateModuleMapAsActionInput,
-          headersCheckingMode,
           virtualToOriginalHeaders.build(),
           headerTokens.build());
     }

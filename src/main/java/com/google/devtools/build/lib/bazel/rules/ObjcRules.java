@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.objc.AppleCcToolchainRule;
 import com.google.devtools.build.lib.rules.objc.AppleStarlarkCommon;
 import com.google.devtools.build.lib.rules.objc.AppleToolchain;
+import com.google.devtools.build.lib.rules.objc.BazelXcodeConfig;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcImportBaseRule;
@@ -69,7 +70,7 @@ public class ObjcRules implements RuleSet {
     builder.addRuleDefinition(new ObjcRuleClasses.SdkFrameworksDependerRule());
     builder.addRuleDefinition(new ObjcRuleClasses.CompileDependencyRule());
     builder.addRuleDefinition(new ObjcRuleClasses.CrosstoolRule());
-    builder.addRuleDefinition(new XcodeConfigRule());
+    builder.addRuleDefinition(new XcodeConfigRule(BazelXcodeConfig.class));
     builder.addRuleDefinition(new XcodeConfigAliasRule());
     builder.addRuleDefinition(new AvailableXcodesRule());
     builder.addRuleDefinition(new XcodeVersionRule());

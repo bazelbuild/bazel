@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROU
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -66,12 +65,6 @@ public class ExecutionTransitionFactory
    */
   public static ExecutionTransitionFactory createFactory(String execGroup) {
     return new ExecutionTransitionFactory(execGroup);
-  }
-
-  /** Returns a new {@link NativeExecTransition} immediately. */
-  public static PatchTransition createTransition(@Nullable Label executionPlatform) {
-    // TODO(b/288258583): support Starlark transitions.
-    return new ExecTransitionFinalizer(executionPlatform, NativeExecTransition.INSTANCE);
   }
 
   /**
@@ -218,7 +211,8 @@ public class ExecutionTransitionFactory
     }
 
     @Override
-    public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
+    public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler)
+        throws InterruptedException {
       if (executionPlatform == null) {
         // No execution platform is known, so don't change anything.
         return options.underlying();
@@ -242,18 +236,14 @@ public class ExecutionTransitionFactory
     private static BuildOptions transitionImpl(
         BuildOptionsView options,
         Pair<Label, ConfigurationTransition> data,
-        @Nullable EventHandler eventHandler) {
+        @Nullable EventHandler eventHandler)
+        throws InterruptedException {
       Label executionPlatform = data.first;
       ConfigurationTransition mainTransition = data.second;
 
-      BuildOptions execOptions;
-      try {
-        Map.Entry<String, BuildOptions> splitOptions =
-            Iterables.getOnlyElement(mainTransition.apply(options, eventHandler).entrySet());
-        execOptions = splitOptions.getValue();
-      } catch (InterruptedException e) {
-        throw new VerifyException(e);
-      }
+      Map.Entry<String, BuildOptions> splitOptions =
+          Iterables.getOnlyElement(mainTransition.apply(options, eventHandler).entrySet());
+      BuildOptions execOptions = splitOptions.getValue();
 
       // Set the target to the saved execution platform if there is one.
       PlatformOptions platformOptions = execOptions.get(PlatformOptions.class);

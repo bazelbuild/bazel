@@ -46,8 +46,9 @@ def _run_singlejar(ctx):
     ctx.actions.run(
         inputs = ctx.files.srcs,
         outputs = [ctx.outputs.out],
-        executable = ctx.attr._java_toolchain[java_common.JavaToolchainInfo].single_jar,
+        executable = ctx.toolchains["@bazel_tools//tools/jdk:toolchain_type"].java.single_jar,
         arguments = [args],
+        toolchain = "@bazel_tools//tools/jdk:toolchain_type",
     )
 
     return [DefaultInfo(files = depset([ctx.outputs.out]))]
@@ -59,9 +60,6 @@ run_singlejar = rule(
         "srcs": attr.label_list(mandatory = True),
         "out": attr.output(mandatory = True),
         "include_prefixes": attr.string_list(),
-        "_java_toolchain": attr.label(
-            default = "//tools/jdk:current_java_toolchain",
-            providers = [java_common.JavaToolchainInfo],
-        ),
     },
+    toolchains = ["@bazel_tools//tools/jdk:toolchain_type"],
 )

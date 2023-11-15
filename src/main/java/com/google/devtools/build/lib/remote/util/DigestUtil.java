@@ -103,6 +103,14 @@ public class DigestUtil {
     return new ActionKey(digest);
   }
 
+  public com.google.devtools.build.lib.exec.Protos.Digest asSpawnLogProto(ActionKey actionKey) {
+    return com.google.devtools.build.lib.exec.Protos.Digest.newBuilder()
+        .setHash(actionKey.getDigest().getHash())
+        .setSizeBytes(actionKey.getDigest().getSizeBytes())
+        .setHashFunctionName(getDigestFunction().toString())
+        .build();
+  }
+
   /** Returns the hash of {@code data} in binary. */
   public byte[] hash(byte[] data) {
     return hashFn.getHashFunction().hashBytes(data).asBytes();

@@ -150,6 +150,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi {
       Object execGroups,
       Object initializer,
       Object parent,
+      Object extendableAllowlistUnchecked,
       Sequence<?> subrules,
       StarlarkThread thread)
       throws EvalException {

@@ -19,10 +19,8 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
-import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
@@ -37,7 +35,6 @@ import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.protobuf.ByteString;
 import java.util.AbstractMap;
-import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -100,91 +97,6 @@ public final class BuildOptionsTest {
                     BuildOptions.of(
                         ImmutableList.of(CoreOptions.class, CppOptions.class), options1)))
         .isFalse();
-  }
-
-  @Test
-  public void optionsDiff() throws Exception {
-    BuildOptions one = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--compilation_mode=opt", "cpu=k8");
-    BuildOptions two = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--compilation_mode=dbg", "cpu=k8");
-    BuildOptions three = BuildOptions.of(BUILD_CONFIG_OPTIONS, "--compilation_mode=dbg", "cpu=k8");
-
-    OptionsDiff diffOneTwo = BuildOptions.diff(one, two);
-    OptionsDiff diffTwoThree = BuildOptions.diff(two, three);
-
-    assertThat(diffOneTwo.areSame()).isFalse();
-    assertThat(diffOneTwo.getFirst().keySet()).isEqualTo(diffOneTwo.getSecond().keySet());
-    assertThat(diffOneTwo.prettyPrint()).contains("opt");
-    assertThat(diffOneTwo.prettyPrint()).contains("dbg");
-
-    assertThat(diffTwoThree.areSame()).isTrue();
-  }
-
-  @Test
-  public void optionsDiff_differentFragments() throws Exception {
-    BuildOptions one = BuildOptions.of(ImmutableList.of(CppOptions.class));
-    BuildOptions two = BuildOptions.of(BUILD_CONFIG_OPTIONS);
-
-    OptionsDiff diff = BuildOptions.diff(one, two);
-
-    assertThat(diff.areSame()).isFalse();
-    assertThat(diff.getExtraFirstFragmentClassesForTesting()).containsExactly(CppOptions.class);
-    assertThat(
-            diff.getExtraSecondFragmentsForTesting().stream()
-                .map(Object::getClass)
-                .collect(Collectors.toSet()))
-        .containsExactlyElementsIn(BUILD_CONFIG_OPTIONS);
-  }
-
-  @Test
-  public void optionsDiff_nullOptionsThrow() throws Exception {
-    BuildOptions options =
-        BuildOptions.of(BUILD_CONFIG_OPTIONS, "--compilation_mode=opt", "cpu=k8");
-    assertThrows(NullPointerException.class, () -> BuildOptions.diff(options, null));
-    assertThrows(NullPointerException.class, () -> BuildOptions.diff(null, options));
-  }
-
-  @Test
-  public void optionsDiff_sameStarlarkOptions() {
-    Label flagName = Label.parseCanonicalUnchecked("//foo/flag");
-    String flagValue = "value";
-    BuildOptions one = BuildOptions.of(ImmutableMap.of(flagName, flagValue));
-    BuildOptions two = BuildOptions.of(ImmutableMap.of(flagName, flagValue));
-
-    assertThat(BuildOptions.diff(one, two).areSame()).isTrue();
-  }
-
-  @Test
-  public void optionsDiff_differentStarlarkOptions() {
-    Label flagName = Label.parseCanonicalUnchecked("//bar/flag");
-    String flagValueOne = "valueOne";
-    String flagValueTwo = "valueTwo";
-    BuildOptions one = BuildOptions.of(ImmutableMap.of(flagName, flagValueOne));
-    BuildOptions two = BuildOptions.of(ImmutableMap.of(flagName, flagValueTwo));
-
-    OptionsDiff diff = BuildOptions.diff(one, two);
-
-    assertThat(diff.areSame()).isFalse();
-    assertThat(diff.getStarlarkFirstForTesting().keySet())
-        .isEqualTo(diff.getStarlarkSecondForTesting().keySet());
-    assertThat(diff.getStarlarkFirstForTesting().keySet()).containsExactly(flagName);
-    assertThat(diff.getStarlarkFirstForTesting().values()).containsExactly(flagValueOne);
-    assertThat(diff.getStarlarkSecondForTesting().values()).containsExactly(flagValueTwo);
-  }
-
-  @Test
-  public void optionsDiff_extraStarlarkOptions() {
-    Label flagNameOne = Label.parseCanonicalUnchecked("//extra/flag/one");
-    Label flagNameTwo = Label.parseCanonicalUnchecked("//extra/flag/two");
-    String flagValue = "foo";
-    BuildOptions one = BuildOptions.of(ImmutableMap.of(flagNameOne, flagValue));
-    BuildOptions two = BuildOptions.of(ImmutableMap.of(flagNameTwo, flagValue));
-
-    OptionsDiff diff = BuildOptions.diff(one, two);
-
-    assertThat(diff.areSame()).isFalse();
-    assertThat(diff.getExtraStarlarkOptionsFirstForTesting()).containsExactly(flagNameOne);
-    assertThat(diff.getExtraStarlarkOptionsSecondForTesting().entrySet())
-        .containsExactly(Maps.immutableEntry(flagNameTwo, flagValue));
   }
 
   @Test

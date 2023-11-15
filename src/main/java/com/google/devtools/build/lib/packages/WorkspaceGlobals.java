@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.Label.RepoContext;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -71,23 +72,19 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
         .addRepositoryMappingEntry(RepositoryName.MAIN, name, RepositoryName.MAIN);
   }
 
-  private static RepositoryName getRepositoryName(@Nullable Label label) {
-    if (label == null) {
-      // registration happened directly in the main WORKSPACE
+  private static RepositoryName getCurrentRepoName(StarlarkThread thread) {
+    @Nullable // moduleContext is null if we're called directly from a WORKSPACE file.
+    BazelModuleContext moduleContext =
+        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
+    if (moduleContext == null) {
       return RepositoryName.MAIN;
     }
-
-    // registration happened in a loaded bzl file
-    return label.getRepository();
+    return moduleContext.label().getRepository();
   }
 
   private static ImmutableList<TargetPattern> parsePatterns(
       List<String> patterns, Package.Builder builder, StarlarkThread thread) throws EvalException {
-    @Nullable // moduleContext is null if we're called directly from a WORKSPACE file.
-    BazelModuleContext moduleContext =
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
-    RepositoryName myName =
-        getRepositoryName((moduleContext != null ? moduleContext.label() : null));
+    RepositoryName myName = getCurrentRepoName(thread);
     RepositoryMapping renaming = builder.getRepositoryMappingFor(myName);
     TargetPattern.Parser parser =
         new TargetPattern.Parser(PathFragment.EMPTY_FRAGMENT, myName, renaming);
@@ -132,11 +129,16 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     try {
       Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
       RuleClass ruleClass = ruleClassMap.get("bind");
+      RepositoryName currentRepo = getCurrentRepoName(thread);
       WorkspaceFactoryHelper.addBindRule(
           builder,
           ruleClass,
           nameLabel,
-          actual == NONE ? null : Label.parseCanonical((String) actual),
+          actual == NONE
+              ? null
+              : Label.parseWithRepoContext(
+                  (String) actual,
+                  RepoContext.of(currentRepo, builder.getRepositoryMappingFor(currentRepo))),
           thread.getCallStack());
     } catch (InvalidRuleException | Package.NameConflictException | LabelSyntaxException e) {
       throw Starlark.errorf("%s", e.getMessage());

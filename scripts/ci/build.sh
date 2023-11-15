@@ -199,6 +199,8 @@ function release_to_gcs() {
     fi
     create_index_html "${artifact_dir}" > "${artifact_dir}/index.html"
     gsutil -m cp "${artifact_dir}/**" "gs://bazel/${release_path}"
+    # Set the content type on index.html so it isn't autodetected incorrectly by the browser.
+    gsutil setmeta -h "Content-Type: text/html; charset=utf-8" "gs://bazel/${release_path}/index.html"
   fi
 }
 

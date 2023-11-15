@@ -123,7 +123,6 @@ public class SkydocMain {
             .build();
     parser.parseAndExitUponError(args);
     BuildLanguageOptions semanticsOptions = parser.getOptions(BuildLanguageOptions.class);
-    semanticsOptions.incompatibleNewActionsApi = false;
     SkydocOptions skydocOptions = parser.getOptions(SkydocOptions.class);
 
     String targetFileLabelString;

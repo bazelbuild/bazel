@@ -544,6 +544,24 @@ public class Package {
     return containsErrors;
   }
 
+  /**
+   * If {@code pkg.containsErrors()}, sends an errorful "package contains errors" {@link Event}
+   * (augmented with {@code pkg.getFailureDetail()}, if present) to the given {@link EventHandler}.
+   */
+  public static void maybeAddPackageContainsErrorsEventToHandler(
+      Package pkg, EventHandler eventHandler) {
+    if (pkg.containsErrors()) {
+      eventHandler.handle(
+          Event.error(
+              String.format(
+                  "package contains errors: %s%s",
+                  pkg.getNameFragment(),
+                  pkg.getFailureDetail() != null
+                      ? ": " + pkg.getFailureDetail().getMessage()
+                      : "")));
+    }
+  }
+
   void setContainsErrors() {
     containsErrors = true;
   }

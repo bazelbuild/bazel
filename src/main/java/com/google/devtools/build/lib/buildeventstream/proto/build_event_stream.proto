@@ -585,7 +585,11 @@ message ActionExecuted {
   // End of action execution, after all attempted execution completes.
   google.protobuf.Timestamp end_time = 13;
 
-  // Additional details about action execution supplied by any/all strategies.
+  // Additional details about action execution supplied by strategies. Bazel
+  // options will determine which strategy details are included when multiple
+  // strategies are involved in a single action's execution.
+  //
+  // The default type will be `tools.proto.SpawnExec` found in `spawn.proto`.
   repeated google.protobuf.Any strategy_details = 14;
 }
 

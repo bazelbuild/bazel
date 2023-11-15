@@ -85,7 +85,6 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
   private final TransitiveInfoCollection moduleMap;
   private final Artifact moduleMapArtifact;
   private final Artifact zipper;
-  private final Artifact defaultZipper;
   private final String purposePrefix;
   private final String runtimeSolibDirBase;
   private final LicensesProvider licensesProvider;
@@ -100,7 +99,6 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
   private final TransitiveInfoCollection staticRuntimeLib;
   private final TransitiveInfoCollection dynamicRuntimeLib;
   private final PackageSpecificationProvider allowlistForLayeringCheck;
-  private final PackageSpecificationProvider allowlistForLooseHeaderCheck;
   private final StarlarkFunction ccToolchainBuildVariablesFunc;
   private final String lateBoundLibc;
   private final String lateBoundTargetLibc;
@@ -176,7 +174,6 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     this.moduleMap = ruleContext.getPrerequisite("module_map");
     this.moduleMapArtifact = ruleContext.getPrerequisiteArtifact("module_map");
     this.zipper = ruleContext.getPrerequisiteArtifact(":zipper");
-    this.defaultZipper = ruleContext.getPrerequisiteArtifact(":default_zipper");
     this.purposePrefix = Actions.escapeLabel(ruleContext.getLabel()) + "_";
     this.runtimeSolibDirBase = "_solib_" + "_" + Actions.escapeLabel(ruleContext.getLabel());
     this.staticRuntimeLib = ruleContext.getPrerequisite("static_runtime_lib");
@@ -217,9 +214,6 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     this.allowlistForLayeringCheck =
         Allowlist.fetchPackageSpecificationProvider(
             ruleContext, CcToolchainRule.ALLOWED_LAYERING_CHECK_FEATURES_ALLOWLIST);
-    this.allowlistForLooseHeaderCheck =
-        Allowlist.fetchPackageSpecificationProvider(
-            ruleContext, CcToolchainRule.LOOSE_HEADER_CHECK_ALLOWLIST);
     this.ccToolchainBuildVariablesFunc = ccToolchainBuildVariablesFunc;
     this.ccBuildInfoTranslator =
         OutputGroupInfo.get(ruleContext.getPrerequisite("$build_info_translator"));
@@ -458,14 +452,8 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     return xfdoProfileProvider;
   }
 
-  /* Get the FDO-specific zipper. */
   public Artifact getZipper() {
     return zipper;
-  }
-
-  /* Get the non FDO-specific zipper. */
-  public Artifact getDefaultZipper() {
-    return defaultZipper;
   }
 
   public NestedSet<Artifact> getFullInputsForLink() {
@@ -553,10 +541,6 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
 
   public PackageSpecificationProvider getAllowlistForLayeringCheck() {
     return allowlistForLayeringCheck;
-  }
-
-  public PackageSpecificationProvider getAllowlistForLooseHeaderCheck() {
-    return allowlistForLooseHeaderCheck;
   }
 
   public OutputGroupInfo getCcBuildInfoTranslator() {

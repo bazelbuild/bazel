@@ -184,6 +184,8 @@ public final class SandboxHelpers {
         if (SYMLINK.equals(dirent.getType())
             && absPath.readSymbolicLink().equals(destination.get())) {
           inputsToCreate.remove(pathRelativeToWorkDir);
+        } else if (absPath.isDirectory()) {
+          absPath.deleteTree();
         } else {
           absPath.delete();
         }

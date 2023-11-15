@@ -126,31 +126,4 @@ EOF
   bazel test --test_output=streamed //test:a &> $TEST_log || fail "test failed"
 }
 
-function test_building_transitive_py_binary_runfiles_trees() {
-  touch main.py script.sh
-  chmod u+x script.sh
-  cat > BUILD <<'EOF'
-load("@rules_python//python:py_binary.bzl", "py_binary")
-
-py_binary(
-    name = 'py-tool',
-    srcs = ['main.py'],
-    main = 'main.py',
-)
-
-sh_binary(
-    name = 'sh-tool',
-    srcs = ['script.sh'],
-    data = [':py-tool'],
-)
-EOF
-  # Stamping is disabled so that the invocation doesn't time out. What
-  # happens is Google has stamping enabled by default, which causes the
-  # Starlark rule implementation to run an action, which then tries to run
-  # remotely, but network access is disabled by default, so it times out.
-
-  bazel build --noexperimental_build_transitive_python_runfiles --nostamp :sh-tool
-  [ ! -e "bazel-bin/py-tool${EXE_EXT}.runfiles" ] || fail "py_binary runfiles tree built"
-}
-
 run_suite "Tests for the Python rules"

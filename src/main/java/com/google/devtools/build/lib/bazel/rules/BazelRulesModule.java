@@ -300,6 +300,15 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "When enabled java_common.compile only accepts JavaPluginInfo for plugins.")
     public boolean requireJavaPluginInfo;
+
+    @Option(
+        name = "experimental_build_transitive_python_runfiles",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op",
+        oldName = "incompatible_build_transitive_python_runfiles")
+    public boolean buildTransitiveRunfilesTrees;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
@@ -420,6 +429,16 @@ public final class BazelRulesModule extends BlazeModule {
    * want to graveyard an all-command option specific to Blaze or Bazel, create a subclass.
    */
   public static final class AllCommandGraveyardOptions extends OptionsBase {
+
+    @Option(
+        name = "incompatible_new_actions_api",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean incompatibleNewActionsApi;
+
     @Option(
         name = "experimental_enable_aspect_hints",
         defaultValue = "true",

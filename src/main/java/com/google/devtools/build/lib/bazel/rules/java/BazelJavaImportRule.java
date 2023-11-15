@@ -14,18 +14,15 @@
 
 package com.google.devtools.build.lib.bazel.rules.java;
 
-import static com.google.devtools.build.lib.packages.Attribute.ANY_EDGE;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.java.JavaImportBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaToolchainBaseRule;
-import com.google.devtools.build.lib.rules.java.JavaSemantics;
 
 /**
  * Rule definition for the java_import rule.
@@ -33,10 +30,6 @@ import com.google.devtools.build.lib.rules.java.JavaSemantics;
  * <p>This rule is implemented in Starlark. This class remains only for doc-gen purposes.
  */
 public final class BazelJavaImportRule implements RuleDefinition {
-
-  private static final ImmutableSet<String> ALLOWED_DEPS =
-      ImmutableSet.of("java_library", "java_import", "cc_library", "cc_binary");
-
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
@@ -44,32 +37,17 @@ public final class BazelJavaImportRule implements RuleDefinition {
         The list of other libraries to be linked in to the target.
         See <a href="${link java_library.deps}">java_library.deps</a>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(
-            attr("deps", LABEL_LIST)
-                .allowedRuleClasses(ALLOWED_DEPS)
-                .allowedFileTypes() // none allowed
-                .validityPredicate(ANY_EDGE)
-                .mandatoryProvidersList(BazelJavaRuleClasses.MANDATORY_JAVA_PROVIDER_ONLY))
+        .add(attr("deps", LABEL_LIST).allowedFileTypes())
         /* <!-- #BLAZE_RULE(java_import).ATTRIBUTE(exports) -->
         Targets to make available to users of this rule.
         See <a href="${link java_library.exports}">java_library.exports</a>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(
-            attr("exports", LABEL_LIST)
-                .allowedRuleClasses(ALLOWED_DEPS)
-                .allowedFileTypes() // none allowed
-                .validityPredicate(ANY_EDGE)
-                .mandatoryProvidersList(BazelJavaRuleClasses.MANDATORY_JAVA_PROVIDER_ONLY))
+        .add(attr("exports", LABEL_LIST).allowedFileTypes())
         /* <!-- #BLAZE_RULE(java_import).ATTRIBUTE(runtime_deps) -->
         Libraries to make available to the final binary or test at runtime only.
         See <a href="${link java_library.runtime_deps}">java_library.runtime_deps</a>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(
-            attr("runtime_deps", LABEL_LIST)
-                .allowedFileTypes(JavaSemantics.JAR)
-                .allowedRuleClasses(ALLOWED_DEPS)
-                .mandatoryProvidersList(BazelJavaRuleClasses.MANDATORY_JAVA_PROVIDER_ONLY)
-                .skipAnalysisTimeFileTypeCheck())
+        .add(attr("runtime_deps", LABEL_LIST).allowedFileTypes())
         .build();
   }
 

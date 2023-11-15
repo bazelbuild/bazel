@@ -619,19 +619,8 @@ public class BzlLoadFunction implements SkyFunction {
         // https://github.com/bazelbuild/bazel/issues/17713
         // `@_builtins` depends on `@bazel_tools` for repo mapping, so we ignore some bzl files
         // to avoid a cyclic dependency
-        || (key instanceof BzlLoadValue.KeyForBzlmod && !isFileSafeForUninjectedEvaluation(key));
-  }
-
-  private static boolean isFileSafeForUninjectedEvaluation(BzlLoadValue.Key key) {
-    // We don't inject _builtins for repo rules to avoid a Skyframe cycle.
-    // The cycle is caused only with bzlmod because the `@_builtins` repo does not declare its own
-    // module deps and requires `@bazel_tools` to re-use the latter's repo mapping. This triggers
-    // Bazel module resolution, and if there are any non-registry overrides in the root MODULE.bazel
-    // file (such as `git_override` or `archive_override`), the corresponding bzl files will be
-    // evaluated.
-    return PackageIdentifier.create(
-            RepositoryName.BAZEL_TOOLS, PathFragment.create("tools/build_defs/repo"))
-        .equals(key.getLabel().getPackageIdentifier());
+        || (key instanceof BzlLoadValue.KeyForBzlmod
+            && !(key instanceof BzlLoadValue.KeyForBzlmodBootstrap));
   }
 
   /**
@@ -944,12 +933,12 @@ public class BzlLoadFunction implements SkyFunction {
     }
 
     if (key instanceof BzlLoadValue.KeyForBzlmod) {
-      if (repoName.equals(RepositoryName.BAZEL_TOOLS)) {
-        // Special case: we're only here to get the @bazel_tools repo (for example, for
-        // http_archive). This repo shouldn't have visibility into anything else (during repo
-        // generation), so we just return an empty repo mapping.
-        // TODO(wyv): disallow fallback.
-        return RepositoryMapping.ALWAYS_FALLBACK;
+      if (key instanceof BzlLoadValue.KeyForBzlmodBootstrap) {
+        // Special case: we're only here to get one of the rules in the @bazel_tools repo that
+        // load Bazel modules. At this point we can't load from any other modules and thus use a
+        // repository mapping that contains only @bazel_tools itself.
+        return RepositoryMapping.create(
+            ImmutableMap.of("bazel_tools", RepositoryName.BAZEL_TOOLS), RepositoryName.BAZEL_TOOLS);
       }
       if (repoName.isMain()) {
         // Special case: when we try to run an extension in the main repo, we need to grab the repo
@@ -1322,7 +1311,7 @@ public class BzlLoadFunction implements SkyFunction {
         // TODO(#11954): We should converge all .bzl dialects regardless of whether they're loaded
         //  by BUILD, WORKSPACE, or MODULE. At the moment, WORKSPACE-loaded and MODULE-loaded .bzl
         //  files are already converged, so we use the same environment for both.
-        if (injectionDisabled || isFileSafeForUninjectedEvaluation(key)) {
+        if (injectionDisabled || key instanceof BzlLoadValue.KeyForBzlmodBootstrap) {
           return starlarkEnv.getUninjectedWorkspaceBzlEnv();
         }
         // Note that we don't actually fingerprint the injected builtins here. The actual builtins

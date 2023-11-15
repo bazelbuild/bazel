@@ -18,6 +18,7 @@ Definition of JavaInfo and JavaPluginInfo provider.
 
 load(":common/cc/cc_common.bzl", "CcNativeLibraryInfo", "cc_common")
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/java/java_semantics.bzl", "semantics")
 
 # TODO(hvd): remove this when:
 # - we have a general provider-type checking API
@@ -77,7 +78,7 @@ _JavaGenJarsInfo = provider(
     },
 )
 
-_JavaCompilationInfo = provider(
+JavaCompilationInfo = provider(
     doc = "Compilation information in Java rules, for perusal of aspects and tools.",
     fields = {
         "boot_classpath": "Boot classpath for this Java target.",
@@ -89,14 +90,6 @@ _JavaCompilationInfo = provider(
         "compilation_classpath": "Compilation classpath for this Java target.",
         "runtime_classpath": "Run-time classpath for this Java target.",
     },
-)
-
-_EMPTY_COMPILATION_INFO = _JavaCompilationInfo(
-    compilation_classpath = depset(),
-    runtime_classpath = depset(),
-    boot_classpath = None,
-    javac_options = [],
-    javac_options_list = [],
 )
 
 def merge(
@@ -196,12 +189,12 @@ def merge(
         )
     return _java_common_internal.wrap_java_info(_new_javainfo(**result))
 
-def to_java_binary_info(java_info):
+def to_java_binary_info(java_info, compilation_info):
     """Get a copy of the given JavaInfo with minimal info returned by a java_binary
 
     Args:
         java_info: (JavaInfo) A JavaInfo provider instance
-
+        compilation_info: (JavaCompilationInfo)
     Returns:
         (JavaInfo) A JavaInfo instance representing a java_binary target
     """
@@ -226,17 +219,6 @@ def to_java_binary_info(java_info):
     if hasattr(java_info, "cc_link_params_info"):
         result.update(cc_link_params_info = java_info.cc_link_params_info)
 
-    compilation_info = _EMPTY_COMPILATION_INFO
-    if java_info.compilation_info:
-        compilation_info = java_info.compilation_info
-    elif java_info.transitive_compile_time_jars or java_info.transitive_runtime_jars:
-        compilation_info = _JavaCompilationInfo(
-            boot_classpath = None,
-            javac_options = [],
-            javac_options_list = [],
-            compilation_classpath = java_info.transitive_compile_time_jars,
-            runtime_classpath = java_info.transitive_runtime_jars,
-        )
     result["compilation_info"] = compilation_info
 
     java_outputs = [
@@ -456,8 +438,7 @@ def java_info_for_compilation(
             # only differs from the usual java_info.transitive_source_jars in the order of deps
             transitive = [dep.transitive_source_jars for dep in concatenated_deps.runtimedeps_exports_deps],
         ),
-        # the JavaInfo constructor does not add flags from runtime_deps nor support
-        # adding this target's exports/opens
+        # the JavaInfo constructor does not add flags from runtime_deps
         module_flags_info = _create_module_flags_info(
             add_exports = depset(add_exports, transitive = [
                 dep.module_flags_info.add_exports
@@ -471,7 +452,7 @@ def java_info_for_compilation(
     )
     if compilation_info:
         result.update(
-            compilation_info = _JavaCompilationInfo(
+            compilation_info = JavaCompilationInfo(
                 javac_options = _java_common_internal.intern_javac_opts(compilation_info.javac_options),
                 javac_options_list = _java_common_internal.intern_javac_opts(compilation_info.javac_options_list),
                 boot_classpath = compilation_info.boot_classpath,
@@ -663,7 +644,9 @@ def _javainfo_init(
         exports = [],
         exported_plugins = [],
         jdeps = None,
-        native_libraries = []):
+        native_libraries = [],
+        add_exports = [],
+        add_opens = []):
     """The JavaInfo constructor
 
     Args:
@@ -693,10 +676,15 @@ def _javainfo_init(
             is typically produced by a compiler. IDEs and other tools can use this information for
             more efficient processing. Optional.
         native_libraries: ([CcInfo]) Native library dependencies that are needed for this library.
+        add_exports: ([str]) The <module>/<package>s this library was given access to.
+        add_opens: ([str]) The <module>/<package>s this library was given reflective access to.
 
     Returns:
         (dict) arguments to the JavaInfo provider constructor
     """
+    if add_exports or add_opens:
+        semantics.check_java_info_opens_exports()
+
     result, concatenated_deps = _javainfo_init_base(
         output_jar,
         compile_jar,
@@ -734,11 +722,11 @@ def _javainfo_init(
             ],
         ),
         module_flags_info = _create_module_flags_info(
-            add_exports = depset(transitive = [
+            add_exports = depset(add_exports, transitive = [
                 dep.module_flags_info.add_exports
                 for dep in concatenated_deps.deps_exports
             ]),
-            add_opens = depset(transitive = [
+            add_opens = depset(add_opens, transitive = [
                 dep.module_flags_info.add_opens
                 for dep in concatenated_deps.deps_exports
             ]),

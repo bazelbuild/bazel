@@ -478,7 +478,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     execConfig =
         skyframeExecutor.getConfiguration(
             reporter,
-            AnalysisTestUtil.execOptions(universeConfig.getOptions(), reporter),
+            AnalysisTestUtil.execOptions(universeConfig.getOptions(), skyframeExecutor, reporter),
             /* keepGoing= */ false);
 
     return analysisResult;

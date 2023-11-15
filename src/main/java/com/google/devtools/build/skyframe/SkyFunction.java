@@ -105,18 +105,16 @@ public interface SkyFunction {
   }
 
   /**
-   * Sentinel {@link SkyValue} type for {@link #compute} to return, indicating that something went
-   * wrong, and that the evaluation should be started over (including calling {@link
-   * NodeEntry#resetEvaluationFromScratch}).
+   * Sentinel {@link SkyValue} type for {@link #compute} to return, indicating that the evaluation
+   * should be started over (including calling {@link NodeEntry#resetEvaluationFromScratch}).
    *
    * <p>Returning a {@link Reset} from {@link #compute} differs from returning {@code null}. A
    * {@code null} return is expected under normal circumstances when a dependency is requested but
    * is not yet done, causing Skyframe to restart the function when all requested dependencies are
-   * done. A {@link Reset} signals a more severe issue that requires clearing the associated node's
+   * done. A {@link Reset} signals a more complex issue that requires clearing the associated node's
    * temporary direct deps and {@linkplain NodeEntry.DirtyType#REWIND rewinding} nodes associated
    * with other keys in {@link #rewindGraph()} (whose directed edges should correspond to the nodes'
-   * direct dependencies). Rewound dependency nodes are re-evaluated before the function is
-   * attempted again.
+   * direct dependencies).
    *
    * <p>An intended cause for returning this is external data loss; e.g., if a dependency's
    * "done-ness" is intended to mean that certain data is available in an external system, but
@@ -148,6 +146,15 @@ public interface SkyFunction {
       checkArgument(!rewindGraph.allowsSelfLoops(), "Allows self loops: %s", rewindGraph);
       checkArgument(!rewindGraph.nodes().isEmpty(), "Rewind graph must include key to reset");
       return new Reset(ImmutableGraph.copyOf(rewindGraph));
+    }
+
+    /**
+     * Creates a {@link Reset} for a single key with no rewinding of dependencies.
+     *
+     * <p>This can be used to clear out a node's temporary direct deps without any rewinding.
+     */
+    public static Reset selfOnly(SkyKey key) {
+      return of(newRewindGraphFor(key));
     }
 
     private final ImmutableGraph<SkyKey> rewindGraph;

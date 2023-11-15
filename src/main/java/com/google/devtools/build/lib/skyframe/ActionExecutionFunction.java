@@ -76,7 +76,6 @@ import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -147,21 +146,23 @@ public final class ActionExecutionFunction implements SkyFunction {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  private final ActionRewindStrategy actionRewindStrategy = new ActionRewindStrategy();
+  private final ActionRewindStrategy actionRewindStrategy;
   private final SkyframeActionExecutor skyframeActionExecutor;
   private final BlazeDirectories directories;
   private final Supplier<TimestampGranularityMonitor> tsgm;
   private final BugReporter bugReporter;
 
   public ActionExecutionFunction(
+      ActionRewindStrategy actionRewindStrategy,
       SkyframeActionExecutor skyframeActionExecutor,
       BlazeDirectories directories,
       Supplier<TimestampGranularityMonitor> tsgm,
       BugReporter bugReporter) {
-    this.skyframeActionExecutor = skyframeActionExecutor;
-    this.directories = directories;
-    this.tsgm = tsgm;
-    this.bugReporter = bugReporter;
+    this.actionRewindStrategy = checkNotNull(actionRewindStrategy);
+    this.skyframeActionExecutor = checkNotNull(skyframeActionExecutor);
+    this.directories = checkNotNull(directories);
+    this.tsgm = checkNotNull(tsgm);
+    this.bugReporter = checkNotNull(bugReporter);
   }
 
   @Override
@@ -1409,16 +1410,6 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
     return new LabelCause(
         MoreObjects.firstNonNull(input.getOwner(), actionLabel), detailedExitCode);
-  }
-
-  /**
-   * Clears bookkeeping used by action rewinding.
-   *
-   * <p>Should be called once execution is over, otherwise there may be a memory leak of the action
-   * rewinding bookkeeping information.
-   */
-  public void complete(ExtendedEventHandler eventHandler) {
-    actionRewindStrategy.reset(eventHandler);
   }
 
   /**

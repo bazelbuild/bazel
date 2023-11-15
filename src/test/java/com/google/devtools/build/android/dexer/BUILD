@@ -28,7 +28,7 @@ java_library(
         ),
         "//conditions:default": ["NoAndroidSdkStubTest.java"],
     }),
-    javacopts = ["-source 7 -target 7"],  # we run this through dx for testing, so no lambdas!
+    javacopts = ["-source 8 -target 8"],
     resources = ["testresource.txt"],
     deps = [
         "//src/test/java/com/google/devtools/build/lib/testutil",

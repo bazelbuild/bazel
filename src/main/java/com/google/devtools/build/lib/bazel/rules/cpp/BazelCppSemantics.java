@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppActionNames;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import net.starlark.java.eval.EvalException;
@@ -111,12 +110,6 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
           .addTransitiveMandatoryInputs(toolchain.getAllFilesIncludingLibc())
           .setShouldScanIncludes(false);
     }
-  }
-
-  @Override
-  public HeadersCheckingMode determineStarlarkHeadersCheckingMode(
-      RuleContext ruleContext, CppConfiguration cppConfig, CcToolchainProvider toolchain) {
-    return HeadersCheckingMode.STRICT;
   }
 
   @Override

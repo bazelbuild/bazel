@@ -20,6 +20,7 @@ These may change at any time and are closely coupled to the rule implementation.
 
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 
 _py_builtins = _builtins.internal.py_builtins
 PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
@@ -33,6 +34,21 @@ def _add_py_extra_pseudo_action(*args, **kwargs):
 
 def _are_action_listeners_enabled(*args, **kwargs):
     return _py_builtins.are_action_listeners_enabled(*args, **kwargs)
+
+def _cc_semantics_get_cc_runtimes(*args, **kwargs):
+    return cc_semantics.get_cc_runtimes(*args, **kwargs)
+
+def _cc_semantics_get_runtimes_toolchain(*args, **kwargs):
+    return cc_semantics.get_runtimes_toolchain(*args, **kwargs)
+
+def _cc_semantics_get_stl(*args, **kwargs):
+    return cc_semantics.get_stl(*args, **kwargs)
+
+def _cc_toolchain_strip_files(cc_toolchain, *args, **kwargs):
+    return cc_toolchain.strip_files(*args, **kwargs)
+
+def _cc_launcher_info_cc_info(cc_launcher_info, *args, **kwargs):
+    return cc_launcher_info.cc_info(*args, **kwargs)
 
 def _compilation_outputs(cc_launcher_info):
     return cc_launcher_info.compilation_outputs()
@@ -60,6 +76,9 @@ def _declare_shareable_artifact(ctx, *args, **kwargs):
 
 def _expand_location_and_make_variables(*args, **kwargs):
     return _py_builtins.expand_location_and_make_variables(*args, **kwargs)
+
+def _extra_libraries_build_libraries(extra_libraries, *args, **kwargs):
+    return extra_libraries.build_libraries(*args, **kwargs)
 
 def _get_current_os_name(*args, **kwargs):
     return _py_builtins.get_current_os_name(*args, **kwargs)
@@ -91,6 +110,12 @@ def _runfiles_enabled(ctx):
 def _link(*args, **kwargs):
     return cc_common.link(*args, **kwargs)
 
+def _linking_context_extra_link_time_libraries(linking_context, *args, **kwargs):
+    return linking_context.extra_link_time_libraries(*args, **kwargs)
+
+def _linking_context_linkstamps(linking_context, *args, **kwargs):
+    return linking_context.linkstamps(*args, **kwargs)
+
 def _make_runfiles_respect_legacy_external_runfiles(*args, **kwargs):
     return _py_builtins.make_runfiles_respect_legacy_external_runfiles(*args, **kwargs)
 
@@ -119,6 +144,11 @@ py_internal = struct(
     add_py_extra_pseudo_action = _add_py_extra_pseudo_action,
     are_action_listeners_enabled = _are_action_listeners_enabled,
     cc_helper = cc_helper,
+    cc_launcher_info_cc_info = _cc_launcher_info_cc_info,
+    cc_semantics_get_cc_runtimes = _cc_semantics_get_cc_runtimes,
+    cc_semantics_get_runtimes_toolchain = _cc_semantics_get_runtimes_toolchain,
+    cc_semantics_get_stl = _cc_semantics_get_stl,
+    cc_toolchain_strip_files = _cc_toolchain_strip_files,
     compilation_outputs = _compilation_outputs,
     compile = _compile,
     copy_without_caching = _copy_without_caching,
@@ -128,6 +158,7 @@ py_internal = struct(
     declare_constant_metadata_file = _declare_constant_metadata_file,
     declare_shareable_artifact = _declare_shareable_artifact,
     expand_location_and_make_variables = _expand_location_and_make_variables,
+    extra_libraries_build_libraries = _extra_libraries_build_libraries,
     get_current_os_name = _get_current_os_name,
     get_label_repo_runfiles_path = _get_label_repo_runfiles_path,
     get_legacy_external_runfiles = _get_legacy_external_runfiles,
@@ -137,6 +168,8 @@ py_internal = struct(
     is_singleton_depset = _is_singleton_depset,
     is_tool_configuration = _is_tool_configuration,
     link = _link,
+    linking_context_extra_link_time_libraries = _linking_context_extra_link_time_libraries,
+    linking_context_linkstamps = _linking_context_linkstamps,
     make_runfiles_respect_legacy_external_runfiles = _make_runfiles_respect_legacy_external_runfiles,
     merge_debug_context = _merge_debug_context,
     merge_linking_contexts = _merge_linking_contexts,

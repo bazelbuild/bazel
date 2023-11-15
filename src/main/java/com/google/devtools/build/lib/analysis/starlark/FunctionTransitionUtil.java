@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.OptionInfo;
+import com.google.devtools.build.lib.analysis.config.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.ValidationException;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
@@ -449,16 +450,16 @@ public final class FunctionTransitionUtil {
       }
     }
 
-    if (!changedStarlarkOptions.isEmpty()) {
-      toOptions =
-          BuildOptions.builder()
-              .merge(toOptions == null ? fromOptions.clone() : toOptions)
-              .addStarlarkOptions(changedStarlarkOptions)
-              .build();
-    }
-    if (toOptions == null) {
+    if (toOptions == null && changedStarlarkOptions.isEmpty()) {
       return fromOptions;
     }
+    // Note that rebuilding also calls FragmentOptions.getNormalized() to guarantee --define,
+    // --features, and similar flags are consistently ordered.
+    toOptions =
+        BuildOptions.builder()
+            .merge(toOptions == null ? fromOptions.clone() : toOptions)
+            .addStarlarkOptions(changedStarlarkOptions)
+            .build();
     if (starlarkTransition.isForAnalysisTesting()) {
       // We need to record every time we change a configuration option.
       // see {@link #updateOutputDirectoryNameFragment} for usage.
@@ -490,7 +491,7 @@ public final class FunctionTransitionUtil {
       return ImmutableSet.of();
     }
 
-    BuildOptions.OptionsDiff diff = BuildOptions.diff(toOptions, baselineOptions);
+    OptionsDiff diff = OptionsDiff.diff(toOptions, baselineOptions);
     Stream<String> diffNative =
         diff.getFirst().keySet().stream()
             .map(option -> COMMAND_LINE_OPTION_PREFIX + option.getOptionName());

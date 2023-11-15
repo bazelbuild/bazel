@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationValueEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentFactory;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
 import com.google.devtools.build.lib.analysis.config.transitions.BaselineOptionsValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -86,13 +87,19 @@ public final class BuildConfigurationFunction implements SkyFunction {
           && platformOptions.platforms.size() <= 1) {
         newPlatform = platformOptions.computeTargetPlatform();
       }
-      var baselineOptionsValue =
-          (BaselineOptionsValue)
-              env.getValue(BaselineOptionsValue.key(applyExecTransitionToBaseline, newPlatform));
-      if (baselineOptionsValue == null) {
-        return null;
+      try {
+        var baselineOptionsValue =
+            (BaselineOptionsValue)
+                env.getValueOrThrow(
+                    BaselineOptionsValue.key(applyExecTransitionToBaseline, newPlatform),
+                    StarlarkExecTransitionLoadingException.class);
+        if (baselineOptionsValue == null) {
+          return null;
+        }
+        baselineOptions = baselineOptionsValue.toOptions();
+      } catch (StarlarkExecTransitionLoadingException e) {
+        throw new BuildConfigurationFunctionException(new InvalidConfigurationException(e));
       }
-      baselineOptions = baselineOptionsValue.toOptions();
     }
 
     try {

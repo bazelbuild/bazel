@@ -54,10 +54,10 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.shell.Command;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
@@ -551,14 +551,18 @@ public final class AnalysisTestUtil {
         /* buildRunfileLinks= */ false);
   }
 
-  public static BuildOptions execOptions(BuildOptions targetOptions, EventHandler handler)
-      throws InterruptedException {
+  public static BuildOptions execOptions(
+      BuildOptions targetOptions, SkyframeExecutor skyframeExecutor, ExtendedEventHandler handler)
+      throws Exception {
     return Iterables.getOnlyElement(
         ExecutionTransitionFactory.createFactory()
             .create(
                 AttributeTransitionData.builder()
                     .attributes(FakeAttributeMapper.empty())
                     .executionPlatform(Label.parseCanonicalUnchecked(TestConstants.PLATFORM_LABEL))
+                    .analysisData(
+                        skyframeExecutor.getStarlarkExecTransitionForTesting(
+                            targetOptions, handler))
                     .build())
             .apply(new BuildOptionsView(targetOptions, targetOptions.getFragmentClasses()), handler)
             .values());

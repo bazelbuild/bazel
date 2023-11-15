@@ -48,7 +48,7 @@ public class PlatformRule implements RuleDefinition {
         .exemptFromConstraintChecking("this rule helps *define* a constraint")
         .useToolchainResolution(ToolchainResolutionMode.DISABLED)
         .removeAttribute(":action_listener")
-        .removeAttribute("applicable_licenses")
+        .removeAttribute(RuleClass.APPLICABLE_METADATA_ATTR)
         .override(
             attr("tags", Type.STRING_LIST)
                 // No need to show up in ":all", etc. target patterns.
@@ -138,7 +138,7 @@ The user should be familiar with the concepts explained <a href="/extending/plat
 (such as cpu architecture or compiler version) describing an environment in
 which part of the build may run.
 
-For more details, see the <a href="//extending/platforms">Platforms</a> page.
+For more details, see the <a href="/extending/platforms">Platforms</a> page.
 
 
 <h4 id="platform_examples">Example</h4>

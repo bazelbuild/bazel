@@ -48,6 +48,17 @@ public class AqueryOptions extends CommonQueryOptions {
   public boolean includeArtifacts;
 
   @Option(
+      name = "include_scheduling_dependencies",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Includes names of the scheduling dependencies of actions "
+              + "(potentially large). "
+              + "Only takes effect if --include_artifacts is also set.")
+  public boolean includeSchedulingDependencies;
+
+  @Option(
       name = "include_param_files",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.QUERY,

@@ -333,7 +333,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         return Single.just(TransferResult.ok());
       }
 
-      @Nullable Symlink symlink = maybeGetSymlink(input, metadata, metadataSupplier);
+      @Nullable Symlink symlink = maybeGetSymlink(action, input, metadata, metadataSupplier);
 
       if (symlink != null) {
         checkState(execPath.startsWith(symlink.getLinkExecPath()));
@@ -341,7 +341,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
             symlink.getTargetExecPath().getRelative(execPath.relativeTo(symlink.getLinkExecPath()));
       }
 
-      @Nullable PathFragment treeRootExecPath = maybeGetTreeRoot(input, metadataSupplier);
+      @Nullable PathFragment treeRootExecPath = maybeGetTreeRoot(action, input, metadataSupplier);
 
       Completable result =
           downloadFileNoCheckRx(
@@ -374,17 +374,25 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * FileArtifactValue#getMaterializationExecPath()} field in their metadata.
    */
   @Nullable
-  private PathFragment maybeGetTreeRoot(ActionInput input, MetadataSupplier metadataSupplier)
+  private PathFragment maybeGetTreeRoot(
+      ActionExecutionMetadata action, ActionInput input, MetadataSupplier metadataSupplier)
       throws IOException, InterruptedException {
     if (!(input instanceof TreeFileArtifact)) {
       return null;
     }
-    SpecialArtifact treeArtifact = ((TreeFileArtifact) input).getParent();
-    FileArtifactValue treeMetadata =
-        checkNotNull(
-            metadataSupplier.getMetadata(treeArtifact),
-            "input %s belongs to a tree artifact whose metadata is missing",
-            input);
+    TreeFileArtifact treeFile = (TreeFileArtifact) input;
+    SpecialArtifact treeArtifact = treeFile.getParent();
+    FileArtifactValue treeMetadata = metadataSupplier.getMetadata(treeArtifact);
+    if (treeMetadata == null) {
+      if (!treeFile.isChildOfDeclaredDirectory() && action.getOutputs().contains(treeFile)) {
+        // If this file is produced by an action template, the full tree artifact metadata might
+        // not be available yet. However, we know with certainty that the file is not materialized
+        // as a symlink.
+        return null;
+      }
+      throw new IllegalStateException(
+          String.format("input %s belongs to a tree artifact whose metadata is missing", treeFile));
+    }
     return treeMetadata.getMaterializationExecPath().orElse(treeArtifact.getExecPath());
   }
 
@@ -399,17 +407,27 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    */
   @Nullable
   private Symlink maybeGetSymlink(
-      ActionInput input, FileArtifactValue metadata, MetadataSupplier metadataSupplier)
+      ActionExecutionMetadata action,
+      ActionInput input,
+      FileArtifactValue metadata,
+      MetadataSupplier metadataSupplier)
       throws IOException, InterruptedException {
     if (input instanceof TreeFileArtifact) {
-      // Check whether the entire tree artifact should be prefetched into a separate location.
-      SpecialArtifact treeArtifact = ((TreeFileArtifact) input).getParent();
-      FileArtifactValue treeMetadata =
-          checkNotNull(
-              metadataSupplier.getMetadata(treeArtifact),
-              "input %s belongs to a tree artifact whose metadata is missing",
-              input);
-      return maybeGetSymlink(treeArtifact, treeMetadata, metadataSupplier);
+      TreeFileArtifact treeFile = (TreeFileArtifact) input;
+      SpecialArtifact treeArtifact = treeFile.getParent();
+      FileArtifactValue treeMetadata = metadataSupplier.getMetadata(treeArtifact);
+      if (treeMetadata == null) {
+        if (!treeFile.isChildOfDeclaredDirectory() && action.getOutputs().contains(treeFile)) {
+          // If this file is produced by an action template, the full tree artifact metadata might
+          // not be available yet. However, we know with certainty that the file is not materialized
+          // as a symlink.
+          return null;
+        }
+        throw new IllegalStateException(
+            String.format(
+                "input %s belongs to a tree artifact whose metadata is missing", treeFile));
+      }
+      return maybeGetSymlink(action, treeArtifact, treeMetadata, metadataSupplier);
     }
     PathFragment execPath = input.getExecPath();
     PathFragment materializationExecPath = metadata.getMaterializationExecPath().orElse(execPath);
@@ -543,9 +561,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       //   (1) The file does not belong to a tree artifact.
       //   (2) The file belongs to a tree artifact created by an action template expansion.
       //   (3) The file belongs to a tree artifact but we don't know it. This can occur when the
-      //       file is a non-tree artifact nested inside a tree artifact (which can only happen if
-      //       --incompatible_strict_conflict_checks is disabled) or a tree artifact inside a
-      //       fileset (see b/254844173).
+      //       file belongs to a tree artifact inside a fileset (see b/254844173).
       // In case (1), the parent directory is a package or a subdirectory of a package, and should
       // remain writable. In cases (2) and (3), even though we arguably ought to set the output
       // permissions on the parent directory to match the outcome of a locally executed action, we

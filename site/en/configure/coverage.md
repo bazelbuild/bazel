@@ -73,7 +73,7 @@ project][lcov]) to produce a report that can be viewed in a web
 browser:
 
 ```console
-genhtml --output genhtml "$(bazel info output_path)/_coverage/_coverage_report.dat"
+genhtml --branch-coverage --output genhtml "$(bazel info output_path)/_coverage/_coverage_report.dat"
 ```
 
 Note that `genhtml` reads the source code as well, to annotate missing
@@ -122,7 +122,7 @@ remote execution, as well, including JUnit.
 
 ### Python
 
-See the [`rules_python` coverage docs](https://github.com/bazelbuild/rules_python/blob/main/docs/coverage.md)
+See the [`rules_python` coverage docs](https://github.com/bazelbuild/rules_python/blob/main/docs/sphinx/coverage.md)
 for additional steps needed to enable coverage support in Python.
 
 [lcov]: https://github.com/linux-test-project/lcov

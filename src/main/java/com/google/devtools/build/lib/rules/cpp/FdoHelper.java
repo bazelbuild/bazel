@@ -488,7 +488,7 @@ public class FdoHelper {
     }
 
     // Get the zipper binary for unzipping the profile.
-    Artifact zipperBinaryArtifact = attributes.getDefaultZipper();
+    Artifact zipperBinaryArtifact = attributes.getZipper();
     if (zipperBinaryArtifact == null) {
       if (CppHelper.useToolchainResolution(ruleContext)) {
         ruleContext.ruleError(
@@ -513,8 +513,17 @@ public class FdoHelper {
         "Symlinking MemProf ZIP Profile " + memprofProfile.getBasename());
 
     CustomCommandLine.Builder argv = new CustomCommandLine.Builder();
-    argv.addExecPath("xf", zipProfileArtifact)
-        .add("-d", profileArtifact.getExecPath().getParentDirectory().getSafePathString());
+    // We invoke different binaries depending on whether the unzip_fdo tool
+    // is available. When it isn't, unzip_fdo is aliased to the generic
+    // zipper tool, which takes different command-line arguments.
+    if (zipperBinaryArtifact.getExecPathString().endsWith("unzip_fdo")) {
+      argv.addExecPath("--profile_zip", zipProfileArtifact)
+          .add("--memprof")
+          .add("--output_file", profileArtifact.getExecPath().getSafePathString());
+    } else {
+      argv.addExecPath("xf", zipProfileArtifact)
+          .add("-d", profileArtifact.getExecPath().getParentDirectory().getSafePathString());
+    }
     // Unzip the profile.
     ruleContext.registerAction(
         new SpawnAction.Builder()

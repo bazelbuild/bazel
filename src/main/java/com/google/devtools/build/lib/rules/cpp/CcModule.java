@@ -71,7 +71,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
@@ -893,15 +892,6 @@ public abstract class CcModule
     ccCompilationContext.addNonCodeInputs(
         Sequence.cast(nonCodeInputs, Artifact.class, "non_code_inputs").getImmutableList());
 
-    ImmutableList<PathFragment> looseHdrsDirs =
-        Sequence.cast(looseHdrsDirsObject, String.class, "loose_hdrs_dirs").stream()
-            .map(PathFragment::create)
-            .collect(toImmutableList());
-    for (PathFragment looseHdrDir : looseHdrsDirs) {
-      ccCompilationContext.addLooseHdrsDir(looseHdrDir);
-    }
-
-    ccCompilationContext.setHeadersCheckingMode(HeadersCheckingMode.getValue(headersCheckingMode));
     ccCompilationContext.setPropagateCppModuleMapAsActionInput(propagateModuleMapToCompileAction);
     ccCompilationContext.setPicHeaderModule(
         picHeaderModule == Starlark.NONE ? null : (Artifact.DerivedArtifact) picHeaderModule);
@@ -2493,7 +2483,6 @@ public abstract class CcModule
     CcToolchainProvider ccToolchainProvider =
         convertFromNoneable(starlarkCcToolchainProvider, null);
 
-    ImmutableList<String> looseIncludes = asClassImmutableList(starlarkLooseIncludes);
     CppModuleMap moduleMap = convertFromNoneable(moduleMapNoneable, /* defaultValue= */ null);
     ImmutableList<CppModuleMap> additionalModuleMaps =
         asClassImmutableList(additionalModuleMapsNoneable);
@@ -2528,18 +2517,6 @@ public abstract class CcModule
         convertFromNoneable(doNotGenerateModuleMapObject, /* defaultValue= */ false);
     boolean codeCoverageEnabled =
         convertFromNoneable(codeCoverageEnabledObject, /* defaultValue= */ false);
-    String hdrsCheckingMode =
-        convertFromNoneable(
-            hdrsCheckingModeObject,
-            getSemantics(language)
-                .determineStarlarkHeadersCheckingMode(
-                    actions.getRuleContext(),
-                    actions
-                        .getActionConstructionContext()
-                        .getConfiguration()
-                        .getFragment(CppConfiguration.class),
-                    ccToolchainProvider)
-                .toString());
     String purpose = convertFromNoneable(purposeObject, null);
     ImmutableList<CcCompilationContext> implementationContexts =
         asClassImmutableList(implementationCcCompilationContextsObject);
@@ -2631,14 +2608,7 @@ public abstract class CcModule
         .addAdditionalExportedHeaders(
             additionalExportedHeaders.stream().map(PathFragment::create).collect(toImmutableList()))
         .setPropagateModuleMapToCompileAction(propagateModuleMapToCompileAction)
-        .setCodeCoverageEnabled(codeCoverageEnabled)
-        .setHeadersCheckingMode(HeadersCheckingMode.getValue(hdrsCheckingMode));
-
-    ImmutableList<PathFragment> looseIncludeDirs =
-        looseIncludes.stream().map(PathFragment::create).collect(toImmutableList());
-    if (!looseIncludeDirs.isEmpty()) {
-      helper.setLooseIncludeDirs(ImmutableSet.copyOf(looseIncludeDirs));
-    }
+        .setCodeCoverageEnabled(codeCoverageEnabled);
 
     if (textualHeadersObject instanceof NestedSet) {
       helper.addPublicTextualHeaders((NestedSet<Artifact>) textualHeadersObject);
@@ -2854,6 +2824,8 @@ public abstract class CcModule
       Object objectsObject,
       Object picObjectsObject,
       Object ltoCompilationContextObject,
+      Object dwoObjectsObject,
+      Object picDwoObjectsObject,
       StarlarkThread thread)
       throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
@@ -2879,6 +2851,16 @@ public abstract class CcModule
     ccCompilationOutputsBuilder.addPicObjectFiles(picObjects.toList());
     if (ltoCompilationContext != null) {
       ccCompilationOutputsBuilder.addLtoCompilationContext(ltoCompilationContext);
+    }
+    NestedSet<Artifact> dwoObjects =
+        convertToNestedSet(dwoObjectsObject, Artifact.class, "dwo_objects");
+    for (Artifact dwoFile : dwoObjects.toList()) {
+      ccCompilationOutputsBuilder.addDwoFile(dwoFile);
+    }
+    NestedSet<Artifact> picDwoObjects =
+        convertToNestedSet(picDwoObjectsObject, Artifact.class, "pic_dwo_objects");
+    for (Artifact picDwoFile : picDwoObjects.toList()) {
+      ccCompilationOutputsBuilder.addPicDwoFile(picDwoFile);
     }
     return ccCompilationOutputsBuilder.build();
   }

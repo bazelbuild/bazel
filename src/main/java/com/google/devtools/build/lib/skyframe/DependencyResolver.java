@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.analysis.producers.TargetAndConfigur
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
@@ -38,9 +37,9 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
-import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
+import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader;
+import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
@@ -62,7 +61,6 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.Transi
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -91,7 +89,6 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeS
 import com.google.devtools.build.skyframe.SkyFunction.LookupEnvironment;
 import com.google.devtools.build.skyframe.state.Driver;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -378,7 +375,11 @@ public final class DependencyResolver {
       }
 
       Optional<StarlarkAttributeTransitionProvider> starlarkExecTransition =
-          loadStarlarkExecTransition(targetAndConfiguration, env);
+          StarlarkExecTransitionLoader.loadStarlarkExecTransition(
+              targetAndConfiguration.getConfiguration() == null
+                  ? null
+                  : targetAndConfiguration.getConfiguration().getOptions(),
+              (bzlKey) -> (BzlLoadValue) env.getValue(bzlKey));
       if (starlarkExecTransition == null) {
         return false;
       }
@@ -412,71 +413,12 @@ public final class DependencyResolver {
     } catch (DependencyEvaluationException
         | ConfiguredValueCreationException
         | AspectCreationException
+        | StarlarkExecTransitionLoadingException
         | ToolchainException e) {
       // We handle exceptions in a dedicated method to keep this method concise and readable.
       handleException(listener, targetAndConfiguration.getTarget(), e);
     }
     return true;
-  }
-
-  /**
-   * Loads the Starlark transition that implements execution transition logic according to {@link
-   * CoreOptions#starlarkExecConfig}.
-   *
-   * @return null if Skyframe deps need loading. A filled {@link Optional} if this build implements
-   *     the exec transition with a Starlark transition. An empty {@link Optional} if this build
-   *     implements the exec transition with native logic.
-   */
-  @Nullable
-  static Optional<StarlarkAttributeTransitionProvider> loadStarlarkExecTransition(
-      TargetAndConfiguration targetAndConfiguration, LookupEnvironment env)
-      throws UnreportedException, InterruptedException {
-    if (targetAndConfiguration.getConfiguration() == null) {
-      return Optional.empty();
-    }
-    String bzlReference =
-        targetAndConfiguration
-            .getConfiguration()
-            .getOptions()
-            .get(CoreOptions.class)
-            .starlarkExecConfig;
-    if (bzlReference == null) {
-      return Optional.empty(); // Use the native exec transition.
-    }
-    List<String> splitval =
-        Splitter.on('%').splitToList(bzlReference); // Expected: //pkg:defs.bzl%my_transition.
-    if (splitval.size() < 2) {
-      throw new UnreportedException(
-          new ConfiguredValueCreationException(
-              targetAndConfiguration.getTarget(),
-              "bad Starlark exec transition reference: " + bzlReference));
-    }
-    Label bzlFile;
-    try {
-      bzlFile = Label.parseCanonical(splitval.get(0));
-    } catch (LabelSyntaxException e) {
-      throw new UnreportedException(
-          new ConfiguredValueCreationException(targetAndConfiguration.getTarget(), e.getMessage()));
-    }
-    BzlLoadValue bzlValue =
-        (BzlLoadValue)
-            env.getValue(
-                Objects.equals(bzlFile.getRepository(), StarlarkBuiltinsValue.BUILTINS_REPO)
-                    ? BzlLoadValue.keyForBuiltins(bzlFile)
-                    : BzlLoadValue.keyForBuild(bzlFile));
-
-    if (bzlValue == null) {
-      return null;
-    }
-    Object transition = bzlValue.getModule().getGlobal(splitval.get(1));
-    if (!(transition instanceof StarlarkDefinedConfigTransition)) {
-      throw new UnreportedException(
-          new ConfiguredValueCreationException(
-              targetAndConfiguration.getTarget(),
-              String.valueOf(transition) + " is not a Starlark transition"));
-    }
-    return Optional.of(
-        new StarlarkAttributeTransitionProvider((StarlarkDefinedConfigTransition) transition));
   }
 
   @VisibleForTesting
@@ -669,7 +611,7 @@ public final class DependencyResolver {
   public static OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> computeDependencies(
       State state,
       ConfiguredTargetKey configuredTargetKey,
-      Iterable<Aspect> aspects,
+      ImmutableList<Aspect> aspects,
       StarlarkTransitionCache transitionCache,
       @Nullable StarlarkAttributeTransitionProvider starlarkTransitionProvider,
       LookupEnvironment env,

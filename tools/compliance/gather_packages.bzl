@@ -150,6 +150,12 @@ def gather_package_common(target, ctx, provider_factory, metadata_providers, fil
                 licenses.append(dep[LicenseInfo])
             if PackageInfo in dep:
                 package_info.depend(dep[LicenseInfo])
+    elif hasattr(ctx.rule.attr, "package_metadata"):
+        for dep in ctx.rule.attr.package_metadata:
+            if LicenseInfo in dep:
+                licenses.append(dep[LicenseInfo])
+            if PackageInfo in dep:
+                package_info.depend(dep[LicenseInfo])
 
     # Record all the external repos anyway.
     target_name = str(target.label)

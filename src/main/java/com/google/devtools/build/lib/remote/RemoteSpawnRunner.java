@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.remote.circuitbreaker.CircuitBreakerFactory
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -104,6 +105,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
   private final RemoteRetrier retrier;
   private final Path logDir;
   private final RemoteExecutionService remoteExecutionService;
+  private final DigestUtil digestUtil;
 
   // Used to ensure that a warning is reported only once.
   private final AtomicBoolean warningReported = new AtomicBoolean();
@@ -116,7 +118,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
       @Nullable Reporter cmdlineReporter,
       ListeningScheduledExecutorService retryService,
       Path logDir,
-      RemoteExecutionService remoteExecutionService) {
+      RemoteExecutionService remoteExecutionService,
+      DigestUtil digestUtil) {
     this.execRoot = execRoot;
     this.remoteOptions = remoteOptions;
     this.executionOptions = executionOptions;
@@ -125,6 +128,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     this.retrier = createExecuteRetrier(remoteOptions, retryService);
     this.logDir = logDir;
     this.remoteExecutionService = remoteExecutionService;
+    this.digestUtil = digestUtil;
   }
 
   @VisibleForTesting
@@ -186,6 +190,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
     boolean uploadLocalResults = remoteExecutionService.getWriteCachePolicy(spawn).allowAnyCache();
 
     RemoteAction action = remoteExecutionService.buildRemoteAction(spawn, context);
+
+    context.setDigest(digestUtil.asSpawnLogProto(action.getActionKey()));
 
     SpawnMetrics.Builder spawnMetrics =
         SpawnMetrics.Builder.forRemoteExec()
@@ -435,6 +441,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     // subtract network time consumed here to ensure wall clock during fetch is not double
     // counted, and metrics time computation does not exceed total time
     return createSpawnResult(
+        digestUtil,
         action.getActionKey(),
         result.getExitCode(),
         cacheHit,

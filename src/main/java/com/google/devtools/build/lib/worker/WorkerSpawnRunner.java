@@ -213,8 +213,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
     int exitCode = response.getExitCode();
     SpawnResult.Builder builder =
-        new SpawnResult.Builder()
-            .setRunnerName(getName())
+        getSpawnResultBuilder(context)
             .setExitCode(exitCode)
             .setStatus(exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT)
             .setStartTime(startTime)
@@ -545,7 +544,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
     }
 
     Stopwatch executionStopwatch = Stopwatch.createStarted();
-    try {
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.WORKER_SETUP, "sending request")) {
       worker.putRequest(request);
     } catch (IOException e) {
       restoreInterrupt(e);

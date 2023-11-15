@@ -18,11 +18,16 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader;
+import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
 import com.google.devtools.build.lib.analysis.config.transitions.BaselineOptionsValue;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionUtil;
 import com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyProducer;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -31,6 +36,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.Driver;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** A builder for {@link BaselineOptionsValue} instances. */
@@ -56,6 +62,18 @@ public final class BaselineOptionsFunction implements SkyFunction {
       return null;
     }
 
+    Optional<StarlarkAttributeTransitionProvider> starlarkExecTransition;
+    try {
+      starlarkExecTransition =
+          StarlarkExecTransitionLoader.loadStarlarkExecTransition(
+              mappedBaselineOptions, (bzlKey) -> (BzlLoadValue) env.getValue(bzlKey));
+    } catch (StarlarkExecTransitionLoadingException e) {
+      throw new BaselineOptionsFunctionException(e);
+    }
+    if (starlarkExecTransition == null) {
+      return null;
+    }
+
     // Next, apply elements of BaselineOptionsKey: apply exec transition and/or adjust platform
     BuildOptions adjustedBaselineOptions = mappedBaselineOptions;
     if (key.afterExecTransition()) {
@@ -64,11 +82,16 @@ public final class BaselineOptionsFunction implements SkyFunction {
       // constant) since the baseline should never be used to actually construct an action or do
       // toolchain resolution.
       PatchTransition execTransition =
-          ExecutionTransitionFactory.createTransition(
-              key.newPlatform() != null
-                  ? key.newPlatform()
-                  : Label.parseCanonicalUnchecked(
-                      "//this_is_a_faked_exec_platform_for_blaze_internals"));
+          ExecutionTransitionFactory.createFactory()
+              .create(
+                  AttributeTransitionData.builder()
+                      .executionPlatform(
+                          key.newPlatform() != null
+                              ? key.newPlatform()
+                              : Label.parseCanonicalUnchecked(
+                                  "//this_is_a_faked_exec_platform_for_blaze_internals"))
+                      .analysisData(starlarkExecTransition.orElse(null))
+                      .build());
       adjustedBaselineOptions =
           execTransition.patch(
               TransitionUtil.restrict(execTransition, adjustedBaselineOptions), env.getListener());

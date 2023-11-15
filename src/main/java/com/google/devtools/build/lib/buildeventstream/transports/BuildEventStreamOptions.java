@@ -111,7 +111,7 @@ public class BuildEventStreamOptions extends OptionsBase {
 
   @Option(
       name = "build_event_max_named_set_of_file_entries",
-      defaultValue = "-1",
+      defaultValue = "5000",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =

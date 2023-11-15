@@ -142,14 +142,16 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
       new ActionExecutedEvent(
           ActionsTestUtil.DUMMY_ARTIFACT.getExecPath(),
           new ActionsTestUtil.NullAction(),
-          /*exception=*/ null,
+          /* exception= */ null,
           ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
           ActionsTestUtil.DUMMY_ARTIFACT,
           FileArtifactValue.OMITTED_FILE_MARKER,
-          /*stdout=*/ null,
-          /*stderr=*/ null,
-          /*actionMetadataLogs=*/ ImmutableList.of(),
-          ErrorTiming.NO_ERROR);
+          /* stdout= */ null,
+          /* stderr= */ null,
+          /* actionMetadataLogs= */ ImmutableList.of(),
+          ErrorTiming.NO_ERROR,
+          /* startTime= */ null,
+          /* endTime= */ null);
 
   private static final class RecordingBuildEventTransport implements BuildEventTransport {
     private final List<BuildEvent> events = new ArrayList<>();
@@ -1251,11 +1253,13 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
                         .build())),
             ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
             ActionsTestUtil.DUMMY_ARTIFACT,
-            /*primaryOutputMetadata=*/ null,
-            /*stdout=*/ null,
-            /*stderr=*/ null,
-            /*actionMetadataLogs=*/ ImmutableList.of(),
-            ErrorTiming.BEFORE_EXECUTION);
+            /* primaryOutputMetadata= */ null,
+            /* stdout= */ null,
+            /* stderr= */ null,
+            /* actionMetadataLogs= */ ImmutableList.of(),
+            ErrorTiming.BEFORE_EXECUTION,
+            /* startTime= */ null,
+            /* endTime= */ null);
 
     streamer.buildEvent(SUCCESSFUL_ACTION_EXECUTED_EVENT);
     streamer.buildEvent(failedActionExecutedEvent);
@@ -1295,11 +1299,13 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
                         .build())),
             ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
             ActionsTestUtil.DUMMY_ARTIFACT,
-            /*primaryOutputMetadata=*/ null,
-            /*stdout=*/ null,
-            /*stderr=*/ null,
-            /*actionMetadataLogs=*/ ImmutableList.of(),
-            ErrorTiming.BEFORE_EXECUTION);
+            /* primaryOutputMetadata= */ null,
+            /* stdout= */ null,
+            /* stderr= */ null,
+            /* actionMetadataLogs= */ ImmutableList.of(),
+            ErrorTiming.BEFORE_EXECUTION,
+            /* startTime= */ null,
+            /* endTime= */ null);
 
     streamer.buildEvent(SUCCESSFUL_ACTION_EXECUTED_EVENT);
     streamer.buildEvent(failedActionExecutedEvent);
@@ -1509,10 +1515,12 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
         ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
         ActionsTestUtil.DUMMY_ARTIFACT,
         FileArtifactValue.OMITTED_FILE_MARKER,
-        /*stdout=*/ null,
-        /*stderr=*/ null,
+        /* stdout= */ null,
+        /* stderr= */ null,
         metadataLogs,
-        ErrorTiming.NO_ERROR);
+        ErrorTiming.NO_ERROR,
+        /* startTime= */ null,
+        /* endTime= */ null);
   }
 
   @Test

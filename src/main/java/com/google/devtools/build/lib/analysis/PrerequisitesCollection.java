@@ -42,24 +42,61 @@ import javax.annotation.Nullable;
 /** Collection of the attributes dependencies available in a {@link RuleContext}. */
 public final class PrerequisitesCollection {
 
+  private interface AttributesMapper {
+    Attribute getAttribute(String attributeName);
+  }
+
   private final ImmutableSortedKeyListMultimap<String, ConfiguredTargetAndData>
       attributeToPrerequisitesMap;
-  private final AttributeMap attributes;
+  private final AttributesMapper attributesMapper;
+
   private final RuleErrorConsumer ruleErrorConsumer;
   private final Rule rule;
   private final String ruleClassNameForLogging;
 
   PrerequisitesCollection(
-      AttributeMap attributes,
-      ImmutableSortedKeyListMultimap<String, ConfiguredTargetAndData> prerequisitesMap,
+      ImmutableSortedKeyListMultimap<String, ConfiguredTargetAndData> attributeToPrerequisitesMap,
+      ImmutableMap<String, Attribute> attributes,
       RuleErrorConsumer ruleErrorConsumer,
       Rule rule,
       String ruleClassNameForLogging) {
-    this.attributes = attributes;
-    this.attributeToPrerequisitesMap = prerequisitesMap;
+    this(
+        attributeToPrerequisitesMap,
+        /* attributesMapper= */ attributes::get,
+        ruleErrorConsumer,
+        rule,
+        ruleClassNameForLogging);
+  }
+
+  PrerequisitesCollection(
+      ImmutableSortedKeyListMultimap<String, ConfiguredTargetAndData> attributeToPrerequisitesMap,
+      AttributeMap attributes,
+      RuleErrorConsumer ruleErrorConsumer,
+      Rule rule,
+      String ruleClassNameForLogging) {
+    this(
+        attributeToPrerequisitesMap,
+        /* attributesMapper= */ attributes::getAttributeDefinition,
+        ruleErrorConsumer,
+        rule,
+        ruleClassNameForLogging);
+  }
+
+  private PrerequisitesCollection(
+      ImmutableSortedKeyListMultimap<String, ConfiguredTargetAndData> attributeToPrerequisitesMap,
+      AttributesMapper attributesMapper,
+      RuleErrorConsumer ruleErrorConsumer,
+      Rule rule,
+      String ruleClassNameForLogging) {
+    this.attributeToPrerequisitesMap = attributeToPrerequisitesMap;
+    this.attributesMapper = attributesMapper;
     this.ruleErrorConsumer = ruleErrorConsumer;
     this.rule = rule;
     this.ruleClassNameForLogging = ruleClassNameForLogging;
+  }
+
+  boolean has(String attributeName) {
+    return attributesMapper.getAttribute(attributeName) != null;
   }
 
   /** Returns a list of all prerequisites as {@code ConfiguredTarget} objects. */
@@ -79,7 +116,7 @@ public final class PrerequisitesCollection {
    * specified attribute.
    */
   public List<? extends TransitiveInfoCollection> getPrerequisites(String attributeName) {
-    Attribute attribute = attributes.getAttributeDefinition(attributeName);
+    Attribute attribute = attributesMapper.getAttribute(attributeName);
     if (attribute == null) {
       return ImmutableList.of();
     }
@@ -243,7 +280,7 @@ public final class PrerequisitesCollection {
    */
   @Nullable
   public FilesToRunProvider getExecutablePrerequisite(String attributeName) {
-    Attribute ruleDefinition = attributes.getAttributeDefinition(attributeName);
+    Attribute ruleDefinition = attributesMapper.getAttribute(attributeName);
 
     Preconditions.checkNotNull(
         ruleDefinition, "%s attribute %s is not defined", ruleClassNameForLogging, attributeName);
@@ -308,7 +345,7 @@ public final class PrerequisitesCollection {
   }
 
   private void checkAttributeIsDependency(String attributeName) {
-    Attribute attributeDefinition = attributes.getAttributeDefinition(attributeName);
+    Attribute attributeDefinition = attributesMapper.getAttribute(attributeName);
     Preconditions.checkNotNull(
         attributeDefinition,
         "%s: %s attribute %s is not defined",

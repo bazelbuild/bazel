@@ -464,23 +464,26 @@ public interface StarlarkRuleFunctionsApi {
             defaultValue = "None",
             positional = false,
             doc =
-                "Experimental: the Stalark function initializing the attributes of the rule."
-                    + "The function is "
-                    + "called at load time for each instance of the rule. It's called with values "
-                    + "of public attributes defined by the rule (not with generic attributes, "
-                    + "for example <code>name</code> or <code>tags</code>). It has to return a "
-                    + "dictionary from the attribute names to the desired values. The attributes "
-                    + " that are not returned are unaffected. Returning <code>None</code> as value"
-                    + " results in using the default value specified in the attribute definition."
-                    + "<p>Initializers are evaluated before the default values specified in an"
-                    + "attribute definition. Consequently, if a parameter in the initializer's "
+                "Experimental: the Stalark function initializing the attributes of the rule. "
+                    + "<p>The function is called at load time for each instance of the rule. It's "
+                    + "called with values of public attributes defined by the rule (not with "
+                    + "generic attributes, for example <code>name</code> or <code>tags</code>). "
+                    + "<p>It has to return a dictionary from the attribute names to the desired "
+                    + "values. The attributes that are not returned are unaffected. Returning "
+                    + "<code>None</code> as value results in using the default value specified in "
+                    + "the attribute definition. "
+                    + "<p>Initializers are evaluated before the default values specified in "
+                    + "an attribute definition. Consequently, if a parameter in the initializer's "
                     + "signature contains a default values, it overwrites the default from the "
-                    + "attribute definition (except if returning <code>None</code>)."
+                    + "attribute definition (except if returning <code>None</code>). "
                     + "<p>Similarly, if a parameter in the initializer's signature doesn't have a "
-                    + "default, the parameter will become mandatory. It's a good practice to omit"
-                    + " default/mandatory settings on an attribute definition in such cases."
-                    + "<p>It's a good practice to use <code>**kwargs</code> for attributes "
-                    + " that are not handled."),
+                    + "default, the parameter will become mandatory. It's a good practice to omit "
+                    + "default/mandatory settings on an attribute definition in such cases. "
+                    + "<p>It's a good practice to use <code>**kwargs</code> for attributes that "
+                    + "are not handled."
+                    + "<p>In case of extended rules, all initializers are called proceeding from "
+                    + "child to ancestors. Each initializer is passed only the public attributes "
+                    + "it knows about."),
         @Param(
             name = "parent",
             named = true,
@@ -493,6 +496,21 @@ public interface StarlarkRuleFunctionsApi {
                     + " <code>fragments</code>, <code>toolchains</code>,"
                     + " <code>exec_compatible_with</code>, and <code>exec_groups</code> are"
                     + " merged. Legacy or deprecated parameters may not be set."),
+        @Param(
+            name = "extendable",
+            named = true,
+            defaultValue = "None",
+            positional = false,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            doc =
+                "Experimental: A label of an allowlist defining which rules can extending this"
+                    + " rule. It can be set also to True/False to always allow/disallow extending."
+                    + " Bazel defaults to always allowing extensions."),
         @Param(
             name = "subrules",
             allowedTypes = {
@@ -525,6 +543,7 @@ public interface StarlarkRuleFunctionsApi {
       Object execGroups,
       Object initializer,
       Object parentUnchecked,
+      Object extendableUnchecked,
       Sequence<?> subrules,
       StarlarkThread thread)
       throws EvalException;

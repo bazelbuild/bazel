@@ -20,6 +20,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.events.EventHandler;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
@@ -45,7 +46,7 @@ public final class BuildOptionsCache<T> {
   /** An interface describing a function representing the transition used in this cache. */
   @FunctionalInterface
   public interface CacheRetrievalFunction<A, T, B, C> {
-    public C apply(A fromOptions, T context, B eventHandler);
+    public C apply(A fromOptions, T context, B eventHandler) throws InterruptedException;
   }
 
   private final CacheRetrievalFunction<BuildOptionsView, T, EventHandler, BuildOptions> transition;
@@ -64,10 +65,24 @@ public final class BuildOptionsCache<T> {
    * @param context an additional object that affects the transition's result
    */
   public BuildOptions applyTransition(
-      BuildOptionsView fromOptions, T context, @Nullable EventHandler eventHandler) {
-    return cache.get(
-        CacheKey.create(fromOptions.underlying().checksum(), context),
-        unused -> transition.apply(fromOptions, context, eventHandler));
+      BuildOptionsView fromOptions, T context, @Nullable EventHandler eventHandler)
+      throws InterruptedException {
+    final AtomicReference<InterruptedException> interruptedException = new AtomicReference<>();
+    var ans =
+        cache.get(
+            CacheKey.create(fromOptions.underlying().checksum(), context),
+            unused -> {
+              try {
+                return transition.apply(fromOptions, context, eventHandler);
+              } catch (InterruptedException e) {
+                interruptedException.set(e);
+                return null;
+              }
+            });
+    if (interruptedException.get() != null) {
+      throw interruptedException.get();
+    }
+    return ans;
   }
 
   /**

@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.AliasProvider;
+import com.google.devtools.build.lib.analysis.AspectContext;
 import com.google.devtools.build.lib.analysis.BashCommandConstructor;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
@@ -269,7 +270,8 @@ public final class StarlarkRuleContext
       this.outputsObject = outputs;
 
       // Populate ctx.attr.
-      StarlarkAttributesCollection.Builder builder = StarlarkAttributesCollection.builder(this);
+      StarlarkAttributesCollection.Builder builder =
+          StarlarkAttributesCollection.builder(this, ruleContext.getRulePrerequisitesCollection());
       for (Attribute attribute : attributes) {
         Object value = ruleContext.attributes().get(attribute.getName(), attribute.getType());
         builder.addAttribute(attribute, value);
@@ -284,7 +286,8 @@ public final class StarlarkRuleContext
           ruleContext.getMainAspect().getDefinition().getAttributes().values();
 
       StarlarkAttributesCollection.Builder aspectBuilder =
-          StarlarkAttributesCollection.builder(this);
+          StarlarkAttributesCollection.builder(
+              this, ((AspectContext) ruleContext).getMainAspectPrerequisitesCollection());
       for (Attribute attribute : attributes) {
         Object defaultValue = attribute.getDefaultValue(null);
         if (defaultValue instanceof ComputedDefault) {
@@ -295,7 +298,8 @@ public final class StarlarkRuleContext
       this.attributesCollection = aspectBuilder.build();
 
       this.splitAttributes = null;
-      StarlarkAttributesCollection.Builder ruleBuilder = StarlarkAttributesCollection.builder(this);
+      StarlarkAttributesCollection.Builder ruleBuilder =
+          StarlarkAttributesCollection.builder(this, ruleContext.getRulePrerequisitesCollection());
 
       for (Attribute attribute : rule.getAttributes()) {
         Object value = ruleContext.attributes().get(attribute.getName(), attribute.getType());
@@ -330,6 +334,10 @@ public final class StarlarkRuleContext
 
   void setLockedForSubrule(boolean isLocked) {
     this.lockedForSubruleEvaluation = isLocked;
+  }
+
+  boolean getLockedForSubrule() {
+    return lockedForSubruleEvaluation;
   }
 
   /**
@@ -455,7 +463,7 @@ public final class StarlarkRuleContext
    */
   public void close() {
     // Check super was called
-    if (ruleClassUnderEvaluation.getStarlarkParent() != null && !superCalled) {
+    if (ruleClassUnderEvaluation.getStarlarkParent() != null && !superCalled && !isForAspect()) {
       ruleContext.ruleError("'super' was not called.");
     }
 
@@ -585,7 +593,7 @@ public final class StarlarkRuleContext
       BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_RULE_EXTENSION_API);
     }
     checkMutable("super()");
-    if (aspectDescriptor != null) {
+    if (isForAspect()) {
       throw Starlark.errorf("Can't use 'super' call in an aspect.");
     }
     if (ruleClassUnderEvaluation.getStarlarkParent() == null) {
@@ -1206,15 +1214,18 @@ public final class StarlarkRuleContext
    * @return Immutable map with immutable collections as values
    */
   public static ImmutableMap<Label, ImmutableCollection<Artifact>> makeLabelMap(
-      Iterable<TransitiveInfoCollection> knownLabels) {
-    ImmutableMap.Builder<Label, ImmutableCollection<Artifact>> builder = ImmutableMap.builder();
-
+      Iterable<TransitiveInfoCollection> knownLabels) throws EvalException {
+    var targetsMap = new LinkedHashMap<Label, ImmutableCollection<Artifact>>();
     for (TransitiveInfoCollection current : knownLabels) {
-      builder.put(
-          AliasProvider.getDependencyLabel(current),
-          current.getProvider(FileProvider.class).getFilesToBuild().toList());
+      Label label = AliasProvider.getDependencyLabel(current);
+      if (targetsMap.containsKey(label)) {
+        throw Starlark.errorf(
+            "Label %s is found more than once in 'targets' list.", Starlark.repr(label.toString()));
+      }
+
+      targetsMap.put(label, current.getProvider(FileProvider.class).getFilesToBuild().toList());
     }
 
-    return builder.buildOrThrow();
+    return ImmutableMap.copyOf(targetsMap);
   }
 }

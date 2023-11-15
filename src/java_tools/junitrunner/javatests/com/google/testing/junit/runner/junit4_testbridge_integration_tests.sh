@@ -108,4 +108,16 @@ function test_Junit4FailFast() {
   expect_log 'Failures: 2'
 }
 
+# Test that we fail on suite failures even if individual test cases pass
+function test_JunitUndeclaredTestCaseFailures() {
+  cd "${TEST_TMPDIR}" || fail "Unexpected failure"
+
+  "${TESTBED}" \
+  --jvm_flag="-D${SUITE_PARAMETER}=com.google.testing.junit.runner.testbed.Junit4UndeclaredTestCaseFailures" \
+   &> "${TEST_log}" && fail "Expected failure"
+  expect_log 'unnecessary Mockito stubbings'
+  grep -q "tests='2' failures='1'" ${XML_OUTPUT_FILE} || \
+    fail "Expected 1 failure in xml output: `cat ${XML_OUTPUT_FILE}`"
+}
+
 run_suite "junit4_testbridge_integration_test"

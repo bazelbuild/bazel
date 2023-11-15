@@ -488,10 +488,10 @@ Note: [Some Bazel rules](/concepts/platforms#status) do not yet support
 toolchain resolution.
 
 For each target that uses toolchains, Bazel's toolchain resolution procedure
-determines the target's concrete toolchain dependencies. The procedure takes as input a
-set of required toolchain types, the target platform, the list of available
-execution platforms, and the list of available toolchains. Its outputs are a
-selected toolchain for each toolchain type as well as a selected execution
+determines the target's concrete toolchain dependencies. The procedure takes as
+input a set of required toolchain types, the target platform, the list of
+available execution platforms, and the list of available toolchains. Its outputs
+are a selected toolchain for each toolchain type as well as a selected execution
 platform for the current target.
 
 The available execution platforms and toolchains are gathered from the
@@ -508,6 +508,18 @@ The host platform is automatically included as an available execution platform.
 Available platforms and toolchains are tracked as ordered lists for determinism,
 with preference given to earlier items in the list.
 
+The set of available toolchains, in priority order, is created from
+`--extra_toolchains` and `register_toolchains`:
+
+1. Toolchains registered using `--extra_toolchains` are added first.
+  1. Within these, the **last** toolchain has highest priority.
+2. Toolchains registered using `register_toolchains`
+  1. Within these, the **first** mentioned toolchain has highest priority.
+
+**NOTE:** [Pseudo-targets like `:all`, `:*`, and
+`/...`](/run/build#specifying-build-targets) are ordered by Bazel's package
+loading mechanism, which uses a lexicographic ordering.
+
 The resolution steps are as follows.
 
 1. A `target_compatible_with` or `exec_compatible_with` clause *matches* a
@@ -523,6 +535,9 @@ The resolution steps are as follows.
    [`exec_compatible_with` argument](/rules/lib/globals/bzl#rule.exec_compatible_with)),
    the list of available execution platforms is filtered to remove
    any that do not match the execution constraints.
+
+1. The list of available toolchains is filtered to remove any toolchains
+   specifying `target_settings` that don't match the current configuration.
 
 1. For each available execution platform, you associate each toolchain type with
    the first available toolchain, if any, that is compatible with this execution

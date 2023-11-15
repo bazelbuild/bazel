@@ -606,10 +606,10 @@ public interface JavaCommonApi<
             documented = false,
             defaultValue = "False")
       })
-  // TODO(b/78512644): migrate callers to passing explicit javacopts or using custom toolchains, and
-  // delete
-  StarlarkValue getDefaultJavacOpts(Info javaToolchain, boolean asDepset)
-      throws EvalException, RuleErrorException;
+  default StarlarkValue getDefaultJavacOpts(Info javaToolchain, boolean asDepset) {
+    // method exists solely for documentation
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "JavaToolchainInfo",
@@ -617,7 +617,10 @@ public interface JavaCommonApi<
           "The key used to retrieve the provider that contains information about the Java "
               + "toolchain being used.",
       structField = true)
-  ProviderApi getJavaToolchainProvider();
+  default ProviderApi getJavaToolchainProvider() {
+    // method exists purely for documentation
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "JavaRuntimeInfo",
@@ -625,13 +628,19 @@ public interface JavaCommonApi<
           "The key used to retrieve the provider that contains information about the Java "
               + "runtime being used.",
       structField = true)
-  ProviderApi getJavaRuntimeProvider();
+  default ProviderApi getJavaRuntimeProvider() {
+    // method exists purely for documentation
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "BootClassPathInfo",
       doc = "The provider used to supply bootclasspath information",
       structField = true)
-  ProviderApi getBootClassPathInfo();
+  default ProviderApi getBootClassPathInfo() {
+    // method exists solely for documentation
+    throw new UnsupportedOperationException();
+  }
 
   /** Returns target kind. */
   @StarlarkMethod(
@@ -642,15 +651,6 @@ public interface JavaCommonApi<
       documented = false,
       useStarlarkThread = true)
   String getTargetKind(Object target, StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
-      name = "get_build_info",
-      documented = false,
-      parameters = {@Param(name = "ctx"), @Param(name = "is_stamping_enabled")},
-      useStarlarkThread = true)
-  Sequence<FileT> getBuildInfo(
-      StarlarkRuleContextT ruleContext, boolean isStampingEnabled, StarlarkThread thread)
-      throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "collect_native_deps_dirs",

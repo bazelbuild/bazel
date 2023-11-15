@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.exec;
 
 import build.bazel.remote.execution.v2.Platform;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.HashCode;
@@ -40,6 +39,7 @@ import com.google.devtools.build.lib.util.io.MessageOutputStream;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -66,34 +66,47 @@ public class SpawnLogContext implements ActionContext {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  private final Path execRoot;
+  private final PathFragment execRoot;
   private final MessageOutputStream executionLog;
   @Nullable private final ExecutionOptions executionOptions;
   @Nullable private final RemoteOptions remoteOptions;
+  private final DigestHashFunction digestHashFunction;
   private final XattrProvider xattrProvider;
 
   public SpawnLogContext(
-      Path execRoot,
+      PathFragment execRoot,
       MessageOutputStream executionLog,
       @Nullable ExecutionOptions executionOptions,
       @Nullable RemoteOptions remoteOptions,
+      DigestHashFunction digestHashFunction,
       XattrProvider xattrProvider) {
     this.execRoot = execRoot;
     this.executionLog = executionLog;
     this.executionOptions = executionOptions;
     this.remoteOptions = remoteOptions;
+    this.digestHashFunction = digestHashFunction;
     this.xattrProvider = xattrProvider;
   }
 
-  /** Log the executed spawn to the output stream. */
+  /**
+   * Logs the executed spawn to the output stream.
+   *
+   * @param spawn the spawn to log
+   * @param inputMetadataProvider provides metadata for the spawn inputs
+   * @param fileSystem the filesystem containing the spawn inputs and outputs, which might be an
+   *     action filesystem when building without the bytes
+   * @param timeout the timeout the spawn was run under
+   * @param result the spawn result
+   */
   public void logSpawn(
       Spawn spawn,
       InputMetadataProvider inputMetadataProvider,
       SortedMap<PathFragment, ActionInput> inputMap,
+      FileSystem fileSystem,
       Duration timeout,
       SpawnResult result)
       throws IOException, ExecException {
-    SortedMap<Path, ActionInput> existingOutputs = listExistingOutputs(spawn);
+    SortedMap<Path, ActionInput> existingOutputs = listExistingOutputs(spawn, fileSystem);
     SpawnExec.Builder builder = SpawnExec.newBuilder();
     builder.addAllCommandArgs(spawn.getArguments());
 
@@ -112,21 +125,21 @@ public class SpawnLogContext implements ActionContext {
         if (input instanceof VirtualActionInput.EmptyActionInput) {
           continue;
         }
-        Path inputPath = execRoot.getRelative(input.getExecPathString());
+        Path inputPath = fileSystem.getPath(execRoot.getRelative(input.getExecPathString()));
         if (inputPath.isDirectory()) {
           listDirectoryContents(inputPath, builder::addInputs, inputMetadataProvider);
-        } else {
-          Digest digest = computeDigest(input, null, inputMetadataProvider, xattrProvider);
-          boolean isTool =
-              toolFiles.contains(input)
-                  || (input instanceof TreeFileArtifact
-                      && toolFiles.contains(((TreeFileArtifact) input).getParent()));
-          builder
-              .addInputsBuilder()
-              .setPath(input.getExecPathString())
-              .setDigest(digest)
-              .setIsTool(isTool);
+          continue;
         }
+        Digest digest = computeDigest(input, inputPath, inputMetadataProvider, xattrProvider);
+        boolean isTool =
+            toolFiles.contains(input)
+                || (input instanceof TreeFileArtifact
+                    && toolFiles.contains(((TreeFileArtifact) input).getParent()));
+        builder
+            .addInputsBuilder()
+            .setPath(input.getExecPathString())
+            .setDigest(digest)
+            .setIsTool(isTool);
       }
     } catch (IOException e) {
       logger.atWarning().withCause(e).log("Error computing spawn inputs");
@@ -144,7 +157,7 @@ public class SpawnLogContext implements ActionContext {
           listDirectoryContents(path, builder::addActualOutputs, inputMetadataProvider);
         } else {
           File.Builder outputBuilder = builder.addActualOutputsBuilder();
-          outputBuilder.setPath(path.relativeTo(execRoot).toString());
+          outputBuilder.setPath(path.relativeTo(fileSystem.getPath(execRoot)).toString());
           try {
             outputBuilder.setDigest(
                 computeDigest(e.getValue(), path, inputMetadataProvider, xattrProvider));
@@ -171,11 +184,9 @@ public class SpawnLogContext implements ActionContext {
     builder.setExitCode(result.exitCode());
     builder.setRemoteCacheHit(result.isCacheHit());
     builder.setRunner(result.getRunnerName());
+
     if (result.getDigest() != null) {
-      builder
-          .getDigestBuilder()
-          .setHash(result.getDigest().getHash())
-          .setSizeBytes(result.getDigest().getSizeBytes());
+      builder.setDigest(result.getDigest());
     }
 
     String progressMessage = spawn.getResourceOwner().getProgressMessage();
@@ -254,10 +265,10 @@ public class SpawnLogContext implements ActionContext {
     return platformBuilder.build();
   }
 
-  private SortedMap<Path, ActionInput> listExistingOutputs(Spawn spawn) {
+  private SortedMap<Path, ActionInput> listExistingOutputs(Spawn spawn, FileSystem fileSystem) {
     TreeMap<Path, ActionInput> result = new TreeMap<>();
     for (ActionInput output : spawn.getOutputFiles()) {
-      Path outputPath = execRoot.getRelative(output.getExecPathString());
+      Path outputPath = fileSystem.getPath(execRoot.getRelative(output.getExecPathString()));
       // TODO(olaola): once symlink API proposal is implemented, report symlinks here.
       if (outputPath.exists()) {
         result.put(outputPath, output);
@@ -280,9 +291,9 @@ public class SpawnLogContext implements ActionContext {
         } else {
           String pathString;
           if (child.startsWith(execRoot)) {
-            pathString = child.relativeTo(execRoot).toString();
+            pathString = child.asFragment().relativeTo(execRoot).getPathString();
           } else {
-            pathString = child.toString();
+            pathString = child.getPathString();
           }
           addFile.accept(
               File.newBuilder()
@@ -302,45 +313,41 @@ public class SpawnLogContext implements ActionContext {
    */
   private Digest computeDigest(
       @Nullable ActionInput input,
-      @Nullable Path path,
+      Path path,
       InputMetadataProvider inputMetadataProvider,
       XattrProvider xattrProvider)
       throws IOException {
-    Preconditions.checkArgument(input != null || path != null);
-    DigestHashFunction hashFunction = execRoot.getFileSystem().getDigestFunction();
-    Digest.Builder digest = Digest.newBuilder().setHashFunctionName(hashFunction.toString());
+    Digest.Builder builder = Digest.newBuilder().setHashFunctionName(digestHashFunction.toString());
+
     if (input != null) {
       if (input instanceof VirtualActionInput) {
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         ((VirtualActionInput) input).writeTo(buffer);
         byte[] blob = buffer.toByteArray();
-        return digest
-            .setHash(hashFunction.getHashFunction().hashBytes(blob).toString())
+        return builder
+            .setHash(digestHashFunction.getHashFunction().hashBytes(blob).toString())
             .setSizeBytes(blob.length)
             .build();
       }
-      // Try to access the cached metadata, otherwise fall back to local computation.
+
+      // Try to obtain a digest from the input metadata.
       try {
         FileArtifactValue metadata = inputMetadataProvider.getInputMetadata(input);
-        if (metadata != null) {
-          byte[] hash = metadata.getDigest();
-          if (hash != null) {
-            return digest
-                .setHash(HashCode.fromBytes(hash).toString())
-                .setSizeBytes(metadata.getSize())
-                .build();
-          }
+        if (metadata != null && metadata.getDigest() != null) {
+          return builder
+              .setHash(HashCode.fromBytes(metadata.getDigest()).toString())
+              .setSizeBytes(metadata.getSize())
+              .build();
         }
       } catch (IOException | IllegalStateException e) {
         // Pass through to local computation.
       }
     }
-    if (path == null) {
-      path = execRoot.getRelative(input.getExecPath());
-    }
-    // Compute digest manually.
+
     long fileSize = path.getFileSize();
-    return digest
+
+    // Try to obtain a digest from the filesystem.
+    return builder
         .setHash(
             HashCode.fromBytes(
                     DigestUtils.getDigestWithManualFallback(path, fileSize, xattrProvider))

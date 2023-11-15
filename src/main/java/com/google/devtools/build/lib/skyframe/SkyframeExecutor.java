@@ -97,8 +97,11 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader;
+import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.producers.ConfiguredTargetAndDataProducer;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
@@ -189,6 +192,7 @@ import com.google.devtools.build.lib.skyframe.config.BuildConfigurationFunction;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingFunction;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingValue;
+import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsFunction;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsCycleReporter;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsFunction;
@@ -356,7 +360,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private final AtomicReference<ActionExecutionStatusReporter> statusReporterRef =
       new AtomicReference<>();
   protected final SkyframeActionExecutor skyframeActionExecutor;
-  private ActionExecutionFunction actionExecutionFunction;
+  private ActionRewindStrategy actionRewindStrategy;
   private BuildDriverFunction buildDriverFunction;
   private GlobFunction globFunction;
   SkyframeProgressReceiver progressReceiver;
@@ -706,10 +710,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         new BuildInfoCollectionFunction(actionKeyContext, artifactFactory));
     map.put(SkyFunctions.BUILD_INFO, new WorkspaceStatusFunction(this::makeWorkspaceStatusAction));
     map.put(SkyFunctions.COVERAGE_REPORT, new CoverageReportFunction(actionKeyContext));
-    ActionExecutionFunction actionExecutionFunction =
-        new ActionExecutionFunction(skyframeActionExecutor, directories, tsgm::get, bugReporter);
-    map.put(SkyFunctions.ACTION_EXECUTION, actionExecutionFunction);
-    this.actionExecutionFunction = actionExecutionFunction;
+    this.actionRewindStrategy = new ActionRewindStrategy();
+    map.put(SkyFunctions.ACTION_EXECUTION, newActionExecutionFunction());
     map.put(
         SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL,
         new RecursiveFilesystemTraversalFunction(syscallCache));
@@ -761,6 +763,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected SkyFunction newDirectoryListingStateFunction() {
     return new DirectoryListingStateFunction(externalFilesHelper, syscallCache);
+  }
+
+  protected SkyFunction newActionExecutionFunction() {
+    return new ActionExecutionFunction(
+        actionRewindStrategy, skyframeActionExecutor, directories, tsgm::get, bugReporter);
   }
 
   protected SkyFunction newCollectPackagesUnderDirectoryFunction(BlazeDirectories directories) {
@@ -1767,6 +1774,32 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         .collect(toImmutableList());
   }
 
+  /**
+   * Only for testing:
+   *
+   * <p>Returns the Starlark transition that implements the exec transition, if one is defined for
+   * this build. Else returns null (this build uses the Java-native exec transition).
+   *
+   * <p>Production code handles this in Bazel's analysis phase skyfunctions.
+   */
+  @Nullable
+  @VisibleForTesting
+  public StarlarkAttributeTransitionProvider getStarlarkExecTransitionForTesting(
+      BuildOptions options, ExtendedEventHandler eventHandler)
+      throws StarlarkExecTransitionLoadingException, InterruptedException {
+    return StarlarkExecTransitionLoader.loadStarlarkExecTransition(
+            options,
+            (bzlKey) ->
+                (BzlLoadValue)
+                    evaluate(
+                            ImmutableList.of(bzlKey),
+                            /* keepGoing= */ false,
+                            /* numThreads= */ DEFAULT_THREAD_COUNT,
+                            eventHandler)
+                        .get(bzlKey))
+        .orElse(null);
+  }
+
   private BuildConfigurationKey createBuildConfigurationKey(
       ExtendedEventHandler eventHandler, BuildOptions buildOptions)
       throws InvalidConfigurationException {
@@ -1978,20 +2011,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                 if (packageValue != null) { // Null for errors e.g. "no such package"
                   Optional<Root> sourceRoot = packageValue.getPackage().getSourceRoot();
                   if (sourceRoot.isPresent()) {
-                    roots.put(
-                        (PackageIdentifier) key,
-                        maybeTransformSourceRootForExecrootSymlinkCreation(sourceRoot.get()));
+                    roots.put((PackageIdentifier) key, sourceRoot.get());
                   }
                 }
               }
             });
     return ImmutableMap.copyOf(roots);
-  }
-
-  /** Returns a possibly transformed source root of a package for execroot symlink creation. */
-  @ForOverride
-  protected Root maybeTransformSourceRootForExecrootSymlinkCreation(Root sourceRoot) {
-    return sourceRoot;
   }
 
   public void clearSyscallCache() {
@@ -2043,7 +2068,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     setExecutionProgressReceiver(null);
 
     skyframeActionExecutor.executionOver();
-    actionExecutionFunction.complete(eventHandler);
+    actionRewindStrategy.reset(eventHandler);
   }
 
   /**
@@ -3048,8 +3073,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         Profiler.instance().profile("SkyframeExecutor.collectAccumulatedAlvs")) {
       ImmutableMap<ActionLookupKey, SkyValue> batchOfActionLookupValues =
           progressReceiver.getBatchedActionLookupValuesForConflictChecking();
-      return ActionLookupValuesCollectionResult.create(
-          batchOfActionLookupValues.values(), batchOfActionLookupValues.keySet());
+      return ActionLookupValuesCollectionResult.create(batchOfActionLookupValues.values());
     }
   }
 

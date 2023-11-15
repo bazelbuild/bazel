@@ -15,8 +15,10 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelToStringEntryConverter;
@@ -36,6 +38,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -141,9 +144,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " --experimental_platform_in_output_dir is true. Has highest naming priority.")
   public List<Map.Entry<Label, String>> overrideNamePlatformInOutputDirEntries;
 
-  // Note: This value may contain conflicting duplicate values for the same define.
-  // Use `getNormalizedCommandLineBuildVariables` if you wish for these to be deduplicated
-  // (last-wins).
   @Option(
       name = "define",
       converter = Converters.AssignmentConverter.class,
@@ -151,7 +151,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Each --define option specifies an assignment for a build variable.")
+      help =
+          "Each --define option specifies an assignment for a build variable."
+              + " In case of multiple values for a variable, the last one wins.")
   public List<Map.Entry<String, String>> commandLineBuildVariables;
 
   @Option(
@@ -203,8 +205,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help =
-          "Check for action prefix file path conflicts, regardless of action-specific overrides.")
+      help = "No-op.")
   public boolean strictConflictChecks;
 
   @Option(
@@ -793,7 +794,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       name = "experimental_output_paths",
       converter = OutputPathsConverter.class,
       defaultValue = "off",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {
         OptionEffectTag.LOSES_INCREMENTAL_STATE,
         OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
@@ -1017,13 +1018,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   }
 
   /// Normalizes --define flags, preserving the last one to appear in the event of conflicts.
-  public LinkedHashMap<String, String> getNormalizedCommandLineBuildVariables() {
-    LinkedHashMap<String, String> flagValueByName = new LinkedHashMap<>();
-    for (Map.Entry<String, String> entry : commandLineBuildVariables) {
-      // If the same --define flag is passed multiple times we keep the last value.
-      flagValueByName.put(entry.getKey(), entry.getValue());
-    }
-    return flagValueByName;
+  public ImmutableMap<String, String> getNormalizedCommandLineBuildVariables() {
+    return sortEntries(normalizeEntries(commandLineBuildVariables)).stream()
+        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   // Normalizes list of map entries by keeping only the last entry for each key.
@@ -1033,10 +1030,23 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     for (Map.Entry<String, String> entry : entries) {
       normalizedEntries.put(entry.getKey(), entry.getValue());
     }
+    // If we made no changes, return the same instance we got to reduce churn.
     if (normalizedEntries.size() == entries.size()) {
       return entries;
     }
     return normalizedEntries.entrySet().stream().map(SimpleEntry::new).collect(toImmutableList());
+  }
+
+  // Sort the map entries by key.
+  private static List<Map.Entry<String, String>> sortEntries(
+      List<Map.Entry<String, String>> entries) {
+    ImmutableList<Map.Entry<String, String>> sortedEntries =
+        entries.stream().sorted(Comparator.comparing(Map.Entry::getKey)).collect(toImmutableList());
+    // If we made no changes, return the same instance we got to reduce churn.
+    if (sortedEntries.equals(entries)) {
+      return entries;
+    }
+    return sortedEntries;
   }
 
   /// Normalizes --features flags by sorting the values and having disables win over enables.
@@ -1076,17 +1086,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   @Override
   public CoreOptions getNormalized() {
     CoreOptions result = (CoreOptions) clone();
-    LinkedHashMap<String, String> flagValueByName = getNormalizedCommandLineBuildVariables();
-
-    // This check is an optimization to avoid creating a new list if the normalization was a
-    // no-op.
-    if (flagValueByName.size() != result.commandLineBuildVariables.size()) {
-      result.commandLineBuildVariables =
-          flagValueByName.entrySet().stream()
-              // The entries in the transformed list must be serializable.
-              .map(SimpleEntry::new)
-              .collect(toImmutableList());
-    }
+    result.commandLineBuildVariables = sortEntries(normalizeEntries(commandLineBuildVariables));
 
     // Normalize features.
     result.defaultFeatures = getNormalizedFeatures(defaultFeatures);
@@ -1094,7 +1094,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     result.actionEnvironment = normalizeEntries(actionEnvironment);
     result.hostActionEnvironment = normalizeEntries(hostActionEnvironment);
     result.testEnvironment = normalizeEntries(testEnvironment);
-    result.commandLineFlagAliases = normalizeEntries(commandLineFlagAliases);
+    result.commandLineFlagAliases = sortEntries(normalizeEntries(commandLineFlagAliases));
 
     return result;
   }

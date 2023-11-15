@@ -17,7 +17,6 @@ Use the following services to run Bazel with remote execution:
     * [Buildbarn](https://github.com/buildbarn){: .external}
     * [Buildfarm](https://github.com/bazelbuild/bazel-buildfarm){: .external}
     * [BuildGrid](https://gitlab.com/BuildGrid/buildgrid){: .external}
-    * [Scoot](https://github.com/twitter/scoot){: .external}
     * [TurboCache](https://github.com/allada/turbo-cache){: .external}
 
 *   Commercial

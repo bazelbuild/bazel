@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigRequestedEvent;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.constraints.PlatformRestrictionsResult;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
@@ -306,7 +305,6 @@ public class BuildView {
                         configuredTargets, allTargetsToTest, eventHandler, eventBus, loadingResult),
                 keepGoing,
                 skipIncompatibleExplicitTargets,
-                targetOptions.get(CoreOptions.class).strictConflictChecks,
                 checkForActionConflicts,
                 viewOptions.extraActionTopLevelOnly,
                 executors,
@@ -326,7 +324,6 @@ public class BuildView {
                 bugReporter,
                 keepGoing,
                 executors,
-                targetOptions.get(CoreOptions.class).strictConflictChecks,
                 checkForActionConflicts);
         setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
       }

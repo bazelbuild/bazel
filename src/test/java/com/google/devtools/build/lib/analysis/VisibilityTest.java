@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -274,9 +273,6 @@ public class VisibilityTest extends AnalysisTestCase {
     assertThat(hasErrors(getConfiguredTarget("//foo:target_with_aspects"))).isFalse();
   }
 
-  @Ignore(
-      "TODO(b/206127051): The aspects path implicit dependencies with same name are incorrectly"
-          + " merged, enable this test when this is fixed.")
   @Test
   public void testAspectImplicitDependencyCheckedAtDefinition_visibleWithNameCollision()
       throws Exception {
