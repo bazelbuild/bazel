@@ -41,6 +41,13 @@ single_version_override(
     patches = ["//third_party:rules_jvm_external_5.2.patch"],
 )
 
+archive_override(
+    module_name = "rules_java",
+    urls = ["https://github.com/bazelbuild/rules_java/archive/1d9eaa08575a8963cffacae72544ebca061cd8dd.tar.gz"],
+    integrity = "sha256-YNjHIMbPgk7DbrHnmi/lnAZ1Epl7Y2R7tf2qHuwERYA=",
+    strip_prefix = "rules_java-1d9eaa08575a8963cffacae72544ebca061cd8dd",
+)
+
 local_path_override(
     module_name = "remoteapis",
     path = "./third_party/remoteapis",
