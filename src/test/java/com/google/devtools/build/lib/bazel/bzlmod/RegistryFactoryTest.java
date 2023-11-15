@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Suppliers;
@@ -41,7 +42,28 @@ public class RegistryFactoryTest extends FoundationTestCase {
             workspaceRoot,
             new DownloadManager(new RepositoryCache(), new HttpDownloader()),
             Suppliers.ofInstance(ImmutableMap.of()));
-    assertThrows(URISyntaxException.class, () -> registryFactory.getRegistryWithUrl("/home/www"));
-    assertThrows(URISyntaxException.class, () -> registryFactory.getRegistryWithUrl("foo://bar"));
+    Throwable exception =
+        assertThrows(
+            URISyntaxException.class, () -> registryFactory.getRegistryWithUrl("/home/www"));
+    assertThat(exception).hasMessageThat().contains("Registry URL has no scheme");
+    exception =
+        assertThrows(
+            URISyntaxException.class, () -> registryFactory.getRegistryWithUrl("foo://bar"));
+    assertThat(exception).hasMessageThat().contains("Unrecognized registry URL protocol");
+  }
+
+  @Test
+  public void badPath() throws Exception {
+    Path workspaceRoot = scratch.dir("/ws");
+    RegistryFactory registryFactory =
+        new RegistryFactoryImpl(
+            workspaceRoot,
+            new DownloadManager(new RepositoryCache(), new HttpDownloader()),
+            Suppliers.ofInstance(ImmutableMap.of()));
+    Throwable exception =
+        assertThrows(
+            URISyntaxException.class,
+            () -> registryFactory.getRegistryWithUrl("file:c:/path/to/workspace/registry"));
+    assertThat(exception).hasMessageThat().contains("Registry URL path is not valid");
   }
 }
