@@ -34,10 +34,7 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
 
   @Test
   public void filesToBuild() throws Exception {
-    scratch.file("pkg/BUILD",
-        "py_binary(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py'])");
+    scratch.file("pkg/BUILD", "py_binary(", "    name = 'foo',", "    srcs = ['foo.py'])");
     ConfiguredTarget target = getOkPyTarget("//pkg:foo");
     FileConfiguredTarget srcFile = getFileConfiguredTarget("//pkg:foo.py");
     assertThat(getFilesToBuild(target).toList())
@@ -50,7 +47,9 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
   public void srcsIsMandatory() throws Exception {
     // This case is somewhat dominated by the test that the default main must be in srcs, but the
     // error message is different here.
-    checkError("pkg", "foo",
+    checkError(
+        "pkg",
+        "foo",
         // error:
         "missing value for mandatory attribute 'srcs'",
         // build file:
