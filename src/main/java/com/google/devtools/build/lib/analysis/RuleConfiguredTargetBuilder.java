@@ -121,7 +121,6 @@ public final class RuleConfiguredTargetBuilder {
     NestedSetBuilder<Artifact> runfilesMiddlemenBuilder = NestedSetBuilder.stableOrder();
     if (runfilesSupport != null) {
       runfilesMiddlemenBuilder.add(runfilesSupport.getRunfilesMiddleman());
-      runfilesMiddlemenBuilder.addTransitive(runfilesSupport.getRunfiles().getExtraMiddlemen());
     }
     NestedSet<Artifact> runfilesMiddlemen = runfilesMiddlemenBuilder.build();
     FilesToRunProvider filesToRunProvider =

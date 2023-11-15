@@ -126,9 +126,7 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
             .addArtifacts(commonDependencyArtifacts)
             .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
     if (unifiedLauncher.getRunfilesSupport() != null) {
-      runfilesBuilder
-          .merge(unifiedLauncher.getRunfilesSupport().getRunfiles())
-          .addLegacyExtraMiddleman(unifiedLauncher.getRunfilesSupport().getRunfilesMiddleman());
+      runfilesBuilder.merge(unifiedLauncher.getRunfilesSupport().getRunfiles());
     } else {
       runfilesBuilder.addTransitiveArtifacts(unifiedLauncher.getFilesToRun());
     }
