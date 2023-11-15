@@ -486,6 +486,13 @@ release_archive(
     ],
 )
 
+release_archive(
+    name = "turbine_direct_graal_zip",
+    srcs = ["//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_direct_graal"],
+    package_dir = "java_tools",
+    visibility = ["//visibility:private"],
+)
+
 # Following target builds java_tools_prebuilt.zip part of java_tools
 release_archive(
     name = "java_tools_prebuilt_zip",
@@ -494,6 +501,7 @@ release_archive(
     },
     visibility = ["//src/test/shell/bazel:__pkg__"],
     deps = [
+        ":turbine_direct_graal_zip",
         "//src/tools/singlejar:singlejar_deploy_zip",
         "//third_party/ijar:ijar_deploy_zip",
     ],
