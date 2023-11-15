@@ -16,14 +16,14 @@
 Definition of java_import rule.
 """
 
-load(":common/java/basic_java_library.bzl", "construct_defaultinfo")
-load(":common/java/java_semantics.bzl", "semantics")
-load(":common/java/proguard_validation.bzl", "validate_proguard_specs")
-load(":common/java/import_deps_check.bzl", "import_deps_check")
 load(":common/cc/cc_info.bzl", "CcInfo")
-load(":common/java/java_info.bzl", "JavaInfo")
+load(":common/java/basic_java_library.bzl", "construct_defaultinfo")
+load(":common/java/import_deps_check.bzl", "import_deps_check")
 load(":common/java/java_common.bzl", "java_common")
 load(":common/java/java_common_internal_for_builtins.bzl", _run_ijar_private_for_builtins = "run_ijar")
+load(":common/java/java_info.bzl", "JavaInfo")
+load(":common/java/java_semantics.bzl", "semantics")
+load(":common/java/proguard_validation.bzl", "validate_proguard_specs")
 
 PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
 
@@ -78,7 +78,7 @@ def _check_empty_jars_error(ctx, jars):
     if len(jars) == 0 and disallow_java_import_empty_jars and not_in_allowlist:
         fail("empty java_import.jars is no longer supported " + ctx.label.package)
 
-def _create_java_info_with_dummy_output_file(ctx, srcjar, all_deps, exports, runtime_deps_list, neverlink, cc_info_list):
+def _create_java_info_with_dummy_output_file(ctx, srcjar, all_deps, exports, runtime_deps_list, neverlink, cc_info_list, add_exports, add_opens):
     dummy_jar = ctx.actions.declare_file(ctx.label.name + "_dummy.jar")
     dummy_src_jar = srcjar
     if dummy_src_jar == None:
@@ -94,6 +94,8 @@ def _create_java_info_with_dummy_output_file(ctx, srcjar, all_deps, exports, run
         neverlink = neverlink,
         exports = [export[JavaInfo] for export in exports if JavaInfo in export],  # Watchout, maybe you need to add them there manually.
         native_libraries = cc_info_list,
+        add_exports = add_exports,
+        add_opens = add_opens,
     )
 
 def bazel_java_import_rule(
@@ -104,7 +106,9 @@ def bazel_java_import_rule(
         runtime_deps = [],
         exports = [],
         neverlink = False,
-        proguard_specs = []):
+        proguard_specs = [],
+        add_exports = [],
+        add_opens = []):
     """Implements java_import.
 
     This rule allows the use of precompiled .jar files as libraries in other Java rules.
@@ -119,6 +123,8 @@ def bazel_java_import_rule(
       neverlink: (bool) Whether this rule should only be used for compilation and not at runtime.
       constraints: (list[String]) Rule constraints.
       proguard_specs: (list[File]) Files to be used as Proguard specification.
+      add_exports: (list[str]) Allow this library to access the given <module>/<package>.
+      add_opens: (list[str]) Allow this library to reflectively access the given <module>/<package>.
 
     Returns:
       (list[provider]) A list containing DefaultInfo, JavaInfo,
@@ -159,11 +165,13 @@ def bazel_java_import_rule(
                 source_jar = srcjar,
                 exports = [export[JavaInfo] for export in exports if JavaInfo in export],  # Watchout, maybe you need to add them there manually.
                 native_libraries = cc_info_list,
+                add_exports = add_exports,
+                add_opens = add_opens,
             ))
         java_info = java_common.merge(java_infos)
     else:
         # TODO(kotlaja): Remove next line once all java_import targets with empty jars attribute are cleaned from depot (b/246559727).
-        java_info = _create_java_info_with_dummy_output_file(ctx, srcjar, all_deps, exports, runtime_deps_list, neverlink, cc_info_list)
+        java_info = _create_java_info_with_dummy_output_file(ctx, srcjar, all_deps, exports, runtime_deps_list, neverlink, cc_info_list, add_exports, add_opens)
 
     target = {"JavaInfo": java_info}
 
@@ -207,6 +215,8 @@ def _proxy(ctx):
         ctx.attr.exports,
         ctx.attr.neverlink,
         ctx.files.proguard_specs,
+        ctx.attr.add_exports,
+        ctx.attr.add_opens,
     ).values()
 
 _ALLOWED_RULES_IN_DEPS_FOR_JAVA_IMPORT = [
@@ -253,6 +263,8 @@ JAVA_IMPORT_ATTRS = {
         allow_files = True,
     ),
     # Additional attrs
+    "add_exports": attr.string_list(),
+    "add_opens": attr.string_list(),
     "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
     "_java_toolchain_type": attr.label(default = semantics.JAVA_TOOLCHAIN_TYPE),
 }
