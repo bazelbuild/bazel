@@ -80,10 +80,10 @@ function get_library_path() {
 # and multi-level symlinks.
 function get_realpath() {
     local previous="$1"
-    local next=$(readlink "${previous}")
+    local next=$(readlink "${previous}" || true)
     while [ -n "${next}" ]; do
         previous="${next}"
-        next=$(readlink "${previous}")
+        next=$(readlink "${previous}" || true)
     done
     echo "${previous}"
 }
