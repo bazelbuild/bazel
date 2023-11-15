@@ -97,6 +97,8 @@ upper_tabs:
       contents:
       - title: Release model
         path: /release/
+      - title: Rolling releases
+        path: /release/rolling
       - title: Backward compatibility
         path: /release/backward-compatibility
       - title: Rule compatibility
@@ -388,5 +390,7 @@ upper_tabs:
     - links:
       - label: "Nightly"
         path: /
+      - label: Rolling releases
+        path: /release/rolling
       - label: "More…"
         path: /versions/
