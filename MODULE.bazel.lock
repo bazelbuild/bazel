@@ -2213,7 +2213,7 @@
   "moduleExtensions": {
     "//:extensions.bzl%bazel_android_deps": {
       "general": {
-        "bzlTransitiveDigest": "ak1blkZ19RJKBkn9FsoggMXSjp22EjqKN27mQhaJP6A=",
+        "bzlTransitiveDigest": "LHPyub1wMAUNTzrSy1/C82Kl7Uu+WPHlH/P/Ykc5ZKE=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2232,7 +2232,7 @@
     },
     "//:extensions.bzl%bazel_build_deps": {
       "general": {
-        "bzlTransitiveDigest": "ak1blkZ19RJKBkn9FsoggMXSjp22EjqKN27mQhaJP6A=",
+        "bzlTransitiveDigest": "LHPyub1wMAUNTzrSy1/C82Kl7Uu+WPHlH/P/Ykc5ZKE=",
         "accumulatedFileDigests": {
           "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "10b96bd3c1eb194b0efe3a13fd06f2051abf36efb33414ad92048883ba471c7f",
           "@@//:MODULE.bazel": "e302a979794761b038213d78c72107449f6b57bc84c724fd2ddbea9ba7676e5b"
@@ -2326,7 +2326,6 @@
                 "platforms",
                 "rules_cc~0.0.9",
                 "rules_go~0.39.1",
-                "rules_java~override",
                 "rules_jvm_external~5.2",
                 "rules_graalvm~0.10.3",
                 "rules_license~0.0.7",
@@ -2484,7 +2483,7 @@
     },
     "//:extensions.bzl%bazel_test_deps": {
       "general": {
-        "bzlTransitiveDigest": "ak1blkZ19RJKBkn9FsoggMXSjp22EjqKN27mQhaJP6A=",
+        "bzlTransitiveDigest": "LHPyub1wMAUNTzrSy1/C82Kl7Uu+WPHlH/P/Ykc5ZKE=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
