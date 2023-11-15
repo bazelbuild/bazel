@@ -47,6 +47,10 @@ public class RegistryFactoryImpl implements RegistryFactory {
       throw new URISyntaxException(
           uri.toString(), "Registry URL has no scheme -- did you mean to use file://?");
     }
+    if (uri.getPath() == null) {
+      throw new URISyntaxException(
+          uri.toString(), "Registry URL path is not valid -- did you mean to use file://?");
+    }
     switch (uri.getScheme()) {
       case "http":
       case "https":
