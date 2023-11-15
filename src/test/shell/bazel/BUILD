@@ -1122,7 +1122,7 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     exec_compatible_with = ["//:highcpu_machine"],
-    tags = ["block-network"],
+    # tags = ["block-network"],
 )
 
 sh_test(
@@ -1141,7 +1141,7 @@ sh_test(
     ],
     exec_compatible_with = ["//:highcpu_machine"],
     tags = [
-        "block-network",
+        # "block-network",
         "no_windows",
     ],
 )
