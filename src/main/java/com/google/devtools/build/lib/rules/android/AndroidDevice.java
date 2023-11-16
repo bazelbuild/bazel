@@ -128,7 +128,7 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
     if (unifiedLauncher.getRunfilesSupport() != null) {
       runfilesBuilder.merge(unifiedLauncher.getRunfilesSupport().getRunfiles());
     } else {
-      runfilesBuilder.addTransitiveArtifacts(unifiedLauncher.getFilesToRun());
+      runfilesBuilder.addArtifact(unifiedLauncher.getExecutable());
     }
     Runfiles runfiles = runfilesBuilder.build();
     RunfilesSupport runfilesSupport =
