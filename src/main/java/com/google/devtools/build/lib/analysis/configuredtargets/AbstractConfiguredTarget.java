@@ -145,7 +145,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
           "Accessing the default provider in this manner is deprecated and will be removed soon. "
               + "It may be temporarily re-enabled by setting "
               + "--incompatible_disable_target_default_provider_fields=false. See "
-              + "https://github.com/bazelbuild/bazel/issues/9014 for details.");
+              + "https://github.com/bazelbuild/bazel/issues/20183 for details.");
     }
     return getValue(name);
   }
