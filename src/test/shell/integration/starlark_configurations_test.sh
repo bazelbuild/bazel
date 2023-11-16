@@ -740,7 +740,7 @@ EOF
 
   bazel build //$pkg:demo >& "$TEST_log" && fail "Expected failure"
   expect_not_log "crashed due to an internal error"
-  expect_log "`cfg` must be set to a transition appropriate for a rule"
+  expect_log "`cfg` must be set to a transition object initialized by the transition() function"
 }
 
 run_suite "${PRODUCT_NAME} starlark configurations tests"

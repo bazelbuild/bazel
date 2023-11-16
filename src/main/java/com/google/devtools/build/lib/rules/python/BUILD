@@ -29,6 +29,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/core_option_converters",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:repo_mapping_manifest_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",

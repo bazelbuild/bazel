@@ -85,7 +85,7 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
         "    name = 'foo',",
         "    srcs = ['foo.py'])");
     ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
-    assertThat(target.get(PyInfo.PROVIDER)).isNotNull();
+    assertThat(PyInfo.fromTarget(target)).isNotNull();
   }
 
   @Test
@@ -149,7 +149,7 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
         "    data = ['lib.so']",
         ")");
     ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
-    assertThat(target.get(PyInfo.PROVIDER).getUsesSharedLibraries()).isTrue();
+    assertThat(PyInfo.fromTarget(target).getUsesSharedLibraries()).isTrue();
   }
 
   @Test

@@ -701,6 +701,12 @@ public interface JavaCommonApi<
   boolean isDepsetForJavaOutputSourceJarsEnabled(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
+      name = "_incompatible_java_info_merge_runtime_module_flags",
+      documented = false,
+      useStarlarkThread = true)
+  boolean isJavaInfoMergeRuntimeModuleFlagsEnabled(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
       name = "wrap_java_info",
       parameters = {@Param(name = "java_info")},
       documented = false,

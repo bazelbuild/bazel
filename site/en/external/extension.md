@@ -175,3 +175,11 @@ functionality, it's best to put them in separate files in case you need it
 later. This is because the extension's identify is based on its file, so moving
 the extension into another file later changes your public API and is a backwards
 incompatible change for your users.
+
+### Specify the operating system and architecture
+
+If your extension relies on the operating system or its architecture type,
+ensure to indicate this in the extension definition using the "os_dependent"
+and "arch_dependent" boolean attributes. This ensures that Bazel recognizes the
+need for re-evaluation if there are changes to either of them.
+

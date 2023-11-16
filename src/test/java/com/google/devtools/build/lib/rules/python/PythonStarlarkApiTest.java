@@ -98,7 +98,7 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
         ")");
     ConfiguredTarget target = getConfiguredTarget("//pkg:upperuserlib");
 
-    PyInfo info = target.get(PyInfo.PROVIDER);
+    PyInfo info = PyInfo.fromTarget(target);
     assertThat(info.getTransitiveSourcesSet().toList())
         .containsExactly(
             getSourceArtifact("pkg/loweruserlib.py"),
