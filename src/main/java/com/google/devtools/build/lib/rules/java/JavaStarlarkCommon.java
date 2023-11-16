@@ -411,6 +411,15 @@ public class JavaStarlarkCommon
   }
 
   @Override
+  public boolean isJavaInfoMergeRuntimeModuleFlagsEnabled(StarlarkThread thread)
+      throws EvalException {
+    checkPrivateAccess(thread);
+    return thread
+        .getSemantics()
+        .getBool(BuildLanguageOptions.INCOMPATIBLE_JAVA_INFO_MERGE_RUNTIME_MODULE_FLAGS);
+  }
+
+  @Override
   public JavaInfo wrapJavaInfo(Info javaInfo, StarlarkThread thread)
       throws EvalException, RuleErrorException {
     checkPrivateAccess(thread);
