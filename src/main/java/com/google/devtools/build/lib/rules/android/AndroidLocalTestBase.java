@@ -338,7 +338,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         .setAttributes(attributes)
         .addRuntimeJars(javaCommon.getJavaCompilationArtifacts().getRuntimeJars())
         .setIncludeBuildData(true)
-        .setRunfilesMiddleman(runfilesSupport.getRunfilesMiddleman())
         .setCompression(COMPRESSED)
         .setLauncher(launcher)
         .setOneVersionEnforcementLevel(
