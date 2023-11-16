@@ -22,8 +22,9 @@ ctx.actions.run(
     toolchain = '@bazel_tools//tools/jdk:toolchain_type',
 )
 ```
-If the action is not using a tool nor executable from a toolchain, and Bazel
-doesn't detect that, you can set `toolchain = None`.
+If the action does not use a tool or executable from a toolchain, and Blaze
+doesn't detect that ([the error](#first-error-message) is raised), you can set
+`toolchain = None`.
 
 If you need to use multiple toolchains on a single execution platform (an action
 uses executable or tools from two or more toolchains), you need to manually
@@ -85,9 +86,9 @@ parameter should be added when `tools` are from a toolchain.
 
 ## Difference between custom exec groups and automatic exec groups {:#difference-custom}
 
-As the name already suggests, AEGs are exec groups created automatically for
-each toolchain type registered on a rule. There is no need to manually specify
-them, unlike the "classic" exec groups.
+As the name suggests, AEGs are exec groups created automatically for each
+toolchain type registered on a rule. There is no need to manually specify them,
+unlike the "classic" exec groups.
 
 ### When should I use a custom exec_group? {:#when-should-use-exec-groups}
 
@@ -128,7 +129,8 @@ AEGs are fully supported from Bazel 7.
 
 ### How to enable AEGs? {:#how-enable}
 
-Set the [incompatible_auto_exec_groups][github_flag] flag to true.
+Set `--incompatible_auto_exec_groups` to true. More information about the flag
+on [the GitHub issue][github_flag].
 
 ### How to enable AEGs inside a particular rule? {:#how-enable-particular-rule}
 
@@ -148,12 +150,14 @@ attribute.
 
 ### How to disable AEGs in case of an error? {:#how-disable}
 
-Set the [incompatible_auto_exec_groups][github_flag] flag to false or disable a
-particular rule with the `_use_auto_exec_groups` attribute.
+Set `--incompatible_auto_exec_groups` to false to completely disable AEGs in
+your project ([flag's GitHub issue][github_flag]), or disable a particular rule
+by setting `_use_auto_exec_groups` attribute to `False`
+([more details about the attribute](#how-enable-particular-rule)).
 
 ### Error messages while migrating to AEGs {:#potential-problems}
 
-#### Couldn't identify if tools are from implicit dependencies or a toolchain. Please set the toolchain parameter. If you're not using a toolchain, set it to 'None'.
+#### Couldn't identify if tools are from implicit dependencies or a toolchain. Please set the toolchain parameter. If you're not using a toolchain, set it to 'None'. {:#first-error-message}
   * In this case you get a stack of calls before the error happened and you can
     clearly see which exact action needs the toolchain parameter. Check which
     toolchain is used for the action and set it with the toolchain param. If no
