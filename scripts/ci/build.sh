@@ -151,11 +151,7 @@ function release_to_github() {
     local github_token="$(gsutil cat gs://bazel-trusted-encrypted-secrets/github-trusted-token.enc | \
         gcloud kms decrypt --project bazel-public --location global --keyring buildkite --key github-trusted-token --ciphertext-file - --plaintext-file -)"
 
-    if [ "$(is_rolling_release)" -eq 1 ]; then
-      GITHUB_TOKEN="${github_token}" github-release -prerelease "bazelbuild/bazel" "${release_name}" "" "$(get_release_page)" "${artifact_dir}/*"
-    else
-      GITHUB_TOKEN="${github_token}" github-release "bazelbuild/bazel" "${release_name}" "" "$(get_release_page)" "${artifact_dir}/*"
-    fi
+    GITHUB_TOKEN="${github_token}" github-release "bazelbuild/bazel" "${release_name}" "" "$(get_release_page)" "${artifact_dir}/*"
   fi
 }
 
@@ -443,18 +439,17 @@ function deploy_release() {
     cp "${artifact_dir}/bazel_${release_label}.dsc" "${apt_working_dir}/${release_name}"
     cp "${artifact_dir}/bazel_${release_label}.tar.gz" "${apt_working_dir}/${release_name}"
     release_to_apt "${apt_working_dir}"
-  fi
 
+    github_working_dir="$(mktemp -d --tmpdir)"
+    echo "github_working_dir = ${github_working_dir}"
+    cp "${artifact_dir}"/* "${github_working_dir}"
+    rm -f "${github_working_dir}/bazel_${release_label}"*.{dsc,tar.gz}{,.sha256,.sig}
+    release_to_github "${github_working_dir}"
+  fi
 
   gcs_working_dir="$(mktemp -d --tmpdir)"
   echo "gcs_working_dir = ${gcs_working_dir}"
   cp "${artifact_dir}"/* "${gcs_working_dir}"
   release_to_gcs "${gcs_working_dir}"
-
-  github_working_dir="$(mktemp -d --tmpdir)"
-  echo "github_working_dir = ${github_working_dir}"
-  cp "${artifact_dir}"/* "${github_working_dir}"
-  rm -f "${github_working_dir}/bazel_${release_label}"*.{dsc,tar.gz}{,.sha256,.sig}
-  release_to_github "${github_working_dir}"
 }
 
