@@ -156,7 +156,7 @@ cc_library(
         "//conditions:default": [],
     }),
     deps = select({
-        ":is_bazel": ["qux2"],
+        ":is_bazel": ["qux2", "hdr_only"],
         "//conditions:default": [],
     }) + [
         "bar",
@@ -298,7 +298,7 @@ cc_library(
     deps = [
         "barX",
     ] + select({
-        ":is_bazel": ["qux2"],
+        ":is_bazel": ["qux2", "hdr_only"],
         "//conditions:default": [],
     }),
 )
@@ -447,6 +447,17 @@ genrule(
 cc_library(
     name = "private_lib",
     srcs = [":private_cc_library.cc"]
+)
+
+genrule(
+    name = "hdr_only_hdr",
+    outs = ["hdr_only_hdr.h"],
+    cmd = "touch $@",
+)
+
+cc_library(
+    name = "hdr_only",
+    hdrs = [":hdr_only_hdr"],
 )
 
 build_failure_test(
