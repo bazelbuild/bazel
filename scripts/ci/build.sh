@@ -188,12 +188,13 @@ function release_to_gcs() {
 
   local release_name="$(get_release_name)"
   local rc="$(get_release_candidate)"
+  local track="$(get_lts_name)"
 
   if [ -n "${release_name}" ]; then
     local release_path="${release_name}/release"
     if [ "$(is_rolling_release)" -eq 1 ]; then
       # Store rolling releases and their RCs in the same directory (for simplicity)
-      release_path="$(get_lts_name)/rolling/$(get_full_release_name)"
+      release_path="${track}/rolling/$(get_full_release_name)"
     elif [ -n "${rc}" ]; then
       release_path="${release_name}/rc${rc}"
     fi
@@ -201,6 +202,26 @@ function release_to_gcs() {
     gsutil -m cp "${artifact_dir}/**" "gs://bazel/${release_path}"
     # Set the content type on index.html so it isn't autodetected incorrectly by the browser.
     gsutil setmeta -h "Content-Type: text/html; charset=utf-8" "gs://bazel/${release_path}/index.html"
+
+    if [[ "$(is_rolling_release)" -eq 1 ]] && [[ -z "${rc}" ]]; then
+      gsutil cp "gs://bazel/rolling.html" "${artifact_dir}"
+
+      local file="${artifact_dir}/rolling.html"
+      local content="$(cat $file)"
+      local entry="<li><a href=\"https://releases.bazel.build/${track}/rolling/${release_name}/index.html\">${release_name}</a> ($(date +%F))</li>"
+
+      if grep -q "$track" "$file"; then
+          # Existing track -> remove everything before the previous release
+          content="${content#*<ul>}"
+          separator=""
+      else
+          # New track: keep the entire content of the file
+          separator="</ul>\n"
+      fi
+
+      printf "<h1>${track}</h1>\n<ul>\n${entry}\n${separator}${content}" > "${file}"
+      gsutil cp "${artifact_dir}/rolling.html" "gs://bazel/rolling.html"
+    fi
   fi
 }
 
