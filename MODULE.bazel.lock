@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "016812bd09c1de57c7cbfd60192cc76e75a4f564caafc4af0a018cd66ffb0cae",
+  "moduleFileHash": "fe0ab69d5b93d0aa2a00d76cfc5058fbc4ac5e63bd3b5e47cd7b5551bd33fcdb",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -592,11 +592,11 @@
         "rules_jvm_external": "rules_jvm_external@5.2",
         "rules_python": "rules_python@0.26.0",
         "rules_testing": "rules_testing@0.0.4",
-        "com_google_googletest": "googletest@1.12.1",
+        "com_google_googletest": "googletest@1.14.0",
         "remoteapis": "remoteapis@_",
         "googleapis": "googleapis@_",
         "apple_support": "apple_support@1.5.0",
-        "abseil-cpp": "abseil-cpp@20220623.1",
+        "abseil-cpp": "abseil-cpp@20230802.0.bcr.1",
         "c-ares": "c-ares@1.15.0",
         "rules_go": "rules_go@0.39.1",
         "upb": "upb@0.0.0-20220923-a547704",
@@ -719,11 +719,11 @@
         "rules_proto": "rules_proto@5.3.0-21.7",
         "rules_java": "rules_java@7.1.0",
         "rules_pkg": "rules_pkg@0.9.1",
-        "com_google_abseil": "abseil-cpp@20220623.1",
+        "com_google_abseil": "abseil-cpp@20230802.0.bcr.1",
         "zlib": "zlib@1.3",
         "upb": "upb@0.0.0-20220923-a547704",
         "rules_jvm_external": "rules_jvm_external@5.2",
-        "com_google_googletest": "googletest@1.12.1",
+        "com_google_googletest": "googletest@1.14.0",
         "bazel_tools": "bazel_tools@_",
         "local_config_platform": "local_config_platform@_"
       },
@@ -797,7 +797,7 @@
         "bazel_skylib": "bazel_skylib@1.4.1",
         "boringssl": "boringssl@0.0.0-20211025-d4f1ab9",
         "com_github_cares_cares": "c-ares@1.15.0",
-        "com_google_absl": "abseil-cpp@20220623.1",
+        "com_google_absl": "abseil-cpp@20230802.0.bcr.1",
         "com_google_protobuf": "protobuf@21.7",
         "com_googlesource_code_re2": "re2@2021-09-01",
         "rules_proto": "rules_proto@5.3.0-21.7",
@@ -1426,16 +1426,16 @@
         }
       }
     },
-    "googletest@1.12.1": {
+    "googletest@1.14.0": {
       "name": "googletest",
-      "version": "1.12.1",
-      "key": "googletest@1.12.1",
+      "version": "1.14.0",
+      "key": "googletest@1.14.0",
       "repoName": "googletest",
       "executionPlatformsToRegister": [],
       "toolchainsToRegister": [],
       "extensionUsages": [],
       "deps": {
-        "com_google_absl": "abseil-cpp@20220623.1",
+        "com_google_absl": "abseil-cpp@20230802.0.bcr.1",
         "platforms": "platforms@0.0.8",
         "rules_cc": "rules_cc@0.0.9",
         "bazel_tools": "bazel_tools@_",
@@ -1445,14 +1445,14 @@
         "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
-          "name": "googletest~1.12.1",
+          "name": "googletest~1.14.0",
           "urls": [
-            "https://github.com/google/googletest/archive/refs/tags/release-1.12.1.tar.gz"
+            "https://github.com/google/googletest/archive/refs/tags/v1.14.0.tar.gz"
           ],
-          "integrity": "sha256-gZZP5XjpvXyU39sJyOTW5nWeGZZ+OX2+pI0cEORdDfI=",
-          "strip_prefix": "googletest-release-1.12.1",
+          "integrity": "sha256-itWYxzrXluDYKAsILOvYKmMNc+c808cAV5OKZQG7pdc=",
+          "strip_prefix": "googletest-1.14.0",
           "remote_patches": {
-            "https://bcr.bazel.build/modules/googletest/1.12.1/patches/module_dot_bazel.patch": "sha256-8/a2a7y0JeRh9gsDCSsFhJjXqsauwyFRK8ccm2wvVaE="
+            "https://bcr.bazel.build/modules/googletest/1.14.0/patches/module_dot_bazel.patch": "sha256-CSomzvti38LCuURDG5EEoa3O1tQF3cKKt/mknnP1qcc="
           },
           "remote_patch_strip": 0
         }
@@ -1544,10 +1544,10 @@
         }
       }
     },
-    "abseil-cpp@20220623.1": {
+    "abseil-cpp@20230802.0.bcr.1": {
       "name": "abseil-cpp",
-      "version": "20220623.1",
-      "key": "abseil-cpp@20220623.1",
+      "version": "20230802.0.bcr.1",
+      "key": "abseil-cpp@20230802.0.bcr.1",
       "repoName": "abseil-cpp",
       "executionPlatformsToRegister": [],
       "toolchainsToRegister": [],
@@ -1556,6 +1556,7 @@
         "rules_cc": "rules_cc@0.0.9",
         "platforms": "platforms@0.0.8",
         "bazel_skylib": "bazel_skylib@1.4.1",
+        "com_google_googletest": "googletest@1.14.0",
         "bazel_tools": "bazel_tools@_",
         "local_config_platform": "local_config_platform@_"
       },
@@ -1563,14 +1564,14 @@
         "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
-          "name": "abseil-cpp~20220623.1",
+          "name": "abseil-cpp~20230802.0.bcr.1",
           "urls": [
-            "https://github.com/abseil/abseil-cpp/archive/refs/tags/20220623.1.tar.gz"
+            "https://github.com/abseil/abseil-cpp/archive/refs/tags/20230802.0.tar.gz"
           ],
-          "integrity": "sha256-kayH0wzG15+auXTFGHSnBN6cJkfED2kyWXMpooIhe6g=",
-          "strip_prefix": "abseil-cpp-20220623.1",
+          "integrity": "sha256-WdKXavnW7PABqBo1dJpuVRozW5SdNJGM+t4Hc3udk8U=",
+          "strip_prefix": "abseil-cpp-20230802.0",
           "remote_patches": {
-            "https://bcr.bazel.build/modules/abseil-cpp/20220623.1/patches/module_dot_bazel.patch": "sha256-tlJ3iNkZbNoP3r94FbnW9Y+Op0jKDC0KR7v7EFEA0Sk="
+            "https://bcr.bazel.build/modules/abseil-cpp/20230802.0.bcr.1/patches/module_dot_bazel.patch": "sha256-Ku6wJ7uNqANq3fVmW03ySSUddevratZDsJ67NqtXIEY="
           },
           "remote_patch_strip": 0
         }
@@ -1755,7 +1756,7 @@
         "bazel_skylib": "bazel_skylib@1.4.1",
         "rules_proto": "rules_proto@5.3.0-21.7",
         "com_google_protobuf": "protobuf@21.7",
-        "com_google_absl": "abseil-cpp@20220623.1",
+        "com_google_absl": "abseil-cpp@20230802.0.bcr.1",
         "platforms": "platforms@0.0.8",
         "bazel_tools": "bazel_tools@_",
         "local_config_platform": "local_config_platform@_"
@@ -2180,7 +2181,7 @@
         "bzlTransitiveDigest": "PjK+f/kxkhda9tRFlKVdGfNszPoXs7CDXZUi+ZGWGYU=",
         "accumulatedFileDigests": {
           "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "10b96bd3c1eb194b0efe3a13fd06f2051abf36efb33414ad92048883ba471c7f",
-          "@@//:MODULE.bazel": "016812bd09c1de57c7cbfd60192cc76e75a4f564caafc4af0a018cd66ffb0cae"
+          "@@//:MODULE.bazel": "fe0ab69d5b93d0aa2a00d76cfc5058fbc4ac5e63bd3b5e47cd7b5551bd33fcdb"
         },
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2260,7 +2261,7 @@
             "attributes": {
               "name": "_main~bazel_build_deps~bootstrap_repo_cache",
               "repos": [
-                "abseil-cpp~20220623.1",
+                "abseil-cpp~20230802.0.bcr.1",
                 "apple_support~1.5.0",
                 "bazel_skylib~1.4.1",
                 "blake3~1.3.3.bcr.1",
