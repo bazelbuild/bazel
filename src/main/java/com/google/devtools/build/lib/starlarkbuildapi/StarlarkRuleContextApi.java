@@ -412,7 +412,9 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       name = "build_file_path",
       structField = true,
       documented = true,
-      doc = "The path to the BUILD file for this rule, relative to the source root.")
+      doc =
+          "Deprecated: Use <code>ctx.label.package + '/BUILD'</code>. "
+              + "The path to the BUILD file for this rule, relative to the source root.")
   String getBuildFileRelativePath() throws EvalException;
 
   @StarlarkMethod(

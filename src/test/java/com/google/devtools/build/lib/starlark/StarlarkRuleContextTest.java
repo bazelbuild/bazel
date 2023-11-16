@@ -3520,6 +3520,11 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     setRuleContext(createRuleContext("@foo//bar:baz"));
     Object result = ev.eval("ruleContext.build_file_path");
     assertThat(result).isEqualTo("bar/BUILD");
+
+    // The reason `build_file_path` should be deprecated. It's just another trivial knob on `ctx`.
+    // The results are always the same as `ctx.label.package + '/BUILD'`
+    result = ev.eval("ruleContext.label.package + '/BUILD'");
+    assertThat(result).isEqualTo("bar/BUILD");
   }
 
   @Test
