@@ -64,10 +64,10 @@ public final class CompositeRunfilesSupplier implements RunfilesSupplier {
   }
 
   @Override
-  public NestedSet<Artifact> getArtifacts() {
+  public NestedSet<Artifact> getAllArtifacts() {
     NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
     for (RunfilesSupplier supplier : suppliers) {
-      result.addTransitive(supplier.getArtifacts());
+      result.addTransitive(supplier.getAllArtifacts());
     }
     return result.build();
   }

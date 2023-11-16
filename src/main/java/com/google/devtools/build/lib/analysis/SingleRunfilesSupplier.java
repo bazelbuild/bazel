@@ -137,7 +137,7 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
   }
 
   @Override
-  public NestedSet<Artifact> getArtifacts() {
+  public NestedSet<Artifact> getAllArtifacts() {
     return runfiles.getAllArtifacts();
   }
 

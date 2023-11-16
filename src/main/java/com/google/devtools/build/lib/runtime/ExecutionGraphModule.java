@@ -584,7 +584,7 @@ public class ExecutionGraphModule extends BlazeModule {
       // action dump is parsed. Using a TreeSet is not slower than a HashSet, and it seems that
       // keeping the deps ordered compresses better. See cl/377153712.
       Set<Integer> deps = new TreeSet<>();
-      for (Artifact runfilesInput : runfilesSupplier.getArtifacts().toList()) {
+      for (Artifact runfilesInput : runfilesSupplier.getAllArtifacts().toList()) {
         NodeInfo dep = outputToNode.get(runfilesInput);
         if (dep != null) {
           deps.add(dep.index);

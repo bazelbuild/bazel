@@ -35,7 +35,7 @@ public final class EmptyRunfilesSupplier implements RunfilesSupplier {
   private EmptyRunfilesSupplier() {}
 
   @Override
-  public NestedSet<Artifact> getArtifacts() {
+  public NestedSet<Artifact> getAllArtifacts() {
     return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
