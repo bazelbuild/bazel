@@ -110,8 +110,8 @@ abstract class AbstractInMemoryNodeEntry<D extends DirtyBuildingState>
   }
 
   @Override
-  public synchronized boolean isDirty() {
-    return !isDone() && dirtyBuildingState != null;
+  public final boolean isDirty() {
+    return !isDone();
   }
 
   @Override

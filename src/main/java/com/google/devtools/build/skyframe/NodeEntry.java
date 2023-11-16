@@ -135,10 +135,7 @@ public interface NodeEntry {
   @ThreadSafe
   boolean isDone();
 
-  /**
-   * Returns true if the entry is new or marked as dirty. This includes the case where its deps are
-   * still being checked for up-to-dateness.
-   */
+  /** Inverse of {@link #isDone}. */
   @ThreadSafe
   boolean isDirty();
 

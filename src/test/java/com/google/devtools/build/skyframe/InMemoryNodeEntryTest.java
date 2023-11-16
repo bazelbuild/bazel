@@ -46,7 +46,6 @@ import org.junit.Test;
  * @param <V> The type of {@link Version} used by the {@link InMemoryNodeEntry} class under test
  */
 abstract class InMemoryNodeEntryTest<V extends Version> {
-
   private static final SkyKey REGULAR_KEY = GraphTester.skyKey("regular");
   private static final SkyKey PARTIAL_REEVALUATION_KEY =
       new SkyKey() {
@@ -60,12 +59,9 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
           return true;
         }
       };
-
   private static final NestedSet<Reportable> NO_EVENTS =
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-
   @TestParameter boolean isPartialReevaluation;
-
   protected final V initialVersion = getInitialVersion();
 
   static SkyKey key(String name) {
@@ -85,13 +81,15 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
   @Test
   public void entryAtStartOfEvaluation() {
     InMemoryNodeEntry entry = createEntry();
+    assertThat(entry.isDirty()).isTrue();
+    assertThat(entry.isDone()).isFalse();
     assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.NOT_YET_EVALUATING);
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
+    assertThat(entry.isDirty()).isTrue();
     assertThat(entry.isDone()).isFalse();
     assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.NEEDS_REBUILDING);
     assertThat(entry.isReadyToEvaluate()).isTrue();
     assertThat(entry.hasUnsignaledDeps()).isFalse();
-    assertThat(entry.isDirty()).isTrue();
     assertThat(entry.isChanged()).isTrue();
     assertThat(entry.getTemporaryDirectDeps()).isEmpty();
     assertThat(entry.getTemporaryDirectDeps() instanceof GroupedDeps.WithHashSet)
@@ -127,11 +125,9 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
     assertThat(entry.isDone()).isTrue();
     assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.DONE);
     assertThat(entry.getVersion()).isEqualTo(initialVersion);
-
     if (!entry.keepsEdges()) {
       return;
     }
-
     assertThat(entry.getDirectDeps()).containsExactly(dep1, dep2, dep3);
   }
 
@@ -169,11 +165,9 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
     entry.markRebuilding();
     assertThat(setValue(entry, new SkyValue() {}, /* errorInfo= */ null, initialVersion))
         .containsExactly(mother, father);
-
     if (!entry.keepsEdges()) {
       return;
     }
-
     assertThat(entry.getReverseDepsForDoneEntry()).containsExactly(mother, father);
     assertThat(entry.isDone()).isTrue();
     entry.removeReverseDep(mother);
@@ -354,49 +348,41 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
     InMemoryNodeEntry entry = createEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
-
     // Rdep added before reset.
     SkyKey parent1 = key("parent1");
     assertThatNodeEntry(entry)
         .addReverseDepAndCheckIfDone(parent1)
         .isEqualTo(DependencyState.ALREADY_EVALUATING);
-
     // Dep added before reset.
     SkyKey dep1 = key("dep1");
     entry.addSingletonTemporaryDirectDep(dep1);
     assertThat(entry.signalDep(initialVersion, dep1)).isTrue();
     assertThat(entry.getResetDirectDeps()).isEmpty();
-
     // Reset clears temporary direct deps.
     entry.resetEvaluationFromScratch();
     assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.REBUILDING);
     assertThat(entry.getTemporaryDirectDeps()).isEmpty();
     assertThat(entry.getTemporaryDirectDeps() instanceof GroupedDeps.WithHashSet)
         .isEqualTo(isPartialReevaluation);
-
     // Rdep added after reset.
     SkyKey parent2 = key("parent2");
     assertThatNodeEntry(entry)
         .addReverseDepAndCheckIfDone(parent2)
         .isEqualTo(DependencyState.ALREADY_EVALUATING);
-
     // Add back same dep.
     entry.addSingletonTemporaryDirectDep(dep1);
     assertThat(entry.signalDep(initialVersion, dep1)).isTrue();
     assertThat(entry.getTemporaryDirectDeps()).containsExactly(ImmutableList.of(dep1));
-
     // Dep added after reset.
     SkyKey dep2 = key("dep2");
     entry.addSingletonTemporaryDirectDep(dep2);
     assertThat(entry.signalDep(initialVersion, dep2)).isTrue();
     assertThat(entry.getTemporaryDirectDeps())
         .containsExactly(ImmutableList.of(dep1), ImmutableList.of(dep2));
-
     // Deps registered before the reset must be tracked if keeping edges.
     if (entry.keepsEdges()) {
       assertThat(entry.getResetDirectDeps()).containsExactly(dep1);
     }
-
     // Set value and check that both parents will be signaled.
     assertThat(setValue(entry, new IntegerValue(1), /* errorInfo= */ null, initialVersion))
         .containsExactly(parent1, parent2);
@@ -407,13 +393,11 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
     InMemoryNodeEntry entry = createEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     entry.markRebuilding();
-
     // Rdep added before any reset.
     SkyKey parent = key("parent");
     assertThatNodeEntry(entry)
         .addReverseDepAndCheckIfDone(parent)
         .isEqualTo(DependencyState.ALREADY_EVALUATING);
-
     // Two deps added before first reset.
     SkyKey dep1 = key("dep1");
     entry.addSingletonTemporaryDirectDep(dep1);
@@ -421,20 +405,16 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
     SkyKey dep2 = key("dep2");
     entry.addSingletonTemporaryDirectDep(dep2);
     assertThat(entry.signalDep(initialVersion, dep2)).isTrue();
-
     // First reset.
     entry.resetEvaluationFromScratch();
     assertThat(entry.getTemporaryDirectDeps()).isEmpty();
-
     // Add back only one dep.
     entry.addSingletonTemporaryDirectDep(dep1);
     assertThat(entry.signalDep(initialVersion, dep1)).isTrue();
     assertThat(entry.getTemporaryDirectDeps()).containsExactly(ImmutableList.of(dep1));
-
     // Second reset.
     entry.resetEvaluationFromScratch();
     assertThat(entry.getTemporaryDirectDeps()).isEmpty();
-
     // Both deps added back.
     entry.addSingletonTemporaryDirectDep(dep1);
     assertThat(entry.signalDep(initialVersion, dep1)).isTrue();
@@ -442,13 +422,11 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
     assertThat(entry.signalDep(initialVersion, dep2)).isTrue();
     assertThat(entry.getTemporaryDirectDeps())
         .containsExactly(ImmutableList.of(dep1), ImmutableList.of(dep2));
-
     // If tracking of reset deps is required, make sure both deps are reported even though only dep1
     // was registered during the most recent evaluation attempt.
     if (entry.keepsEdges()) {
       assertThat(entry.getResetDirectDeps()).containsExactly(dep1, dep2);
     }
-
     // Set value and check that parent will be signaled.
     assertThat(setValue(entry, new IntegerValue(1), /* errorInfo= */ null, initialVersion))
         .containsExactly(parent);
@@ -457,20 +435,17 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
   @Test
   public void rewindingLifecycle() throws InterruptedException {
     InMemoryNodeEntry entry = createEntry();
-
     // Rdep that will eventually rewind the entry.
     SkyKey resetParent = key("resetParent");
     assertThatNodeEntry(entry)
         .addReverseDepAndCheckIfDone(resetParent)
         .isEqualTo(DependencyState.NEEDS_SCHEDULING);
     entry.markRebuilding();
-
     // Node completes.
     assertThat(setValue(entry, new IntegerValue(1), /* errorInfo= */ null, initialVersion))
         .containsExactly(resetParent);
     assertThat(entry.isDirty()).isFalse();
     assertThat(entry.isDone()).isTrue();
-
     // Rewinding initiated.
     entry.markDirty(DirtyType.REWIND);
     assertThat(entry.isDirty()).isTrue();
@@ -478,7 +453,6 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
     assertThat(entry.isDone()).isFalse();
     assertThat(entry.getTemporaryDirectDeps() instanceof GroupedDeps.WithHashSet)
         .isEqualTo(isPartialReevaluation);
-
     // Parent declares dep again after resetting.
     var dependencyState =
         entry.keepsEdges()
@@ -491,7 +465,6 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
     assertThat(entry.getTemporaryDirectDeps()).isEmpty();
     entry.markRebuilding();
     assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.REBUILDING);
-
     // Rewound evaluation completes. The parent that initiated rewinding is signalled.
     assertThat(setValue(entry, new IntegerValue(2), /* errorInfo= */ null, initialVersion))
         .containsExactly(resetParent);
@@ -507,10 +480,8 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
     setValue(entry, new SkyValue() {}, /* errorInfo= */ null, initialVersion);
     assertThat(entry.isDirty()).isFalse();
     assertThat(entry.isDone()).isTrue();
-
     assertThat(entry.markDirty(DirtyType.REWIND)).isNotNull();
     assertThat(entry.markDirty(DirtyType.REWIND)).isNull();
-
     assertThat(entry.isDirty()).isTrue();
     assertThat(entry.isChanged()).isTrue();
     assertThat(entry.isDone()).isFalse();

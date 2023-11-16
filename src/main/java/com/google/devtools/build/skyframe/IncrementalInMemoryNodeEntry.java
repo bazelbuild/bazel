@@ -94,17 +94,17 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
     SkyValue lastBuildValue = value;
     if (lastBuildValue == null) {
       synchronized (this) {
-        if (isDone()) {
+        if (value != null) {
           lastBuildValue = value;
-        } else if (isChanged() || isDirty()) {
+        } else if (dirtyBuildingState != null) {
           try {
             lastBuildValue = dirtyBuildingState.getLastBuildValue();
           } catch (InterruptedException e) {
             throw new IllegalStateException("Interruption unexpected: " + this, e);
           }
+        } else {
+          return null; // An evaluation was never started.
         }
-        // If both if statements are escaped, value has not finished evaluating. It's probably about
-        // to be cleaned from the graph.
       }
     }
 
