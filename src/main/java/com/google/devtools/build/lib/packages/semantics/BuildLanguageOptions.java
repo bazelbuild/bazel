@@ -381,12 +381,26 @@ public final class BuildLanguageOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
+          "If set to true, disable the ability to utilize the default provider via field "
+              + "syntax. Use provider-key syntax instead. For example, instead of using "
+              + "`ctx.attr.dep.files` to access `files`, utilize `ctx.attr.dep[DefaultInfo].files "
+              + "See "
+              + "https://github.com/bazelbuild/bazel/issues/9014 for details.")
+  public boolean incompatibleDisableTargetProviderFields;
+
+  @Option(
+      name = "incompatible_disable_target_default_provider_fields",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
           "If set to true, disable the ability to access providers on 'target' objects via field "
               + "syntax. Use provider-key syntax instead. For example, instead of using "
               + "`ctx.attr.dep.my_info` to access `my_info` from inside a rule implementation "
               + "function, use `ctx.attr.dep[MyInfo]`. See "
               + "https://github.com/bazelbuild/bazel/issues/9014 for details.")
-  public boolean incompatibleDisableTargetProviderFields;
+  public boolean incompatibleDisableTargetDefaultProviderFields;
 
   @Option(
       name = "incompatible_disallow_empty_glob",
@@ -819,6 +833,9 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_DISABLE_NON_EXECUTABLE_JAVA_BINARY,
                 incompatibleDisableNonExecutableJavaBinary)
+            .setBool(
+                INCOMPATIBLE_DISABLE_TARGET_DEFAULT_PROVIDER_FIELDS,
+                incompatibleDisableTargetDefaultProviderFields)
             .setBool(EXPERIMENTAL_RULE_EXTENSION_API, experimentalRuleExtensionApi)
             .setBool(SEPARATE_ASPECT_DEPS, separateAspectDeps)
             .build();
@@ -914,6 +931,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-incompatible_enable_proto_toolchain_resolution";
   public static final String INCOMPATIBLE_DISABLE_NON_EXECUTABLE_JAVA_BINARY =
       "-incompatible_disable_non_executable_java_binary";
+  public static final String INCOMPATIBLE_DISABLE_TARGET_DEFAULT_PROVIDER_FIELDS =
+      "-incompatible_disable_target_default_provider_fields";
   public static final String EXPERIMENTAL_RULE_EXTENSION_API = "-experimental_rule_extension_api";
   public static final String SEPARATE_ASPECT_DEPS = "-separate_aspect_deps";
 
