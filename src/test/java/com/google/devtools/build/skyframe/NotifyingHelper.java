@@ -21,7 +21,6 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.errorprone.annotations.ForOverride;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -132,7 +131,7 @@ public class NotifyingHelper {
     }
 
     @Override
-    public DepsReport analyzeDepsDoneness(SkyKey parent, Collection<SkyKey> deps)
+    public DepsReport analyzeDepsDoneness(SkyKey parent, List<SkyKey> deps)
         throws InterruptedException {
       return delegate.analyzeDepsDoneness(parent, deps);
     }

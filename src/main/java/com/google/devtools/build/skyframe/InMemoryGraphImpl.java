@@ -35,6 +35,7 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -201,7 +202,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   }
 
   @Override
-  public DepsReport analyzeDepsDoneness(SkyKey parent, Collection<SkyKey> deps) {
+  public DepsReport analyzeDepsDoneness(SkyKey parent, List<SkyKey> deps) {
     return DepsReport.NO_INFORMATION;
   }
 
