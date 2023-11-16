@@ -25,10 +25,9 @@ WORKSPACE_REPOS = {
         "strip_prefix": "rules_cc-0.0.9",
     },
     "rules_java": {
-        "archive": "1d9eaa08575a8963cffacae72544ebca061cd8dd.tar.gz",
-        "sha256": "60d8c720c6cf824ec36eb1e79a2fe59c067512997b63647bb5fdaa1eec044580",
-        "strip_prefix": "rules_java-1d9eaa08575a8963cffacae72544ebca061cd8dd",
-        "urls": ["https://github.com/bazelbuild/rules_java/archive/1d9eaa08575a8963cffacae72544ebca061cd8dd.tar.gz"],
+        "archive": "rules_java-7.2.0.tar.gz",
+        "sha256": "eb7db63ed826567b2ceb1ec53d6b729e01636f72c9f5dfb6d2dfe55ad69d1d2a",
+        "urls": ["https://github.com/bazelbuild/rules_java/releases/download/7.2.0/rules_java-7.2.0.tar.gz"],
     },
     # Used in src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSAPCE
     "rules_proto": {
