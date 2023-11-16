@@ -153,6 +153,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "             tool_path(name = 'objdump', path = 'some/objdump'),",
         "             tool_path(name = 'strip', path = 'some/strip'),",
         "             tool_path(name = 'dwp', path = 'some/dwp'),",
+        "             tool_path(name = 'deps-scanner', path = 'some/deps-scanner'),",
         "        ],",
         "        cc_target_os = 'os',",
         "        builtin_sysroot = 'sysroot'",
@@ -214,7 +215,8 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
                 Pair.of("ld", "ld"),
                 Pair.of("nm", "nm"),
                 Pair.of("objdump", "objdump"),
-                Pair.of("strip", "strip"))
+                Pair.of("strip", "strip"),
+                Pair.of("deps-scanner", "deps-scanner"))
             .build()
             .getCcToolchainConfigRule());
     analysisMock.ccSupport().setupCcToolchainConfig(mockToolsConfig, CcToolchainConfig.builder());
@@ -265,7 +267,8 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
                 Pair.of("ld", "ld"),
                 Pair.of("nm", "nm"),
                 Pair.of("objdump", "objdump"),
-                Pair.of("strip", "strip"))
+                Pair.of("strip", "strip"),
+                Pair.of("deps-scanner", "deps-scanner"))
             .build()
             .getCcToolchainConfigRule());
     analysisMock.ccSupport().setupCcToolchainConfig(mockToolsConfig, CcToolchainConfig.builder());
@@ -294,7 +297,8 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
                 Pair.of("ld", "ld"),
                 Pair.of("nm", "nm"),
                 Pair.of("objdump", "objdump"),
-                Pair.of("strip", "strip"));
+                Pair.of("strip", "strip"),
+                Pair.of("deps-scanner", "deps-scanner"));
     scratch.file(
         "a/BUILD",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
@@ -355,7 +359,8 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
                 Pair.of("llvm-profdata", "path-to-llvm-profdata"),
                 Pair.of("nm", "nm"),
                 Pair.of("objdump", "objdump"),
-                Pair.of("strip", "strip"));
+                Pair.of("strip", "strip"),
+                Pair.of("deps-scanner", "deps-scanner"));
     scratch.file(
         "a/BUILD",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
@@ -422,7 +427,8 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
                 Pair.of("ld", "ld"),
                 Pair.of("nm", "nm"),
                 Pair.of("objdump", "objdump"),
-                Pair.of("strip", "strip"));
+                Pair.of("strip", "strip"),
+                Pair.of("deps-scanner", "deps-scanner"));
     scratch.file(
         "a/BUILD",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
@@ -581,8 +587,9 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
                 Pair.of("gcov", "gcov"),
                 Pair.of("ld", "ld"),
                 Pair.of("nm", "nm"),
-                Pair.of("objdump", "objdump")
+                Pair.of("objdump", "objdump"),
                 // Pair.of("strip", "strip")
+                Pair.of("deps-scanner", "deps-scanner")
                 )
             .build()
             .getCcToolchainConfigRule());

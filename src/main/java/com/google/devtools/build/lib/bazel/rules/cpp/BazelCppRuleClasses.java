@@ -266,6 +266,16 @@ public class BazelCppRuleClasses {
               attr("srcs", LABEL_LIST)
                   .direct_compile_time_input()
                   .allowedFileTypes(ALLOWED_SRC_FILES))
+          /*<!-- #BLAZE_RULE($cc_rule).ATTRIBUTE(module_interfaces) -->
+          C++ Standard has no restriction about module interface file extension
+          clang use cppm
+          gcc can use any source file extension
+          msvc use ixx
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(
+              attr("module_interfaces", LABEL_LIST)
+                  .direct_compile_time_input()
+                  .allowedFileTypes(FileTypeSet.ANY_FILE))
           /*<!-- #BLAZE_RULE($cc_rule).ATTRIBUTE(deps) -->
           The list of other libraries to be linked in to the binary target.
           <p>These can be <code>cc_library</code> or <code>objc_library</code>

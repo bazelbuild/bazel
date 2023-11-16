@@ -1286,6 +1286,7 @@ public abstract class CcModule
       String linkerToolPath = "DUMMY_LINKER_TOOL";
       String arToolPath = "DUMMY_AR_TOOL";
       String stripToolPath = "DUMMY_STRIP_TOOL";
+      String depsScannerToolPath = "DUMMY_DEPS_SCANNER_TOOL";
       for (Pair<String, String> tool : toolPathList) {
         if (tool.first.equals(CppConfiguration.Tool.GCC.getNamePart())) {
           gccToolPath = tool.second;
@@ -1303,6 +1304,9 @@ public abstract class CcModule
         }
         if (tool.first.equals(CppConfiguration.Tool.STRIP.getNamePart())) {
           stripToolPath = tool.second;
+        }
+        if (tool.first.equals(CppConfiguration.Tool.DEPS_SCANNER.getNamePart())) {
+          depsScannerToolPath = tool.second;
         }
       }
 
@@ -1365,6 +1369,7 @@ public abstract class CcModule
               gccToolPath,
               arToolPath,
               stripToolPath,
+              depsScannerToolPath,
               /* supportsInterfaceSharedLibraries= */ false,
               actionConfigNames)) {
         legacyActionConfigBuilder.add(new ActionConfig(actionConfig));
@@ -2171,6 +2176,12 @@ public abstract class CcModule
             named = true,
             defaultValue = "[]"),
         @Param(
+            name = "module_interfaces",
+            doc = "The list of C++20 module interface files to be compiled.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
             name = "public_hdrs",
             doc =
                 "List of headers needed for compilation of srcs and may be included by dependent "
@@ -2434,6 +2445,7 @@ public abstract class CcModule
       FeatureConfigurationForStarlark starlarkFeatureConfiguration,
       CcToolchainProvider starlarkCcToolchainProvider,
       Sequence<?> sourcesUnchecked, // <Artifact> expected
+      Sequence<?> moduleInterfacesUnchecked, // <Artifact> expected
       Sequence<?> publicHeadersUnchecked, // <Artifact> expected
       Sequence<?> privateHeadersUnchecked, // <Artifact> expected
       Object textualHeadersStarlarkObject,
@@ -2556,23 +2568,28 @@ public abstract class CcModule
                 configuration.getFragment(CppConfiguration.class)));
     boolean tuple =
         (!sourcesUnchecked.isEmpty() && sourcesUnchecked.get(0) instanceof Tuple)
+            || (!moduleInterfacesUnchecked.isEmpty() && moduleInterfacesUnchecked.get(0) instanceof Tuple)
             || (!publicHeadersUnchecked.isEmpty() && publicHeadersUnchecked.get(0) instanceof Tuple)
             || (!privateHeadersUnchecked.isEmpty()
                 && privateHeadersUnchecked.get(0) instanceof Tuple);
     if (tuple) {
       ImmutableList<Pair<Artifact, Label>> sources = convertSequenceTupleToPair(sourcesUnchecked);
+      ImmutableList<Pair<Artifact, Label>> moduleInterfaces = convertSequenceTupleToPair(moduleInterfacesUnchecked);
       ImmutableList<Pair<Artifact, Label>> publicHeaders =
           convertSequenceTupleToPair(publicHeadersUnchecked);
       ImmutableList<Pair<Artifact, Label>> privateHeaders =
           convertSequenceTupleToPair(privateHeadersUnchecked);
-      helper.addPublicHeaders(publicHeaders).addPrivateHeaders(privateHeaders).addSources(sources);
+      helper.addPublicHeaders(publicHeaders).addPrivateHeaders(privateHeaders).addSources(sources)
+              .addModuleInterfaceSources(moduleInterfaces);
     } else {
       List<Artifact> sources = Sequence.cast(sourcesUnchecked, Artifact.class, "srcs");
+      List<Artifact> moduleInterfaces = Sequence.cast(moduleInterfacesUnchecked, Artifact.class, "module_interfaces");
       List<Artifact> publicHeaders =
           Sequence.cast(publicHeadersUnchecked, Artifact.class, "public_hdrs");
       List<Artifact> privateHeaders =
           Sequence.cast(privateHeadersUnchecked, Artifact.class, "private_hdrs");
-      helper.addPublicHeaders(publicHeaders).addPrivateHeaders(privateHeaders).addSources(sources);
+      helper.addPublicHeaders(publicHeaders).addPrivateHeaders(privateHeaders).addSources(sources)
+              .addModuleInterfaceSources(moduleInterfaces);
     }
 
     List<String> includes =

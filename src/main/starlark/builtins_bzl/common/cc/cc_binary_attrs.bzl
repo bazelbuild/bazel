@@ -26,6 +26,10 @@ cc_binary_attrs = {
         flags = ["DIRECT_COMPILE_TIME_INPUT"],
         allow_files = True,
     ),
+    "module_interfaces": attr.label_list(
+        flags = ["DIRECT_COMPILE_TIME_INPUT"],
+        allow_files = True,
+    ),
     "win_def_file": attr.label(
         allow_single_file = [".def"],
     ),
