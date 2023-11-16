@@ -555,7 +555,8 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
         () ->
             MockRule.define(
                 "transitioned_rule",
-                (builder, env) -> builder.cfg(new FooPatchTransition("SET BY PATCH")).build());
+                (builder, env) ->
+                    builder.cfg(unused -> new FooPatchTransition("SET BY PATCH")).build());
 
     MockRule untransitionedRule = () -> MockRule.define("untransitioned_rule");
 
@@ -587,7 +588,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
                 "rule_with_transition_and_dep",
                 (builder, env) ->
                     builder
-                        .cfg(new FooPatchTransition("SET BY PATCH"))
+                        .cfg(unused -> new FooPatchTransition("SET BY PATCH"))
                         .addAttribute(
                             attr("dep", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE).build())
                         .build());
