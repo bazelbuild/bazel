@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.exec.SpawnLogContext;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -84,6 +85,25 @@ public final class SpawnLogModule extends BlazeModule {
         || (executionOptions.executionLogBinaryFile == null
             && executionOptions.executionLogJsonFile == null)) {
       // No logging requested.
+      return;
+    }
+
+    if (executionOptions.executionLogBinaryFile != null
+        && executionOptions.executionLogJsonFile != null) {
+      String message =
+          "Must specify at most one of --execution_log_json_file and --execution_log_binary_file";
+      env.getBlazeModuleEnvironment()
+          .exit(
+              new AbruptExitException(
+                  DetailedExitCode.of(
+                      FailureDetail.newBuilder()
+                          .setMessage(message)
+                          .setExecutionOptions(
+                              FailureDetails.ExecutionOptions.newBuilder()
+                                  .setCode(
+                                      FailureDetails.ExecutionOptions.Code
+                                          .MULTIPLE_EXECUTION_LOG_FORMATS))
+                          .build())));
       return;
     }
 

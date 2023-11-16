@@ -399,7 +399,7 @@ public class ExecutionOptions extends OptionsBase {
       help =
           "Log the executed spawns into this file as delimited Spawn protos, according to"
               + " src/main/protobuf/spawn.proto. Related flags:"
-              + " --execution_log_json_file (text JSON format),"
+              + " --execution_log_json_file (text JSON format; mutually exclusive),"
               + " --execution_log_sort (whether to sort the execution log),"
               + " --subcommands (for displaying subcommands in terminal output).")
   public PathFragment executionLogBinaryFile;
@@ -414,7 +414,7 @@ public class ExecutionOptions extends OptionsBase {
       help =
           "Log the executed spawns into this file as a JSON representation of the delimited Spawn"
               + " protos, according to src/main/protobuf/spawn.proto. Related flags:"
-              + " --execution_log_binary_file (binary protobuf format),"
+              + " --execution_log_binary_file (binary protobuf format; mutually exclusive),"
               + " --execution_log_sort (whether to sort the execution log),"
               + " --subcommands (for displaying subcommands in terminal output).")
   public PathFragment executionLogJsonFile;
