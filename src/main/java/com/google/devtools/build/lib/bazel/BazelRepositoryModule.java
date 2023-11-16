@@ -136,8 +136,6 @@ public class BazelRepositoryModule extends BlazeModule {
   public static final ImmutableList<String> DEFAULT_REGISTRIES =
       ImmutableList.of("https://bcr.bazel.build/");
 
-  private static final String DEFAULT_VENDOR = "vendor";
-
   // A map of repository handlers that can be looked up by rule class name.
   private final ImmutableMap<String, RepositoryFunction> repositoryHandlers;
   private final AtomicBoolean isFetch = new AtomicBoolean(false);
