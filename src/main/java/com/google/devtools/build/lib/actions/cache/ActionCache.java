@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -434,4 +435,10 @@ public interface ActionCache {
 
   /** Resets the current statistics to zero. */
   void resetStatistics();
+
+  /** Duration it took to load the action cache. Might be null if not loaded in this invocation. */
+  @Nullable
+  default Duration getLoadTime() {
+    return null;
+  }
 }
