@@ -2249,7 +2249,7 @@
       "general": {
         "bzlTransitiveDigest": "fW/q06USZc/6Hbh/+yEVfAifidGqoGoYGuFeec3RdbU=",
         "accumulatedFileDigests": {
-          "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "10b96bd3c1eb194b0efe3a13fd06f2051abf36efb33414ad92048883ba471c7f",
+          "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "e76b9a685f1e30ef0a8bf5b2911193ef74b6a783206a66f41482ff0961fce117",
           "@@//:MODULE.bazel": "911c103c464894f3e9e4f23abd96f14dc28f3eb16bed41569d8b178a6ee67468"
         },
         "envVariables": {},
@@ -2271,7 +2271,7 @@
               "name": "_main~bazel_build_deps~bazel_tools_repo_cache",
               "repos": [
                 "rules_cc~0.0.9",
-                "rules_java~7.1.0",
+                "rules_java~7.2.0",
                 "rules_license~0.0.7",
                 "rules_proto~4.0.0",
                 "rules_python~0.4.0",
