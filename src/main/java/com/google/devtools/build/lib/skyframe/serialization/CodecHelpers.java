@@ -13,32 +13,37 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
-
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
-/** Helper methods for writing codecs. */
-final class CodecHelpers {
-  static void writeShort(CodedOutputStream codedOut, short value) throws IOException {
-    ByteBuffer buffer = ByteBuffer.allocate(2).putShort(value);
-    codedOut.writeRawBytes(buffer);
+/**
+ * Helper methods for writing codecs.
+ *
+ * <p>Supports 16-bit types that not included in {@link CodedInputStream} and {@link
+ * CodedOutputStream}.
+ */
+public final class CodecHelpers {
+  public static void writeShort(CodedOutputStream codedOut, short value) throws IOException {
+    codedOut.writeRawByte((byte) (value >> 8));
+    codedOut.writeRawByte((byte) value);
   }
 
-  static short readShort(CodedInputStream codedIn) throws IOException {
-    ByteBuffer buffer = ByteBuffer.allocate(2).put(codedIn.readRawBytes(2));
-    return buffer.getShort(0);
+  public static short readShort(CodedInputStream codedIn) throws IOException {
+    int buffer = codedIn.readRawByte() << 8;
+    buffer |= (codedIn.readRawByte() & 0xFF);
+    return (short) buffer;
   }
 
-  static void writeChar(CodedOutputStream codedOut, char value) throws IOException {
-    ByteBuffer buffer = ByteBuffer.allocate(2).putChar(value);
-    codedOut.writeRawBytes(buffer);
+  public static void writeChar(CodedOutputStream codedOut, char value) throws IOException {
+    codedOut.writeRawByte((byte) (value >> 8));
+    codedOut.writeRawByte((byte) value);
   }
 
-  static char readChar(CodedInputStream codedIn) throws IOException {
-    ByteBuffer buffer = ByteBuffer.allocate(2).put(codedIn.readRawBytes(2));
-    return buffer.getChar(0);
+  public static char readChar(CodedInputStream codedIn) throws IOException {
+    int buffer = codedIn.readRawByte() << 8;
+    buffer |= (codedIn.readRawByte() & 0xFF);
+    return (char) buffer;
   }
 
   private CodecHelpers() {} // Just a static method namespace. No instances.

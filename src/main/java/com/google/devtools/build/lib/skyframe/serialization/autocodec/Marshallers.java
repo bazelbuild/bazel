@@ -18,13 +18,13 @@ import static com.google.devtools.build.lib.skyframe.serialization.autocodec.Ser
 
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skyframe.serialization.CodecHelpers;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Context;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Marshaller;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.PrimitiveValueSerializationCodeGenerator;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationProcessorUtil.SerializationProcessingFailedException;
 import com.squareup.javapoet.TypeName;
 import java.lang.reflect.Array;
-import java.nio.ByteBuffer;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.ArrayType;
@@ -181,17 +181,13 @@ class Marshallers {
         @Override
         public void addSerializationCode(Context context) {
           context.builder.addStatement(
-              "codedOut.writeRawBytes($T.allocate(2).putShort($L))",
-              ByteBuffer.class,
-              context.name);
+              "$T.writeShort(codedOut, $L)", CodecHelpers.class, context.name);
         }
 
         @Override
         public void addDeserializationCode(Context context) {
           context.builder.addStatement(
-              "$L = $T.allocate(2).put(codedIn.readRawBytes(2)).getShort(0)",
-              context.name,
-              ByteBuffer.class);
+              "$L = $T.readShort(codedIn)", context.name, CodecHelpers.class);
         }
       };
 
@@ -205,15 +201,13 @@ class Marshallers {
         @Override
         public void addSerializationCode(Context context) {
           context.builder.addStatement(
-              "codedOut.writeRawBytes($T.allocate(2).putChar($L))", ByteBuffer.class, context.name);
+              "$T.writeChar(codedOut, $L)", CodecHelpers.class, context.name);
         }
 
         @Override
         public void addDeserializationCode(Context context) {
           context.builder.addStatement(
-              "$L = $T.allocate(2).put(codedIn.readRawBytes(2)).getChar(0)",
-              context.name,
-              ByteBuffer.class);
+              "$L = $T.readChar(codedIn)", context.name, CodecHelpers.class);
         }
       };
 
