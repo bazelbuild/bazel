@@ -35,8 +35,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -59,7 +57,6 @@ import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.FormatMethod;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -772,7 +769,7 @@ public class RuleClass implements RuleClassData {
         ImmutableList.builder();
     private boolean ignoreLicenses = false;
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
-    private TransitionFactory<RuleTransitionData> transitionFactory;
+    @Nullable private TransitionFactory<RuleTransitionData> transitionFactory;
     private ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory = null;
     private PredicateWithMessage<Rule> validityPredicate = PredicatesWithMessage.alwaysTrue();
     private final AdvertisedProviderSet.Builder advertisedProviders =
@@ -1172,25 +1169,7 @@ public class RuleClass implements RuleClassData {
     }
 
     /**
-     * Applies the given transition to all incoming edges for this rule class.
-     *
-     * <p>This cannot be a {@link SplitTransition} because that requires coordination with the
-     * rule's parent: use {@link Attribute.Builder#cfg(TransitionFactory)} on the parent to declare
-     * splits.
-     *
-     * <p>If you need the transition to depend on the rule it's being applied to, use {@link
-     * #cfg(TransitionFactory)}.
-     */
-    public Builder cfg(PatchTransition transition) {
-      // Make sure this is cast to Serializable to avoid autocodec serialization errors.
-      return cfg((TransitionFactory<RuleTransitionData> & Serializable) unused -> transition);
-    }
-
-    /**
      * Applies the given transition factory to all incoming edges for this rule class.
-     *
-     * <p>Unlike {@link #cfg(PatchTransition)}, the factory can examine the rule when deciding what
-     * transition to use.
      */
     @CanIgnoreReturnValue
     public Builder cfg(TransitionFactory<RuleTransitionData> transitionFactory) {
@@ -1724,7 +1703,7 @@ public class RuleClass implements RuleClassData {
    * A factory which will produce a configuration transition that should be applied on any edge of
    * the configured target graph that leads into a target of this rule class.
    */
-  private final TransitionFactory<RuleTransitionData> transitionFactory;
+  @Nullable private final TransitionFactory<RuleTransitionData> transitionFactory;
 
   /** The factory that creates configured targets from this rule. */
   private final ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory;
@@ -1836,7 +1815,7 @@ public class RuleClass implements RuleClassData {
       ImmutableList<AllowlistChecker> allowlistCheckers,
       boolean ignoreLicenses,
       ImplicitOutputsFunction implicitOutputsFunction,
-      TransitionFactory<RuleTransitionData> transitionFactory,
+      @Nullable TransitionFactory<RuleTransitionData> transitionFactory,
       ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory,
       PredicateWithMessage<Rule> validityPredicate,
       AdvertisedProviderSet advertisedProviders,
@@ -1945,6 +1924,7 @@ public class RuleClass implements RuleClassData {
     return implicitOutputsFunction;
   }
 
+  @Nullable
   public TransitionFactory<RuleTransitionData> getTransitionFactory() {
     return transitionFactory;
   }
