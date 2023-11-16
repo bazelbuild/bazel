@@ -83,8 +83,9 @@ If you are not getting the cache hit rate you are expecting, do the following:
 5. Check that all actions in the execution log have `cacheable` set to true. If
    `cacheable` does not appear in the execution log for a give action, that
    means that the corresponding rule may have a `no-cache` tag in its
-   definition in the `BUILD` file. Look at the human-readable `progress_message`
-   field in the execution log to help determine where the action is coming from.
+   definition in the `BUILD` file. Look at the `mnemonic` and `target_label`
+   fields in the execution log to help determine where the action is coming
+   from.
 
 6. If the actions are identical and `cacheable` but there are no cache hits, it
    is possible that your command line includes `--noremote_accept_cached` which
