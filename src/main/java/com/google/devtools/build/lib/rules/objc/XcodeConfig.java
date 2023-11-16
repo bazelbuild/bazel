@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.rules.apple.AvailableXcodesInfo;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionRuleData;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.objc.XcodeConfigInfo.Availability;
 import com.google.devtools.build.lib.xcode.proto.XcodeConfig.XcodeConfigRuleInfo;
 import com.google.devtools.build.lib.xcode.proto.XcodeConfig.XcodeVersionInfo;
@@ -71,6 +72,8 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
       throws InterruptedException, RuleErrorException, ActionConflictException {
     AppleConfiguration appleConfig = ruleContext.getFragment(AppleConfiguration.class);
     AppleCommandLineOptions appleOptions = appleConfig.getOptions();
+
+    CppConfiguration cppConfig = ruleContext.getFragment(CppConfiguration.class);
 
     XcodeConfigRuleInfo.Builder infoBuilder = XcodeConfigRuleInfo.newBuilder();
     if (appleOptions.xcodeVersion != null) {
@@ -135,8 +138,10 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
             ? DottedVersion.maybeUnwrap(appleOptions.iosMinimumOs)
             : iosSdkVersion;
     DottedVersion visionosSdkVersion = xcodeVersionProperties.getDefaultVisionosSdkVersion();
-    // TODO: Replace with CppOptions.minimumOsVersion
-    DottedVersion visionosMinimumOsVersion = DottedVersion.fromStringUnchecked("1.0");
+    DottedVersion visionosMinimumOsVersion =
+        (cppConfig.getMinimumOsVersion() != null)
+            ? DottedVersion.fromStringUnchecked(cppConfig.getMinimumOsVersion())
+            : visionosSdkVersion;
     DottedVersion watchosSdkVersion =
         (appleOptions.watchOsSdkVersion != null)
             ? DottedVersion.maybeUnwrap(appleOptions.watchOsSdkVersion)

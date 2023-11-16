@@ -588,6 +588,8 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         "(apple_common.platform_type.watchos)",
         "   tvos_minimum_os = xcode_config.minimum_os_for_platform_type\\",
         "(apple_common.platform_type.tvos)",
+        "   visionos_minimum_os = xcode_config.minimum_os_for_platform_type\\",
+        "(apple_common.platform_type.visionos)",
         "   return MyInfo(",
         "      ios_sdk_version=str(ios_sdk_version),",
         "      watchos_sdk_version=str(watchos_sdk_version),",
@@ -595,7 +597,8 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         "      macos_sdk_version=str(macos_sdk_version),",
         "      ios_minimum_os=str(ios_minimum_os),",
         "      watchos_minimum_os=str(watchos_minimum_os),",
-        "      tvos_minimum_os=str(tvos_minimum_os)",
+        "      tvos_minimum_os=str(tvos_minimum_os),",
+        "      visionos_minimum_os=str(visionos_minimum_os)",
         "   )",
         "swift_binary = rule(",
         "    implementation = swift_binary_impl,",
@@ -614,10 +617,15 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         "   name='my_target',",
         ")");
 
-    useConfiguration("--ios_sdk_version=1.1", "--ios_minimum_os=1.0",
-        "--watchos_sdk_version=2.1", "--watchos_minimum_os=2.0",
-        "--tvos_sdk_version=3.1", "--tvos_minimum_os=3.0",
-        "--macos_sdk_version=4.1");
+    useConfiguration(
+        "--ios_sdk_version=1.1",
+        "--ios_minimum_os=1.0",
+        "--watchos_sdk_version=2.1",
+        "--watchos_minimum_os=2.0",
+        "--tvos_sdk_version=3.1",
+        "--tvos_minimum_os=3.0",
+        "--macos_sdk_version=4.1",
+        "--minimum_os_version=5.1");
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
     StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
 
@@ -628,6 +636,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     assertThat(myInfo.getValue("tvos_sdk_version")).isEqualTo("3.1");
     assertThat(myInfo.getValue("tvos_minimum_os")).isEqualTo("3.0");
     assertThat(myInfo.getValue("macos_sdk_version")).isEqualTo("4.1");
+    assertThat(myInfo.getValue("visionos_minimum_os")).isEqualTo("5.1");
 
     useConfiguration("--ios_sdk_version=1.1",
         "--watchos_sdk_version=2.1",

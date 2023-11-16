@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 
 /**
  * Rule definition for {@code xcode_config} rule.
@@ -44,7 +45,7 @@ public class XcodeConfigRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
-        .requiresConfigurationFragments(AppleConfiguration.class)
+        .requiresConfigurationFragments(AppleConfiguration.class, CppConfiguration.class)
         .exemptFromConstraintChecking(
             "this rule refines configuration variables and does not build actual content")
         /* <!-- #BLAZE_RULE(xcode_config).ATTRIBUTE(default) -->
