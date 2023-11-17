@@ -83,12 +83,13 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     ImmutableList.Builder<SignedTargetPattern> targetPatternBuilder = new ImmutableList.Builder<>();
 
     // Get the toolchains from the configuration.
+    // Reverse the list so the last one defined takes precedences.
     PlatformConfiguration platformConfiguration =
         configuration.getFragment(PlatformConfiguration.class);
     try {
       targetPatternBuilder.addAll(
           TargetPatternUtil.parseAllSigned(
-              platformConfiguration.getExtraToolchains(), mainRepoParser));
+              platformConfiguration.getExtraToolchains().reverse(), mainRepoParser));
     } catch (InvalidTargetPatternException e) {
       throw new RegisteredToolchainsFunctionException(
           new InvalidToolchainLabelException(e), Transience.PERSISTENT);
