@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
+import com.google.devtools.build.lib.worker.WorkerProcessStatus;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -290,21 +291,23 @@ public final class ProfilerTest {
         new WorkerProcessMetrics(
             /* workerId= */ 1,
             /* processId= */ 1,
+            /* status= */ new WorkerProcessStatus(),
             /* mnemonic= */ "dummy1",
             /* isMultiplex= */ true,
             /* isSandbox= */ true,
             /* workerKeyHash= */ 1);
-    workerMetric1.addCollectedMetrics(1024, /* isMeasurable= */ true, collectionTime);
+    workerMetric1.addCollectedMetrics(1024, collectionTime);
 
     WorkerProcessMetrics workerMetric2 =
         new WorkerProcessMetrics(
             /* workerId= */ 2,
             /* processId= */ 2,
+            /* status= */ new WorkerProcessStatus(),
             /* mnemonic= */ "dummy2",
             /* isMultiplex= */ false,
             /* isSandbox= */ false,
             /* workerKeyHash= */ 2);
-    workerMetric2.addCollectedMetrics(2048, /* isMeasurable= */ true, collectionTime);
+    workerMetric2.addCollectedMetrics(2048, collectionTime);
 
     ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(workerMetric1, workerMetric2);

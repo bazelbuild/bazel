@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.worker;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
@@ -25,6 +27,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.metrics.PsInfoCollector;
+import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import java.time.Instant;
 import org.junit.Before;
 import org.junit.Test;
@@ -48,12 +51,15 @@ public class WorkerProcessMetricsCollectorTest {
   private static final int WORKER_ID_1 = 1;
   private static final int WORKER_ID_2 = 2;
   private static final int WORKER_ID_3 = 3;
+  private static final int WORKER_ID_4 = 4;
   private static final long PROCESS_ID_1 = 100L;
   private static final long PROCESS_ID_2 = 200L;
   private static final long PROCESS_ID_3 = 300L;
+  private static final long PROCESS_ID_4 = 400L;
   private static final int WORKER_KEY_HASH_1 = 1;
   private static final int WORKER_KEY_HASH_2 = 2;
   private static final int WORKER_KEY_HASH_3 = 3;
+  private static final int WORKER_KEY_HASH_4 = 4;
   private static final String JAVAC_MNEMONIC = "Javac";
   private static final String CPP_COMPILE_MNEMONIC = "CppCompile";
   private static final String PROTO_MNEMONIC = "Proto";
@@ -66,6 +72,7 @@ public class WorkerProcessMetricsCollectorTest {
       boolean expectedIsMultiplex,
       boolean expectedIsSandboxed,
       int expectedWorkerKeyHash,
+      int expectedActionsExecuted,
       boolean expectedIsMeasurable,
       Instant expectedLastCallTime,
       Instant expectedCollectedTime) {
@@ -76,6 +83,7 @@ public class WorkerProcessMetricsCollectorTest {
     assertThat(workerMetric.isMultiplex()).isEqualTo(expectedIsMultiplex);
     assertThat(workerMetric.isSandboxed()).isEqualTo(expectedIsSandboxed);
     assertThat(workerMetric.getWorkerKeyHash()).isEqualTo(expectedWorkerKeyHash);
+    assertThat(workerMetric.getActionsExecuted()).isEqualTo(expectedActionsExecuted);
     assertThat(workerMetric.isMeasurable()).isEqualTo(expectedIsMeasurable);
     assertThat(workerMetric.getLastCallTime().get()).isEqualTo(expectedLastCallTime);
     if (expectedCollectedTime == null) {
@@ -91,6 +99,7 @@ public class WorkerProcessMetricsCollectorTest {
     spyCollector.registerWorker(
         WORKER_ID_1,
         PROCESS_ID_1,
+        new WorkerProcessStatus(),
         JAVAC_MNEMONIC,
         /* isMultiplex= */ true,
         /* isSandboxed= */ false,
@@ -100,6 +109,7 @@ public class WorkerProcessMetricsCollectorTest {
     spyCollector.registerWorker(
         WORKER_ID_2,
         PROCESS_ID_2,
+        new WorkerProcessStatus(),
         CPP_COMPILE_MNEMONIC,
         /* isMultiplex= */ false,
         /* isSandboxed= */ true,
@@ -114,6 +124,7 @@ public class WorkerProcessMetricsCollectorTest {
         /* expectedIsMultiplex= */ true,
         /* expectedIsSandboxed= */ false,
         WORKER_KEY_HASH_1,
+        /* expectedActionsExecuted= */ 0,
         /* expectedIsMeasurable= */ false,
         /* expectedLastCallTime= */ DEFAULT_CLOCK_START_INSTANT,
         /* expectedCollectedTime= */ null);
@@ -125,6 +136,7 @@ public class WorkerProcessMetricsCollectorTest {
         /* expectedIsMultiplex= */ false,
         /* expectedIsSandboxed= */ true,
         WORKER_KEY_HASH_2,
+        /* expectedActionsExecuted= */ 0,
         /* expectedIsMeasurable= */ false,
         /* expectedLastCallTime= */ DEFAULT_CLOCK_START_INSTANT,
         /* expectedCollectedTime= */ null);
@@ -135,6 +147,7 @@ public class WorkerProcessMetricsCollectorTest {
     spyCollector.registerWorker(
         WORKER_ID_1,
         PROCESS_ID_1,
+        new WorkerProcessStatus(),
         JAVAC_MNEMONIC,
         /* isMultiplex= */ true,
         /* isSandboxed= */ true,
@@ -149,6 +162,7 @@ public class WorkerProcessMetricsCollectorTest {
         /* expectedIsMultiplex= */ true,
         /* expectedIsSandboxed= */ true,
         WORKER_KEY_HASH_1,
+        /* expectedActionsExecuted= */ 0,
         /* expectedIsMeasurable= */ false,
         /* expectedLastCallTime= */ DEFAULT_CLOCK_START_INSTANT,
         /* expectedCollectedTime= */ null);
@@ -159,6 +173,7 @@ public class WorkerProcessMetricsCollectorTest {
     spyCollector.registerWorker(
         WORKER_ID_2,
         PROCESS_ID_1,
+        new WorkerProcessStatus(),
         JAVAC_MNEMONIC,
         /* isMultiplex= */ true,
         /* isSandboxed= */ true,
@@ -173,6 +188,7 @@ public class WorkerProcessMetricsCollectorTest {
         /* expectedIsMultiplex= */ true,
         /* expectedIsSandboxed= */ true,
         WORKER_KEY_HASH_1,
+        /* expectedActionsExecuted= */ 0,
         /* expectedIsMeasurable= */ false,
         /* expectedLastCallTime= */ secondTime,
         /* expectedCollectedTime= */ null);
@@ -183,6 +199,7 @@ public class WorkerProcessMetricsCollectorTest {
     spyCollector.registerWorker(
         WORKER_ID_1,
         PROCESS_ID_1,
+        new WorkerProcessStatus(),
         JAVAC_MNEMONIC,
         /* isMultiplex= */ true,
         /* isSandboxed= */ true,
@@ -197,6 +214,7 @@ public class WorkerProcessMetricsCollectorTest {
         /* expectedIsMultiplex= */ true,
         /* expectedIsSandboxed= */ true,
         WORKER_KEY_HASH_1,
+        /* expectedActionsExecuted= */ 0,
         /* expectedIsMeasurable= */ false,
         /* expectedLastCallTime= */ DEFAULT_CLOCK_START_INSTANT,
         /* expectedCollectedTime= */ null);
@@ -208,6 +226,7 @@ public class WorkerProcessMetricsCollectorTest {
     spyCollector.registerWorker(
         WORKER_ID_1,
         PROCESS_ID_1,
+        new WorkerProcessStatus(),
         JAVAC_MNEMONIC,
         /* isMultiplex= */ true,
         /* isSandboxed= */ true,
@@ -222,6 +241,7 @@ public class WorkerProcessMetricsCollectorTest {
         /* expectedIsMultiplex= */ true,
         /* expectedIsSandboxed= */ true,
         WORKER_KEY_HASH_1,
+        /* expectedActionsExecuted= */ 0,
         /* expectedIsMeasurable= */ false,
         /* expectedLastCallTime= */ secondTime,
         /* expectedCollectedTime= */ null);
@@ -229,33 +249,54 @@ public class WorkerProcessMetricsCollectorTest {
 
   @Test
   public void testCollectMetrics() throws Exception {
+    // Worker 1 simulates a measurable worker processes has executed some actions.
     spyCollector.registerWorker(
         WORKER_ID_1,
         PROCESS_ID_1,
+        new WorkerProcessStatus(),
         JAVAC_MNEMONIC,
         /* isMultiplex= */ true,
         /* isSandboxed= */ false,
         WORKER_KEY_HASH_1);
+    WorkerProcessMetricsCollector.instance().onWorkerFinishExecution(PROCESS_ID_1);
+    // Worker 2 simulates a measurable worker process that has not yet completed execution of any
+    // actions.
     spyCollector.registerWorker(
         WORKER_ID_2,
         PROCESS_ID_2,
+        new WorkerProcessStatus(),
         CPP_COMPILE_MNEMONIC,
         /* isMultiplex= */ false,
         /* isSandboxed= */ true,
         WORKER_KEY_HASH_2);
+    // Worker 3 simulates a non-measurable worker that has not executed any actions.
     spyCollector.registerWorker(
         WORKER_ID_3,
         PROCESS_ID_3,
+        new WorkerProcessStatus(),
         PROTO_MNEMONIC,
         /* isMultiplex= */ true,
         /* isSandboxed= */ true,
         WORKER_KEY_HASH_3);
+    // Worker 4 simulates a non-measurable worker that has executed an action and was killed.
+    WorkerProcessStatus s4 = new WorkerProcessStatus();
+    spyCollector.registerWorker(
+        WORKER_ID_4,
+        PROCESS_ID_4,
+        s4,
+        PROTO_MNEMONIC,
+        /* isMultiplex= */ true,
+        /* isSandboxed= */ true,
+        WORKER_KEY_HASH_4);
+    WorkerProcessMetricsCollector.instance().onWorkerFinishExecution(PROCESS_ID_4);
+    s4.maybeUpdateStatus(Status.KILLED_DUE_TO_MEMORY_PRESSURE);
 
     ImmutableMap<Long, Integer> memoryUsageMap =
         ImmutableMap.of(
             PROCESS_ID_1, 1234,
             PROCESS_ID_2, 2345);
-    ImmutableSet<Long> expectedPids = ImmutableSet.of(PROCESS_ID_1, PROCESS_ID_2, PROCESS_ID_3);
+    ImmutableSet<Long> expectedPids =
+        ImmutableSet.of(PROCESS_ID_1, PROCESS_ID_2, PROCESS_ID_3, PROCESS_ID_4);
     Instant collectionTime = DEFAULT_CLOCK_START_INSTANT.plusSeconds(10);
     PsInfoCollector.ResourceSnapshot resourceSnapshot =
         PsInfoCollector.ResourceSnapshot.create(memoryUsageMap, collectionTime);
@@ -264,7 +305,10 @@ public class WorkerProcessMetricsCollectorTest {
 
     ImmutableList<WorkerProcessMetrics> metrics = spyCollector.collectMetrics();
 
-    assertThat(metrics).hasSize(3);
+    // Since pid 3 is the only non-measurable process with no actions executed, we only expect
+    // WorkerProcessMetrics from pid 1, 2 and 4.
+    assertThat(metrics.stream().flatMap(m -> m.getWorkerIds().stream()).collect(toImmutableSet()))
+        .containsExactly(WORKER_ID_1, WORKER_ID_2, WORKER_ID_4);
     assertWorkerMetricContains(
         metrics.stream().filter(wm -> wm.getWorkerIds().contains(WORKER_ID_1)).findFirst().get(),
         ImmutableList.of(WORKER_ID_1),
@@ -273,6 +317,7 @@ public class WorkerProcessMetricsCollectorTest {
         /* expectedIsMultiplex= */ true,
         /* expectedIsSandboxed= */ false,
         WORKER_KEY_HASH_1,
+        /* expectedActionsExecuted= */ 1,
         /* expectedIsMeasurable= */ true,
         /* expectedLastCallTime= */ DEFAULT_CLOCK_START_INSTANT,
         /* expectedCollectedTime= */ collectionTime);
@@ -284,20 +329,26 @@ public class WorkerProcessMetricsCollectorTest {
         /* expectedIsMultiplex= */ false,
         /* expectedIsSandboxed= */ true,
         WORKER_KEY_HASH_2,
+        /* expectedActionsExecuted= */ 0,
         /* expectedIsMeasurable= */ true,
         /* expectedLastCallTime= */ DEFAULT_CLOCK_START_INSTANT,
         /* expectedCollectedTime= */ collectionTime);
+    // Worker 3's metrics should not be included since it is both non-measurable and did not execute
+    // any actions.
+    assertThat(metrics.stream().filter(wm -> wm.getWorkerIds().contains(WORKER_ID_3)).findFirst())
+        .isEmpty();
     assertWorkerMetricContains(
-        metrics.stream().filter(wm -> wm.getWorkerIds().contains(WORKER_ID_3)).findFirst().get(),
-        ImmutableList.of(WORKER_ID_3),
-        PROCESS_ID_3,
+        metrics.stream().filter(wm -> wm.getWorkerIds().contains(WORKER_ID_4)).findFirst().get(),
+        ImmutableList.of(WORKER_ID_4),
+        PROCESS_ID_4,
         PROTO_MNEMONIC,
         /* expectedIsMultiplex= */ true,
         /* expectedIsSandboxed= */ true,
-        WORKER_KEY_HASH_3,
+        WORKER_KEY_HASH_4,
+        /* expectedActionsExecuted= */ 1,
         /* expectedIsMeasurable= */ false,
         /* expectedLastCallTime= */ DEFAULT_CLOCK_START_INSTANT,
-        /* expectedCollectedTime= */ collectionTime);
+        /* expectedCollectedTime= */ null);
   }
 
   private static final long DEFAULT_CLOCK_START_TIME = 0L;

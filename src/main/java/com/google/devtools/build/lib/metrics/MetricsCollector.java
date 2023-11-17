@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.metrics;
 
-
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
@@ -62,6 +61,8 @@ import com.google.devtools.build.lib.worker.WorkerCreatedEvent;
 import com.google.devtools.build.lib.worker.WorkerDestroyedEvent;
 import com.google.devtools.build.lib.worker.WorkerEvictedEvent;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
+import com.google.devtools.build.lib.worker.WorkerProcessStatus;
+import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.util.Durations;
@@ -158,7 +159,6 @@ class MetricsCollector {
     }
   }
 
-
   @SuppressWarnings("unused")
   @Subscribe
   public synchronized void logAnalysisGraphStats(AnalysisGraphStatsEvent event) {
@@ -185,7 +185,7 @@ class MetricsCollector {
   @Subscribe
   public synchronized void handleExecutionPhaseStart(
       @SuppressWarnings("unused") TopLevelTargetPendingExecutionEvent event) {
-    if (buildAccountedFor.compareAndSet(/*expectedValue=*/ false, /*newValue=*/ true)) {
+    if (buildAccountedFor.compareAndSet(/* expectedValue= */ false, /* newValue= */ true)) {
       numBuilds.getAndIncrement();
     }
   }
@@ -201,7 +201,7 @@ class MetricsCollector {
       WorkerPoolStats stats =
           getWorkerPoolStatsOrInsert(event.getWorkerPoolHash(), event.getMnemonic());
 
-      stats.incrementDestroyedCount();
+      stats.incrementDestroyedCount(event.getStatus());
     }
   }
 
@@ -311,7 +311,7 @@ class MetricsCollector {
             .setArtifactMetrics(artifactMetrics.build())
             .setBuildGraphMetrics(buildGraphMetrics.build())
             .addAllWorkerMetrics(
-                WorkerProcessMetricsCollector.instance().createWorkerMetricsProto())
+                WorkerProcessMetricsCollector.instance().getPublishedWorkerMetrics())
             .setWorkerPoolMetrics(createWorkerPoolMetrics());
 
     NetworkMetrics networkMetrics = NetworkMetricsCollector.instance().collectMetrics();
@@ -428,15 +428,9 @@ class MetricsCollector {
     WorkerPoolMetrics.Builder metricsBuilder = WorkerPoolMetrics.newBuilder();
 
     workerPoolStats.forEach(
-        (workerPoolHash, workerStats) ->
+        (workerPoolHash, poolStats) ->
             metricsBuilder.addWorkerPoolStats(
-                WorkerPoolMetrics.WorkerPoolStats.newBuilder()
-                    .setHash(workerPoolHash)
-                    .setMnemonic(workerStats.getMnemonic())
-                    .setCreatedCount(workerStats.getCreatedCount())
-                    .setDestroyedCount(workerStats.getDestroyedCount())
-                    .setEvictedCount(workerStats.getEvictedCount())
-                    .build()));
+                poolStats.toProtoBuilder().setHash(workerPoolHash).build()));
 
     return metricsBuilder.build();
   }
@@ -445,6 +439,9 @@ class MetricsCollector {
     private int createdCount;
     private int destroyedCount;
     private int evictedCount;
+    private int userExecExceptionDestroyedCount;
+    private int ioExceptionDestroyedCount;
+    private int interruptedExceptionDestroyedCount;
     private final String mnemonic;
 
     WorkerPoolStats(String mnemonic) {
@@ -455,7 +452,17 @@ class MetricsCollector {
       createdCount++;
     }
 
-    void incrementDestroyedCount() {
+    void incrementDestroyedCount(WorkerProcessStatus status) {
+      // TODO(b/310640400): We ignore KILLED_DUE_TO_MEMORY_PRESSURE for now since that's already
+      //  accounted for by WorkerEvictedEvent. An evicted worker is destroyed, so it doesn't make
+      //  sense that we treat it differently from WorkerDestroyedEvent.
+      if (status.get() == Status.KILLED_DUE_TO_USER_EXEC_EXCEPTION) {
+        userExecExceptionDestroyedCount++;
+      } else if (status.get() == Status.KILLED_DUE_TO_IO_EXCEPTION) {
+        ioExceptionDestroyedCount++;
+      } else if (status.get() == Status.KILLED_DUE_TO_INTERRUPTED_EXCEPTION) {
+        interruptedExceptionDestroyedCount++;
+      }
       destroyedCount++;
     }
 
@@ -463,20 +470,15 @@ class MetricsCollector {
       evictedCount++;
     }
 
-    public int getCreatedCount() {
-      return createdCount;
-    }
-
-    public int getDestroyedCount() {
-      return destroyedCount;
-    }
-
-    public String getMnemonic() {
-      return mnemonic;
-    }
-
-    public int getEvictedCount() {
-      return evictedCount;
+    public WorkerPoolMetrics.WorkerPoolStats.Builder toProtoBuilder() {
+      return WorkerPoolMetrics.WorkerPoolStats.newBuilder()
+          .setMnemonic(mnemonic)
+          .setCreatedCount(createdCount)
+          .setDestroyedCount(destroyedCount)
+          .setEvictedCount(evictedCount)
+          .setUserExecExceptionDestroyedCount(userExecExceptionDestroyedCount)
+          .setIoExceptionDestroyedCount(ioExceptionDestroyedCount)
+          .setInterruptedExceptionDestroyedCount(interruptedExceptionDestroyedCount);
     }
   }
 

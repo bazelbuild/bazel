@@ -496,6 +496,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/worker",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_key",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_pool",
+        "//src/main/java/com/google/devtools/build/lib/worker:worker_process_status",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

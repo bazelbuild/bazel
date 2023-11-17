@@ -1133,11 +1133,34 @@ message BuildMetrics {
     bool is_multiplex = 4;
     // Using worker sandbox file system or not.
     bool is_sandbox = 5;
-    // Shows is worker stats measured at the end of invocation.
+    // TODO(b/300067854): Deprecate since all worker metrics should have their
+    // WorkerStats set.
     bool is_measurable = 6;
     // Hash value of worker key. Needed to distinguish worker pools with same
     // menmonic but with different worker keys.
     int64 worker_key_hash = 9;
+
+    WorkerStatus worker_status = 10;
+
+    enum WorkerStatus {
+      // Used to indicate a worker instance where the process has not been
+      // created yet. In reality this isn't logged, but leaving this here as a
+      // possible option in the future.
+      NOT_STARTED = 0;
+      ALIVE = 1;
+      KILLED_DUE_TO_MEMORY_PRESSURE = 2;
+      // Indicates that the worker process was killed due to a reason unknown to
+      // Bazel at the point of measurement; if a known cause (below) comes along
+      // later on, this field will be updated.
+      KILLED_UNKNOWN = 3;
+      KILLED_DUE_TO_INTERRUPTED_EXCEPTION = 4;
+      KILLED_DUE_TO_IO_EXCEPTION = 5;
+      KILLED_DUE_TO_USER_EXEC_EXCEPTION = 6;
+    }
+
+    optional failure_details.Worker.Code code = 12;
+
+    int64 actions_executed = 11;
 
     // Information collected from worker at some point.
     message WorkerStats {
@@ -1201,6 +1224,13 @@ message BuildMetrics {
       int64 destroyed_count = 4;
       // Number of workers evicted during a build.
       int64 evicted_count = 5;
+      // Number of workers destroyed due to UserExecExceptions.
+      int64 user_exec_exception_destroyed_count = 6;
+      // Number of workers destroyed due to IoExceptions.
+      int64 io_exception_destroyed_count = 7;
+      // Number of workers destroyed due to InterruptedExceptions.
+      int64 interrupted_exception_destroyed_count = 8;
+
     }
   }
 

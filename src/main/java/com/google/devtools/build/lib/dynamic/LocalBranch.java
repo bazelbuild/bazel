@@ -131,6 +131,7 @@ class LocalBranch extends Branch {
               "Local strategy %s for %s target %s returned null, which it shouldn't do.",
               strategy, spawn.getMnemonic(), spawn.getResourceOwner().prettyPrint());
         }
+
         return results;
       }
     }

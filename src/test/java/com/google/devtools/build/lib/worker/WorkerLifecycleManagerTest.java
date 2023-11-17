@@ -18,11 +18,9 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.worker.TestUtils.createWorkerKey;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -30,10 +28,12 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.worker.WorkerPoolImpl.WorkerPoolConfig;
+import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map.Entry;
+import java.util.Set;
+import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.junit.Before;
 import org.junit.Rule;
@@ -47,24 +47,63 @@ import org.mockito.junit.MockitoRule;
 @RunWith(JUnit4.class)
 public final class WorkerLifecycleManagerTest {
 
-  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
   private final EventBus eventBus = new EventBus();
 
+  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
   @Mock WorkerFactory factoryMock;
   private FileSystem fileSystem;
-  private int workerIds = 1;
   private EventRecorder eventRecorder = new EventRecorder();
 
   private static class EventRecorder {
-    public List<WorkerEvictedEvent> workerEvictedEvents;
+    public final Set<WorkerEvictedEvent> workerEvictedEvents;
+    public final Set<WorkerDestroyedEvent> workerDestroyedEvents;
 
     public EventRecorder() {
-      workerEvictedEvents = new ArrayList<>();
+      workerEvictedEvents = new HashSet<>();
+      workerDestroyedEvents = new HashSet<>();
     }
 
     @Subscribe
-    public synchronized void setXcodeConfigInfo(WorkerEvictedEvent workerEvictedEvent) {
-      this.workerEvictedEvents.add(workerEvictedEvent);
+    public synchronized void handleWorkerEvictedEvent(WorkerEvictedEvent event) {
+      // Check to ensure that there should never be duplicate WorkerEvictedEvent(s) posted by the
+      // WorkerLifecycleManager as that would break the pool stats counts in the MetricsCollector.
+      assertThat(workerEvictedEvents).doesNotContain(event);
+      this.workerEvictedEvents.add(event);
+    }
+
+    @Subscribe
+    public synchronized void handleWorkerDestroyedEvent(WorkerDestroyedEvent event) {
+      // Check to ensure that there should never be duplicate WorkerDestroyedEvent(s) posted by the
+      // WorkerLifecycleManager as that would break the pool stats counts in the MetricsCollector.
+      assertThat(workerDestroyedEvents).doesNotContain(event);
+      this.workerDestroyedEvents.add(event);
+    }
+
+    public void assertContainsEvictedEventsOfWorkers(ImmutableList<Worker> workers) {
+      assertThat(workerEvictedEvents)
+          .containsExactlyElementsIn(
+              workers.stream()
+                  .map(
+                      w ->
+                          new WorkerEvictedEvent(
+                              w.getWorkerId(),
+                              w.getWorkerKey().hashCode(),
+                              w.getWorkerKey().getMnemonic()))
+                  .collect(toImmutableList()));
+    }
+
+    public void assertContainsDestroyedEventsOfWorkers(ImmutableList<Worker> workers) {
+      assertThat(workerDestroyedEvents)
+          .containsExactlyElementsIn(
+              workers.stream()
+                  .map(
+                      w ->
+                          new WorkerDestroyedEvent(
+                              w.getWorkerId(),
+                              w.getWorkerKey().hashCode(),
+                              w.getWorkerKey().getMnemonic(),
+                              w.getStatus()))
+                  .collect(toImmutableList()));
     }
   }
 
@@ -75,22 +114,59 @@ public final class WorkerLifecycleManagerTest {
   private static final long PROCESS_ID_4 = 4L;
   private static final long PROCESS_ID_5 = 5L;
 
+  private int workerIds = 1;
+
   @Before
   public void setUp() throws Exception {
     fileSystem = new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
-    doAnswer(
-            arg ->
-                new DefaultPooledObject<>(
-                    new SingleplexWorker(
-                        arg.getArgument(0),
-                        workerIds++,
-                        fileSystem.getPath("/workDir"),
-                        fileSystem.getPath("/logDir"))))
-        .when(factoryMock)
-        .makeObject(any());
-    when(factoryMock.validateObject(any(), any())).thenReturn(true);
     eventRecorder = new EventRecorder();
     eventBus.register(eventRecorder);
+
+    doAnswer(
+            args -> {
+              WorkerKey key = args.getArgument(0);
+              if (key.isMultiplex()) {
+                WorkerMultiplexer multiplexer =
+                    WorkerMultiplexerManager.getInstance(key, fileSystem.getPath("/logDir"));
+                return new DefaultPooledObject<>(
+                    new WorkerProxy(
+                        key,
+                        workerIds++,
+                        multiplexer.getLogFile(),
+                        multiplexer,
+                        key.getExecRoot()));
+              }
+              return new DefaultPooledObject<>(
+                  new SingleplexWorker(
+                      key,
+                      workerIds++,
+                      fileSystem.getPath("/workDir"),
+                      fileSystem.getPath("/logDir")));
+            })
+        .when(factoryMock)
+        .makeObject(any());
+    doAnswer(
+            args -> {
+              PooledObject<Worker> obj = args.getArgument(1);
+              return obj.getObject().getStatus().isValid();
+            })
+        .when(factoryMock)
+        .validateObject(any(), any());
+    doAnswer(
+            args -> {
+              PooledObject<Worker> obj = args.getArgument(1);
+              Worker worker = obj.getObject();
+              worker.destroy();
+              eventBus.post(
+                  new WorkerDestroyedEvent(
+                      worker.getWorkerId(),
+                      worker.getWorkerKey().hashCode(),
+                      worker.getWorkerKey().getMnemonic(),
+                      worker.getStatus()));
+              return null;
+            })
+        .when(factoryMock)
+        .destroyObject(any(), any());
   }
 
   @Test
@@ -98,13 +174,14 @@ public final class WorkerLifecycleManagerTest {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
             new WorkerPoolConfig(factoryMock, entryList(DUMMY_MNEMONIC, 1), emptyEntryList()));
+    workerPool.setEventBus(eventBus);
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     workerPool.returnObject(key, w1);
     ImmutableList<WorkerProcessMetrics> workerMetrics =
-        ImmutableList.of(createWorkerMetric(w1, PROCESS_ID_1, /* memoryInKb= */ 1024));
+        ImmutableList.of(createWorkerMetric(w1, PROCESS_ID_1, /* memoryInKb= */ 1000));
     WorkerOptions options = new WorkerOptions();
-    options.totalWorkerMemoryLimitMb = 1024 * 100;
+    options.totalWorkerMemoryLimitMb = 1000 * 100;
 
     WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
     manager.setEventBus(eventBus);
@@ -116,7 +193,10 @@ public final class WorkerLifecycleManagerTest {
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(1);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
+    // It should still have a valid status since it was not killed / marked to be killed.
+    assertThat(w1.getStatus().isValid()).isTrue();
     assertThat(eventRecorder.workerEvictedEvents).isEmpty();
+    assertThat(eventRecorder.workerDestroyedEvents).isEmpty();
   }
 
   @Test
@@ -124,16 +204,18 @@ public final class WorkerLifecycleManagerTest {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
             new WorkerPoolConfig(factoryMock, entryList(DUMMY_MNEMONIC, 1), emptyEntryList()));
+    workerPool.setEventBus(eventBus);
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     workerPool.returnObject(key, w1);
 
     ImmutableList<WorkerProcessMetrics> workerMetrics =
-        ImmutableList.of(createWorkerMetric(w1, PROCESS_ID_1, /* memoryInKb= */ 1024));
+        ImmutableList.of(createWorkerMetric(w1, PROCESS_ID_1, /* memoryInKb= */ 1000));
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 0;
 
     WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+    manager.setEventBus(eventBus);
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(1);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
@@ -142,6 +224,10 @@ public final class WorkerLifecycleManagerTest {
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(1);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
+    // It should still have a valid status since it was not killed / marked to be killed.
+    assertThat(w1.getStatus().isValid()).isTrue();
+    assertThat(eventRecorder.workerEvictedEvents).isEmpty();
+    assertThat(eventRecorder.workerDestroyedEvents).isEmpty();
   }
 
   @Test
@@ -149,6 +235,7 @@ public final class WorkerLifecycleManagerTest {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
             new WorkerPoolConfig(factoryMock, entryList(DUMMY_MNEMONIC, 1), emptyEntryList()));
+    workerPool.setEventBus(eventBus);
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     workerPool.returnObject(key, w1);
@@ -158,6 +245,7 @@ public final class WorkerLifecycleManagerTest {
     options.totalWorkerMemoryLimitMb = 1;
 
     WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+    manager.setEventBus(eventBus);
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(1);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
@@ -166,6 +254,10 @@ public final class WorkerLifecycleManagerTest {
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(1);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
+    // It should still have a valid status since it was not killed / marked to be killed.
+    assertThat(w1.getStatus().isValid()).isTrue();
+    assertThat(eventRecorder.workerEvictedEvents).isEmpty();
+    assertThat(eventRecorder.workerDestroyedEvents).isEmpty();
   }
 
   @Test
@@ -173,6 +265,7 @@ public final class WorkerLifecycleManagerTest {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
             new WorkerPoolConfig(factoryMock, entryList(DUMMY_MNEMONIC, 1), emptyEntryList()));
+    workerPool.setEventBus(eventBus);
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     workerPool.returnObject(key, w1);
@@ -182,17 +275,20 @@ public final class WorkerLifecycleManagerTest {
     options.totalWorkerMemoryLimitMb = 1;
     WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
     manager.setEventBus(eventBus);
-    WorkerEvictedEvent event =
-        new WorkerEvictedEvent(w1.getWorkerKey().hashCode(), w1.getWorkerKey().getMnemonic());
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(1);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
+    // It should still have a valid status since it was not killed / marked to be killed.
+    assertThat(w1.getStatus().isValid()).isTrue();
 
     manager.evictWorkers(workerMetrics);
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(0);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
-    assertThat(eventRecorder.workerEvictedEvents).containsExactly(event);
+    // Directly killed since it is already returned.
+    assertThat(w1.getStatus().get()).isEqualTo(Status.KILLED_DUE_TO_MEMORY_PRESSURE);
+    eventRecorder.assertContainsEvictedEventsOfWorkers(ImmutableList.of(w1));
+    eventRecorder.assertContainsDestroyedEventsOfWorkers(ImmutableList.of(w1));
   }
 
   @Test
@@ -200,6 +296,7 @@ public final class WorkerLifecycleManagerTest {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
             new WorkerPoolConfig(factoryMock, entryList(DUMMY_MNEMONIC, 3), emptyEntryList()));
+    workerPool.setEventBus(eventBus);
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     Worker w2 = workerPool.borrowObject(key);
@@ -217,23 +314,34 @@ public final class WorkerLifecycleManagerTest {
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 2;
     WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+    manager.setEventBus(eventBus);
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(3);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
+    assertThat(w1.getStatus().isValid()).isTrue();
+    assertThat(w2.getStatus().isValid()).isTrue();
+    assertThat(w3.getStatus().isValid()).isTrue();
 
     manager.evictWorkers(workerMetrics);
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(1);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
-    assertThat(workerPool.borrowObject(key).getWorkerId()).isEqualTo(w2.getWorkerId());
+    // Only w1 and w3 should have been killed.
+    assertThat(w1.getStatus().get()).isEqualTo(Status.KILLED_DUE_TO_MEMORY_PRESSURE);
+    assertThat(w2.getStatus().isValid()).isTrue();
+    assertThat(w3.getStatus().get()).isEqualTo(Status.KILLED_DUE_TO_MEMORY_PRESSURE);
+    eventRecorder.assertContainsEvictedEventsOfWorkers(ImmutableList.of(w1, w3));
+    eventRecorder.assertContainsDestroyedEventsOfWorkers(ImmutableList.of(w1, w3));
   }
 
   @Test
-  public void testGetEvictionCandidates_numberOfWorkersIsMoreThanDeafaultNumTests()
+  public void testGetEvictionCandidates_numberOfWorkersIsMoreThanDefaultNumTests()
       throws Exception {
+    // The default number of tests is 3.
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
             new WorkerPoolConfig(factoryMock, entryList(DUMMY_MNEMONIC, 4), emptyEntryList()));
+    workerPool.setEventBus(eventBus);
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     Worker w2 = workerPool.borrowObject(key);
@@ -254,6 +362,7 @@ public final class WorkerLifecycleManagerTest {
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 1;
     WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+    manager.setEventBus(eventBus);
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(4);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
@@ -262,6 +371,12 @@ public final class WorkerLifecycleManagerTest {
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(0);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
+    assertThat(w1.getStatus().get()).isEqualTo(Status.KILLED_DUE_TO_MEMORY_PRESSURE);
+    assertThat(w2.getStatus().get()).isEqualTo(Status.KILLED_DUE_TO_MEMORY_PRESSURE);
+    assertThat(w3.getStatus().get()).isEqualTo(Status.KILLED_DUE_TO_MEMORY_PRESSURE);
+    assertThat(w4.getStatus().get()).isEqualTo(Status.KILLED_DUE_TO_MEMORY_PRESSURE);
+    eventRecorder.assertContainsEvictedEventsOfWorkers(ImmutableList.of(w1, w2, w3, w4));
+    eventRecorder.assertContainsDestroyedEventsOfWorkers(ImmutableList.of(w1, w2, w3, w4));
   }
 
   @Test
@@ -270,6 +385,7 @@ public final class WorkerLifecycleManagerTest {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
             new WorkerPoolConfig(factoryMock, entryList(DUMMY_MNEMONIC, 3), emptyEntryList()));
+    workerPool.setEventBus(eventBus);
     WorkerKey key1 = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     WorkerKey key2 = createWorkerKey(DUMMY_MNEMONIC, fileSystem, true);
 
@@ -290,9 +406,13 @@ public final class WorkerLifecycleManagerTest {
     options.totalWorkerMemoryLimitMb = 2;
     options.workerVerbose = true;
     WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+    manager.setEventBus(eventBus);
 
     assertThat(workerPool.getNumIdlePerKey(key1)).isEqualTo(1);
     assertThat(workerPool.getNumIdlePerKey(key2)).isEqualTo(2);
+    assertThat(w1.getStatus().isValid()).isTrue();
+    assertThat(w2.getStatus().isValid()).isTrue();
+    assertThat(w3.getStatus().isValid()).isTrue();
 
     manager.evictWorkers(workerMetrics);
 
@@ -301,6 +421,12 @@ public final class WorkerLifecycleManagerTest {
 
     assertThat(workerPool.getNumIdlePerKey(key2)).isEqualTo(1);
     assertThat(workerPool.getNumActive(key2)).isEqualTo(0);
+    // Only w3 shouldn't be killed.
+    assertThat(w1.getStatus().get()).isEqualTo(Status.KILLED_DUE_TO_MEMORY_PRESSURE);
+    assertThat(w2.getStatus().get()).isEqualTo(Status.KILLED_DUE_TO_MEMORY_PRESSURE);
+    assertThat(w3.getStatus().isValid()).isTrue();
+    eventRecorder.assertContainsEvictedEventsOfWorkers(ImmutableList.of(w1, w2));
+    eventRecorder.assertContainsDestroyedEventsOfWorkers(ImmutableList.of(w1, w2));
   }
 
   @Test
@@ -308,6 +434,7 @@ public final class WorkerLifecycleManagerTest {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
             new WorkerPoolConfig(factoryMock, entryList(DUMMY_MNEMONIC, 3), emptyEntryList()));
+    workerPool.setEventBus(eventBus);
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     Worker w2 = workerPool.borrowObject(key);
@@ -325,14 +452,24 @@ public final class WorkerLifecycleManagerTest {
     options.totalWorkerMemoryLimitMb = 2;
 
     WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+    manager.setEventBus(eventBus);
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(2);
     assertThat(workerPool.getNumActive(key)).isEqualTo(1);
+    assertThat(w1.getStatus().isValid()).isTrue();
+    assertThat(w2.getStatus().isValid()).isTrue();
+    assertThat(w3.getStatus().isValid()).isTrue();
 
     manager.evictWorkers(workerMetrics);
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(0);
     assertThat(workerPool.getNumActive(key)).isEqualTo(1);
+    assertThat(w1.getStatus().get()).isEqualTo(Status.KILLED_DUE_TO_MEMORY_PRESSURE);
+    assertThat(w2.getStatus().get()).isEqualTo(Status.KILLED_DUE_TO_MEMORY_PRESSURE);
+    // w3 is not killed because we're not shrinking the worker pool.
+    assertThat(w3.getStatus().isValid()).isTrue();
+    eventRecorder.assertContainsEvictedEventsOfWorkers(ImmutableList.of(w1, w2));
+    eventRecorder.assertContainsDestroyedEventsOfWorkers(ImmutableList.of(w1, w2));
   }
 
   @Test
@@ -341,6 +478,7 @@ public final class WorkerLifecycleManagerTest {
         new WorkerPoolImpl(
             new WorkerPoolConfig(
                 factoryMock, entryList(DUMMY_MNEMONIC, 2, "smart", 2), emptyEntryList()));
+    workerPool.setEventBus(eventBus);
     WorkerKey key1 = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     WorkerKey key2 = createWorkerKey("smart", fileSystem);
     Worker w1 = workerPool.borrowObject(key1);
@@ -363,11 +501,16 @@ public final class WorkerLifecycleManagerTest {
     options.totalWorkerMemoryLimitMb = 2;
 
     WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+    manager.setEventBus(eventBus);
 
     assertThat(workerPool.getNumIdlePerKey(key1)).isEqualTo(2);
     assertThat(workerPool.getNumActive(key1)).isEqualTo(0);
     assertThat(workerPool.getNumIdlePerKey(key2)).isEqualTo(2);
     assertThat(workerPool.getNumActive(key2)).isEqualTo(0);
+    assertThat(w1.getStatus().isValid()).isTrue();
+    assertThat(w2.getStatus().isValid()).isTrue();
+    assertThat(w3.getStatus().isValid()).isTrue();
+    assertThat(w4.getStatus().isValid()).isTrue();
 
     manager.evictWorkers(workerMetrics);
 
@@ -378,6 +521,13 @@ public final class WorkerLifecycleManagerTest {
     assertThat(workerPool.getNumIdlePerKey(key2)).isEqualTo(1);
     assertThat(workerPool.getNumActive(key2)).isEqualTo(0);
     assertThat(workerPool.borrowObject(key2).getWorkerId()).isEqualTo(w4.getWorkerId());
+
+    assertThat(w1.getStatus().isValid()).isTrue();
+    assertThat(w2.getStatus().get()).isEqualTo(Status.KILLED_DUE_TO_MEMORY_PRESSURE);
+    assertThat(w3.getStatus().get()).isEqualTo(Status.KILLED_DUE_TO_MEMORY_PRESSURE);
+    assertThat(w4.getStatus().isValid()).isTrue();
+    eventRecorder.assertContainsEvictedEventsOfWorkers(ImmutableList.of(w2, w3));
+    eventRecorder.assertContainsDestroyedEventsOfWorkers(ImmutableList.of(w2, w3));
   }
 
   @Test
@@ -385,6 +535,7 @@ public final class WorkerLifecycleManagerTest {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
             new WorkerPoolConfig(factoryMock, entryList(DUMMY_MNEMONIC, 2), emptyEntryList()));
+    workerPool.setEventBus(eventBus);
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     Worker w2 = workerPool.borrowObject(key);
@@ -399,16 +550,36 @@ public final class WorkerLifecycleManagerTest {
     options.shrinkWorkerPool = true;
 
     WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+    manager.setEventBus(eventBus);
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(0);
     assertThat(workerPool.getNumActive(key)).isEqualTo(2);
+    assertThat(w1.getStatus().isValid()).isTrue();
+    assertThat(w2.getStatus().isValid()).isTrue();
 
     manager.evictWorkers(workerMetrics);
 
+    assertThat(w1.getStatus().get()).isEqualTo(Status.PENDING_KILL_DUE_TO_MEMORY_PRESSURE);
+    assertThat(w2.getStatus().get()).isEqualTo(Status.PENDING_KILL_DUE_TO_MEMORY_PRESSURE);
+
+    // Return only one worker.
+    workerPool.returnObject(key, w1);
+
+    // w1 gets destroyed when it is returned, so there are 0 idle workers.
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(0);
-    assertThat(workerPool.getNumActive(key)).isEqualTo(2);
-    assertThat(workerPool.getDoomedWorkers())
-        .isEqualTo(Sets.newHashSet(w1.getWorkerId(), w2.getWorkerId()));
+    assertThat(workerPool.getNumActive(key)).isEqualTo(1);
+    // Since w1 is already returned, it is killed on return.
+    assertThat(w1.getStatus().get()).isEqualTo(Status.KILLED_DUE_TO_MEMORY_PRESSURE);
+    // Since w2 is still active, it is marked to be killed which will happen when it is returned.
+    assertThat(w2.getStatus().get()).isEqualTo(Status.PENDING_KILL_DUE_TO_MEMORY_PRESSURE);
+    eventRecorder.assertContainsEvictedEventsOfWorkers(ImmutableList.of(w1));
+    eventRecorder.assertContainsDestroyedEventsOfWorkers(ImmutableList.of(w1));
+
+    // Return the remaining worker.
+    workerPool.returnObject(key, w2);
+    assertThat(w2.getStatus().get()).isEqualTo(Status.KILLED_DUE_TO_MEMORY_PRESSURE);
+    eventRecorder.assertContainsEvictedEventsOfWorkers(ImmutableList.of(w1, w2));
+    eventRecorder.assertContainsDestroyedEventsOfWorkers(ImmutableList.of(w1, w2));
   }
 
   @Test
@@ -416,6 +587,7 @@ public final class WorkerLifecycleManagerTest {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
             new WorkerPoolConfig(factoryMock, entryList(DUMMY_MNEMONIC, 5), emptyEntryList()));
+    workerPool.setEventBus(eventBus);
     WorkerKey key = createWorkerKey(DUMMY_MNEMONIC, fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     Worker w2 = workerPool.borrowObject(key);
@@ -438,16 +610,29 @@ public final class WorkerLifecycleManagerTest {
     options.shrinkWorkerPool = true;
 
     WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+    manager.setEventBus(eventBus);
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(2);
     assertThat(workerPool.getNumActive(key)).isEqualTo(3);
+    assertThat(w1.getStatus().isValid()).isTrue();
+    assertThat(w2.getStatus().isValid()).isTrue();
+    assertThat(w3.getStatus().isValid()).isTrue();
+    assertThat(w4.getStatus().isValid()).isTrue();
+    assertThat(w5.getStatus().isValid()).isTrue();
 
     manager.evictWorkers(workerMetrics);
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(0);
     assertThat(workerPool.getNumActive(key)).isEqualTo(3);
-    assertThat(workerPool.getDoomedWorkers())
-        .isEqualTo(Sets.newHashSet(w3.getWorkerId(), w4.getWorkerId()));
+    // w1 and w2 are killed immediately.
+    assertThat(w1.getStatus().get()).isEqualTo(Status.KILLED_DUE_TO_MEMORY_PRESSURE);
+    assertThat(w2.getStatus().get()).isEqualTo(Status.KILLED_DUE_TO_MEMORY_PRESSURE);
+    // w3 and w4 are killed only when returned.
+    assertThat(w3.getStatus().get()).isEqualTo(Status.PENDING_KILL_DUE_TO_MEMORY_PRESSURE);
+    assertThat(w4.getStatus().get()).isEqualTo(Status.PENDING_KILL_DUE_TO_MEMORY_PRESSURE);
+    assertThat(w5.getStatus().isValid()).isTrue();
+    eventRecorder.assertContainsEvictedEventsOfWorkers(ImmutableList.of(w1, w2));
+    eventRecorder.assertContainsDestroyedEventsOfWorkers(ImmutableList.of(w1, w2));
   }
 
   @Test
@@ -455,10 +640,15 @@ public final class WorkerLifecycleManagerTest {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
             new WorkerPoolConfig(factoryMock, emptyEntryList(), entryList(DUMMY_MNEMONIC, 2)));
+    workerPool.setEventBus(eventBus);
     WorkerKey key =
         createWorkerKey(DUMMY_MNEMONIC, fileSystem, /* multiplex= */ true, /* sandboxed= */ false);
     Worker w1 = workerPool.borrowObject(key);
     Worker w2 = workerPool.borrowObject(key);
+
+    // Multiplex workers should share the same status instance.
+    assertThat(w1.getStatus()).isSameInstanceAs(w2.getStatus());
+
     workerPool.returnObject(key, w1);
     workerPool.returnObject(key, w2);
     ImmutableList<WorkerProcessMetrics> workerMetrics =
@@ -468,23 +658,32 @@ public final class WorkerLifecycleManagerTest {
     WorkerOptions options = new WorkerOptions();
     options.totalWorkerMemoryLimitMb = 1;
     WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+    manager.setEventBus(eventBus);
 
     manager.evictWorkers(workerMetrics);
 
     assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(0);
     assertThat(workerPool.getNumActive(key)).isEqualTo(0);
+    // Since both w1 and w2 have been returned, it is killed.
+    assertThat(w1.getStatus().get()).isEqualTo(Status.KILLED_DUE_TO_MEMORY_PRESSURE);
+    eventRecorder.assertContainsEvictedEventsOfWorkers(ImmutableList.of(w1, w2));
+    eventRecorder.assertContainsDestroyedEventsOfWorkers(ImmutableList.of(w1, w2));
   }
 
   @Test
   public void evictWorkers_doomMultiplexWorker() throws Exception {
-    String dummyMnemonic = DUMMY_MNEMONIC;
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
-            new WorkerPoolConfig(factoryMock, emptyEntryList(), entryList(dummyMnemonic, 2)));
+            new WorkerPoolConfig(factoryMock, emptyEntryList(), entryList(DUMMY_MNEMONIC, 2)));
+    workerPool.setEventBus(eventBus);
     WorkerKey key =
-        createWorkerKey(dummyMnemonic, fileSystem, /* multiplex= */ true, /* sandboxed= */ false);
+        createWorkerKey(DUMMY_MNEMONIC, fileSystem, /* multiplex= */ true, /* sandboxed= */ false);
     Worker w1 = workerPool.borrowObject(key);
     Worker w2 = workerPool.borrowObject(key);
+
+    // Multiplex workers should share the same status instance.
+    assertThat(w1.getStatus()).isSameInstanceAs(w2.getStatus());
+
     workerPool.returnObject(key, w1);
     ImmutableList<WorkerProcessMetrics> workerMetrics =
         ImmutableList.of(
@@ -494,13 +693,25 @@ public final class WorkerLifecycleManagerTest {
     options.totalWorkerMemoryLimitMb = 1;
     options.shrinkWorkerPool = true;
     WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+    manager.setEventBus(eventBus);
 
     manager.evictWorkers(workerMetrics);
 
-    assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(1);
+    // w1 should have been evicted already.
+    assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(0);
     assertThat(workerPool.getNumActive(key)).isEqualTo(1);
-    assertThat(workerPool.getDoomedWorkers())
-        .isEqualTo(Sets.newHashSet(w1.getWorkerId(), w2.getWorkerId()));
+    // Not yet killed because w2 is still alive (and both share a WorkerProcessStatus).
+    assertThat(w1.getStatus().get()).isEqualTo(Status.PENDING_KILL_DUE_TO_MEMORY_PRESSURE);
+    eventRecorder.assertContainsEvictedEventsOfWorkers(ImmutableList.of(w1));
+    eventRecorder.assertContainsDestroyedEventsOfWorkers(ImmutableList.of(w1));
+
+    workerPool.returnObject(key, w2);
+    assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(0);
+    assertThat(workerPool.getNumActive(key)).isEqualTo(0);
+    // Status is only set to killed after the last worker proxy is destroyed.
+    assertThat(w2.getStatus().get()).isEqualTo(Status.KILLED_DUE_TO_MEMORY_PRESSURE);
+    eventRecorder.assertContainsEvictedEventsOfWorkers(ImmutableList.of(w1, w2));
+    eventRecorder.assertContainsDestroyedEventsOfWorkers(ImmutableList.of(w1, w2));
   }
 
   private static final Instant DEFAULT_INSTANT = BlazeClock.instance().now();
@@ -512,12 +723,12 @@ public final class WorkerLifecycleManagerTest {
         new WorkerProcessMetrics(
             worker.getWorkerId(),
             processId,
+            worker.getStatus(),
             worker.getWorkerKey().getMnemonic(),
             worker.getWorkerKey().isMultiplex(),
             worker.getWorkerKey().isSandboxed(),
             worker.getWorkerKey().hashCode());
-    wm.addCollectedMetrics(
-        memoryInKb, /* isMeasurable= */ true, /* collectionTime= */ DEFAULT_INSTANT);
+    wm.addCollectedMetrics(memoryInKb, /* collectionTime= */ DEFAULT_INSTANT);
     return wm;
   }
 
@@ -527,12 +738,12 @@ public final class WorkerLifecycleManagerTest {
         new WorkerProcessMetrics(
             workers.stream().map(Worker::getWorkerId).collect(toImmutableList()),
             processId,
+            workers.get(0).getStatus(),
             workers.get(0).getWorkerKey().getMnemonic(),
             workers.get(0).getWorkerKey().isMultiplex(),
             workers.get(0).getWorkerKey().isSandboxed(),
             workers.get(0).getWorkerKey().hashCode());
-    workerProcessMetrics.addCollectedMetrics(
-        memoryInKb, /* isMeasurable= */ true, /* collectionTime= */ DEFAULT_INSTANT);
+    workerProcessMetrics.addCollectedMetrics(memoryInKb, /* collectionTime= */ DEFAULT_INSTANT);
     return workerProcessMetrics;
   }
 

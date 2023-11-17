@@ -38,7 +38,7 @@ public final class WorkerMetricsInfoItem extends InfoItem {
       Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env) {
 
     ImmutableList<WorkerMetrics> proto =
-        WorkerProcessMetricsCollector.instance().createWorkerMetricsProto();
+        WorkerProcessMetricsCollector.instance().getLiveWorkerMetrics();
     if (proto.isEmpty()) {
       return print("No persistent workers active.");
     } else {

@@ -17,11 +17,14 @@ import com.google.common.base.Objects;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 
 /** An event fired during execution, when worker was destroyed. */
+// TODO(b/310640400): Refactor into WorkerDestroyedEvent.
 public final class WorkerEvictedEvent implements Postable {
+  private final int workerId;
   private final int workerPoolHash;
   private final String mnemonic;
 
-  public WorkerEvictedEvent(int workerPoolHash, String mnemonic) {
+  public WorkerEvictedEvent(int workerId, int workerPoolHash, String mnemonic) {
+    this.workerId = workerId;
     this.workerPoolHash = workerPoolHash;
     this.mnemonic = mnemonic;
   }
@@ -43,11 +46,13 @@ public final class WorkerEvictedEvent implements Postable {
       return false;
     }
     WorkerEvictedEvent that = (WorkerEvictedEvent) other;
-    return workerPoolHash == that.getWorkerPoolHash() && mnemonic.equals(that.getMnemonic());
+    return workerId == that.workerId
+        && workerPoolHash == that.getWorkerPoolHash()
+        && mnemonic.equals(that.getMnemonic());
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(mnemonic, workerPoolHash);
+    return Objects.hashCode(workerId, mnemonic, workerPoolHash);
   }
 }

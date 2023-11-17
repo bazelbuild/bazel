@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.worker;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -22,6 +23,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -92,7 +94,7 @@ final class WorkerLifecycleManager extends Thread {
       }
 
       ImmutableList<WorkerProcessMetrics> workerProcessMetrics =
-          WorkerProcessMetricsCollector.instance().collectMetrics();
+          WorkerProcessMetricsCollector.instance().getLiveWorkerProcessMetrics();
 
       if (options.totalWorkerMemoryLimitMb > 0) {
         try {
@@ -138,13 +140,23 @@ final class WorkerLifecycleManager extends Thread {
                 l.getUsedMemoryInKb() / 1000,
                 limitMb);
         logger.atInfo().log("%s", msg);
+        // TODO(b/310640400): Converge APIs in killing workers, rather than killing via the process
+        //  handle here (resulting in errors in execution), perhaps we want to wait till the worker
+        //  is returned before killing it.
         ph.get().destroyForcibly();
+        boolean wasKilled =
+            l.getStatus()
+                .maybeUpdateStatus(WorkerProcessStatus.Status.KILLED_DUE_TO_MEMORY_PRESSURE);
         // We want to always report this as this is a potential source of build failure.
         if (this.reporter != null) {
           reporter.handle(Event.warn(msg));
         }
-        if (eventBus != null) {
-          eventBus.post(new WorkerEvictedEvent(l.getWorkerKeyHash(), l.getMnemonic()));
+        if (eventBus != null && wasKilled) {
+          l.getWorkerIds()
+              .forEach(
+                  workerId ->
+                      eventBus.post(
+                          new WorkerEvictedEvent(workerId, l.getWorkerKeyHash(), l.getMnemonic())));
         }
       }
     }
@@ -183,7 +195,7 @@ final class WorkerLifecycleManager extends Thread {
       return;
     }
 
-    ImmutableSet<Integer> candidates =
+    ImmutableSet<WorkerProcessMetrics> candidates =
         collectEvictionCandidates(
             workerProcessMetrics, options.totalWorkerMemoryLimitMb, workerMemoryUsage);
 
@@ -196,8 +208,12 @@ final class WorkerLifecycleManager extends Thread {
                     + " limit: %d MB",
                 workerMemoryUsage, options.totalWorkerMemoryLimitMb);
       } else {
+        ImmutableSet<Integer> workerIdsToEvict =
+            candidates.stream().flatMap(m -> m.getWorkerIds().stream()).collect(toImmutableSet());
         msg =
-            String.format("Going to evict %d workers with ids: %s", candidates.size(), candidates);
+            String.format(
+                "Attempting eviction of %d workers with ids: %s",
+                workerIdsToEvict.size(), workerIdsToEvict);
       }
 
       logger.atInfo().log("%s", msg);
@@ -222,21 +238,28 @@ final class WorkerLifecycleManager extends Thread {
 
     if (eventBus != null) {
       for (WorkerProcessMetrics metric : workerProcessMetrics) {
-
         for (Integer workerId : metric.getWorkerIds()) {
           if (evictedWorkers.contains(workerId)) {
-            eventBus.post(new WorkerEvictedEvent(metric.getWorkerKeyHash(), metric.getMnemonic()));
+            eventBus.post(
+                new WorkerEvictedEvent(workerId, metric.getWorkerKeyHash(), metric.getMnemonic()));
           }
         }
       }
     }
 
+    // TODO(b/300067854): Shrinking of the worker pool happens on worker keys that are active at the
+    //  time of polling, but doesn't shrink the pools of idle workers. We might be wrongly
+    //  penalizing lower memory usage workers (but more active) by shrinking their pool sizes
+    //  instead of higher memory usage workers (but less active) and are killed directly with
+    //  {@code #evictCandidates()} (where shrinking doesn't happen).
     if (options.shrinkWorkerPool) {
       List<WorkerProcessMetrics> notEvictedWorkerProcessMetrics =
           workerProcessMetrics.stream()
               .filter(metric -> !evictedWorkers.containsAll(metric.getWorkerIds()))
               .collect(Collectors.toList());
 
+      // TODO(b/300067854): There is a precision error here when converting Kb to Mb and then
+      //  casting to int (e.g. [1001 Kb ... 1999 Kb] will pass a limit check of 1 Mb below).
       int notEvictedWorkerMemoryUsage =
           notEvictedWorkerProcessMetrics.stream()
               .mapToInt(metric -> metric.getUsedMemoryInKb() / 1000)
@@ -252,17 +275,23 @@ final class WorkerLifecycleManager extends Thread {
 
   private void postponeInvalidation(
       List<WorkerProcessMetrics> workerProcessMetrics, int notEvictedWorkerMemoryUsage) {
-    ImmutableSet<Integer> potentialCandidates =
+    ImmutableSet<WorkerProcessMetrics> potentialCandidates =
         getCandidates(
             workerProcessMetrics, options.totalWorkerMemoryLimitMb, notEvictedWorkerMemoryUsage);
 
     if (!potentialCandidates.isEmpty()) {
-      String msg = String.format("New doomed workers candidates %s", potentialCandidates);
+      String msg =
+          String.format(
+              "Postponing eviction of worker ids: %s",
+              potentialCandidates.stream()
+                  .flatMap(m -> m.getWorkerIds().stream())
+                  .collect(toImmutableList()));
       logger.atInfo().log("%s", msg);
       if (options.workerVerbose && this.reporter != null) {
         reporter.handle(Event.info(msg));
       }
-      workerPool.setDoomedWorkers(potentialCandidates);
+      potentialCandidates.forEach(
+          m -> m.getStatus().maybeUpdateStatus(Status.PENDING_KILL_DUE_TO_MEMORY_PRESSURE));
     }
   }
 
@@ -271,7 +300,7 @@ final class WorkerLifecycleManager extends Thread {
    * guarantee that every candidate is going to be evicted. Returns worker ids of evicted workers.
    */
   private static ImmutableSet<Integer> evictCandidates(
-      WorkerPool pool, ImmutableSet<Integer> candidates) throws InterruptedException {
+      WorkerPool pool, ImmutableSet<WorkerProcessMetrics> candidates) throws InterruptedException {
     CandidateEvictionPolicy policy = new CandidateEvictionPolicy(candidates);
     pool.evictWithPolicy(policy);
     return policy.getEvictedWorkers();
@@ -279,33 +308,42 @@ final class WorkerLifecycleManager extends Thread {
 
   /** Collects worker candidates to evict. Chooses workers with the largest memory consumption. */
   @SuppressWarnings("JdkCollectors")
-  ImmutableSet<Integer> collectEvictionCandidates(
+  ImmutableSet<WorkerProcessMetrics> collectEvictionCandidates(
       ImmutableList<WorkerProcessMetrics> workerProcessMetrics,
       int memoryLimitMb,
       int workerMemoryUsageMb)
       throws InterruptedException {
+    // TODO(b/300067854): Consider rethinking the strategy here. The current logic kills idle
+    //  workers that have lower memory usage if the other higher memory usage workers are active
+    //  (where killing them would have brought the memory usage under the limit). This means we
+    //  could be killing memory compliant and performant workers unnecessarily; i.e. this strategy
+    //  maximizes responsiveness towards being compliant to the memory limit with no guarantees of
+    //  making it immediately compliant. Since we can't guarantee immediate compliance, tradeoff
+    //  some of this responsiveness by just killing or marking workers as killed in descending
+    //  memory usage and waiting for the active workers to be returned later (where they are then
+    //  killed).
     Set<Integer> idleWorkers = getIdleWorkers();
 
     List<WorkerProcessMetrics> idleWorkerProcessMetrics =
         workerProcessMetrics.stream()
-            .filter(metric -> idleWorkers.containsAll(metric.getWorkerIds()))
+            .filter(metric -> metric.getWorkerIds().stream().anyMatch(idleWorkers::contains))
             .collect(Collectors.toList());
 
     return getCandidates(idleWorkerProcessMetrics, memoryLimitMb, workerMemoryUsageMb);
   }
 
   /**
-   * Chooses the worker ids of workers with the most usage of memory. Selects workers until total
-   * memory usage is less than memoryLimitMb.
+   * Chooses the WorkerProcessMetrics of workers with the most usage of memory. Selects workers
+   * until total memory usage is less than memoryLimitMb.
    */
-  private static ImmutableSet<Integer> getCandidates(
+  private static ImmutableSet<WorkerProcessMetrics> getCandidates(
       List<WorkerProcessMetrics> workerProcessMetrics, int memoryLimitMb, int usedMemoryMb) {
 
     workerProcessMetrics.sort(new MemoryComparator());
-    ImmutableSet.Builder<Integer> candidates = ImmutableSet.builder();
+    ImmutableSet.Builder<WorkerProcessMetrics> candidates = ImmutableSet.builder();
     int freeMemoryMb = 0;
     for (WorkerProcessMetrics metric : workerProcessMetrics) {
-      candidates.addAll(metric.getWorkerIds());
+      candidates.add(metric);
       freeMemoryMb += metric.getUsedMemoryInKb() / 1000;
 
       if (usedMemoryMb - freeMemoryMb <= memoryLimitMb) {
@@ -347,19 +385,29 @@ final class WorkerLifecycleManager extends Thread {
 
   /** Eviction policy for WorkerPool. Evict all idle workers, which were passed in constructor. */
   private static class CandidateEvictionPolicy implements EvictionPolicy<Worker> {
-    private final ImmutableSet<Integer> workerCandidates;
+    private final ImmutableSet<Integer> workerIdsToEvict;
     private final Set<Integer> evictedWorkers;
 
-    public CandidateEvictionPolicy(ImmutableSet<Integer> workerCandidates) {
-      this.workerCandidates = workerCandidates;
+    public CandidateEvictionPolicy(ImmutableSet<WorkerProcessMetrics> workerProcessMetrics) {
+      this.workerIdsToEvict =
+          workerProcessMetrics.stream()
+              .flatMap(m -> m.getWorkerIds().stream())
+              .collect(toImmutableSet());
       this.evictedWorkers = new HashSet<>();
     }
 
     @Override
     public boolean evict(EvictionConfig config, PooledObject<Worker> underTest, int idleCount) {
       int workerId = underTest.getObject().getWorkerId();
-      if (workerCandidates.contains(workerId)) {
+      if (workerIdsToEvict.contains(workerId)) {
         evictedWorkers.add(workerId);
+        // Eviction through an EvictionPolicy doesn't go through the #returnObject and
+        // #invalidateObject code paths and directly calls #destroy, so we'll need to specify that
+        // explicitly here.
+        underTest
+            .getObject()
+            .getStatus()
+            .maybeUpdateStatus(Status.PENDING_KILL_DUE_TO_MEMORY_PRESSURE);
         logger.atInfo().log(
             "Evicting worker %d with mnemonic %s",
             workerId, underTest.getObject().getWorkerKey().getMnemonic());

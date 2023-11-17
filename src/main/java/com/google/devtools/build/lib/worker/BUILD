@@ -52,9 +52,10 @@ java_library(
         ":worker_events",
         ":worker_files_hash",
         ":worker_key",
-        ":worker_metric",
         ":worker_options",
         ":worker_pool",
+        ":worker_process_metrics",
+        ":worker_process_status",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -92,9 +93,9 @@ java_library(
         ":multiplex_worker",
         ":singleplex_worker",
         ":worker_factory",
-        ":worker_metric",
         ":worker_options",
         ":worker_pool_impl",
+        ":worker_process_metrics",
         ":worker_spawn_runner",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -146,12 +147,13 @@ java_library(
 )
 
 java_library(
-    name = "worker_metric",
+    name = "worker_process_metrics",
     srcs = [
         "WorkerProcessMetrics.java",
         "WorkerProcessMetricsCollector.java",
     ],
     deps = [
+        ":worker_process_status",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/metrics:ps_info_collector",
@@ -183,9 +185,11 @@ java_library(
         ":worker",
         ":worker_events",
         ":worker_key",
+        ":worker_process_status",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:apache_commons_pool2",
         "//third_party:flogger",
         "//third_party:guava",
@@ -201,6 +205,7 @@ java_library(
         "WorkerEvictedEvent.java",
     ],
     deps = [
+        ":worker_process_status",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//third_party:guava",
     ],
@@ -243,12 +248,25 @@ java_library(
     srcs = ["Worker.java"],
     deps = [
         ":worker_key",
+        ":worker_process_metrics",
+        ":worker_process_status",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_helpers",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:worker_protocol_java_proto",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "worker_process_status",
+    srcs = ["WorkerProcessStatus.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
     ],
 )
@@ -264,6 +282,7 @@ java_library(
         ":worker",
         ":worker_exec_root",
         ":worker_key",
+        ":worker_process_status",
         ":worker_protocol",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/profiler",
@@ -295,6 +314,7 @@ java_library(
         ":worker",
         ":worker_exec_root",
         ":worker_key",
+        ":worker_process_status",
         ":worker_protocol",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/events",

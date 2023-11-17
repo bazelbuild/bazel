@@ -107,7 +107,8 @@ public class WorkerSpawnRunnerTest {
     when(context.getArtifactExpander()).thenReturn((artifact, output) -> {});
     doNothing()
         .when(metricsCollector)
-        .registerWorker(anyInt(), anyLong(), anyString(), anyBoolean(), anyBoolean(), anyInt());
+        .registerWorker(
+            anyInt(), anyLong(), any(), anyString(), anyBoolean(), anyBoolean(), anyInt());
     when(spawn.getLocalResources()).thenReturn(ResourceSet.createWithRamCpu(100, 1));
     when(resourceManager.acquireResources(any(), any(), any())).thenReturn(resourceHandle);
     when(resourceHandle.getWorker()).thenReturn(worker);
@@ -157,7 +158,7 @@ public class WorkerSpawnRunnerTest {
     assertThat(logFile.exists()).isFalse();
     verify(context).report(SpawnExecutingEvent.create("worker"));
     verify(resourceHandle).close();
-    verify(resourceHandle, times(0)).invalidateAndClose();
+    verify(resourceHandle, times(0)).invalidateAndClose(any());
     verify(context).lockOutputFiles(eq(0), eq("out"), ArgumentMatchers.isNull());
   }
 
@@ -216,7 +217,7 @@ public class WorkerSpawnRunnerTest {
     assertThat(logFile.exists()).isFalse();
     verify(inputFileCache, never()).getInputMetadata(virtualActionInput);
     verify(resourceHandle).close();
-    verify(resourceHandle, times(0)).invalidateAndClose();
+    verify(resourceHandle, times(0)).invalidateAndClose(any());
     verify(context).lockOutputFiles(eq(0), startsWith("out"), ArgumentMatchers.isNull());
   }
 
@@ -226,8 +227,9 @@ public class WorkerSpawnRunnerTest {
     WorkerSpawnRunner runner = createWorkerSpawnRunner(new WorkerOptions());
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
+    InterruptedException interruptedException = new InterruptedException();
     when(worker.getResponse(anyInt()))
-        .thenThrow(new InterruptedException())
+        .thenThrow(interruptedException)
         .thenReturn(WorkResponse.newBuilder().setRequestId(2).build());
     assertThrows(
         InterruptedException.class,
@@ -246,7 +248,7 @@ public class WorkerSpawnRunnerTest {
     verify(context).report(SpawnExecutingEvent.create("worker"));
     verify(worker).putRequest(WorkRequest.newBuilder().setRequestId(0).build());
     verify(resourceHandle, times(0)).close();
-    verify(resourceHandle).invalidateAndClose();
+    verify(resourceHandle).invalidateAndClose(interruptedException);
   }
 
   @Test
@@ -299,7 +301,7 @@ public class WorkerSpawnRunnerTest {
     // resources via resourceHandle.
     Thread.sleep(50);
     verify(resourceHandle).close();
-    verify(resourceHandle, times(0)).invalidateAndClose();
+    verify(resourceHandle, times(0)).invalidateAndClose(any());
   }
 
   @Test
@@ -313,7 +315,8 @@ public class WorkerSpawnRunnerTest {
     WorkerSpawnRunner runner = createWorkerSpawnRunner(workerOptions);
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
-    when(worker.getResponse(anyInt())).thenThrow(new InterruptedException());
+    InterruptedException interruptedException = new InterruptedException();
+    when(worker.getResponse(anyInt())).thenThrow(interruptedException);
     // Since this worker is not sandboxed, it will just get killed on interrupt.
     assertThrows(
         InterruptedException.class,
@@ -336,7 +339,7 @@ public class WorkerSpawnRunnerTest {
     assertThat(argumentCaptor.getAllValues().get(0))
         .isEqualTo(WorkRequest.newBuilder().setRequestId(0).build());
     verify(resourceHandle, times(0)).close();
-    verify(resourceHandle).invalidateAndClose();
+    verify(resourceHandle).invalidateAndClose(interruptedException);
   }
 
   @Test
@@ -370,7 +373,7 @@ public class WorkerSpawnRunnerTest {
     assertThat(logFile.exists()).isFalse();
     verify(context).report(SpawnExecutingEvent.create("worker"));
     verify(resourceHandle).close();
-    verify(resourceHandle, times(0)).invalidateAndClose();
+    verify(resourceHandle, times(0)).invalidateAndClose(any());
     verify(context).lockOutputFiles(eq(0), startsWith("out"), ArgumentMatchers.isNull());
   }
 
@@ -418,6 +421,7 @@ public class WorkerSpawnRunnerTest {
     verify(context)
         .lockOutputFiles(
             eq(2), ArgumentMatchers.contains(exceptionText), ArgumentMatchers.isNull());
+    verify(resourceHandle).invalidateAndClose(execException);
   }
 
   @Test

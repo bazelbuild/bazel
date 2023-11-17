@@ -172,8 +172,8 @@ public class WorkerModule extends BlazeModule {
     workerLifecycleManager.start();
 
     workerPool.setEventBus(env.getEventBus());
-    // Clean doomed workers on the beginning of a build.
-    workerPool.clearDoomedWorkers();
+    // Reset the pool at the beginning of each build.
+    workerPool.reset();
   }
 
   @Override
@@ -215,6 +215,7 @@ public class WorkerModule extends BlazeModule {
       workerLifecycleManager.interrupt();
       workerLifecycleManager = null;
     }
+    WorkerProcessMetricsCollector.instance().clearKilledWorkerProcessMetrics();
   }
 
   /** Shuts down the worker pool and sets {#code workerPool} to null. */

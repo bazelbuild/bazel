@@ -472,7 +472,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       Worker worker = (workerOwner == null) ? null : workerOwner.getWorker();
       if (handle != null && worker != null) {
         try {
-          handle.invalidateAndClose();
+          handle.invalidateAndClose(e);
           if (!hasOutputFileLock && worker.getExitValue().isPresent()) {
             // If the worker has died, we take the lock to a) fail earlier and b) have a chance
             // to let the other dynamic execution branch take over if the error can be ignored.
@@ -601,6 +601,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     this.metricsCollector.registerWorker(
         worker.getWorkerId(),
         worker.getProcessId(),
+        worker.getStatus(),
         workerKey.getMnemonic(),
         workerKey.isMultiplex(),
         workerKey.isSandboxed(),
@@ -639,7 +640,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
                 // be a dangling response that we don't want to keep trying to read, so we destroy
                 // the worker.
                 try {
-                  resourceHandle.invalidateAndClose();
+                  resourceHandle.invalidateAndClose(e1);
 
                   w = null;
 

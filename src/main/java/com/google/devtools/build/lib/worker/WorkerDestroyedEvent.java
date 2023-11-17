@@ -13,16 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+import com.google.common.base.Objects;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 
 /** An event fired during execution, when worker was destroyed. */
 public final class WorkerDestroyedEvent implements Postable {
+  private final int workerId;
   private final int workerPoolHash;
   private final String mnemonic;
 
-  public WorkerDestroyedEvent(int workerPoolHash, String mnemonic) {
+  private final WorkerProcessStatus status;
+
+  public WorkerDestroyedEvent(
+      int workerId, int workerPoolHash, String mnemonic, WorkerProcessStatus status) {
+    this.workerId = workerId;
     this.workerPoolHash = workerPoolHash;
     this.mnemonic = mnemonic;
+    this.status = status;
   }
 
   public String getMnemonic() {
@@ -31,5 +38,29 @@ public final class WorkerDestroyedEvent implements Postable {
 
   public int getWorkerPoolHash() {
     return workerPoolHash;
+  }
+
+  public WorkerProcessStatus getStatus() {
+    return status;
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (this == other) {
+      return true;
+    }
+    if (other == null || getClass() != other.getClass()) {
+      return false;
+    }
+    WorkerDestroyedEvent that = (WorkerDestroyedEvent) other;
+    return workerId == that.workerId
+        && workerPoolHash == that.getWorkerPoolHash()
+        && mnemonic.equals(that.getMnemonic())
+        && status.equals(that.status);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(workerId, mnemonic, workerPoolHash, status);
   }
 }

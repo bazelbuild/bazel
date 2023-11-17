@@ -18,9 +18,11 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.server.FailureDetails.Worker.Code;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.worker.SandboxedWorker.WorkerSandboxOptions;
+import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Locale;
@@ -140,30 +142,48 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
   /** When a worker process is discarded, destroy its process, too. */
   @Override
   public void destroyObject(WorkerKey key, PooledObject<Worker> p) {
-    int workerId = p.getObject().getWorkerId();
+    Worker worker = p.getObject();
+    int workerId = worker.getWorkerId();
+    String workerFailureCode = "";
+    Optional<Code> code = p.getObject().getStatus().getWorkerCode();
+    if (code.isPresent()) {
+      workerFailureCode = String.format("(code: %s)", code.get());
+    }
     String msg =
         String.format(
-            "Destroying %s %s (id %d, key hash %d)",
-            key.getMnemonic(), key.getWorkerTypeName(), workerId, key.hashCode());
+            "Destroying %s %s (id %d, key hash %d) with cause: %s %s",
+            key.getMnemonic(),
+            key.getWorkerTypeName(),
+            workerId,
+            key.hashCode(),
+            worker.getStatus().get(),
+            workerFailureCode);
     WorkerLoggingHelper.logMessage(reporter, WorkerLoggingHelper.LogLevel.INFO, msg);
     p.getObject().destroy();
     if (eventBus != null) {
-      eventBus.post(new WorkerDestroyedEvent(key.hashCode(), key.getMnemonic()));
+      eventBus.post(
+          new WorkerDestroyedEvent(
+              workerId, key.hashCode(), key.getMnemonic(), worker.getStatus()));
     }
   }
 
   /**
    * Returns true if this worker is still valid. The worker is considered to be valid as long as its
-   * process has not exited and its files have not changed on disk.
+   * process has not exited and its files have not changed on disk. Validity is checked when the
+   * worker is created, borrowed and returned (see {@code SimpleWorkerPool.SimpleWorkerPoolConfig}).
    */
   @Override
   public boolean validateObject(WorkerKey key, PooledObject<Worker> p) {
     Worker worker = p.getObject();
-    if (worker.isDoomed()) {
+    // Status is invalid if the status is either killed or pending killed.
+    if (!worker.getStatus().isValid()) {
       return false;
     }
     Optional<Integer> exitValue = worker.getExitValue();
     if (exitValue.isPresent()) {
+      // At this point, the worker factory has no idea what caused the process to be killed - so we
+      // set the status to be KILLED_UNKNOWN.
+      worker.getStatus().maybeUpdateStatus(Status.KILLED_UNKNOWN);
       if (worker.diedUnexpectedly()) {
         String msg =
             String.format(

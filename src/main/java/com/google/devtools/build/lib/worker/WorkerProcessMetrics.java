@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Contains data about worker statistics during execution. This class contains data for {@link
@@ -47,15 +48,21 @@ public class WorkerProcessMetrics {
 
   private Optional<Instant> lastCollectedTime = Optional.empty();
 
+  private final WorkerProcessStatus status;
+
+  private final AtomicInteger actionsExecuted = new AtomicInteger(0);
+
   public WorkerProcessMetrics(
       List<Integer> workerIds,
       long processId,
+      WorkerProcessStatus status,
       String mnemonic,
       boolean isMultiplex,
       boolean isSandbox,
       int workerKeyHash) {
     this.workerIds = workerIds;
     this.processId = processId;
+    this.status = status;
     this.mnemonic = mnemonic;
     this.isMultiplex = isMultiplex;
     this.isSandbox = isSandbox;
@@ -65,6 +72,7 @@ public class WorkerProcessMetrics {
   public WorkerProcessMetrics(
       int workerId,
       long processId,
+      WorkerProcessStatus status,
       String mnemonic,
       boolean isMultiplex,
       boolean isSandbox,
@@ -72,13 +80,14 @@ public class WorkerProcessMetrics {
     this(
         new ArrayList<>(Arrays.asList(workerId)),
         processId,
+        status,
         mnemonic,
         isMultiplex,
         isSandbox,
         workerKeyHash);
   }
 
-  public void maybeAddWorkerId(int workerId) {
+  public void maybeAddWorkerId(int workerId, WorkerProcessStatus status) {
     // Multiplex workers have multiple worker ids, make sure not to include duplicate worker ids.
     if (workerIds.contains(workerId)) {
       return;
@@ -86,10 +95,18 @@ public class WorkerProcessMetrics {
     workerIds.add(workerId);
   }
 
-  public void addCollectedMetrics(int memoryInKb, boolean isMeasurable, Instant collectionTime) {
+  public void addCollectedMetrics(int memoryInKb, Instant collectionTime) {
     this.memoryInKb = memoryInKb;
-    this.isMeasurable = isMeasurable;
+    this.isMeasurable = true;
     this.lastCollectedTime = Optional.of(collectionTime);
+  }
+
+  public void incrementActionsExecuted() {
+    actionsExecuted.incrementAndGet();
+  }
+
+  public int getActionsExecuted() {
+    return actionsExecuted.get();
   }
 
   public Optional<Instant> getLastCallTime() {
@@ -136,6 +153,10 @@ public class WorkerProcessMetrics {
     return memoryInKb;
   }
 
+  public WorkerProcessStatus getStatus() {
+    return status;
+  }
+
   public WorkerMetrics toProto() {
     WorkerMetrics.WorkerStats.Builder statsBuilder =
         WorkerMetrics.WorkerStats.newBuilder().setWorkerMemoryInKb(memoryInKb);
@@ -154,6 +175,8 @@ public class WorkerProcessMetrics {
         .setIsMultiplex(isMultiplex)
         .setIsMeasurable(isMeasurable)
         .setWorkerKeyHash(workerKeyHash)
+        .setWorkerStatus(status.toWorkerStatus())
+        .setActionsExecuted(actionsExecuted.get())
         .addWorkerStats(statsBuilder.build())
         .build();
   }

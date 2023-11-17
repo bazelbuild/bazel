@@ -184,7 +184,7 @@ public class CollectLocalResourceUsage extends Thread {
       if (collectWorkerDataInProfiler) {
         try (SilentCloseable c = Profiler.instance().profile("Worker metrics collection")) {
           workerMemoryUsageMb =
-              this.workerProcessMetricsCollector.collectMetrics().stream()
+              this.workerProcessMetricsCollector.getLiveWorkerProcessMetrics().stream()
                       .mapToInt(WorkerProcessMetrics::getUsedMemoryInKb)
                       .sum()
                   / 1024;
