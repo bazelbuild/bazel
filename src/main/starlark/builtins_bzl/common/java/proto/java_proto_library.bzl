@@ -25,22 +25,7 @@ load(":common/proto/proto_common.bzl", "toolchains", proto_common = "proto_commo
 load(":common/proto/proto_info.bzl", "ProtoInfo")
 
 # The provider is used to collect source and runtime jars in the `proto_library` dependency graph.
-JavaProtoAspectInfo = provider("JavaProtoAspectInfo", fields = ["sources", "outputs"])
-
-def collect_transitive_proto_aspect_info(output_jar, source_jar, deps):
-    """Constructs JavaProtoAspectInfo collecting transitive sources and outputs from deps
-
-    Args:
-        output_jar: (File|None)
-        source_jar: (File|None)
-        deps: ([Target])
-    """
-    transitive_sources = [dep[JavaProtoAspectInfo].sources for dep in deps if JavaProtoAspectInfo in dep]
-    transitive_outputs = [dep[JavaProtoAspectInfo].outputs for dep in deps if JavaProtoAspectInfo in dep]
-    return JavaProtoAspectInfo(
-        sources = depset([source_jar] if source_jar else [], transitive = transitive_sources),
-        outputs = depset([output_jar] if output_jar else [], transitive = transitive_outputs),
-    )
+JavaProtoAspectInfo = provider("JavaProtoAspectInfo", fields = ["jars"])
 
 def _filter_provider(provider, *attrs):
     return [dep[provider] for attr in attrs for dep in attr if provider in dep]
@@ -83,17 +68,18 @@ def _bazel_java_proto_aspect_impl(target, ctx):
     exports = _filter_provider(JavaInfo, ctx.rule.attr.exports)
     if source_jar and proto_toolchain_info.runtime:
         deps.append(proto_toolchain_info.runtime[JavaInfo])
-    java_info, output_jar = java_compile_for_protos(
+    java_info, jars = java_compile_for_protos(
         ctx,
         "-speed.jar",
         source_jar,
         deps,
         exports,
     )
-    java_proto_aspect_info = collect_transitive_proto_aspect_info(output_jar, source_jar, ctx.rule.attr.deps)
+
+    transitive_jars = [dep[JavaProtoAspectInfo].jars for dep in ctx.rule.attr.deps if JavaProtoAspectInfo in dep]
     return [
         java_info,
-        java_proto_aspect_info,
+        JavaProtoAspectInfo(jars = depset(jars, transitive = transitive_jars)),
     ]
 
 def java_compile_for_protos(ctx, output_jar_suffix, source_jar = None, deps = [], exports = [], injecting_rule_kind = "java_proto_library"):
@@ -117,7 +103,8 @@ def java_compile_for_protos(ctx, output_jar_suffix, source_jar = None, deps = []
       injecting_rule_kind: (str) Rule kind requesting the compilation.
         It's embedded into META-INF of the produced runtime jar, for debugging.
     Returns:
-      ((JavaInfo, File|None)) JavaInfo of this target and output jar (if created)
+      ((JavaInfo, list[File])) JavaInfo of this target and list containing source
+      and runtime jar, when they are created.
     """
     if source_jar != None:
         path, sep, filename = ctx.label.name.rpartition("/")
@@ -136,11 +123,12 @@ def java_compile_for_protos(ctx, output_jar_suffix, source_jar = None, deps = []
             enable_jspecify = False,
             include_compilation_info = False,
         )
+        jars = [source_jar, output_jar]
     else:
         # If there are no proto sources just pass along the compilation dependencies.
         java_info = _merge_private_for_builtins(deps + exports, merge_java_outputs = False, merge_source_jars = False)
-        output_jar = None
-    return java_info, output_jar
+        jars = []
+    return java_info, jars
 
 bazel_java_proto_aspect = aspect(
     implementation = _bazel_java_proto_aspect_impl,
@@ -170,10 +158,7 @@ def bazel_java_proto_library_rule(ctx):
 
     java_info = _merge_private_for_builtins([dep[JavaInfo] for dep in ctx.attr.deps], merge_java_outputs = False)
 
-    transitive_src_and_runtime_jars = depset(
-        transitive = [dep[JavaProtoAspectInfo].sources for dep in ctx.attr.deps] +
-                     [dep[JavaProtoAspectInfo].outputs for dep in ctx.attr.deps],
-    )
+    transitive_src_and_runtime_jars = depset(transitive = [dep[JavaProtoAspectInfo].jars for dep in ctx.attr.deps])
     transitive_runtime_jars = depset(transitive = [java_info.transitive_runtime_jars])
 
     return [

@@ -17,7 +17,7 @@
 load(":common/java/java_common.bzl", "java_common")
 load(":common/java/java_info.bzl", "JavaInfo", _merge_private_for_builtins = "merge")
 load(":common/java/java_semantics.bzl", "semantics")
-load(":common/java/proto/java_proto_library.bzl", "JavaProtoAspectInfo", "collect_transitive_proto_aspect_info", "java_compile_for_protos")
+load(":common/java/proto/java_proto_library.bzl", "JavaProtoAspectInfo", "java_compile_for_protos")
 load(":common/proto/proto_common.bzl", "toolchains", proto_common = "proto_common_do_not_use")
 load(":common/proto/proto_info.bzl", "ProtoInfo")
 
@@ -60,7 +60,7 @@ def _aspect_impl(target, ctx):
         if runtime:
             deps.append(runtime[JavaInfo])
 
-    java_info, output_jar = java_compile_for_protos(
+    java_info, jars = java_compile_for_protos(
         ctx,
         "-lite.jar",
         source_jar,
@@ -68,11 +68,11 @@ def _aspect_impl(target, ctx):
         exports,
         injecting_rule_kind = "java_lite_proto_library",
     )
-    java_proto_aspect_info = collect_transitive_proto_aspect_info(output_jar, source_jar, ctx.rule.attr.deps)
+    transitive_jars = [dep[JavaProtoAspectInfo].jars for dep in ctx.rule.attr.deps]
 
     return [
         java_info,
-        java_proto_aspect_info,
+        JavaProtoAspectInfo(jars = depset(jars, transitive = transitive_jars)),
     ]
 
 java_lite_proto_aspect = aspect(
@@ -120,10 +120,7 @@ def _rule_impl(ctx):
 
     java_info = _merge_private_for_builtins([dep[JavaInfo] for dep in ctx.attr.deps], merge_java_outputs = False)
 
-    transitive_src_and_runtime_jars = depset(
-        transitive = [dep[JavaProtoAspectInfo].sources for dep in ctx.attr.deps] +
-                     [dep[JavaProtoAspectInfo].outputs for dep in ctx.attr.deps],
-    )
+    transitive_src_and_runtime_jars = depset(transitive = [dep[JavaProtoAspectInfo].jars for dep in ctx.attr.deps])
     transitive_runtime_jars = depset(transitive = [java_info.transitive_runtime_jars])
 
     if hasattr(java_common, "add_constraints"):
