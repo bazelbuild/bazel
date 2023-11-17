@@ -44,9 +44,9 @@ function assert_paths_stripped() {
   # "set -e" and silently ignored.
   output_paths=$(echo "$cmd" | tr -s ' ' '\n' | xargs -n 1 | grep -E -o "${bazel_out}[^)]*")
   for o in $output_paths; do
-    echo "$o" | grep -v "${bazel_out}/bin" \
+    echo "$o" | grep -v "${bazel_out}/cfg/bin" \
       && fail "expected all \"${bazel_out}\" paths to start with " \
-      "\"${bazel_out}/bin.*\": $o"
+      "\"${bazel_out}/cfg/bin.*\": $o"
     if [[ "$o" == *"$identifying_action_output"* ]]; then
       found_identifying_output=1
     fi
@@ -56,7 +56,7 @@ function assert_paths_stripped() {
   # files.
   param_files=$(echo "$cmd" | tr -s ' ' '\n' | xargs -n 1 | grep -E -o "${bazel_out}[^)]*.params" || true)
   for o in $param_files; do
-    bin_relative_path=$(echo $o | sed -r "s|${bazel_out}/bin/||")
+    bin_relative_path=$(echo $o | sed -r "s|${bazel_out}/cfg/bin/||")
     local_path="${bazel_out:0:5}-bin/${bin_relative_path}"
     # Don't fail if the file doesn't contain any output paths, but do fail if it doesn't exist.
     if [[ ! -f "$local_path" ]]; then
@@ -64,9 +64,9 @@ function assert_paths_stripped() {
     fi
     param_file_paths=$(grep "${bazel_out}" $local_path || true)
     for k in $param_file_paths; do
-      echo "$k" | grep -v "${bazel_out}/bin" \
+      echo "$k" | grep -v "${bazel_out}/cfg/bin" \
         && fail "$local_path: expected all \"${bazel_out}\" paths to start " \
-        "with \"${bazel_out}/bin.*\": $k"
+        "with \"${bazel_out}/cfg/bin.*\": $k"
       if [[ "$k" == *"$identifying_action_output"* ]]; then
         found_identifying_output=1
       fi
@@ -83,7 +83,7 @@ function assert_paths_stripped() {
 function assert_contains_no_stripped_path() {
   # For "bazel-out/x86-fastbuild/bin/...", return "bazel-out".
   output_path=$(bazel info | grep '^output_path:')
-  stripped_bin="${output_path##*/}/bin"
+  stripped_bin="${output_path##*/}/cfg/bin"
 
   assert_not_contains "$stripped_bin" "$1" "Stripped path found in $1"
 }
