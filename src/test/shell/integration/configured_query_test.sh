@@ -203,7 +203,7 @@ function test_transitions_lite() {
 
   assert_contains "//$pkg:main" output
   # TODO(b/309849147): have cquery show this is an exec transition.
-  assert_contains "host_dep#//$pkg:host#(.* + (TestTrimmingTransition + ConfigFeatureFlagTaggedTrimmingTransition))" output
+  assert_contains "host_dep#//$pkg:host#(ComparingTransition + (TestTrimmingTransition + ConfigFeatureFlagTaggedTrimmingTransition))" output
 }
 
 
@@ -216,7 +216,7 @@ function test_transitions_full() {
 
   assert_contains "//$pkg:main" output
   # TODO(b/309849147): have cquery show this is an exec transition.
-  assert_contains "host_dep#//$pkg:host#(.* + (TestTrimmingTransition + ConfigFeatureFlagTaggedTrimmingTransition))" output
+  assert_contains "host_dep#//$pkg:host#(ComparingTransition + (TestTrimmingTransition + ConfigFeatureFlagTaggedTrimmingTransition))" output
 }
 
 function write_test_targets() {

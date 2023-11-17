@@ -77,7 +77,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "experimental_exec_config",
-      defaultValue = "null",
+      defaultValue = "@_builtins//:common/builtin_exec_platforms.bzl%bazel_exec_transition",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
