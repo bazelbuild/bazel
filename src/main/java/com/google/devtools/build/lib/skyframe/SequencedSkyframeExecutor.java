@@ -146,7 +146,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   // Use delegation so that the underlying inconsistency receiver can be changed per-command without
   // recreating the evaluator.
-  private final DelegatingGraphInconsistencyReceiver inconsistencyReceiver =
+  protected final DelegatingGraphInconsistencyReceiver inconsistencyReceiver =
       new DelegatingGraphInconsistencyReceiver(GraphInconsistencyReceiver.THROWING);
 
   protected SequencedSkyframeExecutor(
