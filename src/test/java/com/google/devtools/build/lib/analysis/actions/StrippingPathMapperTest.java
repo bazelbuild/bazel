@@ -85,17 +85,16 @@ public class StrippingPathMapperTest extends BuildViewTestCase {
                 .collect(toImmutableList()))
         .containsExactly(
             "java/com/google/test/A.java",
-            outDir + "/bin/java/com/google/test/B.java",
-            outDir + "/bin/java/com/google/test/C.java",
-            outDir + "/bin/java/com/google/test/liba-hjar.jar",
-            outDir + "/bin/java/com/google/test/liba-hjar.jdeps",
-            "-XepOpt:foo:bar=" + outDir + "/bin/java/com/google/test/B.java",
+            outDir + "/cfg/bin/java/com/google/test/B.java",
+            outDir + "/cfg/bin/java/com/google/test/C.java",
+            outDir + "/cfg/bin/java/com/google/test/liba-hjar.jar",
+            outDir + "/cfg/bin/java/com/google/test/liba-hjar.jdeps",
+            "-XepOpt:foo:bar=" + outDir + "/cfg/bin/java/com/google/test/B.java",
             "-XepOpt:baz="
                 + outDir
-                + "/bin/java/com/google/test/C.java,"
+                + "/cfg/bin/java/com/google/test/C.java,"
                 + outDir
-                + "/bin/java"
-                + "/com/google/test/B.java");
+                + "/cfg/bin/java/com/google/test/B.java");
   }
 
   private void addStarlarkRule(Dict<String, String> executionRequirements) throws IOException {
@@ -171,10 +170,10 @@ public class StrippingPathMapperTest extends BuildViewTestCase {
     String outDir = analysisMock.getProductName() + "-out";
     assertThat(spawn.getArguments().stream().collect(toImmutableList()))
         .containsExactly(
-            outDir + "/bin/tool/tool",
-            outDir + "/bin/pkg/out.bin",
+            outDir + "/cfg/bin/tool/tool",
+            outDir + "/cfg/bin/pkg/out.bin",
             "-source",
-            "<" + outDir + "/bin/pkg/gen_src.txt>",
+            "<" + outDir + "/cfg/bin/pkg/gen_src.txt>",
             "-source",
             "<pkg/source.txt>")
         .inOrder();
@@ -197,10 +196,10 @@ public class StrippingPathMapperTest extends BuildViewTestCase {
     String outDir = analysisMock.getProductName() + "-out";
     assertThat(spawn.getArguments().stream().collect(toImmutableList()))
         .containsExactly(
-            outDir + "/bin/tool/tool",
-            outDir + "/bin/pkg/out.bin",
+            outDir + "/cfg/bin/tool/tool",
+            outDir + "/cfg/bin/pkg/out.bin",
             "-source",
-            "<" + outDir + "/bin/pkg/gen_src.txt>",
+            "<" + outDir + "/cfg/bin/pkg/gen_src.txt>",
             "-source",
             "<pkg/source.txt>")
         .inOrder();
