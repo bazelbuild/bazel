@@ -16,8 +16,8 @@
 Java compile action
 """
 
-load(":common/java/java_semantics.bzl", "semantics")
 load(":common/java/java_common_internal_for_builtins.bzl", _compile_private_for_builtins = "compile")
+load(":common/java/java_semantics.bzl", "semantics")
 
 def _filter_strict_deps(mode):
     return "error" if mode in ["strict", "default"] else mode
@@ -56,7 +56,8 @@ def compile_action(
         strict_deps = "ERROR",
         enable_compile_jar_action = True,
         add_exports = [],
-        add_opens = []):
+        add_opens = [],
+        bootclasspath = None):
     """
     Creates actions that compile Java sources, produce source jar, and produce header jar and returns JavaInfo.
 
@@ -117,6 +118,7 @@ def compile_action(
         by non-library targets such as binaries that do not have dependants.
       add_exports: (list[str]) Allow this library to access the given <module>/<package>.
       add_opens: (list[str]) Allow this library to reflectively access the given <module>/<package>.
+      bootclasspath: (BootClassPathInfo) The set of JDK APIs to compile this library against.
 
     Returns:
       ((JavaInfo, {files_to_build: list[File],
@@ -152,6 +154,7 @@ def compile_action(
         enable_compile_jar_action = enable_compile_jar_action,
         add_exports = add_exports,
         add_opens = add_opens,
+        bootclasspath = bootclasspath,
     )
 
     compilation_info = struct(

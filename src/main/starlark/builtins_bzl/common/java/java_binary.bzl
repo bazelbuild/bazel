@@ -18,6 +18,7 @@ load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 load(":common/java/basic_java_library.bzl", "BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS", "basic_java_library", "collect_deps")
+load(":common/java/boot_class_path_info.bzl", "BootClassPathInfo")
 load(":common/java/java_common.bzl", "java_common")
 load(
     ":common/java/java_common_internal_for_builtins.bzl",
@@ -125,6 +126,7 @@ def basic_java_binary(
         coverage_config = coverage_config,
         add_exports = ctx.attr.add_exports,
         add_opens = ctx.attr.add_opens,
+        bootclasspath = ctx.attr.bootclasspath,
     )
     java_info = target["JavaInfo"]
     compilation_info = java_info.compilation_info
@@ -531,6 +533,10 @@ BASIC_JAVA_BINARY_ATTRIBUTES = merge_attrs(
         "launcher": attr.label(
             allow_files = False,
             # TODO(b/295221112): add back CcLauncherInfo
+        ),
+        "bootclasspath": attr.label(
+            providers = [BootClassPathInfo],
+            flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
         ),
         "neverlink": attr.bool(),
         "javacopts": attr.string_list(),

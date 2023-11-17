@@ -18,6 +18,7 @@ Common code for reuse across java_* rules
 
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/java/android_lint.bzl", "android_lint_subrule")
+load(":common/java/boot_class_path_info.bzl", "BootClassPathInfo")
 load(":common/java/compile_action.bzl", "compile_action")
 load(":common/java/java_common.bzl", "java_common")
 load(":common/java/java_common_internal_for_builtins.bzl", "target_kind")
@@ -74,7 +75,8 @@ def basic_java_library(
         coverage_config = None,
         proguard_specs = None,
         add_exports = [],
-        add_opens = []):
+        add_opens = [],
+        bootclasspath = None):
     """
     Creates actions that compile and lint Java sources, sets up coverage and returns JavaInfo, InstrumentedFilesInfo and output groups.
 
@@ -108,6 +110,7 @@ def basic_java_library(
         Proguard validation is done only when the parameter is set.
       add_exports: (list[str]) Allow this library to access the given <module>/<package>.
       add_opens: (list[str]) Allow this library to reflectively access the given <module>/<package>.
+      bootclasspath: (Target) The JDK APIs to compile this library against.
     Returns:
       (dict[str, Provider],
         {files_to_build: list[File],
@@ -146,6 +149,7 @@ def basic_java_library(
         enable_compile_jar_action,
         add_exports = add_exports,
         add_opens = add_opens,
+        bootclasspath = bootclasspath[BootClassPathInfo] if bootclasspath else None,
     )
     target = {"JavaInfo": java_info}
 
