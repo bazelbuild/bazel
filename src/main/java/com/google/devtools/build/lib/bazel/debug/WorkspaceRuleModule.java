@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.debug;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -33,7 +34,7 @@ import java.io.IOException;
 /** A module for logging workspace rule events */
 public final class WorkspaceRuleModule extends BlazeModule {
 
-  private AsynchronousFileOutputStream outFileStream;
+  private AsynchronousFileOutputStream<WorkspaceLogProtos.WorkspaceEvent> outFileStream;
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
@@ -50,7 +51,7 @@ public final class WorkspaceRuleModule extends BlazeModule {
     if (logFile != null) {
       try {
         outFileStream =
-            new AsynchronousFileOutputStream(env.getWorkingDirectory().getRelative(logFile));
+            new AsynchronousFileOutputStream<>(env.getWorkingDirectory().getRelative(logFile));
       } catch (IOException e) {
         env.getReporter().handle(Event.error(e.getMessage()));
         env.getBlazeModuleEnvironment()

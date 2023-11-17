@@ -49,7 +49,7 @@ public final class SpawnLogModule extends BlazeModule {
   @Nullable private Path rawOutputPath;
 
   /** Output stream to write directly into during execution. */
-  @Nullable private MessageOutputStream rawOutputStream;
+  @Nullable private MessageOutputStream<SpawnExec> rawOutputStream;
 
   /**
    * Output stream to convert the raw output into after the execution is done.
@@ -57,7 +57,7 @@ public final class SpawnLogModule extends BlazeModule {
    * <p>We open the stream at the beginning of the command so that any errors (e.g., unwritable
    * location) are surfaced before execution begins.
    */
-  @Nullable private MessageOutputStream convertedOutputStream;
+  @Nullable private MessageOutputStream<SpawnExec> convertedOutputStream;
 
   private CommandEnvironment env;
 
@@ -113,12 +113,12 @@ public final class SpawnLogModule extends BlazeModule {
     } else {
       rawOutputPath = outputBase.getRelative("execution.log");
     }
-    rawOutputStream = new AsynchronousFileOutputStream(rawOutputPath);
+    rawOutputStream = new AsynchronousFileOutputStream<>(rawOutputPath);
 
     // Set up the binary output stream, if distinct from the raw output stream.
     if (executionOptions.executionLogBinaryFile != null && executionOptions.executionLogSort) {
       convertedOutputStream =
-          new BinaryOutputStreamWrapper(
+          new BinaryOutputStreamWrapper<>(
               workingDirectory
                   .getRelative(executionOptions.executionLogBinaryFile)
                   .getOutputStream());
@@ -127,7 +127,7 @@ public final class SpawnLogModule extends BlazeModule {
     // Set up the text output stream.
     if (executionOptions.executionLogJsonFile != null) {
       convertedOutputStream =
-          new JsonOutputStreamWrapper(
+          new JsonOutputStreamWrapper<>(
               workingDirectory
                   .getRelative(executionOptions.executionLogJsonFile)
                   .getOutputStream());

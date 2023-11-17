@@ -24,7 +24,8 @@ import java.nio.charset.StandardCharsets;
 /** Creates a MessageOutputStream from an OutputStream. */
 public class MessageOutputStreamWrapper {
   /** Outputs the messages in delimited protobuf binary format. */
-  public static class BinaryOutputStreamWrapper implements MessageOutputStream {
+  public static class BinaryOutputStreamWrapper<T extends Message>
+      implements MessageOutputStream<T> {
     private final OutputStream stream;
 
     public BinaryOutputStreamWrapper(OutputStream stream) {
@@ -32,7 +33,7 @@ public class MessageOutputStreamWrapper {
     }
 
     @Override
-    public void write(Message m) throws IOException {
+    public void write(T m) throws IOException {
       Preconditions.checkNotNull(m);
       m.writeDelimitedTo(stream);
     }
@@ -43,8 +44,8 @@ public class MessageOutputStreamWrapper {
     }
   }
 
-  /** Outputs the messages in JSON text format */
-  public static class JsonOutputStreamWrapper implements MessageOutputStream {
+  /** Outputs the messages in JSON text format. */
+  public static class JsonOutputStreamWrapper<T extends Message> implements MessageOutputStream<T> {
     private final OutputStream stream;
     private final JsonFormat.Printer printer = JsonFormat.printer().includingDefaultValueFields();
 
@@ -54,7 +55,7 @@ public class MessageOutputStreamWrapper {
     }
 
     @Override
-    public void write(Message m) throws IOException {
+    public void write(T m) throws IOException {
       Preconditions.checkNotNull(m);
       stream.write(printer.print(m).getBytes(StandardCharsets.UTF_8));
     }

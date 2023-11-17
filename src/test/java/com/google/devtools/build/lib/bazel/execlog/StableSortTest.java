@@ -14,14 +14,13 @@
 //
 package com.google.devtools.build.lib.bazel.execlog;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.exec.Protos.File;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
 import com.google.devtools.build.lib.util.io.MessageOutputStream;
-import com.google.protobuf.Message;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -36,7 +35,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class StableSortTest {
 
-  private static class ListOutput implements MessageOutputStream {
+  private static class ListOutput implements MessageOutputStream<SpawnExec> {
     public ArrayList<SpawnExec> list;
 
     ListOutput() {
@@ -44,10 +43,8 @@ public final class StableSortTest {
     }
 
     @Override
-    public void write(Message m) throws IOException {
-      Preconditions.checkNotNull(m);
-      Preconditions.checkArgument(m instanceof SpawnExec);
-      list.add((SpawnExec) m);
+    public void write(SpawnExec m) throws IOException {
+      list.add(checkNotNull(m));
     }
 
     @Override
