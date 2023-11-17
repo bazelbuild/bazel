@@ -42,11 +42,11 @@ import javax.annotation.Nullable;
 public class LoggingInterceptor implements ClientInterceptor {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  private final AsynchronousFileOutputStream rpcLogFile;
+  private final AsynchronousFileOutputStream<LogEntry> rpcLogFile;
   private final Clock clock;
 
   /** Constructs a LoggingInterceptor which logs RPC calls to the given file. */
-  public LoggingInterceptor(AsynchronousFileOutputStream rpcLogFile, Clock clock) {
+  public LoggingInterceptor(AsynchronousFileOutputStream<LogEntry> rpcLogFile, Clock clock) {
     this.rpcLogFile = rpcLogFile;
     this.clock = clock;
   }
