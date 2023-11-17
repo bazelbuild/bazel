@@ -55,7 +55,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
     List<String> outputsList = Sequence.cast(outputs, String.class, "outputs");
     // TODO(b/288258583): use a more sustainable way of determining if this is an exec transition.
     // Either match the transition name with the value of --experimental_exec_config (maybe passing
-    // that info through StarlarkSemantics) or add an "exec = True" paramter to Starlark's
+    // that info through StarlarkSemantics) or add an "exec = True" parameter to Starlark's
     // transition() function.
     boolean isExecTransition = implementation.getLocation().file().endsWith("_exec_platforms.bzl");
     BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrThrow(thread);

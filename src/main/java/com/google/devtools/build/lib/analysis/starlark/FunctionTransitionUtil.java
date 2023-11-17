@@ -136,7 +136,7 @@ public final class FunctionTransitionUtil {
    *   <li>This method constructs a {@link BuildOptions} default value (which doesn't inherit from
    *       the source config)
    *   <li>{@link #applyTransition} creates final options: use whatever options the Starlark logic
-   *       set (which may propgate from the source config). For all other options, use default
+   *       set (which may propagate from the source config). For all other options, use default
    *       values
    *       <p>See {@link com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory}.
    */

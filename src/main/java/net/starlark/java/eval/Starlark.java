@@ -97,14 +97,14 @@ public final class Starlark {
    * expected.
    */
   public static final class InvalidStarlarkValueException extends IllegalArgumentException {
-    private final Class<?> invalidClass;
+    @Nullable private final Class<?> invalidClass;
 
     public Class<?> getInvalidClass() {
       return invalidClass;
     }
 
-    private InvalidStarlarkValueException(Class<?> invalidClass) {
-      super("invalid Starlark value: " + invalidClass);
+    private InvalidStarlarkValueException(@Nullable Class<?> invalidClass) {
+      super("invalid Starlark value: " + (invalidClass == null ? "null" : invalidClass));
       this.invalidClass = invalidClass;
     }
   }
@@ -132,7 +132,7 @@ public final class Starlark {
    */
   public static <T> T checkValid(T x) {
     if (!valid(x)) {
-      throw new InvalidStarlarkValueException(x.getClass());
+      throw new InvalidStarlarkValueException(x == null ? null : x.getClass());
     }
     return x;
   }

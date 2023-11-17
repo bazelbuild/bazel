@@ -1049,6 +1049,44 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
             "dict_dep.cc");
   }
 
+  /**
+   * Define a noop exec transition outside builtins to not interfere with tests that change the
+   * builtins root.
+   */
+  @Before
+  public void createNoopExecTransition() throws Exception {
+    mockToolsConfig.create(
+        "minimal_buildenv/platforms/BUILD", //
+        "platform(name = 'default_host')");
+    // No-op exec transition:
+    scratch.overwriteFile("pkg2/BUILD", "");
+    scratch.file(
+        "pkg2/dummy_exec_platforms.bzl",
+        "def _transition_impl(settings, attr):",
+        "  return {",
+        "      '//command_line_option:is exec configuration': True,",
+        "      '//command_line_option:platforms': [],",
+        // Need to propagate so we don't parse unparseable default @local_config_platform. Remember
+        // getExec() starts from defaults.
+        "      '//command_line_option:host_platform':"
+            + " settings['//command_line_option:host_platform'],",
+        "      '//command_line_option:experimental_exec_config':"
+            + " settings['//command_line_option:experimental_exec_config'],",
+        "  }",
+        "noop_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = [",
+        "      '//command_line_option:host_platform',",
+        "      '//command_line_option:experimental_exec_config',",
+        "  ],",
+        "  outputs = [",
+        "      '//command_line_option:is exec configuration',",
+        "      '//command_line_option:platforms',",
+        "      '//command_line_option:experimental_exec_config',",
+        "      '//command_line_option:host_platform',",
+        "])");
+  }
+
   @Test
   public void testInstrumentedFilesInfo_coverageSupportFiles_depset() throws Exception {
     // Only builtins can pass coverage_support_files to coverage_common.instrumented_files_info.
@@ -1076,7 +1114,9 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "exported_to_java = {}");
     scratch.file("test/starlark/BUILD", "extra_action(name = 'foo')");
 
-    useConfiguration("--collect_code_coverage");
+    useConfiguration(
+        "--experimental_exec_config=//pkg2:dummy_exec_platforms.bzl%noop_transition",
+        "--collect_code_coverage");
 
     assertThat(
             ActionsTestUtil.baseArtifactNames(
@@ -1131,7 +1171,9 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "extra_action(name = 'foo', tool = ':tool')");
     scratch.file("test/starlark/bin.sh", "");
 
-    useConfiguration("--collect_code_coverage");
+    useConfiguration(
+        "--experimental_exec_config=//pkg2:dummy_exec_platforms.bzl%noop_transition",
+        "--host_platform=//minimal_buildenv/platforms:default_host", "--collect_code_coverage");
 
     assertThat(
             ActionsTestUtil.baseArtifactNames(

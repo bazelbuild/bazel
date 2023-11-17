@@ -1561,9 +1561,9 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/transitions.bzl",
         "def _some_impl(settings, attr):",
-        "  return {'//command_line_option:set_by_exec': 'at_target'}",
+        "  return {'//command_line_option:copt': ['set_by_test_target']}",
         "some_transition = transition(implementation = _some_impl, inputs = [],",
-        "  outputs = ['//command_line_option:set_by_exec'])");
+        "  outputs = ['//command_line_option:copt'])");
     scratch.file(
         "test/rules.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
@@ -1588,7 +1588,9 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         "my_rule(name = 'test', dep = ':dep')",
         "simple(name = 'dep')");
 
-    useConfiguration("--experimental_output_directory_naming_scheme=diff_against_dynamic_baseline");
+    useConfiguration(
+        "--experimental_output_directory_naming_scheme=diff_against_dynamic_baseline",
+        "--copt=toplevel_copt");
     ConfiguredTarget test = getConfiguredTarget("//test");
 
     ConfiguredTarget dep = (ConfiguredTarget) getMyInfoFromTarget(test).getValue("dep");
@@ -1596,13 +1598,18 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     assertThat(getMnemonic(test))
         .endsWith(
             OutputPathMnemonicComputer.transitionDirectoryNameFragment(
-                ImmutableList.of("//command_line_option:set_by_exec=at_target")));
-
-    // Until platforms is EXPLICIT_IN_OUTPUT_PATH, it will change here as well.
+                ImmutableList.of("//command_line_option:copt=[set_by_test_target]")));
+    // Sanity check: the exec-configured value is indeed unique vs. both the target-transitioned
+    // value and the top-level config.
+    assertThat(test.getConfigurationKey().getOptions().get(CppOptions.class).coptList)
+        .isNotEqualTo(dep.getConfigurationKey().getOptions().get(CppOptions.class).coptList);
+    assertThat(getTargetConfiguration().getOptions().get(CppOptions.class).coptList)
+        .isNotEqualTo(dep.getConfigurationKey().getOptions().get(CppOptions.class).coptList);
     assertThat(getMnemonic(dep))
         .endsWith(
             OutputPathMnemonicComputer.transitionDirectoryNameFragment(
                 ImmutableList.of(
+                    // Until platforms is EXPLICIT_IN_OUTPUT_PATH, it will change here as well.
                     "//command_line_option:platforms="
                         + getConfiguration(dep)
                             .getOptions()

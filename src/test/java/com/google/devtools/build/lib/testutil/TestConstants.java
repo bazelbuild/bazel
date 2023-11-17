@@ -134,6 +134,9 @@ public class TestConstants {
   public static final String GENRULE_SETUP = "@bazel_tools//tools/genrule:genrule-setup.sh";
   public static final String GENRULE_SETUP_PATH = "genrule-setup.sh";
 
+  public static final String STARLARK_EXEC_TRANSITION =
+      "@_builtins//:common/builtin_exec_platforms.bzl%bazel_exec_transition";
+
   /**
    * Flags that must be set for Bazel to work properly, if the default values are unusable for some
    * reason.

@@ -65,13 +65,13 @@ public final class ConfiguredValueCreationException extends Exception
   }
 
   public ConfiguredValueCreationException(
-      Target target,
+      @Nullable Target target,
       @Nullable BuildEventId configuration,
       String message,
       @Nullable NestedSet<Cause> rootCauses,
       @Nullable DetailedExitCode detailedExitCode) {
     this(
-        target.getLocation(),
+        target == null ? null : target.getLocation(),
         message,
         target.getLabel(),
         configuration,

@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
+import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
@@ -183,6 +184,24 @@ public class CoreOptionConverters {
         result.put(key, label);
       }
       return Collections.unmodifiableMap(result);
+    }
+
+    @Override
+    public boolean starlarkConvertible() {
+      return true;
+    }
+
+    @Override
+    public String reverseForStarlark(Object converted) {
+      @SuppressWarnings("unchecked")
+      Map<String, Label> typedValue = (Map<String, Label>) converted;
+      return typedValue.entrySet().stream()
+          .map(
+              e ->
+                  e.getValue() == null
+                      ? e.getKey()
+                      : String.format("%s=%s", e.getKey(), e.getValue()))
+          .collect(joining(","));
     }
 
     @Override
