@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -261,15 +261,15 @@ public final class StrippingPathMapper {
     // with configurations). While this would help more action instances qualify, it also blocks
     // caching the same action in host and target configurations. This could be mitigated by
     // stripping the host prefix *only* when the entire action is in the host configuration.
-    HashSet<PathFragment> rootRelativePaths = new HashSet<>();
+    HashMap<PathFragment, ActionInput> rootRelativePaths = new HashMap<>();
     for (ActionInput input : actionInputs) {
       if (!isOutputPath(input, outputRoot)) {
         continue;
       }
       // For "bazel-out/k8-fastbuild/foo/bar", get "foo/bar".
-      if (!rootRelativePaths.add(input.getExecPath().subFragment(2))) {
-        // TODO(bazel-team): don't fail on duplicate inputs, i.e. when the same exact exec path
-        // (including config prefix) is included twice.
+      if (!rootRelativePaths
+          .computeIfAbsent(input.getExecPath().subFragment(2), k -> input)
+          .equals(input)) {
         return false;
       }
     }
