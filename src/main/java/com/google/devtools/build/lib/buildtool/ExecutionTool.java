@@ -115,6 +115,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -988,9 +989,9 @@ public class ExecutionTool {
   public static void configureResourceManager(ResourceManager resourceMgr, BuildRequest request) {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     ImmutableMap<String, Double> cpuRam =
-            ImmutableMap.of("cpu", options.localCpuResources, "memory", options.localRamResources);
+            ImmutableMap.of(ResourceSet.CPU, options.localCpuResources, ResourceSet.MEMORY, options.localRamResources);
     ImmutableMap<String, Double> resources =
-       java.util.stream.Stream.concat(cpuRam.entrySet().stream(), options.localExtraResources.stream())
+       Stream.concat(options.localExtraResources.stream(), cpuRam.entrySet().stream())
             .collect(
                 ImmutableMap.toImmutableMap(
                     Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v2));

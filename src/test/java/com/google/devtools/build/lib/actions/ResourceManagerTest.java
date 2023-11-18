@@ -69,7 +69,7 @@ public final class ResourceManagerTest {
   public void configureResourceManager() throws Exception {
     rm.setAvailableResources(
         ResourceSet.create(
-            ImmutableMap.of("memory", 1000.0, "cpu", 1.0, "gpu", 2.0, "fancyresource", 1.5),
+            ImmutableMap.of(ResourceSet.MEMORY, 1000.0, ResourceSet.CPU, 1.0, "gpu", 2.0, "fancyresource", 1.5),
             /* localTestCount= */ 2));
     counter = new AtomicInteger(0);
     sync = new CyclicBarrier(2);
@@ -113,7 +113,7 @@ public final class ResourceManagerTest {
     return rm.acquireResources(
         resourceOwner,
         ResourceSet.create(
-            ImmutableMap.of("memory", ram, "cpu", cpu), tests, createWorkerKey(mnemonic)),
+            ImmutableMap.of(ResourceSet.MEMORY, ram, ResourceSet.CPU, cpu), tests, createWorkerKey(mnemonic)),
         ResourcePriority.LOCAL);
   }
 
@@ -126,7 +126,7 @@ public final class ResourceManagerTest {
       ResourcePriority priority)
       throws InterruptedException, IOException, NoSuchElementException {
     ImmutableMap.Builder<String, Double> resources = ImmutableMap.builder();
-    resources.putAll(extraResources).put("memory", ram).put("cpu", cpu);
+    resources.putAll(extraResources).put(ResourceSet.MEMORY, ram).put(ResourceSet.CPU, cpu);
     return rm.acquireResources(
         resourceOwner, ResourceSet.create(resources.build(), tests), priority);
   }
@@ -146,7 +146,7 @@ public final class ResourceManagerTest {
       double ram, double cpu, ImmutableMap<String, Double> extraResources, int tests)
       throws InterruptedException, IOException {
   ImmutableMap.Builder<String, Double> resources = ImmutableMap.builder();
-  resources.putAll(extraResources).put("memory", ram).put("cpu", cpu);
+  resources.putAll(extraResources).put(ResourceSet.MEMORY, ram).put(ResourceSet.CPU, cpu);
     rm.releaseResources(
         resourceOwner, ResourceSet.create(resources.build(), tests), /* worker= */ null);
   }

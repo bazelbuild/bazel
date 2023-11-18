@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.profiler.AutoProfiler.profiled;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -139,22 +140,23 @@ public class ResourceManager implements ResourceEstimator {
   /** Returns prediction of RAM in Mb used by registered actions. */
   @Override
   public double getUsedMemoryInMb() {
-    return usedResources.get("memory");
+    return usedResources.get(ResourceSet.MEMORY);
   }
 
   /** Returns prediction of CPUs used by registered actions. */
   @Override
   public double getUsedCPU() {
-    return usedResources.get("cpu");
+    return usedResources.get(ResourceSet.CPU);
   }
 
   // Allocated resources are allowed to go "negative", but at least
-  // MIN_AVAILABLE_CPU_RATIO portion of CPU and MIN_AVAILABLE_RAM_RATIO portion
-  // of RAM should be available.
+  // MIN_NECESSARY_RATIO portion of each resource should be available.
   // Please note that this value is purely empirical - we assume that generally
   // requested resources are somewhat pessimistic and thread would end up
   // using less than requested amount.
-  private static final Map<String, Double> MIN_NECESSARY_RATIO = Map.of("cpu", 0.6);
+  private static final Double DEFAULT_MIN_NECESSARY_RATIO = 1.0;
+  private static final ImmutableMap<String, Double> MIN_NECESSARY_RATIO =
+        ImmutableMap.of(ResourceSet.CPU, 0.6);
 
   // Lists of blocked threads. Associated CountDownLatch object will always
   // be initialized to 1 during creation in the acquire() method.
@@ -525,7 +527,7 @@ public class ResourceManager implements ResourceEstimator {
       // requested resource sets use pessimistic estimations. Note that this
       // ratio is used only during comparison - for tracking we will actually
       // mark whole requested amount as used.
-      double requested = resource.getValue() * MIN_NECESSARY_RATIO.getOrDefault(key, 1.0);
+      double requested = resource.getValue() * MIN_NECESSARY_RATIO.getOrDefault(key, DEFAULT_MIN_NECESSARY_RATIO);
       double used = usedResources.getOrDefault(key, 0.0);
       double available = availableResources.get(key);
       if (!isAvailable(available, used, requested)) {

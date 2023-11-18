@@ -170,7 +170,7 @@ public class TestTargetProperties {
         } else {
           requirement = ExecutionRequirements.CPU;
           value = requirement.parseIfMatches(tag);
-          resource = "cpu";
+          resource = ResourceSet.CPU;
           amount = value;
         }
         if (value != null) {

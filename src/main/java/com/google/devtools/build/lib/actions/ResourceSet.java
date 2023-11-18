@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Doubles;
@@ -35,6 +34,8 @@ import javax.annotation.Nullable;
  */
 @Immutable
 public class ResourceSet implements ResourceSetOrBuilder {
+  public static final String CPU = "cpu";
+  public static final String MEMORY = "memory";
 
   /** For actions that consume negligible resources. */
   public static final ResourceSet ZERO = new ResourceSet(ImmutableMap.of(), 0, null);
@@ -61,7 +62,7 @@ public class ResourceSet implements ResourceSetOrBuilder {
   }
 
   public static ResourceSet createWithRamCpu(double memory, double cpu) {
-    return create(ImmutableMap.of("memory", memory, "cpu", cpu));
+    return create(ImmutableMap.of(MEMORY, memory, CPU, cpu));
   }
 
   public static ResourceSet createWithLocalTestCount(int localTestCount) {
@@ -69,7 +70,7 @@ public class ResourceSet implements ResourceSetOrBuilder {
   }
 
   public static ResourceSet create(double memory, double cpu, int localTestCount) {
-    return create(ImmutableMap.of("memory", memory, "cpu", cpu), localTestCount);
+    return create(ImmutableMap.of(MEMORY, memory, CPU, cpu), localTestCount);
   }
 
   public static ResourceSet create(ImmutableMap<String, Double> resources) {
@@ -92,11 +93,11 @@ public class ResourceSet implements ResourceSetOrBuilder {
   }
 
   public double getMemoryMb() {
-    return resources.get("memory");
+    return resources.get(MEMORY);
   }
 
   public double getCpuUsage() {
-    return resources.get("cpu");
+    return resources.get(CPU);
   }
 
   /**
@@ -120,7 +121,20 @@ public class ResourceSet implements ResourceSetOrBuilder {
   @Override
   public String toString() {
     return "Resources: \n"
-        + Joiner.on("\n").withKeyValueSeparator(": ").join(resources.entrySet())
+        + "Memory: "
+        + resources.get(MEMORY)
+        + "M\n"
+        + "CPU: "
+        + resources.get(CPU)
+        + "\n"
+        + resources
+            .entrySet()
+            .stream()
+            .filter(e -> !e.getKey().equals(CPU) && !e.getKey().equals(MEMORY))
+            .collect(
+                StringBuilder::new,
+                (a, e) -> a.append(e.getKey()).append(": ").append(e.getValue()).append("\n"),
+                StringBuilder::append)
         + "Local tests: "
         + localTestCount
         + "\n";
