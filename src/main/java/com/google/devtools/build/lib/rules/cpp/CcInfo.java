@@ -114,9 +114,7 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
       ccNativeLibraryInfos.add(ccInfo.getCcNativeLibraryInfo());
     }
 
-    CcCompilationContext.Builder builder =
-        CcCompilationContext.builder(
-            /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null);
+    CcCompilationContext.Builder builder = CcCompilationContext.builder();
 
     return new CcInfo(
         builder

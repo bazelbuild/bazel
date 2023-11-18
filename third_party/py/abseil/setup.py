@@ -14,11 +14,8 @@
 
 """Abseil setup configuration."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import platform
+import os
+import sys
 
 try:
   import setuptools
@@ -27,35 +24,51 @@ except ImportError:
   use_setuptools()
   import setuptools
 
-py_version = platform.python_version_tuple()
-if py_version < ('2', '7') or py_version[0] == '3' and py_version < ('3', '4'):
-  raise RuntimeError('Python version 2.7 or 3.4+ is required.')
+if sys.version_info < (3, 6):
+  raise RuntimeError('Python version 3.6+ is required.')
 
+setuptools_version = tuple(
+    int(x) for x in setuptools.__version__.split('.')[:2])
+
+additional_kwargs = {}
+if setuptools_version >= (24, 2):
+  # `python_requires` was added in 24.2, see
+  # https://packaging.python.org/guides/distributing-packages-using-setuptools/#python-requires
+  additional_kwargs['python_requires'] = '>=3.6'
+
+_README_PATH = os.path.join(
+    os.path.dirname(os.path.realpath(__file__)), 'README.md')
+with open(_README_PATH, 'rb') as fp:
+  LONG_DESCRIPTION = fp.read().decode('utf-8')
 
 setuptools.setup(
     name='absl-py',
-    version='0.1.1',
-    description='Abseil Python Common Libraries',
+    version='1.3.0',
+    description=(
+        'Abseil Python Common Libraries, '
+        'see https://github.com/abseil/abseil-py.'),
+    long_description=LONG_DESCRIPTION,
+    long_description_content_type='text/markdown',
     author='The Abseil Authors',
     url='https://github.com/abseil/abseil-py',
     packages=setuptools.find_packages(exclude=[
         '*.tests', '*.tests.*', 'tests.*', 'tests',
     ]),
-    install_requires=[
-        'six',
-    ],
+    include_package_data=True,
     license='Apache 2.0',
     classifiers=[
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
         'Intended Audience :: Developers',
         'Topic :: Software Development :: Libraries :: Python Modules',
         'License :: OSI Approved :: Apache Software License',
         'Operating System :: OS Independent',
     ],
+    **additional_kwargs,
 )

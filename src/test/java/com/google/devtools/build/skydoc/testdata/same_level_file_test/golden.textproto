@@ -1,0 +1,21 @@
+rule_info {
+  rule_name: "my_rule"
+  doc_string: "This is my rule. It does stuff."
+  attribute {
+    name: "name"
+    doc_string: "A unique name for this target."
+    type: NAME
+    mandatory: true
+  }
+  attribute {
+    name: "first"
+    doc_string: "first my_rule doc string"
+    type: LABEL
+    mandatory: true
+  }
+  attribute {
+    name: "second"
+    type: STRING_DICT
+    mandatory: true
+  }
+}

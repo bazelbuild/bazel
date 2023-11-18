@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppActionNames;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import net.starlark.java.eval.EvalException;
@@ -72,7 +71,8 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
     this.language = language;
   }
 
-  private static final String CPP_TOOLCHAIN_TYPE = "@bazel_tools//tools/cpp:toolchain_type";
+  private static final String CPP_TOOLCHAIN_TYPE =
+      Label.parseCanonicalUnchecked("@bazel_tools//tools/cpp:toolchain_type").toString();
 
   @Override
   public String getCppToolchainType() {
@@ -111,15 +111,6 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
           .addTransitiveMandatoryInputs(toolchain.getAllFilesIncludingLibc())
           .setShouldScanIncludes(false);
     }
-  }
-
-  @Override
-  public HeadersCheckingMode determineStarlarkHeadersCheckingMode(
-      RuleContext ruleContext, CppConfiguration cppConfig, CcToolchainProvider toolchain) {
-    if (cppConfig.strictHeaderCheckingFromStarlark()) {
-      return HeadersCheckingMode.STRICT;
-    }
-    return HeadersCheckingMode.LOOSE;
   }
 
   @Override

@@ -204,14 +204,6 @@ public class AaptCommandBuilder {
     AaptCommandBuilder thenAdd(String flag, @Nullable Path value);
 
     /**
-     * Adds a single flag and associated path value to the builder if the value is non-null and the
-     * condition was true.
-     *
-     * @see AaptCommandBuilder#add(String,Optional)
-     */
-    AaptCommandBuilder thenAdd(String flag, Optional<Path> value);
-
-    /**
      * Adds the values in the collection to the builder, each preceded by the given flag, if the
      * collection was non-empty and the condition was true.
      *
@@ -246,11 +238,6 @@ public class AaptCommandBuilder {
     }
 
     @Override
-    public AaptCommandBuilder thenAdd(String flag, @Nullable Optional<Path> value) {
-      return originalCommandBuilder.add(flag, value);
-    }
-
-    @Override
     public AaptCommandBuilder thenAddRepeated(String flag, Collection<String> values) {
       return originalCommandBuilder.addRepeated(flag, values);
     }
@@ -279,13 +266,6 @@ public class AaptCommandBuilder {
     @Override
     public AaptCommandBuilder thenAdd(String flag, @Nullable Path value) {
       Preconditions.checkNotNull(flag);
-      return originalCommandBuilder;
-    }
-
-    @Override
-    public AaptCommandBuilder thenAdd(String flag, Optional<Path> value) {
-      Preconditions.checkNotNull(flag);
-      Preconditions.checkNotNull(value);
       return originalCommandBuilder;
     }
 

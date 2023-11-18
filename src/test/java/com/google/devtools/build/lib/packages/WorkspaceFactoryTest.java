@@ -67,7 +67,7 @@ public class WorkspaceFactoryTest {
 
   @Test
   public void testIllegalWorkspaceFunctionPosition() throws Exception {
-    helper = new WorkspaceFactoryTestHelper(/*allowOverride=*/ false, root);
+    helper = new WorkspaceFactoryTestHelper(/* allowWorkspace= */ false, root);
     helper.parse("workspace(name = 'foo')");
     assertThat(helper.getParserError()).contains(
         "workspace() function should be used only at the top of the WORKSPACE file");

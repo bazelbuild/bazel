@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
@@ -96,6 +97,11 @@ public interface OutputService {
    * @return the name of filesystem, akin to what you might see in /proc/mounts
    */
   String getFilesSystemName();
+
+  /** Returns true if remote output metadata should be stored in action cache. */
+  default boolean shouldStoreRemoteOutputMetadataInActionCache() {
+    return false;
+  }
 
   default RemoteArtifactChecker getRemoteArtifactChecker() {
     return RemoteArtifactChecker.TRUST_ALL;
@@ -196,6 +202,7 @@ public interface OutputService {
    * @param filesets The Fileset symlinks known for this action.
    */
   default void updateActionFileSystemContext(
+      ActionExecutionMetadata action,
       FileSystem actionFileSystem,
       Environment env,
       MetadataInjector injector,

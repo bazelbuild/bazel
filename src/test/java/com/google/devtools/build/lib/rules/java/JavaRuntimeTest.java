@@ -25,6 +25,8 @@ import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import net.starlark.java.eval.EvalException;
 import org.junit.Before;
@@ -32,7 +34,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** {@link JavaRuntime}Test. */
+/** Tests for the java_runtime rule. */
 @RunWith(JUnit4.class)
 public class JavaRuntimeTest extends BuildViewTestCase {
   @Before
@@ -49,9 +51,10 @@ public class JavaRuntimeTest extends BuildViewTestCase {
         ")");
   }
 
-  private JavaRuntimeInfo getJavaRuntimeInfo(ProviderCollection collection) throws EvalException {
+  private JavaRuntimeInfo getJavaRuntimeInfo(ProviderCollection collection)
+      throws EvalException, RuleErrorException {
     ToolchainInfo toolchainInfo = collection.get(ToolchainInfo.PROVIDER);
-    return (JavaRuntimeInfo) toolchainInfo.getValue("java_runtime");
+    return JavaRuntimeInfo.PROVIDER.wrap(toolchainInfo.getValue("java_runtime", Info.class));
   }
 
   @Test

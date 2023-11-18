@@ -78,6 +78,12 @@ public class AndroidSdkBase implements RuleConfiguredTargetFactory {
     FilesToRunProvider legacyMainDexListGenerator =
         ruleContext.getExecutablePrerequisite("legacy_main_dex_list_generator");
 
+    // Make android_sdk backward compatible with older bazel
+    boolean dexDumpNotDefined =
+        ruleContext.getPrerequisites("dexdump", FilesToRunProvider.class).isEmpty();
+    FilesToRunProvider dexdump =
+        dexDumpNotDefined ? null : ruleContext.getExecutablePrerequisite("dexdump");
+
     if (ruleContext.hasErrors()) {
       return null;
     }
@@ -102,7 +108,8 @@ public class AndroidSdkBase implements RuleConfiguredTargetFactory {
             proguard,
             zipalign,
             system,
-            legacyMainDexListGenerator);
+            legacyMainDexListGenerator,
+            dexdump);
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addNativeDeclaredProvider(sdk)

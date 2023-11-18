@@ -14,24 +14,25 @@
 
 """Starlark implementation of cc_proto_library"""
 
-load(":common/proto/proto_info.bzl", "ProtoInfo")
-load(":common/cc/cc_helper.bzl", "cc_helper")
-load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo", proto_common = "proto_common_do_not_use")
-load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_common.bzl", "cc_common")
+load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/semantics.bzl", "semantics")
+load(":common/proto/proto_common.bzl", "toolchains", proto_common = "proto_common_do_not_use")
+load(":common/proto/proto_info.bzl", "ProtoInfo")
 
 ProtoCcFilesInfo = provider(fields = ["files"], doc = "Provide cc proto files.")
 ProtoCcHeaderInfo = provider(fields = ["headers"], doc = "Provide cc proto headers.")
 
-def _are_srcs_excluded(ctx, target):
-    return not proto_common.experimental_should_generate_code(target[ProtoInfo], ctx.attr._aspect_cc_proto_toolchain[ProtoLangToolchainInfo], "cc_proto_library", target.label)
+def _are_srcs_excluded(proto_toolchain, target):
+    return not proto_common.experimental_should_generate_code(target[ProtoInfo], proto_toolchain, "cc_proto_library", target.label)
 
-def _get_feature_configuration(ctx, target, cc_toolchain, proto_info):
+def _get_feature_configuration(ctx, target, cc_toolchain, proto_info, proto_toolchain):
     requested_features = list(ctx.features)
     unsupported_features = list(ctx.disabled_features)
     unsupported_features.append("parse_headers")
     unsupported_features.append("layering_check")
-    if not _are_srcs_excluded(ctx, target) and len(proto_info.direct_sources) != 0:
+    if not _are_srcs_excluded(proto_toolchain, target) and len(proto_info.direct_sources) != 0:
         requested_features.append("header_modules")
     else:
         unsupported_features.append("header_modules")
@@ -46,25 +47,6 @@ def _check_proto_libraries_in_deps(deps):
     for dep in deps:
         if ProtoInfo in dep and CcInfo not in dep:
             fail("proto_library '{}' does not produce output for C++".format(dep.label), "deps")
-
-def _create_proto_compile_action(ctx, outputs, proto_info):
-    proto_root = proto_info.proto_source_root
-    if proto_root.startswith(ctx.genfiles_dir.path):
-        genfiles_path = proto_root
-    else:
-        genfiles_path = ctx.genfiles_dir.path + "/" + proto_root
-
-    if proto_root == ".":
-        genfiles_path = ctx.genfiles_dir.path
-
-    if len(outputs) != 0:
-        proto_common.compile(
-            actions = ctx.actions,
-            proto_info = proto_info,
-            proto_lang_toolchain_info = ctx.attr._aspect_cc_proto_toolchain[ProtoLangToolchainInfo],
-            generated_files = outputs,
-            plugin_output = genfiles_path,
-        )
 
 def _get_output_files(ctx, target, suffixes):
     result = []
@@ -96,12 +78,13 @@ def _get_strip_include_prefix(ctx, proto_info):
 
 def _aspect_impl(target, ctx):
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
+    proto_toolchain = toolchains.find_toolchain(ctx, "_aspect_cc_proto_toolchain", semantics.CC_PROTO_TOOLCHAIN)
     proto_info = target[ProtoInfo]
-    feature_configuration = _get_feature_configuration(ctx, target, cc_toolchain, proto_info)
+    feature_configuration = _get_feature_configuration(ctx, target, cc_toolchain, proto_info, proto_toolchain)
     proto_configuration = ctx.fragments.proto
 
     deps = []
-    runtime = ctx.attr._aspect_cc_proto_toolchain[ProtoLangToolchainInfo].runtime
+    runtime = proto_toolchain.runtime
     if runtime != None:
         deps.append(runtime)
     deps.extend(getattr(ctx.rule.attr, "deps", []))
@@ -109,7 +92,6 @@ def _aspect_impl(target, ctx):
 
     # shouldProcessHeaders is set to true everytime, however java implementation of
     # compile gets this value from cc_toolchain.
-    # Missing grep_includes, should not be necessary.
     # Missing stl compilation context, should not be necessary.
 
     outputs = []
@@ -118,7 +100,7 @@ def _aspect_impl(target, ctx):
     textual_hdrs = []
     additional_exported_hdrs = []
 
-    if _are_srcs_excluded(ctx, target):
+    if _are_srcs_excluded(proto_toolchain, target):
         header_provider = None
 
         # Hack: This is a proto_library for descriptor.proto or similar.
@@ -170,7 +152,13 @@ def _aspect_impl(target, ctx):
         header_provider = ProtoCcHeaderInfo(headers = depset(transitive = transitive_headers))
 
     files_to_build = list(outputs)
-    _create_proto_compile_action(ctx, outputs, proto_info)
+    proto_common.compile(
+        actions = ctx.actions,
+        proto_info = proto_info,
+        proto_lang_toolchain_info = proto_toolchain,
+        generated_files = outputs,
+        experimental_output_files = "multiple",
+    )
 
     (cc_compilation_context, cc_compilation_outputs) = cc_common.compile(
         name = ctx.label.name,
@@ -178,7 +166,6 @@ def _aspect_impl(target, ctx):
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
         compilation_contexts = cc_helper.get_compilation_contexts_from_deps(deps),
-        hdrs_checking_mode = "loose",
         # Don't instrument the generated C++ files even when --collect_code_coverage is set.
         code_coverage_enabled = False,
         srcs = sources,
@@ -262,12 +249,11 @@ cc_proto_aspect = aspect(
     required_providers = [ProtoInfo],
     provides = [CcInfo],
     attrs = {
-        "_aspect_cc_proto_toolchain": attr.label(
-            default = configuration_field(fragment = "proto", name = "proto_toolchain_for_cc"),
-        ),
         "_cc_toolchain": attr.label(default = "@bazel_tools//tools/cpp:current_cc_toolchain"),
-    },
-    toolchains = cc_helper.use_cpp_toolchain(),
+    } | toolchains.if_legacy_toolchain({"_aspect_cc_proto_toolchain": attr.label(
+        default = configuration_field(fragment = "proto", name = "proto_toolchain_for_cc"),
+    )}),
+    toolchains = cc_helper.use_cpp_toolchain() + toolchains.use_toolchain(semantics.CC_PROTO_TOOLCHAIN),
 )
 
 def _impl(ctx):
@@ -281,6 +267,8 @@ def _impl(ctx):
             attr = "deps",
         )
     dep = ctx.attr.deps[0]
+    proto_toolchain = toolchains.find_toolchain(ctx, "_aspect_cc_proto_toolchain", semantics.CC_PROTO_TOOLCHAIN)
+    proto_common.check_collocated(ctx.label, dep[ProtoInfo], proto_toolchain)
     cc_info = dep[CcInfo]
     output_groups = dep[OutputGroupInfo]
     return [cc_info, DefaultInfo(files = dep[ProtoCcFilesInfo].files), output_groups]
@@ -293,6 +281,11 @@ cc_proto_library = rule(
             allow_rules = ["proto_library"],
             allow_files = False,
         ),
-    },
+    } | toolchains.if_legacy_toolchain({
+        "_aspect_cc_proto_toolchain": attr.label(
+            default = configuration_field(fragment = "proto", name = "proto_toolchain_for_cc"),
+        ),
+    }),
     provides = [CcInfo],
+    toolchains = toolchains.use_toolchain(semantics.CC_PROTO_TOOLCHAIN),
 )

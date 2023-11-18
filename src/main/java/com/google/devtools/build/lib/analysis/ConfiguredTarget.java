@@ -16,9 +16,10 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Structure;
@@ -42,6 +43,14 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, Structure {
   /** All <code>ConfiguredTarget</code>s have a "files" field. */
   String FILES_FIELD = "files";
 
+  /** Returns a key that may be used to lookup this {@link ConfiguredTarget}. */
+  ActionLookupKey getLookupKey();
+
+  @Override
+  default Label getLabel() {
+    return getLookupKey().getLabel();
+  }
+
   @Nullable
   default String getConfigurationChecksum() {
     return getConfigurationKey() == null ? null : getConfigurationKey().getOptions().checksum();
@@ -59,7 +68,9 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, Structure {
    * <p>If this changes, {@link AspectResolver#aspecMatchesConfiguredTarget} should be updated.
    */
   @Nullable
-  BuildConfigurationKey getConfigurationKey();
+  default BuildConfigurationKey getConfigurationKey() {
+    return getLookupKey().getConfigurationKey();
+  }
 
   /** Returns keys for a legacy Starlark provider. */
   @Override
@@ -115,9 +126,10 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, Structure {
   /**
    * This is only intended to be called from the query dialects of Starlark.
    *
-   * @return a map of provider names to their values
+   * @return a map of provider names to their values, or null if there are no providers
    */
-  default Dict<String, Object> getProvidersDict() {
+  @Nullable
+  default Dict<String, Object> getProvidersDictForQuery() {
     return null;
   }
 }

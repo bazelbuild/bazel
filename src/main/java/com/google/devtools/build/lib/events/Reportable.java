@@ -47,6 +47,9 @@ public interface Reportable {
    *
    * <p>This method is not relevant for events which do not originate from {@link
    * com.google.devtools.build.skyframe.SkyFunction} evaluation.
+   *
+   * <p>Classes returning {@code true} should have cheap {@link Object#hashCode()} and {@link
+   * Object#equals(Object)} implementations.
    */
   default boolean storeForReplay() {
     return false;

@@ -1,0 +1,44 @@
+func_info {
+  function_name: "my_namespace.assert_non_empty"
+  parameter {
+    name: "some_list"
+    doc_string: "The first list"
+    mandatory: true
+  }
+  parameter {
+    name: "other_list"
+    doc_string: "The second list"
+    mandatory: true
+  }
+  doc_string: "Asserts the two given lists are not empty."
+}
+func_info {
+  function_name: "my_namespace.min"
+  parameter {
+    name: "integers"
+    doc_string: "A list of integers. Must not be empty."
+    mandatory: true
+  }
+  doc_string: "Returns the minimum of given elements."
+  return {
+    doc_string: "The minimum integer in the given list."
+  }
+}
+func_info {
+  function_name: "my_namespace.join_strings"
+  parameter {
+    name: "strings"
+    doc_string: "A list of strings to join."
+    mandatory: true
+  }
+  parameter {
+    name: "delimiter"
+    doc_string: "The delimiter to use"
+    default_value: "\", \""
+  }
+  doc_string: "Joins the given strings with a delimiter."
+  return {
+    doc_string: "The joined string."
+  }
+}
+module_docstring: "A test that verifies documenting a namespace of functions."

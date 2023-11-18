@@ -64,6 +64,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -126,8 +127,12 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
                     new ModuleFileFunction(registryFactory, rootDirectory, ImmutableMap.of()))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(rootDirectory))
-                .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction(rootDirectory))
+                .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, resolutionFunctionMock)
+                .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction(registryFactory))
+                .put(
+                    SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
+                    new ModuleExtensionRepoMappingEntriesFunction())
                 .put(
                     SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE,
                     new ClientEnvironmentFunction(
@@ -138,7 +143,6 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
     PrecomputedValue.STARLARK_SEMANTICS.set(
         differencer,
         StarlarkSemantics.builder().setBool(BuildLanguageOptions.ENABLE_BZLMOD, true).build());
-    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.UPDATE);
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of());
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
@@ -146,16 +150,12 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
         differencer, CheckDirectDepsMode.OFF);
     BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(
         differencer, BazelCompatibilityMode.ERROR);
-    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.OFF);
-    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
+    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.UPDATE);
+    YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
   }
 
   @Test
   public void createValue_basic() throws Exception {
-    scratch.file(
-        rootDirectory.getRelative("MODULE.bazel").getPathString(),
-        "module(name='my_root', version='1.0')");
-
     // Root depends on dep@1.0 and dep@2.0 at the same time with a multiple-version override.
     // Root also depends on rules_cc as a normal dep.
     // dep@1.0 depends on rules_java, which is overridden by a non-registry override (see below).
@@ -214,19 +214,18 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
     return ModuleExtensionUsage.builder()
         .setExtensionBzlFile(bzlFile)
         .setExtensionName(name)
+        .setIsolationKey(Optional.empty())
         .setImports(importsBuilder.buildOrThrow())
         .setDevImports(ImmutableSet.of())
         .setUsingModule(ModuleKey.ROOT)
         .setLocation(Location.BUILTIN)
+        .setHasDevUseExtension(false)
+        .setHasNonDevUseExtension(true)
         .build();
   }
 
   @Test
   public void createValue_moduleExtensions() throws Exception {
-    scratch.file(
-        rootDirectory.getRelative("MODULE.bazel").getPathString(),
-        "module(name='my_root', version='1.0')");
-
     Module root =
         buildModule("root", "1.0")
             .setKey(ModuleKey.ROOT)
@@ -253,14 +252,16 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
 
     ModuleExtensionId maven =
         ModuleExtensionId.create(
-            Label.parseCanonical("@@rules_jvm_external~1.0//:defs.bzl"), "maven");
+            Label.parseCanonical("@@rules_jvm_external~1.0//:defs.bzl"), "maven", Optional.empty());
     ModuleExtensionId pip =
-        ModuleExtensionId.create(Label.parseCanonical("@@rules_python~2.0//:defs.bzl"), "pip");
+        ModuleExtensionId.create(
+            Label.parseCanonical("@@rules_python~2.0//:defs.bzl"), "pip", Optional.empty());
     ModuleExtensionId myext =
-        ModuleExtensionId.create(Label.parseCanonical("@@dep~2.0//:defs.bzl"), "myext");
+        ModuleExtensionId.create(
+            Label.parseCanonical("@@dep~2.0//:defs.bzl"), "myext", Optional.empty());
     ModuleExtensionId myext2 =
         ModuleExtensionId.create(
-            Label.parseCanonical("@@dep~2.0//incredible:conflict.bzl"), "myext");
+            Label.parseCanonical("@@dep~2.0//incredible:conflict.bzl"), "myext", Optional.empty());
 
     resolutionFunctionMock.setDepGraph(depGraph);
     EvaluationResult<BazelDepGraphValue> result =
@@ -323,10 +324,6 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
 
   @Test
   public void useExtensionBadLabelFails() throws Exception {
-    scratch.file(
-        rootDirectory.getRelative("MODULE.bazel").getPathString(),
-        "module(name='module', version='1.0')");
-
     Module root =
         buildModule("module", "1.0")
             .addExtensionUsage(createModuleExtensionUsage("@foo//:defs.bzl", "bar"))

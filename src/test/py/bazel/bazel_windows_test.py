@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import os
-import unittest
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 
 
@@ -262,23 +262,55 @@ class BazelWindowsTest(test_base.TestBase):
         env_add={'BAZEL_VC': 'C:/not/exists/VC'},
     )
 
-  def testDeleteReadOnlyFileAndDirectory(self):
+  def testDeleteReadOnlyFile(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
-    self.ScratchFile('BUILD', [
-        'genrule(',
-        '  name = "gen_read_only_dir",',
-        '  cmd_bat = "mkdir $@ && attrib +r $@",',
-        '  outs = ["dir_foo"],',
-        ')',
-        '',
-        'genrule(',
-        '  name = "gen_read_only_file",',
-        '  cmd_bat = "echo hello > $@ && attrib +r $@",',
-        '  outs = ["file_foo"],',
-        ')',
-    ])
+    self.ScratchFile(
+        'BUILD',
+        [
+            'genrule(',
+            '  name = "gen_read_only_file",',
+            '  cmd_bat = "echo hello > $@ && attrib +r $@",',
+            '  outs = ["file_foo"],',
+            ')',
+        ],
+    )
 
     self.RunBazel(['build', '//...'])
+    self.RunBazel(['clean'])
+
+  def testDeleteReadOnlyDirectory(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile(
+        'defs.bzl',
+        [
+            'def _impl(ctx):',
+            '  dir = ctx.actions.declare_directory(ctx.label.name)',
+            '  bat = ctx.actions.declare_file(ctx.label.name + ".bat")',
+            '  ctx.actions.write(',
+            '    output = bat,',
+            '    content = "attrib +r " + dir.path,',
+            '    is_executable = True,',
+            '  )',
+            '  ctx.actions.run(',
+            '    outputs = [dir],',
+            '    executable = bat,',
+            '    use_default_shell_env = True,',
+            '  )',
+            '  return DefaultInfo(files = depset([dir]))',
+            'read_only_dir = rule(_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load(":defs.bzl", "read_only_dir")',
+            'read_only_dir(',
+            '  name = "gen_read_only_dir",',
+            ')',
+        ],
+    )
+
+    self.RunBazel(['build', '--subcommands', '--verbose_failures', '//...'])
     self.RunBazel(['clean'])
 
   def testBuildJavaTargetWithClasspathJar(self):
@@ -476,4 +508,4 @@ class BazelWindowsTest(test_base.TestBase):
 
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

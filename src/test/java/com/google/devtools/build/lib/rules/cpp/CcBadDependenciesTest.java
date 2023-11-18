@@ -34,7 +34,7 @@ public final class CcBadDependenciesTest extends BuildViewTestCase {
     scratch.file("foo/unknown.oops", "foo");
     configure("//foo:foo");
     assertContainsEvent(
-        getErrorMsgMisplacedFiles("srcs", "cc_library", "@//foo:foo", "@//foo:unknown.oops"));
+        getErrorMsgMisplacedFiles("srcs", "cc_library", "@@//foo:foo", "@@//foo:unknown.oops"));
   }
 
   @Test
@@ -62,8 +62,6 @@ public final class CcBadDependenciesTest extends BuildViewTestCase {
         "           srcs = ['//dependency:generated'])");
     configure("//foo:foo");
     assertContainsEvent(
-        String.format(
-            "attribute srcs: '%s' does not produce any cc_library srcs files",
-            "@//dependency:generated"));
+        "attribute srcs: '@@//dependency:generated' does not produce any cc_library srcs files");
   }
 }

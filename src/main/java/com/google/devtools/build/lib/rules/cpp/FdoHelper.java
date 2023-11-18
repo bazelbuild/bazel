@@ -48,6 +48,7 @@ public class FdoHelper {
     FdoInputFile csFdoInputFile = null;
     FdoInputFile prefetchHints = null;
     PropellerOptimizeInputFile propellerOptimizeInputFile = null;
+    FdoInputFile memprofProfile = null;
     Artifact protoProfileArtifact = null;
     Pair<FdoInputFile, Artifact> fdoInputs = null;
     if (configuration.getCompilationMode() == CompilationMode.OPT) {
@@ -76,6 +77,10 @@ public class FdoHelper {
       } else if (cppConfiguration.getPropellerOptimizeLabel() != null) {
         PropellerOptimizeProvider provider = attributes.getPropellerOptimize();
         propellerOptimizeInputFile = provider.getInputFile();
+      }
+
+      if (cppConfiguration.getMemProfProfileLabel() != null) {
+        memprofProfile = attributes.getMemProfProfileProvider().getInputFile();
       }
 
       if (cppConfiguration.getFdoPath() != null) {
@@ -209,7 +214,17 @@ public class FdoHelper {
     }
     Artifact prefetchHintsArtifact = getPrefetchHintsArtifact(prefetchHints, ruleContext);
 
-    return new FdoContext(branchFdoProfile, prefetchHintsArtifact, propellerOptimizeInputFile);
+    Artifact memprofProfileArtifact =
+        getMemProfProfileArtifact(attributes, memprofProfile, ruleContext);
+    if (ruleContext.hasErrors()) {
+      return null;
+    }
+
+    return new FdoContext(
+        branchFdoProfile,
+        prefetchHintsArtifact,
+        propellerOptimizeInputFile,
+        memprofProfileArtifact);
   }
 
   /**
@@ -433,6 +448,93 @@ public class FdoHelper {
                     .addExecPath(profileArtifact)
                     .addExecPath(rawProfileArtifact)
                     .build())
+            .build(ruleContext));
+
+    return profileArtifact;
+  }
+
+  /*
+   * This function symlinks the memprof profile (after unzipping as needed).
+   */
+  @Nullable
+  private static Artifact getMemProfProfileArtifact(
+      CcToolchainAttributesProvider attributes,
+      FdoInputFile memprofProfile,
+      RuleContext ruleContext) {
+    if (memprofProfile == null) {
+      return null;
+    }
+    String memprofUniqueArtifactName = "memprof";
+    String memprofProfileFileName = "memprof.profdata";
+    Artifact profileArtifact =
+        ruleContext.getUniqueDirectoryArtifact(
+            memprofUniqueArtifactName,
+            memprofProfileFileName,
+            ruleContext.getBinOrGenfilesDirectory());
+
+    // If the profile file is already in the desired format, symlink to it and return.
+    if (CppFileTypes.LLVM_PROFILE.matches(memprofProfile)) {
+      symlinkTo(
+          ruleContext,
+          profileArtifact,
+          memprofProfile,
+          "Symlinking MemProf Profile " + memprofProfile.getBasename());
+      return profileArtifact;
+    }
+
+    if (!CppFileTypes.LLVM_PROFILE_ZIP.matches(memprofProfile)) {
+      ruleContext.ruleError("Expected zipped memprof profile.");
+      return null;
+    }
+
+    // Get the zipper binary for unzipping the profile.
+    Artifact zipperBinaryArtifact = attributes.getZipper();
+    if (zipperBinaryArtifact == null) {
+      if (CppHelper.useToolchainResolution(ruleContext)) {
+        ruleContext.ruleError(
+            "Zipped profiles are not supported with platforms/toolchains before "
+                + "toolchain-transitions are implemented.");
+      } else {
+        ruleContext.ruleError("Cannot find zipper binary to unzip the profile");
+      }
+      return null;
+    }
+
+    // Symlink to the zipped profile file to extract the contents.
+    Artifact zipProfileArtifact =
+        ruleContext.getUniqueDirectoryArtifact(
+            memprofUniqueArtifactName,
+            memprofProfile.getBasename(),
+            ruleContext.getBinOrGenfilesDirectory());
+    symlinkTo(
+        ruleContext,
+        zipProfileArtifact,
+        memprofProfile,
+        "Symlinking MemProf ZIP Profile " + memprofProfile.getBasename());
+
+    CustomCommandLine.Builder argv = new CustomCommandLine.Builder();
+    // We invoke different binaries depending on whether the unzip_fdo tool
+    // is available. When it isn't, unzip_fdo is aliased to the generic
+    // zipper tool, which takes different command-line arguments.
+    if (zipperBinaryArtifact.getExecPathString().endsWith("unzip_fdo")) {
+      argv.addExecPath("--profile_zip", zipProfileArtifact)
+          .add("--memprof")
+          .add("--output_file", profileArtifact.getExecPath().getSafePathString());
+    } else {
+      argv.addExecPath("xf", zipProfileArtifact)
+          .add("-d", profileArtifact.getExecPath().getParentDirectory().getSafePathString());
+    }
+    // Unzip the profile.
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .addInput(zipProfileArtifact)
+            .addInput(zipperBinaryArtifact)
+            .addOutput(profileArtifact)
+            .useDefaultShellEnvironment()
+            .setExecutable(zipperBinaryArtifact)
+            .setProgressMessage("MemProfUnzipProfileAction: Generating %{output}")
+            .setMnemonic("MemProfUnzipProfileAction")
+            .addCommandLine(argv.build())
             .build(ruleContext));
 
     return profileArtifact;

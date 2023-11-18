@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.StreamSupport;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -405,25 +406,6 @@ public abstract class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "    name = 'lib',",
         "    plugins = [':not_a_plugin'],",
         "    srcs = ['Lib.java'],",
-        ")");
-  }
-
-  @Test
-  public void testDisallowDepsWithoutSrcsWarning() throws Exception {
-    useConfiguration("--experimental_allow_android_library_deps_without_srcs=true");
-    checkWarning(
-        "android/deps",
-        "b",
-        // message:
-        "android_library will be deprecating the use of deps to export targets implicitly",
-        // build file
-        "android_library(",
-        "    name = 'a',",
-        "    srcs = ['a.java'],",
-        ")",
-        "android_library(",
-        "    name = 'b',",
-        "    deps = [':a'],",
         ")");
   }
 
@@ -1953,11 +1935,6 @@ public abstract class AndroidLibraryTest extends AndroidBuildViewTestCase {
             getImplicitOutputArtifact(a, AndroidRuleClasses.ANDROID_LIBRARY_APK));
     assertThat(linkAction).isNotNull();
 
-    if (platformBasedToolchains()) {
-      // TODO(b/161709111): With platform, the call to sdk below produces a NullPointerException.
-      return;
-    }
-
     assertThat(linkAction.getInputs().toList())
         .containsAtLeast(
             sdk.get(AndroidSdkProvider.PROVIDER).getAndroidJar(),
@@ -2026,7 +2003,11 @@ public abstract class AndroidLibraryTest extends AndroidBuildViewTestCase {
     assertThat(compileAction).isNotNull();
 
     Iterable<String> args = paramFileArgsOrActionArgs(compileAction);
-    assertThat(args).contains("--dataBindingInfoOut");
+    assertThat(
+            StreamSupport.stream(args.spliterator(), false)
+                .anyMatch(
+                    arg -> arg.contains("java/a/databinding-processed-resources/a/java/a/res")))
+        .isTrue();
   }
 
   @Test

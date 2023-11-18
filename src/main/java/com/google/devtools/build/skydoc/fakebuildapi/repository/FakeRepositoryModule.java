@@ -75,10 +75,9 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
       Sequence<?> environ, // <String> expected
       Boolean configure,
       Boolean remotable,
-      String doc,
+      Object doc,
       StarlarkThread thread)
       throws EvalException {
-    List<AttributeInfo> attrInfos;
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
     if (attrs != null && attrs != Starlark.NONE) {
       attrsMapBuilder.putAll(Dict.cast(attrs, String.class, FakeDescriptor.class, "attrs"));
@@ -86,7 +85,7 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
 
     attrsMapBuilder.put("name", IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR);
     attrsMapBuilder.put("repo_mapping", IMPLICIT_REPO_MAPPING_ATTRIBUTE_DESCRIPTOR);
-    attrInfos =
+    List<AttributeInfo> attrInfos =
         attrsMapBuilder.build().entrySet().stream()
             .filter(entry -> !entry.getKey().startsWith("_"))
             .map(entry -> entry.getValue().asAttributeInfo(entry.getKey()))
@@ -97,8 +96,10 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
         new RepositoryRuleDefinitionIdentifier();
 
     // Only the Builder is passed to RuleInfoWrapper as the rule name is not yet available.
-    RuleInfo.Builder ruleInfo = RuleInfo.newBuilder().setDocString(doc).addAllAttribute(attrInfos);
-
+    RuleInfo.Builder ruleInfo = RuleInfo.newBuilder().addAllAttribute(attrInfos);
+    Starlark.toJavaOptional(doc, String.class)
+        .map(Starlark::trimDocString)
+        .ifPresent(ruleInfo::setDocString);
     Location loc = thread.getCallerLocation();
     ruleInfoList.add(new RuleInfoWrapper(functionIdentifier, loc, ruleInfo));
     return functionIdentifier;
@@ -124,13 +125,19 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
 
   @Override
   public Object moduleExtension(
-      StarlarkCallable implementation, Dict<?, ?> tagClasses, String doc, StarlarkThread thread)
+      StarlarkCallable implementation,
+      Dict<?, ?> tagClasses,
+      Object doc,
+      Sequence<?> environ,
+      boolean osDependent,
+      boolean archDependent,
+      StarlarkThread thread)
       throws EvalException {
     return new Object();
   }
 
   @Override
-  public TagClassApi tagClass(Dict<?, ?> attrs, String doc, StarlarkThread thread)
+  public TagClassApi tagClass(Dict<?, ?> attrs, Object doc, StarlarkThread thread)
       throws EvalException {
     return new TagClassApi() {};
   }

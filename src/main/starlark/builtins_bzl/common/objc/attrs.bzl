@@ -17,7 +17,7 @@
 load("@_builtins//:common/objc/semantics.bzl", "semantics")
 load(":common/cc/cc_info.bzl", "CcInfo")
 
-# Private attribute required by `objc_internal.expand_toolchain_and_ctx_variables`
+# Private attribute required by `objc_internal.expand_and_tokenize`
 _CC_TOOLCHAIN_RULE = {
     "_cc_toolchain": attr.label(
         default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain",
@@ -62,15 +62,6 @@ _COMPILE_DEPENDENCY_RULE = {
     ),
 }
 
-_INCLUDE_SCANNING_RULE = {
-    "_grep_includes": attr.label(
-        allow_single_file = True,
-        cfg = "exec",
-        default = "@" + semantics.get_repo() + "//tools/cpp:grep-includes",
-        executable = True,
-    ),
-}
-
 _SDK_FRAMEWORK_DEPENDER_RULE = {
     "sdk_frameworks": attr.string_list(),
     "weak_sdk_frameworks": attr.string_list(),
@@ -98,7 +89,6 @@ common_attrs = struct(
     COMPILING_RULE = _COMPILING_RULE,
     COMPILE_DEPENDENCY_RULE = _COMPILE_DEPENDENCY_RULE,
     COPTS_RULE = _COPTS_RULE,
-    INCLUDE_SCANNING_RULE = _INCLUDE_SCANNING_RULE,
     LICENSES = semantics.get_licenses_attr(),
     SDK_FRAMEWORK_DEPENDER_RULE = _SDK_FRAMEWORK_DEPENDER_RULE,
 )

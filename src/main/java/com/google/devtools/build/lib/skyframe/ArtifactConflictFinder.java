@@ -63,7 +63,6 @@ class ArtifactConflictFinder {
   static ActionConflictsAndStats findAndStoreArtifactConflicts(
       Sharder<ActionLookupValue> actionLookupValues,
       int actionCount,
-      boolean strictConflictChecks,
       ActionKeyContext actionKeyContext)
       throws InterruptedException {
     ConcurrentMap<ActionAnalysisMetadata, ConflictException> temporaryBadActionMap =
@@ -80,7 +79,7 @@ class ArtifactConflictFinder {
         temporaryBadActionMap);
 
     Map<ActionAnalysisMetadata, ArtifactPrefixConflictException> actionsWithArtifactPrefixConflict =
-        Actions.findArtifactPrefixConflicts(actionGraph, artifacts, strictConflictChecks);
+        Actions.findArtifactPrefixConflicts(actionGraph, artifacts);
     for (Map.Entry<ActionAnalysisMetadata, ArtifactPrefixConflictException> actionExceptionPair :
         actionsWithArtifactPrefixConflict.entrySet()) {
       temporaryBadActionMap.put(

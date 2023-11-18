@@ -64,7 +64,8 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
             Optional.empty(),
             StarlarkSemantics.DEFAULT,
             RepositoryMapping.ALWAYS_FALLBACK,
-            RepositoryMapping.ALWAYS_FALLBACK)
+            RepositoryMapping.ALWAYS_FALLBACK,
+            /* cpuBoundSemaphore= */ null)
         .setFilename(RootedPath.toRootedPath(root, filename))
         .setLoads(ImmutableList.of());
   }
@@ -90,6 +91,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
             pkgBuilder,
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
+            true,
             new Reporter(new EventBus()),
             DUMMY_STACK);
 
@@ -149,6 +151,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
             pkgBuilder,
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
+            true,
             new Reporter(new EventBus()),
             DUMMY_STACK);
     assertThat(rule.containsErrors()).isFalse();
@@ -172,6 +175,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                     pkgBuilder,
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
+                    true,
                     new Reporter(new EventBus()),
                     DUMMY_STACK));
     assertThat(e).hasMessageThat().contains("must be in the WORKSPACE file");
@@ -195,6 +199,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                     pkgBuilder,
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
+                    true,
                     new Reporter(new EventBus()),
                     DUMMY_STACK));
     assertThat(e).hasMessageThat().contains("cannot be in the WORKSPACE file");
@@ -230,6 +235,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                     pkgBuilder,
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
+                    true,
                     new Reporter(new EventBus()),
                     DUMMY_STACK));
     assertWithMessage(e.getMessage())

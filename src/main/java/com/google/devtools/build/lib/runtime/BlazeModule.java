@@ -15,10 +15,13 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.SubscriberExceptionHandler;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -282,6 +285,12 @@ public abstract class BlazeModule {
       BuildOptions buildOptions,
       ConfiguredTarget configuredTarget)
       throws InterruptedException, ViewCreationFailedException {}
+
+  public void afterSingleAspectAnalysis(BuildRequest request, ConfiguredAspect configuredTarget) {}
+
+  public void afterSingleTestAnalysis(BuildRequest request, ConfiguredTarget configuredTarget) {}
+
+  public void coverageArtifactsKnown(ImmutableSet<Artifact> coverageArtifacts) {}
 
   /**
    * Called when Bazel initializes the action execution subsystem. This is called once per build if

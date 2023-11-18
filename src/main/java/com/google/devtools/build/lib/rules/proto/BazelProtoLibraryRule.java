@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
@@ -80,6 +81,11 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
 
         <p>The prefix in the <code>strip_import_prefix</code> attribute is removed before this
         prefix is added.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("allow_exports", LABEL).allowedFileTypes())
+        /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(allow_exports) -->
+        An optional allowlist that prevents proto library to be reexported or used in
+        lang_proto_library that is not in one of the listed packages.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("import_prefix", STRING))
         .build();

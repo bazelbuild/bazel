@@ -83,7 +83,8 @@ public final class PropellerOptimizeInputFile implements HasFileType {
   }
 
   @Nullable
-  public static Artifact getAbsolutePathArtifact(RuleContext ruleContext, String attributeName) {
+  public static Artifact getAbsolutePathArtifact(RuleContext ruleContext, String attributeName)
+      throws InterruptedException {
     String pathString = ruleContext.getExpander().expand(attributeName);
     PathFragment absolutePath = PathFragment.create(pathString);
     if (!ruleContext.getFragment(CppConfiguration.class).isFdoAbsolutePathEnabled()) {
@@ -100,7 +101,8 @@ public final class PropellerOptimizeInputFile implements HasFileType {
   }
 
   @Nullable
-  public static PropellerOptimizeInputFile fromProfileRule(RuleContext ruleContext) {
+  public static PropellerOptimizeInputFile fromProfileRule(RuleContext ruleContext)
+      throws InterruptedException {
 
     boolean isCcProfile =
         ruleContext.attributes().isAttributeValueExplicitlySpecified("cc_profile");

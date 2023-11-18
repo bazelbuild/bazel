@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.worker;
 
 import com.google.common.base.Throwables;
 import com.google.common.eventbus.EventBus;
+import com.google.common.flogger.GoogleLogger;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -31,6 +32,8 @@ import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
  */
 @ThreadSafe
 final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
    * The subtrahend for maximal toal number of object per key. Unfortunately
@@ -61,6 +64,9 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
     // Don't limit the total number of worker processes, as otherwise the pool might be full of
     // workers for one WorkerKey and can't accommodate a worker for another WorkerKey.
     config.setMaxTotal(-1);
+
+    // Don't limit number of workers to check during eviction
+    config.setNumTestsPerEvictionRun(Integer.MAX_VALUE);
 
     // Wait for a worker to become ready when a thread needs one.
     config.setBlockWhenExhausted(true);
@@ -93,12 +99,14 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
   @Override
   public void invalidateObject(WorkerKey key, Worker obj) throws InterruptedException {
     try {
+      boolean wasPendingEviction = obj.getStatus().isPendingEviction();
       super.invalidateObject(key, obj);
-      if (obj.isDoomed()) {
+      if (wasPendingEviction && obj.getStatus().isKilled()) {
         if (eventBus != null) {
-          eventBus.post(new WorkerEvictedEvent(key.hashCode(), key.getMnemonic()));
+          eventBus.post(
+              new WorkerEvictedEvent(obj.getWorkerId(), key.hashCode(), key.getMnemonic()));
         }
-        updateShrunkBy(key);
+        updateShrunkBy(key, obj.getWorkerId());
       }
     } catch (Throwable t) {
       Throwables.propagateIfPossible(t, InterruptedException.class);
@@ -108,12 +116,13 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
 
   @Override
   public void returnObject(WorkerKey key, Worker obj) {
+    boolean wasPendingEviction = obj.getStatus().isPendingEviction();
     super.returnObject(key, obj);
-    if (obj.isDoomed()) {
+    if (wasPendingEviction && obj.getStatus().isKilled()) {
       if (eventBus != null) {
-        eventBus.post(new WorkerEvictedEvent(key.hashCode(), key.getMnemonic()));
+        eventBus.post(new WorkerEvictedEvent(obj.getWorkerId(), key.hashCode(), key.getMnemonic()));
       }
-      updateShrunkBy(key);
+      updateShrunkBy(key, obj.getWorkerId());
     }
   }
 
@@ -121,10 +130,13 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
     return getMaxTotalPerKey() - shrunkBy.getOrDefault(key, 0);
   }
 
-  private synchronized void updateShrunkBy(WorkerKey workerKey) {
+  private synchronized void updateShrunkBy(WorkerKey workerKey, int workerId) {
     int currentValue = shrunkBy.getOrDefault(workerKey, 0);
     if (getMaxTotalPerKey() - currentValue > 1) {
-      shrunkBy.put(workerKey, currentValue + 1);
+      int newValue = currentValue + 1;
+      logger.atInfo().log(
+          "shrinking %s (worker-%d) by %d.", workerKey.getMnemonic(), workerId, newValue);
+      shrunkBy.put(workerKey, newValue);
     }
   }
 

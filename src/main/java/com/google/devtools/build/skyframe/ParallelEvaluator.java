@@ -66,7 +66,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       EventFilter storedEventFilter,
       ErrorInfoManager errorInfoManager,
       boolean keepGoing,
-      DirtyTrackingProgressReceiver progressReceiver,
+      InflightTrackingProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       QuiescingExecutor executor,
       CycleDetector cycleDetector,
@@ -144,7 +144,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
         // in order to be thread-safe.
         switch (entry.addReverseDepAndCheckIfDone(null)) {
           case NEEDS_SCHEDULING:
-            evaluatorContext.getVisitor().enqueueEvaluation(skyKey, entry.getPriority(), null);
+            evaluatorContext.getVisitor().enqueueEvaluation(skyKey, null);
             break;
           case DONE:
             informProgressReceiverThatValueIsDone(skyKey, entry);
@@ -216,6 +216,9 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
             "Scheduler exception only thrown for catastrophe in keep_going evaluation: %s",
             e);
         catastrophe = true;
+        // For b/287183296
+        logger.atInfo().withCause(e).log(
+            "Catastrophic exception in --keep_going mode while evaluating SkyKey: %s", errorKey);
       }
     }
     Preconditions.checkState(
@@ -387,7 +390,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       Preconditions.checkNotNull(parentEntry, "%s %s", errorKey, parent);
       SkyFunction skyFunction = evaluatorContext.getSkyFunctions().get(parent.functionName());
       if (parentEntry.isDirty()) {
-        switch (parentEntry.getDirtyState()) {
+        switch (parentEntry.getLifecycleState()) {
           case CHECK_DEPENDENCIES:
             // If this value's child was bubbled up to, it did not signal this value, and so we must
             // manually make it ready to build.
@@ -396,11 +399,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
           case NEEDS_REBUILDING:
             maybeMarkRebuilding(parentEntry);
             break;
-          case NEEDS_FORCED_REBUILDING:
-            parentEntry.forceRebuild();
-            break;
           case REBUILDING:
-          case FORCED_REBUILDING:
             break;
           default:
             throw new AssertionError(parent + " not in valid dirty state: " + parentEntry);
@@ -549,6 +548,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       }
     }
     if (!cycleRoots.isEmpty()) {
+      logger.atInfo().log("Detecting cycles with roots: %s", cycleRoots);
       cycleDetector.checkForCycles(cycleRoots, result, evaluatorContext);
     }
     Preconditions.checkState(
@@ -585,7 +585,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       Map<SkyKey, Delta> injectionMap,
       Version version,
       ProcessableGraph graph,
-      DirtyTrackingProgressReceiver progressReceiver)
+      InflightTrackingProgressReceiver progressReceiver)
       throws InterruptedException {
     NodeBatch prevNodeEntries =
         graph.createIfAbsentBatch(null, Reason.OTHER, injectionMap.keySet());

@@ -160,7 +160,6 @@ def _cc_import_impl(ctx):
         public_hdrs = ctx.files.hdrs,
         includes = ctx.attr.includes,
         name = ctx.label.name,
-        grep_includes = ctx.attr._grep_includes.files_to_run.executable,
     )
 
     this_cc_info = CcInfo(compilation_context = compilation_context, linking_context = linking_context)
@@ -200,17 +199,10 @@ cc_import = rule(
             allow_files = True,
             flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
         ),
-        "_grep_includes": attr.label(
-            allow_files = True,
-            executable = True,
-            cfg = "exec",
-            default = Label("@" + semantics.get_repo() + "//tools/cpp:grep-includes"),
-        ),
         "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
         "_use_auto_exec_groups": attr.bool(default = True),
     },
     provides = [CcInfo],
     toolchains = cc_helper.use_cpp_toolchain(),
     fragments = ["cpp"],
-    incompatible_use_toolchain_transition = True,
 )

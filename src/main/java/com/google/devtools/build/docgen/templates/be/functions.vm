@@ -36,7 +36,7 @@
 <pre>
 package(default_deprecation, default_package_metadata, default_testonly, default_visibility, features)
 </pre>
-<p>This function declares metadata that applies to every subsequent rule in the
+<p>This function declares metadata that applies to every rule in the
 package. It is used at most once within a package (BUILD file).</p>
 
 <p>The package() function should be called right after all the load() statements at the top of the
@@ -65,7 +65,7 @@ file, before any rule.</p>
     <tr>
       <td id="package.default_visibility"><code>default_visibility</code></td>
       <td>
-        <p><code>List of <a href="$expander.expandRef("build-ref#labels")">labels</a>; optional</code></p>
+        <p>List of <a href="$expander.expandRef("build-ref#labels")">labels</a>; default is <code>[]</code></p>
         <p>The default visibility of the rules in this package.</p>
         <p>Every rule in this package has the visibility specified in this
         attribute, unless otherwise specified in the <code>visibility</code>
@@ -79,7 +79,7 @@ file, before any rule.</p>
     <tr>
       <td id="package.default_deprecation"><code>default_deprecation</code></td>
       <td>
-        <p><code>String; optional</code></p>
+        <p>String; default is <code>""</code></p>
         <p>Sets the default <a href="common-definitions.html#common.deprecation">
         <code>deprecation</code></a> message for all rules in this package.</p>
       </td>
@@ -87,7 +87,7 @@ file, before any rule.</p>
     <tr>
       <td id="package.default_package_metadata"><code>default_package_metadata</code></td>
       <td>
-        <p><code>List of <a href="$expander.expandRef("build-ref#labels")">labels</a>; optional</code></p>
+        <p>List of <a href="$expander.expandRef("build-ref#labels")">labels</a>; default is <code>[]</code></p>
         <p>Sets a default list of metadata targets which apply to all other targets in the package.
         These are typically targets related to OSS package and license declarations.
         See <a href="https://github.com/bazelbuild/rules_license">rules_license</a> for examples.</p>
@@ -96,16 +96,16 @@ file, before any rule.</p>
     <tr>
       <td id="package.default_testonly"><code>default_testonly</code></td>
       <td>
-        <p><code>Boolean; optional; default is False except as noted</code></p>
+        <p>Boolean; default is <code>False</code> except as noted</p>
         <p>Sets the default <a href="common-definitions.html#common.testonly">
         <code>testonly</code></a> property for all rules in this package.</p>
-        <p>In packages under <code>javatests</code> the default value is 1.</p>
+        <p>In packages under <code>javatests</code> the default value is <code>True</code>.</p>
       </td>
     </tr>
     <tr>
       <td id="package.features"><code>features</code></td>
       <td>
-        <p><code>List strings; optional</code></p>
+        <p>List strings; default is <code>[]</code></p>
         <p>Sets various flags that affect the semantics of this BUILD file.</p>
         <p>This feature is mainly used by the people working on the build system to
         tag packages that need some kind of special handling. Do not use this unless
@@ -174,14 +174,14 @@ not themselves have any visibility protection.</p>
     <tr>
       <td id="package_group.name"><code>name</code></td>
       <td>
-        <p><code><a href="$expander.expandRef("build-ref#name")">Name</a>; required</code></p>
+        <p><a href="$expander.expandRef("build-ref#name")">Name</a>; required</p>
         <p>A unique name for this target.</p>
       </td>
     </tr>
     <tr>
       <td id="package_group.packages"><code>packages</code></td>
       <td>
-        <p><code>List of strings; optional</code></p>
+        <p>List of strings; default is <code>[]</code></p>
         <p>A list of zero or more package specifications.</p>
 
         <p>Each package specification string can have one of the following
@@ -241,7 +241,7 @@ not themselves have any visibility protection.</p>
     <tr>
       <td id="package_group.includes"><code>includes</code></td>
       <td>
-        <p><code>List of <a href="$expander.expandRef("build-ref#labels")">labels</a>; optional</code></p>
+        <p>List of <a href="$expander.expandRef("build-ref#labels")">labels</a>; default is <code>[]</code></p>
         <p>Other package groups that are included in this one.</p>
 
         <p>The labels in this attribute must refer to other package groups.

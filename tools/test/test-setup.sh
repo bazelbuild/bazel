@@ -102,6 +102,7 @@ export -n TEST_UNDECLARED_OUTPUTS_ANNOTATIONS
 if [[ -n "${TEST_TOTAL_SHARDS+x}" ]] && ((TEST_TOTAL_SHARDS != 0)); then
   export GTEST_SHARD_INDEX="${TEST_SHARD_INDEX}"
   export GTEST_TOTAL_SHARDS="${TEST_TOTAL_SHARDS}"
+  export GTEST_SHARD_STATUS_FILE="${TEST_SHARD_STATUS_FILE}"
 fi
 export GTEST_TMP_DIR="${TEST_TMPDIR}"
 
@@ -322,11 +323,13 @@ if [[ "${EXPERIMENTAL_SPLIT_XML_GENERATION}" == "1" ]]; then
     ("$1" "$TEST_PATH" "${@:3}" 2>&1) <&0 &
   fi
 else
+  set -o pipefail
   if [ -z "$COVERAGE_DIR" ]; then
     ("${TEST_PATH}" "$@" 2>&1 | tee -a "${XML_OUTPUT_FILE}.log") <&0 &
   else
     ("$1" "$TEST_PATH" "${@:3}" 2>&1 | tee -a "${XML_OUTPUT_FILE}.log") <&0 &
   fi
+  set +o pipefail
 fi
 childPid=$!
 
@@ -347,7 +350,7 @@ childPid=$!
  done
  # Parent process not found - we've been abandoned! Clean up test processes.
  kill_group SIGKILL $childPid
-) &
+) &>/dev/null &
 cleanupPid=$!
 
 set +m
@@ -424,9 +427,14 @@ if [[ -n "$TEST_UNDECLARED_OUTPUTS_ZIP" ]] && cd "$TEST_UNDECLARED_OUTPUTS_DIR";
     # Otherwise echo printed the top-level files and directories.
     # Pass files to zip with *, so paths with spaces aren't broken up.
     # Remove original files after zipping them.
-    zip -qrm "$TEST_UNDECLARED_OUTPUTS_ZIP" -- * 2>/dev/null || \
-        echo >&2 "Could not create \"$TEST_UNDECLARED_OUTPUTS_ZIP\": zip not found or failed"
+    if ! zip_output="$(zip -qrm "$TEST_UNDECLARED_OUTPUTS_ZIP" -- * 2>&1)"; then
+        echo >&2 "Could not create \"$TEST_UNDECLARED_OUTPUTS_ZIP\": $zip_output"
+    fi
   fi
 fi
 
+# Raise the original signal if the test terminated abnormally.
+if [ $exitCode -gt 128 ]; then
+  kill -$(($exitCode - 128)) $$ &> /dev/null
+fi
 exit $exitCode

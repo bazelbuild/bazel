@@ -143,6 +143,7 @@ public final class Utils {
 
   /** Constructs a {@link SpawnResult}. */
   public static SpawnResult createSpawnResult(
+      DigestUtil digestUtil,
       ActionKey actionKey,
       int exitCode,
       boolean cacheHit,
@@ -168,9 +169,7 @@ public final class Utils {
                         .toMillis())
             .setSpawnMetrics(spawnMetrics)
             .setRemote(true)
-            .setDigest(
-                SpawnResult.Digest.of(
-                    actionKey.getDigest().getHash(), actionKey.getDigest().getSizeBytes()));
+            .setDigest(digestUtil.asSpawnLogProto(actionKey));
     if (exitCode != 0) {
       builder.setFailureDetail(
           FailureDetail.newBuilder()
@@ -186,7 +185,7 @@ public final class Utils {
     return builder.build();
   }
 
-  private static Instant timestampToInstant(Timestamp timestamp) {
+  public static Instant timestampToInstant(Timestamp timestamp) {
     return Instant.ofEpochSecond(timestamp.getSeconds(), timestamp.getNanos());
   }
 

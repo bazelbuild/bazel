@@ -5,6 +5,7 @@
 # and tools_android.
 
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load("//tools/android:android_genrule.bzl", "android_genrule")
 
 filegroup(
     name = "srcs",
@@ -67,11 +68,13 @@ EOF
     stamp = True,
 )
 
-genrule(
+# Needs to switch to dependencies to an android config.
+android_genrule(
     name = "desugar_jdk_libs",
     srcs = ["@desugar_jdk_libs"],
-    outs = ["desugar_jdk_libs.jar"],
+    out = "desugar_jdk_libs.jar",
     cmd = "cp $< $@",
+    platform = "//tools/android:arm64-v8a",
 )
 
 pkg_tar(

@@ -14,13 +14,21 @@
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
 import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.FilesToRunProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Common utilities for Starlark rules related to Android. */
@@ -32,7 +40,11 @@ import net.starlark.java.eval.StarlarkValue;
             + "Common utilities and functionality related to Android rules.",
     documented = false)
 public interface AndroidStarlarkCommonApi<
-        FileT extends FileApi, JavaInfoT extends JavaInfoApi<?, ?, ?>>
+        FileT extends FileApi,
+        JavaInfoT extends JavaInfoApi<?, ?, ?>,
+        FilesToRunProviderT extends FilesToRunProviderApi<FileT>,
+        ConstraintValueT extends ConstraintValueInfoApi,
+        StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>>
     extends StarlarkValue {
 
   @StarlarkMethod(
@@ -98,5 +110,50 @@ public interface AndroidStarlarkCommonApi<
             positional = true,
             defaultValue = "False")
       })
-  JavaInfoT enableImplicitSourcelessDepsExportsCompatibility(JavaInfoT javaInfo, boolean neverlink);
+  JavaInfoT enableImplicitSourcelessDepsExportsCompatibility(Info javaInfo, boolean neverlink)
+      throws RuleErrorException;
+
+  @StarlarkMethod(
+      name = "create_dex_merger_actions",
+      doc =
+          "Creates a list of DexMerger actions to be run in parallel, each action taking one shard"
+              + " from the input directory, merging all the dex archives inside the shard to a"
+              + " single dexarchive under the output directory.",
+      documented = false,
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
+      parameters = {
+        @Param(name = "ctx", doc = "The rule context.", positional = true, named = false),
+        @Param(
+            name = "output",
+            doc = "The output directory.",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = FileApi.class)}),
+        @Param(
+            name = "input",
+            doc = "The input directory.",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = FileApi.class)}),
+        @Param(
+            name = "dexopts",
+            doc = "A list of additional command-line flags for the dx tool. Optional",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            defaultValue = "[]"),
+        @Param(
+            name = "dexmerger",
+            doc = "A FilesToRunProvider to be used for dex merging.",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = FilesToRunProviderApi.class)})
+      })
+  void createDexMergerActions(
+      StarlarkRuleContextT starlarkRuleContext,
+      FileT output,
+      FileT input,
+      Sequence<?> dexopts, // <String> expected.
+      FilesToRunProviderT dexmerger)
+      throws EvalException, RuleErrorException;
 }

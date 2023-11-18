@@ -241,10 +241,10 @@ public class AndroidNdkRepositoryTest extends AndroidBuildViewTestCase {
     Rule rule = cpufeatures.getTargetForTesting().getAssociatedRule();
     assertThat(rule.isAttributeValueExplicitlySpecified("srcs")).isTrue();
     assertThat(rule.getAttr("srcs").toString())
-        .isEqualTo("[@androidndk//:ndk/sources/android/cpufeatures/cpu-features.c]");
+        .isEqualTo("[@@androidndk//:ndk/sources/android/cpufeatures/cpu-features.c]");
     assertThat(rule.isAttributeValueExplicitlySpecified("hdrs")).isTrue();
     assertThat(rule.getAttr("hdrs").toString())
-        .isEqualTo("[@androidndk//:ndk/sources/android/cpufeatures/cpu-features.h]");
+        .isEqualTo("[@@androidndk//:ndk/sources/android/cpufeatures/cpu-features.h]");
   }
 
   @Test

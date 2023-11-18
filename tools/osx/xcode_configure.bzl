@@ -71,6 +71,7 @@ def _xcode_version_output(repository_ctx, name, version, aliases, developer_dir,
     ios_sdk_version = _search_sdk_output(xcodebuild_result.stdout, "iphoneos")
     tvos_sdk_version = _search_sdk_output(xcodebuild_result.stdout, "appletvos")
     macos_sdk_version = _search_sdk_output(xcodebuild_result.stdout, "macosx")
+    visionos_sdk_version = _search_sdk_output(xcodebuild_result.stdout, "xros")
     watchos_sdk_version = _search_sdk_output(xcodebuild_result.stdout, "watchos")
     build_contents += "xcode_version(\n  name = '%s'," % name
     build_contents += "\n  version = '%s'," % version
@@ -82,6 +83,8 @@ def _xcode_version_output(repository_ctx, name, version, aliases, developer_dir,
         build_contents += "\n  default_tvos_sdk_version = '%s'," % tvos_sdk_version
     if macos_sdk_version:
         build_contents += "\n  default_macos_sdk_version = '%s'," % macos_sdk_version
+    if visionos_sdk_version:
+        build_contents += "\n  default_visionos_sdk_version = '%s'," % visionos_sdk_version
     if watchos_sdk_version:
         build_contents += "\n  default_watchos_sdk_version = '%s'," % watchos_sdk_version
     build_contents += "\n)\n"
@@ -292,8 +295,12 @@ def _impl(repository_ctx):
     repository_ctx.file("BUILD", build_contents)
 
 xcode_autoconf = repository_rule(
+    environ = [
+        "DEVELOPER_DIR",
+        "XCODE_VERSION",
+    ],
     implementation = _impl,
-    local = True,
+    configure = True,
     attrs = {
         "xcode_locator": attr.string(),
         "remote_xcode": attr.string(),

@@ -68,7 +68,7 @@ public class LinuxSandboxCommandLineBuilder {
   private boolean useFakeRoot = false;
   private boolean useFakeUsername = false;
   private boolean enablePseudoterminal = false;
-  private boolean useDebugMode = false;
+  private String sandboxDebugPath = null;
   private boolean sigintSendsSigterm = false;
   private String cgroupsDir;
 
@@ -218,10 +218,10 @@ public class LinuxSandboxCommandLineBuilder {
     return this;
   }
 
-  /** Sets whether to enable debug mode (e.g. to print debugging messages). */
+  /** Sets the output path for sandbox debugging messages. */
   @CanIgnoreReturnValue
-  public LinuxSandboxCommandLineBuilder setUseDebugMode(boolean useDebugMode) {
-    this.useDebugMode = useDebugMode;
+  public LinuxSandboxCommandLineBuilder setSandboxDebugPath(String sandboxDebugPath) {
+    this.sandboxDebugPath = sandboxDebugPath;
     return this;
   }
 
@@ -306,8 +306,8 @@ public class LinuxSandboxCommandLineBuilder {
     if (enablePseudoterminal) {
       commandLineBuilder.add("-P");
     }
-    if (useDebugMode) {
-      commandLineBuilder.add("-D");
+    if (sandboxDebugPath != null) {
+      commandLineBuilder.add("-D", sandboxDebugPath);
     }
     if (sigintSendsSigterm) {
       commandLineBuilder.add("-i");

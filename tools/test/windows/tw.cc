@@ -615,7 +615,10 @@ bool ExportGtestVariables(const Path& test_tmpdir) {
   }
   if (total_shards_value > 0) {
     std::wstring shard_index;
-    if (!GetEnv(L"TEST_SHARD_INDEX", &shard_index) ||
+    std::wstring shard_status_file;
+    if (!GetEnv(L"TEST_SHARD_STATUS_FILE", &shard_status_file) ||
+        !GetEnv(L"TEST_SHARD_INDEX", &shard_index) ||
+        !SetEnv(L"GTEST_SHARD_STATUS_FILE", shard_status_file) ||
         !SetEnv(L"GTEST_SHARD_INDEX", shard_index) ||
         !SetEnv(L"GTEST_TOTAL_SHARDS", total_shards_str)) {
       return false;

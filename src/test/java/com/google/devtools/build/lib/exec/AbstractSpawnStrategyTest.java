@@ -27,14 +27,21 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -53,30 +60,36 @@ import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.io.MessageOutputStream;
+import com.google.devtools.build.lib.vfs.DelegateFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
-import com.google.protobuf.Duration;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 /** Tests for {@link BlazeExecutor}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class AbstractSpawnStrategyTest {
   private static final FailureDetail NON_ZERO_EXIT_DETAILS =
       FailureDetail.newBuilder()
           .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.NON_ZERO_EXIT))
           .build();
+
+  private static final Digest DIGEST =
+      Digest.newBuilder().setHash("abc123").setSizeBytes(42).setHashFunctionName("SHA-256").build();
 
   private static class TestedSpawnStrategy extends AbstractSpawnStrategy {
     public TestedSpawnStrategy(Path execRoot, SpawnRunner spawnRunner) {
@@ -91,17 +104,37 @@ public class AbstractSpawnStrategyTest {
   private final Path execRoot = fs.getPath("/execroot");
   private Scratch scratch;
   private ArtifactRoot rootDir;
+  private ArtifactRoot outputDir;
   @Mock private SpawnRunner spawnRunner;
   @Mock private ActionExecutionContext actionExecutionContext;
-  @Mock private MessageOutputStream messageOutput;
+  @Mock private MessageOutputStream<SpawnExec> messageOutput;
   private StoredEventHandler eventHandler;
   private final ManualClock clock = new ManualClock();
+
+  // A fake action filesystem that provides a fast digest, but refuses to compute it from the
+  // file contents (which won't be available when building without the bytes).
+  private static final class FakeActionFileSystem extends DelegateFileSystem {
+    FakeActionFileSystem(FileSystem delegateFs) {
+      super(delegateFs);
+    }
+
+    @Override
+    protected byte[] getFastDigest(PathFragment path) throws IOException {
+      return super.getDigest(path);
+    }
+
+    @Override
+    protected byte[] getDigest(PathFragment path) throws IOException {
+      throw new UnsupportedOperationException();
+    }
+  }
 
   @Before
   public final void setUp() throws Exception {
     MockitoAnnotations.initMocks(this);
     scratch = new Scratch(fs);
     rootDir = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/execroot")));
+    outputDir = ArtifactRoot.asDerivedRoot(scratch.dir("/execroot"), RootType.Output, "out");
     eventHandler = new StoredEventHandler();
     when(actionExecutionContext.getEventHandler()).thenReturn(eventHandler);
     when(actionExecutionContext.getClock()).thenReturn(clock);
@@ -329,21 +362,43 @@ public class AbstractSpawnStrategyTest {
     verify(entry).store(eq(result));
   }
 
-  @Test
-  public void testLogSpawn() throws Exception {
-    setUpExecutionContext(/* executionOptions= */ null, /* remoteOptions= */ null);
+  enum LogSpawnMode {
+    WITH_BYTES,
+    WITHOUT_BYTES
+  };
 
-    Artifact input = ActionsTestUtil.createArtifact(rootDir, scratch.file("/execroot/foo", "1"));
-    scratch.file("/execroot/out1", "123");
-    scratch.file("/execroot/out2", "123");
+  @Test
+  public void testLogSpawn(@TestParameter LogSpawnMode mode) throws Exception {
+    Artifact fileInput = ActionsTestUtil.createArtifact(rootDir, "file");
+    Artifact dirInput = ActionsTestUtil.createArtifact(rootDir, "dir");
+
+    Artifact fileOutput = ActionsTestUtil.createArtifact(outputDir, "file");
+    Artifact dirOutput = ActionsTestUtil.createArtifact(outputDir, "dir");
+
+    scratch.file(fileInput.getPath().toString(), "1");
+    scratch.file(dirInput.getPath().getChild("child").toString(), "2");
+    scratch.file(fileOutput.getPath().toString(), "3");
+    scratch.file(dirOutput.getPath().getChild("child").toString(), "4");
+
+    ImmutableMap<ActionInput, FileArtifactValue> inputMetadata =
+        ImmutableMap.of(
+            fileInput, FileArtifactValue.createForTesting(fileInput),
+            dirInput, FileArtifactValue.createForTesting(dirInput));
+
+    if (mode.equals(LogSpawnMode.WITHOUT_BYTES)) {
+      FileSystem actionFs = new FakeActionFileSystem(fs);
+      setUpExecutionContext(inputMetadata, actionFs, Options.getDefaults(RemoteOptions.class));
+    } else {
+      setUpExecutionContext();
+    }
+
     Spawn spawn =
         new SpawnBuilder("/bin/echo", "Foo!")
             .withEnvironment("FOO", "v1")
             .withEnvironment("BAR", "v2")
             .withMnemonic("MyMnemonic")
-            .withProgressMessage("my progress message")
-            .withInput(input)
-            .withOutputs("out2", "out1")
+            .withInputs(fileInput, dirInput)
+            .withOutputs(fileOutput, dirOutput)
             .build();
     assertThrows(
         SpawnExecException.class,
@@ -359,7 +414,18 @@ public class AbstractSpawnStrategyTest {
                 EnvironmentVariable.newBuilder().setName("FOO").setValue("v1").build())
             .addInputs(
                 File.newBuilder()
-                    .setPath("foo")
+                    .setPath("dir/child")
+                    .setDigest(
+                        Digest.newBuilder()
+                            .setHash(
+                                "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3")
+                            .setSizeBytes(2)
+                            .setHashFunctionName("SHA-256")
+                            .build())
+                    .build())
+            .addInputs(
+                File.newBuilder()
+                    .setPath("file")
                     .setDigest(
                         Digest.newBuilder()
                             .setHash(
@@ -368,27 +434,27 @@ public class AbstractSpawnStrategyTest {
                             .setHashFunctionName("SHA-256")
                             .build())
                     .build())
-            .addListedOutputs("out1")
-            .addListedOutputs("out2")
+            .addListedOutputs("out/dir")
+            .addListedOutputs("out/file")
             .addActualOutputs(
                 File.newBuilder()
-                    .setPath("out1")
+                    .setPath("out/dir/child")
                     .setDigest(
                         Digest.newBuilder()
                             .setHash(
-                                "181210f8f9c779c26da1d9b2075bde0127302ee0e3fca38c9a83f5b1dd8e5d3b")
-                            .setSizeBytes(4)
+                                "7de1555df0c2700329e815b93b32c571c3ea54dc967b89e81ab73b9972b72d1d")
+                            .setSizeBytes(2)
                             .setHashFunctionName("SHA-256")
                             .build())
                     .build())
             .addActualOutputs(
                 File.newBuilder()
-                    .setPath("out2")
+                    .setPath("out/file")
                     .setDigest(
                         Digest.newBuilder()
                             .setHash(
-                                "181210f8f9c779c26da1d9b2075bde0127302ee0e3fca38c9a83f5b1dd8e5d3b")
-                            .setSizeBytes(4)
+                                "1121cfccd5913f0a63fec40a6ffd44ea64f9dc135c66634ba001d10bcf4302a2")
+                            .setSizeBytes(2)
                             .setHashFunctionName("SHA-256")
                             .build())
                     .build())
@@ -397,18 +463,18 @@ public class AbstractSpawnStrategyTest {
             .setRemotable(true)
             .setCacheable(true)
             .setRemoteCacheable(true)
-            .setProgressMessage("my progress message")
             .setMnemonic("MyMnemonic")
             .setRunner("runner")
-            .setWalltime(Duration.getDefaultInstance())
             .setTargetLabel("//dummy:label")
+            .setMetrics(Protos.SpawnMetrics.getDefaultInstance())
+            .setDigest(DIGEST)
             .build();
     verify(messageOutput).write(expectedSpawnLog);
   }
 
   @Test
   public void testLogSpawn_noPlatform_noLoggedPlatform() throws Exception {
-    setUpExecutionContext(/* executionOptions= */ null, /* remoteOptions= */ null);
+    setUpExecutionContext();
 
     Spawn spawn = new SpawnBuilder("cmd").build();
 
@@ -435,7 +501,7 @@ public class AbstractSpawnStrategyTest {
             " value: \"1\"",
             "}");
 
-    setUpExecutionContext(/* executionOptions= */ null, remoteOptions);
+    setUpExecutionContext(remoteOptions);
     Spawn spawn = new SpawnBuilder("cmd").build();
     assertThrows(
         SpawnExecException.class,
@@ -451,11 +517,62 @@ public class AbstractSpawnStrategyTest {
   }
 
   @Test
-  public void testLogSpawn_spawnMetrics() throws Exception {
-    ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
-    executionOptions.executionLogSpawnMetrics = true;
+  public void testLogSpawn_toolInputs() throws Exception {
+    Artifact toolFile = ActionsTestUtil.createArtifact(rootDir, "tool.file");
+    SpecialArtifact toolDir =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputDir, "tool.dir");
 
-    setUpExecutionContext(executionOptions, /* remoteOptions= */ null);
+    scratch.file("/execroot/tool.file", "123");
+    scratch.file("/execroot/out/tool.dir/tool.file", "456");
+
+    setUpExecutionContext(/* remoteOptions= */ null);
+    when(actionExecutionContext.getArtifactExpander())
+        .thenReturn(
+            (artifact, output) -> {
+              if (artifact.equals(toolDir)) {
+                output.add(TreeFileArtifact.createTreeOutput(toolDir, "tool.file"));
+              }
+            });
+    Spawn spawn =
+        new SpawnBuilder("cmd").withInputs(toolFile, toolDir).withTools(toolFile, toolDir).build();
+    assertThrows(
+        SpawnExecException.class,
+        () -> new TestedSpawnStrategy(execRoot, spawnRunner).exec(spawn, actionExecutionContext));
+
+    SpawnExec expected =
+        defaultSpawnExecBuilder("cmd")
+            .addInputs(
+                File.newBuilder()
+                    .setPath("out/tool.dir/tool.file")
+                    .setDigest(
+                        Digest.newBuilder()
+                            .setHash(
+                                "cdfba543ee8ef7fdb3d8b587648cc22dd792bbd6272cc5447307c7c106c2374c")
+                            .setSizeBytes(4)
+                            .setHashFunctionName("SHA-256")
+                            .build())
+                    .setIsTool(true)
+                    .build())
+            .addInputs(
+                File.newBuilder()
+                    .setPath("tool.file")
+                    .setDigest(
+                        Digest.newBuilder()
+                            .setHash(
+                                "181210f8f9c779c26da1d9b2075bde0127302ee0e3fca38c9a83f5b1dd8e5d3b")
+                            .setSizeBytes(4)
+                            .setHashFunctionName("SHA-256")
+                            .build())
+                    .setIsTool(true)
+                    .build())
+            .build();
+
+    verify(messageOutput).write(expected);
+  }
+
+  @Test
+  public void testLogSpawn_spawnMetrics() throws Exception {
+    setUpExecutionContext(/* remoteOptions= */ null);
 
     assertThrows(
         SpawnExecException.class,
@@ -463,7 +580,7 @@ public class AbstractSpawnStrategyTest {
             new TestedSpawnStrategy(execRoot, spawnRunner)
                 .exec(SIMPLE_SPAWN, actionExecutionContext));
 
-    verify(messageOutput).write(argThat((m) -> ((SpawnExec) m).hasMetrics()));
+    verify(messageOutput).write(argThat(SpawnExec::hasMetrics));
   }
 
   @Test
@@ -480,7 +597,7 @@ public class AbstractSpawnStrategyTest {
             " name: \"a\"",
             " value: \"1\"",
             "}");
-    setUpExecutionContext(/* executionOptions= */ null, remoteOptions);
+    setUpExecutionContext(remoteOptions);
 
     PlatformInfo platformInfo =
         PlatformInfo.builder()
@@ -514,14 +631,33 @@ public class AbstractSpawnStrategyTest {
     verify(messageOutput).write(expected); // output will reflect default properties
   }
 
-  private void setUpExecutionContext(ExecutionOptions executionOptions, RemoteOptions remoteOptions)
+  private void setUpExecutionContext() throws Exception {
+    setUpExecutionContext(Options.getDefaults(RemoteOptions.class));
+  }
+
+  private void setUpExecutionContext(RemoteOptions remoteOptions) throws Exception {
+    setUpExecutionContext(ImmutableMap.of(), fs, remoteOptions);
+  }
+
+  private void setUpExecutionContext(
+      ImmutableMap<ActionInput, FileArtifactValue> inputMetadata,
+      FileSystem actionFs,
+      RemoteOptions remoteOptions)
       throws Exception {
     when(actionExecutionContext.getContext(eq(SpawnCache.class))).thenReturn(SpawnCache.NO_CACHE);
     when(actionExecutionContext.getExecRoot()).thenReturn(execRoot);
+    when(actionExecutionContext.getActionFileSystem()).thenReturn(actionFs);
+    when(actionExecutionContext.getInputMetadataProvider())
+        .thenReturn(new StaticInputMetadataProvider(inputMetadata));
     when(actionExecutionContext.getContext(eq(SpawnLogContext.class)))
         .thenReturn(
             new SpawnLogContext(
-                execRoot, messageOutput, executionOptions, remoteOptions, SyscallCache.NO_CACHE));
+                execRoot.asFragment(),
+                messageOutput,
+                Options.getDefaults(ExecutionOptions.class),
+                remoteOptions,
+                DigestHashFunction.SHA256,
+                SyscallCache.NO_CACHE));
     when(spawnRunner.exec(any(Spawn.class), any(SpawnExecutionContext.class)))
         .thenReturn(
             new SpawnResult.Builder()
@@ -529,6 +665,7 @@ public class AbstractSpawnStrategyTest {
                 .setExitCode(23)
                 .setFailureDetail(NON_ZERO_EXIT_DETAILS)
                 .setRunnerName("runner")
+                .setDigest(DIGEST)
                 .build());
     when(actionExecutionContext.getInputMetadataProvider())
         .thenReturn(mock(InputMetadataProvider.class));
@@ -540,13 +677,13 @@ public class AbstractSpawnStrategyTest {
         .addCommandArgs(cmd)
         .setRemotable(true)
         .setCacheable(true)
-        .setProgressMessage("progress message")
         .setMnemonic("Mnemonic")
         .setRunner("runner")
         .setStatus("NON_ZERO_EXIT")
         .setExitCode(23)
         .setRemoteCacheable(true)
-        .setWalltime(Duration.getDefaultInstance())
-        .setTargetLabel("//dummy:label");
+        .setTargetLabel("//dummy:label")
+        .setDigest(DIGEST)
+        .setMetrics(Protos.SpawnMetrics.getDefaultInstance());
   }
 }

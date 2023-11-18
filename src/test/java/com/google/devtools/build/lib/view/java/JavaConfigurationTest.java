@@ -48,13 +48,15 @@ public class JavaConfigurationTest extends ConfigurationTestCase {
 
   @Test
   public void testHostCrosstoolTop() throws Exception {
-    BuildConfigurationValue config = createConfiguration();
+    BuildConfigurationValue config =
+        createConfiguration("--noincompatible_enable_cc_toolchain_resolution");
     assertThat(config.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
         .isEqualTo(
             Label.parseCanonicalUnchecked(
                 TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain"));
 
-    BuildConfigurationValue execConfig = createExec();
+    BuildConfigurationValue execConfig =
+        createExec("--noincompatible_enable_cc_toolchain_resolution");
     assertThat(execConfig.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
         .isEqualTo(
             Label.parseCanonicalUnchecked(

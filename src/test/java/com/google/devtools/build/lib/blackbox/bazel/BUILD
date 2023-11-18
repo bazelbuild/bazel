@@ -29,6 +29,9 @@ java_library(
     srcs = [
         "RunfilesUtil.java",
     ],
+    data = [
+        "//src/test/tools/bzlmod:MODULE.bazel.lock",
+    ],
     exports = [
         "//src/test/java/com/google/devtools/build/lib/blackbox:base_deps",
         "//src/test/java/com/google/devtools/build/lib/blackbox/framework",

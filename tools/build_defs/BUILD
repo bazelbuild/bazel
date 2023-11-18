@@ -1,6 +1,8 @@
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//tools/build_defs/build_info:embedded_tools",
+        "//tools/build_defs/build_info/templates:embedded_tools",
         "//tools/build_defs/cc:srcs",
         "//tools/build_defs/cc/tests:cc_import_tests_files",
         "//tools/build_defs/cc/whitelists/parse_headers_and_layering_check:srcs",
@@ -16,6 +18,8 @@ filegroup(
 filegroup(
     name = "embedded_tools",
     srcs = glob(["**"]) + [
+        "//tools/build_defs/build_info:embedded_tools",
+        "//tools/build_defs/build_info/templates:embedded_tools",
         "//tools/build_defs/cc:srcs",
         "//tools/build_defs/cc/whitelists/parse_headers_and_layering_check:srcs",
         "//tools/build_defs/cc/whitelists/starlark_hdrs_check:srcs",
@@ -29,6 +33,7 @@ filegroup(
 filegroup(
     name = "bzl_srcs",
     srcs = [
+        "//tools/build_defs/build_info:bzl_srcs",
         "//tools/build_defs/cc:action_names.bzl",
         "//tools/build_defs/cc:cc_import.bzl",
         "//tools/build_defs/hash:hash.bzl",

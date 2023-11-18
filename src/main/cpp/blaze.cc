@@ -166,18 +166,6 @@ using std::vector;
 //   connections. It would also not be resilient against a dead server that
 //   left a PID file around.
 
-// The reason for a blaze server restart.
-// Keep in sync with logging.proto.
-enum RestartReason {
-  NO_RESTART = 0,
-  NO_DAEMON,
-  NEW_VERSION,
-  NEW_OPTIONS,
-  PID_FILE_BUT_NO_SERVER,
-  SERVER_VANISHED,
-  SERVER_UNRESPONSIVE
-};
-
 // String string representation of RestartReason.
 static const char *ReasonString(RestartReason reason) {
   switch (reason) {
@@ -202,45 +190,6 @@ static const char *ReasonString(RestartReason reason) {
   // Cannot actually reach this, but it makes the compiler happy.
   return "unknown";
 }
-
-struct DurationMillis {
-  const uint64_t millis;
-
-  DurationMillis() : millis(kUnknownDuration) {}
-  DurationMillis(const uint64_t ms) : millis(ms) {}
-
-  bool IsKnown() const { return millis == kUnknownDuration; }
-
- private:
-  // Value representing that a timing event never occurred or is unknown.
-  static constexpr uint64_t kUnknownDuration = 0;
-};
-
-// Encapsulates miscellaneous information reported to the server for logging and
-// profiling purposes.
-struct LoggingInfo {
-  explicit LoggingInfo(const string &binary_path_,
-                       const uint64_t start_time_ms_)
-      : binary_path(binary_path_),
-        start_time_ms(start_time_ms_),
-        restart_reason(NO_RESTART) {}
-
-  void SetRestartReasonIfNotSet(const RestartReason restart_reason_) {
-    if (restart_reason == NO_RESTART) {
-      restart_reason = restart_reason_;
-    }
-  }
-
-  // Path of this binary.
-  const string binary_path;
-
-  // The time in ms the binary started up, measured from approximately the time
-  // that "main" was called.
-  const uint64_t start_time_ms;
-
-  // The reason the server was restarted.
-  RestartReason restart_reason;
-};
 
 class BlazeServer final {
  public:
@@ -589,14 +538,14 @@ static void AddLoggingArgs(const LoggingInfo &logging_info,
 
   // The time in ms a command had to wait on a busy Blaze server process.
   // This is part of startup_time.
-  if (command_wait_duration_ms.IsKnown()) {
+  if (command_wait_duration_ms.IsUnknown()) {
     args->push_back("--command_wait_time=" +
                     blaze_util::ToString(command_wait_duration_ms.millis));
   }
 
   // The time in ms spent on extracting the new blaze version.
   // This is part of startup_time.
-  if (extract_data_duration.IsKnown()) {
+  if (extract_data_duration.IsUnknown()) {
     args->push_back("--extract_data_time=" +
                     blaze_util::ToString(extract_data_duration.millis));
   }
@@ -899,155 +848,6 @@ static void StartServerAndConnect(
                server);
 
   delete server_startup;
-}
-
-static void BlessFiles(const string &embedded_binaries) {
-  blaze_util::Path embedded_binaries_(embedded_binaries);
-
-  // Set the timestamps of the extracted files to the future and make sure (or
-  // at least as sure as we can...) that the files we have written are actually
-  // on the disk.
-
-  vector<string> extracted_files;
-
-  // Walks the temporary directory recursively and collects full file paths.
-  blaze_util::GetAllFilesUnder(embedded_binaries, &extracted_files);
-
-  std::unique_ptr<blaze_util::IFileMtime> mtime(blaze_util::CreateFileMtime());
-  set<blaze_util::Path> synced_directories;
-  for (const auto &f : extracted_files) {
-    blaze_util::Path it(f);
-
-    // Set the time to a distantly futuristic value so we can observe tampering.
-    // Note that keeping a static, deterministic timestamp, such as the default
-    // timestamp set by unzip (1970-01-01) and using that to detect tampering is
-    // not enough, because we also need the timestamp to change between Bazel
-    // releases so that the metadata cache knows that the files may have
-    // changed. This is essential for the correctness of actions that use
-    // embedded binaries as artifacts.
-    if (!mtime->SetToDistantFuture(it)) {
-      string err = GetLastErrorString();
-      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "failed to set timestamp on '" << it.AsPrintablePath()
-          << "': " << err;
-    }
-
-    blaze_util::SyncFile(it);
-
-    blaze_util::Path directory = it.GetParent();
-
-    // Now walk up until embedded_binaries and sync every directory in between.
-    // synced_directories is used to avoid syncing the same directory twice.
-    // The !directory.empty() and !blaze_util::IsRootDirectory(directory)
-    // conditions are not strictly needed, but it makes this loop more robust,
-    // because otherwise, if due to some glitch, directory was not under
-    // embedded_binaries, it would get into an infinite loop.
-    while (directory != embedded_binaries_ && !directory.IsEmpty() &&
-           !blaze_util::IsRootDirectory(directory) &&
-           synced_directories.insert(directory).second) {
-      blaze_util::SyncFile(directory);
-      directory = directory.GetParent();
-    }
-  }
-
-  blaze_util::SyncFile(embedded_binaries_);
-}
-
-// Installs Blaze by extracting the embedded data files, iff necessary.
-// The MD5-named install_base directory on disk is trusted; we assume
-// no-one has modified the extracted files beneath this directory once
-// it is in place. Concurrency during extraction is handled by
-// extracting in a tmp dir and then renaming it into place where it
-// becomes visible atomically at the new path.
-static DurationMillis ExtractData(const string &self_path,
-                                  const vector<string> &archive_contents,
-                                  const string &expected_install_md5,
-                                  const StartupOptions &startup_options,
-                                  LoggingInfo *logging_info) {
-  const string &install_base = startup_options.install_base;
-  // If the install dir doesn't exist, create it, if it does, we know it's good.
-  if (!blaze_util::PathExists(install_base)) {
-    uint64_t st = GetMillisecondsMonotonic();
-    // Work in a temp dir to avoid races.
-    string tmp_install = blaze_util::CreateTempDir(install_base + ".tmp.");
-    ExtractArchiveOrDie(self_path, startup_options.product_name,
-                        expected_install_md5, tmp_install);
-    BlessFiles(tmp_install);
-
-    uint64_t et = GetMillisecondsMonotonic();
-    const DurationMillis extract_data_duration(et - st);
-
-    // Now rename the completed installation to its final name.
-    int attempts = 0;
-    while (attempts < 120) {
-      int result = blaze_util::RenameDirectory(tmp_install, install_base);
-      if (result == blaze_util::kRenameDirectorySuccess ||
-          result == blaze_util::kRenameDirectoryFailureNotEmpty) {
-        // If renaming fails because the directory already exists and is not
-        // empty, then we assume another good installation snuck in before us.
-        blaze_util::RemoveRecursively(tmp_install);
-        break;
-      } else {
-        // Otherwise the install directory may still be scanned by the antivirus
-        // (in case we're running on Windows) so we need to wait for that to
-        // finish and try renaming again.
-        ++attempts;
-        BAZEL_LOG(USER) << "install base directory '" << tmp_install
-                        << "' could not be renamed into place after "
-                        << attempts << " second(s), trying again\r";
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-      }
-    }
-
-    // Give up renaming after 120 failed attempts / 2 minutes.
-    if (attempts == 120) {
-      blaze_util::RemoveRecursively(tmp_install);
-      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "install base directory '" << tmp_install
-          << "' could not be renamed into place: " << GetLastErrorString();
-    }
-    return extract_data_duration;
-  } else {
-    // This would be detected implicitly below, but checking explicitly lets
-    // us give a better error message.
-    if (!blaze_util::IsDirectory(install_base)) {
-      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "install base directory '" << install_base
-          << "' could not be created. It exists but is not a directory.";
-    }
-    blaze_util::Path install_dir(install_base);
-    // Check that all files are present and have timestamps from BlessFiles().
-    std::unique_ptr<blaze_util::IFileMtime> mtime(
-        blaze_util::CreateFileMtime());
-    for (const auto &it : archive_contents) {
-      blaze_util::Path path = install_dir.GetRelative(it);
-      if (!mtime->IsUntampered(path)) {
-        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-            << "corrupt installation: file '" << path.AsPrintablePath()
-            << "' is missing or modified.  Please remove '" << install_base
-            << "' and try again.";
-      }
-    }
-    // Also check that the installed files claim to match this binary.
-    // We check this afterward because the above diagnostic is better
-    // for a missing install_base_key file.
-    blaze_util::Path key_path = install_dir.GetRelative("install_base_key");
-    string on_disk_key;
-    if (!blaze_util::ReadFile(key_path, &on_disk_key)) {
-      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "cannot read '" << key_path.AsPrintablePath()
-          << "': " << GetLastErrorString();
-    }
-    if (on_disk_key != expected_install_md5) {
-      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "The install_base directory '" << install_base
-          << "' contains a different " << startup_options.product_name
-          << " version (found " << on_disk_key << " but this binary is "
-          << expected_install_md5
-          << ").  Remove it or specify a different --install_base.";
-    }
-    return DurationMillis();
-  }
 }
 
 static bool IsVolatileArg(const string &arg) {
@@ -1419,10 +1219,13 @@ static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
     result["LD_PRELOAD"] = EnvVarValue(EnvVarAction::UNSET, "");
   }
 
-  if (blaze::ExistsEnv("_JAVA_OPTIONS")) {
-    // This would override --host_jvm_args
-    BAZEL_LOG(WARNING) << "ignoring _JAVA_OPTIONS in environment.";
-    result["_JAVA_OPTIONS"] = EnvVarValue(EnvVarAction::UNSET, "");
+  // These would override --host_jvm_args
+  for (const auto &var :
+       {"_JAVA_OPTIONS", "JDK_JAVA_OPTIONS", "JAVA_TOOL_OPTIONS"}) {
+    if (blaze::ExistsEnv(var)) {
+      BAZEL_LOG(WARNING) << "ignoring " << var << " in environment.";
+      result[var] = EnvVarValue(EnvVarAction::UNSET, "");
+    }
   }
 
   // TODO(bazel-team):  We've also seen a failure during loading (creating
@@ -1581,7 +1384,7 @@ static void RunLauncher(const string &self_path,
 
   WarnFilesystemType(startup_options.output_base);
 
-  const DurationMillis extract_data_duration = ExtractData(
+  const ExtractionDurationMillis extract_data_duration = ExtractData(
       self_path, archive_contents, install_md5, startup_options, logging_info);
 
   blaze_server->Connect();
@@ -2143,7 +1946,8 @@ unsigned int BlazeServer::Communicate(
         << "\nServer finished RPC without an explicit exit code (log file: '"
         << process_info_.jvm_log_file_.AsPrintablePath() << "')\n";
     return GetExitCodeForAbruptExit(output_base_);
-  } else if (final_response.has_exec_request()) {
+  } else if (final_response.has_exec_request() &&
+             final_response.exec_request().should_exec()) {
     const command_server::ExecRequest &request = final_response.exec_request();
     if (request.argv_size() < 1) {
       BAZEL_LOG(USER)

@@ -29,6 +29,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext.LoadGraphVisitor;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -36,7 +37,7 @@ import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.DependencyFilter;
-import com.google.devtools.build.lib.packages.Package.LoadGraphVisitor;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -89,6 +90,7 @@ public abstract class AbstractBlazeQueryEnvironment<T>
 
   protected final Set<Setting> settings;
   protected final List<QueryFunction> extraFunctions;
+  protected final LabelPrinter labelPrinter;
 
   protected AbstractBlazeQueryEnvironment(
       boolean keepGoing,
@@ -96,7 +98,8 @@ public abstract class AbstractBlazeQueryEnvironment<T>
       Predicate<Label> labelFilter,
       ExtendedEventHandler eventHandler,
       Set<Setting> settings,
-      Iterable<QueryFunction> extraFunctions) {
+      Iterable<QueryFunction> extraFunctions,
+      LabelPrinter labelPrinter) {
     this.eventHandler = new ErrorSensingEventHandler<>(eventHandler, DetailedExitCode.class);
     this.keepGoing = keepGoing;
     this.strictScope = strictScope;
@@ -104,10 +107,16 @@ public abstract class AbstractBlazeQueryEnvironment<T>
     this.labelFilter = labelFilter;
     this.settings = Sets.immutableEnumSet(settings);
     this.extraFunctions = ImmutableList.copyOf(extraFunctions);
+    this.labelPrinter = labelPrinter;
   }
 
   @Override
   public abstract void close();
+
+  @Override
+  public LabelPrinter getLabelPrinter() {
+    return labelPrinter;
+  }
 
   private static DependencyFilter constructDependencyFilter(Set<Setting> settings) {
     DependencyFilter specifiedFilter =
@@ -359,9 +368,26 @@ public abstract class AbstractBlazeQueryEnvironment<T>
   @Override
   public <T1, T2> QueryTaskFuture<T2> transformAsync(
       QueryTaskFuture<T1> future, Function<T1, QueryTaskFuture<T2>> function) {
+    QueryTaskFutureImpl<T1> futureImpl = (QueryTaskFutureImpl<T1>) future;
+    if (futureImpl.isDone()) {
+      // Due to how our subclasses use single-threaded query engines, in practice
+      // futureImpl will always already be done. Therefore this is a fast-path to make it harder to
+      // stack overflow on deeply nested expressions whose evaluation involves #transformAsync.
+      //
+      // TODO(b/283225081): Do something more effective and more pervasive.
+      T1 t1;
+      try {
+        t1 = futureImpl.getChecked();
+      } catch (QueryException e) {
+        return immediateFailedFuture(e);
+      } catch (InterruptedException e) {
+        return immediateCancelledFuture();
+      }
+      return function.apply(t1);
+    }
     return QueryTaskFutureImpl.ofDelegate(
         Futures.transformAsync(
-            (QueryTaskFutureImpl<T1>) future,
+            futureImpl,
             input -> (QueryTaskFutureImpl<T2>) function.apply(input),
             directExecutor()));
   }

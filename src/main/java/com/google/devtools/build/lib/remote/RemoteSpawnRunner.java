@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.profiler.ProfilerTask.PROCESS_TIME;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_DOWNLOAD;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_EXECUTION;
+import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_PROCESS_TIME;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_QUEUE;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_SETUP;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.UPLOAD_TIME;
@@ -57,9 +57,11 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ServerLogs;
+import com.google.devtools.build.lib.remote.circuitbreaker.CircuitBreakerFactory;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -103,6 +105,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
   private final RemoteRetrier retrier;
   private final Path logDir;
   private final RemoteExecutionService remoteExecutionService;
+  private final DigestUtil digestUtil;
 
   // Used to ensure that a warning is reported only once.
   private final AtomicBoolean warningReported = new AtomicBoolean();
@@ -115,7 +118,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
       @Nullable Reporter cmdlineReporter,
       ListeningScheduledExecutorService retryService,
       Path logDir,
-      RemoteExecutionService remoteExecutionService) {
+      RemoteExecutionService remoteExecutionService,
+      DigestUtil digestUtil) {
     this.execRoot = execRoot;
     this.remoteOptions = remoteOptions;
     this.executionOptions = executionOptions;
@@ -124,6 +128,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     this.retrier = createExecuteRetrier(remoteOptions, retryService);
     this.logDir = logDir;
     this.remoteExecutionService = remoteExecutionService;
+    this.digestUtil = digestUtil;
   }
 
   @VisibleForTesting
@@ -186,6 +191,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
     RemoteAction action = remoteExecutionService.buildRemoteAction(spawn, context);
 
+    context.setDigest(digestUtil.asSpawnLogProto(action.getActionKey()));
+
     SpawnMetrics.Builder spawnMetrics =
         SpawnMetrics.Builder.forRemoteExec()
             .setInputBytes(action.getInputBytes())
@@ -234,6 +241,22 @@ public class RemoteSpawnRunner implements SpawnRunner {
       }
     } catch (IOException e) {
       return execLocallyAndUploadOrFail(action, spawn, context, uploadLocalResults, e);
+    }
+
+    if (remoteOptions.remoteRequireCached) {
+      return new SpawnResult.Builder()
+          .setStatus(SpawnResult.Status.EXECUTION_DENIED)
+          .setExitCode(1)
+          .setFailureMessage(
+              "Action must be cached due to --experimental_remote_require_cached but it is not")
+          .setFailureDetail(
+              FailureDetail.newBuilder()
+                  .setSpawn(
+                      FailureDetails.Spawn.newBuilder()
+                          .setCode(FailureDetails.Spawn.Code.EXECUTION_DENIED))
+                  .build())
+          .setRunnerName("remote")
+          .build();
     }
 
     AtomicBoolean useCachedResult = new AtomicBoolean(acceptCachedResult);
@@ -326,7 +349,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
         converter,
         executedActionMetadata.getExecutionStartTimestamp(),
         executedActionMetadata.getExecutionCompletedTimestamp(),
-        PROCESS_TIME,
+        REMOTE_PROCESS_TIME,
         "execute");
     logProfileTask(
         converter,
@@ -418,6 +441,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     // subtract network time consumed here to ensure wall clock during fetch is not double
     // counted, and metrics time computation does not exceed total time
     return createSpawnResult(
+        digestUtil,
         action.getActionKey(),
         result.getExitCode(),
         cacheHit,
@@ -519,32 +543,48 @@ public class RemoteSpawnRunner implements SpawnRunner {
     boolean remoteCacheFailed = BulkTransferException.allCausedByCacheNotFoundException(exception);
     if (exception.getCause() instanceof ExecutionStatusException) {
       ExecutionStatusException e = (ExecutionStatusException) exception.getCause();
+      RemoteActionResult result = null;
       if (e.getResponse() != null) {
         ExecuteResponse resp = e.getResponse();
         maybeDownloadServerLogs(action, resp);
         if (resp.hasResult()) {
+          result = RemoteActionResult.createFromResponse(resp);
           try {
-            remoteExecutionService.downloadOutputs(
-                action, RemoteActionResult.createFromResponse(resp));
+            remoteExecutionService.downloadOutputs(action, result);
           } catch (BulkTransferException bulkTransferEx) {
             exception.addSuppressed(bulkTransferEx);
           }
         }
       }
       if (e.isExecutionTimeout()) {
-        maybePrintExecutionMessages(context, e.getResponse().getMessage(), /* success = */ false);
-        return new SpawnResult.Builder()
-            .setRunnerName(getName())
-            .setStatus(Status.TIMEOUT)
-            .setExitCode(SpawnResult.POSIX_TIMEOUT_EXIT_CODE)
-            .setFailureDetail(
-                FailureDetail.newBuilder()
-                    .setMessage("remote spawn timed out")
-                    .setSpawn(
-                        FailureDetails.Spawn.newBuilder()
-                            .setCode(FailureDetails.Spawn.Code.TIMEOUT))
-                    .build())
-            .build();
+        maybePrintExecutionMessages(context, e.getResponse().getMessage(), /* success= */ false);
+        SpawnResult.Builder resultBuilder =
+            new SpawnResult.Builder()
+                .setRunnerName(getName())
+                .setStatus(Status.TIMEOUT)
+                .setExitCode(SpawnResult.POSIX_TIMEOUT_EXIT_CODE)
+                .setFailureDetail(
+                    FailureDetail.newBuilder()
+                        .setMessage("remote spawn timed out")
+                        .setSpawn(
+                            FailureDetails.Spawn.newBuilder()
+                                .setCode(FailureDetails.Spawn.Code.TIMEOUT))
+                        .build());
+        if (result != null) {
+          resultBuilder
+              .setWallTimeInMs(
+                  (int)
+                      Duration.between(
+                              Utils.timestampToInstant(
+                                  result.getExecutionMetadata().getExecutionStartTimestamp()),
+                              Utils.timestampToInstant(
+                                  result.getExecutionMetadata().getExecutionCompletedTimestamp()))
+                          .toMillis())
+              .setStartTime(
+                  Utils.timestampToInstant(
+                      result.getExecutionMetadata().getExecutionStartTimestamp()));
+        }
+        return resultBuilder.build();
       }
     }
     final Status status;
@@ -655,6 +695,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
   private static RemoteRetrier createExecuteRetrier(
       RemoteOptions options, ListeningScheduledExecutorService retryService) {
     return new ExecuteRetrier(
-        options.remoteMaxRetryAttempts, retryService, Retrier.ALLOW_ALL_CALLS);
+        options.remoteMaxRetryAttempts,
+        retryService,
+        CircuitBreakerFactory.createCircuitBreaker(options));
   }
 }

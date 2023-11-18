@@ -29,7 +29,6 @@ public final class PathPrettyPrinter {
   private final String symlinkPrefix;
   private final String productName;
   private final Path workspaceDirectory;
-  private final Path workingDirectory;
 
   /**
    * Creates a path pretty printer, immediately resolving the symlink definitions by reading the
@@ -39,12 +38,10 @@ public final class PathPrettyPrinter {
       ImmutableList<SymlinkDefinition> symlinkDefinitions,
       String symlinkPrefix,
       String productName,
-      Path workspaceDirectory,
-      Path workingDirectory) {
+      Path workspaceDirectory) {
     this.symlinkPrefix = symlinkPrefix;
     this.productName = productName;
     this.workspaceDirectory = workspaceDirectory;
-    this.workingDirectory = workingDirectory;
     this.resolvedSymlinks = resolve(symlinkDefinitions);
   }
 
@@ -87,11 +84,7 @@ public final class PathPrettyPrinter {
       PathFragment linkFragment = e.getKey();
       PathFragment linkTarget = e.getValue();
       if (file.startsWith(linkTarget)) {
-        PathFragment outputLink =
-            workingDirectory.equals(workspaceDirectory)
-                ? linkFragment
-                : workspaceDirectory.getRelative(linkFragment).asFragment();
-        return outputLink.getRelative(file.relativeTo(linkTarget));
+        return linkFragment.getRelative(file.relativeTo(linkTarget));
       }
     }
 

@@ -15,21 +15,26 @@ package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsEvent;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetKey;
+import com.google.protobuf.ByteString;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.regex.Pattern;
+import java.util.zip.GZIPInputStream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -62,7 +67,8 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
     assertQueryResult("//fruits:q", "//fruits:melon", "//fruits:papaya");
   }
 
-  private void deterministicTestHelper(boolean graphless) throws Exception {
+  @Test
+  public void testDeterministic() throws Exception {
     write(
         "fruits/BUILD",
         "sh_library(name='melon', deps=[':papaya', ':apple'])",
@@ -76,22 +82,8 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
     String firstResult = getQueryResult("//fruits:q");
     for (int i = 0; i < 10; i++) {
       createFilesAndMocks(); // Do a clean.
-      if (graphless) {
-        runtimeWrapper.addOptions("--experimental_genquery_use_graphless_query");
-      }
       assertThat(getQueryResult("//fruits:q")).isEqualTo(firstResult);
     }
-  }
-
-  @Test
-  public void testDeterministic() throws Exception {
-    deterministicTestHelper(/* graphless= */ false);
-  }
-
-  @Test
-  public void testDeterministicGraphless() throws Exception {
-    runtimeWrapper.addOptions("--experimental_genquery_use_graphless_query");
-    deterministicTestHelper(/* graphless= */ true);
   }
 
   @Test
@@ -104,7 +96,6 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
         "genquery(name='q',",
         "         scope=['//query:common'],",
         "         expression='deps(//query:common)')");
-    runtimeWrapper.addOptions("--experimental_genquery_use_graphless_query");
     assertThat(getQueryResult("//query:q").split("\n")).hasLength(3);
   }
 
@@ -593,6 +584,29 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
         "//middle:middledep",
         "//start:start",
         "//start:startdep");
+  }
+
+  @Test
+  public void testGenQueryOutputCompressed() throws Exception {
+    write(
+        "fruits/BUILD",
+        "sh_library(name='melon', deps=[':papaya'])",
+        "sh_library(name='papaya')",
+        "genquery(name='q',",
+        "         scope=[':melon'],",
+        "         compressed_output=True,",
+        "         expression='deps(//fruits:melon)')");
+
+    buildTarget("//fruits:q");
+    Artifact output = Iterables.getOnlyElement(getArtifacts("//fruits:q"));
+    ByteString compressedContent = readContentAsByteArray(output);
+
+    ByteArrayOutputStream decompressedOut = new ByteArrayOutputStream();
+    try (GZIPInputStream gzipIn = new GZIPInputStream(compressedContent.newInput())) {
+      ByteStreams.copy(gzipIn, decompressedOut);
+    }
+
+    assertThat(decompressedOut.toString(UTF_8)).isEqualTo("//fruits:melon\n//fruits:papaya\n");
   }
 
   private void assertQueryResult(String queryTarget, String... expected) throws Exception {

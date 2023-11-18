@@ -17,10 +17,8 @@ package com.google.devtools.build.lib.starlarkbuildapi.objc;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
-import com.google.devtools.build.lib.starlarkbuildapi.SplitTransitionProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.ApplePlatformApi;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleToolchainApi;
@@ -70,6 +68,7 @@ public interface AppleCommonApi<
               + "<li><code>ios</code></li>" //
               + "<li><code>macos</code></li>" //
               + "<li><code>tvos</code></li>" //
+              + "<li><code>visionos</code></li>" //
               + "<li><code>watchos</code></li>" //
               + "</ul><p>" //
               + "These values can be passed to methods that expect a platform type, like the"
@@ -82,13 +81,6 @@ public interface AppleCommonApi<
   StructApi getPlatformTypeStruct();
 
   @StarlarkMethod(
-      name = "apple_crosstool_transition",
-      doc = "Testing the Apple crosstool transition",
-      documented = false,
-      structField = true)
-  StarlarkExposedRuleTransitionFactory getAppleCrosstoolTransition();
-
-  @StarlarkMethod(
       name = "platform",
       doc =
           "An enum-like struct that contains the following fields corresponding to Apple "
@@ -98,6 +90,8 @@ public interface AppleCommonApi<
               + "<li><code>macos</code></li>" //
               + "<li><code>tvos_device</code></li>" //
               + "<li><code>tvos_simulator</code></li>" //
+              + "<li><code>visionos_device</code></li>" //
+              + "<li><code>visionos_simulator</code></li>" //
               + "<li><code>watchos_device</code></li>" //
               + "<li><code>watchos_simulator</code></li>" //
               + "</ul><p>" //
@@ -216,27 +210,6 @@ public interface AppleCommonApi<
       })
   ImmutableMap<String, String> getTargetAppleEnvironment(
       XcodeConfigInfoApiT xcodeConfig, ApplePlatformApiT platform);
-
-  @StarlarkMethod(
-      name = "multi_arch_split",
-      doc =
-          "A configuration transition for rule attributes to build dependencies in one or more"
-              + " Apple platforms. <p>Use of this transition requires that the 'platform_type' and"
-              + " 'minimum_os_version' string attributes are defined and mandatory on the"
-              + " rule.</p><p>The value of the platform_type attribute will dictate the target"
-              + " architectures  for which dependencies along this configuration transition will"
-              + " be built.</p><p>Options are:</p><ul><li><code>ios</code>: architectures gathered"
-              + " from <code>--ios_multi_cpus</code>.</li><li><code>macos</code>: architectures"
-              + " gathered from <code>--macos_cpus</code>.</li><li><code>tvos</code>:"
-              + " architectures gathered from"
-              + " <code>--tvos_cpus</code>.</li><li><code>watchos</code>: architectures gathered"
-              + " from <code>--watchos_cpus</code>.</li></ul><p>minimum_os_version should be a"
-              + " dotted version string such as '7.3', and is used to set the minimum operating"
-              + " system on the configuration similarly based on platform type. For example,"
-              + " specifying platform_type 'ios' and minimum_os_version '8.0' will ensure that"
-              + " dependencies are built with minimum iOS version '8.0'.",
-      structField = true)
-  SplitTransitionProviderApi getMultiArchSplitProvider();
 
   @StarlarkMethod(
       name = "new_objc_provider",
@@ -391,6 +364,20 @@ public interface AppleCommonApi<
             defaultValue = "[]",
             doc = "Extra files to pass to the linker action."),
         @Param(
+            name = "extra_requested_features",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            named = true,
+            positional = false,
+            defaultValue = "[]",
+            doc = "Extra requested features to be passed to the linker action."),
+        @Param(
+            name = "extra_disabled_features",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            named = true,
+            positional = false,
+            defaultValue = "[]",
+            doc = "Extra disabled features to be passed to the linker action."),
+        @Param(
             name = "stamp",
             named = true,
             positional = false,
@@ -401,6 +388,16 @@ public interface AppleCommonApi<
                     + "If -1 (the default), then the behavior is determined by the --[no]stamp "
                     + "flag. This should be set to 0 when generating the executable output for "
                     + "test rules."),
+        @Param(
+            name = "variables_extension",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None"),
       },
       useStarlarkThread = true)
   // TODO(b/70937317): Iterate on, improve, and solidify this API.
@@ -409,7 +406,10 @@ public interface AppleCommonApi<
       Object avoidDeps, // Sequence<TransitiveInfoCollection> expected.
       Sequence<?> extraLinkopts, // <String> expected.
       Sequence<?> extraLinkInputs, // <? extends FileApi> expected.
+      Sequence<?> extraRequestedFeatures, // <String> expected.
+      Sequence<?> extraDisabledFeatures, // <String> expected.
       StarlarkInt stamp,
+      Object variablesExtension,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 

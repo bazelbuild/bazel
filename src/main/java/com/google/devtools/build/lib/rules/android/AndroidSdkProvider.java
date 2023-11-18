@@ -15,11 +15,8 @@ package com.google.devtools.build.lib.rules.android;
 
 import static com.google.devtools.build.lib.rules.android.AndroidStarlarkData.fromNoneable;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.PlatformConfiguration;
-import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -28,6 +25,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
@@ -43,8 +41,6 @@ public final class AndroidSdkProvider extends NativeInfo
 
   public static final String ANDROID_SDK_TOOLCHAIN_TYPE_ATTRIBUTE_NAME =
       "$android_sdk_toolchain_type";
-  public static final String ANDROID_SDK_DUMMY_TOOLCHAIN_ATTRIBUTE_NAME =
-      "$android_sdk_dummy_toolchains";
 
   public static final Provider PROVIDER = new Provider();
 
@@ -56,6 +52,7 @@ public final class AndroidSdkProvider extends NativeInfo
   @Nullable private final Artifact shrinkedAndroidJar;
   private final Artifact mainDexClasses;
   private final FilesToRunProvider adb;
+  private final FilesToRunProvider dexdump;
   private final FilesToRunProvider dx;
   private final FilesToRunProvider mainDexListCreator;
   private final FilesToRunProvider aidl;
@@ -87,7 +84,8 @@ public final class AndroidSdkProvider extends NativeInfo
       FilesToRunProvider proguard,
       FilesToRunProvider zipalign,
       @Nullable BootClassPathInfo system,
-      @Nullable FilesToRunProvider legacyMainDexListGenerator) {
+      @Nullable FilesToRunProvider legacyMainDexListGenerator,
+      @Nullable FilesToRunProvider dexdump) {
     this.buildToolsVersion = buildToolsVersion;
     this.frameworkAidl = frameworkAidl;
     this.aidlLib = aidlLib;
@@ -96,6 +94,7 @@ public final class AndroidSdkProvider extends NativeInfo
     this.shrinkedAndroidJar = shrinkedAndroidJar;
     this.mainDexClasses = mainDexClasses;
     this.adb = adb;
+    this.dexdump = dexdump;
     this.dx = dx;
     this.mainDexListCreator = mainDexListCreator;
     this.aidl = aidl;
@@ -122,7 +121,8 @@ public final class AndroidSdkProvider extends NativeInfo
    * --incompatible_enable_android_toolchain_resolution=true, else, uses the legacy attribute..
    */
   @Nullable
-  public static AndroidSdkProvider fromRuleContext(RuleContext ruleContext) {
+  public static AndroidSdkProvider fromRuleContext(RuleContext ruleContext)
+      throws RuleErrorException {
     // Determine the toolchain type.
     Label toolchainType = getToolchainTypeFromAttribute(ruleContext);
     return fromRuleContext(ruleContext, ":android_sdk", toolchainType);
@@ -137,7 +137,8 @@ public final class AndroidSdkProvider extends NativeInfo
    */
   @Nullable
   public static AndroidSdkProvider fromRuleContext(
-      RuleContext ruleContext, String sdkAttribute, @Nullable Label toolchainType) {
+      RuleContext ruleContext, String sdkAttribute, @Nullable Label toolchainType)
+      throws RuleErrorException {
     BuildConfigurationValue configuration = ruleContext.getConfiguration();
     if (configuration == null
         || !configuration.hasFragment(AndroidConfiguration.class)
@@ -159,12 +160,6 @@ public final class AndroidSdkProvider extends NativeInfo
       return null;
     }
 
-    ResolvedToolchainContext toolchainContext = ruleContext.getToolchainContext();
-    if (usingDummyToolchain(ruleContext, configuration, toolchainContext)) {
-      // The above method will have already shown an error.
-      return null;
-    }
-
     if (toolchainType == null) {
       ruleContext.ruleError(
           String.format(
@@ -176,7 +171,8 @@ public final class AndroidSdkProvider extends NativeInfo
               ANDROID_SDK_TOOLCHAIN_TYPE_ATTRIBUTE_NAME));
       return null;
     }
-    ToolchainInfo info = toolchainContext.forToolchainType(toolchainType);
+
+    ToolchainInfo info = ruleContext.getToolchainInfo(toolchainType);
     if (info == null) {
       ruleContext.ruleError(
           String.format(
@@ -186,8 +182,10 @@ public final class AndroidSdkProvider extends NativeInfo
               ruleContext.getRuleClassNameForLogging(), ruleContext.getLabel(), toolchainType));
       return null;
     }
+
+    AndroidSdkProvider androidSdkProvider;
     try {
-      return (AndroidSdkProvider) info.getValue("android_sdk_info");
+      androidSdkProvider = (AndroidSdkProvider) info.getValue("android_sdk_info");
     } catch (EvalException e) {
       ruleContext.ruleError(
           String.format(
@@ -195,39 +193,26 @@ public final class AndroidSdkProvider extends NativeInfo
               ruleContext.getLabel(), e.getMessage()));
       return null;
     }
+
+    if (usingDummyToolchain(ruleContext, androidSdkProvider)) {
+      // The above method will have already shown an error.
+      return null;
+    }
+
+    return androidSdkProvider;
   }
 
   private static boolean usingDummyToolchain(
-      RuleContext ruleContext,
-      BuildConfigurationValue configuration,
-      ResolvedToolchainContext toolchainContext) {
-    Type<Label> depType =
-        ruleContext.getRule().getRuleClassObject().isStarlark()
-            ? BuildType.LABEL
-            : BuildType.NODEP_LABEL;
-    if (!ruleContext.attributes().has(ANDROID_SDK_DUMMY_TOOLCHAIN_ATTRIBUTE_NAME, depType)) {
-      // We can't tell, so assume not.
-      return false;
-    }
+      RuleContext ruleContext, AndroidSdkProvider androidSdkProvider) throws RuleErrorException {
 
-    ImmutableSet<Label> resolvedToolchains = toolchainContext.resolvedToolchainLabels();
-    Label dummyToochain =
-        ruleContext.attributes().get(ANDROID_SDK_DUMMY_TOOLCHAIN_ATTRIBUTE_NAME, depType);
-    for (Label toolchain : resolvedToolchains) {
-      if (dummyToochain.equals(toolchain)) {
-        ruleContext.ruleError(
-            // TODO(jcater): Decide whether to rewrite message to refer to --android_platforms.
-            // It's unclear if we should always tell users to use --android_platforms, or if
-            // there are still cases where --platforms is preferred.
-            String.format(
-                "'%s' rule '%s' requested sdk toolchain resolution via"
-                    + " --incompatible_enable_android_toolchain_resolution but hasn't set an"
-                    + " appropriate --platforms value: --platforms=%s",
-                ruleContext.getRuleClassNameForLogging(),
-                ruleContext.getLabel(),
-                configuration.getFragment(PlatformConfiguration.class).getTargetPlatform()));
-        return true;
-      }
+    if (androidSdkProvider.getAndroidJar().getFilename().matches("dummy\\.jar$")) {
+      // This is an invalid SDK, and probably due to a default configuration.
+      throw ruleContext.throwWithRuleError(
+          String.format(
+              "'%s' rule '%s' requested an android sdk via toolchain resolution but hasn't set an"
+                  + " appropriate --android_platforms value: Either set"
+                  + " --noincompatible_enable_android_toolchain_resolution or --android_platforms.",
+              ruleContext.getRuleClassNameForLogging(), ruleContext.getLabel()));
     }
 
     return false;
@@ -306,6 +291,11 @@ public final class AndroidSdkProvider extends NativeInfo
   @Override
   public FilesToRunProvider getAdb() {
     return adb;
+  }
+
+  @Override
+  public FilesToRunProvider getDexdump() {
+    return dexdump;
   }
 
   @Override
@@ -393,8 +383,12 @@ public final class AndroidSdkProvider extends NativeInfo
         FilesToRunProvider proguard,
         FilesToRunProvider zipalign,
         Object system,
-        Object legacyMainDexListGenerator)
-        throws EvalException {
+        Object legacyMainDexListGenerator,
+        Object dexdump)
+        throws EvalException, RuleErrorException {
+      Info systemInfo = fromNoneable(system, Info.class);
+      BootClassPathInfo bootClassPathInfo =
+          systemInfo == null ? null : BootClassPathInfo.PROVIDER.wrap(systemInfo);
       return new AndroidSdkProvider(
           buildToolsVersion,
           frameworkAidl,
@@ -413,8 +407,9 @@ public final class AndroidSdkProvider extends NativeInfo
           apkSigner,
           proguard,
           zipalign,
-          fromNoneable(system, BootClassPathInfo.class),
-          fromNoneable(legacyMainDexListGenerator, FilesToRunProvider.class));
+          bootClassPathInfo,
+          fromNoneable(legacyMainDexListGenerator, FilesToRunProvider.class),
+          fromNoneable(dexdump, FilesToRunProvider.class));
     }
   }
 }

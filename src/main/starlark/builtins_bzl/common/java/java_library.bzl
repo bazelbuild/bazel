@@ -16,13 +16,13 @@
 Definition of java_library rule.
 """
 
-load(":common/java/java_common.bzl", "BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS", "basic_java_library", "construct_defaultinfo")
-load(":common/rule_util.bzl", "merge_attrs")
-load(":common/java/java_semantics.bzl", "semantics")
 load(":common/cc/cc_info.bzl", "CcInfo")
-
-JavaInfo = _builtins.toplevel.JavaInfo
-JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
+load(":common/java/android_lint.bzl", "android_lint_subrule")
+load(":common/java/basic_java_library.bzl", "BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS", "basic_java_library", "construct_defaultinfo")
+load(":common/java/boot_class_path_info.bzl", "BootClassPathInfo")
+load(":common/java/java_info.bzl", "JavaInfo", "JavaPluginInfo")
+load(":common/java/java_semantics.bzl", "semantics")
+load(":common/rule_util.bzl", "merge_attrs")
 
 def bazel_java_library_rule(
         ctx,
@@ -37,7 +37,8 @@ def bazel_java_library_rule(
         neverlink = False,
         proguard_specs = [],
         add_exports = [],
-        add_opens = []):
+        add_opens = [],
+        bootclasspath = None):
     """Implements java_library.
 
     Use this call when you need to produce a fully fledged java_library from
@@ -58,6 +59,7 @@ def bazel_java_library_rule(
       proguard_specs: (list[File]) Files to be used as Proguard specification.
       add_exports: (list[str]) Allow this library to access the given <module>/<package>.
       add_opens: (list[str]) Allow this library to reflectively access the given <module>/<package>.
+      bootclasspath: (Target) The JDK APIs to compile this library against.
     Returns:
       (dict[str, provider]) A list containing DefaultInfo, JavaInfo,
         InstrumentedFilesInfo, OutputGroupsInfo, ProguardSpecProvider providers.
@@ -81,6 +83,7 @@ def bazel_java_library_rule(
         proguard_specs = proguard_specs,
         add_exports = add_exports,
         add_opens = add_opens,
+        bootclasspath = bootclasspath,
     )
 
     target["DefaultInfo"] = construct_defaultinfo(
@@ -110,6 +113,7 @@ def _proxy(ctx):
         ctx.files.proguard_specs,
         ctx.attr.add_exports,
         ctx.attr.add_opens,
+        ctx.attr.bootclasspath,
     ).values()
 
 JAVA_LIBRARY_IMPLICIT_ATTRS = BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS
@@ -157,6 +161,10 @@ JAVA_LIBRARY_ATTRS = merge_attrs(
             providers = [JavaPluginInfo],
             cfg = "exec",
         ),
+        "bootclasspath": attr.label(
+            providers = [BootClassPathInfo],
+            flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
+        ),
         "javacopts": attr.string_list(),
         "neverlink": attr.bool(),
         "resource_strip_prefix": attr.string(),
@@ -170,10 +178,7 @@ JAVA_LIBRARY_ATTRS = merge_attrs(
 
 java_library = rule(
     _proxy,
-    attrs = merge_attrs(
-        JAVA_LIBRARY_ATTRS,
-        {"_use_auto_exec_groups": attr.bool(default = True)},
-    ),
+    attrs = JAVA_LIBRARY_ATTRS,
     provides = [JavaInfo],
     outputs = {
         "classjar": "lib%{name}.jar",
@@ -181,4 +186,5 @@ java_library = rule(
     },
     fragments = ["java", "cpp"],
     toolchains = [semantics.JAVA_TOOLCHAIN],
+    subrules = [android_lint_subrule],
 )

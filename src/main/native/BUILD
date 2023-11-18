@@ -54,6 +54,21 @@ cc_library(
     includes = ["."],  # For jni headers.
 )
 
+cc_library(
+    name = "blake3_jni",
+    srcs = [
+        "blake3_jni.cc",
+        ":jni.h",
+        ":jni_md.h",
+    ],
+    includes = ["."],  # For jni headers.
+    visibility = ["//src/main/native:__subpackages__"],
+    deps = [
+        "@blake3",
+    ],
+    alwayslink = 1,
+)
+
 cc_binary(
     name = "libunix_jni.so",
     srcs = [
@@ -80,6 +95,7 @@ cc_binary(
     linkshared = 1,
     visibility = ["//src/main/java/com/google/devtools/build/lib/jni:__pkg__"],
     deps = [
+        ":blake3_jni",
         ":latin1_jni_path",
         "//src/main/cpp/util:logging",
         "//src/main/cpp/util:md5",

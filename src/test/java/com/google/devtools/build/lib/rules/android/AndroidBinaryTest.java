@@ -214,39 +214,36 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "java/android/res/values/strings.xml",
         "<resources><string name = 'hello'>Hello Android!</string></resources>");
     scratch.file("java/android/A.java", "package android; public class A {};");
-    if (platformBasedToolchains()) {
-      scratch.file(
-          "java/android/platforms/BUILD",
-          "platform(",
-          "    name = 'x86',",
-          "    parents = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "android:armeabi-v7a'],",
-          "    constraint_values = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_32'],",
-          ")",
-          "platform(",
-          "    name = 'armeabi-v7a',",
-          "    parents = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "android:armeabi-v7a'],",
-          "    constraint_values = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7'],",
-          ")");
-      scratch.file(
-          "/workspace/platform_mappings",
-          "platforms:",
-          "  //java/android/platforms:armeabi-v7a",
-          "    --cpu=armeabi-v7a",
-          "    --android_cpu=armeabi-v7a",
-          "    --crosstool_top=//android/crosstool:everything",
-          "  //java/android/platforms:x86",
-          "    --cpu=x86",
-          "    --android_cpu=x86",
-          "    --crosstool_top=//android/crosstool:everything",
-          "flags:",
-          "  --crosstool_top=//android/crosstool:everything",
-          "  --cpu=armeabi-v7a",
-          "    //java/android/platforms:armv7",
-          "  --crosstool_top=//android/crosstool:everything",
-          "  --cpu=x86",
-          "    //java/android/platforms:x86");
-      invalidatePackages(false);
-    }
+    scratch.file(
+        "java/android/platforms/BUILD",
+        "platform(",
+        "    name = 'x86',",
+        "    parents = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "android:armeabi-v7a'],",
+        "    constraint_values = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_32'],",
+        ")",
+        "platform(",
+        "    name = 'armeabi-v7a',",
+        "    parents = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "android:armeabi-v7a'],",
+        "    constraint_values = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7'],",
+        ")");
+    scratch.file(
+        "/workspace/platform_mappings",
+        "platforms:",
+        "  //java/android/platforms:armeabi-v7a",
+        "    --cpu=armeabi-v7a",
+        "    --android_cpu=armeabi-v7a",
+        "    --crosstool_top=//android/crosstool:everything",
+        "  //java/android/platforms:x86",
+        "    --cpu=x86",
+        "    --android_cpu=x86",
+        "    --crosstool_top=//android/crosstool:everything",
+        "flags:",
+        "  --crosstool_top=//android/crosstool:everything",
+        "  --cpu=armeabi-v7a",
+        "    //java/android/platforms:armv7",
+        "  --crosstool_top=//android/crosstool:everything",
+        "  --cpu=x86",
+        "    //java/android/platforms:x86");
     setBuildLanguageOptions("--experimental_google_legacy_api");
   }
 
@@ -355,6 +352,101 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertThat(ActionsTestUtil.baseArtifactNames(mainDexInputs))
         .contains("main_dex_a_proguard.cfg");
     assertThat(getFirstArtifactEndingWith(mainDexInputs, "main_dex_list_creator")).isNull();
+  }
+
+  @Test
+  public void testOptimizedDexingWithLegacyMultidex() throws Exception {
+    scratch.file(
+        "java/a/BUILD",
+        "android_binary(",
+        "    name = 'a',",
+        "    srcs = ['A.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    proguard_specs = ['specs.pgcfg'],",
+        "    proguard_generate_mapping = True,",
+        "    multidex = 'legacy')");
+    scratch.file(
+        "tools/fake/BUILD",
+        "cc_binary(",
+        "    name = 'optimizing_dexer',",
+        "    srcs = ['main.cc'])");
+    useConfiguration("--optimizing_dexer=//tools/fake:optimizing_dexer");
+
+    ConfiguredTarget binary = getConfiguredTarget("//java/a:a");
+    Artifact proguardedJar =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)), "a_proguard.jar");
+    Artifact proguardMap =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)), "a_proguard.map");
+
+    Artifact dexedZip =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)), "/_dx/a/classes.dex.zip");
+    SpawnAction proguard = getGeneratingSpawnAction(proguardedJar);
+    SpawnAction dexer = getGeneratingSpawnAction(dexedZip);
+    assertThat(dexer).isEqualTo(getGeneratingSpawnAction(proguardMap));
+    List<String> dexerArgs = dexer.getArguments();
+
+    assertThat(dexerArgs).contains("--release");
+    assertThat(dexerArgs).contains("--no-desugaring");
+    MoreAsserts.assertContainsSublist(dexerArgs, "--lib", getAndroidJarPath());
+    Artifact mainDexList =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)),
+            "/_dx/a/main_dex_list.txt");
+    MoreAsserts.assertContainsSublist(
+        dexerArgs, "--main-dex-list", mainDexList.getExecPath().getPathString());
+    Artifact proguardMapInput =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)),
+            "/proguard/a/legacy_a_pre_dexing.map");
+    MoreAsserts.assertContainsSublist(
+        dexerArgs, "--pg-map", proguardMapInput.getExecPath().getPathString());
+
+    List<String> shardArgs =
+        getGeneratingSpawnActionArgs(
+            ActionsTestUtil.getFirstArtifactEndingWith(
+                actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)), "_dx/a/shard1.zip"));
+    assertThat(shardArgs).contains("--intermediate");
+    assertThat(shardArgs).doesNotContain("--dex");
+  }
+
+  @Test
+  public void testOptimizedDexingWithNativeMultidex() throws Exception {
+    scratch.file(
+        "java/a/BUILD",
+        "android_binary(",
+        "    name = 'a',",
+        "    srcs = ['A.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    proguard_specs = ['specs.pgcfg'],",
+        "    proguard_generate_mapping = True,",
+        "    multidex = 'native')");
+    scratch.file(
+        "tools/fake/BUILD",
+        "cc_binary(",
+        "    name = 'optimizing_dexer',",
+        "    srcs = ['main.cc'])");
+    useConfiguration("--optimizing_dexer=//tools/fake:optimizing_dexer");
+
+    // The behavior should match legacy multidex except for the main dex list and min sdk, so we
+    // only check those flags.
+    ConfiguredTarget binary = getConfiguredTarget("//java/a:a");
+    Artifact dexedZip =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)), "/_dx/a/classes.dex.zip");
+    SpawnAction dexer = getGeneratingSpawnAction(dexedZip);
+    List<String> dexerArgs = dexer.getArguments();
+    assertThat(dexerArgs).doesNotContain("--main-dex-list");
+    MoreAsserts.assertContainsSublist(dexerArgs, "--min-api", "21");
+
+    List<String> shardArgs =
+        getGeneratingSpawnActionArgs(
+            ActionsTestUtil.getFirstArtifactEndingWith(
+                actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)), "_dx/a/shard1.zip"));
+    assertThat(shardArgs).contains("--intermediate");
+    assertThat(shardArgs).doesNotContain("--dex");
   }
 
   @Test
@@ -3751,7 +3843,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
             "/FooFlags.java");
     FileWriteAction action = (FileWriteAction) getGeneratingAction(flagList);
     assertThat(action.getFileContents())
-        .isEqualTo("@//java/com/foo:flag1: on\n@//java/com/foo:flag2: off");
+        .isEqualTo("@@//java/com/foo:flag1: on\n@@//java/com/foo:flag2: off");
   }
 
   @Test

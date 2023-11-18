@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.android;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import com.google.devtools.build.android.aapt2.Aapt2Exception;
 import com.google.devtools.build.android.resources.JavaIdentifierValidator.InvalidJavaIdentifier;
 import com.google.devtools.build.lib.worker.ProtoWorkerMessageProcessor;
@@ -28,7 +26,6 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
@@ -138,6 +135,12 @@ public class ResourceProcessorBusyBox {
       void call(String[] args) throws Exception {
         AndroidDataBindingProcessingAction.main(args);
       }
+    },
+    GEN_BASE_CLASSES {
+      @Override
+      void call(String[] args) throws Exception {
+        GenerateDatabindingBaseClassesAction.main(args);
+      }
     };
 
     abstract void call(String[] args) throws Exception;
@@ -183,21 +186,15 @@ public class ResourceProcessorBusyBox {
   }
 
   private static int runPersistentWorker() throws Exception {
-    ByteArrayOutputStream buf = new ByteArrayOutputStream();
-    PrintStream ps = new PrintStream(buf, true);
-    PrintStream realStdOut = System.out;
     PrintStream realStdErr = System.err;
 
-    // Redirect all stdout and stderr output for logging.
-    System.setOut(ps);
-    System.setErr(ps);
     try {
       WorkRequestHandler workerHandler =
           new WorkRequestHandler.WorkRequestHandlerBuilder(
                   new WorkRequestHandler.WorkRequestCallback(
-                      (request, pw) -> processRequest(request.getArgumentsList(), pw, buf)),
+                      (request, pw) -> processRequest(request.getArgumentsList(), pw)),
                   realStdErr,
-                  new ProtoWorkerMessageProcessor(System.in, realStdOut))
+                  new ProtoWorkerMessageProcessor(System.in, System.out))
               .setCpuUsageBeforeGc(Duration.ofSeconds(10))
               .build();
       workerHandler.processRequests();
@@ -205,9 +202,6 @@ public class ResourceProcessorBusyBox {
       logger.severe(e.getMessage());
       e.printStackTrace(realStdErr);
       return 1;
-    } finally {
-      System.setOut(realStdOut);
-      System.setErr(realStdErr);
     }
     return 0;
   }
@@ -216,7 +210,7 @@ public class ResourceProcessorBusyBox {
    * Processes the request for the given args and writes the captured byte array buffer to the
    * WorkRequestHandler print writer.
    */
-  private static int processRequest(List<String> args, PrintWriter pw, ByteArrayOutputStream buf) {
+  private static int processRequest(List<String> args, PrintWriter pw) {
     int exitCode;
     try {
       // Process the actual request and grab the exit code
@@ -224,14 +218,6 @@ public class ResourceProcessorBusyBox {
     } catch (Exception e) {
       e.printStackTrace(pw);
       exitCode = 1;
-    } finally {
-      // Write the captured buffer to the work response. We synchronize to avoid race conditions
-      // while reading from and calling reset on the shared ByteArrayOutputStream.
-      synchronized (buf) {
-        String captured = buf.toString(UTF_8).trim();
-        buf.reset();
-        pw.print(captured);
-      }
     }
 
     return exitCode;

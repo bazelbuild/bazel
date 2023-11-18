@@ -23,4 +23,4 @@ specifically #20, for details.
 
 load(":bazel/java/bazel_java_binary.bzl", "make_java_binary")
 
-java_binary = make_java_binary(executable = False, resolve_launcher_flag = False)
+java_binary = make_java_binary(executable = False)

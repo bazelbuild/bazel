@@ -48,6 +48,7 @@ public class WorkspaceNameFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testNormal() throws Exception {
+    setBuildLanguageOptions("--noenable_bzlmod");
     scratch.overwriteFile("WORKSPACE", "workspace(name = 'good')");
     assertThatEvaluationResult(eval())
         .hasEntryThat(key)
@@ -56,15 +57,15 @@ public class WorkspaceNameFunctionTest extends BuildViewTestCase {
 
   @Test
   public void bzlmod() throws Exception {
-    setBuildLanguageOptions("--enable_bzlmod");
     scratch.overwriteFile("WORKSPACE", "workspace(name = 'good')");
     assertThatEvaluationResult(eval())
         .hasEntryThat(key)
-        .isEqualTo(WorkspaceNameValue.withName("_main"));
+        .isEqualTo(WorkspaceNameValue.withName(ruleClassProvider.getRunfilesPrefix()));
   }
 
   @Test
   public void testErrorInExternalPkg() throws Exception {
+    setBuildLanguageOptions("--noenable_bzlmod");
     reporter.removeHandler(failFastHandler);
     scratch.overwriteFile("WORKSPACE", "bad");
     assertThatEvaluationResult(eval())
@@ -76,6 +77,7 @@ public class WorkspaceNameFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testTransitiveSkyframeError() throws Exception {
+    setBuildLanguageOptions("--noenable_bzlmod");
     reporter.removeHandler(failFastHandler);
     scratch.deleteFile("WORKSPACE");
     FileSystemUtils.ensureSymbolicLink(scratch.resolve("WORKSPACE"), "WORKSPACE");

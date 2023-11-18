@@ -11,10 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData.SPLIT_DEP_ORDERING;
 
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
@@ -25,24 +25,24 @@ import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyKind;
-import com.google.devtools.build.lib.analysis.DependencyResolver;
+import com.google.devtools.build.lib.analysis.DependencyResolutionHelpers;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
-import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
+import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.analysis.producers.DependencyContext;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
+import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
+import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContextImpl;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
@@ -63,20 +63,20 @@ import org.junit.runners.JUnit4;
  * Tests {@link ConfiguredTargetFunction}'s logic for determining each target's {@link
  * BuildConfigurationValue}.
  *
- * <p>This is essentially an integration test for {@link PrerequisiteProducer#computeDependencies}
- * and {@link DependencyResolver}. These methods form the core logic that figures out what a
+ * <p>This is essentially an integration test for {@link DependencyResolver#computeDependencies} and
+ * {@link DependencyResolutionHelpers}. These methods form the core logic that figures out what a
  * target's deps are, how their configurations should differ from their parent, and how to
  * instantiate those configurations as tangible {@link BuildConfigurationValue} objects.
  *
  * <p>{@link ConfiguredTargetFunction} is a complicated class that does a lot of things. This test
  * focuses purely on the task of determining configurations for deps. So instead of evaluating full
  * {@link ConfiguredTargetFunction} instances, it evaluates a mock {@link SkyFunction} that just
- * wraps the {@link PrerequisiteProducer#computeDependencies} part. This keeps focus tight and
+ * wraps the {@link DependencyResolver#computeDependencies} part. This keeps focus tight and
  * integration dependencies narrow.
  *
- * <p>We can't just call {@link PrerequisiteProducer#computeDependencies} directly because that
- * method needs a {@link SkyFunction.Environment} and Blaze's test infrastructure doesn't support
- * direct access to environments.
+ * <p>We can't just call {@link DependencyResolver#computeDependencies} directly because that method
+ * needs a {@link SkyFunction.Environment} and Blaze's test infrastructure doesn't support direct
+ * access to environments.
  */
 @RunWith(JUnit4.class)
 public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
@@ -86,7 +86,7 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
   private static final Label EXEC_PLATFORM_LABEL = Label.parseCanonicalUnchecked("//platform:exec");
 
   /**
-   * A mock {@link SkyFunction} that just calls {@link PrerequisiteProducer#computeDependencies} and
+   * A mock {@link SkyFunction} that just calls {@link DependencyResolver#computeDependencies} and
    * returns its results.
    */
   private static class ComputeDependenciesFunction implements SkyFunction {
@@ -128,36 +128,39 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws EvalException, InterruptedException {
       try {
-        TargetAndConfiguration targetAndConfiguration = (TargetAndConfiguration) skyKey.argument();
+        var targetAndConfiguration = (TargetAndConfiguration) skyKey.argument();
         // Set up the toolchain context so that exec transitions resolve properly.
-        ToolchainCollection<ToolchainContext> toolchainContexts =
-            ToolchainCollection.builder()
-                .addDefaultContext(
-                    UnloadedToolchainContextImpl.builder(
-                            ToolchainContextKey.key()
-                                .toolchainTypes(ImmutableSet.of())
-                                .configurationKey(
-                                    targetAndConfiguration.getConfiguration().getKey())
-                                .build())
-                        .setTargetPlatform(
-                            PlatformInfo.builder().setLabel(TARGET_PLATFORM_LABEL).build())
-                        .setExecutionPlatform(
-                            PlatformInfo.builder().setLabel(EXEC_PLATFORM_LABEL).build())
-                        .build())
-                .build();
-        var state = new PrerequisiteProducer.State();
-        state.targetAndConfiguration = targetAndConfiguration;
+        var state = DependencyResolver.State.createForTesting(targetAndConfiguration);
+        state.dependencyContext =
+            DependencyContext.create(
+                ToolchainCollection.<UnloadedToolchainContext>builder()
+                    .addDefaultContext(
+                        UnloadedToolchainContextImpl.builder(
+                                ToolchainContextKey.key()
+                                    .toolchainTypes(ImmutableSet.of())
+                                    .configurationKey(
+                                        targetAndConfiguration.getConfiguration().getKey())
+                                    .build())
+                            .setTargetPlatform(
+                                PlatformInfo.builder().setLabel(TARGET_PLATFORM_LABEL).build())
+                            .setExecutionPlatform(
+                                PlatformInfo.builder().setLabel(EXEC_PLATFORM_LABEL).build())
+                            .build())
+                    .build(),
+                ConfigConditions.EMPTY);
         OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depMap =
-            PrerequisiteProducer.computeDependencies(
+            DependencyResolver.computeDependencies(
                 state,
-                /* transitivePackages= */ null,
-                /* transitiveRootCauses= */ NestedSetBuilder.stableOrder(),
+                ConfiguredTargetKey.builder()
+                    .setLabel(targetAndConfiguration.getLabel())
+                    .setConfiguration(targetAndConfiguration.getConfiguration())
+                    .build(),
+                /* aspects= */ ImmutableList.of(),
+                stateProvider.lateBoundSkyframeBuildView().getStarlarkTransitionCache(),
+                /* starlarkTransitionProvider= */ null,
                 env,
-                ImmutableList.of(),
-                ImmutableMap.of(),
-                toolchainContexts,
-                stateProvider.lateBoundRuleClassProvider(),
-                stateProvider.lateBoundSkyframeBuildView());
+                env.getListener(),
+                /* baseTargetPrerequisitesSupplier= */ null);
         return env.valuesMissing() ? null : new Value(depMap);
       } catch (RuntimeException e) {
         throw e;
@@ -185,10 +188,6 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
    * of the build state. See {@link AnalysisTestCase#createMocks} for details.
    */
   private final class LateBoundStateProvider {
-    RuleClassProvider lateBoundRuleClassProvider() {
-      return ruleClassProvider;
-    }
-
     SkyframeBuildView lateBoundSkyframeBuildView() {
       return skyframeExecutor.getSkyframeBuildView();
     }
@@ -270,6 +269,28 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
     return null;
   }
 
+  private ImmutableList<ConfiguredTargetAndData> getConfiguredDepsWithData(
+      String targetLabel, String attrName) throws Exception {
+    ConfiguredTarget target = Iterables.getOnlyElement(update(targetLabel).getTargetsToBuild());
+    ImmutableList<ConfiguredTargetAndData> maybeConfiguredDeps =
+        getConfiguredDepsWithData(target, attrName);
+    assertThat(maybeConfiguredDeps).isNotNull();
+    return maybeConfiguredDeps;
+  }
+
+  @Nullable
+  private ImmutableList<ConfiguredTargetAndData> getConfiguredDepsWithData(
+      ConfiguredTarget target, String attrName) throws Exception {
+    Multimap<DependencyKind, ConfiguredTargetAndData> allDeps = getConfiguredDeps(target);
+    for (DependencyKind kind : allDeps.keySet()) {
+      Attribute attribute = kind.getAttribute();
+      if (attribute.getName().equals(attrName)) {
+        return ImmutableList.copyOf(allDeps.get(kind));
+      }
+    }
+    return null;
+  }
+
   @Before
   public void setUp() throws Exception {
     scratch.file(
@@ -340,40 +361,58 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
 
   @Test
   public void splitDeps() throws Exception {
-    getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
+    // Write a simple rule with split dependencies.
+    scratch.overwriteFile(
+        "tools/allowlists/function_transition_allowlist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_allowlist',",
+        "    packages = [",
+        "        '//a/...',",
+        "    ],",
+        ")");
     scratch.file(
-        "java/a/BUILD",
+        "a/defs.bzl",
+        "def _transition_impl(settings, attr):",
+        "    return {",
+        "        'opt': {'//command_line_option:compilation_mode': 'opt'},",
+        "        'dbg': {'//command_line_option:compilation_mode': 'dbg'},",
+        "    }",
+        "split_transition = transition(",
+        "    implementation = _transition_impl,",
+        "    inputs = [],",
+        "    outputs = ['//command_line_option:compilation_mode'])",
+        "def _split_deps_rule_impl(ctx):",
+        "    pass",
+        "split_deps_rule = rule(",
+        "    implementation = _split_deps_rule_impl,",
+        "    attrs = {",
+        "        'dep': attr.label(cfg = split_transition),",
+        "        '_allowlist_function_transition': attr.label(",
+        "            default = '//tools/allowlists/function_transition_allowlist')",
+        "    })");
+    scratch.file(
+        "a/BUILD",
+        "load('//a:defs.bzl', 'split_deps_rule')",
         "cc_library(name = 'lib', srcs = ['lib.cc'])",
-        "android_binary(name='a', manifest = 'AndroidManifest.xml', deps = [':lib'])");
-    useConfiguration("--fat_apk_cpu=k8,armeabi-v7a", "--experimental_google_legacy_api");
-    List<ConfiguredTarget> deps = getConfiguredDeps("//java/a:a", "deps");
+        "split_deps_rule(",
+        "    name = 'a',",
+        "    dep = ':lib')");
+
+    // Verify that the dependencies have different configurations.
+    ImmutableList<ConfiguredTargetAndData> deps = getConfiguredDepsWithData("//a:a", "dep");
     assertThat(deps).hasSize(2);
-    ConfiguredTarget dep1 = deps.get(0);
-    ConfiguredTarget dep2 = deps.get(1);
-    assertThat(ImmutableList.of(getConfiguration(dep1).getCpu(), getConfiguration(dep2).getCpu()))
-        .containsExactly("armeabi-v7a", "k8");
+    ConfiguredTargetAndData dep1 = deps.get(0);
+    ConfiguredTargetAndData dep2 = deps.get(1);
+    assertThat(dep1.getConfiguration().checksum()).isNotEqualTo(dep2.getConfiguration().checksum());
+
     // We don't care what order split deps are listed, but it must be deterministic.
-    assertThat(
-            ConfigurationResolver.SPLIT_DEP_ORDERING.compare(
-                Dependency.builder()
-                    .setLabel(dep1.getLabel())
-                    .setConfiguration(getConfiguration(dep1))
-                    .build(),
-                Dependency.builder()
-                    .setLabel(dep2.getLabel())
-                    .setConfiguration(getConfiguration(dep2))
-                    .build()))
-        .isLessThan(0);
+    assertThat(SPLIT_DEP_ORDERING.compare(dep1, dep2)).isLessThan(0);
   }
 
   /**
-   * {@link ConfigurationResolver#resolveConfigurations} caches the transitions applied to deps. In
-   * other words, if a parent rule has 100 deps that all set { compilation_mode=dbg }, there's no
-   * need to compute that transition and request the resulting dep configuration from Skyframe 100
-   * times.
+   * Ensures that <bold>different</bold> transitions don't trigger false cache hits.
    *
-   * <p>But we do need to make sure <bold>different</bold> transitions don't trigger false cache
-   * hits. This test checks a subtle version of that: if the same Starlark transition applies to two
+   * <p>This test checks a subtle version of that: if the same Starlark transition applies to two
    * deps, but that transition reads their attributes and their attribute values are different, we
    * need to make sure they're distinctly computed.
    */

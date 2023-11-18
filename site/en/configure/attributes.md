@@ -148,7 +148,7 @@ build parameters, which include `--cpu=arm`. The `tools` attribute changes
 
 Each key in a configurable attribute is a label reference to a
 [`config_setting`](/reference/be/general#config_setting) or
-[`constraint_value`](/reference/be/platform#constraint_value).
+[`constraint_value`](/reference/be/platforms-and-toolchains#constraint_value).
 
 `config_setting` is just a collection of
 expected command line flag settings. By encapsulating these in a target, it's

@@ -17,6 +17,7 @@ java_library(
     srcs = glob(
         ["*.java"],
         exclude = [
+            "Dumper.java",
             "FakeDirectories.java",
             "SerializationDepsUtils.java",
         ],
@@ -57,5 +58,14 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+    ],
+)
+
+java_library(
+    name = "dumper",
+    srcs = ["Dumper.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
+        "//third_party:guava",
     ],
 )

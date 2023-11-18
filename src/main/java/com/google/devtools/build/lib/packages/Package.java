@@ -24,14 +24,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.analysis.config.FeatureSet;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext.LoadGraphVisitor;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -45,7 +44,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
-import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -67,7 +65,6 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -75,8 +72,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.Semaphore;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -112,6 +111,9 @@ public class Package {
    * @see #isRepoRulePackage()
    */
   private static final String DUMMY_WORKSPACE_NAME_FOR_BZLMOD_PACKAGES = "__dummy_workspace_bzlmod";
+
+  /** Sentinel value for package overhead being empty. */
+  private static final long PACKAGE_OVERHEAD_UNSET = -1;
 
   /** Common superclass for all name-conflict exceptions. */
   public static class NameConflictException extends Exception {
@@ -172,11 +174,11 @@ public class Package {
   /** The collection of all targets defined in this package, indexed by name. */
   private ImmutableSortedMap<String, Target> targets;
 
-  /**
-   * Default visibility for rules that do not specify it.
-   */
-  private RuleVisibility defaultVisibility;
-  private boolean defaultVisibilitySet;
+  private PackageArgs packageArgs = PackageArgs.DEFAULT;
+
+  public PackageArgs getPackageArgs() {
+    return packageArgs;
+  }
 
   /**
    * How to enforce config_setting visibility settings.
@@ -195,21 +197,6 @@ public class Package {
   }
 
   private ConfigSettingVisibilityPolicy configSettingVisibilityPolicy;
-
-  /**
-   * Default package-level 'testonly' value for rules that do not specify it.
-   */
-  private boolean defaultTestOnly = false;
-
-  /**
-   * Default package-level 'deprecation' value for rules that do not specify it.
-   */
-  private String defaultDeprecation;
-
-  /**
-   * Default header strictness checking for rules that do not specify it.
-   */
-  private String defaultHdrsCheck;
 
   /**
    * The InputFile target corresponding to this package's BUILD file.
@@ -233,18 +220,6 @@ public class Package {
    */
   @Nullable private FailureDetail failureDetail;
 
-  /** The package's default "package_metadata" attribute. */
-  private ImmutableSet<Label> defaultPackageMetadata = ImmutableSet.of();
-
-  /**
-   * The package's default "licenses" and "distribs" attributes, as specified
-   * in calls to licenses() and distribs() in the BUILD file.
-   */
-  // These sets contain the values specified by the most recent licenses() or
-  // distribs() declarations encountered during package parsing:
-  private License defaultLicense;
-  private Set<License.DistributionType> defaultDistributionSet;
-
   /**
    * The map from each repository to that repository's remappings map. This is only used in the
    * //external package, it is an empty map for all other packages. For example, an entry of {"@foo"
@@ -266,10 +241,24 @@ public class Package {
    */
   private RepositoryMapping mainRepositoryMapping;
 
-  private Set<Label> defaultCompatibleWith = ImmutableSet.of();
-  private Set<Label> defaultRestrictedTo = ImmutableSet.of();
+  /**
+   * A rough approximation of the memory and general accounting costs associated with a loaded
+   * package. A value of -1 means it is unset. Stored as a long to take up less memory per pkg.
+   */
+  private long packageOverhead = PACKAGE_OVERHEAD_UNSET;
 
-  private FeatureSet features;
+  /** Returns package overhead as configured by the configured {@link PackageOverheadEstimator}. */
+  public OptionalLong getPackageOverhead() {
+    return packageOverhead == PACKAGE_OVERHEAD_UNSET
+        ? OptionalLong.empty()
+        : OptionalLong.of(packageOverhead);
+  }
+
+  /** Sets package overhead as configured by the configured {@link PackageOverheadEstimator}. */
+  void setPackageOverhead(OptionalLong packageOverhead) {
+    this.packageOverhead =
+        packageOverhead.isPresent() ? packageOverhead.getAsLong() : PACKAGE_OVERHEAD_UNSET;
+  }
 
   private ImmutableList<TargetPattern> registeredExecutionPlatforms;
   private ImmutableList<TargetPattern> registeredToolchains;
@@ -359,48 +348,6 @@ public class Package {
   }
 
   /**
-   * Package initialization: part 2 of 3: sets this package's default header
-   * strictness checking.
-   *
-   * <p>This is needed to support C++-related rule classes
-   * which accesses {@link #getDefaultHdrsCheck} from the still-under-construction
-   * package.
-   */
-  private void setDefaultHdrsCheck(String defaultHdrsCheck) {
-    this.defaultHdrsCheck = defaultHdrsCheck;
-  }
-
-  /**
-   * Set the default 'testonly' value for this package.
-   */
-  private void setDefaultTestOnly(boolean testOnly) {
-    defaultTestOnly = testOnly;
-  }
-
-  /**
-   * Set the default 'deprecation' value for this package.
-   */
-  private void setDefaultDeprecation(String deprecation) {
-    defaultDeprecation = deprecation;
-  }
-
-  /**
-   * Sets the default value to use for a rule's {@link RuleClass#COMPATIBLE_ENVIRONMENT_ATTR}
-   * attribute when not explicitly specified by the rule.
-   */
-  private void setDefaultCompatibleWith(Set<Label> environments) {
-    defaultCompatibleWith = environments;
-  }
-
-  /**
-   * Sets the default value to use for a rule's {@link RuleClass#RESTRICTED_ENVIRONMENT_ATTR}
-   * attribute when not explicitly specified by the rule.
-   */
-  private void setDefaultRestrictedTo(Set<Label> environments) {
-    defaultRestrictedTo = environments;
-  }
-
-  /**
    * Returns the source root (a directory) beneath which this package's BUILD file was found, or
    * {@link Optional#empty} if this package was derived from a workspace file.
    *
@@ -472,15 +419,10 @@ public class Package {
 
     this.makeEnv = ImmutableMap.copyOf(builder.makeEnv);
     this.targets = ImmutableSortedMap.copyOf(builder.targets);
-    this.defaultVisibility = builder.defaultVisibility;
-    this.defaultVisibilitySet = builder.defaultVisibilitySet;
+    this.packageArgs = builder.packageArgs;
     this.configSettingVisibilityPolicy = builder.configSettingVisibilityPolicy;
     this.buildFile = builder.buildFile;
     this.failureDetail = builder.getFailureDetail();
-    this.defaultLicense = builder.defaultLicense;
-    this.defaultDistributionSet = builder.defaultDistributionSet;
-    this.defaultPackageMetadata = ImmutableSortedSet.copyOf(builder.defaultPackageMetadata);
-    this.features = builder.features;
     this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
     this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
     this.repositoryMapping = Preconditions.checkNotNull(builder.repositoryMapping);
@@ -498,6 +440,7 @@ public class Package {
     builder.externalPackageRepositoryMappings.forEach((k, v) ->
         repositoryMappingsBuilder.put(k, ImmutableMap.copyOf(v)));
     this.externalPackageRepositoryMappings = repositoryMappingsBuilder.buildOrThrow();
+    setPackageOverhead(builder.packageOverheadEstimator.estimatePackageOverhead(this));
   }
 
   private static boolean isWorkspaceFile(String baseFileName) {
@@ -539,28 +482,6 @@ public class Package {
   }
 
   /**
-   * Consumes labels of loaded Starlark files during a call to {@link #visitLoadGraph}.
-   *
-   * <p>The value returned by {@link #visit} determines whether the traversal should continue (true)
-   * or backtrack (false). Using a method reference to {@link Set#add} is a convenient way to
-   * aggregate Starlark files while pruning branches when a file was already seen. The same set may
-   * be reused across multiple calls to {@link #visitLoadGraph} for different packages in order to
-   * prune the graph at files already seen during a previous traversal.
-   */
-  @FunctionalInterface
-  public interface LoadGraphVisitor<E1 extends Exception, E2 extends Exception> {
-    /**
-     * Processes a single loaded Starlark file and determines whether to recurse into that file's
-     * loads.
-     *
-     * @return true if the visitation should recurse into the loads of the given file; ignored if
-     *     transitive loads were {@linkplain PackageSettings#precomputeTransitiveLoads precomputed}
-     */
-    @CanIgnoreReturnValue
-    boolean visit(Label load) throws E1, E2;
-  }
-
-  /**
    * Performs an online visitation of the load graph rooted at this package.
    *
    * <p>If transitive loads were {@linkplain PackageSettings#precomputeTransitiveLoads precomputed},
@@ -573,23 +494,13 @@ public class Package {
         visitor.visit(load);
       }
     } else {
-      visitLoadGraphRecursively(directLoads, visitor);
-    }
-  }
-
-  private static <E1 extends Exception, E2 extends Exception> void visitLoadGraphRecursively(
-      Iterable<Module> loads, LoadGraphVisitor<E1, E2> visitor) throws E1, E2 {
-    for (Module module : loads) {
-      BazelModuleContext ctx = BazelModuleContext.of(module);
-      if (visitor.visit(ctx.label())) {
-        visitLoadGraphRecursively(ctx.loads(), visitor);
-      }
+      BazelModuleContext.visitLoadGraphRecursively(directLoads, visitor);
     }
   }
 
   private static ImmutableList<Label> computeTransitiveLoads(Iterable<Module> directLoads) {
     Set<Label> loads = new LinkedHashSet<>();
-    visitLoadGraphRecursively(directLoads, loads::add);
+    BazelModuleContext.visitLoadGraphRecursively(directLoads, loads::add);
     return ImmutableList.copyOf(loads);
   }
 
@@ -655,6 +566,24 @@ public class Package {
    */
   public boolean containsErrors() {
     return containsErrors;
+  }
+
+  /**
+   * If {@code pkg.containsErrors()}, sends an errorful "package contains errors" {@link Event}
+   * (augmented with {@code pkg.getFailureDetail()}, if present) to the given {@link EventHandler}.
+   */
+  public static void maybeAddPackageContainsErrorsEventToHandler(
+      Package pkg, EventHandler eventHandler) {
+    if (pkg.containsErrors()) {
+      eventHandler.handle(
+          Event.error(
+              String.format(
+                  "package contains errors: %s%s",
+                  pkg.getNameFragment(),
+                  pkg.getFailureDetail() != null
+                      ? ": " + pkg.getFailureDetail().getMessage()
+                      : "")));
+    }
   }
 
   void setContainsErrors() {
@@ -743,11 +672,6 @@ public class Package {
     return workspaceName;
   }
 
-  /** Returns the features specified in the <code>package()</code> declaration. */
-  public FeatureSet getFeatures() {
-    return features;
-  }
-
   /**
    * Returns the target (a member of this package) whose name is "targetName".
    * First rules are searched, then output files, then input files.  The target
@@ -824,13 +748,6 @@ public class Package {
   }
 
   /**
-   * Returns the default visibility for this package.
-   */
-  public RuleVisibility getDefaultVisibility() {
-    return defaultVisibility;
-  }
-
-  /**
    * How to enforce visibility on <code>config_setting</code> See
    * {@link ConfigSettingVisibilityPolicy} for details.
    */
@@ -838,67 +755,6 @@ public class Package {
     return configSettingVisibilityPolicy;
   }
 
-  /**
-   * Returns the default testonly value.
-   */
-  public Boolean getDefaultTestOnly() {
-    return defaultTestOnly;
-  }
-
-  /**
-   * Returns the default deprecation value.
-   */
-  public String getDefaultDeprecation() {
-    return defaultDeprecation;
-  }
-
-  /** Gets the default header checking mode. */
-  public String getDefaultHdrsCheck() {
-    return defaultHdrsCheck != null ? defaultHdrsCheck : "strict";
-  }
-
-  /**
-   * Returns whether the default header checking mode has been set or it is the
-   * default value.
-   */
-  public boolean isDefaultHdrsCheckSet() {
-    return defaultHdrsCheck != null;
-  }
-
-  public boolean isDefaultVisibilitySet() {
-    return defaultVisibilitySet;
-  }
-
-  /** Gets the package metadata list for the default metadata declared by this package. */
-  Set<Label> getDefaultPackageMetadata() {
-    return defaultPackageMetadata;
-  }
-
-  /** Gets the parsed license object for the default license declared by this package. */
-  License getDefaultLicense() {
-    return defaultLicense;
-  }
-
-  /** Returns the parsed set of distributions declared as the default for this package. */
-  Set<License.DistributionType> getDefaultDistribs() {
-    return defaultDistributionSet;
-  }
-
-  /**
-   * Returns the default value to use for a rule's {@link RuleClass#COMPATIBLE_ENVIRONMENT_ATTR}
-   * attribute when not explicitly specified by the rule.
-   */
-  public Set<Label> getDefaultCompatibleWith() {
-    return defaultCompatibleWith;
-  }
-
-  /**
-   * Returns the default value to use for a rule's {@link RuleClass#RESTRICTED_ENVIRONMENT_ATTR}
-   * attribute when not explicitly specified by the rule.
-   */
-  public Set<Label> getDefaultRestrictedTo() {
-    return defaultRestrictedTo;
-  }
 
   public ImmutableList<TargetPattern> getRegisteredExecutionPlatforms() {
     return registeredExecutionPlatforms;
@@ -952,7 +808,8 @@ public class Package {
       RootedPath workspacePath,
       String workspaceName,
       RepositoryMapping mainRepoMapping,
-      StarlarkSemantics starlarkSemantics) {
+      StarlarkSemantics starlarkSemantics,
+      PackageOverheadEstimator packageOverheadEstimator) {
     return new Builder(
             helper,
             LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
@@ -961,7 +818,9 @@ public class Package {
             /* associatedModuleVersion= */ Optional.empty(),
             starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
             mainRepoMapping,
-            mainRepoMapping)
+            mainRepoMapping,
+            /* cpuBoundSemaphore= */ null,
+            packageOverheadEstimator)
         .setFilename(workspacePath);
   }
 
@@ -981,7 +840,9 @@ public class Package {
             // This mapping is *not* the main repository's mapping, but since it is only used to
             // construct a query command in an error message and the package built here can't be
             // seen by query, the particular value does not matter.
-            RepositoryMapping.ALWAYS_FALLBACK)
+            RepositoryMapping.ALWAYS_FALLBACK,
+            /* cpuBoundSemaphore= */ null,
+            PackageOverheadEstimator.NOOP_ESTIMATOR)
         .setFilename(moduleFilePath)
         .setLoads(ImmutableList.of());
   }
@@ -1067,16 +928,25 @@ public class Package {
     /** Converts label literals to Label objects within this package. */
     private final LabelConverter labelConverter;
 
+    /** Estimates the package overhead of this package. */
+    private final PackageOverheadEstimator packageOverheadEstimator;
+
+    /**
+     * Semaphore held by the Skyframe thread when performing CPU work.
+     *
+     * <p>This should be released when performing I/O.
+     */
+    @Nullable // Only non-null when inside PackageFunction.compute and the semaphore is enabled.
+    private final Semaphore cpuBoundSemaphore;
+
     private RootedPath filename = null;
     private Label buildFileLabel = null;
     private InputFile buildFile = null;
     // TreeMap so that the iteration order of variables is predictable. This is useful so that the
     // serialized representation is deterministic.
     private final TreeMap<String, String> makeEnv = new TreeMap<>();
-    private RuleVisibility defaultVisibility = RuleVisibility.PRIVATE;
+    private PackageArgs packageArgs = PackageArgs.DEFAULT;
     private ConfigSettingVisibilityPolicy configSettingVisibilityPolicy;
-    private boolean defaultVisibilitySet;
-    private FeatureSet features = FeatureSet.EMPTY;
     private final List<Event> events = Lists.newArrayList();
     private final List<Postable> posts = Lists.newArrayList();
     @Nullable private String ioExceptionMessage = null;
@@ -1094,10 +964,6 @@ public class Package {
     // [*] Not in the context of the package, anyway. Skyframe values containing a package may
     // serialize events emitted during its construction/evaluation.
     @Nullable private FailureDetail failureDetailOverride = null;
-
-    private ImmutableList<Label> defaultPackageMetadata = ImmutableList.of();
-    private License defaultLicense = License.NO_LICENSE;
-    private Set<License.DistributionType> defaultDistributionSet = License.DEFAULT_DISTRIB;
 
     // All targets added to the package. We use SnapshottableBiMap to help track insertion order of
     // Rule targets, for use by native.existing_rules().
@@ -1188,7 +1054,9 @@ public class Package {
         Optional<String> associatedModuleVersion,
         boolean noImplicitFileExport,
         RepositoryMapping repositoryMapping,
-        RepositoryMapping mainRepositoryMapping) {
+        RepositoryMapping mainRepositoryMapping,
+        @Nullable Semaphore cpuBoundSemaphore,
+        PackageOverheadEstimator packageOverheadEstimator) {
       this.pkg =
           new Package(
               id,
@@ -1202,8 +1070,10 @@ public class Package {
       this.mainRepositoryMapping = mainRepositoryMapping;
       this.labelConverter = new LabelConverter(id, repositoryMapping);
       if (pkg.getName().startsWith("javatests/")) {
-        setDefaultTestonly(true);
+        mergePackageArgsFrom(PackageArgs.builder().setDefaultTestOnly(true));
       }
+      this.cpuBoundSemaphore = cpuBoundSemaphore;
+      this.packageOverheadEstimator = packageOverheadEstimator;
     }
 
     PackageIdentifier getPackageIdentifier() {
@@ -1348,42 +1218,26 @@ public class Package {
       return this;
     }
 
-    /**
-     * Sets the default visibility for this package. Called at most once per package from
-     * PackageFactory.
-     */
     @CanIgnoreReturnValue
-    public Builder setDefaultVisibility(RuleVisibility visibility) {
-      this.defaultVisibility = visibility;
-      this.defaultVisibilitySet = true;
+    public Builder mergePackageArgsFrom(PackageArgs packageArgs) {
+      this.packageArgs = this.packageArgs.mergeWith(packageArgs);
       return this;
     }
 
-    /** Sets whether the default visibility is set in the BUILD file. */
     @CanIgnoreReturnValue
-    public Builder setDefaultVisibilitySet(boolean defaultVisibilitySet) {
-      this.defaultVisibilitySet = defaultVisibilitySet;
-      return this;
+    public Builder mergePackageArgsFrom(PackageArgs.Builder builder) {
+      return mergePackageArgsFrom(builder.build());
+    }
+
+    /** Called partial b/c in builder and thus subject to mutation and updates */
+    public PackageArgs getPartialPackageArgs() {
+      return packageArgs;
     }
 
     /** Sets visibility enforcement policy for <code>config_setting</code>. */
     @CanIgnoreReturnValue
     public Builder setConfigSettingVisibilityPolicy(ConfigSettingVisibilityPolicy policy) {
       this.configSettingVisibilityPolicy = policy;
-      return this;
-    }
-
-    /** Sets the default value of 'testonly'. Rule-level 'testonly' will override this. */
-    @CanIgnoreReturnValue
-    Builder setDefaultTestonly(boolean defaultTestonly) {
-      pkg.setDefaultTestOnly(defaultTestonly);
-      return this;
-    }
-
-    /** Sets the default value of 'deprecation'. Rule-level 'deprecation' will append to this. */
-    @CanIgnoreReturnValue
-    Builder setDefaultDeprecation(String defaultDeprecation) {
-      pkg.setDefaultDeprecation(defaultDeprecation);
       return this;
     }
 
@@ -1409,22 +1263,6 @@ public class Package {
     /** Sets the number of Starlark computation steps executed by this BUILD file. */
     void setComputationSteps(long n) {
       pkg.computationSteps = n;
-    }
-
-    /** Sets the default header checking mode. */
-    @CanIgnoreReturnValue
-    public Builder setDefaultHdrsCheck(String hdrsCheck) {
-      // Note that this setting is propagated directly to the package because
-      // other code needs the ability to read this info directly from the
-      // under-construction package. See {@link Package#setDefaultHdrsCheck}.
-      pkg.setDefaultHdrsCheck(hdrsCheck);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addFeatures(Iterable<String> features) {
-      this.features = FeatureSet.merge(this.features, FeatureSet.parse(features));
-      return this;
     }
 
     Builder setIOException(IOException e, String message, DetailedExitCode detailedExitCode) {
@@ -1498,7 +1336,7 @@ public class Package {
         }
       }
       if (undetailedEvents != null) {
-        BugReport.sendBugReport(
+        BugReport.sendNonFatalBugReport(
             new IllegalStateException("Package has undetailed error from " + undetailedEvents));
       }
       return null;
@@ -1527,75 +1365,6 @@ public class Package {
           pkg.directLoads == null, "Direct loads already set: %s", pkg.directLoads);
       Preconditions.checkState(
           pkg.transitiveLoads == null, "Transitive loads already set: %s", pkg.transitiveLoads);
-    }
-
-    /**
-     * Sets the default value to use for a rule's {@link RuleClass#APPLICABLE_LICENSES_ATTR}
-     * attribute when not explicitly specified by the rule. Records a package error if any labels
-     * are duplicated.
-     */
-    void setDefaultPackageMetadata(List<Label> licenses, String attrName, Location location) {
-      if (hasDuplicateLabels(
-          licenses, "package " + pkg.getName(), attrName, location, this::addEvent)) {
-        setContainsErrors();
-      }
-      this.defaultPackageMetadata = ImmutableList.copyOf(licenses);
-    }
-
-    ImmutableList<Label> getDefaultPackageMetadata() {
-      return defaultPackageMetadata;
-    }
-
-    /**
-     * Sets the default license for this package.
-     */
-    void setDefaultLicense(License license) {
-      this.defaultLicense = license;
-    }
-
-    License getDefaultLicense() {
-      return defaultLicense;
-    }
-
-    /**
-     * Initializes the default set of distributions for targets in this package.
-     *
-     * <p> TODO(bazel-team): (2011) consider moving the license & distribs info into Metadata--maybe
-     * even in the Build language.
-     */
-    void setDefaultDistribs(Set<DistributionType> dists) {
-      this.defaultDistributionSet = dists;
-    }
-
-    Set<DistributionType> getDefaultDistribs() {
-      return defaultDistributionSet;
-    }
-
-    /**
-     * Sets the default value to use for a rule's {@link RuleClass#COMPATIBLE_ENVIRONMENT_ATTR}
-     * attribute when not explicitly specified by the rule. Records a package error if any labels
-     * are duplicated.
-     */
-    void setDefaultCompatibleWith(List<Label> environments, String attrName, Location location) {
-      if (hasDuplicateLabels(
-          environments, "package " + pkg.getName(), attrName, location, this::addEvent)) {
-        setContainsErrors();
-      }
-      pkg.setDefaultCompatibleWith(ImmutableSet.copyOf(environments));
-    }
-
-    /**
-     * Sets the default value to use for a rule's {@link RuleClass#RESTRICTED_ENVIRONMENT_ATTR}
-     * attribute when not explicitly specified by the rule. Records a package error if
-     * any labels are duplicated.
-     */
-    void setDefaultRestrictedTo(List<Label> environments, String attrName, Location location) {
-      if (hasDuplicateLabels(
-          environments, "package " + pkg.getName(), attrName, location, this::addEvent)) {
-        setContainsErrors();
-      }
-
-      pkg.setDefaultRestrictedTo(ImmutableSet.copyOf(environments));
     }
 
     /**
@@ -1990,8 +1759,6 @@ public class Package {
       }
       ruleLabels = null;
       targets = Maps.unmodifiableBiMap(targets);
-      defaultDistributionSet =
-          Collections.unmodifiableSet(defaultDistributionSet);
 
       // Now all targets have been loaded, so we validate the group's member environments.
       for (EnvironmentGroup envGroup : ImmutableSet.copyOf(environmentGroups.values())) {
@@ -2158,6 +1925,11 @@ public class Package {
         message += target.getTargetKind();
       }
       return message + ", defined at " + target.getLocation();
+    }
+
+    @Nullable
+    public Semaphore getCpuBoundSemaphore() {
+      return cpuBoundSemaphore;
     }
   }
 

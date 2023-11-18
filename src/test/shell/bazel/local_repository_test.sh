@@ -185,15 +185,11 @@ EOF
 
   bazel build //zoo:ball-pit >& $TEST_log && \
     fail "Expected build to fail"
-  expect_log "no such package '@common//carnivore'"
+  expect_log "No repository visible as '@common' from main repository"
 }
 
 function test_new_local_repository_with_build_file() {
   do_new_local_repository_test "build_file"
-}
-
-function test_new_local_repository_with_labeled_build_file() {
-  do_new_local_repository_test "build_file+label"
 }
 
 function test_new_local_repository_with_build_file_content() {
@@ -224,22 +220,17 @@ public class Mongoose {
 }
 EOF
 
-  if [ "$1" == "build_file" -o "$1" == "build_file+label" ] ; then
-    build_file=BUILD.carnivore
-    build_file_str="${build_file}"
-    if [ "$1" == "build_file+label" ]; then
-      build_file_str="//:${build_file}"
-      cat > BUILD
-    fi
+  if [ "$1" == "build_file" ] ; then
+    touch BUILD
     cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 new_local_repository(
     name = 'endangered',
     path = '$project_dir',
-    build_file = '$build_file',
+    build_file = '//:BUILD.carnivore',
 )
 EOF
 
-    cat > $build_file <<EOF
+    cat > BUILD.carnivore <<EOF
 java_library(
     name = "mongoose",
     srcs = ["carnivore/Mongoose.java"],
@@ -299,11 +290,6 @@ EOF
   bazel run //zoo:ball-pit >& $TEST_log || fail "Failed to build/run zoo"
   expect_not_log "Tra-la!"
   expect_log "Growl!"
-}
-
-function test_default_ws() {
-  bazel fetch //external:main || fail "Fetch failed"
-  bazel build //external:main >& $TEST_log || fail "Failed to build java"
 }
 
 function test_external_hdrs() {
@@ -467,7 +453,7 @@ EOF
 new_local_repository(
     name = "bar",
     path = "$bar",
-    build_file = "BUILD",
+    build_file = "//:BUILD",
 )
 EOF
   touch BUILD
@@ -572,7 +558,7 @@ function test_overlaid_build_file() {
 new_local_repository(
     name = "mutant",
     path = "$mutant",
-    build_file = "mutant.BUILD"
+    build_file = "//:mutant.BUILD"
 )
 
 bind(
@@ -580,6 +566,7 @@ bind(
     actual = "@mutant//:turtle",
 )
 EOF
+  touch BUILD
   cat > mutant.BUILD <<EOF
 genrule(
     name = "turtle",
@@ -1093,10 +1080,11 @@ EOF
 new_local_repository(
     name="r",
     path="$r",
-    build_file="BUILD.r"
+    build_file="//:BUILD.r"
 )
 EOF
 
+  touch BUILD
   cat > BUILD.r <<EOF
 cc_library(name = "a", srcs = ["a.cc"])
 EOF
@@ -1384,7 +1372,7 @@ EOF
 
   bazel build @x_repo//a >& $TEST_log && fail "Building @x_repo//a should error out"
   expect_log "** Please add the following dependencies:"
-  expect_log "@x_repo//x to @x_repo//a"
+  expect_log "@@x_repo//x to @@x_repo//a"
 }
 
 # This test verifies that the `public` pattern includes external dependencies.

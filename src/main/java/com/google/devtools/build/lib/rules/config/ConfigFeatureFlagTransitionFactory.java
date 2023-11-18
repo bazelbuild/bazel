@@ -21,10 +21,12 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
+import com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AllowlistChecker;
@@ -86,7 +88,18 @@ public class ConfigFeatureFlagTransitionFactory implements StarlarkExposedRuleTr
       if (!options.contains(ConfigFeatureFlagOptions.class)) {
         return options.underlying();
       }
-      return FeatureFlagValue.replaceFlagValues(options.underlying(), flagValues);
+      BuildOptions toOptions = FeatureFlagValue.replaceFlagValues(options.underlying(), flagValues);
+      // In legacy mode, need to update `affected by Starlark transition` to include changed flags.
+      if (toOptions
+          .get(CoreOptions.class)
+          .outputDirectoryNamingScheme
+          .equals(CoreOptions.OutputDirectoryNamingScheme.LEGACY)) {
+        FunctionTransitionUtil.updateAffectedByStarlarkTransition(
+            toOptions.get(CoreOptions.class),
+            FunctionTransitionUtil.getAffectedByStarlarkTransitionViaDiff(
+                toOptions, options.underlying()));
+      }
+      return toOptions;
     }
 
     @Override

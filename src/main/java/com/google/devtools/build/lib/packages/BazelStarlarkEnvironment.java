@@ -64,6 +64,9 @@ public final class BazelStarlarkEnvironment {
   // All of the environments stored in these fields exclude the symbols in {@link
   // Starlark#UNIVERSE}, which the interpreter adds automatically.
 
+  // Constructor param, used in this class but also re-exported to clients.
+  private final StarlarkGlobals starlarkGlobals;
+
   // The following fields correspond to the constructor params of the same name. These include only
   // the params that are needed by injection. See the constructor for javadoc.
   private final ImmutableMap<String, ?> ruleFunctions;
@@ -90,8 +93,6 @@ public final class BazelStarlarkEnvironment {
   private final ImmutableMap<String, Object> uninjectedWorkspaceBzlEnv;
   /** The top-level predeclared symbols for a bzl module in the {@code @_builtins} pseudo-repo. */
   private final ImmutableMap<String, Object> builtinsBzlEnv;
-  /** The top-level predeclared symbols for a bzl module in the Bzlmod system. */
-  private final ImmutableMap<String, Object> bzlmodBzlEnv;
 
   /**
    * Constructs a new {@code BazelStarlarkEnvironment} that will have complete knowledge of the
@@ -118,6 +119,7 @@ public final class BazelStarlarkEnvironment {
       ImmutableMap<String, Object> workspaceBzlNativeBindings,
       ImmutableMap<String, Object> builtinsInternals) {
 
+    this.starlarkGlobals = starlarkGlobals;
     this.ruleFunctions = ruleFunctions;
     this.registeredBzlToplevels = registeredBzlToplevels;
     this.workspaceBzlNativeBindings = workspaceBzlNativeBindings;
@@ -131,11 +133,6 @@ public final class BazelStarlarkEnvironment {
         createUninjectedBuildBzlEnv(bzlToplevelsWithoutNative, uninjectedBuildBzlNativeBindings);
     this.uninjectedWorkspaceBzlEnv =
         createWorkspaceBzlEnv(bzlToplevelsWithoutNative, workspaceBzlNativeBindings);
-    // TODO(#11954): We should converge all .bzl dialects regardless of whether they're loaded by
-    // BUILD, WORKSPACE, or MODULE. At the moment, WORKSPACE-loaded and MODULE-loaded .bzl files are
-    // already converged, hence why bzlmodBzlEnv is populated with a "Workspace" helper function.
-    this.bzlmodBzlEnv =
-        createWorkspaceBzlEnv(bzlToplevelsWithoutNative, workspaceBzlNativeBindings);
     this.builtinsBzlEnv =
         createBuiltinsBzlEnv(
             starlarkGlobals,
@@ -144,6 +141,17 @@ public final class BazelStarlarkEnvironment {
             uninjectedBuildBzlEnv);
     this.uninjectedBuildEnv =
         createUninjectedBuildEnv(starlarkGlobals, ruleFunctions, registeredBuildFileToplevels);
+  }
+
+  /**
+   * Returns a {@link StarlarkGlobals} instance.
+   *
+   * <p>In practice, {@link StarlarkGlobals} is a singleton, so this accessor is really about
+   * retrieving {@link StarlarkGlobalsImpl#INSTANCE} without requiring a dependency on the
+   * lib/analysis/ package.
+   */
+  public StarlarkGlobals getStarlarkGlobals() {
+    return starlarkGlobals;
   }
 
   /**
@@ -196,14 +204,6 @@ public final class BazelStarlarkEnvironment {
    */
   public ImmutableMap<String, Object> getBuiltinsBzlEnv() {
     return builtinsBzlEnv;
-  }
-
-  /**
-   * Returns the environment for Bzlmod-loaded bzl files. Excludes symbols in {@link
-   * Starlark#UNIVERSE}.
-   */
-  public ImmutableMap<String, Object> getBzlmodBzlEnv() {
-    return bzlmodBzlEnv;
   }
 
   private static ImmutableMap<String, Object> createBzlToplevelsWithoutNative(

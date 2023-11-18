@@ -39,7 +39,7 @@ class X86Crosstools {
 
     ImmutableList.Builder<CToolchain.Builder> toolchains = ImmutableList.builder();
 
-    /**
+    /*
      * x86
      */
 
@@ -61,23 +61,21 @@ class X86Crosstools {
     stlImpl.addStlImpl(x86Clang, "4.9");
     toolchains.add(x86Clang);
 
-    /**
+    /*
      * x86_64
      */
 
-    CToolchain.Builder x8664 = createBaseX86Toolchain()
-        .setToolchainIdentifier("x86_64-4.9")
-        .setTargetCpu("x86_64")
-        .setCompiler("gcc-4.9")
-
-        .addAllToolPath(ndkPaths.createToolpaths(
-            "x86_64-4.9", "x86_64-linux-android"))
-        .addAllCxxBuiltinIncludeDirectory(
-            ndkPaths.createGccToolchainBuiltinIncludeDirectories(
-                "x86_64-4.9", "x86_64-linux-android", "4.9"))
-        .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("x86_64"))
-
-        .addCompilerFlag("-fstack-protector-strong");
+    CToolchain.Builder x8664 =
+        createBaseX86Toolchain()
+            .setToolchainIdentifier("x86_64-4.9")
+            .setTargetCpu("x86_64")
+            .setCompiler("gcc-4.9")
+            .addAllToolPath(ndkPaths.createToolpaths("x86_64-4.9", "x86_64-linux-android"))
+            .addAllCxxBuiltinIncludeDirectory(
+                ndkPaths.createGccToolchainBuiltinIncludeDirectories(
+                    "x86_64-4.9", "x86_64-linux-android", "4.9"))
+            .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("x86_64"))
+            .addCompilerFlag("-fstack-protector-strong");
 
     stlImpl.addStlImpl(x8664, "4.9");
     toolchains.add(x8664);

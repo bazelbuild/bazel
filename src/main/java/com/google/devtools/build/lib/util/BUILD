@@ -109,6 +109,15 @@ java_library(
 )
 
 java_library(
+    name = "maybe_complete_set",
+    srcs = ["MaybeCompleteSet.java"],
+    deps = [
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "resource_converter",
     srcs = [
         "ResourceConverter.java",
@@ -216,6 +225,7 @@ java_library(
     ],
     deps = [
         ":string",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/vfs:ospathpolicy",

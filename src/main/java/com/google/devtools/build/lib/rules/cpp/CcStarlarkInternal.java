@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -49,6 +51,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
@@ -71,6 +74,20 @@ public class CcStarlarkInternal implements StarlarkValue {
     return Dict.cast(d, String.class, String.class, "tool_paths").entrySet().stream()
         .map(p -> Pair.of(p.getKey(), PathFragment.create(p.getValue())))
         .collect(toImmutableMap(Pair::getFirst, Pair::getSecond));
+  }
+
+  @StarlarkMethod(
+      name = "construct_cc_toolchain_attributes_info",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "is_apple", positional = false, named = true),
+        @Param(name = "build_vars_func", positional = false, named = true),
+      })
+  public CcToolchainAttributesProvider constructCcToolchainAttributesInfo(
+      StarlarkRuleContext ruleContext, boolean isApple, Object buildVarsFunc) throws EvalException {
+    return new CcToolchainAttributesProvider(
+        ruleContext.getRuleContext(), isApple, (StarlarkFunction) buildVarsFunc);
   }
 
   @StarlarkMethod(
@@ -123,6 +140,7 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "strip", positional = false, named = true),
         @Param(name = "ld", positional = false, named = true),
         @Param(name = "gcov", positional = false, named = true),
+        @Param(name = "vars", positional = false, named = true),
       })
   public CcToolchainProvider getCcToolchainProvider(
       StarlarkRuleContext ruleContext,
@@ -156,7 +174,8 @@ public class CcStarlarkInternal implements StarlarkValue {
       String arExecutable,
       String stripExecutable,
       String ldExecutable,
-      String gcovExecutable)
+      String gcovExecutable,
+      Object vars)
       throws EvalException {
     CppConfiguration cppConfiguration = CcModule.convertFromNoneable(cppConfigurationObject, null);
     PathFragment toolsDirectory = PathFragment.create(toolsDirectoryStr);
@@ -211,12 +230,8 @@ public class CcStarlarkInternal implements StarlarkValue {
         /* ccCompilationContext= */ ccCompilationContext,
         /* supportsParamFiles= */ attributes.isSupportsParamFiles(),
         /* supportsHeaderParsing= */ attributes.isSupportsHeaderParsing(),
-        /* additionalBuildVariablesComputer= */ attributes.getAdditionalBuildVariablesComputer(),
-        /* buildVariables= */ CcToolchainProviderHelper.getBuildVariables(
-            ruleContext.getRuleContext().getConfiguration().getOptions(),
-            cppConfiguration,
-            sysroot,
-            attributes.getAdditionalBuildVariablesComputer()),
+        /* buildOptions */ ruleContext.getRuleContext().getConfiguration().getOptions(),
+        /* buildVariables= */ (CcToolchainVariables) vars,
         /* builtinIncludeFiles= */ Sequence.cast(
                 builtinIncludeFiles, Artifact.class, "builtin_include_files")
             .getImmutableList(),
@@ -247,7 +262,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         /* additionalMakeVariables= */ ImmutableMap.copyOf(additionalMakeVariables),
         /* legacyCcFlagsMakeVariable= */ legacyCcFlagsMakeVariable,
         /* allowlistForLayeringCheck= */ attributes.getAllowlistForLayeringCheck(),
-        /* allowListForLooseHeaderCheck= */ attributes.getAllowlistForLooseHeaderCheck(),
         /* objcopyExecutable= */ objcopyExecutable,
         /* compilerExecutable= */ compilerExecutable,
         /* preprocessorExecutable= */ preprocessorExecutable,
@@ -256,7 +270,24 @@ public class CcStarlarkInternal implements StarlarkValue {
         /* arExecutable= */ arExecutable,
         /* stripExecutable= */ stripExecutable,
         /* ldExecutable= */ ldExecutable,
-        /* gcovExecutable= */ gcovExecutable);
+        /* gcovExecutable= */ gcovExecutable,
+        /* ccToolchainBuildVariablesFunc */ attributes.getCcToolchainBuildVariablesFunc(),
+        /* ccBuildInfoTranslator */ attributes.getCcBuildInfoTranslator());
+  }
+
+  @StarlarkMethod(
+      name = "cc_toolchain_variables",
+      documented = false,
+      parameters = {
+        @Param(name = "vars", positional = false, named = true),
+      })
+  public CcToolchainVariables getCcToolchainVariables(Object vars) throws EvalException {
+    CcToolchainVariables.Builder ccToolchainVariables = CcToolchainVariables.builder();
+    for (Map.Entry<String, String> entry :
+        Dict.noneableCast(vars, String.class, String.class, "vars").entrySet()) {
+      ccToolchainVariables.addStringVariable(entry.getKey(), entry.getValue());
+    }
+    return ccToolchainVariables.build();
   }
 
   @StarlarkMethod(
@@ -328,7 +359,12 @@ public class CcStarlarkInternal implements StarlarkValue {
       parameters = {@Param(name = "ctx", positional = false, named = true)})
   public boolean isPackageHeadersCheckingModeSetForStarlark(
       StarlarkRuleContext starlarkRuleContext) {
-    return starlarkRuleContext.getRuleContext().getRule().getPackage().isDefaultHdrsCheckSet();
+    return starlarkRuleContext
+        .getRuleContext()
+        .getRule()
+        .getPackage()
+        .getPackageArgs()
+        .isDefaultHdrsCheckSet();
   }
 
   @StarlarkMethod(
@@ -336,7 +372,12 @@ public class CcStarlarkInternal implements StarlarkValue {
       documented = false,
       parameters = {@Param(name = "ctx", positional = false, named = true)})
   public String getPackageHeadersCheckingModeForStarlark(StarlarkRuleContext starlarkRuleContext) {
-    return starlarkRuleContext.getRuleContext().getRule().getPackage().getDefaultHdrsCheck();
+    return starlarkRuleContext
+        .getRuleContext()
+        .getRule()
+        .getPackage()
+        .getPackageArgs()
+        .getDefaultHdrsCheck();
   }
 
   @StarlarkMethod(
@@ -345,7 +386,12 @@ public class CcStarlarkInternal implements StarlarkValue {
       parameters = {@Param(name = "ctx", positional = false, named = true)})
   public boolean isPackageHeadersCheckingModeSetForStarlarkAspect(
       StarlarkRuleContext starlarkRuleContext) {
-    return starlarkRuleContext.getRuleContext().getTarget().getPackage().isDefaultHdrsCheckSet();
+    return starlarkRuleContext
+        .getRuleContext()
+        .getTarget()
+        .getPackage()
+        .getPackageArgs()
+        .isDefaultHdrsCheckSet();
   }
 
   @StarlarkMethod(
@@ -354,7 +400,12 @@ public class CcStarlarkInternal implements StarlarkValue {
       parameters = {@Param(name = "ctx", positional = false, named = true)})
   public String getPackageHeadersCheckingModeForStarlarkAspect(
       StarlarkRuleContext starlarkRuleContext) {
-    return starlarkRuleContext.getRuleContext().getTarget().getPackage().getDefaultHdrsCheck();
+    return starlarkRuleContext
+        .getRuleContext()
+        .getTarget()
+        .getPackage()
+        .getPackageArgs()
+        .getDefaultHdrsCheck();
   }
 
   @StarlarkMethod(
@@ -403,7 +454,9 @@ public class CcStarlarkInternal implements StarlarkValue {
       implements NativeComputedDefaultApi {
     @Override
     public Object getDefault(AttributeMap rule) {
-      return rule.isPackageDefaultHdrsCheckSet() ? rule.getPackageDefaultHdrsCheck() : "";
+      return rule.getPackageArgs().isDefaultHdrsCheckSet()
+          ? rule.getPackageArgs().getDefaultHdrsCheck()
+          : "";
     }
 
     @Override
@@ -415,36 +468,6 @@ public class CcStarlarkInternal implements StarlarkValue {
   @StarlarkMethod(name = "default_hdrs_check_computed_default", documented = false)
   public ComputedDefault getDefaultHdrsCheckComputedDefault() {
     return new DefaultHdrsCheckBuiltinComputedDefault();
-  }
-
-  static class DefParserComputedDefault extends ComputedDefault
-      implements NativeComputedDefaultApi {
-    @Override
-    @Nullable
-    public Object getDefault(AttributeMap rule) {
-      // Every cc_rule depends implicitly on the def_parser tool.
-      // The only exceptions are the rules for building def_parser itself.
-      // To avoid cycles in the dependency graph, return null for rules under
-      // @bazel_tools//third_party/def_parser and @bazel_tools//tools/cpp
-      String label = rule.getLabel().toString();
-      return label.startsWith("@bazel_tools//third_party/def_parser")
-              // @bazel_tools//tools/cpp:malloc and @bazel_tools//tools/cpp:stl
-              // are implicit dependencies of all cc rules,
-              // thus a dependency of the def_parser.
-              || label.startsWith("@bazel_tools//tools/cpp")
-          ? null
-          : Label.parseCanonicalUnchecked("@bazel_tools//tools/def_parser:def_parser");
-    }
-
-    @Override
-    public boolean resolvableWithRawAttributes() {
-      return true;
-    }
-  }
-
-  @StarlarkMethod(name = "def_parser_computed_default", documented = false)
-  public ComputedDefault getDefParserComputedDefault() {
-    return new DefParserComputedDefault();
   }
 
   /**
@@ -504,5 +527,108 @@ public class CcStarlarkInternal implements StarlarkValue {
   @StarlarkMethod(name = "CcTestRunnerInfo", documented = false, structField = true)
   public StarlarkProvider ccTestRunnerInfo() throws EvalException {
     return starlarkCcTestRunnerInfo;
+  }
+
+  // This looks ugly, however it is necessary. Good thing is we are planning to get rid of genfiles
+  // directory altogether so this method has a bright future(of being removed).
+  @StarlarkMethod(
+      name = "bin_or_genfiles_relative_to_unique_directory",
+      documented = false,
+      parameters = {
+        @Param(name = "actions", positional = false, named = true),
+        @Param(name = "unique_directory", positional = false, named = true),
+      })
+  public String binOrGenfilesRelativeToUniqueDirectory(
+      StarlarkActionFactory actions, String uniqueDirectory) {
+    ActionConstructionContext actionConstructionContext = actions.getActionConstructionContext();
+    return actionConstructionContext
+        .getBinOrGenfilesDirectory()
+        .getExecPath()
+        .getRelative(
+            actionConstructionContext.getUniqueDirectory(PathFragment.create(uniqueDirectory)))
+        .getPathString();
+  }
+
+  @StarlarkMethod(
+      name = "create_umbrella_header_action",
+      documented = false,
+      parameters = {
+        @Param(name = "actions", positional = false, named = true),
+        @Param(name = "umbrella_header", positional = false, named = true),
+        @Param(name = "public_headers", positional = false, named = true),
+        @Param(name = "additional_exported_headers", positional = false, named = true),
+      })
+  public void createUmbrellaHeaderAction(
+      StarlarkActionFactory actions,
+      Artifact umbrellaHeader,
+      Sequence<?> publicHeaders,
+      Sequence<?> additionalExportedHeaders)
+      throws EvalException {
+    ActionConstructionContext actionConstructionContext = actions.getActionConstructionContext();
+    actions
+        .asActionRegistry(actions)
+        .registerAction(
+            new UmbrellaHeaderAction(
+                actionConstructionContext.getActionOwner(),
+                umbrellaHeader,
+                Sequence.cast(publicHeaders, Artifact.class, "public_headers"),
+                Sequence.cast(
+                        additionalExportedHeaders, String.class, "additional_exported_headers")
+                    .stream()
+                    .map(PathFragment::create)
+                    .collect(toImmutableList())));
+  }
+
+  @StarlarkMethod(
+      name = "create_module_map_action",
+      documented = false,
+      parameters = {
+        @Param(name = "actions", positional = false, named = true),
+        @Param(name = "feature_configuration", positional = false, named = true),
+        @Param(name = "module_map", positional = false, named = true),
+        @Param(name = "private_headers", positional = false, named = true),
+        @Param(name = "public_headers", positional = false, named = true),
+        @Param(name = "dependent_module_maps", positional = false, named = true),
+        @Param(name = "additional_exported_headers", positional = false, named = true),
+        @Param(name = "separate_module_headers", positional = false, named = true),
+        @Param(name = "compiled_module", positional = false, named = true),
+        @Param(name = "module_map_home_is_cwd", positional = false, named = true),
+        @Param(name = "generate_submodules", positional = false, named = true),
+        @Param(name = "without_extern_dependencies", positional = false, named = true),
+      })
+  public void createModuleMapAction(
+      StarlarkActionFactory actions,
+      FeatureConfigurationForStarlark featureConfigurationForStarlark,
+      CppModuleMap moduleMap,
+      Sequence<?> privateHeaders,
+      Sequence<?> publicHeaders,
+      Sequence<?> dependentModuleMaps,
+      Sequence<?> additionalExportedHeaders,
+      Sequence<?> separateModuleHeaders,
+      Boolean compiledModule,
+      Boolean moduleMapHomeIsCwd,
+      Boolean generateSubmodules,
+      Boolean withoutExternDependencies)
+      throws EvalException {
+    ActionConstructionContext actionConstructionContext = actions.getActionConstructionContext();
+    actions
+        .asActionRegistry(actions)
+        .registerAction(
+            new CppModuleMapAction(
+                actionConstructionContext.getActionOwner(),
+                moduleMap,
+                Sequence.cast(privateHeaders, Artifact.class, "private_headers"),
+                Sequence.cast(publicHeaders, Artifact.class, "public_headers"),
+                Sequence.cast(dependentModuleMaps, CppModuleMap.class, "dependent_module_maps"),
+                Sequence.cast(
+                        additionalExportedHeaders, String.class, "additional_exported_headers")
+                    .stream()
+                    .map(PathFragment::create)
+                    .collect(toImmutableList()),
+                Sequence.cast(separateModuleHeaders, Artifact.class, "separate_module_headers"),
+                compiledModule,
+                moduleMapHomeIsCwd,
+                generateSubmodules,
+                withoutExternDependencies));
   }
 }

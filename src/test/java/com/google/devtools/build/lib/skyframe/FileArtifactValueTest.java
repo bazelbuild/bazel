@@ -21,6 +21,7 @@ import com.google.common.io.BaseEncoding;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.UnresolvedSymlinkArtifactValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -52,6 +53,13 @@ public final class FileArtifactValueTest {
     Path path = fs.getPath(name);
     path.createDirectoryAndParents();
     path.setLastModifiedTime(mtime);
+    return path;
+  }
+
+  private Path scratchSymlink(String name, String targetPath) throws IOException {
+    Path path = fs.getPath(name);
+    path.getParentDirectory().createDirectoryAndParents();
+    path.createSymbolicLink(PathFragment.create(targetPath));
     return path;
   }
 
@@ -150,6 +158,14 @@ public final class FileArtifactValueTest {
     assertThat(value.getModifiedTime()).isEqualTo(1L);
   }
 
+  @Test
+  public void testUnresolvedSymlink() throws Exception {
+    Path path = scratchSymlink("/sym", "/some/path");
+    FileArtifactValue value = FileArtifactValue.createForUnresolvedSymlink(path);
+    assertThat(value).isInstanceOf(UnresolvedSymlinkArtifactValue.class);
+    assertThat(((UnresolvedSymlinkArtifactValue) value).getSymlinkTarget()).isEqualTo("/some/path");
+  }
+
   // Empty files are the same as normal files -- mtime is not stored.
   @Test
   public void testEmptyFile() throws Exception {
@@ -232,6 +248,23 @@ public final class FileArtifactValueTest {
     // stat.
     path.delete();
     path.createDirectoryAndParents();
+    clock.advanceMillis(1);
+    assertThat(value.wasModifiedSinceDigest(path)).isTrue();
+  }
+
+  @Test
+  public void testUptodateUnresolvedSymlink() throws Exception {
+    Path path = fs.getPath("/dir/symlink");
+    path.getParentDirectory().createDirectoryAndParents();
+    path.createSymbolicLink(PathFragment.create("target_path"));
+    FileArtifactValue value = FileArtifactValue.createForUnresolvedSymlink(path);
+
+    clock.advanceMillis(1);
+    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+
+    path.delete();
+    path.createSymbolicLink(PathFragment.create("modified_target_path"));
+
     clock.advanceMillis(1);
     assertThat(value.wasModifiedSinceDigest(path)).isTrue();
   }

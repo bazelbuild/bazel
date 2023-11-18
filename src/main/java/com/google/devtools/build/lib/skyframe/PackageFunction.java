@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NonSkyframeGlobber;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
+import com.google.devtools.build.lib.packages.PackageArgs;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.RuleVisibility;
@@ -62,6 +63,7 @@ import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
+import com.google.devtools.build.lib.skyframe.RepoFileFunction.BadRepoFileException;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction.BuiltinsFailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Pair;
@@ -88,8 +90,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -117,9 +121,12 @@ public class PackageFunction implements SkyFunction {
 
   private final ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile;
 
+  private final boolean shouldUseRepoDotBazel;
   private final GlobbingStrategy globbingStrategy;
 
   private final Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactoryForMetrics;
+
+  private final AtomicReference<Semaphore> cpuBoundSemaphore;
 
   /**
    * CompiledBuildFile holds information extracted from the BUILD syntax tree before it was
@@ -180,8 +187,10 @@ public class PackageFunction implements SkyFunction {
       @Nullable BzlLoadFunction bzlLoadFunctionForInlining,
       @Nullable PackageProgressReceiver packageProgress,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
+      boolean shouldUseRepoDotBazel,
       GlobbingStrategy globbingStrategy,
-      Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactoryForMetrics) {
+      Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactoryForMetrics,
+      AtomicReference<Semaphore> cpuBoundSemaphore) {
     this.bzlLoadFunctionForInlining = bzlLoadFunctionForInlining;
     this.packageFactory = packageFactory;
     this.packageLocator = pkgLocator;
@@ -189,8 +198,10 @@ public class PackageFunction implements SkyFunction {
     this.numPackagesSuccessfullyLoaded = numPackagesSuccessfullyLoaded;
     this.packageProgress = packageProgress;
     this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
+    this.shouldUseRepoDotBazel = shouldUseRepoDotBazel;
     this.globbingStrategy = globbingStrategy;
     this.threadStateReceiverFactoryForMetrics = threadStateReceiverFactoryForMetrics;
+    this.cpuBoundSemaphore = cpuBoundSemaphore;
   }
 
   public void setBzlLoadFunctionForInliningForTesting(BzlLoadFunction bzlLoadFunctionForInlining) {
@@ -805,7 +816,8 @@ public class PackageFunction implements SkyFunction {
     PathFragment pkgDir = pkgId.getPackageFragment();
     // Contains a key for each package whose label that might have a presence of a subpackage.
     // Values are all potential subpackages of the label.
-    Map<Target, List<PackageLookupValue.Key>> targetSubpackagePackageLookupKeyMap = new HashMap<>();
+    List<Pair<Target, List<PackageLookupValue.Key>>> targetsAndSubpackagePackageLookupKeys =
+        new ArrayList<>();
     Set<PackageLookupValue.Key> allPackageLookupKeys = new HashSet<>();
     for (Target target : pkgBuilder.getTargets()) {
       Label label = target.getLabel();
@@ -813,6 +825,7 @@ public class PackageFunction implements SkyFunction {
       if (dir.equals(pkgDir)) {
         continue;
       }
+      List<PackageLookupValue.Key> subpackagePackageLookupKeys = new ArrayList<>();
       String labelName = label.getName();
       PathFragment labelAsRelativePath = PathFragment.create(labelName).getParentDirectory();
       PathFragment subpackagePath = pkgDir;
@@ -821,14 +834,13 @@ public class PackageFunction implements SkyFunction {
         subpackagePath = subpackagePath.getRelative(segment);
         PackageLookupValue.Key currentPackageLookupKey =
             PackageLookupValue.key(PackageIdentifier.create(pkgId.getRepository(), subpackagePath));
-        targetSubpackagePackageLookupKeyMap
-            .computeIfAbsent(target, t -> new ArrayList<>())
-            .add(currentPackageLookupKey);
+        subpackagePackageLookupKeys.add(currentPackageLookupKey);
         allPackageLookupKeys.add(currentPackageLookupKey);
       }
+      targetsAndSubpackagePackageLookupKeys.add(Pair.of(target, subpackagePackageLookupKeys));
     }
 
-    if (targetSubpackagePackageLookupKeyMap.isEmpty()) {
+    if (targetsAndSubpackagePackageLookupKeys.isEmpty()) {
       return;
     }
 
@@ -837,9 +849,11 @@ public class PackageFunction implements SkyFunction {
       return;
     }
 
-    for (Map.Entry<Target, List<PackageLookupValue.Key>> entry :
-        targetSubpackagePackageLookupKeyMap.entrySet()) {
-      List<PackageLookupValue.Key> targetPackageLookupKeys = entry.getValue();
+    for (Pair<Target, List<PackageLookupValue.Key>> targetAndSubpackagePackageLookupKeys :
+        targetsAndSubpackagePackageLookupKeys) {
+      Target target = targetAndSubpackagePackageLookupKeys.getFirst();
+      List<PackageLookupValue.Key> targetPackageLookupKeys =
+          targetAndSubpackagePackageLookupKeys.getSecond();
       // Iterate from the deepest potential subpackage to the shallowest in that we only want to
       // display the deepest subpackage in the error message for each target.
       for (PackageLookupValue.Key packageLookupKey : Lists.reverse(targetPackageLookupKeys)) {
@@ -858,10 +872,9 @@ public class PackageFunction implements SkyFunction {
           throw new InternalInconsistentFilesystemException(pkgId, e);
         }
 
-        Target target = entry.getKey();
         if (maybeAddEventAboutLabelCrossingSubpackage(
             pkgBuilder, pkgRoot, target, packageLookupKey.argument(), packageLookupValue)) {
-          pkgBuilder.getTargets().remove(entry.getKey());
+          pkgBuilder.getTargets().remove(target);
           pkgBuilder.setContainsErrors();
           break;
         }
@@ -1237,6 +1250,28 @@ public class PackageFunction implements SkyFunction {
     IgnoredPackagePrefixesValue repositoryIgnoredPackagePrefixes =
         (IgnoredPackagePrefixesValue)
             env.getValue(IgnoredPackagePrefixesValue.key(packageId.getRepository()));
+    RepoFileValue repoFileValue;
+    if (shouldUseRepoDotBazel) {
+      try {
+        repoFileValue =
+            (RepoFileValue)
+                env.getValueOrThrow(
+                    RepoFileValue.key(packageId.getRepository()),
+                    IOException.class,
+                    BadRepoFileException.class);
+      } catch (IOException | BadRepoFileException e) {
+        throw PackageFunctionException.builder()
+            .setType(PackageFunctionException.Type.BUILD_FILE_CONTAINS_ERRORS)
+            .setPackageIdentifier(packageId)
+            .setTransience(Transience.PERSISTENT)
+            .setException(e)
+            .setMessage("bad REPO.bazel file")
+            .setPackageLoadingCode(PackageLoading.Code.BAD_REPO_FILE)
+            .build();
+      }
+    } else {
+      repoFileValue = RepoFileValue.EMPTY;
+    }
     if (env.valuesMissing()) {
       return null;
     }
@@ -1368,14 +1403,14 @@ public class PackageFunction implements SkyFunction {
                   repositoryMappingValue.getAssociatedModuleVersion(),
                   starlarkBuiltinsValue.starlarkSemantics,
                   repositoryMapping,
-                  mainRepositoryMappingValue.getRepositoryMapping())
+                  mainRepositoryMappingValue.getRepositoryMapping(),
+                  cpuBoundSemaphore.get())
               .setFilename(buildFileRootedPath)
-              .setDefaultVisibility(defaultVisibility)
-              // "defaultVisibility" comes from the command line.
-              // Let's give the BUILD file a chance to set default_visibility once,
-              // by resetting the PackageBuilder.defaultVisibilitySet flag.
-              .setDefaultVisibilitySet(false)
               .setConfigSettingVisibilityPolicy(configSettingVisibilityPolicy);
+
+      pkgBuilder
+          .mergePackageArgsFrom(PackageArgs.builder().setDefaultVisibility(defaultVisibility))
+          .mergePackageArgsFrom(repoFileValue.packageArgs());
 
       Set<SkyKey> globDepKeys = ImmutableSet.of();
 
@@ -1442,6 +1477,9 @@ public class PackageFunction implements SkyFunction {
       @Nullable Label preludeLabel,
       Environment env)
       throws PackageFunctionException, InterruptedException {
+    // Though it could be in principle, `cpuBoundSemaphore` is not held here as this method does
+    // not show up in profiles as being significantly impacted by thrashing. It could be worth doing
+    // so, in which case it should be released when reading the file below.
     StarlarkSemantics semantics = starlarkBuiltinsValue.starlarkSemantics;
 
     // read BUILD file
@@ -1499,10 +1537,10 @@ public class PackageFunction implements SkyFunction {
     Set<String> globsWithDirs = new HashSet<>();
     Set<String> subpackages = new HashSet<>();
     Map<Location, String> generatorMap = new HashMap<>();
-    ImmutableList.Builder<SyntaxError> errors = ImmutableList.builder();
-    if (!PackageFactory.checkBuildSyntax(
-        file, globs, globsWithDirs, subpackages, generatorMap, errors::add)) {
-      return new CompiledBuildFile(errors.build());
+    try {
+      PackageFactory.checkBuildSyntax(file, globs, globsWithDirs, subpackages, generatorMap);
+    } catch (SyntaxError.Exception ex) {
+      return new CompiledBuildFile(ex.errors());
     }
 
     // Load (optional) prelude, which determines environment.

@@ -392,7 +392,8 @@ public class DynamicSpawnStrategyUnitTest {
         new SpawnBuilder()
             .withMnemonic("TheThing")
             .withOwnerPrimaryOutput(output1)
-            .withProgressMessage("Building the thing [for tool]")
+            .withProgressMessage("Building the thing")
+            .setBuiltForToolConfiguration(true)
             .build();
     DynamicExecutionOptions options = new DynamicExecutionOptions();
     options.excludeTools = true;

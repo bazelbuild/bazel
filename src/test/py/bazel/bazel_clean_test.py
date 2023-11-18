@@ -15,7 +15,7 @@
 import os
 import re
 import time
-import unittest
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 
 
@@ -57,7 +57,7 @@ class BazelCleanTest(test_base.TestBase):
           os.path.join(bazel_genfiles, 'foo/x.out')))
       self.assertFalse(os.path.exists(output_base))
 
-  @unittest.skipIf(not test_base.TestBase.IsLinux(),
+  @absltest.skipIf(not test_base.TestBase.IsLinux(),
                    'Async clean only supported on Linux')
   def testBazelAsyncClean(self):
     self.ScratchFile('WORKSPACE')
@@ -76,7 +76,7 @@ class BazelCleanTest(test_base.TestBase):
     # Two directories should be different.
     self.assertNotEqual(second_temp, first_temp, stderr)
 
-  @unittest.skipIf(not test_base.TestBase.IsLinux(),
+  @absltest.skipIf(not test_base.TestBase.IsLinux(),
                    'Async clean only supported on Linux')
   def testBazelAsyncCleanWithReadonlyDirectories(self):
     self.ScratchFile('WORKSPACE')
@@ -108,4 +108,4 @@ class BazelCleanTest(test_base.TestBase):
 
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

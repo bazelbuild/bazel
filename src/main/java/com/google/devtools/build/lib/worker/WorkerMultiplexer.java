@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.SubprocessFactory;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.errorprone.annotations.concurrent.LazyInit;
@@ -84,8 +85,10 @@ public class WorkerMultiplexer {
   private WorkerProtocolImpl workerProtocol;
   /** InputStream from the worker process. */
   @LazyInit private RecordingInputStream recordingStream;
-  /** True if this multiplexer was explicitly destroyed. */
-  private boolean wasDestroyed;
+
+  /** Status of the worker process. */
+  private final WorkerProcessStatus status;
+
   /**
    * The log file of the actual running worker process. It is shared between all WorkerProxy
    * instances for this multiplexer.
@@ -118,6 +121,7 @@ public class WorkerMultiplexer {
   private Thread shutdownHook;
 
   WorkerMultiplexer(Path logFile, WorkerKey workerKey) {
+    this.status = new WorkerProcessStatus();
     this.logFile = logFile;
     this.workerKey = workerKey;
   }
@@ -132,6 +136,10 @@ public class WorkerMultiplexer {
     if (this.reporter != null && s != null) {
       this.reporter.handle(Event.info(s));
     }
+  }
+
+  public WorkerProcessStatus getStatus() {
+    return status;
   }
 
   /**
@@ -154,8 +162,7 @@ public class WorkerMultiplexer {
           inputsToCreate,
           dirsToCreate,
           workerFiles,
-          SandboxOutputs.getEmptyInstance().files(),
-          SandboxOutputs.getEmptyInstance().dirs());
+          SandboxOutputs.getEmptyInstance());
       SandboxHelpers.cleanExisting(
           workDir.getParentDirectory(), inputFiles, inputsToCreate, dirsToCreate, workDir);
       SandboxHelpers.createDirectories(dirsToCreate, workDir, /* strict=*/ false);
@@ -170,7 +177,7 @@ public class WorkerMultiplexer {
    */
   public synchronized void createProcess(Path workDir) throws IOException {
     if (this.process == null) {
-      if (this.wasDestroyed) {
+      if (this.status.isKilled()) {
         throw new IOException("Multiplexer destroyed before created process");
       }
       this.shutdownHook =
@@ -196,6 +203,8 @@ public class WorkerMultiplexer {
       processBuilder.setStderr(logFile.getPathFile());
       processBuilder.setEnv(workerKey.getEnv());
       this.process = processBuilder.start();
+      status.maybeUpdateStatus(Status.ALIVE);
+
       recordingStream = new RecordingInputStream(process.getInputStream());
       recordingStream.startRecording(4096);
       if (workerProtocol == null) {
@@ -246,7 +255,8 @@ public class WorkerMultiplexer {
     if (this.process != null) {
       destroyProcess();
     }
-    wasDestroyed = true;
+    // The WorkerProcessStatus is only set as killed once all WorkerProxy instances are destroyed.
+    status.setKilled();
   }
 
   /**
@@ -429,7 +439,7 @@ public class WorkerMultiplexer {
 
   /** Returns true if this process has died for other reasons than a call to {@code #destroy()}. */
   boolean diedUnexpectedly() {
-    return this.process != null && !this.process.isAlive() && !wasDestroyed;
+    return this.process != null && !this.process.isAlive() && !status.isKilled();
   }
 
   /** Returns the exit value of multiplexer's process, if it has exited. */
@@ -455,11 +465,5 @@ public class WorkerMultiplexer {
       return -1;
     }
     return process.getProcessId();
-  }
-
-  // TODO: Check if this can be removed
-  @VisibleForTesting
-  Subprocess getProcess() {
-    return process;
   }
 }

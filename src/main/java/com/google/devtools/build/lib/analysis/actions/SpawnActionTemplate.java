@@ -19,7 +19,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyCacher;
@@ -40,6 +39,7 @@ import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -231,11 +231,6 @@ public final class SpawnActionTemplate extends ActionKeyCacher
   @Override
   public Collection<String> getClientEnvironmentVariables() {
     return spawnActionBuilder.buildForActionTemplate(actionOwner).getClientEnvironmentVariables();
-  }
-
-  @Override
-  public boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action) {
-    return this != action;
   }
 
   @Override
@@ -460,7 +455,7 @@ public final class SpawnActionTemplate extends ActionKeyCacher
           progressMessage,
           runfilesSupplier,
           mnemonic,
-          /* stripOutputPaths= */ false);
+          /* outputPathsMode= */ OutputPathsMode.OFF);
     }
 
     @Override

@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper.attributeOrNull;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -25,18 +24,20 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
-import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.OutputFile;
+import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.TargetData;
 import com.google.devtools.build.lib.packages.TestTimeout;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import java.util.Comparator;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
@@ -53,24 +54,38 @@ import net.starlark.java.syntax.Location;
  * com.google.devtools.build.lib.packages.Package}), and a {@link BuildConfigurationValue}.
  */
 public class ConfiguredTargetAndData {
+  /**
+   * Orders split dependencies by configuration.
+   *
+   * <p>Requires non-null configurations.
+   */
+  public static final Comparator<ConfiguredTargetAndData> SPLIT_DEP_ORDERING =
+      new SplitDependencyComparator();
+
   private final ConfiguredTarget configuredTarget;
-  private final Target target;
+
+  // TODO(b/297857068): Remove transient, serializing this by creating a projection of the
+  // underlying target.
+  /** A {@link Target} when locally derived but a lightweight projection when fetched remotely. */
+  private final transient TargetData target;
+
+  @Nullable // Null iff configuredTarget's configuration key is null.
   private final BuildConfigurationValue configuration;
   private final ImmutableList<String> transitionKeys;
 
   @VisibleForTesting
   public ConfiguredTargetAndData(
       ConfiguredTarget configuredTarget,
-      Target target,
-      BuildConfigurationValue configuration,
+      TargetData target,
+      @Nullable BuildConfigurationValue configuration,
       ImmutableList<String> transitionKeys) {
     this(configuredTarget, target, configuration, transitionKeys, /*checkConsistency=*/ true);
   }
 
   private ConfiguredTargetAndData(
       ConfiguredTarget configuredTarget,
-      Target target,
-      BuildConfigurationValue configuration,
+      TargetData target,
+      @Nullable BuildConfigurationValue configuration,
       ImmutableList<String> transitionKeys,
       boolean checkConsistency) {
     this.configuredTarget = configuredTarget;
@@ -94,11 +109,9 @@ public class ConfiguredTargetAndData {
           configuredTarget,
           target);
     } else {
-      BuildConfigurationKey configurationKey = configuration.getKey();
       Preconditions.checkState(
-          innerConfigurationKey.equals(configurationKey),
-          "Configurations don't match: %s %s %s (%s %s)",
-          configurationKey,
+          innerConfigurationKey.getOptions().equals(configuration.getOptions()),
+          "Configurations don't match: %s %s (%s %s)",
           innerConfigurationKey,
           configuration,
           configuredTarget,
@@ -164,8 +177,14 @@ public class ConfiguredTargetAndData {
     return new ConfiguredTargetAndData(maybeNew, target, configuration, transitionKeys, false);
   }
 
+  @Nullable
   public BuildConfigurationValue getConfiguration() {
     return configuration;
+  }
+
+  @Nullable
+  public BuildConfigurationKey getConfigurationKey() {
+    return configuredTarget.getConfigurationKey();
   }
 
   public ConfiguredTarget getConfiguredTarget() {
@@ -184,10 +203,6 @@ public class ConfiguredTargetAndData {
     return target.getLocation();
   }
 
-  public Path getPackageDirectory() {
-    return target.getPackage().getPackageDirectory();
-  }
-
   public String getTargetKind() {
     return target.getTargetKind();
   }
@@ -203,62 +218,73 @@ public class ConfiguredTargetAndData {
   }
 
   public boolean isTargetRule() {
-    return target instanceof Rule;
+    return target.isRule();
   }
 
   public boolean isTargetFile() {
-    return target instanceof FileTarget;
+    return target.isFile();
   }
 
   public boolean isTargetInputFile() {
-    return target instanceof InputFile;
+    return target.isInputFile();
+  }
+
+  public boolean isTargetOutputFile() {
+    return target.isOutputFile();
   }
 
   /** The generating rule's label if the target is an {@link OutputFile} otherwise null. */
   @Nullable
   public Label getGeneratingRuleLabel() {
-    if (!(target instanceof OutputFile)) {
-      return null;
-    }
-    return ((OutputFile) target).getGeneratingRule().getLabel();
+    return target.getGeneratingRuleLabel();
   }
 
   /** The input file path if the target is an {@link InputFile} otherwise null. */
   @Nullable
   public Path getInputPath() {
-    if (target instanceof InputFile) {
-      return ((InputFile) target).getPath();
-    }
-    return null;
+    return target.getInputPath();
   }
 
   /** Any deprecation warning of the associated rule (maybe generating) otherwise null. */
   @Nullable
   public String getDeprecationWarning() {
-    Rule rule = target.getAssociatedRule();
-    if (rule == null) {
-      return null;
-    }
-    return attributeOrNull(rule, "deprecation", Type.STRING);
+    return target.getDeprecationWarning();
   }
 
   /** True if the target is a testonly rule or an output file generated by a testonly rule. */
   public boolean isTestOnly() {
-    Rule rule = target.getAssociatedRule();
-    if (rule == null) {
-      return false;
-    }
-    Boolean value = attributeOrNull(rule, "testonly", Type.BOOLEAN);
-    return value != null && value;
+    return target.isTestOnly();
+  }
+
+  /**
+   * True if the underlying target advertises the required providers.
+   *
+   * <p>This is used to determine whether an aspect should propagate to this configured target.
+   */
+  public boolean satisfies(RequiredProviders required) {
+    // TODO(shahan): If this is an output file, refers to the providers of the generating rule.
+    // However, in such cases, aspects are not permitted to have required providers. Consider
+    // short-circuiting the logic for that case.
+
+    // NOTE: it is tempting to use providers of `configuredTarget` instead, however, it may contain
+    // providers that are not advertised and can lead to illegal aspect propagation.
+    return target.satisfies(required);
   }
 
   @Nullable
   public TestTimeout getTestTimeout() {
-    Rule rule = target.getAssociatedRule();
-    if (rule == null) {
-      return null;
+    return target.getTestTimeout();
+  }
+
+  public ConfiguredTargetAndData copyWithClearedTransitionKeys() {
+    if (transitionKeys.isEmpty()) {
+      return this;
     }
-    return TestTimeout.getTestTimeout(rule);
+    return copyWithTransitionKeys(ImmutableList.of());
+  }
+
+  public ConfiguredTargetAndData copyWithTransitionKeys(ImmutableList<String> keys) {
+    return new ConfiguredTargetAndData(configuredTarget, target, configuration, keys);
   }
 
   /**
@@ -269,12 +295,26 @@ public class ConfiguredTargetAndData {
    */
   @VisibleForTesting
   public Target getTargetForTesting() {
-    return target;
+    return (Target) target;
   }
 
   @VisibleForTesting
   public ConfiguredAttributeMapper getAttributeMapperForTesting() {
     return ConfiguredAttributeMapper.of(
         (Rule) target, configuredTarget.getConfigConditions(), configuration);
+  }
+
+  private static final class SplitDependencyComparator
+      implements Comparator<ConfiguredTargetAndData> {
+    @Override
+    public int compare(ConfiguredTargetAndData o1, ConfiguredTargetAndData o2) {
+      BuildConfigurationValue first = o1.getConfiguration();
+      BuildConfigurationValue second = o2.getConfiguration();
+      int result = first.getMnemonic().compareTo(second.getMnemonic());
+      if (result != 0) {
+        return result;
+      }
+      return first.checksum().compareTo(second.checksum());
+    }
   }
 }

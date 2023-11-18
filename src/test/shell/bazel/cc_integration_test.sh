@@ -960,7 +960,7 @@ EOF
   BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 bazel query 'deps(//:ok)' &>"$TEST_log" || \
     fail "Should pass with fake toolchain"
   expect_not_log "An error occurred during the fetch of repository 'local_config_cc'"
-  expect_log "@local_config_cc//:empty"
+  expect_log "@@bazel_tools~cc_configure_extension~local_config_cc//:empty"
 }
 
 function setup_workspace_layout_with_external_directory() {
@@ -1406,55 +1406,6 @@ EOF
   bazel run //pkg:foo_bin_with_env &> "$TEST_log" || fail "Should have used env attr."
 }
 
-function test_getting_compile_action_env_with_cctoolchain_config_features() {
-  [ "$PLATFORM" != "darwin" ] || return 0
-
-  mkdir -p package
-
-  cat > "package/lib.bzl" <<EOF
-def _actions_test_impl(target, ctx):
-    compile_action = None
-
-    for action in target.actions:
-      if action.mnemonic in ["CppCompile", "ObjcCompile"]:
-        compile_action = action
-
-    print(compile_action.env)
-    return []
-
-actions_test_aspect = aspect(implementation = _actions_test_impl)
-EOF
-
-  cat > "package/x.cc" <<EOF
-#include <stdio.h>
-int main() {
-  printf("Hello\n");
-}
-EOF
-
-  cat > "package/BUILD" <<EOF
-cc_binary(
-  name = "x",
-  srcs = ["x.cc"],
-)
-EOF
-
-  # Without the flag, the env should not return extra fixed variables
-  bazel build "package:x" \
-      --aspects="//package:lib.bzl%actions_test_aspect" &>"$TEST_log" \
-      || fail "Build failed but should have succeeded"
-
-  expect_not_log "\"PWD\": \"/proc/self/cwd\""
-
-  # With the flag, the env should return extra fixed variables
-  bazel build "package:x" \
-      --aspects="//package:lib.bzl%actions_test_aspect" \
-      --experimental_get_fixed_configured_action_env &>"$TEST_log" \
-      || fail "Build failed but should have succeeded"
-
-  expect_log "\"PWD\": \"/proc/self/cwd\""
-}
-
 function external_cc_test_setup() {
   cat >> WORKSPACE <<'EOF'
 local_repository(
@@ -1541,6 +1492,17 @@ function test_external_cc_test_local_sibling_repository_layout() {
       --strategy=local \
       --experimental_sibling_repository_layout \
       @other_repo//test >& $TEST_log || fail "Test should pass"
+
+  # Test cc compile action can hit the action cache. See
+  # https://github.com/bazelbuild/bazel/issues/17819
+  bazel shutdown
+
+  bazel test \
+      --test_output=errors \
+      --strategy=local \
+      --experimental_sibling_repository_layout \
+      @other_repo//test >& $TEST_log || fail "Test should pass"
+  expect_log "1 process: 1 internal"
 }
 
 function test_bazel_current_repository_define() {
@@ -1975,6 +1937,30 @@ function test_find_optional_cpp_toolchain_not_present_with_toolchain_resolution(
   bazel build //pkg:my_rule --incompatible_enable_cc_toolchain_resolution \
     --platforms=//pkg:exotic_platform &> "$TEST_log" || fail "Build failed"
   assert_contains "Toolchain not found" bazel-bin/pkg/my_rule
+}
+
+function test_no_cpp_stdlib_linked_to_c_library() {
+  mkdir pkg
+  cat > pkg/BUILD <<'EOF'
+cc_binary(
+  name = 'example',
+  srcs = ['example.c'],
+)
+EOF
+  cat > pkg/example.c <<'EOF'
+int main() {}
+EOF
+
+  bazel build //pkg:example &> "$TEST_log" || fail "Build failed"
+  if is_darwin; then
+    otool -L bazel-bin/pkg/example &> "$TEST_log" || fail "otool failed"
+    expect_log 'libc'
+    expect_not_log 'libc\+\+'
+  else
+    ldd bazel-bin/pkg/example &> "$TEST_log" || fail "ldd failed"
+    expect_log 'libc'
+    expect_not_log 'libstdc\+\+'
+  fi
 }
 
 run_suite "cc_integration_test"

@@ -41,15 +41,29 @@ public class SymbolFamilies {
   private final ImmutableMap<String, Object> bzlGlobals;
 
   public SymbolFamilies(
-      StarlarkDocExpander expander, String provider, List<String> inputDirs, String denyList)
-      throws NoSuchMethodException, ClassPathException, InvocationTargetException,
-          IllegalAccessException, BuildEncyclopediaDocException, ClassNotFoundException,
+      StarlarkDocExpander expander,
+      SourceUrlMapper urlMapper,
+      String provider,
+      List<String> inputJavaDirs,
+      List<String> inputStardocProtos,
+      String denyList)
+      throws NoSuchMethodException,
+          ClassPathException,
+          InvocationTargetException,
+          IllegalAccessException,
+          BuildEncyclopediaDocException,
+          ClassNotFoundException,
           IOException {
     ConfiguredRuleClassProvider configuredRuleClassProvider = createRuleClassProvider(provider);
     this.nativeRules =
         ImmutableList.copyOf(
             collectNativeRules(
-                expander.ruleExpander, configuredRuleClassProvider, inputDirs, denyList));
+                expander.ruleExpander,
+                urlMapper,
+                configuredRuleClassProvider,
+                inputJavaDirs,
+                inputStardocProtos,
+                denyList));
     this.globals = Starlark.UNIVERSE;
     this.bzlGlobals = collectBzlGlobals(configuredRuleClassProvider);
     this.allDocPages = StarlarkDocumentationCollector.getAllDocPages(expander);
@@ -105,13 +119,15 @@ public class SymbolFamilies {
    */
   private List<RuleDocumentation> collectNativeRules(
       RuleLinkExpander linkExpander,
+      SourceUrlMapper urlMapper,
       ConfiguredRuleClassProvider provider,
-      List<String> inputDirs,
+      List<String> inputJavaDirs,
+      List<String> inputStardocProtos,
       String denyList)
       throws BuildEncyclopediaDocException, IOException {
     ProtoFileBuildEncyclopediaProcessor processor =
-        new ProtoFileBuildEncyclopediaProcessor(linkExpander, provider);
-    processor.generateDocumentation(inputDirs, "", denyList);
+        new ProtoFileBuildEncyclopediaProcessor(linkExpander, urlMapper, provider);
+    processor.generateDocumentation(inputJavaDirs, inputStardocProtos, "", denyList);
     return processor.getNativeRules();
   }
 

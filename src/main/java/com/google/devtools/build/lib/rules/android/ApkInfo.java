@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import static com.google.devtools.build.lib.rules.android.AndroidStarlarkData.fromNoneable;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -21,9 +23,8 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.android.ApkInfoApi;
 import java.util.List;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.Sequence;
 
 /** A provider for targets that produce an apk file. */
 @Immutable
@@ -123,15 +124,32 @@ public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
 
   /** Provider for {@link ApkInfo}. */
   public static class ApkInfoProvider extends BuiltinProvider<ApkInfo>
-      implements ApkInfoApiProvider {
+      implements ApkInfoApiProvider<Artifact> {
 
     private ApkInfoProvider() {
       super(STARLARK_NAME, ApkInfo.class);
     }
 
     @Override
-    public ApkInfoApi<?> createInfo(Dict<String, Object> kwargs) throws EvalException {
-      throw Starlark.errorf("'%s' cannot be constructed from Starlark", getPrintableName());
+    public ApkInfoApi<Artifact> createInfo(
+        Artifact apk,
+        Artifact unsignedApk,
+        Artifact deployJar,
+        Object coverageMetadata,
+        Artifact mergedManifest,
+        Sequence<?> signingKeys,
+        Object signingLineage,
+        Object signingMinV3RotationApiVersion)
+        throws EvalException {
+      return new ApkInfo(
+          apk,
+          unsignedApk,
+          deployJar,
+          fromNoneable(coverageMetadata, Artifact.class),
+          mergedManifest,
+          Sequence.cast(signingKeys, Artifact.class, "signing_keys"),
+          fromNoneable(signingLineage, Artifact.class),
+          fromNoneable(signingMinV3RotationApiVersion, String.class));
     }
   }
 }

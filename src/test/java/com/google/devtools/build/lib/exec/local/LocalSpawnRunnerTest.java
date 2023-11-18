@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.exec.local;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.devtools.build.lib.testing.common.DirectoryListingHelper.file;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
@@ -30,13 +29,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.actions.ActionContext;
-import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceManager;
@@ -49,12 +43,10 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
-import com.google.devtools.build.lib.exec.SpawnInputExpander;
-import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
-import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.SpawnSchedulingEvent;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
+import com.google.devtools.build.lib.sandbox.SpawnRunnerTestUtil.SpawnExecutionContextForTesting;
 import com.google.devtools.build.lib.shell.JavaSubprocessFactory;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
@@ -74,7 +66,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Converters.RegexPatternConverter;
 import com.google.devtools.common.options.Options;
@@ -85,11 +76,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
-import java.util.SortedMap;
-import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -98,7 +85,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Filter;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
-import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -111,6 +97,8 @@ import org.mockito.Mockito;
 public class LocalSpawnRunnerTest {
 
   private static class TestedLocalSpawnRunner extends LocalSpawnRunner {
+    private Path tmpDirPath;
+
     public TestedLocalSpawnRunner(
         Path execRoot,
         LocalExecutionOptions localExecutionOptions,
@@ -122,9 +110,8 @@ public class LocalSpawnRunnerTest {
           localExecutionOptions,
           resourceManager,
           localEnvProvider,
-          /*binTools=*/ null,
+          /* binTools= */ null,
           processWrapper,
-          SyscallCache.NO_CACHE,
           Mockito.mock(RunfilesTreeUpdater.class));
     }
 
@@ -144,7 +131,12 @@ public class LocalSpawnRunnerTest {
       if (!tempDirPath.createDirectory()) {
         throw new IOException(String.format("Could not create temp directory '%s'", tempDirPath));
       }
+      this.tmpDirPath = tempDirPath;
       return tempDirPath;
+    }
+
+    public Path getActionTemp() {
+      return tmpDirPath;
     }
   }
 
@@ -221,98 +213,6 @@ public class LocalSpawnRunnerTest {
     }
   }
 
-  private final class SpawnExecutionContextForTesting implements SpawnExecutionContext {
-    private final List<ProgressStatus> reportedStatus = new ArrayList<>();
-    private final TreeMap<PathFragment, ActionInput> inputMapping = new TreeMap<>();
-
-    private long timeoutMillis;
-    private boolean prefetchCalled;
-    private boolean lockOutputFilesCalled;
-    private FileOutErr fileOutErr;
-
-    public SpawnExecutionContextForTesting(FileOutErr fileOutErr) {
-      this.fileOutErr = fileOutErr;
-    }
-
-    @Override
-    public int getId() {
-      return 0;
-    }
-
-    @Override
-    public ListenableFuture<Void> prefetchInputs() {
-      prefetchCalled = true;
-      return immediateVoidFuture();
-    }
-
-    @Override
-    public void lockOutputFiles(int exitCode, String errorMessage, FileOutErr outErr)
-        throws InterruptedException {
-      lockOutputFilesCalled = true;
-    }
-
-    @Override
-    public boolean speculating() {
-      return false;
-    }
-
-    @Override
-    public InputMetadataProvider getInputMetadataProvider() {
-      return mockFileCache;
-    }
-
-    @Override
-    public ArtifactExpander getArtifactExpander() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public SpawnInputExpander getSpawnInputExpander() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Duration getTimeout() {
-      return Duration.ofMillis(timeoutMillis);
-    }
-
-    @Override
-    public FileOutErr getFileOutErr() {
-      return fileOutErr;
-    }
-
-    @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping(
-        PathFragment baseDirectory, boolean willAccessRepeatedly) {
-      return inputMapping;
-    }
-
-    @Override
-    public void report(ProgressStatus progress) {
-      reportedStatus.add(progress);
-    }
-
-    @Override
-    public boolean isRewindingEnabled() {
-      return false;
-    }
-
-    @Override
-    public void checkForLostInputs() {}
-
-    @Override
-    public <T extends ActionContext> T getContext(Class<T> identifyingType) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Nullable
-    @Override
-    public FileSystem getActionFileSystem() {
-      return null;
-    }
-  }
-
-  private final InputMetadataProvider mockFileCache = mock(InputMetadataProvider.class);
   private final ResourceManager resourceManager = ResourceManager.instanceForTestingOnly();
 
   private Logger logger;
@@ -376,20 +276,20 @@ public class LocalSpawnRunnerTest {
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.localSigkillGraceSeconds = 456;
-    options.collectLocalExecutionStatistics = false;
-    LocalSpawnRunner runner =
+    TestedLocalSpawnRunner testedRunner =
         new TestedLocalSpawnRunner(
             fs.getPath("/execroot"),
             options,
             resourceManager,
             makeProcessWrapper(fs, options),
             LocalSpawnRunnerTest::keepLocalEnvUnchanged);
+    LocalSpawnRunner runner = testedRunner;
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
-    SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
-    policy.timeoutMillis = 123 * 1000L;
+    SpawnExecutionContextForTesting context =
+        new SpawnExecutionContextForTesting(SIMPLE_SPAWN, fileOutErr, Duration.ofSeconds(123));
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
-    SpawnResult result = runner.exec(SIMPLE_SPAWN, policy);
+    SpawnResult result = runner.exec(SIMPLE_SPAWN, context);
     verify(factory).create(any(SubprocessBuilder.class));
     assertThat(result.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(result.exitCode()).isEqualTo(0);
@@ -399,7 +299,12 @@ public class LocalSpawnRunnerTest {
     assertThat(captor.getValue().getArgv())
         .containsExactlyElementsIn(
             ImmutableList.of(
-                "/process-wrapper", "--timeout=123", "--kill_delay=456", "/bin/echo", "Hi!"));
+                "/process-wrapper",
+                "--timeout=123",
+                "--kill_delay=456",
+                "--stats=" + testedRunner.getActionTemp().getRelative("stats.out"),
+                "/bin/echo",
+                "Hi!"));
     assertThat(captor.getValue().getEnv()).containsExactly("VARIABLE", "value");
     assertThat(captor.getValue().getTimeoutMillis()).isEqualTo(0);
     assertThat(captor.getValue().getStdout()).isEqualTo(StreamAction.REDIRECT);
@@ -407,8 +312,8 @@ public class LocalSpawnRunnerTest {
     assertThat(captor.getValue().getStderr()).isEqualTo(StreamAction.REDIRECT);
     assertThat(captor.getValue().getStderrFile()).isEqualTo(new File("/out/stderr"));
 
-    assertThat(policy.lockOutputFilesCalled).isTrue();
-    assertThat(policy.reportedStatus)
+    assertThat(context.lockOutputFilesCalled).isTrue();
+    assertThat(context.reportedStatus)
         .containsExactly(SpawnSchedulingEvent.create("local"), SpawnExecutingEvent.create("local"))
         .inOrder();
   }
@@ -428,7 +333,6 @@ public class LocalSpawnRunnerTest {
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.localSigkillGraceSeconds = 456;
-    options.collectLocalExecutionStatistics = false;
     Path execRoot = fs.getPath("/execroot");
     LocalSpawnRunner runner =
         new TestedLocalSpawnRunner(
@@ -449,10 +353,10 @@ public class LocalSpawnRunnerTest {
             .withEnvironment("VARIABLE", "value")
             .build();
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
-    SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
-    policy.timeoutMillis = 123 * 1000L;
+    SpawnExecutionContextForTesting context =
+        new SpawnExecutionContextForTesting(spawn, fileOutErr, Duration.ofSeconds(123));
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
-    SpawnResult result = runner.exec(spawn, policy);
+    SpawnResult result = runner.exec(spawn, context);
     assertThat(result.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.setupSuccess()).isTrue();
@@ -474,7 +378,6 @@ public class LocalSpawnRunnerTest {
     SubprocessBuilder.setDefaultSubprocessFactory(factory);
     Path execRoot = fs.getPath("/execroot");
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
-    options.collectLocalExecutionStatistics = false;
     LocalSpawnRunner runner =
         new TestedLocalSpawnRunner(
             execRoot,
@@ -485,9 +388,10 @@ public class LocalSpawnRunnerTest {
     VirtualActionInput virtualInput = ActionsTestUtil.createVirtualActionInput("input1", "hello");
     Spawn spawn = new SpawnBuilder("/bin/true").withInput(virtualInput).build();
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
-    SpawnExecutionContext spawnExecutionContext = new SpawnExecutionContextForTesting(fileOutErr);
+    SpawnExecutionContextForTesting context =
+        new SpawnExecutionContextForTesting(spawn, fileOutErr, Duration.ZERO);
 
-    SpawnResult result = runner.exec(spawn, spawnExecutionContext);
+    SpawnResult result = runner.exec(spawn, context);
 
     assertThat(result.status()).isEqualTo(Status.SUCCESS);
     assertThat(DirectoryListingHelper.leafDirectoryEntries(execRoot))
@@ -522,10 +426,10 @@ public class LocalSpawnRunnerTest {
             LocalSpawnRunnerTest::keepLocalEnvUnchanged);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
-    SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
-    policy.timeoutMillis = 123 * 1000L;
+    SpawnExecutionContextForTesting context =
+        new SpawnExecutionContextForTesting(SIMPLE_SPAWN, fileOutErr, Duration.ofSeconds(123));
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
-    SpawnResult result = runner.exec(SIMPLE_SPAWN, policy);
+    SpawnResult result = runner.exec(SIMPLE_SPAWN, context);
     verify(factory).create(any());
     assertThat(result.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(result.exitCode()).isEqualTo(0);
@@ -536,9 +440,9 @@ public class LocalSpawnRunnerTest {
         .containsExactlyElementsIn(ImmutableList.of("/bin/echo", "Hi!"));
     assertThat(captor.getValue().getEnv()).containsExactly("VARIABLE", "value");
     // Without the process wrapper, we use the Command API to enforce the timeout.
-    assertThat(captor.getValue().getTimeoutMillis()).isEqualTo(policy.timeoutMillis);
+    assertThat(captor.getValue().getTimeoutMillis()).isEqualTo(123 * 1000L);
 
-    assertThat(policy.lockOutputFilesCalled).isTrue();
+    assertThat(context.lockOutputFilesCalled).isTrue();
   }
 
   @Test
@@ -556,19 +460,20 @@ public class LocalSpawnRunnerTest {
     SubprocessBuilder.setDefaultSubprocessFactory(factory);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
-    options.collectLocalExecutionStatistics = false;
-    LocalSpawnRunner runner =
+    TestedLocalSpawnRunner testedRunner =
         new TestedLocalSpawnRunner(
             fs.getPath("/execroot"),
             options,
             resourceManager,
             makeProcessWrapper(fs, options),
             LocalSpawnRunnerTest::keepLocalEnvUnchanged);
+    LocalSpawnRunner runner = testedRunner;
 
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
-    SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
-    SpawnResult result = runner.exec(SIMPLE_SPAWN, policy);
+    SpawnExecutionContextForTesting context =
+        new SpawnExecutionContextForTesting(SIMPLE_SPAWN, fileOutErr, Duration.ZERO);
+    SpawnResult result = runner.exec(SIMPLE_SPAWN, context);
     verify(factory).create(any(SubprocessBuilder.class));
     assertThat(result.status()).isEqualTo(SpawnResult.Status.NON_ZERO_EXIT);
     assertThat(result.exitCode()).isEqualTo(3);
@@ -578,14 +483,19 @@ public class LocalSpawnRunnerTest {
     assertThat(captor.getValue().getArgv())
         .containsExactlyElementsIn(
             ImmutableList.of(
-                "/process-wrapper", "--timeout=0", "--kill_delay=15", "/bin/echo", "Hi!"));
+                "/process-wrapper",
+                "--timeout=0",
+                "--kill_delay=15",
+                "--stats=" + testedRunner.getActionTemp().getRelative("stats.out"),
+                "/bin/echo",
+                "Hi!"));
     assertThat(captor.getValue().getEnv()).containsExactly("VARIABLE", "value");
     assertThat(captor.getValue().getStdout()).isEqualTo(StreamAction.REDIRECT);
     assertThat(captor.getValue().getStdoutFile()).isEqualTo(new File("/out/stdout"));
     assertThat(captor.getValue().getStderr()).isEqualTo(StreamAction.REDIRECT);
     assertThat(captor.getValue().getStderrFile()).isEqualTo(new File("/out/stderr"));
 
-    assertThat(policy.lockOutputFilesCalled).isTrue();
+    assertThat(context.lockOutputFilesCalled).isTrue();
   }
 
   @Test
@@ -609,8 +519,9 @@ public class LocalSpawnRunnerTest {
     assertThat(fs.getPath("/out").createDirectory()).isTrue();
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
-    SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
-    SpawnResult result = runner.exec(SIMPLE_SPAWN, policy);
+    SpawnExecutionContextForTesting context =
+        new SpawnExecutionContextForTesting(SIMPLE_SPAWN, fileOutErr, Duration.ZERO);
+    SpawnResult result = runner.exec(SIMPLE_SPAWN, context);
     verify(factory).create(any(SubprocessBuilder.class));
     assertThat(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED);
     assertThat(result.exitCode()).isEqualTo(-1);
@@ -623,7 +534,7 @@ public class LocalSpawnRunnerTest {
     assertThat(FileSystemUtils.readContent(fs.getPath("/out/stderr"), UTF_8))
         .isEqualTo("Action failed to execute: java.io.IOException: I'm sorry, Dave\n");
 
-    assertThat(policy.lockOutputFilesCalled).isTrue();
+    assertThat(context.lockOutputFilesCalled).isTrue();
   }
 
   @Test
@@ -642,8 +553,9 @@ public class LocalSpawnRunnerTest {
 
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     FileOutErr fileOutErr = new FileOutErr();
-    SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
-    SpawnResult reply = runner.exec(SIMPLE_SPAWN, policy);
+    SpawnExecutionContextForTesting context =
+        new SpawnExecutionContextForTesting(SIMPLE_SPAWN, fileOutErr, Duration.ZERO);
+    SpawnResult reply = runner.exec(SIMPLE_SPAWN, context);
     assertThat(reply.status()).isEqualTo(SpawnResult.Status.EXECUTION_DENIED);
     assertThat(reply.exitCode()).isEqualTo(-1);
     assertThat(reply.setupSuccess()).isFalse();
@@ -653,7 +565,7 @@ public class LocalSpawnRunnerTest {
     assertThat(reply.getExecutorHostName()).isEqualTo(NetUtil.getCachedShortHostName());
 
     // TODO(ulfjack): Maybe we should only lock after checking?
-    assertThat(policy.lockOutputFilesCalled).isTrue();
+    assertThat(context.lockOutputFilesCalled).isTrue();
   }
 
   @Test
@@ -692,11 +604,12 @@ public class LocalSpawnRunnerTest {
             LocalSpawnRunnerTest::keepLocalEnvUnchanged);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
-    SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
+    SpawnExecutionContextForTesting context =
+        new SpawnExecutionContextForTesting(SIMPLE_SPAWN, fileOutErr, Duration.ZERO);
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
-    assertThrows(InterruptedException.class, () -> runner.exec(SIMPLE_SPAWN, policy));
+    assertThrows(InterruptedException.class, () -> runner.exec(SIMPLE_SPAWN, context));
     Thread.interrupted();
-    assertThat(policy.lockOutputFilesCalled).isTrue();
+    assertThat(context.lockOutputFilesCalled).isTrue();
   }
 
   @Test
@@ -711,13 +624,11 @@ public class LocalSpawnRunnerTest {
             Options.getDefaults(LocalExecutionOptions.class),
             resourceManager,
             LocalEnvProvider.forCurrentOs(ImmutableMap.of()),
-            /*binTools=*/ null,
-            /*processWrapper=*/ null,
-            SyscallCache.NO_CACHE,
+            /* binTools= */ null,
+            /* processWrapper= */ null,
             Mockito.mock(RunfilesTreeUpdater.class));
     FileOutErr fileOutErr =
         new FileOutErr(tempDir.getRelative("stdout"), tempDir.getRelative("stderr"));
-    SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
 
     // This test to exercise a race condition by attempting an operation multiple times. We can get
     // false positives (the test passing without us catching a problem), so try a few times. When
@@ -745,6 +656,9 @@ public class LocalSpawnRunnerTest {
             + "done";
     Spawn spawn = new SpawnBuilder("/bin/sh", "-c", script).build();
 
+    SpawnExecutionContextForTesting context =
+        new SpawnExecutionContextForTesting(spawn, fileOutErr, Duration.ZERO);
+
     ExecutorService executor = Executors.newSingleThreadExecutor();
     try {
       for (int i = 0; i < tries; i++) {
@@ -755,7 +669,7 @@ public class LocalSpawnRunnerTest {
             executor.submit(
                 () -> {
                   try {
-                    runner.exec(spawn, policy);
+                    runner.exec(spawn, context);
                   } catch (InterruptedException e) {
                     interruptCaught.release();
                   } catch (Throwable t) {
@@ -791,7 +705,6 @@ public class LocalSpawnRunnerTest {
     SubprocessBuilder.setDefaultSubprocessFactory(factory);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
-    options.collectLocalExecutionStatistics = false;
     LocalSpawnRunner runner =
         new TestedLocalSpawnRunner(
             fs.getPath("/execroot"),
@@ -801,11 +714,11 @@ public class LocalSpawnRunnerTest {
             LocalSpawnRunnerTest::keepLocalEnvUnchanged);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
-    SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
-    policy.timeoutMillis = 123 * 1000L;
+    SpawnExecutionContextForTesting context =
+        new SpawnExecutionContextForTesting(SIMPLE_SPAWN, fileOutErr, Duration.ofSeconds(123));
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
-    runner.exec(SIMPLE_SPAWN, policy);
-    assertThat(policy.prefetchCalled).isTrue();
+    runner.exec(SIMPLE_SPAWN, context);
+    assertThat(context.prefetchCalled).isTrue();
   }
 
   @Test
@@ -817,7 +730,6 @@ public class LocalSpawnRunnerTest {
     SubprocessBuilder.setDefaultSubprocessFactory(factory);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
-    options.collectLocalExecutionStatistics = false;
     LocalSpawnRunner runner =
         new TestedLocalSpawnRunner(
             fs.getPath("/execroot"),
@@ -827,16 +739,18 @@ public class LocalSpawnRunnerTest {
             LocalSpawnRunnerTest::keepLocalEnvUnchanged);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
-    SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
-    policy.timeoutMillis = 123 * 1000L;
 
     Spawn spawn =
         new SpawnBuilder("/bin/echo", "Hi!")
             .withExecutionInfo(ExecutionRequirements.DISABLE_LOCAL_PREFETCH, "")
             .build();
+
+    SpawnExecutionContextForTesting context =
+        new SpawnExecutionContextForTesting(spawn, fileOutErr, Duration.ofSeconds(123));
+
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
-    runner.exec(spawn, policy);
-    assertThat(policy.prefetchCalled).isFalse();
+    runner.exec(spawn, context);
+    assertThat(context.prefetchCalled).isFalse();
   }
 
   @Test
@@ -849,7 +763,6 @@ public class LocalSpawnRunnerTest {
     LocalEnvProvider localEnvProvider = mock(LocalEnvProvider.class);
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
-    options.collectLocalExecutionStatistics = false;
     LocalSpawnRunner runner =
         new TestedLocalSpawnRunner(
             fs.getPath("/execroot"),
@@ -859,11 +772,11 @@ public class LocalSpawnRunnerTest {
             localEnvProvider);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
-    SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
-    policy.timeoutMillis = 123 * 1000L;
+    SpawnExecutionContextForTesting context =
+        new SpawnExecutionContextForTesting(SIMPLE_SPAWN, fileOutErr, Duration.ofSeconds(123));
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
 
-    runner.exec(SIMPLE_SPAWN, policy);
+    runner.exec(SIMPLE_SPAWN, context);
     verify(localEnvProvider)
         .rewriteLocalEnv(any(), any(), matches("^/execroot/tmp[0-9a-fA-F]+_[0-9a-fA-F]+/work$"));
   }
@@ -939,14 +852,13 @@ public class LocalSpawnRunnerTest {
   }
 
   @Test
-  public void hasExecutionStatistics_whenOptionIsEnabled() throws Exception {
+  public void hasExecutionStatistics() throws Exception {
     // TODO(b/62588075) Currently no process-wrapper or execution statistics support in Windows.
     assumeTrue(OS.getCurrent() != OS.WINDOWS);
 
     FileSystem fs = new UnixFileSystem(DigestHashFunction.SHA256, /*hashAttributeName=*/ "");
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
-    options.collectLocalExecutionStatistics = true;
 
     int minimumWallTimeToSpendInMs = 10 * 1000;
 
@@ -976,8 +888,7 @@ public class LocalSpawnRunnerTest {
             LocalSpawnRunnerTest::keepLocalEnvUnchanged,
             binTools,
             new ProcessWrapper(
-                processWrapperPath, /*killDelay=*/ Duration.ZERO, /*gracefulSigterm=*/ false),
-            SyscallCache.NO_CACHE,
+                processWrapperPath, /* killDelay= */ Duration.ZERO, /* gracefulSigterm= */ false),
             Mockito.mock(RunfilesTreeUpdater.class));
 
     Spawn spawn =
@@ -988,9 +899,10 @@ public class LocalSpawnRunnerTest {
             .build();
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/dev/null"), fs.getPath("/dev/null"));
-    SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
+    SpawnExecutionContextForTesting context =
+        new SpawnExecutionContextForTesting(spawn, fileOutErr, Duration.ZERO);
 
-    SpawnResult spawnResult = runner.exec(spawn, policy);
+    SpawnResult spawnResult = runner.exec(spawn, context);
 
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(spawnResult.exitCode()).isEqualTo(0);
@@ -1009,68 +921,6 @@ public class LocalSpawnRunnerTest {
     assertThat(spawnResult.getNumBlockOutputOperations()).isAtLeast(0L);
     assertThat(spawnResult.getNumBlockInputOperations()).isAtLeast(0L);
     assertThat(spawnResult.getNumInvoluntaryContextSwitches()).isAtLeast(0L);
-  }
-
-  @Test
-  public void hasNoExecutionStatistics_whenOptionIsDisabled() throws Exception {
-    // TODO(b/62588075) Currently no process-wrapper or execution statistics support in Windows.
-    assumeTrue(OS.getCurrent() != OS.WINDOWS);
-
-    FileSystem fs = new UnixFileSystem(DigestHashFunction.SHA256, /*hashAttributeName=*/ "");
-
-    LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
-    options.collectLocalExecutionStatistics = false;
-
-    int minimumWallTimeToSpendInMs = 1 * 1000;
-
-    int minimumUserTimeToSpendInMs = minimumWallTimeToSpendInMs;
-    int minimumSystemTimeToSpendInMs = 0;
-
-    Path execRoot = getTemporaryExecRoot(fs);
-    Path embeddedBinaries = getTemporaryEmbeddedBin(fs);
-    BinTools binTools =
-        BinTools.forEmbeddedBin(embeddedBinaries, ImmutableList.of("process-wrapper"));
-    Path processWrapperPath = binTools.getEmbeddedPath("process-wrapper");
-    copyProcessWrapperIntoExecRoot(processWrapperPath);
-    Path cpuTimeSpenderPath = copyCpuTimeSpenderIntoExecRoot(execRoot);
-
-    LocalSpawnRunner runner =
-        new LocalSpawnRunner(
-            execRoot,
-            options,
-            resourceManager,
-            LocalSpawnRunnerTest::keepLocalEnvUnchanged,
-            binTools,
-            new ProcessWrapper(
-                processWrapperPath, /*killDelay=*/ Duration.ZERO, /*gracefulSigterm=*/ false),
-            SyscallCache.NO_CACHE,
-            Mockito.mock(RunfilesTreeUpdater.class));
-
-    Spawn spawn =
-        new SpawnBuilder(
-                cpuTimeSpenderPath.getPathString(),
-                String.valueOf(minimumUserTimeToSpendInMs / 1000L),
-                String.valueOf(minimumSystemTimeToSpendInMs / 1000L))
-            .build();
-
-    FileOutErr fileOutErr = new FileOutErr(fs.getPath("/dev/null"), fs.getPath("/dev/null"));
-    SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
-
-    SpawnResult spawnResult = runner.exec(spawn, policy);
-
-    assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
-    assertThat(spawnResult.exitCode()).isEqualTo(0);
-    assertThat(spawnResult.setupSuccess()).isTrue();
-    assertThat(spawnResult.getExecutorHostName()).isEqualTo(NetUtil.getCachedShortHostName());
-
-    assertThat(spawnResult.getWallTimeInMs()).isNotNull();
-    assertThat(spawnResult.getWallTimeInMs()).isAtLeast(minimumWallTimeToSpendInMs);
-    // Under heavy starvation, max wall time could be anything, so don't check it here.
-    assertThat(spawnResult.getUserTimeInMs()).isEqualTo(0);
-    assertThat(spawnResult.getSystemTimeInMs()).isEqualTo(0);
-    assertThat(spawnResult.getNumBlockOutputOperations()).isNull();
-    assertThat(spawnResult.getNumBlockInputOperations()).isNull();
-    assertThat(spawnResult.getNumInvoluntaryContextSwitches()).isNull();
   }
 
   // Check that relative paths in the Spawn are absolutized relative to the execroot passed to the
@@ -1098,9 +948,11 @@ public class LocalSpawnRunnerTest {
             LocalSpawnRunnerTest::keepLocalEnvUnchanged);
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
-    SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
+    Spawn spawn = new SpawnBuilder("foo/bar", "Hi!").build();
+    SpawnExecutionContextForTesting context =
+        new SpawnExecutionContextForTesting(spawn, fileOutErr, Duration.ofSeconds(123));
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
-    runner.exec(new SpawnBuilder("foo/bar", "Hi!").build(), policy);
+    runner.exec(spawn, context);
     verify(factory).create(any(SubprocessBuilder.class));
 
     assertThat(captor.getValue().getArgv()).containsExactly("/execroot/foo/bar", "Hi!");

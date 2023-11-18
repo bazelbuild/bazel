@@ -36,8 +36,7 @@ example_worker=$(find $BAZEL_RUNFILES -name ExampleWorker_deploy.jar)
 add_to_bazelrc "build -s"
 add_to_bazelrc "build --spawn_strategy=worker,standalone"
 add_to_bazelrc "build --worker_verbose --worker_max_instances=1"
-add_to_bazelrc "build --debug_print_action_contexts"
-add_to_bazelrc "build --noexperimental_worker_multiplex"
+add_to_bazelrc "build --noworker_multiplex"
 add_to_bazelrc "build ${ADDITIONAL_BUILD_FLAGS}"
 
 function set_up() {
@@ -753,7 +752,7 @@ EOF
 
   expect_log "^---8<---8<--- Start of log, file at /"
   expect_log "Worker process did not return a WorkResponse:"
-  expect_log "Killing [a-zA-Z]\+ worker [0-9]\+ (pid [0-9]\+) taking [0-9]\+MB"
+  expect_log "Killing [a-zA-Z]\+ worker [0-9]\+ (pid [0-9]\+) because it is using more memory than the limit ([0-9]\+MB > 1MB)"
   expect_log "^---8<---8<--- End of log ---8<---8<---"
 }
 

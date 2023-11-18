@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -268,21 +269,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   }
 
   public static FileArtifactValue createForUnresolvedSymlink(Path symlink) throws IOException {
-    byte[] digest =
-        symlink
-            .getFileSystem()
-            .getDigestFunction()
-            .getHashFunction()
-            .hashString(symlink.readSymbolicLink().getPathString(), ISO_8859_1)
-            .asBytes();
-
-    // We need to be able to tell the difference between a symlink and a file containing the same
-    // text. So we transform the digest a bit. This works because if one wants to craft a file with
-    // the same digest as a symlink, one would need to mount a preimage attack on the digest
-    // function (this would be different if we tweaked the data before applying the hash function)
-    digest[0] = (byte) (digest[0] ^ 0xff);
-
-    return new UnresolvedSymlinkArtifactValue(digest);
+    return new UnresolvedSymlinkArtifactValue(symlink);
   }
 
   @VisibleForTesting
@@ -562,6 +549,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
           digest, size, locationIndex, expireAtEpochMilli, /* materializationExecPath= */ null);
     }
 
+    @VisibleForTesting
     public static RemoteFileArtifactValue create(
         byte[] digest,
         long size,
@@ -572,6 +560,24 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
           ? new RemoteFileArtifactValue(digest, size, locationIndex, materializationExecPath)
           : new RemoteFileArtifactValueWithExpiration(
               digest, size, locationIndex, materializationExecPath, expireAtEpochMilli);
+    }
+
+    /**
+     * Returns a {@link RemoteFileArtifactValue} identical to the given one, except that its
+     * materialization path is set to the given value unless already present.
+     */
+    public static RemoteFileArtifactValue createFromExistingWithMaterializationPath(
+        RemoteFileArtifactValue metadata, PathFragment materializationExecPath) {
+      checkNotNull(materializationExecPath);
+      if (metadata.materializationExecPath != null) {
+        return metadata;
+      }
+      return create(
+          metadata.getDigest(),
+          metadata.getSize(),
+          metadata.getLocationIndex(),
+          metadata.getExpireAtEpochMilli(),
+          metadata.getMaterializationExecPath().orElse(materializationExecPath));
     }
 
     @Override
@@ -641,6 +647,12 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       return -1;
     }
 
+    /**
+     * Extends the expiration time for this metadata. If it was constructed without known expiration
+     * time (i.e. expireAtEpochMilli < 0), this extension does nothing.
+     */
+    public void extendExpireAtEpochMilli(long expireAtEpochMilli) {}
+
     public boolean isAlive(Instant now) {
       return true;
     }
@@ -669,7 +681,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
   /** A remote artifact that expires at a particular time. */
   private static final class RemoteFileArtifactValueWithExpiration extends RemoteFileArtifactValue {
-    private final long expireAtEpochMilli;
+    private long expireAtEpochMilli;
 
     private RemoteFileArtifactValueWithExpiration(
         byte[] digest,
@@ -687,6 +699,12 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
 
     @Override
+    public void extendExpireAtEpochMilli(long expireAtEpochMilli) {
+      Preconditions.checkState(expireAtEpochMilli > this.expireAtEpochMilli);
+      this.expireAtEpochMilli = expireAtEpochMilli;
+    }
+
+    @Override
     public boolean isAlive(Instant now) {
       return now.toEpochMilli() < expireAtEpochMilli;
     }
@@ -694,10 +712,32 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
   /** A {@link FileArtifactValue} representing a symlink that is not to be resolved. */
   public static final class UnresolvedSymlinkArtifactValue extends FileArtifactValue {
+    private final String symlinkTarget;
     private final byte[] digest;
 
-    private UnresolvedSymlinkArtifactValue(byte[] digest) {
+    private UnresolvedSymlinkArtifactValue(Path symlink) throws IOException {
+      String symlinkTarget = symlink.readSymbolicLink().getPathString();
+
+      byte[] digest =
+          symlink
+              .getFileSystem()
+              .getDigestFunction()
+              .getHashFunction()
+              .hashString(symlinkTarget, ISO_8859_1)
+              .asBytes();
+
+      // We need to be able to tell the difference between a symlink and a file containing the same
+      // text. So we transform the digest a bit. This works because if one wants to craft a file
+      // with the same digest as a symlink, one would need to mount a preimage attack on the digest
+      // function (this would be different if we tweaked the data before applying the hash function)
+      digest[0] = (byte) (digest[0] ^ 0xff);
+
+      this.symlinkTarget = symlinkTarget;
       this.digest = digest;
+    }
+
+    public String getSymlinkTarget() {
+      return symlinkTarget;
     }
 
     @Override
@@ -727,8 +767,12 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
     @Override
     public boolean wasModifiedSinceDigest(Path path) {
-      // We could store an mtime but I have no clue where to get one from createFromMetadata
-      return true;
+      try {
+        var newMetadata = FileArtifactValue.createForUnresolvedSymlink(path);
+        return !Arrays.equals(digest, newMetadata.getDigest());
+      } catch (IOException e) {
+        return true;
+      }
     }
   }
 

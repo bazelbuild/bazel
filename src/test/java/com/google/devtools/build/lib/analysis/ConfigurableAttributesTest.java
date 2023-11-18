@@ -1568,7 +1568,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void publicVisibilityConfigSetting__noVisibilityEnforcement() throws Exception {
+  public void publicVisibilityConfigSetting_noVisibilityEnforcement() throws Exception {
     // Production builds default to private visibility, but BuildViewTestCase defaults to public.
     setPackageOptions("--default_visibility=private",
         "--incompatible_enforce_config_setting_visibility=false");

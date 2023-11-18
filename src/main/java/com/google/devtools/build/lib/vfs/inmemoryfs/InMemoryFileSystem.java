@@ -475,7 +475,7 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   public boolean isFilePathCaseSensitive() {
-    return OS.getCurrent() != OS.WINDOWS;
+    return OS.getCurrent() != OS.WINDOWS && OS.getCurrent() != OS.DARWIN;
   }
 
   @Override
@@ -673,8 +673,8 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected synchronized OutputStream getOutputStream(PathFragment path, boolean append)
-      throws IOException {
+  protected synchronized OutputStream getOutputStream(
+      PathFragment path, boolean append, boolean internal) throws IOException {
     InMemoryContentInfo status = getOrCreateWritableInode(path);
     return ((FileInfo) status).getOutputStream(append);
   }

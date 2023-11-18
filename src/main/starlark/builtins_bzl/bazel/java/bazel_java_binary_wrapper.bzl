@@ -19,29 +19,34 @@ the supplied value of the `create_executable` attribute.
 """
 
 load(":bazel/java/bazel_java_binary.bzl", _java_test = "java_test", java_bin_exec = "java_binary")
-load(":bazel/java/bazel_java_binary_nolauncher.bzl", java_bin_exec_no_launcher_flag = "java_binary", java_test_no_launcher = "java_test")
-load(":bazel/java/bazel_java_binary_custom_launcher.bzl", java_bin_exec_custom_launcher = "java_binary", java_test_custom_launcher = "java_test")
 load(":bazel/java/bazel_java_binary_nonexec.bzl", java_bin_nonexec = "java_binary")
-load(":bazel/java/bazel_java_binary_deploy_jar.bzl", "deploy_jars")
-load(":common/java/java_binary_wrapper.bzl", "register_java_binary_rules")
+load(":bazel/java/bazel_java_binary_deploy_jar.bzl", "deploy_jars", "deploy_jars_nonexec")
+load(":common/java/java_binary_wrapper.bzl", "register_java_binary_rules", "register_legacy_java_binary_rules")
+load(":common/java/java_semantics.bzl", "semantics")
 
 def java_binary(**kwargs):
-    register_java_binary_rules(
-        java_bin_exec,
-        java_bin_nonexec,
-        java_bin_exec_no_launcher_flag,
-        java_bin_exec_custom_launcher,
-        rule_deploy_jars = deploy_jars,
-        **kwargs
-    )
+    if _builtins.internal.java_common_internal_do_not_use.incompatible_disable_non_executable_java_binary():
+        register_java_binary_rules(
+            java_bin_exec,
+            rule_deploy_jars = deploy_jars,
+            **kwargs
+        )
+    else:
+        register_legacy_java_binary_rules(
+            java_bin_exec,
+            java_bin_nonexec,
+            rule_deploy_jars = deploy_jars,
+            rule_deploy_jars_nonexec = deploy_jars_nonexec,
+            **kwargs
+        )
 
 def java_test(**kwargs):
-    register_java_binary_rules(
-        _java_test,
-        java_test_no_launcher,
-        java_test_no_launcher,
-        java_test_custom_launcher,
-        rule_deploy_jars = deploy_jars,
-        is_test_rule_class = True,
-        **kwargs
-    )
+    if "stamp" in kwargs and type(kwargs["stamp"]) == type(True):
+        kwargs["stamp"] = 1 if kwargs["stamp"] else 0
+    if "use_launcher" in kwargs and not kwargs["use_launcher"]:
+        kwargs["launcher"] = None
+    else:
+        # If launcher is not set or None, set it to config flag
+        if "launcher" not in kwargs or not kwargs["launcher"]:
+            kwargs["launcher"] = semantics.LAUNCHER_FLAG_LABEL
+    _java_test(**kwargs)

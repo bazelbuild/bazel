@@ -86,6 +86,7 @@ py_binary(
         "aar_native_libs_zip_creator.py",
     ],
     deps = [
+        ":json_worker_wrapper",
         ":junction_lib",
         "//third_party/py/abseil",
     ],
@@ -121,6 +122,7 @@ py_binary(
     name = "aar_embedded_proguard_extractor",
     srcs = ["aar_embedded_proguard_extractor.py"],
     deps = [
+        ":json_worker_wrapper",
         ":junction_lib",
         "//third_party/py/abseil",
     ],
@@ -136,6 +138,7 @@ py_binary(
     name = "aar_embedded_jars_extractor",
     srcs = ["aar_embedded_jars_extractor.py"],
     deps = [
+        ":json_worker_wrapper",
         ":junction_lib",
         "//third_party/py/abseil",
     ],
@@ -151,6 +154,7 @@ py_binary(
     name = "aar_resources_extractor",
     srcs = ["aar_resources_extractor.py"],
     deps = [
+        ":json_worker_wrapper",
         ":junction_lib",
         "//third_party/py/abseil",
     ],
@@ -176,6 +180,8 @@ py_test(
 py_binary(
     name = "instrumentation_test_check",
     srcs = ["instrumentation_test_check.py"],
+    python_version = "PY3",
+    srcs_version = "PY3",
     deps = ["//third_party/py/abseil"],
 )
 
@@ -188,6 +194,13 @@ py_test(
 py_library(
     name = "junction_lib",
     srcs = ["junction.py"],
+    visibility = ["//visibility:private"],
+)
+
+py_library(
+    name = "json_worker_wrapper",
+    srcs = ["json_worker_wrapper.py"],
+    srcs_version = "PY3",
     visibility = ["//visibility:private"],
 )
 
@@ -234,6 +247,15 @@ filegroup(
     ) + [
         "//tools/android/emulator:embedded_tools",
     ],
+)
+
+platform(
+    name = "arm64-v8a",
+    constraint_values = [
+        "@platforms//os:android",
+        "@platforms//cpu:arm64",
+    ],
+    visibility = ["//visibility:public"],
 )
 
 # Exported for AndroidSdkRepositoryTest to use it instead of mocking it out.

@@ -15,8 +15,6 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.Allowlist;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
@@ -199,13 +197,14 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
   /** Android configuration options. */
   public static class Options extends FragmentOptions {
+    // TODO(blaze-configurability-team): Deprecate this when legacy output directory scheme is gone.
     @Option(
         name = "Android configuration distinguisher",
         defaultValue = "MAIN",
         converter = ConfigurationDistinguisherConverter.class,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-        metadataTags = {OptionMetadataTag.INTERNAL, OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH})
+        metadataTags = {OptionMetadataTag.INTERNAL})
     public ConfigurationDistinguisher configurationDistinguisher;
 
     // TODO(blaze-configurability): Mark this as deprecated in favor of --android_platforms.
@@ -547,17 +546,13 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         help = "use rex tool to rewrite dex files")
     public boolean useRexToCompressDexFiles;
 
+    @Deprecated
     @Option(
         name = "experimental_allow_android_library_deps_without_srcs",
         defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-        effectTags = {
-          OptionEffectTag.EAGERNESS_TO_EXIT,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-        },
-        help =
-            "Flag to help transition from allowing to disallowing srcs-less android_library"
-                + " rules with deps. The depot needs to be cleaned up to roll this out by default.")
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "No-op. Kept here for backwards compatibility.")
     public boolean allowAndroidLibraryDepsWithoutSrcs;
 
     @Option(
@@ -666,15 +661,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         help = "Implementation to use to sign APKs")
     public ApkSigningMethod apkSigningMethod;
 
-    // TODO(b/36023617): Remove this option.
-    @Option(
-        name = "use_singlejar_apkbuilder",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-        effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-        help = "This option is a deprecated. It is now a no-op and will be removed soon.")
-    public boolean useSingleJarApkBuilder;
-
     @Option(
         name = "experimental_android_compress_java_resources",
         defaultValue = "false",
@@ -689,7 +675,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
     @Option(
         name = "experimental_android_databinding_v2",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
         effectTags = {
           OptionEffectTag.AFFECTS_OUTPUTS,
@@ -697,12 +683,12 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
           OptionEffectTag.LOSES_INCREMENTAL_STATE,
         },
         metadataTags = OptionMetadataTag.EXPERIMENTAL,
-        help = "Use android databinding v2")
+        help = "Use android databinding v2. This flag is a no-op.")
     public boolean dataBindingV2;
 
     @Option(
         name = "android_databinding_use_v3_4_args",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
         effectTags = {
           OptionEffectTag.AFFECTS_OUTPUTS,
@@ -710,12 +696,12 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
           OptionEffectTag.LOSES_INCREMENTAL_STATE,
         },
         metadataTags = OptionMetadataTag.EXPERIMENTAL,
-        help = "Use android databinding v2 with 3.4.0 argument")
+        help = "Use android databinding v2 with 3.4.0 argument. This flag is a no-op.")
     public boolean dataBindingUpdatedArgs;
 
     @Option(
         name = "android_databinding_use_androidx",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
         effectTags = {
           OptionEffectTag.AFFECTS_OUTPUTS,
@@ -725,7 +711,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         metadataTags = OptionMetadataTag.EXPERIMENTAL,
         help =
             "Generate AndroidX-compatible data-binding files. "
-                + "This is only used with databinding v2.")
+                + "This is only used with databinding v2. This flag is a no-op.")
     public boolean dataBindingAndroidX;
 
     @Option(
@@ -752,7 +738,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
     @Option(
         name = "android_fixed_resource_neverlinking",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
         help =
@@ -789,7 +775,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
     @Option(
         name = "incompatible_enable_android_toolchain_resolution",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -832,6 +818,16 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
 
     @Option(
+        name = "experimental_persistent_aar_extractor",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+        effectTags = {
+          OptionEffectTag.EXECUTION,
+        },
+        help = "Enable persistent aar extractor by using workers.")
+    public boolean persistentAarExtractor;
+
+    @Option(
         name = "persistent_android_resource_processor",
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
@@ -857,6 +853,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
           "--strategy=AndroidManifestMerger=worker",
           "--strategy=Aapt2Optimize=worker",
           "--strategy=AARGenerator=worker",
+          "--strategy=ProcessDatabinding=worker",
+          "--strategy=GenerateDataBindingBaseClasses=worker"
         })
     public Void persistentResourceProcessor;
 
@@ -1061,6 +1059,15 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public Label legacyMainDexListGenerator;
 
     @Option(
+        name = "optimizing_dexer",
+        defaultValue = "null",
+        converter = LabelConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Specifies a binary to use to do dexing without sharding.")
+    public Label optimizingDexer;
+
+    @Option(
         name = "experimental_disable_instrumentation_manifest_merge",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -1079,16 +1086,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
             "Get Java resources from _proguard.jar instead of _deploy.jar in android_binary when "
                 + "bundling the final APK.")
     public boolean getJavaResourcesFromOptimizedJar;
-
-    @Option(
-        name = "android_include_proguard_location_references",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-        help =
-            "When using aapt2 to generate proguard configurations, include location references."
-                + " This will make the build nondeterministic.")
-    public boolean includeProguardLocationReferences;
 
     @Option(
         name = "incompatible_android_platforms_transition_updated_affected",
@@ -1125,9 +1122,9 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       exec.dexoptsSupportedInDexSharder = dexoptsSupportedInDexSharder;
       exec.manifestMerger = manifestMerger;
       exec.manifestMergerOrder = manifestMergerOrder;
-      exec.allowAndroidLibraryDepsWithoutSrcs = allowAndroidLibraryDepsWithoutSrcs;
       exec.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
           oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
+      exec.persistentAarExtractor = persistentAarExtractor;
       exec.persistentBusyboxTools = persistentBusyboxTools;
       exec.persistentMultiplexBusyboxTools = persistentMultiplexBusyboxTools;
       exec.disableNativeAndroidRules = disableNativeAndroidRules;
@@ -1154,7 +1151,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean desugarJava8Libs;
   private final boolean checkDesugarDeps;
   private final boolean useRexToCompressDexFiles;
-  private final boolean allowAndroidLibraryDepsWithoutSrcs;
   private final boolean useAndroidResourceShrinking;
   private final boolean useAndroidResourceCycleShrinking;
   private final boolean useAndroidResourcePathShortening;
@@ -1162,7 +1158,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final AndroidManifestMerger manifestMerger;
   private final ManifestMergerOrder manifestMergerOrder;
   private final ApkSigningMethod apkSigningMethod;
-  private final boolean useSingleJarApkBuilder;
   private final boolean compressJavaResources;
   private final boolean exportsManifestDefault;
   private final boolean useParallelDex2Oat;
@@ -1171,9 +1166,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean fixedResourceNeverlinking;
   private final boolean checkForMigrationTag;
   private final boolean oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
-  private final boolean dataBindingV2;
-  private final boolean dataBindingUpdatedArgs;
-  private final boolean dataBindingAndroidX;
+  private final boolean persistentAarExtractor;
   private final boolean persistentBusyboxTools;
   private final boolean persistentMultiplexBusyboxTools;
   private final boolean persistentDexDesugar;
@@ -1185,11 +1178,11 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean useRTxtFromMergedResources;
   private final boolean outputLibraryMergedAssets;
   private final Label legacyMainDexListGenerator;
+  private final Label optimizingDexer;
   private final boolean disableInstrumentationManifestMerging;
   private final boolean incompatibleUseToolchainResolution;
   private final boolean hwasan;
   private final boolean getJavaResourcesFromOptimizedJar;
-  private final boolean includeProguardLocationReferences;
 
   public AndroidConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
     Options options = buildOptions.get(Options.class);
@@ -1210,7 +1203,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.desugarJava8 = options.desugarJava8;
     this.desugarJava8Libs = options.desugarJava8Libs;
     this.checkDesugarDeps = options.checkDesugarDeps;
-    this.allowAndroidLibraryDepsWithoutSrcs = options.allowAndroidLibraryDepsWithoutSrcs;
     this.useAndroidResourceShrinking =
         options.useAndroidResourceShrinking || options.useExperimentalAndroidResourceShrinking;
     this.useAndroidResourceCycleShrinking = options.useAndroidResourceCycleShrinking;
@@ -1219,7 +1211,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.manifestMerger = options.manifestMerger;
     this.manifestMergerOrder = options.manifestMergerOrder;
     this.apkSigningMethod = options.apkSigningMethod;
-    this.useSingleJarApkBuilder = options.useSingleJarApkBuilder;
     this.useRexToCompressDexFiles = options.useRexToCompressDexFiles;
     this.compressJavaResources = options.compressJavaResources;
     this.exportsManifestDefault = options.exportsManifestDefault;
@@ -1233,9 +1224,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.checkForMigrationTag = options.checkForMigrationTag || options.disableNativeAndroidRules;
     this.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
         options.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
-    this.dataBindingV2 = options.dataBindingV2;
-    this.dataBindingUpdatedArgs = options.dataBindingUpdatedArgs;
-    this.dataBindingAndroidX = options.dataBindingAndroidX;
+    this.persistentAarExtractor = options.persistentAarExtractor;
     this.persistentBusyboxTools = options.persistentBusyboxTools;
     this.persistentMultiplexBusyboxTools = options.persistentMultiplexBusyboxTools;
     this.persistentDexDesugar = options.persistentDexDesugar;
@@ -1249,11 +1238,11 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.useRTxtFromMergedResources = options.useRTxtFromMergedResources;
     this.outputLibraryMergedAssets = options.outputLibraryMergedAssets;
     this.legacyMainDexListGenerator = options.legacyMainDexListGenerator;
+    this.optimizingDexer = options.optimizingDexer;
     this.disableInstrumentationManifestMerging = options.disableInstrumentationManifestMerging;
     this.incompatibleUseToolchainResolution = options.incompatibleUseToolchainResolution;
     this.hwasan = options.hwasan;
     this.getJavaResourcesFromOptimizedJar = options.getJavaResourcesFromOptimizedJar;
-    this.includeProguardLocationReferences = options.includeProguardLocationReferences;
 
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(
@@ -1329,7 +1318,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     return dexoptsSupportedInDexMerger;
   }
 
-  /** dx flags supported in dexmerger actions. */
+  /** dx flags supported in dexsharder actions. */
+  @Override
   public ImmutableList<String> getDexoptsSupportedInDexSharder() {
     return dexoptsSupportedInDexSharder;
   }
@@ -1361,11 +1351,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean useRexToCompressDexFiles() {
     return useRexToCompressDexFiles;
-  }
-
-  public boolean allowSrcsLessAndroidLibraryDeps(RuleContext ruleContext) {
-    return allowAndroidLibraryDepsWithoutSrcs
-        && Allowlist.isAvailable(ruleContext, "allow_deps_without_srcs");
   }
 
   @Override
@@ -1422,11 +1407,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   }
 
   @Override
-  public boolean useSingleJarApkBuilder() {
-    return useSingleJarApkBuilder;
-  }
-
-  @Override
   public boolean useParallelDex2Oat() {
     return useParallelDex2Oat;
   }
@@ -1467,18 +1447,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   }
 
   @Override
-  public boolean useDataBindingV2() {
-    return dataBindingV2;
-  }
-
-  @Override
-  public boolean useDataBindingUpdatedArgs() {
-    return dataBindingUpdatedArgs;
-  }
-
-  @Override
-  public boolean useDataBindingAndroidX() {
-    return dataBindingAndroidX;
+  public boolean persistentAarExtractor() {
+    return persistentAarExtractor;
   }
 
   @Override
@@ -1516,6 +1486,16 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     return configurationDistinguisher.suffix;
   }
 
+  // TODO(blaze-configurability-team): Deprecate this.
+  @Override
+  public void processForOutputPathMnemonic(Fragment.OutputDirectoriesContext ctx)
+      throws Fragment.OutputDirectoriesContext.AddToMnemonicException {
+    ctx.markAsExplicitInOutputPathFor("Android configuration distinguisher");
+    if (configurationDistinguisher.suffix != null) {
+      ctx.addToMnemonic(configurationDistinguisher.suffix);
+    }
+  }
+
   public boolean filterRJarsFromAndroidTest() {
     return filterRJarsFromAndroidTest;
   }
@@ -1545,10 +1525,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     return getJavaResourcesFromOptimizedJar;
   }
 
-  public boolean includeProguardLocationReferences() {
-    return includeProguardLocationReferences;
-  }
-
   boolean outputLibraryMergedAssets() {
     return outputLibraryMergedAssets;
   }
@@ -1561,5 +1537,14 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Nullable
   public Label getLegacyMainDexListGenerator() {
     return legacyMainDexListGenerator;
+  }
+
+  /** Returns the label provided with --optimizing_dexer, if any. */
+  @StarlarkConfigurationField(
+      name = "optimizing_dexer",
+      doc = "Returns the label provided with --optimizing_dexer, if any.")
+  @Nullable
+  public Label getOptimizingDexer() {
+    return optimizingDexer;
   }
 }

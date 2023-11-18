@@ -15,12 +15,14 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.devtools.build.lib.remote.util.DigestUtil.isOldStyleDigestFunction;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.DigestFunction;
 import com.google.bytestream.ByteStreamGrpc;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamFutureStub;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamStub;
@@ -69,6 +71,7 @@ final class ByteStreamUploader {
   private final CallCredentialsProvider callCredentialsProvider;
   private final long callTimeoutSecs;
   private final RemoteRetrier retrier;
+  private final DigestFunction.Value digestFunction;
 
   @Nullable private final Semaphore openedFilePermits;
 
@@ -89,7 +92,8 @@ final class ByteStreamUploader {
       CallCredentialsProvider callCredentialsProvider,
       long callTimeoutSecs,
       RemoteRetrier retrier,
-      int maximumOpenFiles) {
+      int maximumOpenFiles,
+      DigestFunction.Value digestFunction) {
     checkArgument(callTimeoutSecs > 0, "callTimeoutSecs must be gt 0.");
     this.instanceName = instanceName;
     this.channel = channel;
@@ -97,6 +101,7 @@ final class ByteStreamUploader {
     this.callTimeoutSecs = callTimeoutSecs;
     this.retrier = retrier;
     this.openedFilePermits = maximumOpenFiles != -1 ? new Semaphore(maximumOpenFiles) : null;
+    this.digestFunction = digestFunction;
   }
 
   @VisibleForTesting
@@ -175,11 +180,26 @@ final class ByteStreamUploader {
         MoreExecutors.directExecutor());
   }
 
-  private static String buildUploadResourceName(
+  private String buildUploadResourceName(
       String instanceName, UUID uuid, Digest digest, boolean compressed) {
-    String template =
-        compressed ? "uploads/%s/compressed-blobs/zstd/%s/%d" : "uploads/%s/blobs/%s/%d";
-    String resourceName = format(template, uuid, digest.getHash(), digest.getSizeBytes());
+
+    String resourceName;
+
+    if (isOldStyleDigestFunction(digestFunction)) {
+      String template =
+          compressed ? "uploads/%s/compressed-blobs/zstd/%s/%d" : "uploads/%s/blobs/%s/%d";
+      resourceName = format(template, uuid, digest.getHash(), digest.getSizeBytes());
+    } else {
+      String template =
+          compressed ? "uploads/%s/compressed-blobs/zstd/%s/%s/%d" : "uploads/%s/blobs/%s/%s/%d";
+      resourceName =
+          format(
+              template,
+              uuid,
+              Ascii.toLowerCase(digestFunction.getValueDescriptor().getName()),
+              digest.getHash(),
+              digest.getSizeBytes());
+    }
     if (!Strings.isNullOrEmpty(instanceName)) {
       resourceName = instanceName + "/" + resourceName;
     }

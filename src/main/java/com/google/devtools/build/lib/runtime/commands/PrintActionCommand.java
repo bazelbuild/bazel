@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.actions.extra.DetailedExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionSummary;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -321,43 +320,6 @@ public final class PrintActionCommand implements BlazeCommand {
   }
 
   /**
-   * C++ headers are not plain vanilla action inputs: they do not show up in Action.getInputs(),
-   * since the actual set of header files is the one discovered during include scanning.
-   *
-   * <p>However, since there is a scheduling dependency on the header files, we can use the system
-   * to implement said scheduling dependency to figure them out. Thus, we go a-fishing in the action
-   * graph reaching through scheduling dependency middlemen: one of these exists for each {@code
-   * CcCompilationContext} in the transitive closure of the rule.
-   */
-  private static void expandRecursiveHelper(
-      ActionGraph actionGraph,
-      Iterable<Artifact> artifacts,
-      Set<Artifact> visited,
-      Set<Artifact> result) {
-    for (Artifact artifact : artifacts) {
-      if (!visited.add(artifact)) {
-        continue;
-      }
-      if (!artifact.isMiddlemanArtifact()) {
-        result.add(artifact);
-        continue;
-      }
-
-      ActionAnalysisMetadata middlemanAction = actionGraph.getGeneratingAction(artifact);
-      if (middlemanAction.getActionType() != MiddlemanType.SCHEDULING_DEPENDENCY_MIDDLEMAN) {
-        continue;
-      }
-
-      expandRecursiveHelper(actionGraph, middlemanAction.getInputs().toList(), visited, result);
-    }
-  }
-
-  private static void expandRecursive(ActionGraph actionGraph, Iterable<Artifact> artifacts,
-      Set<Artifact> result) {
-    expandRecursiveHelper(actionGraph, artifacts, Sets.<Artifact>newHashSet(), result);
-  }
-
-  /**
    * A stateful filter that keeps track of which files have already been covered. This makes it such
    * that blaze only prints out one action protobuf per file. This is important for headers. In
    * addition, this also handles C++ header files, which are not considered to be action inputs by
@@ -383,18 +345,11 @@ public final class PrintActionCommand implements BlazeCommand {
         return false;
       }
       // Check all the inputs for the configured target against the file we want argv for.
-      Set<Artifact> expandedArtifacts = Sets.newHashSet();
-      LinkedHashSet<Artifact> rootArtifacts = Sets.newLinkedHashSet();
-      rootArtifacts.addAll(action.getInputs().toList());
-      rootArtifacts.addAll(action.getSchedulingDependencies().toList());
+      LinkedHashSet<Artifact> artifacts = Sets.newLinkedHashSet();
+      artifacts.addAll(action.getInputs().toList());
+      artifacts.addAll(action.getSchedulingDependencies().toList());
 
-      // TODO(lberki): This doesn't need to be recursive anymore, probably now that scheduling
-      // middlemen are gone.
-      expandRecursive(
-          env.getSkyframeExecutor().getActionGraph(env.getReporter()),
-          rootArtifacts,
-          expandedArtifacts);
-      for (Artifact input : expandedArtifacts) {
+      for (Artifact input : artifacts) {
         if (filesDesired.remove(input.getRootRelativePath().getSafePathString())) {
           return actionMnemonicMatcher.apply(action);
         }

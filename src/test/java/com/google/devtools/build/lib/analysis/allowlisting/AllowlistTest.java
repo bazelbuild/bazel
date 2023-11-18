@@ -125,4 +125,156 @@ public final class AllowlistTest extends BuildViewTestCase {
     getConfiguredTarget("//x:x");
     assertNoEvents();
   }
+
+  @Test
+  public void targetInAllowlist_targetAsStringParameter() throws Exception {
+    scratch.file(
+        "allowlist/BUILD",
+        "package_group(",
+        "    name='allowlist',",
+        "    packages=[",
+        "        '//direct',",
+        "    ])");
+    scratch.file(
+        "test/rule.bzl",
+        "def _impl(ctx):",
+        "  target = '//direct:rule_from_allowlist'",
+        "  target_in_allowlist ="
+            + " ctx.attr._allowlist_test[PackageSpecificationInfo].contains(target)",
+        "  if not target_in_allowlist:",
+        "    fail('Target should be in the allowlist')",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    '_allowlist_test': attr.label(",
+        "      default = '//allowlist:allowlist',",
+        "      cfg = 'exec',",
+        "      providers = ['PackageSpecificationInfo']",
+        "    ),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rule.bzl', 'custom_rule')",
+        "custom_rule(name='allowlist_rule')");
+
+    getConfiguredTarget("//test:allowlist_rule");
+
+    assertNoEvents();
+  }
+
+  @Test
+  public void targetInAllowlist_targetAsLabelParameter() throws Exception {
+    scratch.file(
+        "allowlist/BUILD",
+        "package_group(",
+        "    name='allowlist',",
+        "    packages=[",
+        "        '//test',",
+        "    ])");
+    scratch.file(
+        "test/rule.bzl",
+        "def _impl(ctx):",
+        "  target = ctx.label",
+        "  target_in_allowlist ="
+            + " ctx.attr._allowlist_test[PackageSpecificationInfo].contains(target)",
+        "  if not target_in_allowlist:",
+        "    fail('Target should be in the allowlist')",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    '_allowlist_test': attr.label(",
+        "      default = '//allowlist:allowlist',",
+        "      cfg = 'exec',",
+        "      providers = [PackageSpecificationInfo]",
+        "    ),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rule.bzl', 'custom_rule')",
+        "custom_rule(name='allowlist_rule')");
+
+    getConfiguredTarget("//test:allowlist_rule");
+
+    assertNoEvents();
+  }
+
+  @Test
+  public void targetNotInAllowlist() throws Exception {
+    scratch.file(
+        "allowlist/BUILD",
+        "package_group(",
+        "    name='allowlist',",
+        "    packages=[",
+        "        '//direct',",
+        "    ])");
+    scratch.file(
+        "test/rule.bzl",
+        "def _impl(ctx):",
+        "  target = '//non_direct:rule_not_from_allowlist'",
+        "  target_in_allowlist ="
+            + " ctx.attr._allowlist_test[PackageSpecificationInfo].contains(target)",
+        "  if target_in_allowlist:",
+        "    fail('Target should not be in the allowlist')",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    '_allowlist_test': attr.label(",
+        "      default = '//allowlist:allowlist',",
+        "      cfg = 'exec',",
+        "      providers = [PackageSpecificationInfo]",
+        "    ),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rule.bzl', 'custom_rule')",
+        "custom_rule(name='allowlist_rule')");
+
+    getConfiguredTarget("//test:allowlist_rule");
+
+    assertNoEvents();
+  }
+
+  @Test
+  public void targetNotInAllowlist_negativePath() throws Exception {
+    scratch.file(
+        "allowlist/BUILD",
+        "package_group(",
+        "    name='allowlist',",
+        "    packages=[",
+        "        '-//direct',",
+        "    ])");
+    scratch.file(
+        "test/rule.bzl",
+        "def _impl(ctx):",
+        "  target = '//direct:rule_from_allowlist'",
+        "  target_in_allowlist ="
+            + " ctx.attr._allowlist_test[PackageSpecificationInfo].contains(target)",
+        "  if target_in_allowlist:",
+        "    fail('Target should not be in the allowlist (negative path)')",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    '_allowlist_test': attr.label(",
+        "      default = '//allowlist:allowlist',",
+        "      cfg = 'exec',",
+        "      providers = [PackageSpecificationInfo]",
+        "    ),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rule.bzl', 'custom_rule')",
+        "custom_rule(name='allowlist_rule')");
+
+    getConfiguredTarget("//test:allowlist_rule");
+
+    assertNoEvents();
+  }
 }

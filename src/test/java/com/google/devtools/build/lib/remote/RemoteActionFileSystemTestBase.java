@@ -406,7 +406,7 @@ public abstract class RemoteActionFileSystemTestBase {
   }
 
   @Test
-  public void isReadable_localNonReadableFileAndRemoteFile_returnsTrue() throws IOException {
+  public void isReadable_localNonReadableFileAndRemoteFile_returnsFalse() throws IOException {
     var actionFs = createActionFileSystem();
     var path = getOutputPath("file");
     injectRemoteFile(actionFs, path, "remote-content");
@@ -415,7 +415,7 @@ public abstract class RemoteActionFileSystemTestBase {
 
     var readable = actionFs.getPath(path).isReadable();
 
-    assertThat(readable).isTrue();
+    assertThat(readable).isFalse();
   }
 
   @Test
@@ -577,7 +577,7 @@ public abstract class RemoteActionFileSystemTestBase {
   }
 
   @Test
-  public void isExecutable_localNonExecutableFileAndRemoteFile_returnsTrue() throws IOException {
+  public void isExecutable_localNonExecutableFileAndRemoteFile_returnsFalse() throws IOException {
     var actionFs = createActionFileSystem();
     var path = getOutputPath("file");
     injectRemoteFile(actionFs, path, "remote-content");
@@ -585,7 +585,7 @@ public abstract class RemoteActionFileSystemTestBase {
 
     var executable = actionFs.getPath(path).isExecutable();
 
-    assertThat(executable).isTrue();
+    assertThat(executable).isFalse();
   }
 
   @Test
@@ -641,7 +641,7 @@ public abstract class RemoteActionFileSystemTestBase {
 
     actionFs.getPath(path).setReadable(false);
 
-    assertThat(actionFs.getPath(path).isReadable()).isTrue();
+    assertThat(actionFs.getPath(path).isReadable()).isFalse();
     assertThat(getLocalFileSystem(actionFs).getPath(path).isReadable()).isFalse();
   }
 
@@ -750,7 +750,7 @@ public abstract class RemoteActionFileSystemTestBase {
     var path = getOutputPath("file");
     injectRemoteFile(actionFs, path, "remote-content");
     writeLocalFile(actionFs, path, "local-content");
-    assertThat(actionFs.getPath(path).isExecutable()).isTrue();
+    assertThat(actionFs.getPath(path).isExecutable()).isFalse();
     assertThat(getLocalFileSystem(actionFs).getPath(path).isExecutable()).isFalse();
 
     actionFs.getPath(path).setExecutable(true);
@@ -823,14 +823,14 @@ public abstract class RemoteActionFileSystemTestBase {
     writeLocalFile(actionFs, path, "local-content");
     assertThat(actionFs.getPath(path).isReadable()).isTrue();
     assertThat(actionFs.getPath(path).isWritable()).isTrue();
-    assertThat(actionFs.getPath(path).isExecutable()).isTrue();
+    assertThat(actionFs.getPath(path).isExecutable()).isFalse();
     assertThat(getLocalFileSystem(actionFs).getPath(path).isReadable()).isTrue();
     assertThat(getLocalFileSystem(actionFs).getPath(path).isWritable()).isTrue();
     assertThat(getLocalFileSystem(actionFs).getPath(path).isExecutable()).isFalse();
 
     actionFs.getPath(path).chmod(0111);
 
-    assertThat(actionFs.getPath(path).isReadable()).isTrue();
+    assertThat(actionFs.getPath(path).isReadable()).isFalse();
     assertThat(actionFs.getPath(path).isWritable()).isFalse();
     assertThat(actionFs.getPath(path).isExecutable()).isTrue();
     assertThat(getLocalFileSystem(actionFs).getPath(path).isReadable()).isFalse();

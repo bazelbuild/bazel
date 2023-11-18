@@ -18,11 +18,9 @@ import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Actions;
-import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -52,7 +50,6 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
@@ -78,7 +75,7 @@ public final class RuleConfiguredTargetBuilder {
   private final RuleContext ruleContext;
   private final TransitiveInfoProviderMapBuilder providersBuilder =
       new TransitiveInfoProviderMapBuilder();
-  private final Map<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
+  private final TreeMap<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
   private final ImmutableList.Builder<Artifact> additionalTestActionTools =
       new ImmutableList.Builder<>();
 
@@ -93,7 +90,7 @@ public final class RuleConfiguredTargetBuilder {
   public RuleConfiguredTargetBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
     // Avoid building validations in analysis tests (b/143988346)
-    add(LicensesProvider.class, LicensesProviderImpl.of(ruleContext));
+    addNativeDeclaredProvider(LicensesProviderImpl.of(ruleContext));
   }
 
   /**
@@ -124,13 +121,12 @@ public final class RuleConfiguredTargetBuilder {
     NestedSetBuilder<Artifact> runfilesMiddlemenBuilder = NestedSetBuilder.stableOrder();
     if (runfilesSupport != null) {
       runfilesMiddlemenBuilder.add(runfilesSupport.getRunfilesMiddleman());
-      runfilesMiddlemenBuilder.addTransitive(runfilesSupport.getRunfiles().getExtraMiddlemen());
     }
     NestedSet<Artifact> runfilesMiddlemen = runfilesMiddlemenBuilder.build();
     FilesToRunProvider filesToRunProvider =
-        new FilesToRunProvider(
+        FilesToRunProvider.create(
             buildFilesToRun(runfilesMiddlemen, filesToBuild), runfilesSupport, executable);
-    addProvider(new FileProvider(filesToBuild));
+    addProvider(FileProvider.of(filesToBuild));
     addProvider(filesToRunProvider);
 
     if (runfilesSupport != null) {
@@ -181,18 +177,15 @@ public final class RuleConfiguredTargetBuilder {
       }
     }
 
-    ExtraActionArtifactsProvider extraActionsProvider =
-        createExtraActionProvider(actionsWithoutExtraAction, ruleContext);
-    add(ExtraActionArtifactsProvider.class, extraActionsProvider);
+    // Only add {@link ExtraActionProvider} if extra action listeners are applied
+    if (!ruleContext.getConfiguration().getActionListeners().isEmpty()) {
+      ExtraActionArtifactsProvider extraActionsProvider =
+          createExtraActionProvider(actionsWithoutExtraAction, ruleContext);
+      add(ExtraActionArtifactsProvider.class, extraActionsProvider);
+    }
 
     if (!outputGroupBuilders.isEmpty()) {
-      ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroups = ImmutableMap.builder();
-      for (Map.Entry<String, NestedSetBuilder<Artifact>> entry : outputGroupBuilders.entrySet()) {
-        outputGroups.put(entry.getKey(), entry.getValue().build());
-      }
-
-      OutputGroupInfo outputGroupInfo = new OutputGroupInfo(outputGroups.buildOrThrow());
-      addNativeDeclaredProvider(outputGroupInfo);
+      addNativeDeclaredProvider(OutputGroupInfo.fromBuilders(outputGroupBuilders));
     }
 
     if (ruleContext.getConfiguration().evaluatingForAnalysisTest()) {
@@ -257,23 +250,15 @@ public final class RuleConfiguredTargetBuilder {
     }
 
     AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
-    GeneratingActions generatingActions = null;
+    ImmutableList<ActionAnalysisMetadata> actions = analysisEnvironment.getRegisteredActions();
     try {
-      generatingActions =
-          Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-              analysisEnvironment.getActionKeyContext(),
-              analysisEnvironment.getRegisteredActions(),
-              ruleContext.getOwner(),
-              ((Rule) ruleContext.getTarget()).getOutputFiles());
+      Actions.assignOwnersAndThrowIfConflictToleratingSharedActions(
+          analysisEnvironment.getActionKeyContext(), actions, ruleContext.getOwner());
     } catch (Actions.ArtifactGeneratedByOtherRuleException e) {
       ruleContext.ruleError(e.getMessage());
       return null;
     }
-    return new RuleConfiguredTarget(
-        ruleContext,
-        providers,
-        generatingActions.getActions(),
-        generatingActions.getArtifactsByOutputLabel());
+    return new RuleConfiguredTarget(ruleContext, providers, actions);
   }
 
   private boolean propagateValidationActionOutputGroup() {
@@ -352,17 +337,13 @@ public final class RuleConfiguredTargetBuilder {
    *
    * <p>This is done within {@link RuleConfiguredTargetBuilder} so that every rule always and
    * automatically propagates the validation action output group.
-   *
-   * <p>Note that in addition to {@link LabelClass#DEPENDENCY}, there is also {@link
-   * LabelClass#FILESET_ENTRY}, however the fileset implementation takes care of propagating the
-   * validation action output group itself.
    */
   private void propagateTransitiveValidationOutputGroups() {
     if (outputGroupBuilders.containsKey(OutputGroupInfo.VALIDATION_TRANSITIVE)) {
       Label rdeLabel =
           ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironmentLabel();
       // only allow native and builtins to override transitive validation propagation
-      if (rdeLabel != null && !"@_builtins".equals(rdeLabel.getRepository().getNameWithAt())) {
+      if (rdeLabel != null && !rdeLabel.getRepository().getName().equals("_builtins")) {
         ruleContext.ruleError(rdeLabel + " cannot access the _transitive_validation private API");
         return;
       }
@@ -448,9 +429,10 @@ public final class RuleConfiguredTargetBuilder {
       Map<Label, RemovedEnvironmentCulprit> removedEnvironmentCulprits = new LinkedHashMap<>();
       constraintSemantics.checkConstraints(ruleContext, supportedEnvironments, refinedEnvironments,
           removedEnvironmentCulprits);
-      add(SupportedEnvironmentsProvider.class,
-          new SupportedEnvironments(supportedEnvironments, refinedEnvironments.build(),
-              removedEnvironmentCulprits));
+      add(
+          SupportedEnvironmentsProvider.class,
+          SupportedEnvironments.create(
+              supportedEnvironments, refinedEnvironments.build(), removedEnvironmentCulprits));
     }
   }
 

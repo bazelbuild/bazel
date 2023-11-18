@@ -128,6 +128,8 @@ function test_dirty_file() {
   export DONT_SANITY_CHECK_SERIALIZATION=1
   cat > foo/BUILD <<EOF
 load(":foo.bzl", "foo_library", "foo_binary")
+load("@rules_python//python:py_binary.bzl", "py_binary")
+
 py_binary(
     name = "foocc",
     srcs = ["foocc.py"],

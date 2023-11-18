@@ -1885,6 +1885,10 @@ message DigestFunction {
     // Test vectors of this digest function can be found in the
     // accompanying sha256tree_test_vectors.txt file.
     SHA256TREE = 8;
+
+    // The BLAKE3 hash function.
+    // See https://github.com/BLAKE3-team/BLAKE3.
+    BLAKE3 = 9;
   }
 }
 

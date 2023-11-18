@@ -41,6 +41,8 @@ public final class RegexFilter implements Predicate<String> {
   @Nullable private final Pattern exclusionPattern;
   private final int hashCode;
 
+  @Nullable private final String originalInput;
+
   /**
    * Converts from a comma-separated list of regex expressions with optional -/+ prefix into the
    * RegexFilter. Commas prefixed with backslash are considered to be part of regex definition and
@@ -68,7 +70,7 @@ public final class RegexFilter implements Predicate<String> {
       }
 
       try {
-        return new RegexFilter(inclusionList, exclusionList);
+        return new RegexFilter(inclusionList, exclusionList, input);
       } catch (PatternSyntaxException e) {
         throw new OptionsParsingException(
             "Failed to build valid regular expression: " + e.getMessage());
@@ -88,18 +90,26 @@ public final class RegexFilter implements Predicate<String> {
    * <p>Null {@code inclusionPattern} or {@code exclusionPattern} means that inclusion or exclusion
    * matching will not be applied, respectively.
    */
-  private RegexFilter(@Nullable Pattern inclusionPattern, @Nullable Pattern exclusionPattern) {
+  private RegexFilter(
+      @Nullable Pattern inclusionPattern,
+      @Nullable Pattern exclusionPattern,
+      @Nullable String originalInput) {
     this.inclusionPattern = inclusionPattern;
     this.exclusionPattern = exclusionPattern;
+    this.originalInput = originalInput;
     this.hashCode =
         Objects.hash(
             inclusionPattern == null ? null : inclusionPattern.pattern(),
             exclusionPattern == null ? null : exclusionPattern.pattern());
   }
 
+  private RegexFilter(List<String> inclusions, List<String> exclusions, String originalInput) {
+    this(takeUnionOfRegexes(inclusions), takeUnionOfRegexes(exclusions), originalInput);
+  }
+
   /** Creates new RegexFilter using provided inclusion and exclusion path lists. */
   public RegexFilter(List<String> inclusions, List<String> exclusions) {
-    this(takeUnionOfRegexes(inclusions), takeUnionOfRegexes(exclusions));
+    this(inclusions, exclusions, /* originalInput= */ null);
   }
 
   /**
@@ -136,16 +146,6 @@ public final class RegexFilter implements Predicate<String> {
     return isIncluded(value);
   }
 
-  @Nullable
-  public String getInclusionRegex() {
-    return inclusionPattern == null ? null : inclusionPattern.pattern();
-  }
-
-  @Nullable
-  public String getExclusionRegex() {
-    return exclusionPattern == null ? null : exclusionPattern.pattern();
-  }
-
   @Override
   public String toString() {
     StringBuilder builder = new StringBuilder();
@@ -160,6 +160,17 @@ public final class RegexFilter implements Predicate<String> {
       builder.append(exclusionPattern.pattern().replace(",", "\\,"));
     }
     return builder.toString();
+  }
+
+  /**
+   * RegexFilter doesn't serialize cleanly: {@code
+   * !RegexFilter.convert(".*").toString().equals(".")}.
+   *
+   * <p>This method provides the ability to reproduce the original input string.
+   */
+  @Nullable
+  public String toOriginalString() {
+    return originalInput;
   }
 
   @Override

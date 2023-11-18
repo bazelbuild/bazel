@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Target;
-
 import java.util.Collection;
 
 /**
@@ -48,9 +47,5 @@ public class AnalysisPhaseStartedEvent {
         return input.getLabel();
       }
     });
-  }
-
-  public ImmutableSet<Target> getTargets() {
-    return targets;
   }
 }

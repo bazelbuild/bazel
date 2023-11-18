@@ -34,14 +34,18 @@ public class LexerTest {
 
   private final List<SyntaxError> errors = new ArrayList<>();
 
+  // Reassign in test case to inject non-default options to the Lexer.
+  // Doesn't leak between test cases since each case is its own instance.
+  private FileOptions options = FileOptions.DEFAULT;
+
   /**
-   * Create a lexer which takes input from the specified string. Resets the
-   * error handler beforehand.
+   * Create a lexer which takes input from the specified string. Resets the error handler
+   * beforehand. Uses the current state of {@link #options}.
    */
   private Lexer createLexer(String input) {
     ParserInput inputSource = ParserInput.fromString(input, "");
     errors.clear();
-    return new Lexer(inputSource, errors);
+    return new Lexer(inputSource, errors, options);
   }
 
   private static class Token {
@@ -421,20 +425,98 @@ public class LexerTest {
         "STRING(\0 \1 \t \u003f I I1 \u00ff) NEWLINE EOF");
     // Test boundaries (non-octal char, EOF).
     check("'\\1b \\1'", "STRING(\1b \1) NEWLINE EOF");
+    // Test first digit out-of-range.
+    checkErrors(
+        "'\\800'",
+        "STRING(\\800) NEWLINE EOF",
+        "  ^ invalid escape sequence: \\8. Use '\\\\' to insert '\\'.");
   }
 
   @Test
   public void testOctalEscapeOutOfRange() throws Exception {
+    // Capped at U+FF.
     checkErrors(
         "'\\777'",
         "STRING(\u00ff) NEWLINE EOF",
         "    ^ octal escape sequence out of range (maximum is \\377)");
+    // Emitted value is masked by (not capped to) 0xFF.
+    checkErrors(
+        "'\\401'",
+        "STRING(\u0001) NEWLINE EOF",
+        "    ^ octal escape sequence out of range (maximum is \\377)");
+    // Multiple errors.
+    checkErrors(
+        "'\\401\\402'",
+        "STRING(\u0001\u0002) NEWLINE EOF",
+        "    ^ octal escape sequence out of range (maximum is \\377)",
+        "        ^ octal escape sequence out of range (maximum is \\377)");
   }
 
   @Test
   public void testTripleQuotedStrings() throws Exception {
     check("\"\"\"a\"b'c \n d\"\"e\"\"\"", "STRING(a\"b'c \n d\"\"e) NEWLINE EOF");
     check("'''a\"b'c \n d\"\"e'''", "STRING(a\"b'c \n d\"\"e) NEWLINE EOF");
+  }
+
+  @Test
+  public void testStringContainingNonAsciiRawCharacter() throws Exception {
+    // Lexer is fine with U+80 to U+FF by default.
+    check("'\u0080\u00ff'", "STRING(\u0080\u00ff) NEWLINE EOF");
+    // If the ParserInput provides content greater than 8 bits wide, the Lexer tolerates it.
+    check("'\u0100\uffff'", "STRING(\u0100\uffff) NEWLINE EOF");
+
+    options = FileOptions.builder().stringLiteralsAreAsciiOnly(true).build();
+    // Ok, U+7F is ASCII.
+    check("'\u007f'", "STRING(\u007f) NEWLINE EOF");
+    // With U+80 and higher, we error but still emit the token with the original value (no masking
+    // down to ASCII).
+    checkErrors(
+        "'abc\u0080xyz'",
+        "STRING(abc\u0080xyz) NEWLINE EOF",
+        "    ^ string literal contains non-ASCII character");
+    checkErrors(
+        "'abc\u0100xyz'",
+        "STRING(abc\u0100xyz) NEWLINE EOF",
+        "    ^ string literal contains non-ASCII character");
+    // Test a case with an escape sequence to trigger the longer code path.
+    checkErrors(
+        "'abc\u0080xyz\\n'",
+        "STRING(abc\u0080xyz\n) NEWLINE EOF",
+        "    ^ string literal contains non-ASCII character");
+    // Multiple errors.
+    checkErrors(
+        "'\u0080\u0081'",
+        "STRING(\u0080\u0081) NEWLINE EOF",
+        " ^ string literal contains non-ASCII character",
+        "  ^ string literal contains non-ASCII character");
+  }
+
+  @Test
+  public void testStringContainingNonAsciiOctalEscapes() throws Exception {
+    // Lexer is fine with U+80 to U+FF by default.
+    check("'\\200\\377'", "STRING(\200\377) NEWLINE EOF");
+
+    options = FileOptions.builder().stringLiteralsAreAsciiOnly(true).build();
+    // Ok, U+7F is ASCII.
+    check("'\\177'", "STRING(\177) NEWLINE EOF");
+    // With U+80 to U+FF, we error but still emit the token with the original value (no masking
+    // down to ASCII).
+    checkErrors(
+        "'\\200'",
+        "STRING(\200) NEWLINE EOF",
+        "    ^ octal escape sequence denotes non-ASCII character");
+    // Out-of-range error takes priority over non-ASCII error. As in the case without the ASCII-only
+    // option, the value is masked down to U+FF.
+    checkErrors(
+        "'\\400'",
+        "STRING(\000) NEWLINE EOF",
+        "    ^ octal escape sequence out of range (maximum is \\377)");
+    // Multiple errors.
+    checkErrors(
+        "'\\200\\201'",
+        "STRING(\200\201) NEWLINE EOF",
+        "    ^ octal escape sequence denotes non-ASCII character",
+        "        ^ octal escape sequence denotes non-ASCII character");
   }
 
   @Test

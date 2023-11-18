@@ -263,24 +263,6 @@ public abstract class AndroidResourcesTest extends ResourceTestBase {
   }
 
   @Test
-  public void testParseWithDataBinding() throws Exception {
-    RuleContext ruleContext = getRuleContextWithDataBinding();
-
-    ParsedAndroidResources parsed = assertParse(ruleContext);
-
-    // The compile action should take in resources and manifest in and output compiled symbols and
-    // a databinding zip.
-    assertActionArtifacts(
-        ruleContext,
-        /* inputs = */ ImmutableList.<Artifact>builder()
-            .addAll(parsed.getResources())
-            .add(parsed.getManifest())
-            .build(),
-        /* outputs = */ ImmutableList.of(
-            parsed.getCompiledSymbols(), DataBinding.getLayoutInfoFile(ruleContext)));
-  }
-
-  @Test
   public void testMergeCompiled() throws Exception {
     RuleContext ruleContext = getRuleContext();
     ParsedAndroidResources parsed = assertParse(ruleContext);
@@ -502,9 +484,5 @@ public abstract class AndroidResourcesTest extends ResourceTestBase {
                 .build()
                 .toArray(new String[0]));
     return getRuleContextForActionTesting(target);
-  }
-
-  private RuleContext getRuleContextWithDataBinding() throws Exception {
-    return getRuleContext("android_library", "enable_data_binding = 1");
   }
 }

@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.packages;
 
-
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -107,7 +105,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
    * replaced by stronger type information in the provider's Starlark declaration. However, this
    * optimization would remain relevant for provider declarations that do not supply such type info.
    */
-  @Nullable private transient AtomicReferenceArray<Class<?>> depsetTypePredictor;
+  @Nullable private AtomicReferenceArray<Class<?>> depsetTypePredictor;
 
   /**
    * Returns a new empty builder.
@@ -306,8 +304,10 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     return new RawConstructor(this);
   }
 
+  /**
+   * Returns the provider's custom initializer callback, or null if the provider doesn't have one.
+   */
   @Nullable
-  @VisibleForTesting
   public StarlarkCallable getInit() {
     return init;
   }

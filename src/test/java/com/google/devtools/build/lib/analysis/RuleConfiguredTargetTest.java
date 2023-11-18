@@ -17,7 +17,9 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -62,10 +64,7 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testHostFeatures() throws Exception {
-    useConfiguration(
-        "--features=feature",
-        "--host_features=host_feature",
-        "--incompatible_use_host_features=true");
+    useConfiguration("--features=feature", "--host_features=host_feature");
     scratch.file("a/BUILD", "cc_library(name = 'a')");
     ImmutableSet<String> features =
         getRuleContext(getConfiguredTarget("//a", getExecConfiguration())).getFeatures();
@@ -75,7 +74,10 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testHostFeaturesIncompatibleDisabled() throws Exception {
-    useConfiguration("--features=feature", "--host_features=host_feature");
+    useConfiguration(
+        "--features=feature",
+        "--host_features=host_feature",
+        "--incompatible_use_host_features=false");
     scratch.file("a/BUILD", "cc_library(name = 'a')");
     ImmutableSet<String> features =
         getRuleContext(getConfiguredTarget("//a", getExecConfiguration())).getFeatures();
@@ -434,5 +436,80 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
         .isNull();
     assertThat(getConfiguredTarget("//a:config").getProvider(RequiredConfigFragmentsProvider.class))
         .isNull();
+  }
+
+  @Test
+  public void findArtifactByOutputLabel_twoOutputsWithSameBasename() throws Exception {
+    scratch.file(
+        "foo/BUILD", "genrule(name = 'gen', outs = ['sub/out', 'out'], cmd = 'touch $(OUTS)')");
+    RuleConfiguredTarget foo = (RuleConfiguredTarget) getConfiguredTarget("//foo:gen");
+    assertThat(
+            foo.findArtifactByOutputLabel(Label.parseCanonical("//foo:sub/out"))
+                .getRepositoryRelativePath()
+                .getPathString())
+        .isEqualTo("foo/sub/out");
+    assertThat(
+            foo.findArtifactByOutputLabel(Label.parseCanonical("//foo:out"))
+                .getRepositoryRelativePath()
+                .getPathString())
+        .isEqualTo("foo/out");
+  }
+
+  @Test
+  public void testNativeRuleAttrSetToNoneFails() throws Exception {
+    setBuildLanguageOptions("--incompatible_fail_on_unknown_attributes");
+    scratch.file(
+        "p/BUILD", //
+        "genrule(name = 'genrule', srcs = ['a.java'], outs = ['b'], cmd = '', bat = None)");
+
+    reporter.removeHandler(failFastHandler);
+    getTarget("//p:genrule");
+
+    assertContainsEvent("no such attribute 'bat' in 'genrule' rule");
+  }
+
+  @Test
+  public void testNativeRuleAttrSetToNoneDoesntFails() throws Exception {
+    setBuildLanguageOptions("--noincompatible_fail_on_unknown_attributes");
+    scratch.file(
+        "p/BUILD", //
+        "genrule(name = 'genrule', srcs = ['a.java'], outs = ['b'], cmd = '', bat = None)");
+
+    getTarget("//p:genrule");
+  }
+
+  @Test
+  public void testStarlarkRuleAttrSetToNoneFails() throws Exception {
+    setBuildLanguageOptions("--incompatible_fail_on_unknown_attributes");
+    scratch.file(
+        "p/rule.bzl", //
+        "def _impl(ctx):",
+        "  pass",
+        "my_rule = rule(_impl)");
+    scratch.file(
+        "p/BUILD", //
+        "load(':rule.bzl', 'my_rule')",
+        "my_rule(name = 'my_target',  bat = None)");
+
+    reporter.removeHandler(failFastHandler);
+    getTarget("//p:my_target");
+
+    assertContainsEvent("no such attribute 'bat' in 'my_rule' rule");
+  }
+
+  @Test
+  public void testStarlarkRuleAttrSetToNoneDoesntFail() throws Exception {
+    setBuildLanguageOptions("--noincompatible_fail_on_unknown_attributes");
+    scratch.file(
+        "p/rule.bzl", //
+        "def _impl(ctx):",
+        "  pass",
+        "my_rule = rule(_impl)");
+    scratch.file(
+        "p/BUILD", //
+        "load(':rule.bzl', 'my_rule')",
+        "my_rule(name = 'my_target',  bat = None)");
+
+    getTarget("//p:my_target");
   }
 }

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
-import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static com.google.devtools.build.lib.rules.cpp.SolibSymlinkAction.MAX_FILENAME_LENGTH;
 import static org.junit.Assert.assertThrows;
 
@@ -28,7 +27,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
@@ -85,6 +83,11 @@ import org.junit.runners.JUnit4;
 /** Unit tests for the {@code cc_common} Starlark module. */
 @RunWith(JUnit4.class)
 public class StarlarkCcCommonTest extends BuildViewTestCase {
+
+  private static final String REDACTED_ARTIFACT_PATH =
+      "tools/build_defs/build_info/redacted_file.h";
+  private static final String NON_REDACTED_ARTIFACT_PATH =
+      "tools/build_defs/build_info/volatile_file.h";
 
   @Before
   public void setUp() throws Exception {
@@ -1119,7 +1122,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "  fragments = ['cpp'],",
         ");");
 
-    /** Calling {@link #getTarget} to get loading errors */
+    /* Calling {@link #getTarget} to get loading errors */
     getTarget("//a" + pkgSuffix + ":r");
     ConfiguredTarget r = getConfiguredTarget("//a" + pkgSuffix + ":r");
     if (r == null) {
@@ -1968,7 +1971,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     EnvEntry entry = CcModule.envEntryFromStarlark(entryProvider);
     assertThat(entry).isNotNull();
     StringValueParser parser = new StringValueParser("def");
-    assertThat(entry).isEqualTo(new EnvEntry("abc", parser.getChunks()));
+    assertThat(entry).isEqualTo(new EnvEntry("abc", parser.getChunks(), ImmutableSet.of()));
   }
 
   @Test
@@ -5298,12 +5301,13 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(e)
         .hasMessageThat()
         .contains(
-            "'a.ifso' does not have any of the allowed extensions .so, .dylib, .dll, .pyd or"
-                + " .wasm");
+            "'a.ifso' does not have any of the allowed extensions .so, .dylib, .dll, .pyd, .wasm,"
+                + " .tgt or .vpi");
     assertThat(e)
         .hasMessageThat()
         .contains(
-            "'a.lib' does not have any of the allowed extensions .so, .dylib, .dll, .pyd or .wasm");
+            "'a.lib' does not have any of the allowed extensions .so, .dylib, .dll, .pyd, .wasm,"
+                + " .tgt or .vpi");
     assertThat(e)
         .hasMessageThat()
         .contains(
@@ -5545,7 +5549,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(target).isNotNull();
     CcInfo ccInfo = target.get(CcInfo.PROVIDER);
     assertThat(artifactsToStrings(ccInfo.getCcCompilationContext().getDirectPublicHdrs()))
-        .contains("bin third_party/bar/_virtual_includes/starlark_lib/prefix/starlark_lib.h");
+        .contains(
+            "bin third_party/bar/_virtual_includes/starlark_lib_suffix/prefix/starlark_lib.h");
   }
 
   @Test
@@ -5565,7 +5570,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(target).isNotNull();
     CcInfo ccInfo = target.get(CcInfo.PROVIDER);
     assertThat(artifactsToStrings(ccInfo.getCcCompilationContext().getDirectPublicHdrs()))
-        .contains("bin third_party/bar/_virtual_includes/starlark_lib/starlark_lib.h");
+        .contains("bin third_party/bar/_virtual_includes/starlark_lib_suffix/starlark_lib.h");
   }
 
   @Test
@@ -5587,7 +5592,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(target).isNotNull();
     CcInfo ccInfo = target.get(CcInfo.PROVIDER);
     assertThat(artifactsToStrings(ccInfo.getCcCompilationContext().getDirectPublicHdrs()))
-        .contains("bin third_party/bar/_virtual_includes/starlark_lib/prefix/starlark_lib.h");
+        .contains(
+            "bin third_party/bar/_virtual_includes/starlark_lib_suffix/prefix/starlark_lib.h");
   }
 
   @Test
@@ -5763,7 +5769,10 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         bzlFilePath + "/extension.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def _cc_aspect_impl(target, ctx):",
-        "    toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "    if ctx.attr._cc_toolchain:",
+        "      toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "    else:",
+        "      toolchain = ctx.toolchains['" + TestConstants.CPP_TOOLCHAIN_TYPE + "'].cc",
         "    feature_configuration = cc_common.configure_features(",
         "        ctx = ctx,",
         "        cc_toolchain = toolchain,",
@@ -5795,6 +5804,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             + " '@bazel_tools//tools/cpp:current_cc_toolchain'),",
         "    },",
         fragments,
+        "    toolchains = ['" + TestConstants.CPP_TOOLCHAIN_TYPE + "']",
         ")",
         "def _cc_starlark_library_impl(ctx):",
         "    dep_compilation_contexts = []",
@@ -5802,7 +5812,10 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "    for dep in ctx.attr._deps:",
         "        dep_compilation_contexts.append(dep[CcInfo].compilation_context)",
         "        dep_linking_contexts.append(dep[CcInfo].linking_context)",
-        "    toolchain = ctx.attr._my_cc_toolchain[cc_common.CcToolchainInfo]",
+        "    if ctx.attr._my_cc_toolchain:",
+        "      toolchain = ctx.attr._my_cc_toolchain[cc_common.CcToolchainInfo]",
+        "    else:",
+        "      toolchain = ctx.toolchains['" + TestConstants.CPP_TOOLCHAIN_TYPE + "'].cc",
         "    feature_configuration = cc_common.configure_features(",
         "        ctx = ctx,",
         "        cc_toolchain=toolchain,",
@@ -5866,6 +5879,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "          configuration_field(fragment = 'cpp', name = 'cc_toolchain'))",
         "    },",
         fragments,
+        "    toolchains = ['" + TestConstants.CPP_TOOLCHAIN_TYPE + "']",
         ")");
     scratch.file(
         "foo/BUILD",
@@ -5986,13 +6000,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testPassGrepIncludesToApiEvenThoughItDoesntDoAnything() throws Exception {
-    setupTestTransitiveLink(scratch, "grep_includes = ctx.executable._grep_includes");
-    ConfiguredTarget target = getConfiguredTarget("//foo:bin");
-    assertThat(target).isNotNull();
-  }
-
-  @Test
   public void testTransitiveLinkWithCompilationOutputs() throws Exception {
     setupTestTransitiveLink(scratch, "compilation_outputs=objects");
     ConfiguredTarget target = getConfiguredTarget("//foo:bin");
@@ -6058,16 +6065,23 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     return linkstampCompileAction;
   }
 
+  public String getBuildInfoFile(String commonPath) {
+    if (AnalysisMock.get().isThisBazel()) {
+      return getRelativeOutputPath() + "/k8-fastbuild/bin/external/bazel_tools/" + commonPath;
+    } else {
+      return getRelativeOutputPath() + "/k8-fastbuild/bin/" + commonPath;
+    }
+  }
+
   private void assertStampEnabled(CppCompileAction linkstampAction)
       throws CommandLineExpansionException {
     assertThat(linkstampAction.getArguments())
-        .contains(getRelativeOutputPath() + "/k8-fastbuild/include/build-info-volatile.h");
+        .contains(getBuildInfoFile(NON_REDACTED_ARTIFACT_PATH));
   }
 
   private void assertStampDisabled(CppCompileAction linkstampAction)
       throws CommandLineExpansionException {
-    assertThat(linkstampAction.getArguments())
-        .contains(getRelativeOutputPath() + "/k8-fastbuild/include/build-info-redacted.h");
+    assertThat(linkstampAction.getArguments()).contains(getBuildInfoFile(REDACTED_ARTIFACT_PATH));
   }
 
   @Test
@@ -6366,14 +6380,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
       fragments = "    fragments = ['cpp'],";
     }
     scratch.overwriteFile("tools/build_defs/BUILD");
-    /*scratch.overwriteFile("tools/cpp/grep-includes");*/
-    scratch.overwriteFile("tools/cpp/grep_includes/grep-includes.sh");
-    scratch.appendFile(
-        "tools/cpp/grep_includes/BUILD",
-        "sh_binary(",
-        "    name = 'grep-includes',",
-        "    srcs = ['grep-includes.sh'],",
-        ")");
 
     String extensionDirectory = "tools/build_defs";
     if (internalApi) {
@@ -6384,7 +6390,10 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         extensionDirectory + "/extension.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def _cc_bin_impl(ctx):",
-        "    toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "    if ctx.attr._cc_toolchain:",
+        "      toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "    else:",
+        "      toolchain = ctx.toolchains['" + TestConstants.CPP_TOOLCHAIN_TYPE + "'].cc",
         "    feature_configuration = cc_common.configure_features(",
         "      ctx = ctx,",
         "      cc_toolchain = toolchain,",
@@ -6418,14 +6427,10 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "      'deps': attr.label_list(),",
         "      '_cc_toolchain': attr.label(default =",
         "          configuration_field(fragment = 'cpp', name = 'cc_toolchain')),",
-        "      '_grep_includes': attr.label(",
-        "             executable = True,",
-        "             default = Label('//tools/cpp/grep_includes:grep-includes'),",
-        "             cfg = 'exec'",
-        "       ),",
         "      'additional_outputs': attr.output_list(),",
         "    },",
         fragments,
+        "    toolchains = ['" + TestConstants.CPP_TOOLCHAIN_TYPE + "']",
         ")");
   }
 
@@ -7213,7 +7218,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         ImmutableList.of(
             "comp_outputs.temps()",
             "comp_outputs.files_to_compile(parse_headers=False, use_pic=True)",
-            "comp_outputs.header_tokens()");
+            "comp_outputs.header_tokens()",
+            "comp_outputs.module_files()");
     for (String call : calls) {
       scratch.overwriteFile(
           "b/rule.bzl",
@@ -7251,7 +7257,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "  fdo_context = toolchain.fdo_context()",
         "  branch_fdo_profile = fdo_context.branch_fdo_profile()",
         "  lto_backend_artifacts = cc_common.create_lto_backend_artifacts(ctx=ctx,",
-        "        lto_output_root_prefix=ctx.label.package, bitcode_file=ctx.file.file,",
+        "        lto_output_root_prefix=ctx.label.package, lto_obj_root_prefix=ctx.label.package,",
+        "        bitcode_file=ctx.file.file,",
         "        feature_configuration=feature_configuration, cc_toolchain=toolchain,",
         "        fdo_context=fdo_context, use_pic=True,",
         "        should_create_per_object_debug_info=False, argv=[])",
@@ -7387,12 +7394,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "cc_rule(name='foo', cc_dep=':cc_dep',",
         "        file='file.cc',",
         "        linkstamps_dep='//bazel_internal/test_rules/cc:linkstamps')");
-    scratch.appendFile(
-        "tools/cpp/grep_includes/BUILD",
-        "sh_binary(",
-        "    name = 'grep-includes',",
-        "    srcs = ['grep-includes.sh'],",
-        ")");
     List<String> calls =
         new ArrayList<>(
             Arrays.asList("linkstamp.file()", "linkstamp.hdrs()", "linking_context.linkstamps()"));
@@ -7400,7 +7401,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
       calls.add(
           "cc_common.register_linkstamp_compile_action(actions=ctx.actions,cc_toolchain=toolchain,"
               + " feature_configuration=feature_configuration, "
-              + " grep_includes=ctx.executable._grep_includes, source_file=file, output_file=file,"
+              + " source_file=file, output_file=file,"
               + " compilation_inputs=depset([]), inputs_for_validation=depset([]),"
               + " label_replacement='', output_replacement='')");
     }
@@ -7427,11 +7428,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
           "    'linkstamps_dep': attr.label(),",
           "    '_cc_toolchain': attr.label(default=Label('//b:alias')),",
           "    'file': attr.label(allow_single_file=True),",
-          "    '_grep_includes': attr.label(",
-          "          executable = True,",
-          "          default = Label('//tools/cpp/grep_includes:grep-includes'),",
-          "          cfg = 'exec'",
-          "    ),",
           "  },",
           "  fragments = ['cpp'],",
           ")");
@@ -7670,7 +7666,9 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     AssertionError e =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
 
-    assertThat(e).hasMessageThat().contains("private API only for use in builtins");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("file '//foo:custom_rule.bzl' cannot use private @_builtins API");
   }
 
   @Test
@@ -7846,7 +7844,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGetCompileBuildVariablesStripOptsNotAcessibleFromOutsideBuiltins()
+  public void testGetCompileBuildVariablesStripOptsNotAccessibleFromOutsideBuiltins()
       throws Exception {
     scratch.file(
         "foo/BUILD",
@@ -7876,7 +7874,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGetCompileBuildVariablesInputFileNotAcessibleFromOutsideBuiltins()
+  public void testGetCompileBuildVariablesInputFileNotAccessibleFromOutsideBuiltins()
       throws Exception {
     scratch.file(
         "foo/BUILD",
@@ -7906,7 +7904,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCreateLinkingContextFromCompilationOutputsStampNotAcessibleFromOutsideBuiltins()
+  public void testCreateLinkingContextFromCompilationOutputsStampNotAccessibleFromOutsideBuiltins()
       throws Exception {
     scratch.file(
         "foo/BUILD",
@@ -7938,7 +7936,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLinkUseTestOnlyFlagNotAcessibleFromOutsideBuiltins() throws Exception {
+  public void testLinkUseTestOnlyFlagNotAccessibleFromOutsideBuiltins() throws Exception {
     scratch.file(
         "foo/BUILD",
         "load(':custom_rule.bzl', 'custom_rule')",
@@ -7967,7 +7965,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLinkUsePdbFileNotAcessibleFromOutsideBuiltins() throws Exception {
+  public void testLinkUsePdbFileNotAccessibleFromOutsideBuiltins() throws Exception {
     scratch.file(
         "foo/BUILD",
         "load(':custom_rule.bzl', 'custom_rule')",
@@ -7996,7 +7994,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLinkUseWinDefFileNotAcessibleFromOutsideBuiltins() throws Exception {
+  public void testLinkUseWinDefFileNotAccessibleFromOutsideBuiltins() throws Exception {
     scratch.file(
         "foo/BUILD",
         "load(':custom_rule.bzl', 'custom_rule')",
@@ -8077,56 +8075,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGetBuildInfoArtifactsIsPrivateApi() throws Exception {
-    scratch.file(
-        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
-    scratch.file(
-        "foo/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  cc_common.get_build_info(ctx)",
-        "  return []",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        ")");
-    invalidatePackages();
-
-    AssertionError e =
-        assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
-
-    assertThat(e).hasMessageThat().contains("cannot use private API");
-  }
-
-  @Test
-  public void testBuildInfoArtifacts() throws Exception {
-    scratch.file(
-        "bazel_internal/test_rules/cc/rule.bzl",
-        "def _impl(ctx):",
-        "  artifacts = cc_common.get_build_info(ctx)",
-        "  return [DefaultInfo(files = depset(artifacts))]",
-        "build_info_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {'stamp': attr.int()},",
-        ")");
-    scratch.file(
-        "bazel_internal/test_rules/cc/BUILD",
-        "load(':rule.bzl', 'build_info_rule')",
-        "build_info_rule(name = 'stamped', stamp = 1,)",
-        "build_info_rule(name = 'unstamped', stamp = 0,)");
-    assertThat(
-            prettyArtifactNames(
-                getConfiguredTarget("//bazel_internal/test_rules/cc:stamped")
-                    .getProvider(FileProvider.class)
-                    .getFilesToBuild()))
-        .containsExactly("build-info-nonvolatile.h", "build-info-volatile.h");
-    assertThat(
-            prettyArtifactNames(
-                getConfiguredTarget("//bazel_internal/test_rules/cc:unstamped")
-                    .getProvider(FileProvider.class)
-                    .getFilesToBuild()))
-        .containsExactly("build-info-redacted.h");
-  }
-
-  @Test
   public void testCheckPrivateApiCanOnlyBeCalledFromCcCommonBzl() throws Exception {
     scratch.file(
         "foo/BUILD", //
@@ -8135,7 +8083,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/custom_rule.bzl",
         "def _impl(ctx):",
-        "  cc_common_internal_do_not_use.check_private_api(allowlist = [])",
+        "  cc_common.check_private_api(allowlist = [])",
         "  return []",
         "custom_rule = rule(",
         "  implementation = _impl,",
@@ -8144,7 +8092,9 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     AssertionError e =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
 
-    assertThat(e).hasMessageThat().contains("name 'cc_common_internal_do_not_use' is not defined");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("'struct' value has no field or method 'check_private_api'");
   }
 
   @Test
@@ -8186,6 +8136,64 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     getConfiguredTarget("//tools/build_defs/android:custom");
   }
 
+  @Test
+  public void testDwoObjectsAllowlistBlocksPrivateParameter() throws Exception {
+    scratch.file(
+        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  cc_common.create_compilation_outputs(dwo_objects = depset())",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        ")");
+
+    AssertionError e =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
+
+    assertThat(e).hasMessageThat().contains("cannot use private API");
+  }
+
+  @Test
+  public void testPicDwoObjectsAllowlistBlocksPrivateParameter() throws Exception {
+    scratch.file(
+        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  cc_common.create_compilation_outputs(pic_dwo_objects = depset())",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        ")");
+
+    AssertionError e =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
+
+    assertThat(e).hasMessageThat().contains("cannot use private API");
+  }
+
+  @Test
+  public void testPicDwoObjectsAllowlistAllowsPrivateParameter() throws Exception {
+    scratch.file(
+        "bazel_internal/test_rules/cc/BUILD",
+        "load(':custom_rule.bzl', 'custom_rule')",
+        "custom_rule(name = 'custom')");
+    scratch.file(
+        "bazel_internal/test_rules/cc/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  cc_common.create_compilation_outputs(",
+        "    dwo_objects = depset(),",
+        "    pic_dwo_objects = depset(),",
+        ")",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        ")");
+    getConfiguredTarget("//bazel_internal/test_rules/cc:custom");
+  }
+
   // grep_includes is not supported by Bazel.
   @Test
   public void testGrepIncludesIsSetToNullInsideCcToolchain() throws Exception {
@@ -8201,7 +8209,11 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "foo/extension.bzl",
         "def _cc_skylark_library_impl(ctx):",
-        "    return [ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]]",
+        "    if ctx.attr._cc_toolchain:",
+        "      toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "    else:",
+        "      toolchain = ctx.toolchains['" + TestConstants.CPP_TOOLCHAIN_TYPE + "'].cc",
+        "    return [toolchain]",
         "cc_skylark_library = rule(",
         "    implementation = _cc_skylark_library_impl,",
         "    attrs = {",
@@ -8209,6 +8221,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "          configuration_field(fragment = 'cpp', name = 'cc_toolchain')),",
         "    },",
         "    fragments = ['cpp'],",
+        "    toolchains = ['" + TestConstants.CPP_TOOLCHAIN_TYPE + "']",
         ")");
 
     ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");

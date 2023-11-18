@@ -14,12 +14,15 @@
 
 """The implementation of the `java_proto_library` rule and its aspect."""
 
+load(
+    ":common/java/java_common_internal_for_builtins.bzl",
+    _compile_private_for_builtins = "compile",
+)
+load(":common/java/java_helper.bzl", "helper")
+load(":common/java/java_info.bzl", "JavaInfo", _merge_private_for_builtins = "merge")
 load(":common/java/java_semantics.bzl", "semantics")
-load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo", proto_common = "proto_common_do_not_use")
+load(":common/proto/proto_common.bzl", "toolchains", proto_common = "proto_common_do_not_use")
 load(":common/proto/proto_info.bzl", "ProtoInfo")
-
-java_common = _builtins.toplevel.java_common
-JavaInfo = _builtins.toplevel.JavaInfo
 
 # The provider is used to collect source and runtime jars in the `proto_library` dependency graph.
 JavaProtoAspectInfo = provider("JavaProtoAspectInfo", fields = ["jars"])
@@ -47,7 +50,7 @@ def _bazel_java_proto_aspect_impl(target, ctx):
       runtime jars.
     """
 
-    proto_toolchain_info = ctx.attr._aspect_java_proto_toolchain[ProtoLangToolchainInfo]
+    proto_toolchain_info = toolchains.find_toolchain(ctx, "_aspect_java_proto_toolchain", semantics.JAVA_PROTO_TOOLCHAIN)
     source_jar = None
     if proto_common.experimental_should_generate_code(target[ProtoInfo], proto_toolchain_info, "java_proto_library", target.label):
         # Generate source jar using proto compiler.
@@ -57,7 +60,7 @@ def _bazel_java_proto_aspect_impl(target, ctx):
             target[ProtoInfo],
             proto_toolchain_info,
             [source_jar],
-            source_jar,
+            experimental_output_files = "single",
         )
 
     # Compile Java sources (or just merge if there aren't any)
@@ -107,34 +110,34 @@ def java_compile_for_protos(ctx, output_jar_suffix, source_jar = None, deps = []
         path, sep, filename = ctx.label.name.rpartition("/")
         output_jar = ctx.actions.declare_file(path + sep + "lib" + filename + output_jar_suffix)
         java_toolchain = semantics.find_java_toolchain(ctx)
-        java_info = java_common.compile(
+        java_info = _compile_private_for_builtins(
             ctx,
+            output = output_jar,
+            java_toolchain = java_toolchain,
             source_jars = [source_jar],
             deps = deps,
             exports = exports,
-            output = output_jar,
             output_source_jar = source_jar,
             injecting_rule_kind = injecting_rule_kind,
-            javac_opts = java_toolchain.compatible_javacopts("proto"),
+            javac_opts = helper.tokenize_javacopts(ctx, java_toolchain._compatible_javacopts.get("proto", depset())),
             enable_jspecify = False,
-            java_toolchain = java_toolchain,
             include_compilation_info = False,
         )
         jars = [source_jar, output_jar]
     else:
         # If there are no proto sources just pass along the compilation dependencies.
-        java_info = java_common.merge(deps + exports, merge_java_outputs = False, merge_source_jars = False)
+        java_info = _merge_private_for_builtins(deps + exports, merge_java_outputs = False, merge_source_jars = False)
         jars = []
     return java_info, jars
 
 bazel_java_proto_aspect = aspect(
     implementation = _bazel_java_proto_aspect_impl,
-    attrs = {
+    attrs = toolchains.if_legacy_toolchain({
         "_aspect_java_proto_toolchain": attr.label(
             default = configuration_field(fragment = "proto", name = "proto_toolchain_for_java"),
         ),
-    },
-    toolchains = [semantics.JAVA_TOOLCHAIN],
+    }),
+    toolchains = [semantics.JAVA_TOOLCHAIN] + toolchains.use_toolchain(semantics.JAVA_PROTO_TOOLCHAIN),
     attr_aspects = ["deps", "exports"],
     required_providers = [ProtoInfo],
     provides = [JavaInfo, JavaProtoAspectInfo],
@@ -149,8 +152,11 @@ def bazel_java_proto_library_rule(ctx):
     Returns:
       ([JavaInfo, DefaultInfo, OutputGroupInfo])
     """
+    proto_toolchain = toolchains.find_toolchain(ctx, "_aspect_java_proto_toolchain", semantics.JAVA_PROTO_TOOLCHAIN)
+    for dep in ctx.attr.deps:
+        proto_common.check_collocated(ctx.label, dep[ProtoInfo], proto_toolchain)
 
-    java_info = java_common.merge([dep[JavaInfo] for dep in ctx.attr.deps], merge_java_outputs = False)
+    java_info = _merge_private_for_builtins([dep[JavaInfo] for dep in ctx.attr.deps], merge_java_outputs = False)
 
     transitive_src_and_runtime_jars = depset(transitive = [dep[JavaProtoAspectInfo].jars for dep in ctx.attr.deps])
     transitive_runtime_jars = depset(transitive = [java_info.transitive_runtime_jars])
@@ -170,6 +176,11 @@ java_proto_library = rule(
         "deps": attr.label_list(providers = [ProtoInfo], aspects = [bazel_java_proto_aspect]),
         "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
         "distribs": attr.string_list(),
-    },
+    } | toolchains.if_legacy_toolchain({
+        "_aspect_java_proto_toolchain": attr.label(
+            default = configuration_field(fragment = "proto", name = "proto_toolchain_for_java"),
+        ),
+    }),
     provides = [JavaInfo],
+    toolchains = toolchains.use_toolchain(semantics.JAVA_PROTO_TOOLCHAIN),
 )

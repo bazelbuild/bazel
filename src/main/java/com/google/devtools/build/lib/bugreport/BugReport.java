@@ -38,6 +38,7 @@ import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -62,11 +63,17 @@ public final class BugReport {
   private static BlazeRuntimeInterface runtime = null;
 
   @SuppressWarnings("StaticAssignmentOfThrowable")
-  @GuardedBy("LOCK")
+  @GuardedBy("lock")
   @Nullable
   private static Throwable lastCrashingThrowable = null;
 
-  private static final Object LOCK = new Object();
+  /**
+   * Global lock held while reporting a crash.
+   *
+   * <p>Holding a global lock isn't ideal, but it ensures that concurrent crashes produce coherent
+   * bug reports to the user, logs, and bug-reporting backend.
+   */
+  private static final ReentrantLock lock = new ReentrantLock(/* fair= */ true);
 
   private static final boolean SHOULD_NOT_SEND_BUG_REPORT_BECAUSE_IN_TEST =
       TestType.isInTest() && System.getenv("ENABLE_BUG_REPORT_LOGGING_IN_TEST") == null;
@@ -108,10 +115,13 @@ public final class BugReport {
   public static Throwable getAndResetLastCrashingThrowableIfInTest() {
     if (TestType.isInTest()) {
       // Instead of the jvm having been halted, we might have a saved Throwable.
-      synchronized (LOCK) {
+      lock.lock();
+      try {
         Throwable result = lastCrashingThrowable;
         lastCrashingThrowable = null;
         return result;
+      } finally {
+        lock.unlock();
       }
     }
     return null;
@@ -128,12 +138,15 @@ public final class BugReport {
   public static void maybePropagateLastCrashIfInTest() {
     if (TestType.isInTest()) {
       // Instead of the jvm having been halted, we might have a saved Throwable.
-      synchronized (LOCK) {
+      lock.lock();
+      try {
         Throwable lastUnprocessedThrowableInTest = getAndResetLastCrashingThrowableIfInTest();
         if (lastUnprocessedThrowableInTest != null) {
           throw new IllegalStateException(
               "Unprocessed throwable detected in test", lastUnprocessedThrowableInTest);
         }
+      } finally {
+        lock.unlock();
       }
     }
   }
@@ -247,8 +260,19 @@ public final class BugReport {
     if (runtime != null) {
       runtime.fillInCrashContext(ctx);
     }
+    // Multiple concurrent crashes may deadlock if certain background threads crash while another
+    // crash is already being reported. In these cases, log loudly and return eagerly.
+    if (ctx.returnIfCrashInProgress()) {
+      if (!lock.tryLock()) {
+        logger.atSevere().withCause(throwable).log(
+            "Crash already in progress, not reporting to avoid deadlock: %s", ctx);
+        return;
+      }
+    } else {
+      lock.lock();
+    }
     try {
-      synchronized (LOCK) {
+      try {
         logger.atSevere().withCause(throwable).log("Handling crash with %s", ctx);
 
         if (TestType.isInTest()) {
@@ -293,6 +317,8 @@ public final class BugReport {
             Runtime.getRuntime().halt(numericExitCode);
           }
         }
+      } finally {
+        lock.unlock();
       }
     } catch (Throwable t) {
       logger.atSevere().withCause(t).log("Threw while crashing");

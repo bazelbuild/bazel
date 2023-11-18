@@ -25,8 +25,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.android.ProguardHelper.ProguardOutput;
 import com.google.devtools.build.lib.rules.java.BootClassPathInfo;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
-import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import java.util.Map;
 import java.util.Optional;
@@ -65,7 +63,8 @@ public interface AndroidSemantics {
    * <p>These will come after the default options specified by the toolchain, and before the ones in
    * the {@code javacopts} attribute.
    */
-  ImmutableList<String> getCompatibleJavacOptions(RuleContext ruleContext);
+  ImmutableList<String> getCompatibleJavacOptions(RuleContext ruleContext)
+      throws RuleErrorException;
 
   /**
    * Configures the builder for generating the output jar used to configure the main dex file.
@@ -89,12 +88,7 @@ public interface AndroidSemantics {
    * @throws InterruptedException
    */
   void addCoverageSupport(
-      RuleContext ruleContext,
-      AndroidCommon common,
-      JavaSemantics javaSemantics,
-      boolean forAndroidTest,
-      JavaTargetAttributes.Builder attributes,
-      JavaCompilationArtifacts.Builder artifactsBuilder)
+      RuleContext ruleContext, boolean forAndroidTest, JavaTargetAttributes.Builder attributes)
       throws InterruptedException;
 
   /** Returns the list of attributes that may contribute Java runtime dependencies. */
@@ -113,7 +107,32 @@ public interface AndroidSemantics {
 
   /** The artifact for ART profile information. */
   Artifact getArtProfileForApk(
-      RuleContext ruleContext, Artifact finalClassesDex, Artifact proguardOutputMap);
+      RuleContext ruleContext,
+      Artifact finalClassesDex,
+      Artifact proguardOutputMap,
+      String baselineProfileDir);
+
+  /** The merged baseline profiles from the {@code baseline_profiles} attribute. */
+  Artifact mergeBaselineProfiles(
+      RuleContext ruleContext, String baselineProfileDir, boolean includeStartupProfiles);
+
+  /** The merged startup profiles from the {@code startup_profiles} attribute. */
+  Artifact mergeStartupProfiles(RuleContext ruleContext, String baselineProfileDir);
+
+  /** Expands any wildcards present in a baseline profile, and returns the new expanded artifact. */
+  public Artifact expandBaselineProfileWildcards(
+      RuleContext ruleContext,
+      Artifact deployJar,
+      Artifact mergedStaticProfile,
+      String baselineProfileDir);
+
+  /** The artifact for ART profile information, given a particular merged profile. */
+  Artifact compileBaselineProfile(
+      RuleContext ruleContext,
+      Artifact finalClassesDex,
+      Artifact proguardOutputMap,
+      Artifact mergedStaticProfile,
+      String baselineProfileDir);
 
   boolean postprocessClassesRewritesMap(RuleContext ruleContext);
 
@@ -127,7 +146,8 @@ public interface AndroidSemantics {
       Artifact mainDexList)
       throws InterruptedException;
 
-  default AndroidDataContext makeContextForNative(RuleContext ruleContext) {
+  default AndroidDataContext makeContextForNative(RuleContext ruleContext)
+      throws RuleErrorException {
     return AndroidDataContext.forNative(ruleContext);
   }
 
@@ -162,7 +182,7 @@ public interface AndroidSemantics {
   }
 
   default BootClassPathInfo getBootClassPathInfo(RuleContext ruleContext)
-      throws RuleErrorException {
+      throws RuleErrorException, InterruptedException {
     BootClassPathInfo bootClassPathInfo;
     AndroidSdkProvider androidSdkProvider = AndroidSdkProvider.fromRuleContext(ruleContext);
     if (androidSdkProvider.getSystem() != null) {
@@ -174,7 +194,7 @@ public interface AndroidSemantics {
             PrerequisiteArtifacts.nestedSet(ruleContext, "$desugar_java8_extra_bootclasspath"));
       }
       bootclasspath.add(androidSdkProvider.getAndroidJar());
-      bootClassPathInfo = BootClassPathInfo.create(bootclasspath.build());
+      bootClassPathInfo = BootClassPathInfo.create(ruleContext, bootclasspath.build());
     }
     return bootClassPathInfo;
   }

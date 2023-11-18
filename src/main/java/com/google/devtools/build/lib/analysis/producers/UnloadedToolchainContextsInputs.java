@@ -17,7 +17,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.packages.ExecGroup;
-import com.google.devtools.build.lib.skyframe.ToolchainContextKey;
+import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
 import javax.annotation.Nullable;
 
 /** Collates inputs for the {@link UnloadedToolchainContextsProducer}. */

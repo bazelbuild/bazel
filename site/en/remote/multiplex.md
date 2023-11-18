@@ -73,7 +73,7 @@ strategy needs to be specified, either at the ruleset level (for example,
 example, `--dynamic_local_strategy=worker,standalone`.) No additional flags are
 necessary, and `supports-multiplex-workers` takes precedence over
 `supports-workers`, if both are set. You can turn off multiplex workers
-globally by passing `--noexperimental_worker_multiplex`.
+globally by passing `--noworker_multiplex`.
 
 A ruleset is encouraged to use multiplex workers if possible,  to reduce memory
 pressure and improve performance. However, multiplex workers are not currently

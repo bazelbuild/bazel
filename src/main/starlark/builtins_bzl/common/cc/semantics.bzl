@@ -14,8 +14,6 @@
 
 """Semantics for Bazel cc rules"""
 
-load(":common/cc/cc_helper.bzl", "cc_helper")
-
 def _get_proto_aspects():
     return []
 
@@ -27,9 +25,6 @@ def _validate_deps(ctx):
 
 def _validate_attributes(ctx):
     pass
-
-def _determine_headers_checking_mode(ctx):
-    return "strict"
 
 def _get_semantics():
     return _builtins.internal.bazel_cc_internal.semantics
@@ -51,9 +46,6 @@ def _get_distribs_attr():
 
 def _get_licenses_attr():
     # TODO(b/182226065): Change to applicable_licenses
-    return {}
-
-def _get_loose_mode_in_hdrs_check_allowed_attr():
     return {}
 
 def _def_parser_computed_default(name, tags):
@@ -128,7 +120,7 @@ def _get_cc_runtimes(ctx, is_library):
     if is_library:
         return []
 
-    runtimes = [ctx.attr._link_extra_lib]
+    runtimes = [ctx.attr.link_extra_lib]
 
     if ctx.fragments.cpp.custom_malloc != None:
         runtimes.append(ctx.attr._default_malloc)
@@ -145,16 +137,13 @@ def _check_can_use_implementation_deps(ctx):
     if (not experimental_cc_implementation_deps and ctx.attr.implementation_deps):
         fail("requires --experimental_cc_implementation_deps", attr = "implementation_deps")
 
-def _get_linkstatic_default(ctx):
-    if ctx.attr._is_test:
-        # By default Tests do not link statically. Except on Windows.
-        if cc_helper.has_target_constraints(ctx, ctx.attr._windows_constraints):
-            return True
-        else:
-            return False
-    else:
-        # Binaries link statically.
-        return True
+_WINDOWS_PLATFORM = Label("@platforms//os:windows")  # Resolve the label within builtins context
+
+def _get_linkstatic_default_for_test():
+    return select({
+        _WINDOWS_PLATFORM: True,
+        "//conditions:default": False,
+    })
 
 def _get_nocopts_attr():
     return {}
@@ -180,21 +169,19 @@ semantics = struct(
     ALLOWED_RULES_WITH_WARNINGS_IN_DEPS = [],
     validate_deps = _validate_deps,
     validate_attributes = _validate_attributes,
-    determine_headers_checking_mode = _determine_headers_checking_mode,
     get_semantics = _get_semantics,
     get_repo = _get_repo,
     get_platforms_root = _get_platforms_root,
     additional_fragments = _additional_fragments,
     get_distribs_attr = _get_distribs_attr,
     get_licenses_attr = _get_licenses_attr,
-    get_loose_mode_in_hdrs_check_allowed_attr = _get_loose_mode_in_hdrs_check_allowed_attr,
     get_def_parser = _get_def_parser,
     get_stl = _get_stl,
     should_create_empty_archive = _should_create_empty_archive,
     get_grep_includes = _get_grep_includes,
     get_implementation_deps_allowed_attr = _get_implementation_deps_allowed_attr,
     check_can_use_implementation_deps = _check_can_use_implementation_deps,
-    get_linkstatic_default = _get_linkstatic_default,
+    get_linkstatic_default_for_test = _get_linkstatic_default_for_test,
     get_runtimes_toolchain = _get_runtimes_toolchain,
     get_test_malloc_attr = _get_test_malloc_attr,
     get_cc_runtimes = _get_cc_runtimes,
@@ -204,4 +191,7 @@ semantics = struct(
     get_nocopts_attr = _get_nocopts_attr,
     get_experimental_link_static_libraries_once = _get_experimental_link_static_libraries_once,
     check_cc_shared_library_tags = _check_cc_shared_library_tags,
+    BUILD_INFO_TRANLATOR_LABEL = "@bazel_tools//tools/build_defs/build_info:cc_build_info",
+    CC_PROTO_TOOLCHAIN = "@rules_cc//cc/proto:toolchain_type",
+    is_bazel = True,
 )

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.worker.Worker;
 import com.google.devtools.build.lib.worker.WorkerKey;
 import com.google.devtools.build.lib.worker.WorkerPool;
+import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import java.io.IOException;
 import java.util.Deque;
 import java.util.HashMap;
@@ -101,7 +102,31 @@ public class ResourceManager implements ResourceEstimator {
       rm.releaseResources(actionMetadata, resourceSet, worker);
     }
 
-    public void invalidateAndClose() throws IOException, InterruptedException {
+    public void invalidateAndClose(@Nullable Exception e) throws IOException, InterruptedException {
+      // If there is an exception, we need to set the kill cause before invalidating the object.
+      // This ensures that the worker implementation updates their worker metrics accordingly
+      // if/when it destroys itself.
+      if (e != null) {
+        if (e instanceof InterruptedException) {
+          worker.getStatus().maybeUpdateStatus(Status.PENDING_KILL_DUE_TO_INTERRUPTED_EXCEPTION);
+        } else if (e instanceof IOException) {
+          worker.getStatus().maybeUpdateStatus(Status.PENDING_KILL_DUE_TO_IO_EXCEPTION);
+        } else if (e instanceof UserExecException) {
+          UserExecException userExecException = (UserExecException) e;
+          if (userExecException.getFailureDetail().hasWorker()) {
+            worker
+                .getStatus()
+                .maybeUpdateStatus(
+                    Status.PENDING_KILL_DUE_TO_USER_EXEC_EXCEPTION,
+                    userExecException.getFailureDetail().getWorker().getCode());
+          }
+        } else {
+          worker.getStatus().maybeUpdateStatus(Status.PENDING_KILL_DUE_TO_USER_EXEC_EXCEPTION);
+        }
+      } else {
+        worker.getStatus().maybeUpdateStatus(Status.PENDING_KILL_DUE_TO_UNKNOWN);
+      }
+
       rm.workerPool.invalidateObject(resourceSet.getWorkerKey(), worker);
       worker = null;
       this.close();
@@ -195,9 +220,6 @@ public class ResourceManager implements ResourceEstimator {
   // Used local test count. Corresponds to the local test count definition in the ResourceSet class.
   private int usedLocalTestCount;
 
-  /** If set, local-only actions are given priority over dynamically run actions. */
-  private boolean prioritizeLocalActions;
-
   @VisibleForTesting
   public static ResourceManager instanceForTestingOnly() {
     return new ResourceManager();
@@ -241,11 +263,6 @@ public class ResourceManager implements ResourceEstimator {
   /** Sets worker pool for taking the workers. Must be called before requesting the workers. */
   public void setWorkerPool(WorkerPool workerPool) {
     this.workerPool = workerPool;
-  }
-
-  /** Sets whether to prioritize local-only actions in resource allocation. */
-  public void setPrioritizeLocalActions(boolean prioritizeLocalActions) {
-    this.prioritizeLocalActions = prioritizeLocalActions;
   }
 
   /**
@@ -401,24 +418,20 @@ public class ResourceManager implements ResourceEstimator {
     }
     Pair<ResourceSet, LatchWithWorker> request =
         new Pair<>(resources, new LatchWithWorker(new CountDownLatch(1), /* worker= */ null));
-    if (this.prioritizeLocalActions) {
-      switch (priority) {
-        case LOCAL:
-          localRequests.addLast(request);
-          break;
-        case DYNAMIC_WORKER:
-          // Dynamic requests should be LIFO, because we are more likely to win the race on newer
-          // actions.
-          dynamicWorkerRequests.addFirst(request);
-          break;
-        case DYNAMIC_STANDALONE:
-          // Dynamic requests should be LIFO, because we are more likely to win the race on newer
-          // actions.
-          dynamicStandaloneRequests.addFirst(request);
-          break;
-      }
-    } else {
-      localRequests.addLast(request);
+    switch (priority) {
+      case LOCAL:
+        localRequests.addLast(request);
+        break;
+      case DYNAMIC_WORKER:
+        // Dynamic requests should be LIFO, because we are more likely to win the race on newer
+        // actions.
+        dynamicWorkerRequests.addFirst(request);
+        break;
+      case DYNAMIC_STANDALONE:
+        // Dynamic requests should be LIFO, because we are more likely to win the race on newer
+        // actions.
+        dynamicStandaloneRequests.addFirst(request);
+        break;
     }
     return request.second;
   }
@@ -486,8 +499,8 @@ public class ResourceManager implements ResourceEstimator {
     return anyProcessed;
   }
 
-  private synchronized void processWaitingThreads(Deque<Pair<ResourceSet, LatchWithWorker>> requests)
-      throws IOException, InterruptedException {
+  private synchronized void processWaitingThreads(
+      Deque<Pair<ResourceSet, LatchWithWorker>> requests) throws IOException, InterruptedException {
     Iterator<Pair<ResourceSet, LatchWithWorker>> iterator = requests.iterator();
     while (iterator.hasNext()) {
       Pair<ResourceSet, LatchWithWorker> request = iterator.next();

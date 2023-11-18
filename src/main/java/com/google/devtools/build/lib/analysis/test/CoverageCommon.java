@@ -100,11 +100,10 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
       // Should have been verified by Starlark before this function is called
       throw new IllegalStateException();
     }
-    if (!supportFilesBuilder.isEmpty() || !environmentPairs.isEmpty()) {
-      BuiltinRestriction.throwIfNotBuiltinUsage(thread);
-    }
-    if (!metadataFiles.isEmpty() || !reportedToActualSources.isEmpty()) {
-      BuiltinRestriction.throwIfNotBuiltinUsage(thread);
+    if (!supportFilesBuilder.isEmpty()
+        || !reportedToActualSources.isEmpty()
+        || !environmentPairs.isEmpty()) {
+      BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
     }
     return createInstrumentedFilesInfo(
         starlarkRuleContext.getRuleContext(),

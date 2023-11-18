@@ -142,6 +142,11 @@ public class AndroidSdkBaseRule implements RuleDefinition {
                 .cfg(ExecutionTransitionFactory.createFactory())
                 .allowedFileTypes(ANY_FILE)
                 .exec())
+        .add(
+            attr("dexdump", LABEL)
+                .cfg(ExecutionTransitionFactory.createFactory())
+                .allowedFileTypes(ANY_FILE)
+                .exec())
         .advertiseStarlarkProvider(
             StarlarkProviderIdentifier.forKey(AndroidSdkProvider.PROVIDER.getKey()))
         .build();

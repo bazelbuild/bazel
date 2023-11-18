@@ -50,7 +50,6 @@ import com.google.errorprone.annotations.FormatString;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -78,12 +77,6 @@ import javax.annotation.Nullable;
 public class DynamicSpawnStrategy implements SpawnStrategy {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-  /**
-   * String indicating that an action is for a tool. Defined in {@link
-   * com.google.devtools.build.lib.analysis.RuleContext}. I wish I could find a nicer way to check
-   * if something is for tool.
-   */
-  private static final String FOR_TOOL = "[for tool]";
 
   private final ListeningExecutorService executorService;
   private final DynamicExecutionOptions options;
@@ -158,31 +151,33 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
   private static boolean canExecLocal(
       Spawn spawn,
       ExecutionPolicy executionPolicy,
-      ActionContext.ActionContextRegistry actionContextRegistry,
-      DynamicStrategyRegistry dynamicStrategyRegistry) {
+      ActionContext.ActionContextRegistry acr,
+      DynamicStrategyRegistry dsr) {
     if (!executionPolicy.canRunLocally()) {
       return false;
     }
-    List<SandboxedSpawnStrategy> localStrategies =
-        dynamicStrategyRegistry.getDynamicSpawnActionContexts(spawn, LOCAL);
-    return localStrategies.stream()
-        .anyMatch(
-            s ->
-                (s.canExec(spawn, actionContextRegistry)
-                    || s.canExecWithLegacyFallback(spawn, actionContextRegistry)));
+    for (SandboxedSpawnStrategy s : dsr.getDynamicSpawnActionContexts(spawn, LOCAL)) {
+      if ((s.canExec(spawn, acr) || s.canExecWithLegacyFallback(spawn, acr))) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static boolean canExecRemote(
       Spawn spawn,
       ExecutionPolicy executionPolicy,
-      ActionContext.ActionContextRegistry actionContextRegistry,
-      DynamicStrategyRegistry dynamicStrategyRegistry) {
+      ActionContext.ActionContextRegistry acr,
+      DynamicStrategyRegistry dsr) {
     if (!executionPolicy.canRunRemotely()) {
       return false;
     }
-    List<SandboxedSpawnStrategy> remoteStrategies =
-        dynamicStrategyRegistry.getDynamicSpawnActionContexts(spawn, REMOTE);
-    return remoteStrategies.stream().anyMatch(s -> s.canExec(spawn, actionContextRegistry));
+    for (SandboxedSpawnStrategy s : dsr.getDynamicSpawnActionContexts(spawn, REMOTE)) {
+      if (s.canExec(spawn, acr)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @Override
@@ -328,8 +323,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       return LocalBranch.runLocally(
           spawn, actionExecutionContext, null, getExtraSpawnForLocalExecution);
     } else if (options.excludeTools) {
-      String msg = spawn.getResourceOwner().getProgressMessage();
-      if (msg != null && msg.contains(FOR_TOOL)) {
+      if (spawn.getResourceOwner().getOwner().isBuildConfigurationForTool()) {
         return RemoteBranch.runRemotely(spawn, actionExecutionContext, null, delayLocalExecution);
       }
     }

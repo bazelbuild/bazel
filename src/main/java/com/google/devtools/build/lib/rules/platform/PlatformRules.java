@@ -34,7 +34,6 @@ public class PlatformRules implements RuleSet {
   public void init(ConfiguredRuleClassProvider.Builder builder) {
     builder.addConfigurationFragment(PlatformConfiguration.class);
 
-    builder.addRuleDefinition(new PlatformBaseRule());
     builder.addRuleDefinition(new ConstraintSettingRule());
     builder.addRuleDefinition(new ConstraintValueRule());
     builder.addRuleDefinition(new PlatformRule());

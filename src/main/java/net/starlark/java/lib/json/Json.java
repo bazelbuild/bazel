@@ -290,17 +290,16 @@ public final class Json implements StarlarkValue {
               + " string occurs more than once in the object, the last value for the key is kept.\n"
               + "<li>a JSON array is parsed as new unfrozen Starlark list.\n"
               + "</ul>\n"
-              + "If <code>x</code> is not a valid JSON encoding and the optional, positional-only"
+              + "If <code>x</code> is not a valid JSON encoding and the optional"
               + " <code>default</code> parameter is specified (including specified as"
               + " <code>None</code>), this function returns the <code>default</code> value.\n"
               + "If <code>x</code> is not a valid JSON encoding and the optional"
-              + " <code>default</code> parameter is <em>not</em> specified, this"
-              + " function fails.",
+              + " <code>default</code> parameter is <em>not</em> specified, this function fails.",
       parameters = {
         @Param(name = "x", doc = "JSON string to decode."),
         @Param(
-            // positional-only to match Starlark language spec for dict.get(), dict.pop(), getattr()
             name = "default",
+            named = true,
             doc = "If specified, the value to return when <code>x</code> cannot be decoded.",
             defaultValue = "unbound")
       },

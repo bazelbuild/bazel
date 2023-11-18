@@ -45,7 +45,7 @@ public class FilesetTraversalRequest extends TraversalRequest {
   }
 
   @Override
-  protected final boolean isRootGenerated() {
+  public final boolean isRootGenerated() {
     return directTraversal().isGenerated();
   }
 

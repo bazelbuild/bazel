@@ -68,13 +68,21 @@ public class BuildRequestOptions extends OptionsBase {
   public int jobs;
 
   @Option(
+      name = "experimental_use_semaphore_for_jobs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
+      help = "If set to true, additionally use semaphore to limit number of concurrent jobs.")
+  public boolean useSemaphoreForJobs;
+
+  @Option(
       name = "progress_report_interval",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       converter = ProgressReportIntervalConverter.class,
       help =
-          "The number of seconds to between reports on still running jobs. The "
+          "The number of seconds to wait between reports on still running jobs. The "
               + "default value 0 means the first report will be printed after 10 "
               + "seconds, then 30 seconds and after that progress is reported once every minute. "
               + "When --curses is enabled, progress is reported every second.")
@@ -107,7 +115,9 @@ public class BuildRequestOptions extends OptionsBase {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Only shows warnings for rules with a name matching the provided regular expression.")
+      help =
+          "Only shows warnings and action outputs for rules with a name matching the provided "
+              + "regular expression.")
   @Nullable
   public RegexPatternOption outputFilter;
 
@@ -153,15 +163,8 @@ public class BuildRequestOptions extends OptionsBase {
   public List<String> outputGroups;
 
   @Option(
-      name = "experimental_run_validations",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Use --run_validations instead.")
-  public boolean experimentalRunValidationActions;
-
-  @Option(
       name = "run_validations",
+      oldName = "experimental_run_validations",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.AFFECTS_OUTPUTS},
@@ -194,27 +197,6 @@ public class BuildRequestOptions extends OptionsBase {
               + "If nothing was built for a target its results may be omitted to keep the output"
               + " under the threshold.")
   public int maxResultTargets;
-
-  @Option(
-      name = "experimental_show_artifacts",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "Output a list of all top level artifacts produced by this build."
-              + "Use output format suitable for tool consumption. "
-              + "This flag is temporary and intended to facilitate Android Studio integration. "
-              + "This output format will likely change in the future or disappear completely.")
-  public boolean showArtifacts;
-
-  @Option(
-      name = "announce",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Deprecated. No-op.",
-      deprecationWarning = "This option is now deprecated and is a no-op")
-  public boolean announce;
 
   @Option(
       name = "symlink_prefix",
@@ -263,18 +245,6 @@ public class BuildRequestOptions extends OptionsBase {
               + "listing all of the convenience symlinks created in your workspace. If false, then "
               + "the convenienceSymlinksIdentified entry in the BuildEventProtocol will be empty.")
   public boolean experimentalConvenienceSymlinksBepEvent;
-
-  @Option(
-      name = "experimental_multi_cpu",
-      deprecationWarning = "This flag is a no-op and will be deleted in a future release.",
-      converter = Converters.CommaSeparatedOptionListConverter.class,
-      allowMultiple = true,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "Deprecated. No-op.")
-  public List<String> multiCpus;
 
   @Option(
       name = "output_tree_tracking",
@@ -342,36 +312,6 @@ public class BuildRequestOptions extends OptionsBase {
     return symlinkPrefix == null ? productName + "-" : symlinkPrefix;
   }
 
-  // Transitional flag for safely rolling out new convenience symlink behavior.
-  // To be made a no-op and deleted once new symlink behavior is battle-tested.
-  @Option(
-      name = "use_top_level_targets_for_symlinks",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "If enabled, the symlinks are based on the configurations of the top-level targets "
-              + " rather than the top-level target configuration. If this would be ambiguous, "
-              + " the symlinks will be deleted to avoid confusion.")
-  public boolean useTopLevelTargetsForSymlinks;
-
-  /**
-   * Returns whether to use the output directories used by the top-level targets for convenience
-   * symlinks.
-   *
-   * <p>If true, then symlinks use the actual output directories of the top-level targets. The
-   * symlinks will be created iff all top-level targets share the same output directory. Otherwise,
-   * any stale symlinks from previous invocations will be deleted to avoid ambiguity.
-   *
-   * <p>If false, then symlinks use the output directory implied by command-line flags, regardless
-   * of whether top-level targets have transitions which change them (or even have any output
-   * directories at all, as in the case of a build with no targets or one which only builds source
-   * files).
-   */
-  public boolean useTopLevelTargetsForSymlinks() {
-    return useTopLevelTargetsForSymlinks;
-  }
-
   @Option(
       name = "experimental_create_py_symlinks",
       defaultValue = "false",
@@ -388,19 +328,6 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean experimentalCreatePySymlinks;
 
   @Option(
-      name = "print_workspace_in_output_paths_if_needed",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help =
-          "If enabled, when the current working directory is deeper than the workspace (for"
-              + " example, when running from <workspace>/foo instead of <workspace>), printed"
-              + " output paths include the absolute path to the workspace (for example,"
-              + " <workspace>/<symlink_prefix>-bin/foo/binary instead of "
-              + "<symlink_prefix>-bin/foo/binary).")
-  public boolean printWorkspaceInOutputPathsIfNeeded;
-
-  @Option(
       name = "use_action_cache",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -412,18 +339,6 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean useActionCache;
 
   @Option(
-      name = "action_cache_store_output_metadata",
-      oldName = "experimental_action_cache_store_output_metadata",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-        OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
-      },
-      help = "Whether to store output metadata in the action cache")
-  public boolean actionCacheStoreOutputMetadata;
-
-  @Option(
       name = "rewind_lost_inputs",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -432,15 +347,6 @@ public class BuildRequestOptions extends OptionsBase {
           "Whether to use action rewinding to recover from lost inputs. Ignored unless"
               + " prerequisites for rewinding are met (no incrementality, no action cache).")
   public boolean rewindLostInputs;
-
-  @Option(
-      name = "discard_actions_after_execution",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
-      help = "This option is deprecated and has no effect.")
-  public boolean discardActionsAfterExecution;
 
   @Option(
       name = "incompatible_skip_genfiles_symlink",
@@ -469,7 +375,7 @@ public class BuildRequestOptions extends OptionsBase {
    */
   @Option(
       name = "experimental_merged_skyframe_analysis_execution",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},

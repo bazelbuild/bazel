@@ -69,7 +69,7 @@ EOF
 
   bazel build --cpu=arm64 package:report &> $TEST_log \
       || fail "Build failed unexpectedly"
-  expect_log "platform: @//plat:platform1"
+  expect_log "platform: @@//plat:platform1"
 }
 
 function test_top_level_platform_to_flags_mapping() {
@@ -104,7 +104,7 @@ EOF
 
   bazel build --cpu=arm64 --platform_mappings=custom/platform_mappings \
       package:report &> $TEST_log || fail "Build failed unexpectedly"
-  expect_log "platform: @//plat:platform1"
+  expect_log "platform: @@//plat:platform1"
 }
 
 function test_custom_platform_mapping_location_after_exec_transition() {
@@ -121,7 +121,7 @@ genrule(
     name = "genrule1",
     outs = ["genrule1.out"],
     cmd = "echo hello > \$@",
-    exec_tools = [
+    tools = [
       ":genrule2",
     ],
 )
@@ -129,7 +129,7 @@ genrule(
     name = "genrule2",
     outs = ["genrule2.out"],
     cmd = "echo hello > \$@",
-    exec_tools = [
+    tools = [
       ":report",
     ],
 )
@@ -140,7 +140,7 @@ EOF
       --platform_mappings=custom/platform_mappings \
       --extra_execution_platforms=//plat:platform1 \
       package:genrule1 &> $TEST_log || fail "Build failed unexpectedly"
-  expect_log "platform: @//plat:platform1"
+  expect_log "platform: @@//plat:platform1"
   expect_log "copts: \[\"foo\"\]"
 }
 
@@ -203,8 +203,8 @@ EOF
 
   bazel build --cpu=k8 package:custom &> $TEST_log \
       || fail "Build failed unexpectedly"
-  expect_not_log "platform: @//plat:platform1"
-  expect_log "platform: @//plat:platform2"
+  expect_not_log "platform: @@//plat:platform1"
+  expect_log "platform: @@//plat:platform2"
 }
 
 run_suite "platform mapping test"

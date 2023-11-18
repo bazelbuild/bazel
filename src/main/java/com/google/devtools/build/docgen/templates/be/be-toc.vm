@@ -28,7 +28,7 @@ toc:
     - title: AppEngine
       path: https://github.com/bazelbuild/rules_appengine
       status: external
-    - title: Apple (Swift, iOS, macOS, tvOS, watchOS)
+    - title: Apple (Swift, iOS, macOS, tvOS, visionOS, watchOS)
       path: https://github.com/bazelbuild/rules_apple
       status: external
     - title: C#

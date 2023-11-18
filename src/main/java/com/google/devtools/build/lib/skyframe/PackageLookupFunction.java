@@ -100,7 +100,7 @@ public class PackageLookupFunction implements SkyFunction {
     RepositoryName repoName = packageKey.getRepository();
     if (!repoName.isVisible()) {
       return new PackageLookupValue.NoRepositoryPackageLookupValue(
-          repoName.getNameWithAt(),
+          repoName,
           String.format(
               "No repository visible as '@%s' from %s",
               repoName.getName(), repoName.getOwnerRepoDisplayString()));
@@ -157,7 +157,7 @@ public class PackageLookupFunction implements SkyFunction {
       return "BUILD file not found in directory '"
           + packageKey.getPackageFragment()
           + "' of external repository "
-          + packageKey.getRepository().getNameWithAt()
+          + packageKey.getRepository()
           + ". "
           + educationalMessage;
     }
@@ -390,7 +390,7 @@ public class PackageLookupFunction implements SkyFunction {
     }
     if (!repositoryValue.repositoryExists()) {
       return new PackageLookupValue.NoRepositoryPackageLookupValue(
-          id.getRepository().getNameWithAt(), repositoryValue.getErrorMsg());
+          id.getRepository(), repositoryValue.getErrorMsg());
     }
 
     // Check .bazelignore file after fetching the external repository.

@@ -73,9 +73,7 @@ public class RBuildFilesVisitor extends ParallelQueryVisitor<SkyKey, PackageIden
       ImmutableSet.of(
           Label.TRANSITIVE_TRAVERSAL,
           SkyFunctions.COLLECT_TARGETS_IN_PACKAGE,
-          SkyFunctions.COLLECT_TEST_SUITES_IN_PACKAGE,
           SkyFunctions.PREPARE_DEPS_OF_TARGETS_UNDER_DIRECTORY,
-          SkyFunctions.PREPARE_TEST_SUITES_UNDER_DIRECTORY,
           SkyFunctions.PACKAGE_ERROR_MESSAGE,
           SkyFunctions.PREPARE_DEPS_OF_PATTERN,
           SkyFunctions.PREPARE_DEPS_OF_PATTERNS);

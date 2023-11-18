@@ -14,6 +14,7 @@
 //
 package com.google.devtools.build.lib.vfs;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,6 +38,11 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
     this.delegateFs = delegateFs;
   }
 
+  @VisibleForTesting
+  public FileSystem getDelegateFs() {
+    return delegateFs;
+  }
+
   @Override
   public boolean supportsModifications(PathFragment path) {
     return delegateFs.supportsModifications(toDelegatePath(path));
@@ -48,7 +54,7 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   }
 
   @Override
-  protected boolean supportsHardLinksNatively(PathFragment path) {
+  public boolean supportsHardLinksNatively(PathFragment path) {
     return delegateFs.supportsHardLinksNatively(toDelegatePath(path));
   }
 
@@ -181,11 +187,6 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   @Override
   protected SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
     return delegateFs.createReadWriteByteChannel(toDelegatePath(path));
-  }
-
-  @Override
-  protected OutputStream getOutputStream(PathFragment path, boolean append) throws IOException {
-    return delegateFs.getOutputStream(toDelegatePath(path), append);
   }
 
   @Override

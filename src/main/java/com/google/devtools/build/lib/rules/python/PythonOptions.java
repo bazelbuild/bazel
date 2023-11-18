@@ -165,7 +165,6 @@ public class PythonOptions extends FragmentOptions {
         OptionEffectTag.LOADING_AND_ANALYSIS,
         OptionEffectTag.AFFECTS_OUTPUTS // because of "-py2"/"-py3" output root
       },
-      metadataTags = {OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH},
       help =
           "The Python major version mode, either `PY2` or `PY3`. Note that this is overridden by "
               + "`py_binary` and `py_test` targets (even if they don't explicitly specify a "
@@ -235,18 +234,6 @@ public class PythonOptions extends FragmentOptions {
               + "the Python toolchain, rather than the runtime given by legacy flags like "
               + "--python_top.")
   public boolean incompatibleUsePythonToolchains;
-
-  @Option(
-      name = "experimental_build_transitive_python_runfiles",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "Build the runfiles trees of py_binary targets that appear in the transitive "
-              + "data runfiles of another binary.",
-      oldName = "incompatible_build_transitive_python_runfiles")
-  public boolean buildTransitiveRunfilesTrees;
 
   @Option(
       name = "incompatible_default_to_explicit_init_py",
@@ -373,7 +360,6 @@ public class PythonOptions extends FragmentOptions {
     hostPythonOptions.incompatiblePy2OutputsAreSuffixed = incompatiblePy2OutputsAreSuffixed;
     hostPythonOptions.buildPythonZip = buildPythonZip;
     hostPythonOptions.incompatibleUsePythonToolchains = incompatibleUsePythonToolchains;
-    hostPythonOptions.buildTransitiveRunfilesTrees = buildTransitiveRunfilesTrees;
     hostPythonOptions.incompatibleAllowPythonVersionTransitions =
         incompatibleAllowPythonVersionTransitions;
     hostPythonOptions.incompatibleDefaultToExplicitInitPy = incompatibleDefaultToExplicitInitPy;

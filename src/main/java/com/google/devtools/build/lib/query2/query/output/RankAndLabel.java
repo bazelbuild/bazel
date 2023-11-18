@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.query2.query.output;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 
 class RankAndLabel implements Comparable<RankAndLabel> {
   private final int rank;
@@ -40,10 +40,10 @@ class RankAndLabel implements Comparable<RankAndLabel> {
 
   @Override
   public String toString() {
-    return toDisplayString(RepositoryMapping.ALWAYS_FALLBACK);
+    throw new UnsupportedOperationException("Use toString(LabelPrinter) instead");
   }
 
-  public String toDisplayString(RepositoryMapping mainRepoMapping) {
-    return rank + " " + label.getDisplayForm(mainRepoMapping);
+  public String toString(LabelPrinter labelPrinter) {
+    return rank + " " + labelPrinter.toString(label);
   }
 }

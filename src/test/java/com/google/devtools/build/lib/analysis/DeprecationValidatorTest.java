@@ -94,7 +94,7 @@ public final class DeprecationValidatorTest extends BuildViewTestCase {
     checkWarning(
         "a",
         "a",
-        "target '//a:a' depends on deprecated target '@r//a:b': deprecation warning printed",
+        "target '//a:a' depends on deprecated target '@@r//a:b': deprecation warning printed",
         "filegroup(name='a', srcs=['@r//a:b'])");
   }
 
@@ -112,7 +112,7 @@ public final class DeprecationValidatorTest extends BuildViewTestCase {
     checkWarning(
         "javatests/a",
         "a",
-        "target '//javatests/a:a' depends on deprecated target '@r//java/a:b': "
+        "target '//javatests/a:a' depends on deprecated target '@@r//java/a:b': "
             + "deprecation warning printed",
         "filegroup(name='a', srcs=['@r//java/a:b'])");
   }

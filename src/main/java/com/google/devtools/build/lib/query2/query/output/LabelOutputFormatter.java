@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.query2.query.output;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
@@ -43,7 +43,7 @@ class LabelOutputFormatter extends AbstractUnorderedFormatter {
 
   @Override
   public OutputFormatterCallback<Target> createPostFactoStreamCallback(
-      OutputStream out, final QueryOptions options, RepositoryMapping mainRepoMapping) {
+      OutputStream out, final QueryOptions options, LabelPrinter labelPrinter) {
     return new TextOutputFormatterCallback<Target>(out) {
       @Override
       public void processOutput(Iterable<Target> partialResult) throws IOException {
@@ -54,7 +54,7 @@ class LabelOutputFormatter extends AbstractUnorderedFormatter {
             writer.append(' ');
           }
           Label label = target.getLabel();
-          writer.append(label.getDisplayForm(mainRepoMapping)).append(lineTerm);
+          writer.append(labelPrinter.toString(label)).append(lineTerm);
         }
       }
     };
@@ -64,6 +64,6 @@ class LabelOutputFormatter extends AbstractUnorderedFormatter {
   public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
       OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
     return new SynchronizedDelegatingOutputFormatterCallback<>(
-        createPostFactoStreamCallback(out, options, env.getMainRepoMapping()));
+        createPostFactoStreamCallback(out, options, env.getLabelPrinter()));
   }
 }

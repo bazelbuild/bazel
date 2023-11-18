@@ -24,6 +24,9 @@ import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.gson.FieldNamingPolicy;
@@ -42,16 +45,27 @@ import java.util.Optional;
 /**
  * Represents a Bazel module registry that serves a list of module metadata from a static HTTP
  * server or a local file path.
+ *
+ * <p>For details, see <a href="https://bazel.build/external/registry">the docs</a>
  */
-// TODO(wyv): Insert "For details, see ..." when we have public documentation.
 public class IndexRegistry implements Registry {
+
+  /** The unresolved version of the url. Ex: has %workspace% placeholder */
+  private final String unresolvedUri;
+
   private final URI uri;
   private final DownloadManager downloadManager;
   private final Map<String, String> clientEnv;
   private final Gson gson;
+  private volatile Optional<BazelRegistryJson> bazelRegistryJson;
 
-  public IndexRegistry(URI uri, DownloadManager downloadManager, Map<String, String> clientEnv) {
+  public IndexRegistry(
+      URI uri,
+      String unresolvedUri,
+      DownloadManager downloadManager,
+      Map<String, String> clientEnv) {
     this.uri = uri;
+    this.unresolvedUri = unresolvedUri;
     this.downloadManager = downloadManager;
     this.clientEnv = clientEnv;
     this.gson =
@@ -62,7 +76,7 @@ public class IndexRegistry implements Registry {
 
   @Override
   public String getUrl() {
-    return uri.toString();
+    return unresolvedUri;
   }
 
   private String constructUrl(String base, String... segments) {
@@ -79,7 +93,8 @@ public class IndexRegistry implements Registry {
   /** Grabs a file from the given URL. Returns {@link Optional#empty} if the file doesn't exist. */
   private Optional<byte[]> grabFile(String url, ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException {
-    try {
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.BZLMOD, () -> "download file: " + url)) {
       return Optional.of(
           downloadManager.downloadAndReadOneUrl(new URL(url), eventHandler, clientEnv));
     } catch (FileNotFoundException e) {
@@ -88,12 +103,12 @@ public class IndexRegistry implements Registry {
   }
 
   @Override
-  public Optional<byte[]> getModuleFile(ModuleKey key, ExtendedEventHandler eventHandler)
+  public Optional<ModuleFile> getModuleFile(ModuleKey key, ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException {
-    return grabFile(
+    String url =
         constructUrl(
-            getUrl(), "modules", key.getName(), key.getVersion().toString(), "MODULE.bazel"),
-        eventHandler);
+            uri.toString(), "modules", key.getName(), key.getVersion().toString(), "MODULE.bazel");
+    return grabFile(url, eventHandler).map(content -> ModuleFile.create(content, url));
   }
 
   /** Represents fields available in {@code bazel_registry.json} for the registry. */
@@ -140,29 +155,48 @@ public class IndexRegistry implements Registry {
   public RepoSpec getRepoSpec(
       ModuleKey key, RepositoryName repoName, ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException {
-    Optional<BazelRegistryJson> bazelRegistryJson =
-        grabJson(
-            constructUrl(getUrl(), "bazel_registry.json"), BazelRegistryJson.class, eventHandler);
     Optional<SourceJson> sourceJson =
         grabJson(
             constructUrl(
-                getUrl(), "modules", key.getName(), key.getVersion().toString(), "source.json"),
+                uri.toString(),
+                "modules",
+                key.getName(),
+                key.getVersion().toString(),
+                "source.json"),
             SourceJson.class,
             eventHandler);
     if (sourceJson.isEmpty()) {
       throw new FileNotFoundException(
-          String.format("Module %s's source information not found in registry %s", key, getUrl()));
+          String.format("Module %s's source information not found in registry %s", key, uri));
     }
 
     String type = sourceJson.get().type;
     switch (type) {
       case "archive":
-        return createArchiveRepoSpec(sourceJson, bazelRegistryJson, key, repoName);
+        return createArchiveRepoSpec(sourceJson, getBazelRegistryJson(eventHandler), key, repoName);
       case "local_path":
-        return createLocalPathRepoSpec(sourceJson, bazelRegistryJson, key, repoName);
+        return createLocalPathRepoSpec(
+            sourceJson, getBazelRegistryJson(eventHandler), key, repoName);
       default:
         throw new IOException(String.format("Invalid source type for module %s", key));
     }
+  }
+
+  @SuppressWarnings("OptionalAssignedToNull")
+  private Optional<BazelRegistryJson> getBazelRegistryJson(ExtendedEventHandler eventHandler)
+      throws IOException, InterruptedException {
+    if (bazelRegistryJson == null) {
+      synchronized (this) {
+        if (bazelRegistryJson == null) {
+          bazelRegistryJson =
+              grabJson(
+                  constructUrl(uri.toString(), "bazel_registry.json"),
+                  BazelRegistryJson.class,
+                  eventHandler);
+        }
+      }
+    }
+    return bazelRegistryJson;
   }
 
   private RepoSpec createLocalPathRepoSpec(
@@ -238,7 +272,7 @@ public class IndexRegistry implements Registry {
       for (Map.Entry<String, String> entry : sourceJson.get().patches.entrySet()) {
         remotePatches.put(
             constructUrl(
-                getUrl(),
+                unresolvedUri,
                 "modules",
                 key.getName(),
                 key.getVersion().toString(),
@@ -265,7 +299,7 @@ public class IndexRegistry implements Registry {
       throws IOException, InterruptedException {
     Optional<MetadataJson> metadataJson =
         grabJson(
-            constructUrl(getUrl(), "modules", moduleName, "metadata.json"),
+            constructUrl(uri.toString(), "modules", moduleName, "metadata.json"),
             MetadataJson.class,
             eventHandler);
     if (metadataJson.isEmpty()) {

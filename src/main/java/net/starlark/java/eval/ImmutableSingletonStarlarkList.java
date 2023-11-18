@@ -19,31 +19,11 @@ import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
 
 /** An immutable singleton implementation of a {@code StarlarkList}. */
-final class ImmutableSingletonStarlarkList<E> extends StarlarkList<E> {
-  final Object elem;
+final class ImmutableSingletonStarlarkList<E> extends ImmutableStarlarkList<E> {
+  private final Object elem;
 
   ImmutableSingletonStarlarkList(Object elem) {
     this.elem = elem;
-  }
-
-  @Override
-  public boolean isImmutable() {
-    return true;
-  }
-
-  @Override
-  public boolean updateIteratorCount(int delta) {
-    return false;
-  }
-
-  @Override
-  public Mutability mutability() {
-    return Mutability.IMMUTABLE;
-  }
-
-  @Override
-  public void unsafeShallowFreeze() {
-    Mutability.Freezable.checkUnsafeShallowFreezePrecondition(this);
   }
 
   @Override
@@ -71,36 +51,6 @@ final class ImmutableSingletonStarlarkList<E> extends StarlarkList<E> {
       return false;
     }
     return o.equals(elem);
-  }
-
-  @Override
-  public void addElement(E element) throws EvalException {
-    Starlark.checkMutable(this);
-  }
-
-  @Override
-  public void addElementAt(int index, E element) throws EvalException {
-    Starlark.checkMutable(this);
-  }
-
-  @Override
-  public void addElements(Iterable<? extends E> elements) throws EvalException {
-    Starlark.checkMutable(this);
-  }
-
-  @Override
-  public void removeElementAt(int index) throws EvalException {
-    Starlark.checkMutable(this);
-  }
-
-  @Override
-  public void setElementAt(int index, E value) throws EvalException {
-    Starlark.checkMutable(this);
-  }
-
-  @Override
-  public void clearElements() throws EvalException {
-    Starlark.checkMutable(this);
   }
 
   /** Returns a new array of class Object[] containing the list elements. */

@@ -103,6 +103,14 @@ public class DigestUtil {
     return new ActionKey(digest);
   }
 
+  public com.google.devtools.build.lib.exec.Protos.Digest asSpawnLogProto(ActionKey actionKey) {
+    return com.google.devtools.build.lib.exec.Protos.Digest.newBuilder()
+        .setHash(actionKey.getDigest().getHash())
+        .setSizeBytes(actionKey.getDigest().getSizeBytes())
+        .setHashFunctionName(getDigestFunction().toString())
+        .build();
+  }
+
   /** Returns the hash of {@code data} in binary. */
   public byte[] hash(byte[] data) {
     return hashFn.getHashFunction().hashBytes(data).asBytes();
@@ -130,5 +138,13 @@ public class DigestUtil {
 
   public static byte[] toBinaryDigest(Digest digest) {
     return HashCode.fromString(digest.getHash()).asBytes();
+  }
+
+  public static boolean isOldStyleDigestFunction(DigestFunction.Value digestFunction) {
+    // Old-style digest functions (SHA256, etc) are distinguishable by the length
+    // of their hash alone and do not require extra specification, but newer
+    // digest functions (which may have the same length hashes as the older
+    // functions!) must be explicitly specified in the upload resource name.
+    return digestFunction.getNumber() <= 7;
   }
 }

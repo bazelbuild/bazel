@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
+import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import java.util.List;
 import org.junit.After;
 import org.junit.Assume;
@@ -75,15 +75,14 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
         "foo/BUILD",
         "genrule(",
         "    name = 'foo',",
-        "    outs = ['dir'],",
-        "    cmd = '/bin/mkdir $(location dir)',",
-        "    srcs = [],",
+        "    outs = ['out'],",
+        "    cmd = 'touch $@',",
         ")");
   }
 
   @Before
   public void setUpWorkerMetricsCollecto() {
-    WorkerMetricsCollector.instance().setClock(new JavaClock());
+    WorkerProcessMetricsCollector.instance().setClock(new JavaClock());
   }
 
   @After
@@ -520,6 +519,13 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void testExecutionTimeInMs() throws Exception {
+    buildTarget("//foo:foo");
+    BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
+    assertThat(buildMetrics.getTimingMetrics().getExecutionPhaseTimeInMs()).isGreaterThan(0);
+  }
+
+  @Test
   public void testUsedHeapSizePostBuild() throws Exception {
     // TODO(bazel-team): Fix recording used heap size on Windows.
     Assume.assumeTrue(OS.getCurrent() != OS.WINDOWS);
@@ -570,9 +576,9 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
         "foo/BUILD",
         "genrule(",
         "    name = 'foo',",
-        "    outs = ['dir'],",
+        "    outs = ['out'],",
         "    srcs = ['//noexist:noexist'],",
-        "    cmd = '/bin/mkdir $(location dir)',",
+        "    cmd = 'touch $@',",
         ")");
 
     addOptions("--analyze");
@@ -584,7 +590,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
         "foo/BUILD",
         "genrule(",
         "    name = 'foo',",
-        "    outs = ['dir'],",
+        "    outs = ['out'],",
         "    cmd = '/bin/false',",
         ")");
 
@@ -621,15 +627,13 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
         "foo/BUILD",
         "genrule(",
         "    name = 'foo',",
-        "    outs = ['dir'],",
-        "    cmd = '/bin/mkdir $(location dir)',",
-        "    srcs = [],",
+        "    outs = ['out'],",
+        "    cmd = 'touch $@',",
         ")",
         "genrule(",
         "    name = 'bar',",
-        "    outs = ['dir2'],",
-        "    cmd = '/bin/mkdir $(location dir2)',",
-        "    srcs = [],",
+        "    outs = ['out2'],",
+        "    cmd = 'touch $@',",
         ")");
     addOptions("--experimental_merged_skyframe_analysis_execution");
     BuildGraphMetrics expected =

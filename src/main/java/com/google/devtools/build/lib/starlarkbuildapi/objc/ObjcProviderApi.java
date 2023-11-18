@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.objc;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -32,7 +33,11 @@ import net.starlark.java.eval.StarlarkValue;
     doc = "A provider for compilation and linking of objc.")
 public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue {
 
-  @StarlarkMethod(name = "cc_library", documented = false, structField = true)
+  @StarlarkMethod(
+      name = "cc_library",
+      documented = false,
+      structField = true,
+      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_LINKING_INFO)
   Depset /*<LibraryToLink>*/ ccLibrariesForStarlark();
 
   @StarlarkMethod(
@@ -40,19 +45,22 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
       structField = true,
       doc =
           "The library files in .framework directories belonging to a dynamically linked "
-              + "framework.")
+              + "framework.",
+      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_LINKING_INFO)
   Depset /*<FileApiT>*/ dynamicFrameworkFileForStarlark();
 
   @StarlarkMethod(
       name = "force_load_library",
       structField = true,
-      doc = "Libraries to load with -force_load.")
+      doc = "Libraries to load with -force_load.",
+      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_LINKING_INFO)
   Depset /*<FileApiT>*/ forceLoadLibrary();
 
   @StarlarkMethod(
       name = "imported_library",
       structField = true,
-      doc = "Imported precompiled static libraries (.a files) to be linked into the binary.")
+      doc = "Imported precompiled static libraries (.a files) to be linked into the binary.",
+      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_LINKING_INFO)
   Depset /*<FileApiT>*/ importedLibrary();
 
   @StarlarkMethod(
@@ -72,7 +80,8 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
   @StarlarkMethod(
       name = "library",
       structField = true,
-      doc = "Library (.a) files compiled by dependencies of the current target.")
+      doc = "Library (.a) files compiled by dependencies of the current target.",
+      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_LINKING_INFO)
   Depset /*<FileApiT>*/ library();
 
   @StarlarkMethod(
@@ -82,10 +91,15 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
           "Link time artifacts from dependencies that do not fall into any other category such as"
               + " libraries or archives. This catch-all provides a way to add arbitrary data (e.g."
               + " Swift AST files) to the linker. The rule that adds these is also responsible to"
-              + " add the necessary linker flags to 'linkopt'.")
+              + " add the necessary linker flags to 'linkopt'.",
+      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_LINKING_INFO)
   Depset /*<FileApiT>*/ linkInputs();
 
-  @StarlarkMethod(name = "linkopt", structField = true, doc = "Linking options.")
+  @StarlarkMethod(
+      name = "linkopt",
+      structField = true,
+      doc = "Linking options.",
+      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_LINKING_INFO)
   Depset /*<String>*/ linkopt();
 
   @StarlarkMethod(
@@ -105,13 +119,15 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
   @StarlarkMethod(
       name = "sdk_dylib",
       structField = true,
-      doc = "Names of SDK .dylib libraries to link with. For instance, 'libz' or 'libarchive'.")
+      doc = "Names of SDK .dylib libraries to link with. For instance, 'libz' or 'libarchive'.",
+      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_LINKING_INFO)
   Depset /*<String>*/ sdkDylib();
 
   @StarlarkMethod(
       name = "sdk_framework",
       structField = true,
-      doc = "Names of SDK frameworks to link with (e.g. 'AddressBook', 'QuartzCore').")
+      doc = "Names of SDK frameworks to link with (e.g. 'AddressBook', 'QuartzCore').",
+      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_LINKING_INFO)
   Depset sdkFramework();
 
   @StarlarkMethod(name = "source", structField = true, doc = "All transitive source files.")
@@ -128,7 +144,8 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
   @StarlarkMethod(
       name = "static_framework_file",
       structField = true,
-      doc = "The library files in .framework directories that should be statically linked.")
+      doc = "The library files in .framework directories that should be statically linked.",
+      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_LINKING_INFO)
   Depset /*<FileApiT>*/ staticFrameworkFileForStarlark();
 
   @StarlarkMethod(
@@ -145,30 +162,35 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
       doc =
           "Names of SDK frameworks to weakly link with. For instance, 'MediaAccessibility'. "
               + "In difference to regularly linked SDK frameworks, symbols from weakly linked "
-              + "frameworks do not cause an error if they are not present at runtime.")
+              + "frameworks do not cause an error if they are not present at runtime.",
+      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_LINKING_INFO)
   Depset weakSdkFramework();
 
   @StarlarkMethod(
       name = "dynamic_framework_names",
       structField = true,
-      doc = "Returns all names of dynamic frameworks in this provider.")
+      doc = "Returns all names of dynamic frameworks in this provider.",
+      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_LINKING_INFO)
   Depset /*<String>*/ dynamicFrameworkNamesForStarlark();
 
   @StarlarkMethod(
       name = "dynamic_framework_paths",
       structField = true,
-      doc = "Returns all framework paths to dynamic frameworks in this provider.")
+      doc = "Returns all framework paths to dynamic frameworks in this provider.",
+      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_LINKING_INFO)
   Depset /*<String>*/ dynamicFrameworkPathsForStarlark();
 
   @StarlarkMethod(
       name = "static_framework_names",
       structField = true,
-      doc = "Returns all names of static frameworks in this provider.")
+      doc = "Returns all names of static frameworks in this provider.",
+      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_LINKING_INFO)
   Depset /*<String>*/ staticFrameworkNamesForStarlark();
 
   @StarlarkMethod(
       name = "static_framework_paths",
       structField = true,
-      doc = "Returns all framework paths to static frameworks in this provider.")
+      doc = "Returns all framework paths to static frameworks in this provider.",
+      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_LINKING_INFO)
   Depset /*<String>*/ staticFrameworkPathsForStarlark();
 }

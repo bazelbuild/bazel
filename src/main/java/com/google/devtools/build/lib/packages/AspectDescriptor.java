@@ -14,11 +14,16 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.protobuf.TextFormat;
 import java.util.Map;
-import java.util.Objects;
 
 /**
  * A pair of {@link AspectClass} and {@link AspectParameters}.
@@ -27,16 +32,20 @@ import java.util.Objects;
  */
 @Immutable
 public final class AspectDescriptor {
+
+  private static final Interner<AspectDescriptor> interner = BlazeInterners.newWeakInterner();
+
+  @VisibleForTesting
+  public static AspectDescriptor of(AspectClass aspectClass, AspectParameters aspectParameters) {
+    return interner.intern(new AspectDescriptor(aspectClass, aspectParameters));
+  }
+
   private final AspectClass aspectClass;
   private final AspectParameters aspectParameters;
 
-  public AspectDescriptor(AspectClass aspectClass, AspectParameters aspectParameters) {
-    this.aspectClass = aspectClass;
-    this.aspectParameters = aspectParameters;
-  }
-
-  public AspectDescriptor(AspectClass aspectClass) {
-    this(aspectClass, AspectParameters.EMPTY);
+  private AspectDescriptor(AspectClass aspectClass, AspectParameters aspectParameters) {
+    this.aspectClass = checkNotNull(aspectClass);
+    this.aspectParameters = checkNotNull(aspectParameters);
   }
 
   public AspectClass getAspectClass() {
@@ -49,8 +58,7 @@ public final class AspectDescriptor {
 
   @Override
   public int hashCode() {
-    // Inlines the implementation of Objects.hashCode to avoid generating garbage.
-    return 31 * aspectClass.hashCode() + aspectParameters.hashCode();
+    return HashCodes.hashObjects(aspectClass, aspectParameters);
   }
 
   @Override
@@ -64,8 +72,7 @@ public final class AspectDescriptor {
     }
 
     AspectDescriptor that = (AspectDescriptor) obj;
-    return Objects.equals(aspectClass, that.aspectClass)
-        && Objects.equals(aspectParameters, that.aspectParameters);
+    return aspectClass.equals(that.aspectClass) && aspectParameters.equals(that.aspectParameters);
   }
 
   @Override

@@ -19,10 +19,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
@@ -35,16 +37,19 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.cpp.CcToolchain.AdditionalBuildVariablesComputer;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.FdoContext.BranchFdoProfile;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkThread;
 
 /** Information about a C++ compiler used by the <code>cc_*</code> rules. */
@@ -58,7 +63,8 @@ public final class CcToolchainProvider extends NativeInfo
             StarlarkRuleContext,
             InvalidConfigurationException,
             CppConfiguration,
-            CcToolchainVariables>,
+            CcToolchainVariables,
+            OutputGroupInfo>,
         HasCcToolchainLabel {
 
   public static final BuiltinProvider<CcToolchainProvider> PROVIDER =
@@ -86,7 +92,7 @@ public final class CcToolchainProvider extends NativeInfo
   private final CcInfo ccInfo;
   private final boolean supportsParamFiles;
   private final boolean supportsHeaderParsing;
-  private final AdditionalBuildVariablesComputer additionalBuildVariablesComputer;
+  private final BuildOptions buildOptions;
   private final CcToolchainVariables buildVariables;
   private final ImmutableList<Artifact> builtinIncludeFiles;
   private final ImmutableList<Artifact> targetBuiltinIncludeFiles;
@@ -123,7 +129,6 @@ public final class CcToolchainProvider extends NativeInfo
 
   private final LicensesProvider licensesProvider;
   private final PackageSpecificationProvider allowlistForLayeringCheck;
-  private final PackageSpecificationProvider allowListForLooseHeaderCheck;
 
   private final String objcopyExecutable;
   private final String compilerExecutable;
@@ -134,6 +139,8 @@ public final class CcToolchainProvider extends NativeInfo
   private final String stripExecutable;
   private final String ldExecutable;
   private final String gcovExecutable;
+  private final StarlarkFunction ccToolchainBuildVariablesFunc;
+  private final OutputGroupInfo ccBuildInfoTranslator;
 
   public CcToolchainProvider(
       @Nullable CppConfiguration cppConfiguration,
@@ -159,7 +166,7 @@ public final class CcToolchainProvider extends NativeInfo
       CcCompilationContext ccCompilationContext,
       boolean supportsParamFiles,
       boolean supportsHeaderParsing,
-      AdditionalBuildVariablesComputer additionalBuildVariablesComputer,
+      BuildOptions buildOptions,
       CcToolchainVariables buildVariables,
       ImmutableList<Artifact> builtinIncludeFiles,
       ImmutableList<Artifact> targetBuiltinIncludeFiles,
@@ -187,7 +194,6 @@ public final class CcToolchainProvider extends NativeInfo
       ImmutableMap<String, String> additionalMakeVariables,
       String legacyCcFlagsMakeVariable,
       PackageSpecificationProvider allowlistForLayeringCheck,
-      PackageSpecificationProvider allowListForLooseHeaderCheck,
       String objcopyExecutable,
       String compilerExecutable,
       String preprocessorExecutable,
@@ -196,7 +202,9 @@ public final class CcToolchainProvider extends NativeInfo
       String arExecutable,
       String stripExecutable,
       String ldExecutable,
-      String gcovExecutable) {
+      String gcovExecutable,
+      StarlarkFunction ccToolchainBuildVariablesFunc,
+      OutputGroupInfo ccBuildInfoTranslator) {
     super();
     this.cppConfiguration = cppConfiguration;
     this.crosstoolTopPathFragment = crosstoolTopPathFragment;
@@ -223,7 +231,7 @@ public final class CcToolchainProvider extends NativeInfo
             .build();
     this.supportsParamFiles = supportsParamFiles;
     this.supportsHeaderParsing = supportsHeaderParsing;
-    this.additionalBuildVariablesComputer = additionalBuildVariablesComputer;
+    this.buildOptions = buildOptions;
     this.buildVariables = buildVariables;
     this.builtinIncludeFiles = builtinIncludeFiles;
     this.targetBuiltinIncludeFiles = targetBuiltinIncludeFiles;
@@ -251,7 +259,6 @@ public final class CcToolchainProvider extends NativeInfo
     this.additionalMakeVariables = additionalMakeVariables;
     this.legacyCcFlagsMakeVariable = legacyCcFlagsMakeVariable;
     this.allowlistForLayeringCheck = allowlistForLayeringCheck;
-    this.allowListForLooseHeaderCheck = allowListForLooseHeaderCheck;
 
     this.objcopyExecutable = objcopyExecutable;
     this.compilerExecutable = compilerExecutable;
@@ -263,6 +270,8 @@ public final class CcToolchainProvider extends NativeInfo
     this.ldExecutable = ldExecutable;
     this.gcovExecutable = gcovExecutable;
     this.grepIncludes = grepIncludes;
+    this.ccToolchainBuildVariablesFunc = ccToolchainBuildVariablesFunc;
+    this.ccBuildInfoTranslator = ccBuildInfoTranslator;
   }
 
   @Override
@@ -271,8 +280,7 @@ public final class CcToolchainProvider extends NativeInfo
   }
 
   /**
-   * See {@link #usePicForDynamicLibraries(FeatureConfigurationForStarlark)}. This method is there
-   * only to serve Starlark callers.
+   * See {@link #usePicForDynamicLibraries}. This method is there only to serve Starlark callers.
    */
   @Override
   public boolean usePicForDynamicLibrariesFromStarlark(
@@ -748,17 +756,36 @@ public final class CcToolchainProvider extends NativeInfo
 
   /** Returns build variables to be templated into the crosstool. */
   public CcToolchainVariables getBuildVariables(
-      BuildOptions buildOptions, CppConfiguration cppConfiguration) {
-    if (cppConfiguration.enableCcToolchainResolution()) {
-      // With platforms, cc toolchain is analyzed in the exec configuration, so we cannot reuse
-      // build variables instance.
-      return CcToolchainProviderHelper.getBuildVariables(
-          buildOptions,
-          cppConfiguration,
-          getSysrootPathFragment(cppConfiguration),
-          additionalBuildVariablesComputer);
+      StarlarkThread thread, BuildOptions buildOptions, CppConfiguration cppConfiguration)
+      throws EvalException, InterruptedException {
+    if (!cppConfiguration.enableCcToolchainResolution()) {
+      return buildVariables;
     }
-    return buildVariables;
+    // With platforms, cc toolchain is analyzed in the exec configuration, so we can only reuse the
+    // same build variables instance if the inputs to the construction match.
+    PathFragment sysroot = getSysrootPathFragment(cppConfiguration);
+    String minOsVersion = cppConfiguration.getMinimumOsVersion();
+    if (Objects.equals(sysroot, this.sysroot)
+        && Objects.equals(minOsVersion, this.cppConfiguration.getMinimumOsVersion())
+        && (ccToolchainBuildVariablesFunc.getName().equals("cc_toolchain_build_variables")
+            || buildOptions.equals(this.buildOptions))) {
+      return buildVariables;
+    }
+    // With platforms, cc toolchain is analyzed in the exec configuration, so we cannot reuse
+    // build variables instance.
+    AppleConfiguration appleConfiguration = new AppleConfiguration(buildOptions);
+    ApplePlatform platform = appleConfiguration.getSingleArchPlatform();
+    Object ccToolchainVariables =
+        Starlark.call(
+            thread,
+            ccToolchainBuildVariablesFunc,
+            ImmutableList.of(
+                /* platform */ platform,
+                /* cpu */ buildOptions.get(CoreOptions.class).cpu,
+                /* cpp_config */ cppConfiguration,
+                /* sysroot */ (sysroot != null ? sysroot.getPathString() : Starlark.NONE)),
+            ImmutableMap.of());
+    return (CcToolchainVariables) ccToolchainVariables;
   }
 
   @Override
@@ -766,17 +793,17 @@ public final class CcToolchainProvider extends NativeInfo
       StarlarkRuleContext starlarkRuleContext,
       CppConfiguration cppConfiguration,
       StarlarkThread thread)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return getBuildVariables(
-        starlarkRuleContext.getRuleContext().getConfiguration().getOptions(), cppConfiguration);
+        starlarkRuleContext.getRuleContext().getStarlarkThread(),
+        starlarkRuleContext.getRuleContext().getConfiguration().getOptions(),
+        cppConfiguration);
   }
 
   /**
    * Return the set of include files that may be included even if they are not mentioned in the
    * source file or any of the headers included by it.
-   *
-   * @param cppConfiguration
    */
   public ImmutableList<Artifact> getBuiltinIncludeFiles(CppConfiguration cppConfiguration) {
     if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas())) {
@@ -971,7 +998,7 @@ public final class CcToolchainProvider extends NativeInfo
   /**
    * Unused, for compatibility with things internal to Google.
    *
-   * <p>Deprecated: Use platforms.
+   * @deprecated use platforms
    */
   @Deprecated
   public String getTargetOS() {
@@ -1036,7 +1063,14 @@ public final class CcToolchainProvider extends NativeInfo
     return allowlistForLayeringCheck;
   }
 
-  public PackageSpecificationProvider getAllowlistForLooseHeaderCheck() {
-    return allowListForLooseHeaderCheck;
+  public OutputGroupInfo getCcBuildInfoTranslator() {
+    return ccBuildInfoTranslator;
+  }
+
+  @Override
+  public OutputGroupInfo getCcBuildInfoTranslatorForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getCcBuildInfoTranslator();
   }
 }

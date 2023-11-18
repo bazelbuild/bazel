@@ -375,7 +375,6 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    toolchain_identifier = 'toolchain-identifier-k8',",
         "    toolchain_config = ':toolchain_config',",
         "    module_map = ':multiple-maps',",
-        "    cpu = 'cherry',",
         "    ar_files = 'ar-cherry',",
         "    as_files = 'as-cherry',",
         "    compiler_files = 'compile-cherry',",
@@ -474,10 +473,10 @@ public class CcToolchainTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         "cc_toolchain_alias(name = 'b')",
-        "fdo_profile(name='out.xfdo', profile='profile.xfdo')");
+        "genrule(name='profile.xfdo', outs = ['c.txt'], cmd = '')");
     useConfiguration("-c", "opt", "--xbinary_fdo=//a:profile.xfdo");
     assertThat(getConfiguredTarget("//a:b")).isNull();
-    assertContainsEvent("--fdo_profile/--xbinary_fdo input needs to be an fdo_profile rule");
+    assertContainsEvent("does not have mandatory providers: 'FdoProfileInfo'");
   }
 
   @Test

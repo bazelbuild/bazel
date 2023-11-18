@@ -17,8 +17,7 @@
 import base64
 import os
 import tempfile
-import unittest
-
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 from src.test.py.bazel.bzlmod.test_utils import BazelRegistry
 from src.test.py.bazel.bzlmod.test_utils import StaticHTTPServer
@@ -125,7 +124,7 @@ class BzlmodCredentialsTest(test_base.TestBase):
     ) as static_server:
       _, stdout, _ = self.RunBazel([
           'run',
-          '--experimental_credential_helper=%workspace%/credhelper',
+          '--credential_helper=%workspace%/credhelper',
           '--registry=' + static_server.getURL(),
           '--registry=https://bcr.bazel.build',
           '//:main',
@@ -156,7 +155,7 @@ class BzlmodCredentialsTest(test_base.TestBase):
       _, stdout, _ = self.RunBazel(
           [
               'run',
-              '--experimental_credential_helper=%workspace%/credhelper',
+              '--credential_helper=%workspace%/credhelper',
               '--registry=' + static_server.getURL(),
               '--registry=https://bcr.bazel.build',
               '//:main',
@@ -167,4 +166,4 @@ class BzlmodCredentialsTest(test_base.TestBase):
 
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -85,7 +87,8 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
 
     @Override
     @Nullable
-    public DiffAwareness maybeCreate(Root pathEntry) {
+    public DiffAwareness maybeCreate(
+        Root pathEntry, ImmutableSet<com.google.devtools.build.lib.vfs.Path> ignoredPaths) {
       com.google.devtools.build.lib.vfs.Path resolvedPathEntry;
       try {
         resolvedPathEntry = pathEntry.asPath().resolveSymbolicLinks();
@@ -105,7 +108,9 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
         return new MacOSXFsEventsDiffAwareness(resolvedPathEntryFragment.toString());
       }
 
-      return new WatchServiceDiffAwareness(resolvedPathEntryFragment.toString());
+      return new WatchServiceDiffAwareness(
+          resolvedPathEntryFragment.toString(),
+          ignoredPaths.stream().map(p -> Path.of(p.toString())).collect(toImmutableSet()));
     }
   }
 

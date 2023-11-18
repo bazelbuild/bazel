@@ -134,8 +134,16 @@ public class ToolchainTest extends BuildViewTestCase {
     assertThat(provider.toolchainType())
         .isEqualTo(
             ToolchainTypeInfo.create(Label.parseCanonicalUnchecked("//toolchain:demo_toolchain")));
-    assertThat(provider.targetSettings().stream().anyMatch(ConfigMatchingProvider::matches))
+    // Ensure target settings completely matches (and not just vacuously e.g. if somehow empty)
+    assertThat(provider.targetSettings()).isNotEmpty();
+    assertThat(
+            provider.targetSettings().stream()
+                .allMatch(x -> x.result().equals(ConfigMatchingProvider.MatchResult.MATCH)))
         .isTrue();
+    assertThat(
+            provider.targetSettings().stream()
+                .anyMatch(x -> x.result() instanceof ConfigMatchingProvider.MatchResult.InError))
+        .isFalse();
     assertThat(provider.toolchainLabel())
         .isEqualTo(Label.parseCanonicalUnchecked("//toolchain:toolchain_def1"));
   }
@@ -177,7 +185,9 @@ public class ToolchainTest extends BuildViewTestCase {
     assertThat(provider.toolchainType())
         .isEqualTo(
             ToolchainTypeInfo.create(Label.parseCanonicalUnchecked("//toolchain:demo_toolchain")));
-    assertThat(provider.targetSettings().stream().anyMatch(ConfigMatchingProvider::matches))
+    assertThat(
+            provider.targetSettings().stream()
+                .anyMatch(x -> x.result().equals(ConfigMatchingProvider.MatchResult.MATCH)))
         .isFalse();
     assertThat(provider.toolchainLabel())
         .isEqualTo(Label.parseCanonicalUnchecked("//toolchain:toolchain_def1"));

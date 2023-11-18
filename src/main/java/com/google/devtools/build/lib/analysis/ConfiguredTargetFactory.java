@@ -22,7 +22,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
@@ -52,7 +51,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Aspect;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
@@ -76,7 +74,6 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -140,7 +137,7 @@ public final class ConfiguredTargetFactory {
       // ConfiguredTargetGraph, but for now, this is the minimally invasive way of providing a sane
       // error message in case a cycle is created by a visibility attribute.
       if (group != null) {
-        provider = group.get(PackageGroupConfiguredTarget.PROVIDER);
+        provider = group.get(PackageSpecificationProvider.PROVIDER);
       }
       if (provider != null) {
         result.addTransitive(provider.getPackageSpecifications());
@@ -239,8 +236,8 @@ public final class ConfiguredTargetFactory {
           && rule.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey()) != null) {
         return rule;
       }
-      Artifact artifact = rule.getArtifactByOutputLabel(outputFile.getLabel());
-      return new OutputFileConfiguredTarget(targetContext, outputFile, rule, artifact);
+      Artifact artifact = rule.findArtifactByOutputLabel(outputFile.getLabel());
+      return new OutputFileConfiguredTarget(targetContext, artifact, rule);
     } else if (target instanceof InputFile) {
       InputFile inputFile = (InputFile) target;
       TargetContext targetContext =
@@ -261,7 +258,7 @@ public final class ConfiguredTargetFactory {
                   .setLabel(target.getLabel())
                   .setConfiguration(config)
                   .build());
-      return new InputFileConfiguredTarget(targetContext, inputFile, artifact);
+      return new InputFileConfiguredTarget(targetContext, artifact);
     } else if (target instanceof PackageGroup) {
       PackageGroup packageGroup = (PackageGroup) target;
       TargetContext targetContext =
@@ -271,11 +268,9 @@ public final class ConfiguredTargetFactory {
               config,
               prerequisiteMap.get(DependencyKind.VISIBILITY_DEPENDENCY),
               visibility);
-      return new PackageGroupConfiguredTarget(targetContext, packageGroup);
+      return new PackageGroupConfiguredTarget(configuredTargetKey, targetContext, packageGroup);
     } else if (target instanceof EnvironmentGroup) {
-      TargetContext targetContext =
-          new TargetContext(analysisEnvironment, target, config, ImmutableSet.of(), visibility);
-      return new EnvironmentGroupConfiguredTarget(targetContext);
+      return new EnvironmentGroupConfiguredTarget(configuredTargetKey);
     } else {
       throw new AssertionError("Unexpected target class: " + target.getClass().getName());
     }
@@ -311,7 +306,7 @@ public final class ConfiguredTargetFactory {
             .setActionOwnerSymbol(configuredTargetKey)
             .setMutability(Mutability.create("configured target"))
             .setVisibility(convertVisibility(prerequisiteMap, env.getEventHandler(), rule))
-            .setPrerequisites(transformPrerequisiteMap(prerequisiteMap))
+            .setPrerequisites(removeToolchainDeps(prerequisiteMap))
             .setConfigConditions(configConditions)
             .setToolchainContexts(toolchainContexts)
             .setExecGroupCollectionBuilder(execGroupCollectionBuilder)
@@ -361,13 +356,22 @@ public final class ConfiguredTargetFactory {
       final ConfiguredTarget target;
 
       if (ruleClass.isStarlark()) {
+        if (ruleClass.getRuleClassType().equals(RuleClass.Builder.RuleClassType.WORKSPACE)) {
+          ruleContext.ruleError(
+              "Found reference to a workspace rule in a context where a build"
+                  + " rule was expected; probably a reference to a target in that external"
+                  + " repository, properly specified as @reponame//path/to/package:target,"
+                  + " should have been specified by the requesting rule.");
+          return erroredConfiguredTarget(ruleContext, null);
+        }
+
         final Object rawProviders;
         final boolean isDefaultExecutableCreated;
         @Nullable final RequiredConfigFragmentsProvider requiredConfigFragmentsProvider;
         try {
           ruleContext.initStarlarkRuleContext();
           // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
-          rawProviders = StarlarkRuleConfiguredTargetUtil.evalRule(ruleContext);
+          rawProviders = StarlarkRuleConfiguredTargetUtil.evalRule(ruleContext, ruleClass);
         } finally {
           // TODO(b/268525292): isDefaultExecutableCreated is set to True when
           // ctx.outputs.executable
@@ -426,7 +430,7 @@ public final class ConfiguredTargetFactory {
     if (ruleContext.getConfiguration().allowAnalysisFailures()) {
       ImmutableList.Builder<NestedSet<AnalysisFailure>> analysisFailures = ImmutableList.builder();
       Iterable<? extends TransitiveInfoCollection> infoCollections =
-          Iterables.concat(ruleContext.getConfiguredTargetMap().values(), extraDeps);
+          Iterables.concat(ruleContext.getAllPrerequisites(), extraDeps);
       for (TransitiveInfoCollection infoCollection : infoCollections) {
         AnalysisFailureInfo failureInfo =
             infoCollection.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR);
@@ -476,7 +480,7 @@ public final class ConfiguredTargetFactory {
       ImmutableList.Builder<AnalysisFailure> analysisFailures = ImmutableList.builder();
 
       for (String errorMessage : ruleContext.getSuppressedErrorMessages()) {
-        analysisFailures.add(new AnalysisFailure(ruleContext.getLabel(), errorMessage));
+        analysisFailures.add(AnalysisFailure.create(ruleContext.getLabel(), errorMessage));
       }
       RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
       builder.addNativeDeclaredProvider(
@@ -523,15 +527,16 @@ public final class ConfiguredTargetFactory {
   }
 
   @VisibleForTesting
-  public static OrderedSetMultimap<Attribute, ConfiguredTargetAndData> transformPrerequisiteMap(
+  public static OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> removeToolchainDeps(
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> map) {
-    OrderedSetMultimap<Attribute, ConfiguredTargetAndData> result = OrderedSetMultimap.create();
+    OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> result =
+        OrderedSetMultimap.create();
+
     for (Map.Entry<DependencyKind, ConfiguredTargetAndData> entry : map.entries()) {
       if (DependencyKind.isToolchain(entry.getKey())) {
         continue;
       }
-      Attribute attribute = entry.getKey().getAttribute();
-      result.put(attribute, entry.getValue());
+      result.put(entry.getKey(), entry.getValue());
     }
 
     return result;
@@ -555,7 +560,10 @@ public final class ConfiguredTargetFactory {
       BuildConfigurationValue aspectConfiguration,
       @Nullable NestedSet<Package> transitivePackages,
       AspectKeyCreator.AspectKey aspectKey)
-      throws InterruptedException, ActionConflictException, InvalidExecGroupException {
+      throws InterruptedException,
+          ActionConflictException,
+          InvalidExecGroupException,
+          RuleErrorException {
     RuleContext ruleContext =
         new RuleContext.Builder(env, associatedTarget, aspectPath, aspectConfiguration)
             .setRuleClassProvider(ruleClassProvider)
@@ -564,8 +572,7 @@ public final class ConfiguredTargetFactory {
             .setMutability(Mutability.create("aspect"))
             .setVisibility(
                 convertVisibility(prerequisiteMap, env.getEventHandler(), associatedTarget))
-            .setPrerequisites(transformPrerequisiteMap(prerequisiteMap))
-            .setAspectAttributes(mergeAspectAttributes(aspectPath))
+            .setPrerequisites(removeToolchainDeps(prerequisiteMap))
             .setConfigConditions(configConditions)
             .setToolchainContexts(toolchainContexts)
             .setExecGroupCollectionBuilder(execGroupCollectionBuilder)
@@ -595,23 +602,22 @@ public final class ConfiguredTargetFactory {
       return erroredConfiguredAspectWithFailures(ruleContext, analysisFailures);
     }
     if (ruleContext.hasErrors() && !allowAnalysisFailures) {
-      return erroredConfiguredAspect(ruleContext);
+      return erroredConfiguredAspect(ruleContext, null);
     }
 
-    ConfiguredAspect configuredAspect;
-    try {
-      configuredAspect =
-          aspectFactory.create(
-              associatedTarget.getLabel(),
-              configuredTarget,
-              ruleContext,
-              aspect.getParameters(),
-              ruleClassProvider.getToolsRepository());
-      if (configuredAspect == null) {
-        return erroredConfiguredAspect(ruleContext);
-      }
-    } finally {
-      ruleContext.close();
+    ConfiguredAspect configuredAspect =
+        aspectFactory.create(
+            associatedTarget.getLabel(),
+            configuredTarget,
+            ruleContext,
+            aspect.getParameters(),
+            ruleClassProvider.getToolsRepository());
+    if (configuredAspect == null) {
+      return erroredConfiguredAspect(ruleContext, null);
+    } else if (configuredAspect.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR) != null) {
+      // this was created by #erroredConfiguredAspect, return early to skip validating advertised
+      // providers
+      return configuredAspect;
     }
 
     validateAdvertisedProviders(
@@ -645,17 +651,24 @@ public final class ConfiguredTargetFactory {
    * about the failure.
    */
   @Nullable
-  private static ConfiguredAspect erroredConfiguredAspect(RuleContext ruleContext)
+  public static ConfiguredAspect erroredConfiguredAspect(
+      RuleContext ruleContext,
+      @Nullable RequiredConfigFragmentsProvider requiredConfigFragmentsProvider)
       throws ActionConflictException, InterruptedException {
     if (ruleContext.getConfiguration().allowAnalysisFailures()) {
       ImmutableList.Builder<AnalysisFailure> analysisFailures = ImmutableList.builder();
 
       for (String errorMessage : ruleContext.getSuppressedErrorMessages()) {
-        analysisFailures.add(new AnalysisFailure(ruleContext.getLabel(), errorMessage));
+        analysisFailures.add(AnalysisFailure.create(ruleContext.getLabel(), errorMessage));
       }
       ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(ruleContext);
       builder.addNativeDeclaredProvider(
           AnalysisFailureInfo.forAnalysisFailures(analysisFailures.build()));
+
+      if (requiredConfigFragmentsProvider != null) {
+        builder.addProvider(requiredConfigFragmentsProvider);
+      }
+
       // Unlike erroredConfiguredTarget, we do not add a RunfilesProvider; that would result in a
       // RunfilesProvider being provided twice in the merged configured target.
 
@@ -669,25 +682,6 @@ public final class ConfiguredTargetFactory {
       // on one specific failure with poor messaging. By returning null, the caller can
       // inspect ruleContext for multiple errors and output thorough messaging on each.
       return null;
-    }
-  }
-
-  private static ImmutableMap<String, Attribute> mergeAspectAttributes(
-      ImmutableList<Aspect> aspectPath) {
-    if (aspectPath.isEmpty()) {
-      return ImmutableMap.of();
-    } else if (aspectPath.size() == 1) {
-      return aspectPath.get(0).getDefinition().getAttributes();
-    } else {
-      LinkedHashMap<String, Attribute> aspectAttributes = new LinkedHashMap<>();
-      for (Aspect underlyingAspect : aspectPath) {
-        ImmutableMap<String, Attribute> currentAttributes =
-            underlyingAspect.getDefinition().getAttributes();
-        for (Map.Entry<String, Attribute> kv : currentAttributes.entrySet()) {
-          aspectAttributes.putIfAbsent(kv.getKey(), kv.getValue());
-        }
-      }
-      return ImmutableMap.copyOf(aspectAttributes);
     }
   }
 

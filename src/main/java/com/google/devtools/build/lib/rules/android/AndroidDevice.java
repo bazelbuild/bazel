@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import java.util.ArrayList;
@@ -126,24 +125,19 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
             .addArtifacts(commonDependencyArtifacts)
             .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
     if (unifiedLauncher.getRunfilesSupport() != null) {
-      runfilesBuilder
-          .merge(unifiedLauncher.getRunfilesSupport().getRunfiles())
-          .addLegacyExtraMiddleman(unifiedLauncher.getRunfilesSupport().getRunfilesMiddleman());
+      runfilesBuilder.merge(unifiedLauncher.getRunfilesSupport().getRunfiles());
     } else {
-      runfilesBuilder.addTransitiveArtifacts(unifiedLauncher.getFilesToRun());
+      runfilesBuilder.addArtifact(unifiedLauncher.getExecutable());
     }
     Runfiles runfiles = runfilesBuilder.build();
     RunfilesSupport runfilesSupport =
         RunfilesSupport.withExecutable(ruleContext, runfiles, executable);
-    NestedSet<Artifact> extraFilesToRun =
-        NestedSetBuilder.create(Order.STABLE_ORDER, runfilesSupport.getRunfilesMiddleman());
     boolean dex2OatEnabled =
         ruleContext.attributes().get("pregenerate_oat_files_for_tests", Type.BOOLEAN);
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .setRunfilesSupport(runfilesSupport, executable)
-        .addFilesToRun(extraFilesToRun)
         .addNativeDeclaredProvider(new ExecutionInfo(executionInfo))
         .addNativeDeclaredProvider(new AndroidDeviceBrokerInfo(DEVICE_BROKER_TYPE))
         .addNativeDeclaredProvider(

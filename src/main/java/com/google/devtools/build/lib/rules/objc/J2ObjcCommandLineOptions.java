@@ -21,6 +21,7 @@ import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.List;
 
 /**
@@ -82,10 +83,22 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
   )
   public boolean experimentalShorterHeaderPath;
 
+  @Option(
+      name = "incompatible_j2objc_library_migration",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If enabled, direct usage of the native j2objc_library rules is disabled. Please use the"
+              + " Starlark rule instead.")
+  public boolean j2objcLibraryMigration;
+
   @Override
   public FragmentOptions getExec() {
     J2ObjcCommandLineOptions exec = (J2ObjcCommandLineOptions) super.getExec();
     exec.translationFlags = this.translationFlags;
+    exec.j2objcLibraryMigration = j2objcLibraryMigration;
     return exec;
   }
 }

@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.android.AndroidAssetsTest.WithPlatforms;
 import com.google.devtools.build.lib.rules.android.AndroidAssetsTest.WithoutPlatforms;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -181,7 +182,7 @@ public abstract class AndroidAssetsTest extends ResourceTestBase {
 
   private MergedAndroidAssets assertMerge(
       RuleContext ruleContext, ParsedAndroidAssets parsed, AssetDependencies deps)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
     MergedAndroidAssets merged =
         MergedAndroidAssets.mergeFrom(AndroidDataContext.forNative(ruleContext), parsed, deps);
 

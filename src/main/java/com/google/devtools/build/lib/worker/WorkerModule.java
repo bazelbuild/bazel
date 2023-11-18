@@ -161,21 +161,19 @@ public class WorkerModule extends BlazeModule {
     if (workerPool == null) {
       workerPool = new WorkerPoolImpl(newConfig);
       // If workerPool is restarted then we should recreate metrics.
-      WorkerMetricsCollector.instance().clear();
+      WorkerProcessMetricsCollector.instance().clear();
     }
 
     // Start collecting after a pool is defined
     workerLifecycleManager = new WorkerLifecycleManager(workerPool, options);
-    if (options.workerVerbose) {
-      workerLifecycleManager.setReporter(env.getReporter());
-    }
+    workerLifecycleManager.setReporter(env.getReporter());
     workerLifecycleManager.setEventBus(env.getEventBus());
     workerLifecycleManager.setDaemon(true);
     workerLifecycleManager.start();
 
     workerPool.setEventBus(env.getEventBus());
-    // Clean doomed workers on the beginning of a build.
-    workerPool.clearDoomedWorkers();
+    // Reset the pool at the beginning of each build.
+    workerPool.reset();
   }
 
   @Override
@@ -193,11 +191,9 @@ public class WorkerModule extends BlazeModule {
             localEnvProvider,
             env.getBlazeWorkspace().getBinTools(),
             env.getLocalResourceManager(),
-            // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
-            RunfilesTreeUpdater.INSTANCE,
+            RunfilesTreeUpdater.forCommandEnvironment(env),
             env.getOptions().getOptions(WorkerOptions.class),
-            WorkerMetricsCollector.instance(),
-            env.getXattrProvider(),
+            WorkerProcessMetricsCollector.instance(),
             env.getClock());
     ExecutionOptions executionOptions =
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
@@ -219,6 +215,7 @@ public class WorkerModule extends BlazeModule {
       workerLifecycleManager.interrupt();
       workerLifecycleManager = null;
     }
+    WorkerProcessMetricsCollector.instance().clearKilledWorkerProcessMetrics();
   }
 
   /** Shuts down the worker pool and sets {#code workerPool} to null. */

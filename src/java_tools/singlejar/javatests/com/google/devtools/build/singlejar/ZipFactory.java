@@ -68,12 +68,6 @@ public class ZipFactory {
     return this;
   }
 
-  @CanIgnoreReturnValue
-  public ZipFactory addFile(String name, byte[] content, boolean compressed) {
-    addEntry(name, content.clone(), compressed);
-    return this;
-  }
-
   public byte[] toByteArray() {
     try {
       ByteArrayOutputStream out = new ByteArrayOutputStream();

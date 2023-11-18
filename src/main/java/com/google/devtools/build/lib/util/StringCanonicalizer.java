@@ -27,10 +27,8 @@ public final class StringCanonicalizer {
   private StringCanonicalizer() {
   }
 
-  /**
-   * Interns a String.
-   */
-  public static final String intern(String arg) {
+  /** Interns a String. */
+  public static String intern(String arg) {
     return interner.intern(arg);
   }
 }

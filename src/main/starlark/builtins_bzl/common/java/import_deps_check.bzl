@@ -16,8 +16,6 @@
 
 load(":common/java/java_semantics.bzl", "semantics")
 
-java_common = _builtins.toplevel.java_common
-
 def import_deps_check(
         ctx,
         jars_to_check,
@@ -38,7 +36,7 @@ def import_deps_check(
       (File) Output file of the created action.
     """
     java_toolchain = semantics.find_java_toolchain(ctx)
-    deps_checker = java_toolchain.deps_checker()
+    deps_checker = java_toolchain._deps_checker
     if deps_checker == None:
         return None
 
@@ -75,6 +73,7 @@ def import_deps_check(
         inputs = inputs,
         outputs = [jdeps_output],
         tools = tools,
+        toolchain = semantics.JAVA_TOOLCHAIN_TYPE,
     )
 
     return jdeps_output

@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.query2.common;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver.Mode;
@@ -28,6 +30,7 @@ import com.google.devtools.common.options.OptionsBase;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** Options shared between blaze query implementations. */
 public class CommonQueryOptions extends OptionsBase {
@@ -166,22 +169,26 @@ public class CommonQueryOptions extends OptionsBase {
     return settings;
   }
 
-  ///////////////////////////////////////////////////////////
-  // LOCATION OUTPUT FORMATTER OPTIONS                     //
-  ///////////////////////////////////////////////////////////
-
-  // TODO(tanzhengwei): Clean up in next major release
   @Option(
-      name = "incompatible_display_source_file_location",
-      defaultValue = "true",
+      name = "consistent_labels",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
-          "True by default, displays the target of the source file. "
-              + "If true, displays the location of line 1 of source files in location outputs. "
-              + "This flag only exists for migration purposes.")
-  public boolean displaySourceFileLocation;
+          "If enabled, every query command emits labels as if by the Starlark <code>str</code>"
+              + " function applied to a <code>Label</code> instance. This is useful for tools that"
+              + " need to match the output of different query commands and/or labels emitted by"
+              + " rules. If not enabled, output formatters are free to emit apparent repository"
+              + " names (relative to the main repository) instead to make the output more"
+              + " readable.")
+  public boolean emitConsistentLabels;
+
+  public LabelPrinter getLabelPrinter(
+      StarlarkSemantics starlarkSemantics, RepositoryMapping mainRepoMapping) {
+    return emitConsistentLabels
+        ? LabelPrinter.starlark(starlarkSemantics)
+        : LabelPrinter.displayForm(mainRepoMapping);
+  }
 
   ///////////////////////////////////////////////////////////
   // PROTO OUTPUT FORMATTER OPTIONS                        //
@@ -275,6 +282,16 @@ public class CommonQueryOptions extends OptionsBase {
           "Populate the definition_stack proto field, which records for each rule instance the "
               + "Starlark call stack at the moment the rule's class was defined.")
   public boolean protoIncludeDefinitionStack;
+
+  @Option(
+      name = "proto:include_attribute_source_aspects",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Populate the source_aspect_name proto field of each Attribute with the source aspect "
+              + "that the attribute came from (empty string if it did not).")
+  public boolean protoIncludeAttributeSourceAspects;
 
   /** An enum converter for {@code AspectResolver.Mode} . Should be used internally only. */
   public static class AspectResolutionModeConverter extends EnumConverter<Mode> {

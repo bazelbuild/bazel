@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import static com.google.devtools.build.lib.rules.cpp.CcModule.isBuiltIn;
-
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -26,12 +24,12 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
-import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CppConfigurationApi;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -39,7 +37,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
@@ -54,6 +51,8 @@ import net.starlark.java.eval.StarlarkValue;
 @RequiresOptions(options = {AppleCommandLineOptions.class, CppOptions.class})
 public final class CppConfiguration extends Fragment
     implements CppConfigurationApi<InvalidConfigurationException> {
+  private static final String BAZEL_TOOLS_REPO = "@bazel_tools";
+
   /**
    * String indicating a Mac system, for example when used in a crosstool configuration's exec or
    * target system name.
@@ -62,13 +61,6 @@ public final class CppConfiguration extends Fragment
 
   /** String constant for CC_FLAGS make variable name */
   public static final String CC_FLAGS_MAKE_VARIABLE_NAME = "CC_FLAGS";
-
-  /**
-   * Packages that can use the extended parameters in CppConfiguration See javadoc for {@link
-   * com.google.devtools.build.lib.rules.cpp.CcModule}
-   */
-  public static final ImmutableList<String> EXPANDED_CC_CONFIGURATION_API_ALLOWLIST =
-      ImmutableList.of();
 
   /** An enumeration of all the tools that comprise a toolchain. */
   public enum Tool {
@@ -289,9 +281,7 @@ public final class CppConfiguration extends Fragment
     this.compilationMode = compilationMode;
     this.collectCodeCoverage = commonOptions.collectCodeCoverage;
     this.isToolConfigurationDoNotUseWillBeRemovedFor129045294 = commonOptions.isExec;
-    this.appleGenerateDsym =
-        (cppOptions.appleGenerateDsym
-            || (cppOptions.appleEnableAutoDsymDbg && compilationMode == CompilationMode.DBG));
+    this.appleGenerateDsym = cppOptions.appleGenerateDsym;
   }
 
   /** Returns the label of the <code>cc_compiler</code> rule for the C++ configuration. */
@@ -310,6 +300,18 @@ public final class CppConfiguration extends Fragment
     } else {
       return cppOptions.crosstoolTop;
     }
+  }
+
+  @Nullable
+  @StarlarkConfigurationField(name = "zipper", doc = "The zipper label for FDO.")
+  public Label getFdoZipper() {
+    if (getFdoOptimizeLabel() != null
+        || getFdoProfileLabel() != null
+        || getFdoPath() != null
+        || getMemProfProfileLabel() != null) {
+      return Label.parseCanonicalUnchecked(BAZEL_TOOLS_REPO + "//tools/zip:unzip_fdo");
+    }
+    return null;
   }
 
   /** Returns the configured current compilation mode. */
@@ -470,10 +472,6 @@ public final class CppConfiguration extends Fragment
     return cppOptions.experimentalLinkStaticLibrariesOnce;
   }
 
-  public boolean experimentalCcSharedLibraryDebug() {
-    return cppOptions.experimentalCcSharedLibraryDebug;
-  }
-
   public boolean experimentalPlatformCcTest() {
     return cppOptions.experimentalPlatformCcTest;
   }
@@ -585,14 +583,12 @@ public final class CppConfiguration extends Fragment
   }
 
   @Override
-  public String getOutputDirectoryName() {
-    // Add a tag that will be replaced with the CPU identifier.
-    String result = "{CPU}";
+  public void processForOutputPathMnemonic(OutputDirectoriesContext ctx)
+      throws Fragment.OutputDirectoriesContext.AddToMnemonicException {
+    ctx.markAsExplicitInOutputPathFor("cc_output_directory_tag");
     if (!cppOptions.outputDirectoryTag.isEmpty()) {
-      result += "-" + cppOptions.outputDirectoryTag;
+      ctx.addToMnemonic(cppOptions.outputDirectoryTag);
     }
-
-    return result;
   }
 
   /** Returns true if we should share identical native libraries between different targets. */
@@ -613,7 +609,8 @@ public final class CppConfiguration extends Fragment
     return fdoPath;
   }
 
-  Label getFdoOptimizeLabel() {
+  @StarlarkConfigurationField(name = "fdo_optimize", doc = "The label specified in --fdo_optimize")
+  public Label getFdoOptimizeLabel() {
     return fdoOptimizeLabel;
   }
 
@@ -634,20 +631,30 @@ public final class CppConfiguration extends Fragment
   }
 
   @Nullable
-  Label getFdoPrefetchHintsLabel() {
+  @StarlarkConfigurationField(
+      name = "fdo_prefetch_hints",
+      doc = "The label specified in --fdo_prefetch_hints")
+  public Label getFdoPrefetchHintsLabel() {
     return cppOptions.getFdoPrefetchHintsLabel();
   }
 
-  Label getFdoProfileLabel() {
+  @StarlarkConfigurationField(name = "fdo_profile", doc = "The label specified in --fdo_profile")
+  public Label getFdoProfileLabel() {
     return cppOptions.fdoProfileLabel;
   }
 
+  @StarlarkConfigurationField(
+      name = "cs_fdo_profile",
+      doc = "The label specified in --cs_fdo_profile")
   public Label getCSFdoProfileLabel() {
     return cppOptions.csFdoProfileLabel;
   }
 
   @Nullable
-  Label getPropellerOptimizeLabel() {
+  @StarlarkConfigurationField(
+      name = "propeller_optimize",
+      doc = "The label specified in --propeller_optimize")
+  public Label getPropellerOptimizeLabel() {
     if (cppOptions.fdoInstrumentForBuild != null || cppOptions.csFdoInstrumentForBuild != null) {
       return null;
     }
@@ -655,7 +662,8 @@ public final class CppConfiguration extends Fragment
   }
 
   @Nullable
-  Label getXFdoProfileLabel() {
+  @StarlarkConfigurationField(name = "xbinary_fdo", doc = "The label specified in --xbinary_fdo")
+  public Label getXFdoProfileLabel() {
     if (cppOptions.fdoOptimizeForBuild != null
         || cppOptions.fdoInstrumentForBuild != null
         || cppOptions.fdoProfileLabel != null
@@ -666,16 +674,20 @@ public final class CppConfiguration extends Fragment
     return cppOptions.xfdoProfileLabel;
   }
 
+  @Nullable
+  @StarlarkConfigurationField(
+      name = "memprof_profile",
+      doc = "The memprof profile label for cc_toolchain rule")
+  public Label getMemProfProfileLabel() {
+    return cppOptions.getMemProfProfileLabel();
+  }
+
   public boolean isFdoAbsolutePathEnabled() {
     return cppOptions.enableFdoProfileAbsolutePath;
   }
 
   public boolean useLLVMCoverageMapFormat() {
     return cppOptions.useLLVMCoverageMapFormat;
-  }
-
-  public boolean removeCpuCompilerCcToolchainAttributes() {
-    return cppOptions.removeCpuCompilerCcToolchainAttributes;
   }
 
   @Nullable
@@ -689,6 +701,7 @@ public final class CppConfiguration extends Fragment
   /**
    * Returns the value of the libc top-level directory (--grte_top) as specified on the command line
    */
+  @StarlarkConfigurationField(name = "libc_top", doc = "The libc_top label for cc_toolchain.")
   public Label getLibcTopLabel() {
     return cppOptions.libcTopLabel;
   }
@@ -709,6 +722,9 @@ public final class CppConfiguration extends Fragment
    * Returns the value of the libc top-level directory (--grte_top) as specified on the command line
    */
   @Nullable
+  @StarlarkConfigurationField(
+      name = "target_libc_top_DO_NOT_USE_ONLY_FOR_CC_TOOLCHAIN",
+      doc = "DO NOT USE")
   public Label getTargetLibcTopLabel() {
     if (!isToolConfigurationDoNotUseWillBeRemovedFor129045294) {
       // This isn't for a platform-enabled C++ toolchain (legacy C++ toolchains evaluate in the
@@ -737,6 +753,16 @@ public final class CppConfiguration extends Fragment
     return collectCodeCoverage;
   }
 
+  @StarlarkMethod(
+      name = "enable_cc_toolchain_resolution",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean enableCcToolchainResolutionForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return enableCcToolchainResolution();
+  }
+
   public boolean enableCcToolchainResolution() {
     return cppOptions.enableCcToolchainResolution;
   }
@@ -763,10 +789,6 @@ public final class CppConfiguration extends Fragment
     return disableNoCopts();
   }
 
-  public boolean loadCcRulesFromBzl() {
-    return cppOptions.loadCcRulesFromBzl;
-  }
-
   public boolean validateTopLevelHeaderInclusions() {
     return cppOptions.validateTopLevelHeaderInclusions;
   }
@@ -778,14 +800,6 @@ public final class CppConfiguration extends Fragment
 
   public boolean experimentalStarlarkCcImport() {
     return cppOptions.experimentalStarlarkCcImport;
-  }
-
-  public boolean useSchedulingMiddlemen() {
-    return cppOptions.useSchedulingMiddlemen;
-  }
-
-  public boolean strictHeaderCheckingFromStarlark() {
-    return cppOptions.forceStrictHeaderCheckFromStarlark;
   }
 
   public boolean useCppCompileHeaderMnemonic() {
@@ -842,13 +856,10 @@ public final class CppConfiguration extends Fragment
 
   private static void checkInExpandedApiAllowlist(StarlarkThread thread, String feature)
       throws EvalException {
-    String rulePackage =
-        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
-            .label()
-            .getPackageName();
-    if (!isBuiltIn(thread) && !EXPANDED_CC_CONFIGURATION_API_ALLOWLIST.contains(rulePackage)) {
-      throw Starlark.errorf(
-          "Rule in '%s' cannot use '%s' in CppConfiguration", rulePackage, feature);
+    try {
+      BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    } catch (EvalException e) {
+      throw Starlark.errorf("%s (feature '%s' in CppConfiguration)", e.getMessage(), feature);
     }
   }
 
@@ -895,12 +906,6 @@ public final class CppConfiguration extends Fragment
       throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return experimentalLinkStaticLibrariesOnce();
-  }
-
-  @Override
-  public boolean getExperimentalCcSharedLibraryDebug(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return experimentalCcSharedLibraryDebug();
   }
 
   @Override

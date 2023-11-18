@@ -110,14 +110,13 @@ public class PackageOptions extends OptionsBase {
   public List<PackageIdentifier> deletedPackages;
 
   @Option(
-    name = "default_visibility",
-    defaultValue = "private",
-    converter = DefaultVisibilityConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Default visibility for packages that don't set it explicitly ('public' or " + "'private')."
-  )
+      name = "default_visibility",
+      defaultValue = "private",
+      converter = DefaultVisibilityConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Default visibility for packages that don't set it explicitly ('public' or 'private').")
   public RuleVisibility defaultVisibility;
 
   @Option(

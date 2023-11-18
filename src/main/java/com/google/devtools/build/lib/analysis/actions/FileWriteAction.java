@@ -14,23 +14,26 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.OnDemandString;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import javax.annotation.Nullable;
@@ -43,62 +46,46 @@ import javax.annotation.Nullable;
  * Strings within the build language use this unusual representation. FileWriteAction writes those
  * Strings out again as Latin1.
  *
+ * <p>The contents may be lazily computed or compressed. If the object representing the contents is
+ * a {@code String}, its length is greater than {@code COMPRESS_CHARS_THRESHOLD}, and compression is
+ * enabled, then the gzipped bytestream of the contents will be stored in place of the string
+ * itself. This compression is transparent and does not affect the output file.
+ *
+ * <p>Otherwise, if the object represents a lazy computation, it will not be forced until {@link
+ * #getFileContents} is called. An example where this may come in handy is if the contents are the
+ * concatenation of the string representations of a series of artifacts. Then the client code can
+ * wrap a {@code List<Artifact>} in a {@link com.google.devtools.build.lib.util.OnDemandString},
+ * which saves memory since the artifacts are shared objects whereas a string is not.
+ *
  * <p>TODO(b/146554973): Change this implementation when that is addressed.
  *
  * <p>TODO(bazel-team): Choose a better name to distinguish this class from {@link
  * BinaryFileWriteAction}.
  */
 @Immutable // if fileContents is immutable
-public final class FileWriteAction extends AbstractFileWriteAction {
-
-  private static final String GUID = "332877c7-ca9f-4731-b387-54f620408522";
-
-  /**
-   * The contents may be lazily computed or compressed.
-   *
-   * <p>If the object representing the contents is a {@code String}, its length is greater than
-   * {@code COMPRESS_CHARS_THRESHOLD}, and compression is enabled, then the gzipped bytestream of
-   * the contents will be stored in place of the string itself. This compression is transparent and
-   * does not affect the output file.
-   *
-   * <p>Otherwise, if the object represents a lazy computation, it will not be forced until {@link
-   * #getFileContents()} is called. An example where this may come in handy is if the contents are
-   * the concatenation of the string representations of a series of artifacts. Then the client code
-   * can wrap a {@code List<Artifact>} in a {@code LazyString}, which saves memory since the
-   * artifacts are shared objects whereas a string is not.
-   */
-  private final CharSequence fileContents;
+public abstract class FileWriteAction extends AbstractFileWriteAction
+    implements AbstractFileWriteAction.FileContentsProvider {
 
   /** Minimum length (in chars) for content to be eligible for compression. */
   private static final int COMPRESS_CHARS_THRESHOLD = 256;
 
-  private FileWriteAction(
-      ActionOwner owner,
-      NestedSet<Artifact> inputs,
-      Artifact output,
-      CharSequence fileContents,
-      boolean makeExecutable,
-      Compression allowCompression) {
-    this(
-        owner,
-        inputs,
-        output,
-        allowCompression == Compression.ALLOW
-                && fileContents instanceof String
-                && fileContents.length() > COMPRESS_CHARS_THRESHOLD
-            ? new CompressedString((String) fileContents)
-            : fileContents,
-        makeExecutable);
-  }
-
-  private FileWriteAction(
-      ActionOwner owner,
-      NestedSet<Artifact> inputs,
-      Artifact primaryOutput,
-      CharSequence fileContents,
-      boolean makeExecutable) {
-    super(owner, inputs, primaryOutput, makeExecutable);
-    this.fileContents = fileContents;
+  /**
+   * Creates a FileWriteAction to write contents to the resulting artifact fileName in the genfiles
+   * root underneath the package path.
+   *
+   * @param ruleContext the ruleContext that will own the action of creating this file
+   * @param fileName name of the file to create
+   * @param contents data to write to file
+   * @param executable flags that file should be marked executable
+   * @return Artifact describing the file to create
+   */
+  public static Artifact createFile(
+      RuleContext ruleContext, String fileName, CharSequence contents, boolean executable) {
+    Artifact scriptFileArtifact =
+        ruleContext.getPackageRelativeArtifact(fileName, ruleContext.getGenfilesDirectory());
+    ruleContext.registerAction(
+        FileWriteAction.create(ruleContext, scriptFileArtifact, contents, executable));
+    return scriptFileArtifact;
   }
 
   /**
@@ -113,7 +100,7 @@ public final class FileWriteAction extends AbstractFileWriteAction {
    */
   public static FileWriteAction createEmptyWithInputs(
       ActionOwner owner, NestedSet<Artifact> inputs, Artifact output) {
-    return new FileWriteAction(owner, inputs, output, "", false, Compression.DISALLOW);
+    return createInternal(owner, inputs, output, "", false, Compression.DISALLOW);
   }
 
   /**
@@ -132,7 +119,7 @@ public final class FileWriteAction extends AbstractFileWriteAction {
       CharSequence fileContents,
       boolean makeExecutable,
       Compression allowCompression) {
-    return new FileWriteAction(
+    return createInternal(
         owner,
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         output,
@@ -157,53 +144,37 @@ public final class FileWriteAction extends AbstractFileWriteAction {
       Artifact output,
       CharSequence fileContents,
       boolean makeExecutable) {
-    return new FileWriteAction(
-        context.getActionOwner(),
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        output,
-        fileContents,
-        makeExecutable,
-        Compression.ALLOW);
+    return create(
+        context.getActionOwner(), output, fileContents, makeExecutable, Compression.ALLOW);
   }
 
-  private static final class CompressedString extends OnDemandString {
-    final byte[] bytes;
-    final int uncompressedSize;
-
-    CompressedString(String chars) {
-      byte[] dataToCompress = chars.getBytes(ISO_8859_1);
-      ByteArrayOutputStream byteStream = new ByteArrayOutputStream(dataToCompress.length);
-      try (GZIPOutputStream zipStream = new GZIPOutputStream(byteStream)) {
-        zipStream.write(dataToCompress);
-      } catch (IOException e) {
-        // This should be impossible since we're writing to a byte array.
-        throw new RuntimeException(e);
-      }
-      this.uncompressedSize = dataToCompress.length;
-      this.bytes = byteStream.toByteArray();
+  private static FileWriteAction createInternal(
+      ActionOwner owner,
+      NestedSet<Artifact> inputs,
+      Artifact output,
+      CharSequence fileContents,
+      boolean makeExecutable,
+      Compression allowCompression) {
+    if (allowCompression == Compression.ALLOW
+        && fileContents instanceof String
+        && fileContents.length() > COMPRESS_CHARS_THRESHOLD) {
+      return new CompressedFileWriteAction(
+          owner, inputs, output, makeExecutable, (String) fileContents);
     }
+    return new RegularFileWriteAction(owner, inputs, output, makeExecutable, fileContents);
+  }
 
-    @Override
-    public String toString() {
-      byte[] uncompressedBytes = new byte[uncompressedSize];
-      try (GZIPInputStream zipStream = new GZIPInputStream(new ByteArrayInputStream(bytes))) {
-        int read;
-        int totalRead = 0;
-        while (totalRead < uncompressedSize
-            && (read = zipStream.read(uncompressedBytes, totalRead, uncompressedSize - totalRead))
-                != -1) {
-          totalRead += read;
-        }
-        if (totalRead != uncompressedSize) {
-          // This should be impossible.
-          throw new RuntimeException("Corrupt byte buffer in FileWriteAction.");
-        }
-      } catch (IOException e) {
-        // This should be impossible since we're reading from a byte array.
-        throw new RuntimeException(e);
-      }
-      return new String(uncompressedBytes, ISO_8859_1);
-    }
+  private FileWriteAction(
+      ActionOwner owner,
+      NestedSet<Artifact> inputs,
+      Artifact primaryOutput,
+      boolean makeExecutable) {
+    super(owner, inputs, primaryOutput, makeExecutable);
+  }
+
+  @Override
+  public final String getFileContents(@Nullable EventHandler eventHandler) {
+    return getFileContents();
   }
 
   /**
@@ -217,56 +188,123 @@ public final class FileWriteAction extends AbstractFileWriteAction {
    * chars internally. To reverse this process, you must encode this string as Latin1, giving you
    * back the correct UTF-8 encoding of the original input.
    */
-  public String getFileContents() {
-    return fileContents.toString();
-  }
+  public abstract String getFileContents();
 
   @Override
-  public String getStarlarkContent() {
+  public final String getStarlarkContent() {
     return getFileContents();
   }
 
-  /**
-   * Create a DeterministicWriter for the content of the output file as provided by
-   * {@link #getFileContents()}.
-   */
-  @Override
-  public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
-    return new DeterministicWriter() {
-      @Override
-      public void writeOutputFile(OutputStream out) throws IOException {
-        out.write(getFileContents().getBytes(ISO_8859_1));
+  private static final class RegularFileWriteAction extends FileWriteAction {
+    private static final String GUID = "332877c7-ca9f-4731-b387-54f620408522";
+
+    private final CharSequence fileContents;
+
+    RegularFileWriteAction(
+        ActionOwner owner,
+        NestedSet<Artifact> inputs,
+        Artifact primaryOutput,
+        boolean makeExecutable,
+        CharSequence fileContents) {
+      super(owner, inputs, primaryOutput, makeExecutable);
+      this.fileContents = fileContents;
+    }
+
+    @Override
+    public String getFileContents() {
+      return fileContents.toString();
+    }
+
+    @Override
+    public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
+      return out -> out.write(getFileContents().getBytes(ISO_8859_1));
+    }
+
+    @Override
+    protected void computeKey(
+        ActionKeyContext actionKeyContext,
+        @Nullable ArtifactExpander artifactExpander,
+        Fingerprint fp) {
+      fp.addString(GUID).addBoolean(makeExecutable).addString(getFileContents());
+    }
+  }
+
+  private static final class CompressedFileWriteAction extends FileWriteAction {
+    private static final String GUID = "5bfba914-2251-11ee-be56-0242ac120002";
+
+    private final byte[] compressedBytes;
+    private final int uncompressedSize;
+    private final byte coder;
+
+    CompressedFileWriteAction(
+        ActionOwner owner,
+        NestedSet<Artifact> inputs,
+        Artifact primaryOutput,
+        boolean makeExecutable,
+        String fileContents) {
+      super(owner, inputs, primaryOutput, makeExecutable);
+
+      // Grab the string's internal byte array. Calling getBytes() makes a copy, which can cause
+      // memory spikes resulting in OOMs (b/290807073). Do not mutate this!
+      byte[] dataToCompress = StringUnsafe.getInstance().getByteArray(fileContents);
+
+      // Empirically, compressed sizes range from roughly 1/100 to 3/4 of the uncompressed size.
+      // Presize on the small end to avoid over-allocating memory.
+      ByteArrayOutputStream byteStream = new ByteArrayOutputStream(dataToCompress.length / 100);
+
+      try (GZIPOutputStream zipStream = new GZIPOutputStream(byteStream)) {
+        zipStream.write(dataToCompress);
+      } catch (IOException e) {
+        // This should be impossible since we're writing to a byte array.
+        throw new IllegalStateException(e);
       }
-    };
-  }
 
-  /** Computes the Action key for this action by computing the fingerprint for the file contents. */
-  @Override
-  protected void computeKey(
-      ActionKeyContext actionKeyContext,
-      @Nullable Artifact.ArtifactExpander artifactExpander,
-      Fingerprint fp) {
-    fp.addString(GUID);
-    fp.addString(String.valueOf(makeExecutable));
-    fp.addString(getFileContents());
-  }
+      this.compressedBytes = byteStream.toByteArray();
+      this.uncompressedSize = dataToCompress.length;
+      this.coder = StringUnsafe.getInstance().getCoder(fileContents);
+    }
 
-  /**
-   * Creates a FileWriteAction to write contents to the resulting artifact fileName in the genfiles
-   * root underneath the package path.
-   *
-   * @param ruleContext the ruleContext that will own the action of creating this file
-   * @param fileName name of the file to create
-   * @param contents data to write to file
-   * @param executable flags that file should be marked executable
-   * @return Artifact describing the file to create
-   */
-  public static Artifact createFile(
-      RuleContext ruleContext, String fileName, CharSequence contents, boolean executable) {
-    Artifact scriptFileArtifact =
-        ruleContext.getPackageRelativeArtifact(fileName, ruleContext.getGenfilesDirectory());
-    ruleContext.registerAction(
-        FileWriteAction.create(ruleContext, scriptFileArtifact, contents, executable));
-    return scriptFileArtifact;
+    @Override
+    public String getFileContents() {
+      byte[] uncompressedBytes = new byte[uncompressedSize];
+      try (GZIPInputStream zipStream =
+          new GZIPInputStream(new ByteArrayInputStream(compressedBytes))) {
+        int read;
+        int totalRead = 0;
+        while (totalRead < uncompressedSize
+            && (read = zipStream.read(uncompressedBytes, totalRead, uncompressedSize - totalRead))
+                != -1) {
+          totalRead += read;
+        }
+        checkState(totalRead == uncompressedSize, "Corrupt byte buffer in FileWriteAction");
+      } catch (IOException e) {
+        // This should be impossible since we're reading from a byte array.
+        throw new IllegalStateException(e);
+      }
+
+      try {
+        return StringUnsafe.getInstance().newInstance(uncompressedBytes, coder);
+      } catch (ReflectiveOperationException e) {
+        throw new IllegalStateException(e);
+      }
+    }
+
+    @Override
+    public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
+      return out -> {
+        try (GZIPInputStream gzipIn =
+            new GZIPInputStream(new ByteArrayInputStream(compressedBytes))) {
+          ByteStreams.copy(gzipIn, out);
+        }
+      };
+    }
+
+    @Override
+    protected void computeKey(
+        ActionKeyContext actionKeyContext,
+        @Nullable ArtifactExpander artifactExpander,
+        Fingerprint fp) {
+      fp.addString(GUID).addBoolean(makeExecutable).addBytes(compressedBytes);
+    }
   }
 }

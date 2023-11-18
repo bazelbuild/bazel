@@ -1,5 +1,5 @@
+load("//:workspace_deps.bzl", "gen_workspace_stanza")
 load("@rules_java//java:defs.bzl", "java_library")
-load("//:distdir_deps.bzl", "gen_workspace_stanza")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -28,9 +28,9 @@ java_library(
         ],
     ) + [
         ":jdk.WORKSPACE",
+        ":rules_java_builtin.WORKSPACE",
     ],
     deps = [
-        ":bazel_java_semantics",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:build_info",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/execution_transition_factory",
@@ -40,11 +40,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-rules",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -60,19 +60,15 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/template",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/template_expansion_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_collection",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
-        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util:shell_escaper",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -80,7 +76,7 @@ java_library(
 )
 
 gen_workspace_stanza(
-    name = "workspace_with_rules_java",
+    name = "workspace_with_java_toolchains",
     out = "jdk.WORKSPACE",
     repo_clause = """
     name = "{repo}",
@@ -89,27 +85,11 @@ gen_workspace_stanza(
     urls = {urls},
     """,
     repos = [
-        "remote_java_tools",
-        "remote_java_tools_linux",
-        "remote_java_tools_windows",
-        "remote_java_tools_darwin_x86_64",
-        "remote_java_tools_darwin_arm64",
+        "bazel_skylib",
         "rules_cc",
         "rules_java",
         "rules_proto",
         "rules_python",
-        "remotejdk11_linux",
-        "remotejdk11_linux_aarch64",
-        "remotejdk11_linux_ppc64le",
-        "remotejdk11_linux_s390x",
-        "remotejdk11_macos",
-        "remotejdk11_macos_aarch64",
-        "remotejdk11_win",
-        "remotejdk11_win_arm64",
-    ] + [
-        "remotejdk%s_%s" % (version, os)
-        for version in ("17", "20")
-        for os in ("macos", "macos_aarch64", "linux", "linux_aarch64", "win") + (("linux_s390x", "win_arm64") if version != "20" else ())
     ],
     template = "jdk.WORKSPACE.tmpl",
     visibility = ["//:__pkg__"],

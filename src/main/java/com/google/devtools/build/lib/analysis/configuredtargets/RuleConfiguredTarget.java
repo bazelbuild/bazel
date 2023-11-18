@@ -13,13 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.configuredtargets;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -42,12 +46,9 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.ActionApi;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -62,7 +63,6 @@ import net.starlark.java.eval.StarlarkSemantics;
  * is an instance of this class for every analyzed rule. For more information about how analysis
  * works, see {@link com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory}.
  */
-@AutoCodec(checkClassExplicitlyAllowed = true)
 @Immutable
 public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
 
@@ -80,32 +80,32 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   private final TransitiveInfoProviderMap providers;
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
   private final String ruleClassString;
-  private final ImmutableList<ActionAnalysisMetadata> actions;
-  // TODO(b/133160730): can we only populate this map for outputs that have labels?
-  private final ImmutableMap<Label, Artifact> artifactsByOutputLabel;
 
-  @Instantiator
-  @VisibleForSerialization
-  RuleConfiguredTarget(
-      Label label,
-      BuildConfigurationKey configurationKey,
+  /**
+   * Operations accessing actions, for example, executing them should be performed in the same Bazel
+   * instance that constructs the {@code RuleConfiguredTarget} instance and not on a Bazel instance
+   * that retrieves it remotely using deserialization.
+   */
+  @Nullable // Null if deserialized.
+  private final transient ImmutableList<ActionAnalysisMetadata> actions;
+
+  private RuleConfiguredTarget(
+      ActionLookupKey actionLookupKey,
       NestedSet<PackageGroupContents> visibility,
       TransitiveInfoProviderMap providers,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       ImmutableSet<ConfiguredTargetKey> implicitDeps,
       String ruleClassString,
-      ImmutableList<ActionAnalysisMetadata> actions,
-      ImmutableMap<Label, Artifact> artifactsByOutputLabel) {
-    super(label, configurationKey, visibility);
-    this.artifactsByOutputLabel = artifactsByOutputLabel;
+      ImmutableList<ActionAnalysisMetadata> actions) {
+    super(actionLookupKey, visibility);
 
     // We don't use ImmutableMap.Builder here to allow augmenting the initial list of 'default'
     // providers by passing them in.
     TransitiveInfoProviderMapBuilder providerBuilder =
         new TransitiveInfoProviderMapBuilder().addAll(providers);
-    Preconditions.checkState(providerBuilder.contains(RunfilesProvider.class), label);
-    Preconditions.checkState(providerBuilder.contains(FileProvider.class), label);
-    Preconditions.checkState(providerBuilder.contains(FilesToRunProvider.class), label);
+    checkState(providerBuilder.contains(RunfilesProvider.class), actionLookupKey);
+    checkState(providerBuilder.contains(FileProvider.class), actionLookupKey);
+    checkState(providerBuilder.contains(FilesToRunProvider.class), actionLookupKey);
 
     // Initialize every StarlarkApiProvider
     for (int i = 0; i < providers.getProviderCount(); i++) {
@@ -125,18 +125,15 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   public RuleConfiguredTarget(
       RuleContext ruleContext,
       TransitiveInfoProviderMap providers,
-      ImmutableList<ActionAnalysisMetadata> actions,
-      ImmutableMap<Label, Artifact> artifactsByOutputLabel) {
+      ImmutableList<ActionAnalysisMetadata> actions) {
     this(
-        ruleContext.getLabel(),
-        ruleContext.getConfigurationKey(),
+        ruleContext.getOwner(),
         ruleContext.getVisibility(),
         providers,
         ruleContext.getConfigConditions(),
         Util.findImplicitDeps(ruleContext),
         ruleContext.getRule().getRuleClass(),
-        actions,
-        artifactsByOutputLabel);
+        actions);
 
     // If this rule is the run_under target, then check that we have an executable; note that
     // run_under is only set in the target configuration, and the target must also be analyzed for
@@ -159,24 +156,20 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
 
   /** Use this constructor for creating incompatible ConfiguredTarget instances. */
   public RuleConfiguredTarget(
-      Label label,
-      BuildConfigurationKey configurationKey,
+      ActionLookupKey actionLookupKey,
       NestedSet<PackageGroupContents> visibility,
       TransitiveInfoProviderMap providers,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       String ruleClassString) {
     this(
-        label,
-        configurationKey,
+        actionLookupKey,
         visibility,
         providers,
         configConditions,
-        ImmutableSet.<ConfiguredTargetKey>of(),
+        ImmutableSet.of(),
         ruleClassString,
-        ImmutableList.<ActionAnalysisMetadata>of(),
-        ImmutableMap.<Label, Artifact>of());
-
-    Preconditions.checkState(providers.get(IncompatiblePlatformProvider.PROVIDER) != null, label);
+        ImmutableList.of());
+    checkState(providers.get(IncompatiblePlatformProvider.PROVIDER) != null, actionLookupKey);
   }
 
   /** The configuration conditions that trigger this rule's configurable attributes. */
@@ -218,8 +211,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   @Override
   public String getErrorMessageForUnknownField(String name) {
     return String.format(
-        "%s (rule '%s') doesn't have provider '%s'",
-        Starlark.repr(this), getRuleClassString(), name);
+        "%s (rule '%s') doesn't have provider '%s'", Starlark.repr(this), ruleClassString, name);
   }
 
   @Override
@@ -275,25 +267,32 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
 
   /** Returns a list of actions that this configured target generated. */
   public ImmutableList<ActionAnalysisMetadata> getActions() {
-    return actions;
+    return checkNotNull(actions, "actions are not available on deserialized instances");
   }
 
   /**
-   * Provides an artifact by its corresponding output label, for use by output file configured
-   * targets.
+   * Finds an artifact (known to be produced by this rule) by its corresponding output label, for
+   * use when creating an {@link OutputFileConfiguredTarget}.
    */
-  public Artifact getArtifactByOutputLabel(Label outputLabel) {
-    return Preconditions.checkNotNull(
-        artifactsByOutputLabel.get(outputLabel),
-        "%s %s %s %s",
+  public Artifact findArtifactByOutputLabel(Label outputLabel) {
+    checkArgument(
+        outputLabel.getPackageIdentifier().equals(getLabel().getPackageIdentifier()),
+        "%s not in same package as %s",
         outputLabel,
-        this,
-        this.artifactsByOutputLabel,
-        this.actions);
+        this);
+    PathFragment relativeOutputPath = outputLabel.toPathFragment();
+    for (ActionAnalysisMetadata action : actions) {
+      for (Artifact output : action.getOutputs()) {
+        if (output.getExecPath().endsWith(relativeOutputPath)) {
+          return output;
+        }
+      }
+    }
+    throw new IllegalArgumentException("No output matching " + outputLabel + " in " + this);
   }
 
   @Override
-  public Dict<String, Object> getProvidersDict() {
-    return ConfiguredTargetsUtil.getProvidersDict(this, providers);
+  public Dict<String, Object> getProvidersDictForQuery() {
+    return toProvidersDictForQuery(providers);
   }
 }

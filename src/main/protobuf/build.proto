@@ -217,6 +217,10 @@ message Attribute {
   // isn't a dependency of this attribute's rule.
   optional bool nodep = 20;
 
+  // Represents the aspect that this attribute comes from. It is set to an
+  // empty string if it does not come from an aspect.
+  optional string source_aspect_name = 23;
+
   // The type of attribute.  This message is used for all of the different
   // attribute types so the discriminator helps for figuring out what is
   // stored in the message.

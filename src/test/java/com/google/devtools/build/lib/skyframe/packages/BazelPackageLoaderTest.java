@@ -55,6 +55,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
 
   private Path installBase;
   private Path outputBase;
+  private Path rulesJavaWorkspace;
 
   @Before
   public void setUp() throws Exception {
@@ -67,6 +68,17 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
 
     mockEmbeddedTools(embeddedBinaries);
     fetchExternalRepo(RepositoryName.create("bazel_tools"));
+
+    createWorkspaceFile("");
+  }
+
+  private String getDefaultWorkspaceContent() {
+    // Skip the WORKSPACE suffix to avoid loading rules_java
+    return "# __SKIP_WORKSPACE_SUFFIX__";
+  }
+
+  private void createWorkspaceFile(String content) throws Exception {
+    file("WORKSPACE", getDefaultWorkspaceContent(), content);
   }
 
   private static void mockEmbeddedTools(Path embeddedBinaries) throws IOException {
@@ -144,7 +156,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
 
   @Test
   public void simpleLocalRepositoryPackage() throws Exception {
-    file("WORKSPACE", "local_repository(name = 'r', path='r')");
+    createWorkspaceFile("local_repository(name = 'r', path='r')");
     file("r/WORKSPACE", "workspace(name = 'r')");
     file("r/good/BUILD", "sh_library(name = 'good')");
     RepositoryName rRepoName = RepositoryName.create("r");
@@ -163,8 +175,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
 
   @Test
   public void newLocalRepository() throws Exception {
-    file(
-        "WORKSPACE",
+    createWorkspaceFile(
         "new_local_repository(name = 'r', path = '/r', "
             + "build_file_content = 'sh_library(name = \"good\")')");
     fs.getPath("/r").createDirectoryAndParents();

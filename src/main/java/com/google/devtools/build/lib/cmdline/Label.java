@@ -19,7 +19,6 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Interner;
 import com.google.common.util.concurrent.Striped;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.CommandLineItem;
@@ -34,7 +33,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.UsePooledLabelInterningFlag;
 import java.util.Arrays;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -43,7 +41,6 @@ import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -58,7 +55,14 @@ import net.starlark.java.eval.StarlarkValue;
  *
  * <p>Parsing is robust against bad input, for example, from the command line.
  */
-@StarlarkBuiltin(name = "Label", category = DocCategory.BUILTIN, doc = "A BUILD target identifier.")
+@StarlarkBuiltin(
+    name = "Label",
+    category = DocCategory.BUILTIN,
+    doc =
+        "A BUILD target identifier."
+            + "<p>For every <code>Label</code> instance <code>l</code>, the string representation"
+            + " <code>str(l)</code> has the property that <code>Label(str(l)) == l</code>,"
+            + " regardless of where the <code>Label()</code> call occurs.")
 @AutoCodec
 @Immutable
 @ThreadSafe
@@ -86,16 +90,10 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   public static final SkyFunctionName TRANSITIVE_TRAVERSAL =
       SkyFunctionName.createHermetic("TRANSITIVE_TRAVERSAL");
 
-  @Nullable
-  private static final LabelInterner pooledInterner =
-      UsePooledLabelInterningFlag.usePooledLabelInterningFlag() ? new LabelInterner() : null;
+  private static final LabelInterner interner = new LabelInterner();
 
-  private static final Interner<Label> interner =
-      pooledInterner != null ? pooledInterner : BlazeInterners.newWeakInterner();
-
-  @Nullable
   public static LabelInterner getLabelInterner() {
-    return pooledInterner;
+    return interner;
   }
 
   /** The context of a current repo, necessary to parse a repo-relative label ("//foo:bar"). */
@@ -414,8 +412,6 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    *
    * <p>Unlike {@link #getDisplayForm}, this method elides the name part of the label if possible.
    *
-   * <p>Unlike {@link #toShorthandString}, this method respects {@link RepositoryMapping}.
-   *
    * @param mainRepositoryMapping the {@link RepositoryMapping} of the main repository
    */
   public String getShorthandDisplayForm(RepositoryMapping mainRepositoryMapping) {
@@ -443,27 +439,6 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   public String getWorkspaceName() throws EvalException {
     checkRepoVisibilityForStarlark("workspace_name");
     return packageIdentifier.getRepository().getName();
-  }
-
-  /**
-   * Renders this label in shorthand form.
-   *
-   * <p>Labels with canonical form {@code //foo/bar:bar} have the shorthand form {@code //foo/bar}.
-   * All other labels have identical shorthand and canonical forms.
-   *
-   * <p>Unlike {@link #getShorthandDisplayForm}, this method does not respect repository mapping.
-   */
-  public String toShorthandString() {
-    if (!getPackageFragment().getBaseName().equals(name)) {
-      return toString();
-    }
-    String repository;
-    if (packageIdentifier.getRepository().isMain()) {
-      repository = "";
-    } else {
-      repository = packageIdentifier.getRepository().getNameWithAt();
-    }
-    return repository + "//" + getPackageFragment();
   }
 
   /**
@@ -519,9 +494,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
     return parseWithPackageContext(
         relName,
         PackageContext.of(
-            packageIdentifier,
-            BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread))
-                .repoMapping()));
+            packageIdentifier, BazelModuleContext.ofInnermostBzlOrThrow(thread).repoMapping()));
   }
 
   @Override
@@ -695,6 +668,10 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
     @Override
     protected Pool<Label> getPool() {
       return globalPool;
+    }
+
+    public boolean enabled() {
+      return globalPool != null;
     }
   }
 }

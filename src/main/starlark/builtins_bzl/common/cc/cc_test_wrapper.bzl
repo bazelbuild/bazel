@@ -14,18 +14,13 @@
 
 """cc_test Starlark implementation."""
 
-load(":common/cc/cc_helper.bzl", "cc_helper")
-load(":common/cc/cc_test_no_linkstatic.bzl", _cc_test_no_linkstatic = "cc_test")
-load(":common/cc/cc_test_with_linkstatic.bzl", _cc_test_with_linkstatic = "cc_test")
-load(":common/cc/cc_test_no_linkstatic_aspects.bzl", _cc_test_no_linkstatic_aspects = "cc_test")
-load(":common/cc/cc_test_with_linkstatic_aspects.bzl", _cc_test_with_linkstatic_aspects = "cc_test")
+load(":common/cc/cc_test.bzl", _cc_test = "cc_test")
+load(":common/cc/semantics.bzl", "semantics")
 
-def cc_test_wrapper(**kwargs):
+def cc_test(**kwargs):
     """Entry point for cc_test rules.
 
-    This avoids propagating aspects on certain attributes if dynamic_deps attribute is unset.
-
-    It also serves to detect if the `linkstatic` attribute was explicitly set or not.
+    It  serves to detect if the `linkstatic` attribute was explicitly set or not.
     This is to workaround a deficiency in Starlark attributes.
     (See: https://github.com/bazelbuild/bazel/issues/14434)
 
@@ -33,13 +28,7 @@ def cc_test_wrapper(**kwargs):
         **kwargs: Arguments suitable for cc_test.
     """
 
-    # Propagate an aspect if dynamic_deps attribute is specified.
-    if "dynamic_deps" in kwargs and cc_helper.is_non_empty_list_or_select(kwargs["dynamic_deps"], "dynamic_deps"):
-        if "linkstatic" in kwargs:
-            _cc_test_with_linkstatic_aspects(**kwargs)
-        else:
-            _cc_test_no_linkstatic_aspects(**kwargs)
-    elif "linkstatic" in kwargs:
-        _cc_test_with_linkstatic(**kwargs)
-    else:
-        _cc_test_no_linkstatic(**kwargs)
+    if "linkstatic" not in kwargs:
+        kwargs["linkstatic"] = semantics.get_linkstatic_default_for_test()
+
+    _cc_test(**kwargs)

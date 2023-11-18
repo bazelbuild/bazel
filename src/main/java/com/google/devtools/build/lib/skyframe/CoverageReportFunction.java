@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Actions;
-import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -54,17 +53,12 @@ public class CoverageReportFunction implements SkyFunction {
       return null;
     }
 
-    GeneratingActions generatingActions;
     try {
-      generatingActions =
-          Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-              actionKeyContext,
-              actions,
-              CoverageReportValue.COVERAGE_REPORT_KEY,
-              /*outputFiles=*/ null);
+      Actions.assignOwnersAndThrowIfConflictToleratingSharedActions(
+          actionKeyContext, actions, CoverageReportValue.COVERAGE_REPORT_KEY);
     } catch (ActionConflictException | Actions.ArtifactGeneratedByOtherRuleException e) {
       throw new IllegalStateException("Issues not expected in coverage: " + skyKey, e);
     }
-    return new CoverageReportValue(generatingActions);
+    return new CoverageReportValue(actions);
   }
 }

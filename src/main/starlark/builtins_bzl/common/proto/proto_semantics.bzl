@@ -16,16 +16,8 @@
 Proto Semantics
 """
 
-def _preprocess(ctx):
-    pass
-
 semantics = struct(
-    PROTO_COMPILER_LABEL = "@bazel_tools//tools/proto:protoc",
-    EXTRA_ATTRIBUTES = {
-        "import_prefix": attr.string(),
-    },
-    EXTRA_FRAGMENTS = [],
-    preprocess = _preprocess,
+    PROTO_TOOLCHAIN = "@rules_proto//proto:toolchain_type",
     # This constant is used in ProtoCompileActionBuilder to generate an error message that's
     # displayed when a strict proto deps violation occurs.
     #
@@ -36,5 +28,5 @@ semantics = struct(
         "--direct_dependencies_violation_msg=" +
         "%%s is imported, but %s doesn't directly depend on a proto_library that 'srcs' it."
     ),
-    EXEC_GROUPS = {},
+    allowlist_different_package = None,
 )

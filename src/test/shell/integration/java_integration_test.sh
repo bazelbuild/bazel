@@ -267,7 +267,8 @@ EOF
   # Set javabase to an absolute path.
   bazel build //$pkg/java/hello:hello //$pkg/java/hello:hello_deploy.jar \
       "$stamp_arg" \
-      --extra_toolchains="//$pkg/jvm:all,//tools/jdk:all" \
+      --extra_toolchains="//tools/jdk:all" \
+      --extra_toolchains="//$pkg/jvm:all" \
       --platforms="//$pkg/jvm:platform" \
       "$embed_label" >&"$TEST_log" \
       || fail "Build failed"
@@ -590,6 +591,10 @@ import javax.lang.model.*;
 import javax.lang.model.element.*;
 @SupportedAnnotationTypes(value= {"test.processor.TestAnnotation"})
 public class Processor extends AbstractProcessor {
+  @Override
+  public SourceVersion getSupportedSourceVersion() {
+    return SourceVersion.latestSupported();
+  }
   private static final String OUTFILE_CONTENT = "package test;\n"
       + "public class Generated {\n"
       + "  public static String value = \"" + ProcessorDep.value + "\";\n"
@@ -853,9 +858,10 @@ function test_arg_compile_action() {
 
   cat > "${package}/lib.bzl" <<EOF
 def _actions_test_impl(target, ctx):
-    action = target.actions[0] # digest action
-    if action.mnemonic != "Javac":
-      fail("Expected the first action to be Javac.")
+    javac_actions = [a for a in target.actions if a.mnemonic == "Javac"]
+    if len(javac_actions) != 1:
+      fail("Expected exactly one Javac action, but found", len(javac_actions))
+    action = javac_actions[0]
     aspect_out = ctx.actions.declare_file('aspect_out')
     ctx.actions.run_shell(inputs = action.inputs,
                           outputs = [aspect_out],

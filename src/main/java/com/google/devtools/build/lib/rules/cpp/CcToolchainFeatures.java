@@ -36,8 +36,8 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SingleVariables;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringChunk;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
@@ -203,16 +203,22 @@ public class CcToolchainFeatures implements StarlarkValue {
   public static class EnvEntry {
     private final String key;
     private final ImmutableList<StringChunk> valueChunks;
+    private final ImmutableSet<String> expandIfAllAvailable;
 
     private EnvEntry(CToolchain.EnvEntry envEntry) throws EvalException {
       this.key = envEntry.getKey();
       StringValueParser parser = new StringValueParser(envEntry.getValue());
       this.valueChunks = parser.getChunks();
+      this.expandIfAllAvailable = ImmutableSet.copyOf(envEntry.getExpandIfAllAvailableList());
     }
 
-    EnvEntry(String key, ImmutableList<StringChunk> valueChunks) {
+    EnvEntry(
+        String key,
+        ImmutableList<StringChunk> valueChunks,
+        ImmutableSet<String> expandIfAllAvailable) {
       this.key = key;
       this.valueChunks = valueChunks;
+      this.expandIfAllAvailable = expandIfAllAvailable;
     }
 
     String getKey() {
@@ -227,6 +233,19 @@ public class CcToolchainFeatures implements StarlarkValue {
                   .collect(ImmutableList.toImmutableList()));
     }
 
+    ImmutableSet<String> getExpandIfAllAvailable() {
+      return expandIfAllAvailable;
+    }
+
+    private boolean canBeExpanded(CcToolchainVariables variables) {
+      for (String variable : expandIfAllAvailable) {
+        if (!variables.isAvailable(variable)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
     /**
      * Adds the key/value pair this object represents to the given map of environment variables. The
      * value of the entry is expanded with the given {@code variables}.
@@ -234,6 +253,9 @@ public class CcToolchainFeatures implements StarlarkValue {
     public void addEnvEntry(
         CcToolchainVariables variables, ImmutableMap.Builder<String, String> envBuilder)
         throws ExpansionException {
+      if (!canBeExpanded(variables)) {
+        return;
+      }
       StringBuilder value = new StringBuilder();
       for (StringChunk chunk : valueChunks) {
         value.append(chunk.expand(variables));

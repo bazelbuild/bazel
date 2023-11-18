@@ -32,22 +32,23 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import com.google.testing.junit.testparameterinjector.TestParameters;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link ConfigSetting}.
- */
-@RunWith(JUnit4.class)
+/** Tests for {@link ConfigSetting}. */
+@RunWith(TestParameterInjector.class)
 public class ConfigSettingTest extends BuildViewTestCase {
 
   /** Extra options for this test. */
@@ -106,6 +107,15 @@ public class ConfigSettingTest extends BuildViewTestCase {
               /*visibleWithinToolsPackage=*/ false,
               /*errorMessage=*/ "For very important reasons."));
     }
+
+    @Option(
+        name = "allow_multiple_option",
+        defaultValue = "null",
+        converter = CommaSeparatedOptionListConverter.class,
+        allowMultiple = true,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP})
+    public List<String> allowMultipleOption;
   }
 
   /** Test fragment. */
@@ -143,6 +153,20 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   private ConfigMatchingProvider getConfigMatchingProvider(String label) throws Exception {
     return getConfiguredTarget(label).getProvider(ConfigMatchingProvider.class);
+  }
+
+  private boolean forceConvertMatchResult(ConfigMatchingProvider.MatchResult result)
+      throws Exception {
+    if (result.equals(ConfigMatchingProvider.MatchResult.MATCH)) {
+      return true;
+    } else if (result.equals(ConfigMatchingProvider.MatchResult.NOMATCH)) {
+      return false;
+    }
+    throw new IllegalStateException("Unexpected MatchResult: " + result);
+  }
+
+  private boolean getConfigMatchingProviderResultAsBoolean(String label) throws Exception {
+    return forceConvertMatchResult(getConfigMatchingProvider(label).result());
   }
 
   /** Checks the behavior of {@link ConfigSetting#isUnderToolsPackage}. */
@@ -186,19 +210,19 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
     // First flag mismatches:
     useConfiguration("-c", "opt", "--stamp");
-    assertThat(getConfigMatchingProvider("//pkg:foo").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//pkg:foo")).isFalse();
 
     // Second flag mismatches:
     useConfiguration("-c", "dbg", "--nostamp");
-    assertThat(getConfigMatchingProvider("//pkg:foo").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//pkg:foo")).isFalse();
 
     // Both flags mismatch:
     useConfiguration("-c", "opt", "--nostamp");
-    assertThat(getConfigMatchingProvider("//pkg:foo").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//pkg:foo")).isFalse();
 
     // Both flags match:
     useConfiguration("-c", "dbg", "--stamp");
-    assertThat(getConfigMatchingProvider("//pkg:foo").matches()).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//pkg:foo")).isTrue();
   }
 
   /**
@@ -309,7 +333,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "        'nonselectable_allowlisted_option': 'true',",
         "    })");
     String fooLabel = TestConstants.TOOLS_REPOSITORY + "//tools/pkg:foo";
-    assertThat(getConfigMatchingProvider(fooLabel).matches()).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean(fooLabel)).isTrue();
   }
 
   /** Tests that custom error messages are displayed for non-selectable options. */
@@ -369,17 +393,17 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    })");
 
     useConfiguration("");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
     useConfiguration("--define", "foo=bar");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
     useConfiguration("--define", "foo=baz");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
     useConfiguration("--define", "foo=bar", "--define", "bar=baz");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
     useConfiguration("--define", "foo=bar", "--define", "bar=baz", "--define", "foo=nope");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
     useConfiguration("--define", "foo=nope", "--define", "bar=baz", "--define", "foo=bar");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
   }
 
   @Test
@@ -407,13 +431,13 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    })");
 
     useConfiguration("");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
     useConfiguration("--define", "foo1=bar");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
     useConfiguration("--define", "foo2=baz");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
     useConfiguration("--define", "foo1=bar", "--define", "foo2=baz");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
   }
 
   /**
@@ -435,15 +459,15 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    })");
 
     useConfiguration("");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
     useConfiguration("--define", "foo=bar");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
     useConfiguration("--define", "foo=bar", "--define", "baz=bat");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
     useConfiguration("--define", "foo=bar,baz=bat");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
     useConfiguration("--define", "makethis=a_superset", "--define", "foo=bar,baz=bat");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
   }
 
   @Test
@@ -459,13 +483,13 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    })");
 
     useConfiguration("");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
     useConfiguration("--define", "a=c");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
     useConfiguration("--define", "b=d");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
     useConfiguration("--define", "a=c", "--define", "b=d");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
   }
 
   /**
@@ -482,15 +506,15 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    })");
 
     useConfiguration("");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
     useConfiguration("--copt", "-Dfoo");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
     useConfiguration("--copt", "-Dbar");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
     useConfiguration("--copt", "-Dfoo", "--copt", "-Dbar");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
     useConfiguration("--copt", "-Dbar", "--copt", "-Dfoo");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
   }
 
   /**
@@ -502,39 +526,32 @@ public class ConfigSettingTest extends BuildViewTestCase {
    * single entry ["a,b"], while "--extra_platforms=a,b" produces ["a", "b"].
    */
   @Test
-  public void multiValueListMultipleExpectedValues() throws Exception {
+  @TestParameters({
+    "{flags: [''], matchExpected: false}", // No flag set
+    "{flags: ['--allow_multiple_option', 'one'], matchExpected: false}",
+    "{flags: ['--allow_multiple_option', 'two'], matchExpected: false}",
+    "{flags: ['--allow_multiple_option', 'one', '--allow_multiple_option', 'two'], "
+        + "matchExpected: true}",
+    "{flags: ['--allow_multiple_option', 'two', '--allow_multiple_option', 'one'], "
+        + "matchExpected: true}",
+    "{flags: ['--allow_multiple_option', 'one,two'], matchExpected: true}",
+    "{flags: ['--allow_multiple_option', 'two,one'], matchExpected: true}",
+    "{flags: ['--allow_multiple_option', 'ten', '--allow_multiple_option', 'two', "
+        + "'--allow_multiple_option', 'three', '--allow_multiple_option', 'one'], "
+        + "matchExpected: true}"
+  })
+  public void multiValueListMultipleExpectedValues(List<String> flags, boolean matchExpected)
+      throws Exception {
     scratch.file(
         "test/BUILD",
         "config_setting(",
         "    name = 'match',",
         "    values = {",
-        "        'extra_toolchains': 'one,two',", // This produces ["one", "two"]
+        "        'allow_multiple_option': 'one,two',", // This produces ["one", "two"]
         "    })");
 
-    useConfiguration("");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
-    useConfiguration("--extra_toolchains", "one");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
-    useConfiguration("--extra_toolchains", "two");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
-    useConfiguration("--extra_toolchains", "one", "--extra_toolchains", "two");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
-    useConfiguration("--extra_toolchains", "two", "--extra_toolchains", "one");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
-    useConfiguration("--extra_toolchains", "one,two");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
-    useConfiguration("--extra_toolchains", "two,one");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
-    useConfiguration(
-        "--extra_toolchains",
-        "ten",
-        "--extra_toolchains",
-        "two",
-        "--extra_toolchains",
-        "three",
-        "--extra_toolchains",
-        "one");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    useConfiguration(flags.toArray(new String[flags.size()]));
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isEqualTo(matchExpected);
   }
 
   /**
@@ -552,17 +569,17 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    })");
 
     useConfiguration("");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
     useConfiguration("--copt", "one");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
     useConfiguration("--copt", "two");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
     useConfiguration("--copt", "one", "--copt", "two");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
     useConfiguration("--copt", "one,two", "--copt", "one");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
     useConfiguration("--copt", "two,one", "--copt", "one");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
   }
 
   @Test
@@ -615,7 +632,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    allowed_values = ['right'],",
         "    default_value = 'right',",
         ")");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
   }
 
   @Test
@@ -636,7 +653,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    allowed_values = ['right'],",
         "    default_value = 'right',",
         ")");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
   }
 
   @Test
@@ -651,7 +668,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "        'copt': '-Dright',",
         "    },",
         ")");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
   }
 
   @Test
@@ -674,7 +691,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    allowed_values = ['right', 'wrong'],",
         "    default_value = 'right',",
         ")");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
   }
 
   @Test
@@ -695,7 +712,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    allowed_values = ['right', 'wrong'],",
         "    default_value = 'right',",
         ")");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
   }
 
   @Test
@@ -718,7 +735,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    allowed_values = ['right', 'wrong'],",
         "    default_value = 'right',",
         ")");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
   }
 
   @Test
@@ -733,7 +750,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "        'copt': '-Dwrong',",
         "    },",
         ")");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
   }
 
   @Test
@@ -756,7 +773,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    allowed_values = ['right', 'wrong'],",
         "    default_value = 'right',",
         ")");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
   }
 
   @Test
@@ -783,7 +800,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    allowed_values = ['good', 'bad'],",
         "    default_value = 'good',",
         ")");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
   }
 
   @Test
@@ -810,7 +827,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    allowed_values = ['default', 'actual'],",
         "    default_value = 'default',",
         ")");
-    assertThat(getConfigMatchingProvider("//test:setter").matches()).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:setter")).isTrue();
   }
 
   @Test
@@ -837,7 +854,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    allowed_values = ['default', 'actual'],",
         "    default_value = 'default',",
         ")");
-    assertThat(getConfigMatchingProvider("//test:setter").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:setter")).isFalse();
   }
 
   @Test
@@ -1518,7 +1535,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    allowed_values = ['right', 'wrong'],",
         "    default_value = 'right',",
         ")");
-    assertThat(getConfigMatchingProvider("//test:alias_matcher").matches()).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:alias_matcher")).isTrue();
   }
 
   @Test
@@ -1656,7 +1673,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    },",
         ")",
         "string_flag(name = 'cheese', build_setting_default = 'parmesan')");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
   }
 
   @Test
@@ -1678,7 +1695,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    },",
         ")",
         "string_flag(name = 'cheese', build_setting_default = 'parmesan')");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
   }
 
   /**
@@ -1702,7 +1719,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    },",
         ")",
         "bool_flag(name = 'cheese', build_setting_default = True)");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
   }
 
   @Test
@@ -1724,7 +1741,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    },",
         ")",
         "string_flag(name = 'cheese', build_setting_default = 'parmesan')");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
   }
 
   @Test
@@ -1771,7 +1788,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         ")",
         "string_flag(name = 'cheese', build_setting_default = 'gouda')");
     useConfiguration(ImmutableMap.of("//test:cheese", ImmutableList.of("pepperjack", "brie")));
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
   }
 
   @Test
@@ -1796,7 +1813,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "string_list_flag(name = 'cheese', build_setting_default = ['gouda'])");
 
     useConfiguration(ImmutableMap.of("//test:cheese", ImmutableList.of("pepperjack", "brie")));
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
   }
 
   @Test
@@ -1869,7 +1886,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    allowed_values = ['right'],",
         "    default_value = 'right',",
         ")");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
   }
 
   @Test
@@ -1898,7 +1915,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    allowed_values = ['right', 'wrong'],",
         "    default_value = 'right',",
         ")");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
   }
 
   @Test
@@ -1927,7 +1944,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    allowed_values = ['right'],",
         "    default_value = 'right',",
         ")");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
   }
 
   @Test
@@ -1951,11 +1968,11 @@ public class ConfigSettingTest extends BuildViewTestCase {
         ");");
 
     useConfiguration("--experimental_platforms=//test:new_york_platform");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
     useConfiguration("--experimental_platforms=//test:seattle_platform");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
     useConfiguration("");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
   }
 
   @Test
@@ -1992,11 +2009,11 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    constraint_values = [':empire_state', ':cloisters'],",
         ");");
     useConfiguration("--experimental_platforms=//test:manhattan_platform");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
     useConfiguration("--experimental_platforms=//test:museum_platform");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
     useConfiguration("--experimental_platforms=//test:new_york_platform");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
   }
 
   @Test
@@ -2027,13 +2044,13 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
     useConfiguration(
         "--experimental_platforms=//test:new_york_platform", "--define", "a=c", "--define", "b=d");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
     useConfiguration("--experimental_platforms=//test:new_york_platform");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
     useConfiguration("--define", "a=c");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
     useConfiguration("--define", "a=c", "--experimental_platforms=//test:new_york_platform");
-    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
   }
 
   /**
@@ -2185,8 +2202,8 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    flag_values = {",
         "        ':flag': 'other_flag_value',",
         "    })");
-    assertThat(getConfigMatchingProvider("//test:matches").matches()).isTrue();
-    assertThat(getConfigMatchingProvider("//test:doesntmatch").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:matches")).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:doesntmatch")).isFalse();
   }
 
   @Test
@@ -2216,8 +2233,8 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    flag_values = {",
         "        ':one_value_flag': 'other',",
         "    })");
-    assertThat(getConfigMatchingProvider("//test:matches").matches()).isTrue();
-    assertThat(getConfigMatchingProvider("//test:doesntmatch").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:matches")).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:doesntmatch")).isFalse();
   }
 
   @Test
@@ -2252,9 +2269,9 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    flag_values = {",
         "        ':two_value_flag': 'other',",
         "    })");
-    assertThat(getConfigMatchingProvider("//test:matches_one").matches()).isTrue();
-    assertThat(getConfigMatchingProvider("//test:matches_two").matches()).isTrue();
-    assertThat(getConfigMatchingProvider("//test:doesntmatch").matches()).isFalse();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:matches_one")).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:matches_two")).isTrue();
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:doesntmatch")).isFalse();
   }
 
   @Test
@@ -2316,5 +2333,21 @@ public class ConfigSettingTest extends BuildViewTestCase {
         ")");
     assertThat(getConfiguredTarget("//test:fg")).isNotNull();
     assertNoEvents();
+  }
+
+  @Test
+  public void labelInValuesError() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    values = {'//foo:bar': 'value'},",
+        ")");
+    reporter.removeHandler(failFastHandler); // expect errors
+    assertThat(getConfiguredTarget("//test:match")).isNull();
+    assertContainsEvent(
+        "in values attribute of config_setting rule //test:match: '//foo:bar' is"
+            + " not a valid setting name, but appears to be a label. Did you mean to place it in"
+            + " flag_values instead?");
   }
 }

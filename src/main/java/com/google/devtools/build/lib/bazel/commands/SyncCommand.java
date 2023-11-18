@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
-import com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction;
+import com.google.devtools.build.lib.rules.repository.ResolvedFileValue;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
@@ -109,14 +109,13 @@ public final class SyncCommand implements BlazeCommand {
         skyframeExecutor.injectExtraPrecomputedValues(
             ImmutableList.of(
                 PrecomputedValue.injected(
-                    RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_CONFIGURING,
+                    RepositoryDelegatorFunction.FORCE_FETCH_CONFIGURE,
                     env.getCommandId().toString())));
       } else {
         skyframeExecutor.injectExtraPrecomputedValues(
             ImmutableList.of(
                 PrecomputedValue.injected(
-                    RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
-                    env.getCommandId().toString())));
+                    RepositoryDelegatorFunction.FORCE_FETCH, env.getCommandId().toString())));
       }
 
       // Obtain the key for the top-level WORKSPACE file
@@ -270,11 +269,11 @@ public final class SyncCommand implements BlazeCommand {
       @Override
       public Object getResolvedInformation(XattrProvider xattrProvider) {
         return ImmutableMap.<String, Object>builder()
-            .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, "bind")
+            .put(ResolvedFileValue.ORIGINAL_RULE_CLASS, "bind")
             .put(
-                ResolvedHashesFunction.ORIGINAL_ATTRIBUTES,
+                ResolvedFileValue.ORIGINAL_ATTRIBUTES,
                 ImmutableMap.<String, Object>of("name", name, "actual", actual))
-            .put(ResolvedHashesFunction.NATIVE, nativeCommand)
+            .put(ResolvedFileValue.NATIVE, nativeCommand)
             .buildOrThrow();
       }
     };
@@ -302,9 +301,9 @@ public final class SyncCommand implements BlazeCommand {
       @Override
       public Object getResolvedInformation(XattrProvider xattrProvider) {
         return ImmutableMap.<String, Object>builder()
-            .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, ruleName)
+            .put(ResolvedFileValue.ORIGINAL_RULE_CLASS, ruleName)
             .put(
-                ResolvedHashesFunction.ORIGINAL_ATTRIBUTES,
+                ResolvedFileValue.ORIGINAL_ATTRIBUTES,
                 // The original attributes are a bit of a problem, as the arguments to
                 // the rule do not at all look like those of a repository rule:
                 // they're all positional, and, in particular, there is no keyword argument
@@ -315,7 +314,7 @@ public final class SyncCommand implements BlazeCommand {
                 // that rule. Note that the original arguments are always ignored when bazel uses
                 // a resolved file instead of a workspace file.
                 ImmutableMap.<String, Object>of("name", name, "*args", args))
-            .put(ResolvedHashesFunction.NATIVE, nativeCommand)
+            .put(ResolvedFileValue.NATIVE, nativeCommand)
             .build();
       }
     };

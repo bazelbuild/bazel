@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -74,7 +73,7 @@ import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.DependencyResolver.Failure;
+import com.google.devtools.build.lib.analysis.DependencyResolutionHelpers.Failure;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -107,6 +106,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.analysis.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
+import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -150,7 +150,6 @@ import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -166,6 +165,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -206,6 +206,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Predicate;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -225,6 +226,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected TimestampGranularityMonitor tsgm;
   protected BlazeDirectories directories;
   protected ActionKeyContext actionKeyContext;
+
+  protected Path moduleRoot;
+  protected FakeRegistry registry;
 
   // Note that these configurations are virtual (they use only VFS)
   protected BuildConfigurationValue targetConfig; // "target" or "build" config
@@ -273,6 +277,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             rootDirectory,
             /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
+    moduleRoot = scratch.dir("modules");
+    registry = FakeRegistry.DEFAULT_FACTORY.newFakeRegistry(moduleRoot.getPathString());
 
     actionKeyContext = new ActionKeyContext();
     mockToolsConfig = new MockToolsConfig(rootDirectory, false);
@@ -287,26 +293,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     getOutputPath().createDirectoryAndParents();
     ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues =
         ImmutableList.<PrecomputedValue.Injected>builder()
-            .add(
-                PrecomputedValue.injected(
-                    PrecomputedValue.STARLARK_SEMANTICS, StarlarkSemantics.DEFAULT))
-            .add(PrecomputedValue.injected(PrecomputedValue.REPO_ENV, ImmutableMap.of()))
-            .add(PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()))
-            .add(
-                PrecomputedValue.injected(
-                    RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()))
-            .add(
-                PrecomputedValue.injected(
-                    RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
-                    Optional.empty()))
-            .add(
-                PrecomputedValue.injected(
-                    RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
-                    RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY))
+            .addAll(analysisMock.getPrecomputedValues())
             .add(
                 PrecomputedValue.injected(
                     BuildInfoCollectionFunction.BUILD_INFO_FACTORIES,
                     ruleClassProvider.getBuildInfoFactoriesAsMap()))
+            .add(
+                PrecomputedValue.injected(
+                    ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())))
             .addAll(extraPrecomputedValues())
             .build();
     PackageFactory.BuilderForTesting pkgFactoryBuilder =
@@ -527,16 +521,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         QuiescingExecutorsImpl.forTesting(),
         tsgm);
     skyframeExecutor.setActionEnv(ImmutableMap.of());
-    skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageOptions.getDeletedPackages()));
+    skyframeExecutor.setDeletedPackages(packageOptions.getDeletedPackages());
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.OUTPUT_VERIFICATION_REPOSITORY_RULES,
-                ImmutableSet.of()),
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_FOR_VERIFICATION, Optional.empty())));
+                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
   }
 
   protected void setPackageOptions(String... options) throws Exception {
@@ -556,13 +545,21 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return parser.getOptions(PackageOptions.class);
   }
 
-  private static BuildLanguageOptions parseBuildLanguageOptions(String... options)
-      throws Exception {
+  private BuildLanguageOptions parseBuildLanguageOptions(String... options) throws Exception {
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
-    parser.parse("--experimental_google_legacy_api"); // For starlark java_binary;
+    parser.parse(getDefaultBuildLanguageOptions());
     parser.parse(options);
     return parser.getOptions(BuildLanguageOptions.class);
+  }
+
+  protected List<String> getDefaultBuildLanguageOptions() throws Exception {
+    ImmutableList.Builder<String> ans = ImmutableList.builder();
+    if (!analysisMock.isThisBazel()) {
+      ans.add("--experimental_google_legacy_api"); // For starlark java_binary;
+    }
+    ans.add("--enable_bzlmod");
+    return ans.build();
   }
 
   /** Used by skyframe-only tests. */
@@ -639,7 +636,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     execConfig =
         skyframeExecutor.getConfiguration(
             reporter,
-            AnalysisTestUtil.execOptions(targetConfig.getOptions(), reporter),
+            AnalysisTestUtil.execOptions(targetConfig.getOptions(), skyframeExecutor, reporter),
             /* keepGoing= */ false);
 
     targetConfigKey = targetConfig.getKey();
@@ -713,9 +710,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * the action graph.
    */
   protected final Collection<ConfiguredTarget> getDirectPrerequisites(ConfiguredTarget target)
-      throws TransitionException, InvalidConfigurationException, InconsistentAspectOrderException,
+      throws InterruptedException,
+          TransitionException,
+          InvalidConfigurationException,
+          InconsistentAspectOrderException,
           Failure {
-    return view.getDirectPrerequisitesForTesting(reporter, target, targetConfig);
+    return view.getDirectPrerequisitesForTesting(reporter, target);
   }
 
   protected final ConfiguredTarget getDirectPrerequisite(ConfiguredTarget target, String label)
@@ -733,7 +733,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     Label candidateLabel = Label.parseCanonical(label);
     for (ConfiguredTargetAndData candidate :
         view.getConfiguredTargetAndDataDirectPrerequisitesForTesting(
-            reporter, ctad.getConfiguredTarget(), targetConfig)) {
+            reporter, ctad.getConfiguredTarget())) {
       if (candidate.getConfiguredTarget().getLabel().equals(candidateLabel)) {
         return candidate;
       }
@@ -780,13 +780,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * given configured target.
    */
   protected RuleContext getRuleContext(ConfiguredTarget target) throws Exception {
-    return view.getRuleContextForTesting(
-        reporter, target, new StubAnalysisEnvironment(), targetConfig);
+    return view.getRuleContextForTesting(reporter, target, new StubAnalysisEnvironment());
   }
 
   protected RuleContext getRuleContext(
       ConfiguredTarget target, AnalysisEnvironment analysisEnvironment) throws Exception {
-    return view.getRuleContextForTesting(reporter, target, analysisEnvironment, targetConfig);
+    return view.getRuleContextForTesting(reporter, target, analysisEnvironment);
   }
 
   /**
@@ -806,7 +805,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             reporter.handle(e);
           }
         };
-    return view.getRuleContextForTesting(target, eventHandler, targetConfig);
+    return view.getRuleContextForTesting(target, eventHandler);
   }
 
   /**
@@ -817,7 +816,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected List<? extends TransitiveInfoCollection> getPrerequisites(
       ConfiguredTarget target, String attributeName) throws Exception {
-    return getRuleContext(target).getConfiguredTargetMap().get(attributeName);
+    return Lists.transform(
+        getRuleContext(target).getPrerequisiteConfiguredTargets(attributeName),
+        ConfiguredTargetAndData::getConfiguredTarget);
   }
 
   /**
@@ -1056,9 +1057,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected ConfiguredTarget getConfiguredTarget(Label label, BuildConfigurationValue config) {
     try {
       return view.getConfiguredTargetForTesting(reporter, label, config);
-    } catch (InvalidConfigurationException
-        | StarlarkTransition.TransitionException
-        | InterruptedException e) {
+    } catch (InvalidConfigurationException | InterruptedException e) {
       throw new AssertionError(e);
     }
   }
@@ -1146,16 +1145,13 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * finer grained selection for different configurations, you'll need to expand this method.
    */
   protected ConfiguredAspect getAspect(String label) throws Exception {
-    AspectValue aspect =
-        (AspectValue)
-            skyframeExecutor.getEvaluator().getDoneValues().entrySet().stream()
-                .filter(
-                    entry ->
-                        entry.getKey() instanceof AspectKey
-                            && ((AspectKey) entry.getKey()).getAspectName().equals(label))
-                .map(Map.Entry::getValue)
-                .collect(onlyElement());
-    return aspect.getConfiguredAspect();
+    return skyframeExecutor.getEvaluator().getDoneValues().entrySet().stream()
+        .filter(
+            e ->
+                e.getKey() instanceof AspectKey
+                    && ((AspectKey) e.getKey()).getAspectName().equals(label))
+        .map(e -> (AspectValue) e.getValue())
+        .collect(onlyElement());
   }
 
   /**
@@ -1447,11 +1443,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected final Artifact.DerivedArtifact getDerivedArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
-    if ((owner instanceof ActionLookupKey)) {
+    if (owner instanceof ActionLookupKey) {
       SkyValue skyValue;
       try {
-        skyValue =
-            skyframeExecutor.getEvaluator().getExistingValue(((ActionLookupKey) owner).toKey());
+        skyValue = skyframeExecutor.getEvaluator().getExistingValue(((ActionLookupKey) owner));
       } catch (InterruptedException e) {
         throw new IllegalStateException(e);
       }
@@ -1478,7 +1473,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * "foo.o".
    */
   protected final Artifact getTreeArtifact(String packageRelativePath, ConfiguredTarget owner) {
-    ActionLookupKeyOrProxy actionLookupKey = ConfiguredTargetKey.fromConfiguredTarget(owner);
+    ActionLookupKey actionLookupKey = ConfiguredTargetKey.fromConfiguredTarget(owner);
     return getDerivedArtifact(
         owner.getLabel().getPackageFragment().getRelative(packageRelativePath),
         getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
@@ -1532,10 +1527,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * "foo.o".
    */
   protected final Artifact getBinArtifact(String packageRelativePath, ConfiguredTarget owner) {
-    return getPackageRelativeDerivedArtifact(
-        packageRelativePath,
-        getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
-        ConfiguredTargetKey.fromConfiguredTarget(owner));
+    try {
+      return getPackageRelativeDerivedArtifact(
+          packageRelativePath,
+          getRuleContext(owner).getBinDirectory(),
+          ConfiguredTargetKey.fromConfiguredTarget(owner));
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   /**
@@ -1567,15 +1566,19 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       ConfiguredTarget owner,
       AspectClass creatingAspectFactory,
       AspectParameters parameters) {
-    return getPackageRelativeDerivedArtifact(
-        packageRelativePath,
-        getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
-        AspectKeyCreator.createAspectKey(
-            new AspectDescriptor(creatingAspectFactory, parameters),
-            ConfiguredTargetKey.builder()
-                .setLabel(owner.getLabel())
-                .setConfiguration(getConfiguration(owner))
-                .build()));
+    try {
+      return getPackageRelativeDerivedArtifact(
+          packageRelativePath,
+          getRuleContext(owner).getBinDirectory(),
+          AspectKeyCreator.createAspectKey(
+              AspectDescriptor.of(creatingAspectFactory, parameters),
+              ConfiguredTargetKey.builder()
+                  .setLabel(owner.getLabel())
+                  .setConfiguration(getConfiguration(owner))
+                  .build()));
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   /**
@@ -1663,7 +1666,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected AspectKey getOwnerForAspect(
       ConfiguredTarget owner, AspectClass creatingAspectFactory, AspectParameters params) {
     return AspectKeyCreator.createAspectKey(
-        new AspectDescriptor(creatingAspectFactory, params),
+        AspectDescriptor.of(creatingAspectFactory, params),
         ConfiguredTargetKey.builder()
             .setLabel(owner.getLabel())
             .setConfiguration(getConfiguration(owner))
@@ -1700,10 +1703,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * @param owner the artifact's owner.
    */
   protected Artifact getSharedArtifact(String rootRelativePath, ConfiguredTarget owner) {
-    return getDerivedArtifact(
-        PathFragment.create(rootRelativePath),
-        targetConfig.getBinDirectory(RepositoryName.MAIN),
-        ConfiguredTargetKey.fromConfiguredTarget(owner));
+    try {
+      return getDerivedArtifact(
+          PathFragment.create(rootRelativePath),
+          getRuleContext(owner).getBinDirectory(),
+          ConfiguredTargetKey.fromConfiguredTarget(owner));
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   protected Action getGeneratingActionForLabel(String label) throws Exception {
@@ -1996,24 +2003,18 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             transition.patch(
                 new BuildOptionsView(fromConfig.getOptions(), transition.requiresOptionFragments()),
                 eventCollector));
-      } catch (OptionsParsingException | InvalidConfigurationException e) {
+      } catch (InvalidConfigurationException e) {
         throw new AssertionError(e);
       }
     }
   }
 
   private BuildConfigurationValue getConfiguration(String label) {
-    BuildConfigurationValue config;
     try {
-      config = getConfiguration(getConfiguredTarget(label));
-      config = view.getConfigurationForTesting(getTarget(label), config, reporter);
+      return getConfiguration(getConfiguredTarget(label));
     } catch (LabelSyntaxException e) {
       throw new IllegalArgumentException(e);
-    } catch (Exception e) {
-      // TODO(b/36585204): Clean this up
-      throw new RuntimeException(e);
     }
-    return config;
   }
 
   protected final BuildConfigurationValue getConfiguration(BuildConfigurationKey configurationKey) {
@@ -2476,8 +2477,31 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return getBinArtifact(getImplicitOutputPath(target, outputFunction), target);
   }
 
+  static final Pattern WORKSPACE_NAME_PATTERN =
+      Pattern.compile(
+          "workspace\\(\\s*name\\s*=\\s*(?:'|\")(\\w+)(?:'|\")\\s*\\)", Pattern.MULTILINE);
+
+  private String findWorkspaceName() {
+    // HACK -- we have to somehow get the workspace name here. But running skyframe itself is too
+    // demanding (and who knows what might go wrong if we run skyframe mid-setup); so we fall back
+    // to just reading out the WORKSPACE file ourselves and doing a simple parse. This function
+    // crudely reproduces the logic of WorkspaceNameFunction.
+    if (buildLanguageOptions.enableBzlmod) {
+      return ruleClassProvider.getRunfilesPrefix();
+    }
+    try {
+      Matcher matcher = WORKSPACE_NAME_PATTERN.matcher(scratch.readFile("WORKSPACE"));
+      if (matcher.find()) {
+        return matcher.group(1);
+      }
+      return "__main__";
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   public Path getExecRoot() {
-    return directories.getExecRoot(ruleClassProvider.getRunfilesPrefix());
+    return directories.getExecRoot(findWorkspaceName());
   }
 
   /** Returns true iff commandLine contains the option --flagName followed by arg. */

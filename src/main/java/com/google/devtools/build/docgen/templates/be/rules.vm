@@ -37,10 +37,10 @@ ${ruleFamily.summary}
     ${rule.ruleName}
   </h2>
 
-    <a class="button button-with-icon" href="https://github.com/bazelbuild/bazel/blob/master/${rule.workspaceRelativeFileName}" target="_blank">
+  <a class="button button-with-icon" href="${rule.sourceUrl}" target="_blank">
   View rule source<span class="material-icons icon-after" aria-hidden="true">open_in_new</span>
   </a>
-  
+
   <pre class="rule-signature">${rule.attributeSignature}</pre>
 
   $rule.htmlDocumentation
@@ -60,7 +60,7 @@ ${ruleFamily.summary}
       <tr>
         <td id="${rule.ruleName}.name"><code>name</code></td>
         <td>
-          <p><code><a href="$expander.expandRef("build-ref#name")">Name</a>; required</code></p>
+          <p><a href="$expander.expandRef("build-ref#name")">Name</a>; required</p>
           <p>A unique name for this target.</p>
           ${rule.nameExtraHtmlDoc}
         </td>
@@ -73,7 +73,7 @@ ${ruleFamily.summary}
         </td>
         <td>
           #if (!$attribute.synopsis.isEmpty())
-          <p><code>${attribute.synopsis}</code></p>
+          <p>${attribute.synopsis}</p>
           #end
           $attribute.htmlDocumentation
         </td>

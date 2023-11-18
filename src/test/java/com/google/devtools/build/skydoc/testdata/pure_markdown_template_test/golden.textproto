@@ -1,0 +1,75 @@
+rule_info {
+  rule_name: "example_rule"
+  doc_string: "Small example of rule using a markdown template."
+  attribute {
+    name: "name"
+    doc_string: "A unique name for this target."
+    type: NAME
+    mandatory: true
+  }
+  attribute {
+    name: "first"
+    doc_string: "This is the first attribute"
+    type: STRING
+    default_value: "\"\""
+  }
+  attribute {
+    name: "second"
+    type: STRING
+    default_value: "\"2\""
+  }
+}
+provider_info {
+  provider_name: "ExampleProviderInfo"
+  doc_string: "Small example of provider using a markdown template."
+  field_info {
+    name: "foo"
+    doc_string: "A string representing foo"
+  }
+  field_info {
+    name: "bar"
+    doc_string: "A string representing bar"
+  }
+  field_info {
+    name: "baz"
+    doc_string: "A string representing baz"
+  }
+}
+func_info {
+  function_name: "example_function"
+  parameter {
+    name: "foo"
+    doc_string: "This parameter does foo related things."
+    mandatory: true
+  }
+  parameter {
+    name: "bar"
+    doc_string: "This parameter does bar related things.\n\nFor example, it does things that require **multiple paragraphs** to explain.\n\nNote: we should preserve the nested indent in the following code:\n\n```json\n{\n    \"key\": \"value\"\n}\n```"
+    default_value: "\"bar\""
+  }
+  doc_string: "Small example of function using a markdown template."
+}
+aspect_info {
+  aspect_name: "example_aspect"
+  doc_string: "Small example of aspect using a markdown template."
+  aspect_attribute: "deps"
+  aspect_attribute: "attr_aspect"
+  attribute {
+    name: "name"
+    doc_string: "A unique name for this target."
+    type: NAME
+    mandatory: true
+  }
+  attribute {
+    name: "first"
+    type: LABEL
+    mandatory: true
+  }
+  attribute {
+    name: "second"
+    doc_string: "This is the second attribute."
+    type: STRING
+    default_value: "\"\""
+  }
+}
+module_docstring: "Input file for markdown template test"

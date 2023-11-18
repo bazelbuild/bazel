@@ -15,11 +15,13 @@ package com.google.devtools.build.lib.analysis.producers;
 
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
+import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
-import com.google.devtools.build.lib.skyframe.ToolchainException;
-import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
+import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import javax.annotation.Nullable;
 
@@ -28,8 +30,16 @@ import javax.annotation.Nullable;
  *
  * <p>It uses {@link PlatformInfo} derived from the unloaded toolchain contexts to compute config
  * conditions, creating a sequential dependency between the two.
+ *
+ * <p>It's possible to use {@link DependencyContextProducerWithCompatibilityCheck} here instead but
+ * that necessarily evaluates {@link ConfigConditions} before computing the unloaded toolchain
+ * contexts, which in turn requires evaluating {@link PlatformInfo} in advance. This ordering is
+ * necessary because the compatibility check must precede the unloaded toolchain contexts
+ * computation.
+ *
+ * <p>This producer optimizes for the case where no compatibility check is needed and saves memory
+ * by using the {@link PlatformInfo} computed as a side effect of the unloaded toolchain contexts.
  */
-// TODO(b/278878321): unify this and DependencyContextProducerWithCompatibilityCheck.
 public final class DependencyContextProducer
     implements StateMachine,
         UnloadedToolchainContextsProducer.ResultSink,
@@ -47,6 +57,7 @@ public final class DependencyContextProducer
   // -------------------- Input --------------------
   private final UnloadedToolchainContextsInputs unloadedToolchainContextsInputs;
   private final TargetAndConfiguration targetAndConfiguration;
+  private final BuildConfigurationKey buildConfigurationKey;
   private final TransitiveDependencyState transitiveState;
 
   // -------------------- Output --------------------
@@ -61,16 +72,19 @@ public final class DependencyContextProducer
   public DependencyContextProducer(
       UnloadedToolchainContextsInputs unloadedToolchainContextsInputs,
       TargetAndConfiguration targetAndConfiguration,
+      BuildConfigurationKey buildConfigurationKey,
       TransitiveDependencyState transitiveState,
       ResultSink sink) {
     this.unloadedToolchainContextsInputs = unloadedToolchainContextsInputs;
+    this.buildConfigurationKey = buildConfigurationKey;
+    this.unloadedToolchainContexts = null;
     this.targetAndConfiguration = targetAndConfiguration;
     this.transitiveState = transitiveState;
     this.sink = sink;
   }
 
   @Override
-  public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+  public StateMachine step(Tasks tasks) {
     return new UnloadedToolchainContextsProducer(
         unloadedToolchainContextsInputs,
         (UnloadedToolchainContextsProducer.ResultSink) this,
@@ -89,13 +103,15 @@ public final class DependencyContextProducer
     sink.acceptDependencyContextError(DependencyContextError.of(error));
   }
 
-  private StateMachine computeConfigConditions(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine computeConfigConditions(Tasks tasks) {
     if (hasError) {
       return DONE;
     }
 
     return new ConfigConditionsProducer(
-        targetAndConfiguration,
+        targetAndConfiguration.getTarget(),
+        targetAndConfiguration.getTarget().getLabel(),
+        buildConfigurationKey,
         unloadedToolchainContexts == null ? null : unloadedToolchainContexts.getTargetPlatform(),
         transitiveState,
         (ConfigConditionsProducer.ResultSink) this,
@@ -113,7 +129,7 @@ public final class DependencyContextProducer
     sink.acceptDependencyContextError(DependencyContextError.of(error));
   }
 
-  private StateMachine constructResult(Tasks tasks, ExtendedEventHandler listener) {
+  private StateMachine constructResult(Tasks tasks) {
     if (hasError) {
       return DONE;
     }

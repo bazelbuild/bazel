@@ -360,16 +360,15 @@ public class GoogleAuthUtilsTest {
     return GoogleAuthUtils.newCredentialHelperProvider(
         credentialHelperEnvironment,
         commandLinePathFactory,
-        ImmutableList.copyOf(
-            Iterables.transform(inputs, s -> createUnresolvedScopedCredentialHelper(s))));
+        ImmutableList.copyOf(Iterables.transform(inputs, s -> createCredentialHelperOption(s))));
   }
 
-  private static AuthAndTLSOptions.UnresolvedScopedCredentialHelper
-      createUnresolvedScopedCredentialHelper(String input) {
+  private static AuthAndTLSOptions.CredentialHelperOption createCredentialHelperOption(
+      String input) {
     Preconditions.checkNotNull(input);
 
     try {
-      return AuthAndTLSOptions.UnresolvedScopedCredentialHelperConverter.INSTANCE.convert(input);
+      return AuthAndTLSOptions.CredentialHelperOptionConverter.INSTANCE.convert(input);
     } catch (OptionsParsingException e) {
       throw new IllegalStateException(e);
     }

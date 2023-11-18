@@ -16,22 +16,19 @@ package com.google.devtools.build.lib.bazel.rules.java;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
-import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses.BinaryBaseRule;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses.EmptyRuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.BaseJavaBinaryRule;
-import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
-import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
  * Rule definition for the java_binary rule.
+ *
+ * <p>This rule is implemented in Starlark. This class remains only for doc-gen purposes.
  */
 public final class BazelJavaBinaryRule implements RuleDefinition {
   @Override
@@ -42,7 +39,6 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
     <code>Main.java</code>, then your name could be <code>Main</code>.
     <!-- #END_BLAZE_RULE.NAME --> */
     return builder
-        .requiresConfigurationFragments(JavaConfiguration.class, CppConfiguration.class)
         /* <!-- #BLAZE_RULE(java_binary).IMPLICIT_OUTPUTS -->
         <ul>
           <li><code><var>name</var>.jar</code>: A Java archive, containing the class files and other
@@ -78,7 +74,6 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
             <code>deploy.jar</code> except where jars have no matching source jar.</li>
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS --> */
-        .setImplicitOutputsFunction(BazelJavaRuleClasses.JAVA_BINARY_IMPLICIT_OUTPUTS)
         /* <!-- #BLAZE_RULE(java_binary).ATTRIBUTE(deploy_env) -->
         A list of other <code>java_binary</code> targets which represent the deployment
         environment for this binary.
@@ -91,26 +86,15 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
             attr("deploy_env", LABEL_LIST)
                 .allowedRuleClasses("java_binary")
                 .allowedFileTypes(FileTypeSet.NO_FILE))
-        .override(
-            attr("$is_executable", BOOLEAN)
-                .nonconfigurable("automatic")
-                .value(
-                    new Attribute.ComputedDefault() {
-                      @Override
-                      public Object getDefault(AttributeMap rule) {
-                        return rule.get("create_executable", BOOLEAN);
-                      }
-                    }))
-        .addToolchainTypes(CppRuleClasses.ccToolchainTypeRequirement(env))
         .build();
   }
 
   @Override
   public Metadata getMetadata() {
-    return RuleDefinition.Metadata.builder()
+    return Metadata.builder()
         .name("java_binary")
-        .ancestors(BaseJavaBinaryRule.class, BaseRuleClasses.BinaryBaseRule.class)
-        .factoryClass(BazelJavaBinary.class)
+        .ancestors(BaseJavaBinaryRule.class, BinaryBaseRule.class)
+        .factoryClass(EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
 }
@@ -120,7 +104,9 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
 <p>
   Builds a Java archive ("jar file"), plus a wrapper shell script with the same name as the rule.
   The wrapper shell script uses a classpath that includes, among other things, a jar file for each
-  library on which the binary depends.
+  library on which the binary depends. When running the wrapper shell script, any nonempty
+  <code>JAVABIN</code> environment variable will take precedence over the version specified via
+  Bazel's <code>--java_runtime_version</code> flag.
 </p>
 <p>
   The wrapper script accepts several unique flags. Refer to

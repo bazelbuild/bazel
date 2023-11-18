@@ -55,5 +55,5 @@ enum OptionMetadataTag {
   INTERNAL = 4;
   reserved "TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES";
   reserved 5;
-  EXPLICIT_IN_OUTPUT_PATH = 6;
+  reserved 6;
 }

@@ -8,7 +8,7 @@ filegroup(
 exports_files(
     [
         "dep.bzl",
-        "golden.txt",
+        "golden.textproto",
         "input.bzl",
     ],
 )

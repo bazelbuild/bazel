@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import com.google.auto.value.AutoOneOf;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
@@ -33,6 +34,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -40,35 +42,21 @@ import javax.annotation.Nullable;
  * {@link AttributeMap} implementation that binds a rule's attribute as follows:
  *
  * <ol>
- *   <li>If the attribute is selectable (i.e. its BUILD declaration is of the form
- *   "attr = { config1: "value1", "config2: "value2", ... }", returns the subset of values
- *   chosen by the current configuration in accordance with Bazel's documented policy on
- *   configurable attribute selection.
- *   <li>If the attribute is not selectable (i.e. its value is static), returns that value with
- *   no additional processing.
+ *   <li>If the attribute is selectable (i.e. its BUILD declaration is of the form "attr = {
+ *       config1: "value1", "config2: "value2", ... }", returns the subset of values chosen by the
+ *       current configuration in accordance with Bazel's documented policy on configurable
+ *       attribute selection.
+ *   <li>If the attribute is not selectable (i.e. its value is static), returns that value with no
+ *       additional processing.
  * </ol>
  *
  * <p>Example usage:
+ *
  * <pre>
  *   Label fooLabel = ConfiguredAttributeMapper.of(ruleConfiguredTarget).get("foo", Type.LABEL);
  * </pre>
  */
 public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
-
-  private final Map<Label, ConfigMatchingProvider> configConditions;
-  private final String configHash;
-  private final boolean alwaysSucceed;
-
-  private ConfiguredAttributeMapper(
-      Rule rule,
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      String configHash,
-      boolean alwaysSucceed) {
-    super(Preconditions.checkNotNull(rule));
-    this.configConditions = configConditions;
-    this.configHash = configHash;
-    this.alwaysSucceed = alwaysSucceed;
-  }
 
   /**
    * "Manual" constructor that requires the caller to pass the set of configurability conditions
@@ -98,7 +86,27 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
       BuildConfigurationValue configuration) {
     boolean alwaysSucceed =
         configuration.getOptions().get(CoreOptions.class).debugSelectsAlwaysSucceed;
-    return of(rule, configConditions, configuration.checksum(), alwaysSucceed);
+    return of(rule, configConditions, configuration.shortId(), alwaysSucceed);
+  }
+
+  private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
+  private final String configHash;
+  private final boolean alwaysSucceed;
+
+  private ConfiguredAttributeMapper(
+      Rule rule,
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      String configHash,
+      boolean alwaysSucceed) {
+    super(Preconditions.checkNotNull(rule));
+    this.configConditions = configConditions;
+    this.configHash = configHash;
+    this.alwaysSucceed = alwaysSucceed;
+  }
+
+  @Override
+  public String describeRule() {
+    return String.format("%s (%s)", super.describeRule(), this.configHash.substring(0, 6));
   }
 
   /**
@@ -126,39 +134,58 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
    * resolved due to intrinsic contradictions in the configuration.
    */
   public <T> T getAndValidate(String attributeName, Type<T> type) throws ValidationException {
+    AttributeResolutionResult<T> result = getResolvedAttribute(attributeName, type);
+    if (result.getType() == AttributeResolutionResult.AttributeResolutionResultType.FAILURE) {
+      throw new ValidationException(result.getFailure());
+    }
+
+    return result.getSuccess().orElse(null);
+  }
+
+  /**
+   * Variation of {@link #getAndValidate} that does not throw Exception. Instead, the method returns
+   * the AttributeResolutionResult
+   */
+  public <T> AttributeResolutionResult<T> getResolvedAttribute(String attributeName, Type<T> type) {
     SelectorList<T> selectorList = getSelectorList(attributeName, type);
     if (selectorList == null) {
       // This is a normal attribute.
-      return super.get(attributeName, type);
+      return AttributeResolutionResult.ofSuccess(super.get(attributeName, type));
     }
 
     List<T> resolvedList = new ArrayList<>();
     for (Selector<T> selector : selectorList.getSelectors()) {
-      ConfigKeyAndValue<T> resolvedPath = resolveSelector(attributeName, selector);
-      if (!selector.isValueSet(resolvedPath.configKey)) {
+      SelectResolutionResult<T> resolvedPath = resolveSelector(attributeName, selector);
+      if (resolvedPath.getType() == SelectResolutionResult.SelectResolutionResultType.FAILURE) {
+        return AttributeResolutionResult.ofFailure(resolvedPath.getFailure());
+      }
+      if (!selector.isValueSet(resolvedPath.getSuccess().configKey)) {
         // Use the default. We don't have access to the rule here, so pass null to
         // Attribute.getValue(). This has the result of making attributes with condition
         // predicates ineligible for "None" values. But no user-facing attributes should
         // do that anyway, so that isn't a loss.
         Attribute attr = getAttributeDefinition(attributeName);
         if (attr.isMandatory()) {
-          throw new ValidationException(
+          return AttributeResolutionResult.ofFailure(
               String.format(
                   "Mandatory attribute '%s' resolved to 'None' after evaluating 'select'"
                       + " expression",
                   attributeName));
         }
         @SuppressWarnings("unchecked")
-        T defaultValue = (T) attr.getDefaultValue();
+        T defaultValue = (T) attr.getDefaultValue(rule);
         resolvedList.add(defaultValue);
       } else {
-        resolvedList.add(resolvedPath.value);
+        resolvedList.add(resolvedPath.getSuccess().value);
       }
     }
-    return resolvedList.size() == 1 ? resolvedList.get(0) : type.concat(resolvedList);
+
+    return AttributeResolutionResult.ofSuccess(
+        resolvedList.size() == 1 ? resolvedList.get(0) : type.concat(resolvedList));
   }
 
-  private static class ConfigKeyAndValue<T> {
+  /** Representation of the config key and it's value. */
+  public static class ConfigKeyAndValue<T> {
     final Label configKey;
     final T value;
     /** If null, this means the default condition (doesn't correspond to a config_setting). */
@@ -171,8 +198,75 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
     }
   }
 
-  private <T> ConfigKeyAndValue<T> resolveSelector(String attributeName, Selector<T> selector)
-      throws ValidationException {
+  /**
+   * AttributeResolutionResult combines all of the individual SelectResolutionResult instances if
+   * there are multiple selects for the same attribute. AttributeResolutionResult is the instance of
+   * either:
+   *
+   * <ol>
+   *   <li>1. resolved value of an attribute as the result of successful attribute resolution
+   *   <li>2. error string as the result of failed attribute resolution
+   * </ol>
+   */
+  @AutoOneOf(AttributeResolutionResult.AttributeResolutionResultType.class)
+  public abstract static class AttributeResolutionResult<T> {
+
+    /** result type of attribute resolution */
+    public enum AttributeResolutionResultType {
+      SUCCESS,
+      FAILURE
+    }
+
+    public abstract AttributeResolutionResultType getType();
+
+    public abstract Optional<T> getSuccess();
+
+    public abstract String getFailure();
+
+    public static <T> AttributeResolutionResult<T> ofSuccess(@Nullable T value) {
+      return AutoOneOf_ConfiguredAttributeMapper_AttributeResolutionResult.success(
+          Optional.ofNullable(value));
+    }
+
+    public static <T> AttributeResolutionResult<T> ofFailure(String error) {
+      return AutoOneOf_ConfiguredAttributeMapper_AttributeResolutionResult.failure(error);
+    }
+  }
+
+  /**
+   * SelectResolutionResult is the instance of either:
+   *
+   * <ol>
+   *   <li>1. ConfigKeyAndValue as the result of successful select resolution
+   *   <li>2. error string as the result of failed select resolution
+   * </ol>
+   */
+  @AutoOneOf(SelectResolutionResult.SelectResolutionResultType.class)
+  public abstract static class SelectResolutionResult<T> {
+
+    /** result type of select resolution */
+    public enum SelectResolutionResultType {
+      SUCCESS,
+      FAILURE
+    }
+
+    public abstract SelectResolutionResultType getType();
+
+    public abstract ConfigKeyAndValue<T> getSuccess();
+
+    public abstract String getFailure();
+
+    public static <T> SelectResolutionResult<T> ofSuccess(ConfigKeyAndValue<T> value) {
+      return AutoOneOf_ConfiguredAttributeMapper_SelectResolutionResult.success(value);
+    }
+
+    public static <T> SelectResolutionResult<T> ofFailure(String noMatchError) {
+      return AutoOneOf_ConfiguredAttributeMapper_SelectResolutionResult.failure(noMatchError);
+    }
+  }
+
+  private <T> SelectResolutionResult<T> resolveSelector(
+      String attributeName, Selector<T> selector) {
     // Use a LinkedHashMap to guarantee a deterministic branch selection when multiple branches
     // matches but they
     // resolve to the same value.
@@ -182,6 +276,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
     // closely match how users see select() structures in BUILD files.
     LinkedHashSet<Label> conditionLabels = new LinkedHashSet<>();
 
+    ArrayList<String> errors = new ArrayList<>();
     // Find the matching condition and record its value (checking for duplicates).
     selector.forEach(
         (selectorKey, value) -> {
@@ -196,7 +291,14 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
           }
           conditionLabels.add(selectorKey);
 
-          if (curCondition.matches()) {
+          ConfigMatchingProvider.MatchResult matchResult = curCondition.result();
+
+          if (matchResult.getError() != null) {
+            // Resolving selects so last chance to actually surface these errors.
+            String message = matchResult.getError();
+            errors.add("config_setting " + selectorKey + " is unresolvable because: " + message);
+            // Defer the throw in order to collect all possible config_setting that are in error.
+          } else if (matchResult.equals(ConfigMatchingProvider.MatchResult.MATCH)) {
             // We keep track of all matches which are more precise than any we have found so
             // far. Therefore, we remove any previous matches which are strictly less precise
             // than this one, and only add this one if none of the previous matches are more
@@ -219,9 +321,18 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
             }
           }
         });
+    if (!errors.isEmpty()) {
+      return SelectResolutionResult.ofFailure(
+          "Unresolvable config_settings for configurable attribute \""
+              + attributeName
+              + "\" in "
+              + getLabel()
+              + ":\n"
+              + Joiner.on("\n").join(errors));
+    }
 
     if (matchingConditions.values().stream().map(s -> s.value).distinct().count() > 1) {
-      throw new ValidationException(
+      return SelectResolutionResult.ofFailure(
           "Illegal ambiguous match on configurable attribute \""
               + attributeName
               + "\" in "
@@ -231,23 +342,28 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
               + "\nMultiple matches are not allowed unless one is unambiguously "
               + "more specialized or they resolve to the same value. "
               + "See https://bazel.build/reference/be/functions#select.");
-    } else if (matchingConditions.size() > 0) {
-      return Iterables.getFirst(matchingConditions.values(), null);
+    } else if (!matchingConditions.isEmpty()) {
+      return SelectResolutionResult.ofSuccess(
+          Iterables.getFirst(matchingConditions.values(), null));
     }
 
     // If nothing matched, choose the default condition.
     if (selector.hasDefault()) {
-      return new ConfigKeyAndValue<>(Selector.DEFAULT_CONDITION_LABEL, selector.getDefault(), null);
+      return SelectResolutionResult.ofSuccess(
+          new ConfigKeyAndValue<T>(Selector.DEFAULT_CONDITION_LABEL, selector.getDefault(), null));
     }
 
     // If we're in a debugging mode, set a fake default using the empty value for this select's
     // type.
     if (alwaysSucceed) {
-      return new ConfigKeyAndValue<>(
-          Selector.DEFAULT_CONDITION_LABEL, selector.getOriginalType().getDefaultValue(), null);
+      return SelectResolutionResult.ofSuccess(
+          new ConfigKeyAndValue<>(
+              Selector.DEFAULT_CONDITION_LABEL,
+              selector.getOriginalType().getDefaultValue(),
+              null));
     }
 
-    throw new ValidationException(
+    return SelectResolutionResult.ofFailure(
         noMatchError(
             attributeName, selector.getNoMatchError(), conditionLabels, getLabel(), configHash));
   }
@@ -312,13 +428,12 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
       return super.isAttributeValueExplicitlySpecified(attributeName);
     }
     for (Selector<?> selector : selectorList.getSelectors()) {
-      try {
-        ConfigKeyAndValue<?> resolvedPath = resolveSelector(attributeName, selector);
-        if (selector.isValueSet(resolvedPath.configKey)) {
-          return true;
-        }
-      } catch (ValidationException unused) {
-        // This will trigger an error via any other call, so the actual return doesn't matter much.
+      SelectResolutionResult<?> resolvedPath = resolveSelector(attributeName, selector);
+      if (resolvedPath.getType() == SelectResolutionResult.SelectResolutionResultType.FAILURE) {
+        return true;
+      }
+
+      if (selector.isValueSet(resolvedPath.getSuccess().configKey)) {
         return true;
       }
     }

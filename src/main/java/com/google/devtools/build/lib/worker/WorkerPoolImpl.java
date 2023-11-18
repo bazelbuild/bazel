@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.worker;
 import com.google.common.base.Throwables;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
+import com.google.common.flogger.GoogleLogger;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -32,19 +32,22 @@ import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 /** Implementation of WorkerPool. */
 @ThreadSafe
 public class WorkerPoolImpl implements WorkerPool {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   /** Unless otherwise specified, the max number of workers per WorkerKey. */
   private static final int DEFAULT_MAX_WORKERS = 4;
+
   /** Unless otherwise specified, the max number of multiplex workers per WorkerKey. */
   private static final int DEFAULT_MAX_MULTIPLEX_WORKERS = 8;
 
   private final WorkerPoolConfig workerPoolConfig;
+
   /** Map of singleplex worker pools, one per mnemonic. */
   private final ImmutableMap<String, SimpleWorkerPool> workerPools;
+
   /** Map of multiplex worker pools, one per mnemonic. */
   private final ImmutableMap<String, SimpleWorkerPool> multiplexPools;
-
-  /** Set of worker ids which are going to be destroyed after they are returned to the pool */
-  private ImmutableSet<Integer> doomedWorkers = ImmutableSet.of();
 
   public WorkerPoolImpl(WorkerPoolConfig workerPoolConfig) {
     this.workerPoolConfig = workerPoolConfig;
@@ -108,7 +111,7 @@ public class WorkerPoolImpl implements WorkerPool {
   }
 
   public int getNumIdlePerKey(WorkerKey key) {
-    return getPool(key).getNumIdle();
+    return getPool(key).getNumIdle(key);
   }
 
   @Override
@@ -120,13 +123,21 @@ public class WorkerPoolImpl implements WorkerPool {
   @Override
   public void evictWithPolicy(EvictionPolicy<Worker> evictionPolicy) throws InterruptedException {
     for (SimpleWorkerPool pool : workerPools.values()) {
-      try {
-        pool.setEvictionPolicy(evictionPolicy);
-        pool.evict();
-      } catch (Throwable t) {
-        Throwables.propagateIfPossible(t, InterruptedException.class);
-        throw new VerifyException("unexpected", t);
-      }
+      evictWithPolicy(evictionPolicy, pool);
+    }
+    for (SimpleWorkerPool pool : multiplexPools.values()) {
+      evictWithPolicy(evictionPolicy, pool);
+    }
+  }
+
+  private void evictWithPolicy(EvictionPolicy<Worker> evictionPolicy, SimpleWorkerPool pool)
+      throws InterruptedException {
+    try {
+      pool.setEvictionPolicy(evictionPolicy);
+      pool.evict();
+    } catch (Throwable t) {
+      Throwables.propagateIfPossible(t, InterruptedException.class);
+      throw new VerifyException("unexpected", t);
     }
   }
 
@@ -150,17 +161,11 @@ public class WorkerPoolImpl implements WorkerPool {
 
   @Override
   public void returnObject(WorkerKey key, Worker obj) {
-    if (doomedWorkers.contains(obj.getWorkerId())) {
-      obj.setDoomed(true);
-    }
     getPool(key).returnObject(key, obj);
   }
 
   @Override
   public void invalidateObject(WorkerKey key, Worker obj) throws InterruptedException {
-    if (doomedWorkers.contains(obj.getWorkerId())) {
-      obj.setDoomed(true);
-    }
     try {
       getPool(key).invalidateObject(key, obj);
     } catch (Throwable t) {
@@ -169,25 +174,21 @@ public class WorkerPoolImpl implements WorkerPool {
     }
   }
 
+  /** Reset all shrunk subtrahend of all worker pools. */
   @Override
-  public synchronized void setDoomedWorkers(ImmutableSet<Integer> workerIds) {
-    this.doomedWorkers = workerIds;
-  }
-
-  /** Clear set of doomed workers. Also reset all shrunk subtrahend of all worker pools. */
-  @Override
-  public synchronized void clearDoomedWorkers() {
-    this.doomedWorkers = ImmutableSet.of();
-    for (SimpleWorkerPool pool : workerPools.values()) {
-      pool.clearShrunkBy();
+  public synchronized void reset() {
+    for (Entry<String, SimpleWorkerPool> entry : workerPools.entrySet()) {
+      logger.atInfo().log(
+          "clearing shrunk by values for %s worker pool",
+          entry.getKey().isEmpty() ? "shared" : entry.getKey());
+      entry.getValue().clearShrunkBy();
     }
-    for (SimpleWorkerPool pool : multiplexPools.values()) {
-      pool.clearShrunkBy();
+    for (Entry<String, SimpleWorkerPool> entry : multiplexPools.entrySet()) {
+      logger.atInfo().log(
+          "clearing shrunk by values for %s multiplex worker pool",
+          entry.getKey().isEmpty() ? "shared" : entry.getKey());
+      entry.getValue().clearShrunkBy();
     }
-  }
-
-  ImmutableSet<Integer> getDoomedWorkers() {
-    return doomedWorkers;
   }
 
   @Override

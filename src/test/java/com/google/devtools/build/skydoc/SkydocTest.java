@@ -28,8 +28,9 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.runfiles.Runfiles;
 import com.google.devtools.build.skydoc.SkydocMain.StarlarkEvaluationException;
 import com.google.devtools.build.skydoc.rendering.DocstringParseException;
-import com.google.devtools.build.skydoc.rendering.FunctionUtil;
+import com.google.devtools.build.skydoc.rendering.LabelRenderer;
 import com.google.devtools.build.skydoc.rendering.ProtoRenderer;
+import com.google.devtools.build.skydoc.rendering.StarlarkFunctionInfoExtractor;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
@@ -231,64 +232,6 @@ public final class SkydocTest {
             ImmutableMap.builder());
 
     assertThat(ruleInfoMap.buildOrThrow().keySet()).containsExactly("rule_one", "rule_two");
-  }
-
-  @Test
-  public void testRuleExportedWithSpecifiedName() throws Exception {
-    scratchRunfile(
-        "io_bazel/test/test.bzl",
-        "def rule_impl(ctx):",
-        "  return []",
-        "",
-        "rule_one = rule(",
-        "    doc = 'Rule one',",
-        "    implementation = rule_impl,",
-        "    name = 'rule_one_exported_name',",
-        ")");
-
-    ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
-
-    Module unused =
-        skydocMain.eval(
-            StarlarkSemantics.builder()
-                .setBool(BuildLanguageOptions.INCOMPATIBLE_REMOVE_RULE_NAME_PARAMETER, false)
-                .build(),
-            Label.parseCanonicalUnchecked("//test:test.bzl"),
-            ruleInfoMap,
-            ImmutableMap.builder(),
-            ImmutableMap.builder(),
-            ImmutableMap.builder());
-
-    assertThat(ruleInfoMap.buildOrThrow().keySet()).containsExactly("rule_one_exported_name");
-  }
-
-  @Test
-  public void testUnassignedRuleNotDocumented() throws Exception {
-    scratchRunfile(
-        "io_bazel/test/test.bzl",
-        "def rule_impl(ctx):",
-        "  return []",
-        "",
-        "rule(",
-        "    doc = 'Undocumented rule',",
-        "    implementation = rule_impl,",
-        "    name = 'rule_exported_name',",
-        ")");
-
-    ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
-
-    Module unused =
-        skydocMain.eval(
-            StarlarkSemantics.builder()
-                .setBool(BuildLanguageOptions.INCOMPATIBLE_REMOVE_RULE_NAME_PARAMETER, false)
-                .build(),
-            Label.parseCanonicalUnchecked("//test:test.bzl"),
-            ruleInfoMap,
-            ImmutableMap.builder(),
-            ImmutableMap.builder(),
-            ImmutableMap.builder());
-
-    assertThat(ruleInfoMap.buildOrThrow().keySet()).isEmpty();
   }
 
   @Test
@@ -538,7 +481,12 @@ public final class SkydocTest {
     DocstringParseException expected =
         assertThrows(
             DocstringParseException.class,
-            () -> FunctionUtil.fromNameAndFunction("check_sources", checkSourcesFn));
+            () ->
+                StarlarkFunctionInfoExtractor.fromNameAndFunction(
+                    "check_sources",
+                    checkSourcesFn,
+                    /* withOriginKey= */ false,
+                    LabelRenderer.DEFAULT));
     assertThat(expected)
         .hasMessageThat()
         .contains(

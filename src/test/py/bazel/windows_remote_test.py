@@ -15,7 +15,7 @@
 # limitations under the License.
 
 import os
-import unittest
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 
 
@@ -223,7 +223,7 @@ class WindowsRemoteTest(test_base.TestBase):
             # TODO(jsharpe): This is kind of an ugly way to call the data
             # dependency, but the best I can find. Instead, use py_binary +
             # Python runfiles library here once that's possible.
-            '$RUNFILES_DIR/__main__/foo/data_tool',
+            '$RUNFILES_DIR/_main/foo/data_tool',
         ],
         executable=True)
     self.ScratchFile(
@@ -243,4 +243,4 @@ class WindowsRemoteTest(test_base.TestBase):
 
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

@@ -396,7 +396,7 @@ public final class NodePrinterTest {
         ParserInput.fromLines(
             "# foo", //
             "expr # bar");
-    Parser.ParseResult r = Parser.parseFile(input);
+    Parser.ParseResult r = Parser.parseFile(input, FileOptions.DEFAULT);
     Comment c0 = r.comments.get(0);
     assertIndentedPrettyMatches(c0, "  # foo");
     assertTostringMatches(c0, "# foo");

@@ -51,12 +51,6 @@ public final class GlobFunction implements SkyFunction {
 
   private ConcurrentHashMap<String, Pattern> regexPatternCache = new ConcurrentHashMap<>();
 
-  private final boolean alwaysUseDirListing;
-
-  public GlobFunction(boolean alwaysUseDirListing) {
-    this.alwaysUseDirListing = alwaysUseDirListing;
-  }
-
   void complete() {
     this.regexPatternCache = new ConcurrentHashMap<>();
   }
@@ -140,7 +134,7 @@ public final class GlobFunction implements SkyFunction {
     boolean globMatchesBareFile = patternTail == null;
 
     RootedPath dirRootedPath = RootedPath.toRootedPath(glob.getPackageRoot(), dirPathFragment);
-    if (alwaysUseDirListing || containsGlobs(patternHead)) {
+    if (containsGlobs(patternHead)) {
       // Pattern contains globs, so a directory listing is required.
       //
       // Note that we have good reason to believe the directory exists: if this is the

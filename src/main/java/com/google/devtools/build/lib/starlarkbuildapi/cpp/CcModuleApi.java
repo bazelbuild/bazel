@@ -39,7 +39,7 @@ import net.starlark.java.eval.Tuple;
 
 /** Utilites related to C++ support. */
 @StarlarkBuiltin(
-    name = "cc_common_internal_do_not_use",
+    name = "cc_common",
     category = DocCategory.TOP_LEVEL_MODULE,
     doc = "Utilities for C++ compilation, linking, and command line generation.")
 public interface CcModuleApi<
@@ -55,9 +55,10 @@ public interface CcModuleApi<
                     StarlarkRuleContextT,
                     ?,
                     ? extends CppConfigurationApi<?>,
-                    CcToolchainVariablesT>,
+                    CcToolchainVariablesT,
+                    ?>,
         FeatureConfigurationT extends FeatureConfigurationApi,
-        CompilationContextT extends CcCompilationContextApi<FileT>,
+        CompilationContextT extends CcCompilationContextApi<FileT, CppModuleMapT>,
         LtoBackendArtifactsT extends LtoBackendArtifactsApi<FileT>,
         LinkerInputT extends LinkerInputApi<LibraryToLinkT, LtoBackendArtifactsT, FileT>,
         LinkingContextT extends CcLinkingContextApi<?>,
@@ -179,15 +180,6 @@ public interface CcModuleApi<
             allowedTypes = {
               @ParamType(type = Sequence.class),
               @ParamType(type = Depset.class),
-            }),
-        @Param(
-            name = "grep_includes",
-            positional = false,
-            named = true,
-            defaultValue = "None",
-            allowedTypes = {
-              @ParamType(type = FileApi.class),
-              @ParamType(type = NoneType.class),
             }),
         @Param(
             name = "link_artifact_name_suffix",
@@ -323,7 +315,6 @@ public interface CcModuleApi<
       boolean linkDepsStatically,
       StarlarkInt stamp,
       Object additionalInputs, // <FileT> expected
-      Object grepIncludes,
       Object linkArtifactNameSuffix,
       Object neverLink,
       Object alwaysLink,
@@ -426,11 +417,31 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "unbound"),
+        @Param(
+            name = "dwo_objects",
+            documented = false,
+            doc = "Compilation outputs containing dwo files of debuginfo for fission builds.",
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = Depset.class),
+            }),
+        @Param(
+            name = "pic_dwo_objects",
+            doc = "Compilation outputs containing dwo files of debuginfo for pic fission builds.",
+            documented = false,
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = Depset.class),
+            }),
       })
   CompilationOutputsT createCompilationOutputsFromStarlark(
       Object objectsObject,
       Object picObjectsObject,
       Object ltoCopmilationContextObject,
+      Object dwoObjectsObject,
+      Object picDwoObjectsObject,
       StarlarkThread thread)
       throws EvalException;
 
@@ -788,7 +799,7 @@ public interface CcModuleApi<
       Object stripOpts,
       Object inputFile,
       StarlarkThread thread)
-      throws EvalException;
+      throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "create_link_variables",
@@ -903,7 +914,7 @@ public interface CcModuleApi<
       boolean useTestOnlyFlags,
       boolean isStaticLinkingMode,
       StarlarkThread thread)
-      throws EvalException;
+      throws EvalException, InterruptedException;
 
   @StarlarkMethod(name = "empty_variables", documented = false, useStarlarkThread = true)
   CcToolchainVariablesT getVariables(StarlarkThread thread) throws EvalException;
@@ -1100,6 +1111,12 @@ public interface CcModuleApi<
   boolean checkExperimentalCcSharedLibrary(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
+      name = "incompatible_disable_objc_library_transition",
+      useStarlarkThread = true,
+      documented = false)
+  boolean getIncompatibleDisableObjcLibraryTransition(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
       name = "create_linking_context",
       doc = "Creates a <code>LinkingContext</code>.",
       useStarlarkThread = true,
@@ -1139,7 +1156,7 @@ public interface CcModuleApi<
             valueWhenDisabled = "None",
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
         @Param(
-            name = "go_link_c_archive",
+            name = "extra_link_time_library",
             documented = false,
             positional = false,
             named = true,
@@ -1154,7 +1171,7 @@ public interface CcModuleApi<
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
       Object nonCodeInputs, // <FileT> expected
-      Object goLinkCArchive,
+      Object extraLinkTimeLibraryObject,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
@@ -1247,6 +1264,96 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "unbound"),
+        @Param(
+            name = "actions",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "label",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "external_includes",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "virtual_to_original_headers",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "dependent_cc_compilation_contexts",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "non_code_inputs",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "loose_hdrs_dirs",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "headers_checking_mode",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "propagate_module_map_to_compile_action",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "pic_header_module",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "header_module",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "separate_module_headers",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "separate_module",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "separate_pic_module",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
+            name = "add_public_headers_to_modular_headers",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
       })
   CompilationContextT createCcCompilationContext(
       Object headers,
@@ -1261,6 +1368,21 @@ public interface CcModuleApi<
       Sequence<?> directPrivateHdrs,
       Object purpose,
       Object moduleMap,
+      Object actionFactoryForMiddlemanOwnerAndConfiguration,
+      Object labelForMiddlemanNameObject,
+      Object externalIncludes,
+      Object virtualToOriginalHeaders,
+      Sequence<?> dependentCcCompilationContexts,
+      Sequence<?> nonCodeInputs,
+      Sequence<?> looseHdrsDirs,
+      String headersCheckingMode,
+      Boolean propagateModuleMapToCompileAction,
+      Object picHeaderModule,
+      Object headerModule,
+      Sequence<?> separateModuleHeaders,
+      Object separateModule,
+      Object separatePicModule,
+      Object addPublicHeadersToModularHeaders,
       StarlarkThread thread)
       throws EvalException;
 
@@ -1587,12 +1709,6 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "False"),
         @Param(
-            name = "grep_includes",
-            positional = false,
-            named = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = FileApi.class), @ParamType(type = NoneType.class)}),
-        @Param(
             name = "variables_extension",
             positional = false,
             named = true,
@@ -1638,7 +1754,6 @@ public interface CcModuleApi<
       Sequence<?> additionalInputs, // <FileT> expected
       boolean disallowStaticLibraries,
       boolean disallowDynamicLibraries,
-      Object grepIncludes,
       Object variablesExtension,
       Object stamp,
       Object linkedDllNameSuffix,
@@ -1682,6 +1797,7 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             documented = false),
+        @Param(name = "lto_obj_root_prefix", positional = false, named = true, documented = false),
         @Param(name = "bitcode_file", positional = false, named = true, documented = false),
         @Param(
             name = "feature_configuration",
@@ -1701,6 +1817,7 @@ public interface CcModuleApi<
   LtoBackendArtifactsT createLtoBackendArtifacts(
       StarlarkRuleContextT starlarkRuleContext,
       String ltoOutputRootPrefixString,
+      String ltoObjRootPrefixString,
       FileT bitcodeFile,
       FeatureConfigurationT featureConfigurationForStarlark,
       CcToolchainProviderT ccToolchain,
@@ -1709,7 +1826,7 @@ public interface CcModuleApi<
       boolean shouldCreatePerObjectDebugInfo,
       Sequence<?> argv,
       StarlarkThread thread)
-      throws EvalException;
+      throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "merge_compilation_contexts",

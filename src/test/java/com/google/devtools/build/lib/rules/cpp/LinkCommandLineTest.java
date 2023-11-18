@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -442,16 +443,24 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
             .build();
 
     // Should only reference the tree artifact.
-    verifyArguments(linkConfig.arguments(null), treeArtifactsPaths, treeFileArtifactsPaths);
+    verifyArguments(
+        linkConfig.arguments(null, PathMapper.NOOP), treeArtifactsPaths, treeFileArtifactsPaths);
     verifyArguments(linkConfig.getRawLinkArgv(null), treeArtifactsPaths, treeFileArtifactsPaths);
     verifyArguments(
-        linkConfig.paramCmdLine().arguments(null), treeArtifactsPaths, treeFileArtifactsPaths);
+        linkConfig.paramCmdLine().arguments(null, PathMapper.NOOP),
+        treeArtifactsPaths,
+        treeFileArtifactsPaths);
 
     // Should only reference tree file artifacts.
-    verifyArguments(linkConfig.arguments(expander), treeFileArtifactsPaths, treeArtifactsPaths);
+    verifyArguments(
+        linkConfig.arguments(expander, PathMapper.NOOP),
+        treeFileArtifactsPaths,
+        treeArtifactsPaths);
     verifyArguments(
         linkConfig.getRawLinkArgv(expander), treeFileArtifactsPaths, treeArtifactsPaths);
     verifyArguments(
-        linkConfig.paramCmdLine().arguments(expander), treeFileArtifactsPaths, treeArtifactsPaths);
+        linkConfig.paramCmdLine().arguments(expander, PathMapper.NOOP),
+        treeFileArtifactsPaths,
+        treeArtifactsPaths);
   }
 }

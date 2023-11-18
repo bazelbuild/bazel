@@ -13,12 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.common.options.OpaqueOptionsData;
 import com.google.devtools.common.options.OptionValueDescription;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -29,6 +31,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
+import javax.annotation.Nullable;
 
 /** Encapsulates logic for performing --config option expansion. */
 final class ConfigExpander {
@@ -86,9 +89,11 @@ final class ConfigExpander {
   static void expandConfigOptions(
       EventHandler eventHandler,
       ListMultimap<String, RcChunkOfArgs> commandToRcArgs,
+      String currentCommand,
       List<String> commandsToParse,
       Consumer<String> rcFileNotesConsumer,
-      OptionsParser optionsParser)
+      OptionsParser optionsParser,
+      @Nullable OpaqueOptionsData fallbackData)
       throws OptionsParsingException {
 
     OptionValueDescription configValueDescription =
@@ -110,10 +115,18 @@ final class ConfigExpander {
                 commandsToParse,
                 configValueToExpand,
                 rcFileNotesConsumer);
-        optionsParser.parseArgsAsExpansionOfOption(
-            configInstance,
-            String.format("expanded from --config=%s", configValueToExpand),
-            expansion);
+        var ignoredArgs =
+            optionsParser.parseArgsAsExpansionOfOption(
+                configInstance,
+                String.format("expanded from --config=%s", configValueToExpand),
+                expansion,
+                fallbackData);
+        if (!ignoredArgs.isEmpty()) {
+          rcFileNotesConsumer.accept(
+              String.format(
+                  "Ignored as unsupported by '%s': %s",
+                  currentCommand, Joiner.on(' ').join(ignoredArgs)));
+        }
       }
     }
 
@@ -131,7 +144,8 @@ final class ConfigExpander {
       optionsParser.parseArgsAsExpansionOfOption(
           Iterables.getOnlyElement(enablePlatformSpecificConfigDescription.getCanonicalInstances()),
           String.format("enabled by --enable_platform_specific_config"),
-          expansion);
+          expansion,
+          fallbackData);
     }
 
     // At this point, we've expanded everything, identify duplicates, if any, to warn about

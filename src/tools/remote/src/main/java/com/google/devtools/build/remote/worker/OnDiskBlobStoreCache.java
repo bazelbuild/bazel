@@ -15,16 +15,14 @@ package com.google.devtools.build.remote.worker;
 
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
-import build.bazel.remote.execution.v2.ActionCacheUpdateCapabilities;
-import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
-import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import build.bazel.remote.execution.v2.SymlinkNode;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.remote.RemoteCache;
+import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -36,24 +34,18 @@ import java.io.IOException;
 
 /** A {@link RemoteCache} backed by an {@link DiskCacheClient}. */
 class OnDiskBlobStoreCache extends RemoteCache {
-  private static final CacheCapabilities CAPABILITIES =
-      CacheCapabilities.newBuilder()
-          .setActionCacheUpdateCapabilities(
-              ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
-          .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.ALLOWED)
-          .build();
-
-  public OnDiskBlobStoreCache(RemoteOptions options, Path cacheDir, DigestUtil digestUtil) {
+  public OnDiskBlobStoreCache(RemoteOptions options, Path cacheDir, DigestUtil digestUtil)
+      throws IOException {
     super(
-        CAPABILITIES,
-        new DiskCacheClient(
-            cacheDir, /* verifyDownloads= */ true, /* checkActionResult= */ true, digestUtil),
+        new DiskCacheClient(cacheDir, /* verifyDownloads= */ true, digestUtil),
         options,
         digestUtil);
   }
 
-  public boolean containsKey(Digest digest) {
-    return ((DiskCacheClient) cacheProtocol).contains(digest);
+  /** If the given blob exists, updates its mtime and returns true. Otherwise, returns false. */
+  boolean refresh(Digest digest) throws IOException {
+    DiskCacheClient diskCache = (DiskCacheClient) cacheProtocol;
+    return diskCache.refresh(diskCache.toPath(digest, Store.CAS));
   }
 
   @SuppressWarnings("ProtoParseWithRegistry")

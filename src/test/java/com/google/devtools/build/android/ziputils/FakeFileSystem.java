@@ -49,14 +49,6 @@ class FakeFileSystem extends FileSystem  {
     files.put(name, content.getBytes(UTF_8));
   }
 
-  public String content(String filename) throws IOException {
-    byte[] data = files.get(filename);
-    if (data == null) {
-      throw new FileNotFoundException();
-    }
-    return new String(data, UTF_8);
-  }
-
   public byte[] toByteArray(String filename) throws IOException {
     byte[] data = files.get(filename);
     if (data == null) {
@@ -86,12 +78,10 @@ class FakeFileSystem extends FileSystem  {
 
   class FakeReadChannel extends FileChannel {
 
-    final String name;
     byte[] data;
     int position;
 
     public FakeReadChannel(String filename) throws IOException {
-      this.name = filename;
       this.data = toByteArray(filename);
       this.position = 0;
     }
@@ -186,10 +176,6 @@ class FakeFileSystem extends FileSystem  {
     public MappedByteBuffer map(FileChannel.MapMode mode, long position, long size)
         throws IOException {
       throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-    public ByteBuffer map(long position, long size) {
-      return ByteBuffer.wrap(data, (int) position, (int) size).slice();
     }
 
     @Override

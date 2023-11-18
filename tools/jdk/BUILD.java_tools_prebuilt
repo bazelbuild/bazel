@@ -22,3 +22,11 @@ filegroup(
         "//conditions:default": ["java_tools/ijar/ijar"],
     }),
 )
+
+filegroup(
+   name = "turbine_direct_graal",
+   srcs = select({
+       ":windows": ["java_tools/turbine_direct_graal.exe"],
+       "//conditions:default": ["java_tools/turbine_direct_graal"],
+   }),
+)

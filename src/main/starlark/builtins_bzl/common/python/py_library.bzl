@@ -15,11 +15,14 @@
 
 load(
     ":common/python/attributes.bzl",
-    "COMMON_ATTRS",
-    "PY_SRCS_ATTRS",
+    "DEFAULT_DEPS_ATTR_DOC",
+    "DEFAULT_SRCS_VERSION_ATTR_DOC",
     "SRCS_VERSION_ALL_VALUES",
+    "create_common_attrs",
+    "create_py_srcs_attrs",
     "create_srcs_attr",
     "create_srcs_version_attr",
+    "default_srcs_attr_doc",
 )
 load(
     ":common/python/common.bzl",
@@ -36,12 +39,21 @@ load(":common/python/providers.bzl", "PyCcLinkParamsProvider")
 
 _py_builtins = _builtins.internal.py_builtins
 
-LIBRARY_ATTRS = union_attrs(
-    COMMON_ATTRS,
-    PY_SRCS_ATTRS,
-    create_srcs_version_attr(values = SRCS_VERSION_ALL_VALUES),
-    create_srcs_attr(mandatory = False),
-)
+def create_library_attrs(
+        *,
+        deps_attr_doc = DEFAULT_DEPS_ATTR_DOC,
+        srcs_attr_doc = default_srcs_attr_doc,
+        data_attr_doc = None,
+        srcs_version_attr_doc = DEFAULT_SRCS_VERSION_ATTR_DOC):
+    return union_attrs(
+        create_common_attrs(data_attr_doc = data_attr_doc),
+        create_py_srcs_attrs(deps_attr_doc = deps_attr_doc),
+        create_srcs_version_attr(
+            values = SRCS_VERSION_ALL_VALUES,
+            srcs_version_attr_doc = srcs_version_attr_doc,
+        ),
+        create_srcs_attr(mandatory = False, doc = srcs_attr_doc),
+    )
 
 def py_library_impl(ctx, *, semantics):
     """Abstract implementation of py_library rule.
@@ -85,13 +97,13 @@ def create_py_library_rule(*, attrs = {}, **kwargs):
     """Creates a py_library rule.
 
     Args:
-        attrs: dict of rule attributes.
+        attrs: dict of additional/overridden rule attributes.
         **kwargs: Additional kwargs to pass onto the rule() call.
     Returns:
         A rule object
     """
     return rule(
-        attrs = LIBRARY_ATTRS | attrs,
+        attrs = create_library_attrs() | attrs,
         # TODO(b/253818097): fragments=py is only necessary so that
         # RequiredConfigFragmentsTest passes
         fragments = ["py"],

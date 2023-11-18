@@ -90,8 +90,6 @@ public class PlatformOptions extends FragmentOptions {
         OptionEffectTag.CHANGES_INPUTS,
         OptionEffectTag.LOADING_AND_ANALYSIS
       },
-      // TODO(blaze-configurability-team): add OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH
-      //   after fixing platform name determination (currently not sufficiently unique).
       help =
           "The labels of the platform rules describing the target platforms for the current "
               + "command.")
@@ -114,25 +112,6 @@ public class PlatformOptions extends FragmentOptions {
               + "These toolchains will be considered before those declared in the WORKSPACE file "
               + "by register_toolchains().")
   public List<String> extraToolchains;
-
-  @Option(
-      name = "toolchain_resolution_override",
-      allowMultiple = true,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.AFFECTS_OUTPUTS,
-        OptionEffectTag.CHANGES_INPUTS,
-        OptionEffectTag.LOADING_AND_ANALYSIS
-      },
-      deprecationWarning =
-          "toolchain_resolution_override is now a no-op and will be removed in"
-              + " an upcoming release",
-      help =
-          "Override toolchain resolution for a toolchain type with a specific toolchain. "
-              + "Example: --toolchain_resolution_override=@io_bazel_rules_go//:toolchain="
-              + "@io_bazel_rules_go//:linux-arm64-toolchain")
-  public List<String> toolchainResolutionOverrides;
 
   @Option(
       name = "toolchain_resolution_debug",
@@ -202,7 +181,6 @@ public class PlatformOptions extends FragmentOptions {
     exec.extraExecutionPlatforms = this.extraExecutionPlatforms;
     exec.extraToolchains = this.extraToolchains;
     exec.toolchainResolutionDebug = this.toolchainResolutionDebug;
-    exec.toolchainResolutionOverrides = this.toolchainResolutionOverrides;
     exec.useToolchainResolutionForJavaRules = this.useToolchainResolutionForJavaRules;
     return exec;
   }

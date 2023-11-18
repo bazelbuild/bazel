@@ -17,13 +17,15 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Map;
 
 /**
@@ -33,20 +35,16 @@ import java.util.Map;
  */
 @AutoValue
 @GenerateTypeAdapter
-public abstract class BazelLockFileValue implements SkyValue {
+public abstract class BazelLockFileValue implements SkyValue, Postable {
 
-  public static final int LOCK_FILE_VERSION = 1;
+  public static final int LOCK_FILE_VERSION = 3;
 
   @SerializationConstant public static final SkyKey KEY = () -> SkyFunctions.BAZEL_LOCK_FILE;
 
-  public static BazelLockFileValue create(
-      int lockFileVersion,
-      String moduleFileHash,
-      BzlmodFlagsAndEnvVars flags,
-      ImmutableMap<String, String> localOverrideHashes,
-      ImmutableMap<ModuleKey, Module> moduleDepGraph) {
-    return new AutoValue_BazelLockFileValue(
-        lockFileVersion, moduleFileHash, flags, localOverrideHashes, moduleDepGraph);
+  static Builder builder() {
+    return new AutoValue_BazelLockFileValue.Builder()
+        .setLockFileVersion(LOCK_FILE_VERSION)
+        .setModuleExtensions(ImmutableMap.of());
   }
 
   /** Current version of the lock file */
@@ -64,27 +62,92 @@ public abstract class BazelLockFileValue implements SkyValue {
   /** The post-selection dep graph retrieved from the lock file. */
   public abstract ImmutableMap<ModuleKey, Module> getModuleDepGraph();
 
+  /** Mapping the extension id to the module extension data */
+  public abstract ImmutableMap<
+          ModuleExtensionId, ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
+      getModuleExtensions();
+
+  public abstract Builder toBuilder();
+
+  /** Builder type for {@link BazelLockFileValue}. */
+  @AutoValue.Builder
+  public abstract static class Builder {
+    public abstract Builder setLockFileVersion(int value);
+
+    public abstract Builder setModuleFileHash(String value);
+
+    public abstract Builder setFlags(BzlmodFlagsAndEnvVars value);
+
+    public abstract Builder setLocalOverrideHashes(ImmutableMap<String, String> value);
+
+    public abstract Builder setModuleDepGraph(ImmutableMap<ModuleKey, Module> value);
+
+    public abstract Builder setModuleExtensions(
+        ImmutableMap<
+                ModuleExtensionId,
+                ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
+            value);
+
+    public abstract BazelLockFileValue build();
+  }
+
   /** Returns the difference between the lockfile and the current module & flags */
-  public ArrayList<String> getDiffLockfile(
+  public ImmutableList<String> getModuleAndFlagsDiff(
       String moduleFileHash,
       ImmutableMap<String, String> localOverrideHashes,
       BzlmodFlagsAndEnvVars flags) {
-    ArrayList<String> diffLockfile = new ArrayList<>();
-    if (!moduleFileHash.equals(getModuleFileHash())) {
-      diffLockfile.add("the root MODULE.bazel has been modified");
+    ImmutableList.Builder<String> moduleDiff = new ImmutableList.Builder<>();
+    if (getLockFileVersion() != BazelLockFileValue.LOCK_FILE_VERSION) {
+      return moduleDiff
+          .add("the version of the lockfile is not compatible with the current Bazel")
+          .build();
     }
-    diffLockfile.addAll(getFlags().getDiffFlags(flags));
+    if (!moduleFileHash.equals(getModuleFileHash())) {
+      moduleDiff.add("the root MODULE.bazel has been modified");
+    }
+    moduleDiff.addAll(getFlags().getDiffFlags(flags));
 
     for (Map.Entry<String, String> entry : localOverrideHashes.entrySet()) {
       String currentValue = entry.getValue();
       String lockfileValue = getLocalOverrideHashes().get(entry.getKey());
       // If the lockfile value is null, the module hash would be different anyway
       if (lockfileValue != null && !currentValue.equals(lockfileValue)) {
-        diffLockfile.add(
+        moduleDiff.add(
             "The MODULE.bazel file has changed for the overriden module: " + entry.getKey());
       }
     }
+    return moduleDiff.build();
+  }
 
-    return diffLockfile;
+  /** Returns the differences between an extension and its locked data */
+  public ImmutableList<String> getModuleExtensionDiff(
+      ModuleExtensionId extensionId,
+      LockFileModuleExtension lockedExtension,
+      byte[] transitiveDigest,
+      boolean filesChanged,
+      ImmutableMap<String, String> envVariables,
+      ImmutableList<Map.Entry<ModuleKey, ModuleExtensionUsage>> extensionUsages,
+      ImmutableList<Map.Entry<ModuleKey, ModuleExtensionUsage>> lockedExtensionUsages) {
+
+    ImmutableList.Builder<String> extDiff = new ImmutableList.Builder<>();
+    if (!Arrays.equals(transitiveDigest, lockedExtension.getBzlTransitiveDigest())) {
+        extDiff.add(
+            "The implementation of the extension '"
+                + extensionId
+                + "' or one of its transitive .bzl files has changed");
+    }
+    if (filesChanged) {
+      extDiff.add("One or more files the extension '" + extensionId + "' is using have changed");
+    }
+    if (!extensionUsages.equals(lockedExtensionUsages)) {
+      extDiff.add("The usages of the extension '" + extensionId + "' have changed");
+    }
+    if (!envVariables.equals(lockedExtension.getEnvVariables())) {
+      extDiff.add(
+          "The environment variables the extension '"
+              + extensionId
+              + "' depends on (or their values) have changed");
+    }
+    return extDiff.build();
   }
 }

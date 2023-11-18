@@ -47,7 +47,7 @@ public final class VisibilityLicenseSpecifiedInputFile extends InputFile {
     if (visibility != null) {
       return visibility;
     } else {
-      return getPackage().getDefaultVisibility();
+      return getPackage().getPackageArgs().defaultVisibility();
     }
   }
 
@@ -61,7 +61,7 @@ public final class VisibilityLicenseSpecifiedInputFile extends InputFile {
     if (license != null) {
       return license;
     } else {
-      return getPackage().getDefaultLicense();
+      return getPackage().getPackageArgs().license();
     }
   }
 }

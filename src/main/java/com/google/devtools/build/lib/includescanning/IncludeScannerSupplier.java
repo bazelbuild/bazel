@@ -94,6 +94,16 @@ public class IncludeScannerSupplier {
     PathExistenceCache pathCache = new PathExistenceCache(execRoot, artifactFactory);
     scanners =
         Caffeine.newBuilder()
+            // We choose to make cache values weak referenced due to LegacyIncludeScanner can hold
+            // on to a memory expensive InclusionCache. However, a lot of IncludeScannerParams are
+            // not in use so they are eligible for garbage collection. As a matter of fact, this
+            // reduces peak heap on an example cpp-heavy build by ~5%.
+
+            //
+            // We could also choose to use softValues() but avoid doing so. The reason is that we
+            // want to keep blaze memory usage deterministic and to guarantee collection before
+            // blaze initiated-OOMs.
+            .weakValues()
             .build(
                 key ->
                     new LegacyIncludeScanner(

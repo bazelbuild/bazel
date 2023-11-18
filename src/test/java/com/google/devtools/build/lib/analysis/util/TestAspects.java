@@ -26,9 +26,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.AspectContext;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -36,7 +38,6 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -145,7 +146,9 @@ public class TestAspects {
         continue;
       }
       Iterable<AspectInfo> prerequisites =
-          ruleContext.getPrerequisites(attributeName, AspectInfo.class);
+          ruleContext
+              .getRulePrerequisitesCollection()
+              .getPrerequisites(attributeName, AspectInfo.class);
       for (AspectInfo prerequisite : prerequisites) {
         result.addTransitive(prerequisite.getData());
       }
@@ -205,8 +208,10 @@ public class TestAspects {
     @Override
     public ConfiguredTarget create(RuleContext ruleContext)
         throws InterruptedException, RuleErrorException, ActionConflictException {
-      TransitiveInfoCollection fooAttribute = ruleContext.getPrerequisite("foo");
-      TransitiveInfoCollection barAttribute = ruleContext.getPrerequisite("bar");
+      TransitiveInfoCollection fooAttribute =
+          ruleContext.getRulePrerequisitesCollection().getPrerequisite("foo");
+      TransitiveInfoCollection barAttribute =
+          ruleContext.getRulePrerequisitesCollection().getPrerequisite("bar");
 
       NestedSetBuilder<String> infoBuilder = NestedSetBuilder.<String>stableOrder();
 
@@ -389,7 +394,10 @@ public class TestAspects {
         AspectParameters parameters,
         RepositoryName toolsRepository)
         throws ActionConflictException, InterruptedException {
-      TransitiveInfoCollection dep = ruleContext.getPrerequisite("$dep");
+      TransitiveInfoCollection dep =
+          ((AspectContext) ruleContext)
+              .getMainAspectPrerequisitesCollection()
+              .getPrerequisite("$dep");
       if (dep == null) {
         ruleContext.attributeError("$dep", "$dep attribute not resolved");
         return ConfiguredAspect.builder(ruleContext).build();
@@ -435,7 +443,7 @@ public class TestAspects {
           .add(
               attr("$dep", LABEL)
                   .value(Label.parseCanonicalUnchecked("//extra:extra"))
-                  .mandatoryProviders(ImmutableList.of(PackageGroupConfiguredTarget.PROVIDER.id())))
+                  .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class)))
           .build();
 
   public static final ComputedAttributeAspect COMPUTED_ATTRIBUTE_ASPECT =
@@ -641,7 +649,10 @@ public class TestAspects {
         information.append(" data " + Iterables.getFirst(parameters.getAttribute("baz"), null));
         information.append(" ");
       }
-      List<? extends TransitiveInfoCollection> deps = ruleContext.getPrerequisites("$dep");
+      List<? extends TransitiveInfoCollection> deps =
+          ((AspectContext) ruleContext)
+              .getMainAspectPrerequisitesCollection()
+              .getPrerequisites("$dep");
       information.append("$dep:[");
       for (TransitiveInfoCollection dep : deps) {
         information.append(" ");

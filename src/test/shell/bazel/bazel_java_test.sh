@@ -57,6 +57,8 @@ fi
 
 JAVA_TOOLCHAIN="@bazel_tools//tools/jdk:toolchain"
 
+JAVA_TOOLCHAIN_TYPE="@bazel_tools//tools/jdk:toolchain_type"
+
 JAVA_TOOLS_ZIP="$1"; shift
 if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
   if [[ "${JAVA_TOOLS_ZIP}" == file* ]]; then
@@ -139,8 +141,6 @@ http_archive(
 )
 EOF
   fi
-
-  cat $(rlocation io_bazel/src/test/shell/bazel/testdata/jdk_http_archives) >> WORKSPACE
 }
 
 function tear_down() {
@@ -319,6 +319,7 @@ java_custom_library = rule(
     "resources": attr.label_list(allow_files=True),
     "_java_toolchain": attr.label(default = Label("${JAVA_TOOLCHAIN}")),
   },
+  toolchains = ["${JAVA_TOOLCHAIN_TYPE}"],
   fragments = ["java"]
 )
 EOF
@@ -497,6 +498,7 @@ java_custom_library = rule(
     "sourcepath": attr.label_list(),
     "_java_toolchain": attr.label(default = Label("${JAVA_TOOLCHAIN}")),
   },
+  toolchains = ["${JAVA_TOOLCHAIN_TYPE}"],
   fragments = ["java"]
 )
 EOF
@@ -567,6 +569,7 @@ java_custom_library = rule(
     "sourcepath": attr.label_list(),
     "_java_toolchain": attr.label(default = Label("${JAVA_TOOLCHAIN}")),
   },
+  toolchains = ["${JAVA_TOOLCHAIN_TYPE}"],
   fragments = ["java"]
 )
 EOF
@@ -1474,6 +1477,7 @@ java_custom_library = rule(
     "jar": attr.label(allow_files=True),
     "_java_toolchain": attr.label(default = Label("${JAVA_TOOLCHAIN}")),
   },
+  toolchains = ["${JAVA_TOOLCHAIN_TYPE}"],
   fragments = ["java"]
 )
 EOF
@@ -1525,7 +1529,8 @@ my_rule = rule(
     'output_source_jar' : attr.string(),
     'source_jars' : attr.label_list(allow_files=['.jar']),
     "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:remote_toolchain")),
-  }
+  },
+  toolchains = ["${JAVA_TOOLCHAIN_TYPE}"],
 )
 EOF
 

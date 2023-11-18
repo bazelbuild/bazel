@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
-import com.google.devtools.build.lib.packages.AspectsListBuilder;
+import com.google.devtools.build.lib.packages.AspectsList;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
@@ -123,7 +123,7 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
       ImmutableList<AspectClass> topLevelAspectsClasses,
       ImmutableMap<String, String> topLevelAspectsParameters)
       throws InterruptedException, BuildTopLevelAspectsDetailsFunctionException {
-    AspectsListBuilder aspectsList = new AspectsListBuilder();
+    AspectsList.Builder builder = new AspectsList.Builder();
 
     for (AspectClass aspectClass : topLevelAspectsClasses) {
       if (aspectClass instanceof StarlarkAspectClass) {
@@ -132,7 +132,7 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
           return null;
         }
         try {
-          starlarkAspect.attachToAspectsList(/*baseAspectName=*/ null, aspectsList);
+          builder.addAspect(starlarkAspect);
         } catch (EvalException e) {
           env.getListener().handle(Event.error(e.getMessage()));
           throw new BuildTopLevelAspectsDetailsFunctionException(
@@ -141,7 +141,7 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
         }
       } else {
         try {
-          aspectsList.addAspect((NativeAspectClass) aspectClass);
+          builder.addAspect((NativeAspectClass) aspectClass);
         } catch (AssertionError e) {
           env.getListener().handle(Event.error(e.getMessage()));
           throw new BuildTopLevelAspectsDetailsFunctionException(
@@ -151,6 +151,7 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
       }
     }
 
+    AspectsList aspectsList = builder.build();
     try {
         aspectsList.validateTopLevelAspectsParameters(topLevelAspectsParameters);
         return aspectsList.buildAspects(topLevelAspectsParameters);

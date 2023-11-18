@@ -18,13 +18,11 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
-import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
@@ -35,7 +33,6 @@ import java.lang.reflect.Field;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -47,10 +44,6 @@ import java.util.regex.Pattern;
  * A helper class for tests providing a simple interface for asserts.
  */
 public class MoreAsserts {
-
-  public static <T> void assertEquals(T expected, T actual, Comparator<T> comp) {
-    assertThat(comp.compare(expected, actual)).isEqualTo(0);
-  }
 
   /**
    * Scans if an instance of given class is strongly reachable from a given
@@ -145,21 +138,6 @@ public class MoreAsserts {
     return false;
   }
 
-  private static String getClassDescription(Object object) {
-    return object == null
-        ? "null"
-        : ("instance of " + object.getClass().getName());
-  }
-
-  public static String chattyFormat(String message, Object expected, Object actual) {
-    String expectedClass = getClassDescription(expected);
-    String actualClass = getClassDescription(actual);
-
-    return Joiner.on('\n').join((message != null) ? ("\n" + message) : "",
-        "  expected " + expectedClass + ": <" + expected + ">",
-        "  but was " + actualClass + ": <" + actual + ">");
-  }
-
   public static void assertEqualsUnifyingLineEnds(String expected, String actual) {
     if (actual != null) {
       actual = actual.replaceAll(System.getProperty("line.separator"), "\n");
@@ -215,13 +193,6 @@ public class MoreAsserts {
     }
   }
 
-  public static void assertStdoutContainsString(String expected, String stdout, String stderr) {
-    if (!stdout.contains(expected)) {
-      fail("expected stdout to contain string <" + expected + "> but stdout was <"
-          + stdout + "> and stderr was <" + stderr + ">");
-    }
-  }
-
   public static void assertStderrContainsString(String expected, String stdout, String stderr) {
     if (!stderr.contains(expected)) {
       fail("expected stderr to contain string <" + expected + "> but stdout was <"
@@ -243,14 +214,6 @@ public class MoreAsserts {
       fail("expected stderr to contain regex <" + expectedRegex + "> but stdout was <"
           + stdout + "> and stderr was <" + stderr + ">");
     }
-  }
-
-  public static Set<String> asStringSet(Iterable<?> collection) {
-    Set<String> set = Sets.newTreeSet();
-    for (Object o : collection) {
-      set.add("\"" + o + "\"");
-    }
-    return set;
   }
 
   /**
@@ -374,34 +337,6 @@ public class MoreAsserts {
       assertWithMessage("Unexpected string '" + expectedEvent + "' matched following event:\n"
           + event.getMessage()).that(event.getMessage()).doesNotContain(expectedEvent);
     }
-  }
-
-  /**
-   * If the specified EventCollector does not contain an event which has
-   * each of {@code words} surrounded by single quotes as a substring, an
-   * informative assertion fails.  Otherwise the matching event is returned.
-   */
-  public static Event assertContainsEventWithWordsInQuotes(
-      Iterable<Event> eventCollector,
-      String... words) {
-    for (Event event : eventCollector) {
-      boolean found = true;
-      for (String word : words) {
-        if (!event.getMessage().contains("'" + word + "'")) {
-          found = false;
-          break;
-        }
-      }
-      if (found) {
-        return event;
-      }
-    }
-    String eventsString = eventsToString(eventCollector);
-    assertWithMessage("Event containing words " + Arrays.toString(words) + " in "
-        + "single quotes not found"
-        + (eventsString.length() == 0 ? "" : ("; found these though:" + eventsString)))
-        .that(false).isTrue();
-    return null; // unreachable
   }
 
   /**

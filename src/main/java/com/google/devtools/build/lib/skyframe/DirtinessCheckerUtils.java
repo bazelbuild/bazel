@@ -138,6 +138,7 @@ public class DirtinessCheckerUtils {
     public SkyValueDirtinessChecker.DirtyResult check(
         SkyKey skyKey,
         SkyValue oldValue,
+        @Nullable Version oldMtsv,
         SyscallCache syscallCache,
         @Nullable TimestampGranularityMonitor tsgm) {
       FileType fileType = externalFilesHelper.getAndNoteFileType((RootedPath) skyKey.argument());
@@ -210,10 +211,11 @@ public class DirtinessCheckerUtils {
     public DirtyResult check(
         SkyKey key,
         @Nullable SkyValue oldValue,
+        @Nullable Version oldMtsv,
         SyscallCache syscallCache,
         @Nullable TimestampGranularityMonitor tsgm) {
       return Preconditions.checkNotNull(getChecker(key), key)
-          .check(key, oldValue, syscallCache, tsgm);
+          .check(key, oldValue, oldMtsv, syscallCache, tsgm);
     }
 
     @Override

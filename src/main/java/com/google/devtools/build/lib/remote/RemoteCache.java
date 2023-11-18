@@ -33,6 +33,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.exec.SpawnProgressEvent;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.ProgressStatusListener;
@@ -84,24 +85,19 @@ public class RemoteCache extends AbstractReferenceCounted {
   private final CountDownLatch closeCountDownLatch = new CountDownLatch(1);
   protected final AsyncTaskCache.NoResult<Digest> casUploadCache = AsyncTaskCache.NoResult.create();
 
-  protected final CacheCapabilities cacheCapabilities;
   protected final RemoteCacheClient cacheProtocol;
   protected final RemoteOptions options;
   protected final DigestUtil digestUtil;
 
   public RemoteCache(
-      CacheCapabilities cacheCapabilities,
-      RemoteCacheClient cacheProtocol,
-      RemoteOptions options,
-      DigestUtil digestUtil) {
-    this.cacheCapabilities = cacheCapabilities;
+      RemoteCacheClient cacheProtocol, RemoteOptions options, DigestUtil digestUtil) {
     this.cacheProtocol = cacheProtocol;
     this.options = options;
     this.digestUtil = digestUtil;
   }
 
-  public CacheCapabilities getCacheCapabilities() {
-    return cacheCapabilities;
+  public CacheCapabilities getCacheCapabilities() throws IOException {
+    return cacheProtocol.getCacheCapabilities();
   }
 
   public CachedActionResult downloadActionResult(
@@ -124,7 +120,11 @@ public class RemoteCache extends AbstractReferenceCounted {
 
   /** Returns whether the action cache supports updating action results. */
   public boolean actionCacheSupportsUpdate() {
-    return cacheCapabilities.getActionCacheUpdateCapabilities().getUpdateEnabled();
+    try {
+      return getCacheCapabilities().getActionCacheUpdateCapabilities().getUpdateEnabled();
+    } catch (IOException ignored) {
+      return false;
+    }
   }
 
   /** Upload the action result to the remote cache. */
@@ -201,6 +201,11 @@ public class RemoteCache extends AbstractReferenceCounted {
     return RxFutures.toListenableFuture(upload);
   }
 
+  public ListenableFuture<byte[]> downloadBlob(
+      RemoteActionExecutionContext context, Digest digest) {
+    return downloadBlob(context, /* blobName= */ "", digest);
+  }
+
   /**
    * Downloads a blob with content hash {@code digest} and stores its content in memory.
    *
@@ -208,14 +213,22 @@ public class RemoteCache extends AbstractReferenceCounted {
    *     the content is stored in the future's {@code byte[]}.
    */
   public ListenableFuture<byte[]> downloadBlob(
-      RemoteActionExecutionContext context, Digest digest) {
+      RemoteActionExecutionContext context, String blobName, Digest digest) {
     if (digest.getSizeBytes() == 0) {
       return EMPTY_BYTES;
     }
     ByteArrayOutputStream bOut = new ByteArrayOutputStream((int) digest.getSizeBytes());
+    var download = downloadBlob(context, blobName, digest, bOut);
     SettableFuture<byte[]> outerF = SettableFuture.create();
+    outerF.addListener(
+        () -> {
+          if (outerF.isCancelled()) {
+            download.cancel(/* mayInterruptIfRunning= */ true);
+          }
+        },
+        directExecutor());
     Futures.addCallback(
-        cacheProtocol.downloadBlob(context, digest, bOut),
+        download,
         new FutureCallback<Void>() {
           @Override
           public void onSuccess(Void aVoid) {
@@ -237,12 +250,37 @@ public class RemoteCache extends AbstractReferenceCounted {
   }
 
   private ListenableFuture<Void> downloadBlob(
-      RemoteActionExecutionContext context, Digest digest, OutputStream out) {
+      RemoteActionExecutionContext context, String blobName, Digest digest, OutputStream out) {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;
     }
+    var download = cacheProtocol.downloadBlob(context, digest, out);
+    SettableFuture<Void> future = SettableFuture.create();
+    future.addListener(
+        () -> {
+          if (future.isCancelled()) {
+            download.cancel(/* mayInterruptIfRunning= */ true);
+          }
+        },
+        directExecutor());
+    Futures.addCallback(
+        download,
+        new FutureCallback<Void>() {
+          @Override
+          public void onSuccess(Void result) {
+            future.set(result);
+          }
 
-    return cacheProtocol.downloadBlob(context, digest, out);
+          @Override
+          public void onFailure(Throwable t) {
+            if (t instanceof CacheNotFoundException) {
+              ((CacheNotFoundException) t).setFilename(blobName);
+            }
+            future.setException(t);
+          }
+        },
+        directExecutor());
+    return future;
   }
 
   /** A reporter that reports download progresses. */
@@ -315,6 +353,13 @@ public class RemoteCache extends AbstractReferenceCounted {
       throws IOException {
     SettableFuture<Void> outerF = SettableFuture.create();
     ListenableFuture<Void> f = downloadFile(context, localPath, digest, reporter);
+    outerF.addListener(
+        () -> {
+          if (outerF.isCancelled()) {
+            f.cancel(/* mayInterruptIfRunning= */ true);
+          }
+        },
+        directExecutor());
     Futures.addCallback(
         f,
         new FutureCallback<Void>() {
@@ -325,7 +370,10 @@ public class RemoteCache extends AbstractReferenceCounted {
 
           @Override
           public void onFailure(Throwable throwable) {
-            if (throwable instanceof OutputDigestMismatchException) {
+            if (throwable instanceof CacheNotFoundException) {
+              var cacheNotFoundException = (CacheNotFoundException) throwable;
+              cacheNotFoundException.setFilename(outputPath);
+            } else if (throwable instanceof OutputDigestMismatchException) {
               OutputDigestMismatchException e = ((OutputDigestMismatchException) throwable);
               e.setOutputPath(outputPath);
               e.setLocalPath(localPath);
@@ -341,11 +389,16 @@ public class RemoteCache extends AbstractReferenceCounted {
   /** Downloads a file (that is not a directory). The content is fetched from the digest. */
   public ListenableFuture<Void> downloadFile(
       RemoteActionExecutionContext context, Path path, Digest digest) throws IOException {
-    return downloadFile(context, path, digest, new DownloadProgressReporter(NO_ACTION, "", 0));
+    return downloadFile(
+        context,
+        path.getPathString(),
+        path,
+        digest,
+        new DownloadProgressReporter(NO_ACTION, "", 0));
   }
 
   /** Downloads a file (that is not a directory). The content is fetched from the digest. */
-  public ListenableFuture<Void> downloadFile(
+  private ListenableFuture<Void> downloadFile(
       RemoteActionExecutionContext context,
       Path path,
       Digest digest,
@@ -379,11 +432,12 @@ public class RemoteCache extends AbstractReferenceCounted {
         () -> {
           try {
             out.close();
-            reporter.finished();
           } catch (IOException e) {
             logger.atWarning().withCause(e).log(
                 "Unexpected exception closing output stream after downloading %s/%d to %s",
                 digest.getHash(), digest.getSizeBytes(), path);
+          } finally {
+            reporter.finished();
           }
         },
         directExecutor());
@@ -408,7 +462,12 @@ public class RemoteCache extends AbstractReferenceCounted {
         downloads.add(Futures.immediateFailedFuture(e));
       }
     } else if (result.hasStdoutDigest()) {
-      downloads.add(downloadBlob(context, result.getStdoutDigest(), outErr.getOutputStream()));
+      downloads.add(
+          downloadBlob(
+              context,
+              /* blobName= */ "<stdout>",
+              result.getStdoutDigest(),
+              outErr.getOutputStream()));
     }
     if (!result.getStderrRaw().isEmpty()) {
       try {
@@ -418,7 +477,12 @@ public class RemoteCache extends AbstractReferenceCounted {
         downloads.add(Futures.immediateFailedFuture(e));
       }
     } else if (result.hasStderrDigest()) {
-      downloads.add(downloadBlob(context, result.getStderrDigest(), outErr.getErrorStream()));
+      downloads.add(
+          downloadBlob(
+              context,
+              /* blobName= */ "<stderr>",
+              result.getStderrDigest(),
+              outErr.getErrorStream()));
     }
     return downloads;
   }

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
@@ -31,7 +32,7 @@ public final class CcToolchainSuiteRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return builder
-        .requiresConfigurationFragments(CppConfiguration.class)
+        .requiresConfigurationFragments(CppConfiguration.class, AppleConfiguration.class)
         /* <!-- #BLAZE_RULE(cc_toolchain_suite).ATTRIBUTE(toolchains) -->
         A map from "&lt;cpu&gt;" or "&lt;cpu&gt;|&lt;compiler&gt;" strings to
         a <code>cc_toolchain</code> label. "&lt;cpu&gt;" will be used when only <code>--cpu</code>
@@ -56,7 +57,7 @@ public final class CcToolchainSuiteRule implements RuleDefinition {
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .nonconfigurable("Used during configuration creation"))
         .add(
-            attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
+            attr(CcToolchainRule.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
                 .value(CppRuleClasses.ccToolchainTypeAttribute(environment)))
         .build();
   }

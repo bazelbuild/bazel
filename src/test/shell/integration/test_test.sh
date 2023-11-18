@@ -139,7 +139,9 @@ sh_test(
   srcs = ["slowtest.sh"],
 )
 EOF
-    bazel test --test_summary=terse //$pkg/... &>$TEST_log \
+    # --build_tests_only is necessary in Skymeld mode to prevent the execution
+    # error from being hit before any TestAnalyzedEvent.
+    bazel test --test_summary=terse --build_tests_only //$pkg/... &>$TEST_log \
       && fail "expected failure" || :
     expect_not_log 'NO STATUS'
     expect_log 'testsrc'

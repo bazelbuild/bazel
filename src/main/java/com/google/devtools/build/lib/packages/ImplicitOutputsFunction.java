@@ -348,10 +348,10 @@ public abstract class ImplicitOutputsFunction {
    */
   private static ImmutableSet<String> attributeValues(AttributeMap rule, String attrName) {
     if (attrName.equals("dirname")) {
-      PathFragment dir = PathFragment.create(rule.getName()).getParentDirectory();
+      PathFragment dir = PathFragment.create(rule.getLabel().getName()).getParentDirectory();
       return dir.isEmpty() ? ImmutableSet.of("") : ImmutableSet.of(dir.getPathString() + "/");
     } else if (attrName.equals("basename")) {
-      return ImmutableSet.of(PathFragment.create(rule.getName()).getBaseName());
+      return ImmutableSet.of(PathFragment.create(rule.getLabel().getName()).getBaseName());
     }
 
     Type<?> attrType = rule.getAttributeType(attrName);
@@ -361,6 +361,8 @@ public abstract class ImplicitOutputsFunction {
     // String attributes and lists are easy.
     if (Type.STRING == attrType) {
       return ImmutableSet.of(rule.get(attrName, Type.STRING));
+    } else if (Type.STRING_NO_INTERN == attrType) {
+      return ImmutableSet.of(rule.get(attrName, Type.STRING_NO_INTERN));
     } else if (Type.STRING_LIST == attrType) {
       return ImmutableSet.copyOf(rule.get(attrName, Type.STRING_LIST));
     } else if (BuildType.LABEL == attrType) {

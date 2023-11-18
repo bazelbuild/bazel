@@ -360,18 +360,16 @@ public class CommonCommandOptions extends OptionsBase {
               + " by 4 GCs with zero second pause")
   public MemoryProfileStableHeapParameters memoryProfileStableHeapParameters;
 
-
   @Option(
       name = "heap_dump_on_oom",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help =
-          "Whether to manually output a heap dump if an OOM is thrown (including OOMs due to"
-              + " --experimental_oom_more_eagerly_threshold). The dump will be written to"
+          "Whether to manually output a heap dump if an OOM is thrown (including manual OOMs due to"
+              + " reaching --gc_thrashing_limits). The dump will be written to"
               + " <output_base>/<invocation_id>.heapdump.hprof. This option effectively replaces"
-              + " -XX:+HeapDumpOnOutOfMemoryError, which has no effect because OOMs are caught and"
-              + " redirected to Runtime#halt.")
+              + " -XX:+HeapDumpOnOutOfMemoryError, which has no effect for manual OOMs.")
   public boolean heapDumpOnOom;
 
   @Option(

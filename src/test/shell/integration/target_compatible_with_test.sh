@@ -268,7 +268,6 @@ def _compiler_flag_impl(ctx):
 compiler_flag = rule(
     implementation = _compiler_flag_impl,
     toolchains = ["//target_skipping/custom_tools:toolchain_type"],
-    incompatible_use_toolchain_transition = True,
 )
 EOF
 }
@@ -559,7 +558,7 @@ genrule(
     name = "genrule_foo1",
     target_compatible_with = [":foo1"],
     outs = ["foo1.sh"],
-    cmd = "echo 'Should not be executed' &>2; exit 1",
+    cmd = "echo 'Should not be executed' >&2; exit 1",
 )
 
 sh_binary(
@@ -1014,7 +1013,7 @@ EOF
     && fail "Bazel passed unexpectedly."
 
   expect_log 'ERROR:.* Target //target_skipping:pass_on_foo3_and_bar2 is incompatible and cannot be built, but was explicitly requested'
-  expect_log "^    //target_skipping:pass_on_foo3_and_bar2 (.*)   <-- target platform (//target_skipping:foo1_bar1_platform) didn't satisfy constraint @platforms//:incompatible$"
+  expect_log "^    //target_skipping:pass_on_foo3_and_bar2 (.*)   <-- target platform (//target_skipping:foo1_bar1_platform) didn't satisfy constraint @\?@platforms//:incompatible$"
   expect_log 'ERROR: Build did NOT complete successfully'
 }
 
@@ -1108,6 +1107,18 @@ EOF
 # for https://github.com/bazelbuild/bazel/issues/12897.
 function test_incompatible_with_missing_toolchain() {
   set_up_custom_toolchain
+  cat >> WORKSPACE <<'EOF'
+local_repository(name = 'build_bazel_apple_support', path = 'build_bazel_apple_support')
+EOF
+  mkdir -p build_bazel_apple_support/platforms
+  touch build_bazel_apple_support/WORKSPACE
+  cat > build_bazel_apple_support/platforms/BUILD <<'EOF'
+package(default_visibility=["//visibility:public"])
+platform(
+  name = "darwin_x86_64",
+  constraint_values = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
+)
+EOF
 
   cat >> target_skipping/BUILD <<'EOF'
 load(
@@ -1422,9 +1433,9 @@ EOF
     --output=starlark --starlark:file=target_skipping/compatibility.cquery \
     &> "${TEST_log}"
 
-  expect_log '^@//target_skipping:pass_on_foo1 is compatible$'
-  expect_log '^@//target_skipping:fail_on_foo2 is incompatible$'
-  expect_log '^@//target_skipping:some_foo3_target is incompatible$'
+  expect_log '^@@\?//target_skipping:pass_on_foo1 is compatible$'
+  expect_log '^@@\?//target_skipping:fail_on_foo2 is incompatible$'
+  expect_log '^@@\?//target_skipping:some_foo3_target is incompatible$'
 
   bazel cquery \
     --host_platform=//target_skipping:foo3_platform \
@@ -1433,9 +1444,9 @@ EOF
     --output=starlark --starlark:file=target_skipping/compatibility.cquery \
     &> "${TEST_log}"
 
-  expect_log '^@//target_skipping:pass_on_foo1 is incompatible$'
-  expect_log '^@//target_skipping:fail_on_foo2 is incompatible$'
-  expect_log '^@//target_skipping:some_foo3_target is compatible$'
+  expect_log '^@@\?//target_skipping:pass_on_foo1 is incompatible$'
+  expect_log '^@@\?//target_skipping:fail_on_foo2 is incompatible$'
+  expect_log '^@@\?//target_skipping:some_foo3_target is compatible$'
 }
 
 # Run an aquery on a target that is compatible. This should pass.

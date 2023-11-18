@@ -43,7 +43,6 @@ def _build_common_variables(
         implementation_deps = [],
         extra_disabled_features = [],
         extra_enabled_features = [],
-        extra_import_libraries = [],
         attr_linkopts = [],
         alwayslink = False,
         has_module_map = False,
@@ -66,11 +65,10 @@ def _build_common_variables(
         deps = deps,
         implementation_deps = implementation_deps,
         intermediate_artifacts = intermediate_artifacts,
-        alwayslink = alwayslink,
         has_module_map = has_module_map,
-        extra_import_libraries = extra_import_libraries,
         attr_linkopts = attr_linkopts,
         direct_cc_compilation_contexts = direct_cc_compilation_contexts,
+        includes = cc_helper.system_include_dirs(ctx, {}) if hasattr(ctx.attr, "includes") else [],
     )
 
     return struct(
@@ -133,9 +131,6 @@ def _compile(
         purpose,
         generate_module_map):
     objc_compilation_context = common_variables.objc_compilation_context
-    includes = []
-    includes.extend(priority_headers)
-    includes.extend(objc_compilation_context.includes)
 
     user_compile_flags = []
     user_compile_flags.extend(_get_compile_rule_copts(common_variables))
@@ -166,7 +161,6 @@ def _compile(
         compilation_contexts = objc_compilation_context.cc_compilation_contexts,
         implementation_compilation_contexts = objc_compilation_context.implementation_cc_compilation_contexts,
         user_compile_flags = user_compile_flags,
-        grep_includes = _get_grep_includes(common_variables.ctx),
         module_map = module_map,
         propagate_module_map_to_compile_action = True,
         variables_extension = extension,
@@ -307,16 +301,6 @@ def _map_to_list(m):
         result.append((k, v))
     return result
 
-def _get_grep_includes(ctx):
-    if hasattr(ctx.executable, "_grep_includes"):
-        return ctx.executable._grep_includes
-    elif hasattr(ctx.file, "_grep_includes"):
-        return ctx.file._grep_includes
-    elif hasattr(ctx.files, "_grep_includes"):
-        return ctx.files._grep_includes[0]
-
-    return None
-
 def _cc_compile_and_link(
         srcs,
         non_arc_srcs,
@@ -434,7 +418,6 @@ def _cc_compile_and_link(
             language = "c++",
             alwayslink = common_variables.alwayslink,
             disallow_dynamic_library = True,
-            grep_includes = _get_grep_includes(ctx),
             variables_extension = non_arc_extensions,
         )
     else:
@@ -532,67 +515,15 @@ def _generate_extra_module_map(
         module_map = module_map,
         purpose = purpose,
         name = common_variables.ctx.label.name,
-        grep_includes = _get_grep_includes(common_variables.ctx),
     )
 
-def _build_fully_linked_variable_extensions_pre_migration(archive, objc_provider):
-    extensions = {}
-    extensions["fully_linked_archive_path"] = archive.path
-    cc_libs = {}
-    for cc_lib in objc_provider.flattened_cc_libraries():
-        cc_libs[cc_lib.path] = True
-    exclusively_objc_libs = []
-    for objc_lib in objc_provider.flattened_objc_libraries():
-        if objc_lib.path in cc_libs:
-            continue
-        exclusively_objc_libs.append(objc_lib.path)
-
-    import_paths = []
-    for import_lib in objc_provider.imported_library.to_list():
-        import_paths.append(import_lib.path)
-    for static_framework_file in objc_provider.static_framework_file.to_list():
-        import_paths.append(static_framework_file.path)
-
-    extensions["objc_library_exec_paths"] = exclusively_objc_libs
-    extensions["cc_library_exec_paths"] = cc_libs.keys()
-    extensions["imported_library_exec_paths"] = import_paths
-
-    return extensions
-
-def _build_fully_linked_variable_extensions_post_migration(archive, libs):
+def _build_fully_linked_variable_extensions(archive, libs):
     extensions = {}
     extensions["fully_linked_archive_path"] = archive.path
     extensions["objc_library_exec_paths"] = [lib.path for lib in libs]
     extensions["cc_library_exec_paths"] = []
     extensions["imported_library_exec_paths"] = []
     return extensions
-
-def _register_fully_link_action_pre_migration(name, common_variables, objc_provider):
-    ctx = common_variables.ctx
-    feature_configuration = _build_feature_configuration(common_variables, False, False)
-
-    output_archive = ctx.actions.declare_file(name + ".a")
-    extensions = _build_fully_linked_variable_extensions_pre_migration(
-        output_archive,
-        objc_provider,
-    )
-
-    linker_inputs = []
-    linker_inputs.extend(objc_provider.flattened_objc_libraries())
-    linker_inputs.extend(objc_provider.flattened_cc_libraries())
-    linker_inputs.extend(objc_provider.imported_library.to_list())
-    linker_inputs.extend(objc_provider.static_framework_file.to_list())
-
-    return cc_common.link(
-        name = name,
-        actions = ctx.actions,
-        feature_configuration = feature_configuration,
-        cc_toolchain = common_variables.toolchain,
-        language = "objc",
-        additional_inputs = linker_inputs,
-        output_type = "archive",
-        variables_extension = extensions,
-    )
 
 def _get_libraries_for_linking(libraries_to_link):
     libraries = []
@@ -607,7 +538,7 @@ def _get_libraries_for_linking(libraries_to_link):
             libraries.append(library_to_link.dynamic_library)
     return libraries
 
-def _register_fully_link_action_post_migration(name, common_variables, cc_linking_context):
+def _register_fully_link_action(name, common_variables, cc_linking_context):
     ctx = common_variables.ctx
     feature_configuration = _build_feature_configuration(common_variables, False, False)
 
@@ -615,7 +546,7 @@ def _register_fully_link_action_post_migration(name, common_variables, cc_linkin
     libraries = _get_libraries_for_linking(libraries_to_link)
 
     output_archive = ctx.actions.declare_file(name + ".a")
-    extensions = _build_fully_linked_variable_extensions_post_migration(
+    extensions = _build_fully_linked_variable_extensions(
         output_archive,
         libraries,
     )
@@ -630,26 +561,6 @@ def _register_fully_link_action_post_migration(name, common_variables, cc_linkin
         output_type = "archive",
         variables_extension = extensions,
     )
-
-def _register_fully_link_action(
-        *,
-        name,
-        linking_info_migration,
-        common_variables,
-        objc_provider = None,
-        cc_linking_context = None):
-    if not linking_info_migration:
-        return _register_fully_link_action_pre_migration(
-            name,
-            common_variables,
-            objc_provider,
-        )
-    else:
-        return _register_fully_link_action_post_migration(
-            name,
-            common_variables,
-            cc_linking_context,
-        )
 
 compilation_support = struct(
     register_compile_and_archive_actions = _register_compile_and_archive_actions,

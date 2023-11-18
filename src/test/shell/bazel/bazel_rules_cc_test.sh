@@ -78,7 +78,7 @@ filegroup(name = 'yolo')
 EOF
 
   cd rules_cc_can_be_overridden || fail "couldn't cd into workspace"
-  bazel build @rules_cc//:yolo &> $TEST_log || \
+  bazel build --noenable_bzlmod @rules_cc//:yolo &> $TEST_log || \
     fail "Bazel failed to build @rules_cc"
 }
 

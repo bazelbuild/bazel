@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultT
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
 import java.util.Set;
@@ -55,6 +56,7 @@ public class RuleFactory {
       Package.Builder pkgBuilder,
       RuleClass ruleClass,
       BuildLangTypedAttributeValuesMap attributeValues,
+      boolean failOnUnknownAttributes,
       EventHandler eventHandler,
       ImmutableList<StarlarkThread.CallStackEntry> callstack)
       throws InvalidRuleException, InterruptedException {
@@ -92,7 +94,8 @@ public class RuleFactory {
     callstack = callstack.subList(0, callstack.size() - 1); // pop
 
     try {
-      return ruleClass.createRule(pkgBuilder, label, attributes, eventHandler, callstack);
+      return ruleClass.createRule(
+          pkgBuilder, label, attributes, failOnUnknownAttributes, eventHandler, callstack);
     } catch (LabelSyntaxException | CannotPrecomputeDefaultsException e) {
       throw new RuleFactory.InvalidRuleException(ruleClass + " " + e.getMessage());
     }
@@ -106,8 +109,8 @@ public class RuleFactory {
    * @param attributeValues a {@link BuildLangTypedAttributeValuesMap} mapping attribute names to
    *     attribute values of build-language type. Each attribute must be defined for this class of
    *     rule, and have a build-language-typed value which can be converted to the appropriate
-   *     native type of the attribute (i.e. via {@link BuildType#selectableConvert}). There must be
-   *     a map entry for each non-optional attribute of this class of rule.
+   *     native type of the attribute (i.e. via {@link BuildType#convertFromBuildLangType}). There
+   *     must be a map entry for each non-optional attribute of this class of rule.
    * @param eventHandler a eventHandler on which errors and warnings are reported during rule
    *     creation
    * @param callstack the stack of active calls in the Starlark thread
@@ -122,10 +125,18 @@ public class RuleFactory {
       Package.Builder pkgBuilder,
       RuleClass ruleClass,
       BuildLangTypedAttributeValuesMap attributeValues,
+      boolean failOnUnknownAttributes,
       EventHandler eventHandler,
       ImmutableList<StarlarkThread.CallStackEntry> callstack)
       throws InvalidRuleException, NameConflictException, InterruptedException {
-    Rule rule = createRule(pkgBuilder, ruleClass, attributeValues, eventHandler, callstack);
+    Rule rule =
+        createRule(
+            pkgBuilder,
+            ruleClass,
+            attributeValues,
+            failOnUnknownAttributes,
+            eventHandler,
+            callstack);
     pkgBuilder.addRule(rule);
     return rule;
   }
@@ -148,7 +159,8 @@ public class RuleFactory {
     /**
      * Returns {@code true} if all the map's values are "build-language typed", i.e., resulting from
      * the evaluation of an expression in the build language. Returns {@code false} if all the map's
-     * values are "natively typed", i.e. of a type returned by {@link BuildType#selectableConvert}.
+     * values are "natively typed", i.e. of a type returned by {@link
+     * BuildType#convertFromBuildLangType}.
      */
     boolean valuesAreBuildLanguageTyped();
 
@@ -221,7 +233,10 @@ public class RuleFactory {
     // optionally followed by other Starlark or built-in functions, and finally the rule
     // instantiation function.
     if (stack.size() < 2 || !stack.get(1).location.file().endsWith(".bzl")) {
-      return args; // Not instantiated by a Starlark macro.
+      // Not instantiated by a Starlark macro.
+      // (Edge case not handled: BUILD file calls helper(cc_library) defined in an .scl file, and
+      // helper instantiates the rule that's passed as an argument.)
+      return args;
     }
 
     if (args.containsAttributeNamed("generator_name")) {
@@ -275,13 +290,16 @@ public class RuleFactory {
       if (!args.isEmpty()) {
         throw Starlark.errorf("unexpected positional arguments");
       }
-      BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase(ruleClass.getName());
+      BazelStarlarkContext.checkLoadingOrWorkspacePhase(thread, ruleClass.getName());
       try {
         PackageContext context = PackageFactory.getContext(thread);
         RuleFactory.createAndAddRule(
             context.pkgBuilder,
             ruleClass,
             new BuildLangTypedAttributeValuesMap(kwargs),
+            thread
+                .getSemantics()
+                .getBool(BuildLanguageOptions.INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES),
             context.eventHandler,
             thread.getCallStack());
       } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {

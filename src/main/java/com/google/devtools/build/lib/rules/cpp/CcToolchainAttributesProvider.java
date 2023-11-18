@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
 import com.google.common.base.Preconditions;
@@ -25,6 +24,7 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.analysis.LicensesProviderImpl;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -39,10 +39,10 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.cpp.CcToolchain.AdditionalBuildVariablesComputer;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkThread;
 
 /**
@@ -67,7 +67,6 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
   private final NestedSet<Artifact> arFiles;
   private final NestedSet<Artifact> linkerFiles;
   private final NestedSet<Artifact> dwpFiles;
-  private final Label libcTopAttribute;
   private final NestedSet<Artifact> libc;
   private final TransitiveInfoCollection libcTop;
   private final NestedSet<Artifact> targetLibc;
@@ -75,8 +74,6 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
   private final NestedSet<Artifact> fullInputsForCrosstool;
   private final NestedSet<Artifact> fullInputsForLink;
   private final NestedSet<Artifact> coverage;
-  private final String compiler;
-  private final String cpu;
   private final Artifact ifsoBuilder;
   private final Artifact linkDynamicLibraryTool;
   @Nullable private final Artifact grepIncludes;
@@ -84,6 +81,7 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
   private final ImmutableList<Artifact> fdoOptimizeArtifacts;
   private final FdoPrefetchHintsProvider fdoPrefetch;
   private final PropellerOptimizeProvider propellerOptimize;
+  private final MemProfProfileProvider memprofProfileProvider;
   private final TransitiveInfoCollection moduleMap;
   private final Artifact moduleMapArtifact;
   private final Artifact zipper;
@@ -91,7 +89,6 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
   private final String runtimeSolibDirBase;
   private final LicensesProvider licensesProvider;
   private final Label toolchainType;
-  private final AdditionalBuildVariablesComputer additionalBuildVariablesComputer;
   private final CcToolchainConfigInfo ccToolchainConfigInfo;
   private final String toolchainIdentifier;
   private final FdoProfileProvider fdoOptimizeProvider;
@@ -102,30 +99,24 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
   private final TransitiveInfoCollection staticRuntimeLib;
   private final TransitiveInfoCollection dynamicRuntimeLib;
   private final PackageSpecificationProvider allowlistForLayeringCheck;
-  private final PackageSpecificationProvider allowlistForLooseHeaderCheck;
+  private final StarlarkFunction ccToolchainBuildVariablesFunc;
+  private final String lateBoundLibc;
+  private final String lateBoundTargetLibc;
+  private final OutputGroupInfo ccBuildInfoTranslator;
 
   public CcToolchainAttributesProvider(
       RuleContext ruleContext,
       boolean isAppleToolchain,
-      AdditionalBuildVariablesComputer additionalBuildVariablesComputer) {
+      StarlarkFunction ccToolchainBuildVariablesFunc) {
     super();
     this.ccToolchainLabel = ruleContext.getLabel();
     this.toolchainIdentifier = ruleContext.attributes().get("toolchain_identifier", Type.STRING);
-    if (ruleContext.getFragment(CppConfiguration.class).removeCpuCompilerCcToolchainAttributes()
-        && (ruleContext.attributes().isAttributeValueExplicitlySpecified("cpu")
-            || ruleContext.attributes().isAttributeValueExplicitlySpecified("compiler"))) {
-      ruleContext.ruleError(
-          "attributes 'cpu' and 'compiler' have been deprecated, please remove them. See "
-              + "https://github.com/bazelbuild/bazel/issues/7075 for details.");
-    }
 
     // grep_includes is not supported by Bazel.
     String toolsRepository = ruleContext.getRuleClassProvider().getToolsRepository().getName();
     this.grepIncludes =
         toolsRepository.isEmpty() ? ruleContext.getPrerequisiteArtifact("$grep_includes") : null;
 
-    this.cpu = ruleContext.attributes().get("cpu", Type.STRING);
-    this.compiler = ruleContext.attributes().get("compiler", Type.STRING);
     this.supportsParamFiles = ruleContext.attributes().get("supports_param_files", BOOLEAN);
     this.supportsHeaderParsing = ruleContext.attributes().get("supports_header_parsing", BOOLEAN);
     this.allFiles = getFiles(ruleContext, "all_files");
@@ -139,13 +130,14 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     this.linkerFiles = getFiles(ruleContext, "linker_files");
     this.dwpFiles = getFiles(ruleContext, "dwp_files");
 
-    this.libc = getOptionalFiles(ruleContext, CcToolchainRule.LIBC_TOP_ATTR);
-    this.libcTop = ruleContext.getPrerequisite(CcToolchainRule.LIBC_TOP_ATTR);
+    this.lateBoundLibc = getLateBoundLibc(ruleContext, "libc_top", ":libc_top");
+    this.lateBoundTargetLibc = getLateBoundLibc(ruleContext, "libc_top", ":target_libc_top");
 
-    this.targetLibc = getOptionalFiles(ruleContext, CcToolchainRule.TARGET_LIBC_TOP_ATTR);
-    this.targetLibcTop = ruleContext.getPrerequisite(CcToolchainRule.TARGET_LIBC_TOP_ATTR);
+    this.libc = getOptionalFiles(ruleContext, lateBoundLibc);
+    this.libcTop = ruleContext.getPrerequisite(lateBoundLibc);
 
-    this.libcTopAttribute = ruleContext.attributes().get("libc_top", BuildType.LABEL);
+    this.targetLibc = getOptionalFiles(ruleContext, lateBoundTargetLibc);
+    this.targetLibcTop = ruleContext.getPrerequisite(lateBoundTargetLibc);
 
     this.fullInputsForCrosstool =
         NestedSetBuilder.<Artifact>stableOrder()
@@ -177,6 +169,8 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
         ruleContext.getPrerequisite(":fdo_prefetch_hints", FdoPrefetchHintsProvider.PROVIDER);
     this.propellerOptimize =
         ruleContext.getPrerequisite(":propeller_optimize", PropellerOptimizeProvider.PROVIDER);
+    this.memprofProfileProvider =
+        ruleContext.getPrerequisite(":memprof_profile", MemProfProfileProvider.PROVIDER);
     this.moduleMap = ruleContext.getPrerequisite("module_map");
     this.moduleMapArtifact = ruleContext.getPrerequisiteArtifact("module_map");
     this.zipper = ruleContext.getPrerequisiteArtifact(":zipper");
@@ -209,19 +203,33 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
       this.licensesProvider = null;
     }
     // TODO(b/65835260): Remove this conditional once j2objc can learn the toolchain type.
-    if (ruleContext.attributes().has(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME)) {
+    if (ruleContext.attributes().has(CcToolchainRule.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME)) {
       this.toolchainType =
-          ruleContext.attributes().get(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL);
+          ruleContext
+              .attributes()
+              .get(CcToolchainRule.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, BuildType.LABEL);
     } else {
       this.toolchainType = null;
     }
-    this.additionalBuildVariablesComputer = additionalBuildVariablesComputer;
     this.allowlistForLayeringCheck =
         Allowlist.fetchPackageSpecificationProvider(
-            ruleContext, CcToolchain.ALLOWED_LAYERING_CHECK_FEATURES_ALLOWLIST);
-    this.allowlistForLooseHeaderCheck =
-        Allowlist.fetchPackageSpecificationProvider(
-            ruleContext, CcToolchain.LOOSE_HEADER_CHECK_ALLOWLIST);
+            ruleContext, CcToolchainRule.ALLOWED_LAYERING_CHECK_FEATURES_ALLOWLIST);
+    this.ccToolchainBuildVariablesFunc = ccToolchainBuildVariablesFunc;
+    this.ccBuildInfoTranslator =
+        OutputGroupInfo.get(ruleContext.getPrerequisite("$build_info_translator"));
+  }
+
+  // This is to avoid Starlark limitation of not being able to have complex logic in configuration
+  // field. The logic here was encapsulated in native cc_toolchain rule's :libc_top's and
+  // :target_libc_top's LateBoundDefault attributes.
+  // In case :libc_top or :target_libc_top were not specified from command line, i.e. grte_top was
+  // not set we will try to use public attributes instead.
+  private static String getLateBoundLibc(
+      RuleContext ruleContext, String attribute, String implicitAttribute) {
+    if (ruleContext.getPrerequisite(implicitAttribute) == null) {
+      return attribute;
+    }
+    return implicitAttribute;
   }
 
   @Override
@@ -229,8 +237,15 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     return PROVIDER;
   }
 
-  public String getCpu() {
-    return cpu;
+  @StarlarkMethod(
+      name = "build_vars_func",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public StarlarkFunction getBuildVarsFunc(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return ccToolchainBuildVariablesFunc;
   }
 
   public boolean isSupportsParamFiles() {
@@ -251,12 +266,20 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     return runtimeSolibDirBase;
   }
 
+  public StarlarkFunction getCcToolchainBuildVariablesFunc() {
+    return ccToolchainBuildVariablesFunc;
+  }
+
   public FdoPrefetchHintsProvider getFdoPrefetch() {
     return fdoPrefetch;
   }
 
   public PropellerOptimizeProvider getPropellerOptimize() {
     return propellerOptimize;
+  }
+
+  public MemProfProfileProvider getMemProfProfileProvider() {
+    return memprofProfileProvider;
   }
 
   public String getToolchainIdentifier() {
@@ -280,6 +303,18 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
 
   public ImmutableList<Artifact> getFdoOptimizeArtifacts() {
     return fdoOptimizeArtifacts;
+  }
+
+  @StarlarkMethod(
+      name = "licenses_provider",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public LicensesProvider getLicensesProviderForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getLicensesProvider();
   }
 
   public LicensesProvider getLicensesProvider() {
@@ -320,10 +355,6 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
 
   public boolean isSupportsHeaderParsing() {
     return supportsHeaderParsing;
-  }
-
-  public AdditionalBuildVariablesComputer getAdditionalBuildVariablesComputer() {
-    return additionalBuildVariablesComputer;
   }
 
   public NestedSet<Artifact> getAllFiles() {
@@ -504,14 +535,6 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     return getTargetLibcTop() == null ? null : getTargetLibcTop().getLabel();
   }
 
-  public Label getLibcTopAttribute() {
-    return libcTopAttribute;
-  }
-
-  public String getCompiler() {
-    return compiler;
-  }
-
   public Artifact getIfsoBuilder() {
     return ifsoBuilder;
   }
@@ -520,8 +543,8 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     return allowlistForLayeringCheck;
   }
 
-  public PackageSpecificationProvider getAllowlistForLooseHeaderCheck() {
-    return allowlistForLooseHeaderCheck;
+  public OutputGroupInfo getCcBuildInfoTranslator() {
+    return ccBuildInfoTranslator;
   }
 
   private static NestedSet<Artifact> getFiles(RuleContext context, String attribute) {

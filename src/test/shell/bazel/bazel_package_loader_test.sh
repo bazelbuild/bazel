@@ -21,7 +21,6 @@ source "${CURRENT_DIR}/../integration_test_setup.sh"
 
 TESTER="$(rlocation io_bazel/src/main/java/com/google/devtools/build/lib/skyframe/packages/testing/BazelPackageLoaderTester)"
 
-
 function test_bazel_package_loader() {
   install_base="$(bazel info install_base)"
   mkdir foo bar
@@ -34,6 +33,11 @@ EOF
 sh_library(name = 'x')
 sh_library(name = 'y')
 sh_library(name = 'z')
+EOF
+
+  # Skip WORKSPACE suffix to avoid loading rules_java_builtin repo.
+  cat > WORKSPACE <<EOF
+# __SKIP_WORKSPACE_SUFFIX__
 EOF
 
   "$TESTER" "$install_base" foo bar >& "$TEST_log"

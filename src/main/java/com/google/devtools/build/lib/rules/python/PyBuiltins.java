@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RepoMappingManifestAction;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.SourceManifestAction;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
@@ -152,8 +151,8 @@ public abstract class PyBuiltins implements StarlarkValue {
         runfiles,
         /* manifest= */ null,
         /* repoMappingManifest= */ null,
-        ruleContext.getConfiguration().buildRunfileLinks(),
-        ruleContext.getConfiguration().runfilesEnabled());
+        ruleContext.getConfiguration().getRunfileSymlinksMode(),
+        ruleContext.getConfiguration().buildRunfileLinks());
   }
 
   // TODO(rlevasseur): Remove once Starlark exposes this directly, see
@@ -237,7 +236,7 @@ public abstract class PyBuiltins implements StarlarkValue {
       })
   public Object expandLocationAndMakeVariables(
       StarlarkRuleContext ruleContext, String attributeName, String expression, Sequence<?> targets)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     ImmutableMap.Builder<Label, ImmutableCollection<Artifact>> builder = ImmutableMap.builder();
 
     for (TransitiveInfoCollection current :
@@ -266,44 +265,6 @@ public abstract class PyBuiltins implements StarlarkValue {
         .expand(attributeName, expression);
   }
 
-  // TODO(b/232136319): Remove this once the --experimental_build_transitive_python_runfiles
-  // flag is flipped and removed.
-  @StarlarkMethod(
-      name = "new_empty_runfiles_with_middleman",
-      doc = "Create an empty runfiles object with the current ctx's middleman attached.",
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true, defaultValue = "unbound"),
-        @Param(
-            name = "runfiles_for_runfiles_support",
-            positional = false,
-            named = true,
-            defaultValue = "unbound",
-            doc =
-                "Runfiles used to create RunfilesSupport; they are not added to the "
-                    + "returned runfiles object."),
-        @Param(
-            name = "executable_for_runfiles_support",
-            positional = false,
-            named = true,
-            defaultValue = "unbound",
-            doc =
-                "File; used to create RunfilesSupport; they are not added to the "
-                    + "returned runfiles object."),
-      })
-  public Object newEmptyRunfilesWithMiddleman(
-      StarlarkRuleContext starlarkCtx, Runfiles runfiles, Artifact executable)
-      throws EvalException {
-    // NOTE: The RunfilesSupport created here must exactly match the one done as part of Starlark
-    // rule processing, otherwise action output conflicts occur. See
-    // https://github.com/bazelbuild/bazel/blob/1940c5d68136ce2079efa8ff74d4e5fdf63ee3e6/src/main/java/com/google/devtools/build/lib/analysis/starlark/StarlarkRuleConfiguredTargetUtil.java#L642-L651
-    RunfilesSupport runfilesSupport =
-        RunfilesSupport.withExecutable(starlarkCtx.getRuleContext(), runfiles, executable);
-    return new Runfiles.Builder(
-            starlarkCtx.getWorkspaceName(), starlarkCtx.getConfiguration().legacyExternalRunfiles())
-        .addLegacyExtraMiddleman(runfilesSupport.getRunfilesMiddleman())
-        .build();
-  }
-
   @StarlarkMethod(
       name = "create_repo_mapping_manifest",
       doc = "Write a repo_mapping file for the given runfiles",
@@ -322,7 +283,9 @@ public abstract class PyBuiltins implements StarlarkValue {
                 ruleContext.getActionOwner(),
                 repoMappingManifest,
                 ruleContext.getTransitivePackagesForRunfileRepoMappingManifest(),
-                runfiles.getAllArtifacts(),
+                runfiles.getArtifacts(),
+                runfiles.getSymlinks(),
+                runfiles.getRootSymlinks(),
                 ruleContext.getWorkspaceName()));
   }
 

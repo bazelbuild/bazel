@@ -52,6 +52,11 @@
 
 namespace blaze_jni {
 
+struct DIROrError {
+  DIR *dir;
+  int error;
+};
+
 static void PostException(JNIEnv *env, const char *exception_classname,
                           const std::string &message) {
   jclass exception_class = env->FindClass(exception_classname);
@@ -909,13 +914,17 @@ static void PostDeleteTreesBelowException(
 // dir_path contains the path components that were used when opening dir_fd and
 // is only used for error reporting purposes.
 //
-// Returns a directory on success. Returns NULL on error and posts an
-// exception.
-static DIR* ForceOpendir(JNIEnv* env, const std::vector<std::string>& dir_path,
-                         const int dir_fd, const char* entry) {
+// Returns a directory handle on success or an errno on error. If the error is
+// other than ENOENT, posts an exception before returning.
+static DIROrError ForceOpendir(JNIEnv *env,
+                               const std::vector<std::string> &dir_path,
+                               const int dir_fd, const char *entry) {
   static const int flags = O_RDONLY | O_NOFOLLOW | PORTABLE_O_DIRECTORY;
   int fd = openat(dir_fd, entry, flags);
   if (fd == -1) {
+    if (errno == ENOENT) {
+      return {nullptr, errno};
+    }
     // If dir_fd is a readable but non-executable directory containing entry, we
     // could have obtained entry by readdir()-ing, but any attempt to open or
     // stat the entry would fail with EACCESS. In this case, we need to fix the
@@ -924,27 +933,36 @@ static DIR* ForceOpendir(JNIEnv* env, const std::vector<std::string>& dir_path,
     // recursion).
     if (errno == EACCES && dir_fd != AT_FDCWD) {
       if (fchmod(dir_fd, 0700) == -1) {
-        PostDeleteTreesBelowException(env, errno, "fchmod", dir_path, nullptr);
-        return nullptr;
+        if (errno != ENOENT) {
+          PostDeleteTreesBelowException(env, errno, "fchmod", dir_path,
+                                        nullptr);
+        }
+        return {nullptr, errno};
       }
     }
     if (fchmodat(dir_fd, entry, 0700, 0) == -1) {
-      PostDeleteTreesBelowException(env, errno, "fchmodat", dir_path, entry);
-      return nullptr;
+      if (errno != ENOENT) {
+        PostDeleteTreesBelowException(env, errno, "fchmodat", dir_path, entry);
+      }
+      return {nullptr, errno};
     }
     fd = openat(dir_fd, entry, flags);
     if (fd == -1) {
-      PostDeleteTreesBelowException(env, errno, "opendir", dir_path, entry);
-      return nullptr;
+      if (errno != ENOENT) {
+        PostDeleteTreesBelowException(env, errno, "opendir", dir_path, entry);
+      }
+      return {nullptr, errno};
     }
   }
   DIR* dir = fdopendir(fd);
   if (dir == nullptr) {
-    PostDeleteTreesBelowException(env, errno, "fdopendir", dir_path, entry);
+    if (errno != ENOENT) {
+      PostDeleteTreesBelowException(env, errno, "fdopendir", dir_path, entry);
+    }
     close(fd);
-    return nullptr;
+    return {nullptr, errno};
   }
-  return dir;
+  return {dir, 0};
 }
 
 // Tries to delete a file within a directory and, if the first attempt fails,
@@ -957,17 +975,27 @@ static DIR* ForceOpendir(JNIEnv* env, const std::vector<std::string>& dir_path,
 //
 // is_dir indicates whether the entry to delete is a directory or not.
 //
-// Returns 0 on success. Returns -1 on error and posts an exception.
+// Returns 0 when the file doesn't exist or is successfully deleted. Otherwise,
+// returns -1 and posts an exception.
 static int ForceDelete(JNIEnv* env, const std::vector<std::string>& dir_path,
                        const int dir_fd, const char* entry,
                        const bool is_dir) {
   const int flags = is_dir ? AT_REMOVEDIR : 0;
   if (unlinkat(dir_fd, entry, flags) == -1) {
+    if (errno == ENOENT) {
+      return 0;
+    }
     if (fchmod(dir_fd, 0700) == -1) {
+      if (errno == ENOENT) {
+        return 0;
+      }
       PostDeleteTreesBelowException(env, errno, "fchmod", dir_path, nullptr);
       return -1;
     }
     if (unlinkat(dir_fd, entry, flags) == -1) {
+      if (errno == ENOENT) {
+        return 0;
+      }
       PostDeleteTreesBelowException(env, errno, "unlinkat", dir_path, entry);
       return -1;
     }
@@ -998,6 +1026,10 @@ static int IsSubdir(JNIEnv* env, const std::vector<std::string>& dir_path,
     case DT_UNKNOWN: {
       struct stat st;
       if (fstatat(dir_fd, de->d_name, &st, AT_SYMLINK_NOFOLLOW) == -1) {
+        if (errno == ENOENT) {
+          *is_dir = false;
+          return 0;
+        }
         PostDeleteTreesBelowException(env, errno, "fstatat", dir_path,
                                       de->d_name);
         return -1;
@@ -1028,8 +1060,12 @@ static int IsSubdir(JNIEnv* env, const std::vector<std::string>& dir_path,
 // Returns 0 on success. Returns -1 on error and posts an exception.
 static int DeleteTreesBelow(JNIEnv* env, std::vector<std::string>* dir_path,
                             const int dir_fd, const char* entry) {
-  DIR *dir = ForceOpendir(env, *dir_path, dir_fd, entry);
+  DIROrError dir_or_error = ForceOpendir(env, *dir_path, dir_fd, entry);
+  DIR *dir = dir_or_error.dir;
   if (dir == nullptr) {
+    if (dir_or_error.error == ENOENT) {
+      return 0;
+    }
     BAZEL_CHECK_NE(env->ExceptionOccurred(), nullptr);
     return -1;
   }
@@ -1037,16 +1073,25 @@ static int DeleteTreesBelow(JNIEnv* env, std::vector<std::string>* dir_path,
   dir_path->push_back(entry);
   // On macOS and some other non-Linux OSes, on some filesystems, readdir(dir)
   // may return NULL after an entry in dir is deleted even if not all files have
-  // been read yet - see https://support.apple.com/kb/TA21420; we thus read all
-  // the names of dir's entries before deleting. We don't want to simply use
-  // fts(3) because we want to be able to chmod at any point in the directory
-  // hierarchy to retry a filesystem operation after hitting an EACCES.
+  // been read yet - see
+  // https://pubs.opengroup.org/onlinepubs/9699919799/functions/readdir.html;
+  // "If a file is removed from or added to the directory after the most recent
+  // call to opendir() or rewinddir(), whether a subsequent call to readdir()
+  // returns an entry for that file is unspecified." We thus read all the names
+  // of dir's entries before deleting. We don't want to simply use fts(3)
+  // because we want to be able to chmod at any point in the directory hierarchy
+  // to retry a filesystem operation after hitting an EACCES.
+  // If in the future we hit any problems here due to the unspecified behavior
+  // of readdir() when a file has been deleted by a different thread we can use
+  // some form of locking to make sure the threads don't try to clean up the
+  // same directory at the same time; or doing it in a loop until the directory
+  // is really empty.
   std::vector<std::string> dir_files, dir_subdirs;
   for (;;) {
     errno = 0;
     struct dirent* de = readdir(dir);
     if (de == nullptr) {
-      if (errno != 0) {
+      if (errno != 0 && errno != ENOENT) {
         PostDeleteTreesBelowException(env, errno, "readdir", *dir_path,
                                       nullptr);
       }

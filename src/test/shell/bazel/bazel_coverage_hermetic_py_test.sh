@@ -21,6 +21,8 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+disable_bzlmod
+
 # Fetch hermetic python and register toolchain.
 function set_up() {
     cat >>WORKSPACE <<EOF

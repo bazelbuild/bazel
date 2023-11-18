@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 /** Specifies that a module should be retrieved from a Git repository. */
 @AutoValue
 public abstract class GitOverride implements NonRegistryOverride {
+  public static final String GIT_REPOSITORY_PATH = "@bazel_tools//tools/build_defs/repo:git.bzl";
+
   public static GitOverride create(
       String remote,
       String commit,
@@ -60,7 +62,7 @@ public abstract class GitOverride implements NonRegistryOverride {
         .put("patch_cmds", getPatchCmds())
         .put("patch_args", ImmutableList.of("-p" + getPatchStrip()));
     return RepoSpec.builder()
-        .setBzlFile("@bazel_tools//tools/build_defs/repo:git.bzl")
+        .setBzlFile(GIT_REPOSITORY_PATH)
         .setRuleClassName("git_repository")
         .setAttributes(AttributeValues.create(attrBuilder.buildOrThrow()))
         .build();

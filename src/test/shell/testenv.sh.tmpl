@@ -82,7 +82,7 @@ export PATH="$PATH_TO_BAZEL_WRAPPER:$PATH"
 # Setting up the environment for Bazel integration tests.
 #
 [ -z "$TEST_SRCDIR" ] && log_fatal "TEST_SRCDIR not set!"
-BAZEL_RUNFILES="$TEST_SRCDIR/io_bazel"
+BAZEL_RUNFILES="$TEST_SRCDIR/_main"
 
 # WORKSPACE file
 workspace_file="${BAZEL_RUNFILES}/WORKSPACE"
@@ -92,14 +92,14 @@ distdir_bzl_file="${BAZEL_RUNFILES}/distdir.bzl"
 if [[ $PLATFORM =~ msys ]]; then
   jdk_dir="$(cygpath -m $(cd $(rlocation local_jdk/bin/java.exe)/../..; pwd))"
 else
-  jdk_dir="${TEST_SRCDIR}/local_jdk"
+  jdk_dir="$(dirname $(dirname $(rlocation local_jdk/bin/java)))"
 fi
 
 # Tools directory location
 tools_dir="$(dirname $(rlocation io_bazel/tools/BUILD))"
 
 # Platforms
-default_host_platform="@local_config_platform//:host"
+default_host_platform="@@local_config_platform//:host"
 
 # Sandbox tools
 process_wrapper="${BAZEL_RUNFILES}/src/main/tools/process-wrapper"
@@ -264,6 +264,9 @@ build --incompatible_skip_genfiles_symlink=false
 
 build --incompatible_use_toolchain_resolution_for_java_rules
 
+# Enable Bzlmod in all shell integration tests
+common --enable_bzlmod
+
 ${EXTRA_BAZELRC:-}
 EOF
 
@@ -281,54 +284,34 @@ EOF
         "openjdk_macos_x86_64_vanilla"
         "openjdk_macos_aarch64_vanilla"
         "openjdk_win_vanilla"
-        "openjdk11_darwin_archive"
-        "openjdk11_darwin_aarch64_archive"
-        "openjdk11_linux_archive"
-        "openjdk11_linux_s390x_archive"
-        "openjdk11_windows_archive"
-        "openjdk11_windows_arm64_archive"
-        "openjdk17_darwin_archive"
-        "openjdk17_darwin_aarch64_archive"
-        "openjdk17_linux_archive"
-        "openjdk17_linux_s390x_archive"
-        "openjdk17_windows_archive"
-        "openjdk17_windows_arm64_archive"
-        "openjdk20_darwin_archive"
-        "openjdk20_darwin_aarch64_archive"
-        "openjdk20_linux_archive"
-        "openjdk20_windows_archive"
         "remote_coverage_tools"
-        "remote_java_tools_for_testing"
-        "remote_java_tools_darwin_x86_64_for_testing"
-        "remote_java_tools_darwin_arm64_for_testing"
-        "remote_java_tools_test"
-        "remote_java_tools_test_darwin_x86_64"
-        "remote_java_tools_test_darwin_arm64"
-        "remote_java_tools_test_linux"
-        "remote_java_tools_test_windows"
-        "remote_java_tools_linux_for_testing"
-        "remote_java_tools_windows_for_testing"
-        "remotejdk11_linux_for_testing"
-        "remotejdk11_linux_aarch64_for_testing"
-        "remotejdk11_linux_ppc64le_for_testing"
-        "remotejdk11_linux_s390x_for_testing"
-        "remotejdk11_macos_for_testing"
-        "remotejdk11_macos_aarch64_for_testing"
-        "remotejdk11_win_for_testing"
-        "remotejdk11_win_arm64_for_testing"
-        "remotejdk17_linux_for_testing"
-        "remotejdk17_linux_s390x_for_testing"
-        "remotejdk17_macos_for_testing"
-        "remotejdk17_macos_aarch64_for_testing"
-        "remotejdk17_win_for_testing"
-        "remotejdk17_win_arm64_for_testing"
-        "remotejdk20_linux_for_testing"
-        "remotejdk20_macos_for_testing"
-        "remotejdk20_macos_aarch64_for_testing"
-        "remotejdk20_win_for_testing"
-        "remotejdk20_win_arm64_for_testing"
+        "remote_java_tools"
+        "remote_java_tools_darwin_x86_64"
+        "remote_java_tools_darwin_arm64"
+        "remote_java_tools_linux"
+        "remote_java_tools_windows"
+        "remotejdk11_linux"
+        "remotejdk11_linux_aarch64"
+        "remotejdk11_linux_ppc64le"
+        "remotejdk11_linux_s390x"
+        "remotejdk11_macos"
+        "remotejdk11_macos_aarch64"
+        "remotejdk11_win"
+        "remotejdk11_win_arm64"
+        "remotejdk17_linux"
+        "remotejdk17_linux_s390x"
+        "remotejdk17_macos"
+        "remotejdk17_macos_aarch64"
+        "remotejdk17_win"
+        "remotejdk17_win_arm64"
+        "remotejdk21_linux"
+        "remotejdk21_macos"
+        "remotejdk21_macos_aarch64"
+        "remotejdk21_win"
+        "remotejdk21_win_arm64"
         "rules_cc"
         "rules_java"
+        "rules_java_builtin_for_testing"
         "rules_license"
         "rules_proto"
         "rules_python"
@@ -343,9 +326,15 @@ EOF
 
   if [[ -n ${REPOSITORY_CACHE:-} ]]; then
     echo "testenv.sh: Using repository cache at $REPOSITORY_CACHE."
-    cat >>$TEST_TMPDIR/bazelrc <<EOF
-common --repository_cache=$REPOSITORY_CACHE --experimental_repository_cache_hardlinks
-EOF
+    echo "common --repository_cache=$REPOSITORY_CACHE" >> $TEST_TMPDIR/bazelrc
+    # TODO: Remove this flag once all dependencies are mirrored.
+    # See https://github.com/bazelbuild/bazel/pull/19549 for more context.
+    echo "common --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0" >> $TEST_TMPDIR/bazelrc
+    if is_darwin; then
+      # For reducing SSD usage on our physical Mac machines.
+      echo "testenv.sh: Enabling --experimental_repository_cache_hardlinks"
+      echo "common --experimental_repository_cache_hardlinks" >> $TEST_TMPDIR/bazelrc
+    fi
   fi
 
   if [[ -n ${TEST_INSTALL_BASE:-} ]]; then
@@ -395,6 +384,7 @@ platform(
 )
 EOF
 
+  add_to_bazelrc "build --platform_mappings=test_android_platforms/mappings"
   cat > test_android_platforms/mappings <<EOF
 platforms:
   //test_android_platforms:simple
@@ -585,6 +575,9 @@ EOF
 
 function create_workspace_with_default_repos() {
   write_workspace_file "${1:-WORKSPACE}" "${2:-main}"
+  workspace_file=${1:-WORKSPACE}
+  write_workspace_file "${workspace_file}" "${2:-main}"
+  write_default_lockfile "$(dirname ${workspace_file})/MODULE.bazel.lock"
   echo "$1"
 }
 
@@ -622,6 +615,11 @@ register_toolchains("//tools/python/windows:py_toolchain")
 EOF
 }
 
+# Set up a lockfile to avoid accessing BCR for tests with a clean workspace.
+function write_default_lockfile() {
+  cp -f $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) ${1:-MODULE.bazel.lock}
+}
+
 workspaces=()
 # Set-up a new, clean workspace with only the tools installed.
 function create_new_workspace() {
@@ -635,6 +633,8 @@ function create_new_workspace() {
   copy_tools_directory
 
   write_workspace_file "WORKSPACE" "$WORKSPACE_NAME"
+
+  write_default_lockfile "MODULE.bazel.lock"
 
   maybe_setup_python_windows_tools
 }
@@ -671,6 +671,7 @@ function cleanup_workspace() {
       fi
     done
     write_workspace_file "WORKSPACE" "$WORKSPACE_NAME"
+    write_default_lockfile "MODULE.bazel.lock"
   fi
   for i in "${workspaces[@]}"; do
     if [ "$i" != "${WORKSPACE_DIR:-}" ]; then
@@ -778,6 +779,10 @@ create_and_cd_client
 
 # Optional environment changes.
 
+function disable_bzlmod() {
+  add_to_bazelrc "common --noenable_bzlmod"
+}
+
 # Creates a fake Python default runtime that just outputs a marker string
 # indicating which version was used, without executing any Python code.
 function use_fake_python_runtimes_for_testsuite() {
@@ -833,4 +838,38 @@ echo 'I am Python 3'
 EOF
     chmod +x tools/python/$PYTHON3_FILENAME
   fi
+}
+
+function mock_rules_java_to_avoid_downloading() {
+  rules_java_workspace="${TEST_TMPDIR}/rules_java_workspace"
+  mkdir -p "${rules_java_workspace}/java"
+  mkdir -p "${rules_java_workspace}/toolchains"
+  touch "${rules_java_workspace}/WORKSPACE"
+  touch "${rules_java_workspace}/toolchains/BUILD"
+  cat > "${rules_java_workspace}/toolchains/local_java_repository.bzl" <<EOF
+def local_java_repository(**attrs):
+    pass
+EOF
+  cat > "${rules_java_workspace}/toolchains/jdk_build_file.bzl" <<EOF
+JDK_BUILD_TEMPLATE = ''
+EOF
+  touch "${rules_java_workspace}/java/BUILD"
+  cat > "${rules_java_workspace}/java/repositories.bzl" <<EOF
+def rules_java_dependencies():
+    pass
+def rules_java_toolchains():
+    pass
+EOF
+  cat > "${rules_java_workspace}/java/defs.bzl" <<EOF
+def java_binary(**attrs):
+    native.java_binary(**attrs)
+def java_library(**attrs):
+    native.java_library(**attrs)
+def java_import(**attrs):
+    native.java_import(**attrs)
+def java_test(**attrs):
+    native.java_test(**attrs)
+EOF
+  add_to_bazelrc "common --override_repository=rules_java=${rules_java_workspace}"
+  add_to_bazelrc "common --override_repository=rules_java_builtin=${rules_java_workspace}"
 }

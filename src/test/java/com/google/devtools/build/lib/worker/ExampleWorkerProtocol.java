@@ -13,15 +13,4 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
-import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
-import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
-import java.io.IOException;
 
-/** Example protocol for workers. */
-public interface ExampleWorkerProtocol extends AutoCloseable {
-  /** Reads a work request written to the worker's stdin. */
-  WorkRequest readRequest() throws IOException;
-
-  /** Writes a work response to the worker's stdout. */
-  void writeResponse(WorkResponse workResponse) throws IOException;
-}

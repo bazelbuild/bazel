@@ -15,19 +15,27 @@ package com.google.devtools.build.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Set;
+import java.util.function.Predicate;
+import javax.annotation.Nullable;
 
 /**
  * Partial implementation of {@link MemoizingEvaluator} with expanded support for incremental and
@@ -35,9 +43,10 @@ import java.util.Set;
  */
 public abstract class AbstractIncrementalInMemoryMemoizingEvaluator
     extends AbstractInMemoryMemoizingEvaluator {
+  private static final Duration MIN_TIME_TO_LOG_DELETION = Duration.ofMillis(10);
 
   protected final ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions;
-  protected final DirtyTrackingProgressReceiver progressReceiver;
+  protected final DirtyAndInflightTrackingProgressReceiver progressReceiver;
 
   // State related to invalidation and deletion.
   protected Set<SkyKey> valuesToDelete = new LinkedHashSet<>();
@@ -48,9 +57,11 @@ public abstract class AbstractIncrementalInMemoryMemoizingEvaluator
   protected final GraphInconsistencyReceiver graphInconsistencyReceiver;
   protected final EventFilter eventFilter;
 
-  // Keep edges in graph. Can be false to save memory, in which case incremental builds are
-  // not possible.
-  private final boolean keepEdges;
+  /**
+   * Whether to store edges in the graph. Can be false to save memory, in which case incremental
+   * builds are not possible, and all evaluations will be at {@link Version#constant}.
+   */
+  protected final boolean keepEdges;
 
   // Values that the caller explicitly specified are assumed to be changed -- they will be
   // re-evaluated even if none of their children are changed.
@@ -58,23 +69,55 @@ public abstract class AbstractIncrementalInMemoryMemoizingEvaluator
 
   protected final EmittedEventState emittedEventState;
 
-  protected IntVersion lastGraphVersion = null;
+  // Null until the first incremental evaluation completes. Always null when not keeping edges.
+  @Nullable protected IntVersion lastGraphVersion = null;
 
   protected AbstractIncrementalInMemoryMemoizingEvaluator(
       ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
       Differencer differencer,
-      DirtyTrackingProgressReceiver dirtyTrackingProgressReceiver,
+      DirtyAndInflightTrackingProgressReceiver progressReceiver,
       EventFilter eventFilter,
       EmittedEventState emittedEventState,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       boolean keepEdges) {
     this.skyFunctions = checkNotNull(skyFunctions);
     this.differencer = checkNotNull(differencer);
-    this.progressReceiver = checkNotNull(dirtyTrackingProgressReceiver);
+    this.progressReceiver = checkNotNull(progressReceiver);
     this.emittedEventState = checkNotNull(emittedEventState);
     this.eventFilter = checkNotNull(eventFilter);
     this.graphInconsistencyReceiver = checkNotNull(graphInconsistencyReceiver);
     this.keepEdges = keepEdges;
+  }
+
+  @Override
+  public void delete(Predicate<SkyKey> deletePredicate) {
+    try (AutoProfiler ignored =
+        GoogleAutoProfilerUtils.logged("deletion marking", MIN_TIME_TO_LOG_DELETION)) {
+      Set<SkyKey> toDelete = Sets.newConcurrentHashSet();
+      getInMemoryGraph()
+          .parallelForEach(
+              e -> {
+                if (e.isDirty() || deletePredicate.test(e.getKey())) {
+                  toDelete.add(e.getKey());
+                }
+              });
+      valuesToDelete.addAll(toDelete);
+    }
+  }
+
+  @Override
+  public void deleteDirty(long versionAgeLimit) {
+    Preconditions.checkArgument(versionAgeLimit >= 0, versionAgeLimit);
+    Version threshold = IntVersion.of(lastGraphVersion.getVal() - versionAgeLimit);
+    valuesToDelete.addAll(
+        Sets.filter(
+            progressReceiver.getUnenqueuedDirtyKeys(),
+            skyKey -> {
+              NodeEntry entry = getInMemoryGraph().get(null, Reason.OTHER, skyKey);
+              Preconditions.checkNotNull(entry, skyKey);
+              Preconditions.checkState(entry.isDirty(), skyKey);
+              return entry.getVersion().atMost(threshold);
+            }));
   }
 
   protected void invalidate(Iterable<SkyKey> diff) {
@@ -91,13 +134,16 @@ public abstract class AbstractIncrementalInMemoryMemoizingEvaluator
       SkyKey key = entry.getKey();
       SkyValue newValue = entry.getValue().newValue();
       NodeEntry prevEntry = getInMemoryGraph().get(null, Reason.OTHER, key);
+      @Nullable Version newMtsv = entry.getValue().newMaxTransitiveSourceVersion();
       if (prevEntry != null && prevEntry.isDone()) {
+        @Nullable Version oldMtsv = prevEntry.getMaxTransitiveSourceVersion();
         if (keepEdges) {
           try {
             if (!prevEntry.hasAtLeastOneDep()) {
               if (newValue.equals(prevEntry.getValue())
                   && !valuesToDirty.contains(key)
-                  && !valuesToDelete.contains(key)) {
+                  && !valuesToDelete.contains(key)
+                  && Objects.equals(newMtsv, oldMtsv)) {
                 it.remove();
               }
             } else {
@@ -123,7 +169,7 @@ public abstract class AbstractIncrementalInMemoryMemoizingEvaluator
   }
 
   /** Injects values in {@code valuesToInject} into the graph. */
-  protected void injectValues(IntVersion version) {
+  protected void injectValues(Version version) {
     if (valuesToInject.isEmpty()) {
       return;
     }
@@ -148,5 +194,15 @@ public abstract class AbstractIncrementalInMemoryMemoizingEvaluator
         getInMemoryGraph(), valuesToDirty, progressReceiver, invalidatorState);
     // Ditto.
     valuesToDirty = new LinkedHashSet<>();
+  }
+
+  protected final Version getNextGraphVersion() {
+    if (!keepEdges) {
+      return Version.constant();
+    } else if (lastGraphVersion == null) {
+      return IntVersion.of(0);
+    } else {
+      return lastGraphVersion.next();
+    }
   }
 }

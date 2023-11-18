@@ -14,13 +14,15 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -35,8 +37,9 @@ import javax.annotation.Nullable;
 public class BuildInfoCollectionValue extends BasicActionLookupValue {
   private final BuildInfoCollection collection;
 
-  BuildInfoCollectionValue(BuildInfoCollection collection, GeneratingActions generatingActions) {
-    super(generatingActions);
+  BuildInfoCollectionValue(
+      ImmutableList<ActionAnalysisMetadata> actions, BuildInfoCollection collection) {
+    super(actions);
     this.collection = collection;
   }
 

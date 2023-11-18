@@ -19,7 +19,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.auth.Credentials;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -42,7 +41,7 @@ import java.net.URL;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.stream.Collectors;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -59,7 +58,6 @@ public class DownloadManager {
   private final Downloader downloader;
   private boolean disableDownload = false;
   private int retries = 0;
-  private boolean urlsAsDefaultCanonicalId;
   @Nullable private Credentials netrcCreds;
   private CredentialFactory credentialFactory = StaticCredentials::new;
 
@@ -88,10 +86,6 @@ public class DownloadManager {
   public void setRetries(int retries) {
     checkArgument(retries >= 0, "Invalid retries");
     this.retries = retries;
-  }
-
-  public void setUrlsAsDefaultCanonicalId(boolean urlsAsDefaultCanonicalId) {
-    this.urlsAsDefaultCanonicalId = urlsAsDefaultCanonicalId;
   }
 
   public void setNetrcCreds(Credentials netrcCreds) {
@@ -133,9 +127,6 @@ public class DownloadManager {
       throws IOException, InterruptedException {
     if (Thread.interrupted()) {
       throw new InterruptedException();
-    }
-    if (Strings.isNullOrEmpty(canonicalId) && urlsAsDefaultCanonicalId) {
-      canonicalId = originalUrls.stream().map(URL::toExternalForm).collect(Collectors.joining(" "));
     }
 
     // TODO(andreisolo): This code path is inconsistent as the authHeaders are fetched from a

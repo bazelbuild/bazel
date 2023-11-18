@@ -22,7 +22,6 @@ import build.bazel.remote.execution.v2.ExecutionCapabilities;
 import build.bazel.remote.execution.v2.GetCapabilitiesRequest;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
-import build.bazel.semver.SemVer;
 import com.google.devtools.build.lib.remote.ApiVersion;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import io.grpc.stub.StreamObserver;
@@ -40,12 +39,11 @@ final class CapabilitiesServer extends CapabilitiesImplBase {
   @Override
   public void getCapabilities(
       GetCapabilitiesRequest request, StreamObserver<ServerCapabilities> responseObserver) {
-    SemVer current = ApiVersion.current.toSemVer();
     DigestFunction.Value df = digestUtil.getDigestFunction();
     ServerCapabilities.Builder response =
         ServerCapabilities.newBuilder()
-            .setLowApiVersion(current)
-            .setHighApiVersion(current)
+            .setLowApiVersion(ApiVersion.low.toSemVer())
+            .setHighApiVersion(ApiVersion.high.toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
                     .addDigestFunctions(df)

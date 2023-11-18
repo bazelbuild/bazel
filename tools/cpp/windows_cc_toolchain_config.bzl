@@ -14,6 +14,7 @@
 
 """A Starlark cc_toolchain configuration rule for Windows"""
 
+load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
 load(
     "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
     "action_config",
@@ -28,7 +29,6 @@ load(
     "variable_with_value",
     "with_feature_set",
 )
-load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
 
 all_compile_actions = [
     ACTION_NAMES.c_compile,
@@ -187,7 +187,6 @@ def _impl(ctx):
                 "compiler_output_flags",
                 "nologo",
                 "msvc_env",
-                "parse_showincludes",
                 "user_compile_flags",
                 "sysroot",
             ],
@@ -202,7 +201,6 @@ def _impl(ctx):
                 "default_compile_flags",
                 "nologo",
                 "msvc_env",
-                "parse_showincludes",
                 "user_compile_flags",
                 "sysroot",
                 "unfiltered_compile_flags",
@@ -217,7 +215,6 @@ def _impl(ctx):
                 "compiler_output_flags",
                 "nologo",
                 "msvc_env",
-                "parse_showincludes",
                 "user_compile_flags",
                 "sysroot",
             ],
@@ -789,6 +786,7 @@ def _impl(ctx):
 
         parse_showincludes_feature = feature(
             name = "parse_showincludes",
+            enabled = ctx.attr.supports_parse_showincludes,
             flag_sets = [
                 flag_set(
                     actions = [
@@ -802,6 +800,27 @@ def _impl(ctx):
                     flag_groups = [flag_group(flags = ["/showIncludes"])],
                 ),
             ],
+            env_sets = [
+                env_set(
+                    actions = [
+                        ACTION_NAMES.preprocess_assemble,
+                        ACTION_NAMES.c_compile,
+                        ACTION_NAMES.linkstamp_compile,
+                        ACTION_NAMES.cpp_compile,
+                        ACTION_NAMES.cpp_module_compile,
+                        ACTION_NAMES.cpp_header_parsing,
+                    ],
+                    # Force English (and thus a consistent locale) output so that Bazel can parse
+                    # the /showIncludes output without having to guess the encoding.
+                    env_entries = [env_entry(key = "VSLANG", value = "1033")],
+                ),
+            ],
+        )
+
+        # MSVC does not emit .d files.
+        no_dotd_file_feature = feature(
+            name = "no_dotd_file",
+            enabled = True,
         )
 
         treat_warnings_as_errors_feature = feature(
@@ -1101,6 +1120,7 @@ def _impl(ctx):
             external_include_paths_feature,
             preprocessor_defines_feature,
             parse_showincludes_feature,
+            no_dotd_file_feature,
             generate_pdb_file_feature,
             shared_flag_feature,
             linkstamps_feature,
@@ -1417,6 +1437,7 @@ cc_toolchain_config = rule(
         "dbg_mode_debug_flag": attr.string(),
         "fastbuild_mode_debug_flag": attr.string(),
         "tool_bin_path": attr.string(default = "not_found"),
+        "supports_parse_showincludes": attr.bool(),
     },
     provides = [CcToolchainConfigInfo],
 )

@@ -1,0 +1,30 @@
+func_info {
+  function_name: "check_struct_default_values"
+  parameter {
+    name: "struct_no_args"
+    doc_string: "struct with no arguments"
+    default_value: "struct()"
+  }
+  parameter {
+    name: "struct_arg"
+    doc_string: "struct with one argument"
+    default_value: "struct(foo = \"bar\")"
+  }
+  parameter {
+    name: "struct_args"
+    doc_string: "struct with multiple arguments"
+    default_value: "struct(bar = \"foo\", foo = \"bar\")"
+  }
+  parameter {
+    name: "struct_int_args"
+    doc_string: "struct with int arguments"
+    default_value: "struct(one = 1, three = 3, two = 2)"
+  }
+  parameter {
+    name: "struct_struct_args"
+    doc_string: "struct with struct arguments"
+    default_value: "struct(multiple = struct(one = 1, three = 3, two = 2), none = struct(), one = struct(foo = \"bar\"))"
+  }
+  doc_string: "Checks the default values of structs."
+}
+module_docstring: "The input file for struct default values test"

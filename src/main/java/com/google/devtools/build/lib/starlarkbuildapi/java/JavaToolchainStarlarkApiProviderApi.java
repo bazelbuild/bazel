@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -22,17 +21,14 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FilesToRunProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import javax.annotation.Nullable;
-import net.starlark.java.annot.Param;
-import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Provides access to information about the Java toolchain rule. Accessible as a 'java_toolchain'
  * field on a Target struct.
+ *
+ * <p>This provider is implemented in Starlark. This class remains only for doc-gen purposes.
  */
 @StarlarkBuiltin(
     name = "JavaToolchainInfo",
@@ -41,8 +37,6 @@ import net.starlark.java.eval.StarlarkValue;
         "Provides access to information about the Java toolchain rule. "
             + "Accessible as a 'java_toolchain' field on a Target struct.")
 public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
-
-  String LEGACY_NAME = "java_toolchain";
 
   @StarlarkMethod(name = "source_version", doc = "The java source version.", structField = true)
   String getSourceVersion();
@@ -55,22 +49,6 @@ public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
 
   @StarlarkMethod(name = "single_jar", doc = "The SingleJar deploy jar.", structField = true)
   FilesToRunProviderApi<? extends FileApi> getSingleJar();
-
-  @Nullable
-  @StarlarkMethod(
-      name = "one_version_tool",
-      doc = "The tool that enforces One-Version compliance of java binaries.",
-      structField = true,
-      allowReturnNones = true)
-  FilesToRunProviderApi<? extends FileApi> getOneVersionBinary();
-
-  @StarlarkMethod(
-      name = "one_version_allowlist",
-      doc = "The allowlist used by the One-Version compliance checker",
-      structField = true,
-      allowReturnNones = true)
-  @Nullable
-  FileApi getOneVersionAllowlist();
 
   @StarlarkMethod(
       name = "bootclasspath",
@@ -85,6 +63,12 @@ public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
   Depset getStarlarkJvmOptions();
 
   @StarlarkMethod(
+      name = "ijar",
+      doc = "A FilesToRunProvider representing the ijar executable.",
+      structField = true)
+  FilesToRunProviderApi<?> getIjar();
+
+  @StarlarkMethod(
       name = "jacocorunner",
       doc = "The jacocorunner used by the toolchain.",
       structField = true,
@@ -97,47 +81,6 @@ public interface JavaToolchainStarlarkApiProviderApi extends StructApi {
 
   @StarlarkMethod(name = "java_runtime", doc = "The java runtime information.", structField = true)
   JavaRuntimeInfoApi getJavaRuntime();
-
-  @StarlarkMethod(
-      name = "android_linter",
-      documented = false,
-      useStarlarkThread = true,
-      allowReturnNones = true)
-  @Nullable
-  StarlarkValue stalarkAndroidLinter(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
-      name = "timezone_data",
-      doc = "The latest timezone data resource jar that can be loaded by java binaries",
-      useStarlarkThread = true,
-      allowReturnNones = true)
-  @Nullable
-  FileApi getTimezoneDataForStarlark(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
-      name = "compatible_javacopts",
-      doc = "Return the map of target environment-specific javacopts",
-      parameters = {
-        @Param(
-            name = "key",
-            allowedTypes = {
-              @ParamType(type = String.class),
-            },
-            defaultValue = "")
-      },
-      allowReturnNones = true,
-      useStarlarkThread = true)
-  @Nullable
-  ImmutableList<String> getCompatibleJavacOptionsForStarlark(String key, StarlarkThread thread)
-      throws EvalException;
-
-  @Nullable
-  @StarlarkMethod(
-      name = "deps_checker",
-      documented = false,
-      useStarlarkThread = true,
-      allowReturnNones = true)
-  FileApi getDepsCheckerForStarlark(StarlarkThread thread) throws EvalException;
 
   @Nullable
   @StarlarkMethod(

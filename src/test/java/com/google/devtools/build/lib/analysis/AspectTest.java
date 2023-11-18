@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.ACTION_LISTENER;
@@ -25,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
+import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -39,6 +41,8 @@ import com.google.devtools.build.lib.analysis.util.TestAspects.AspectInfo;
 import com.google.devtools.build.lib.analysis.util.TestAspects.DummyRuleFactory;
 import com.google.devtools.build.lib.analysis.util.TestAspects.ExtraAttributeAspect;
 import com.google.devtools.build.lib.analysis.util.TestAspects.RuleInfo;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -862,13 +866,32 @@ public class AspectTest extends AnalysisTestCase {
         "a",
         "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])"
     );
-    AnalysisResult analysisResult = update(new EventBus(), defaultFlags(),
-        ImmutableList.of(aspectApplyingToFiles.getName()),
-        "//a:x_deploy.jar");
+
+    var collector = new AspectConfiguredCollector();
+    eventBus.register(collector);
+
+    AnalysisResult analysisResult =
+        update(
+            eventBus,
+            defaultFlags(),
+            ImmutableList.of(aspectApplyingToFiles.getName()),
+            "//a:x_deploy.jar");
     ConfiguredAspect aspect = Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     AspectApplyingToFiles.Provider provider =
         aspect.getProvider(AspectApplyingToFiles.Provider.class);
-    assertThat(provider.getLabel()).isEqualTo(Label.parseCanonicalUnchecked("//a:x_deploy.jar"));
+    Label label = Label.parseCanonicalUnchecked("//a:x_deploy.jar");
+    assertThat(provider.getLabel()).isEqualTo(label);
+
+    // Verifies that the AspectConfiguredEvent declares the corresponding AspectCompleteEvent.
+    AspectConfiguredEvent configuredEvent = getOnlyElement(collector.events);
+    BuildEventId targetCompletedId = getOnlyElement(configuredEvent.getChildrenEvents());
+    AspectKey key = getOnlyElement(analysisResult.getAspectsMap().keySet());
+    assertThat(targetCompletedId)
+        .isEqualTo(
+            BuildEventIdUtil.aspectCompleted(
+                label,
+                BuildEventIdUtil.configurationId(key.getConfigurationKey()),
+                "AspectApplyingToFiles"));
   }
 
   @Test
@@ -1008,7 +1031,7 @@ public class AspectTest extends AnalysisTestCase {
   }
 
   @Test
-  public void aspectWithExtraAttributeDependsOnNotApplicable_usesAttributeFromDependentAspect()
+  public void aspectWithExtraAttributeDependsOnNotApplicable_usesItsOwnAttribute()
       throws Exception {
     ExtraAttributeAspect aspectApplies =
         new ExtraAttributeAspect(
@@ -1020,6 +1043,7 @@ public class AspectTest extends AnalysisTestCase {
         ImmutableList.of(TestAspects.BASE_RULE, TestAspects.SIMPLE_RULE));
     scratch.file("extra/BUILD", "simple(name='extra')", "simple(name='extra2')");
     scratch.file("a/BUILD", "genrule(name='gen_a', outs=['a'], cmd='touch $@')");
+    useConfiguration("--separate_aspect_deps");
 
     AnalysisResult analysisResult =
         update(
@@ -1032,7 +1056,7 @@ public class AspectTest extends AnalysisTestCase {
     ExtraAttributeAspect.Provider provider =
         getAspectByName(analysisResult.getAspectsMap(), aspectApplies.getName())
             .getProvider(ExtraAttributeAspect.Provider.class);
-    assertThat(provider.label()).isEqualTo("//extra:extra2");
+    assertThat(provider.label()).isEqualTo("//extra:extra");
     assertThat(
             getAspectByName(analysisResult.getAspectsMap(), aspectDoesNotApply.getName())
                 .getProviders()
@@ -1104,9 +1128,7 @@ public class AspectTest extends AnalysisTestCase {
                     "//foo:foo"));
     assertThat(exception)
         .hasMessageThat()
-        .containsMatch(
-            "ConflictException: for foo/aspect.out, previous action: action 'Action for aspect .',"
-                + " attempted action: action 'Action for aspect .'");
+        .containsMatch("ConflictException: file 'foo/aspect.out'");
     MoreAsserts.assertContainsEvent(
         eventCollector,
         Pattern.compile(
@@ -1128,20 +1150,19 @@ public class AspectTest extends AnalysisTestCase {
     scratch.overwriteFile("foo/aspect.bzl", String.format(bzlFileTemplate, "2"));
     // Expect errors.
     reporter.removeHandler(failFastHandler);
-    exception =
-        assertThrows(
-            ViewCreationFailedException.class,
-            () ->
-                update(
-                    new EventBus(),
-                    defaultFlags(),
-                    ImmutableList.of("//foo:aspect.bzl%aspect1", "//foo:aspect.bzl%aspect2"),
-                    "//foo:foo"));
-    assertThat(exception)
-        .hasMessageThat()
-        .containsMatch(
-            "ConflictException: for foo/aspect.out, previous action: action 'Action for aspect .',"
-                + " attempted action: action 'Action for aspect .'");
+    assertThrows(
+        ViewCreationFailedException.class,
+        () ->
+            update(
+                new EventBus(),
+                defaultFlags(),
+                ImmutableList.of("//foo:aspect.bzl%aspect1", "//foo:aspect.bzl%aspect2"),
+                "//foo:foo"));
+    MoreAsserts.assertContainsEvent(
+        eventCollector,
+        Pattern.compile(
+            "Aspects: \\[//foo:aspect.bzl%aspect[12]], \\[//foo:aspect.bzl%aspect[12]]"),
+        EventKind.ERROR);
   }
 
   @Test
@@ -1177,7 +1198,9 @@ public class AspectTest extends AnalysisTestCase {
     reporter.removeHandler(failFastHandler);
     ViewCreationFailedException exception =
         assertThrows(ViewCreationFailedException.class, () -> update("//foo:foo"));
-    assertThat(exception).hasMessageThat().containsMatch("ConflictException: for foo/conflict.out");
+    assertThat(exception)
+        .hasMessageThat()
+        .containsMatch("ConflictException: file 'foo/conflict.out'");
     MoreAsserts.assertContainsEvent(
         eventCollector,
         Pattern.compile(
@@ -1327,7 +1350,6 @@ public class AspectTest extends AnalysisTestCase {
 
   @Test
   public void aspectSeesAspectHintsAttributeOnNativeRule() throws Exception {
-    useConfiguration("--experimental_enable_aspect_hints");
     setupAspectHints();
     scratch.file(
         "aspect_hints/BUILD",
@@ -1348,7 +1370,6 @@ public class AspectTest extends AnalysisTestCase {
 
   @Test
   public void aspectSeesAspectHintsAttributeOnStarlarkRule() throws Exception {
-    useConfiguration("--experimental_enable_aspect_hints");
     setupAspectHints();
     setupStarlarkRule();
     scratch.file(
@@ -1367,6 +1388,71 @@ public class AspectTest extends AnalysisTestCase {
     StarlarkInt info = (StarlarkInt) getHintsCntInfo(a).getValue("cnt");
 
     assertThat(info.truncateToInt()).isEqualTo(2);
+  }
+
+  @Test
+  public void ruleDepsVisibilityNotAffectNativeAspect() throws Exception {
+    setRulesAndAspectsAvailableInTests(
+        ImmutableList.of(TestAspects.ALL_ATTRIBUTES_ASPECT), ImmutableList.of());
+    useConfiguration("--incompatible_visibility_private_attributes_at_definition");
+    scratch.file("defs/BUILD");
+    scratch.file(
+        "defs/build_defs.bzl",
+        "def _rule_impl(ctx):",
+        "  pass",
+        "",
+        "implicit_dep_rule = rule(",
+        "    implementation = _rule_impl,",
+        "    attrs = {",
+        "        '_tool': attr.label(default = '//tool:tool'),",
+        "        'deps': attr.label_list()",
+        "    },",
+        ")");
+    scratch.file("tool/BUILD", "sh_library(name='tool', visibility = ['//defs:__pkg__'])");
+    scratch.file(
+        "pkg/BUILD",
+        "load('//defs:build_defs.bzl', 'implicit_dep_rule')",
+        "implicit_dep_rule(name='y')",
+        "implicit_dep_rule(name='x', deps = [':y'])");
+
+    AnalysisResult result =
+        update(
+            new EventBus(),
+            defaultFlags(),
+            ImmutableList.of(TestAspects.ALL_ATTRIBUTES_ASPECT.getName()),
+            "//pkg:x");
+
+    assertThat(result.hasError()).isFalse();
+  }
+
+  @Test
+  public void nativeAspectFailIfDepsNotVisible() throws Exception {
+    scratch.file("tool/BUILD", "sh_library(name='tool', visibility = ['//visibility:private'])");
+    ExtraAttributeAspect extraAttributeAspect = new ExtraAttributeAspect("//tool:tool", false);
+    setRulesAndAspectsAvailableInTests(ImmutableList.of(extraAttributeAspect), ImmutableList.of());
+    scratch.file(
+        "pkg/build_defs.bzl",
+        "def _rule_impl(ctx):",
+        "  pass",
+        "",
+        "simple_rule = rule(",
+        "    implementation = _rule_impl,",
+        ")");
+    scratch.file(
+        "pkg/BUILD", "load('//pkg:build_defs.bzl', 'simple_rule')", "simple_rule(name='x')");
+    reporter.removeHandler(failFastHandler);
+
+    assertThrows(
+        ViewCreationFailedException.class,
+        () ->
+            update(
+                new EventBus(),
+                defaultFlags(),
+                ImmutableList.of(extraAttributeAspect.getName()),
+                "//pkg:x"));
+    assertContainsEvent(
+        "ExtraAttributeAspect_//tool:tool_false aspect on simple_rule rule //pkg:x: target"
+            + " '//tool:tool' is not visible from target '//pkg:x'.");
   }
 
   private void setupAspectHints() throws Exception {
@@ -1443,5 +1529,14 @@ public class AspectTest extends AnalysisTestCase {
         .filter(e -> e.getKey().getAspectName().equals(name))
         .map(Map.Entry::getValue)
         .collect(onlyElement());
+  }
+
+  private static class AspectConfiguredCollector {
+    private final ArrayList<AspectConfiguredEvent> events = new ArrayList<>();
+
+    @Subscribe
+    public void configuredEvent(AspectConfiguredEvent event) {
+      events.add(event);
+    }
   }
 }

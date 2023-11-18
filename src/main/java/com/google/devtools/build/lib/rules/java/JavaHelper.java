@@ -13,14 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static java.util.stream.Collectors.joining;
+
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -86,10 +93,25 @@ public abstract class JavaHelper {
   }
 
   /**
+   * Flattens a set of javacopts and tokenizes the contents.
+   *
+   * <p>Since javac allows passing the same option multiple times, and the right-most one wins,
+   * multiple instances of the same option+value get de-duped by the NestedSet. So when combining
+   * multiple NestedSets, we store them in reverse order, and reverse again after flattening. This
+   * preserves the right-most occurrence in its correct position, thus achieving the correct
+   * semantics.
+   *
+   * @param inOpts the set of opts to tokenize
+   */
+  public static ImmutableList<String> tokenizeJavaOptions(NestedSet<String> inOpts) {
+    return tokenizeJavaOptions(inOpts.toList().reverse());
+  }
+
+  /**
    * Javac options require special processing - People use them and expect the options to be
    * tokenized.
    */
-  public static List<String> tokenizeJavaOptions(Iterable<String> inOpts) {
+  public static ImmutableList<String> tokenizeJavaOptions(Iterable<String> inOpts) {
     // Ideally, this would be in the options parser. Unfortunately,
     // the options parser can't handle a converter that expands
     // from a value X into a List<X> and allow-multiple at the
@@ -108,7 +130,26 @@ public abstract class JavaHelper {
         result.add(current);
       }
     }
-    return result;
+    return ImmutableList.copyOf(result);
+  }
+
+  /**
+   * De-tokenizes a collection of {@code javac} options into a {@link NestedSet}.
+   *
+   * <p>Each option is shell-escaped to get back the original option as-is when we tokenize the
+   * depset.
+   *
+   * @param javacOpts the {@code javac} options to detokenize
+   * @return A {@link NestedSet} of the supplied options concatenated into a single string separated
+   *     by ' '.
+   */
+  public static NestedSet<String> detokenizeJavaOptions(Collection<String> javacOpts) {
+    if (javacOpts.isEmpty()) {
+      return NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
+    }
+    return NestedSetBuilder.create(
+        Order.NAIVE_LINK_ORDER,
+        javacOpts.stream().map(ShellUtils::shellEscape).collect(joining(" ")));
   }
 
   public static PathFragment getJavaResourcePath(

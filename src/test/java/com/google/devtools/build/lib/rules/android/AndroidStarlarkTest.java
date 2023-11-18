@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.rules.android.AndroidStarlarkTest.WithoutPl
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.util.List;
 import java.util.Map;
-import net.starlark.java.eval.Starlark;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -153,9 +152,9 @@ public abstract class AndroidStarlarkTest extends AndroidBuildViewTestCase {
               getMyInfoFromTarget(target).getValue("split_attr_deps");
 
       // Split transition isn't in effect, so the deps are compiled normally (i.e. using --cpu).
-      assertThat(splitDeps.get(Starlark.NONE)).hasSize(2);
-      assertThat(getConfiguration(splitDeps.get(Starlark.NONE).get(0)).getCpu()).isEqualTo("k8");
-      assertThat(getConfiguration(splitDeps.get(Starlark.NONE).get(1)).getCpu()).isEqualTo("k8");
+      assertThat(splitDeps.get("k8")).hasSize(2);
+      assertThat(getConfiguration(splitDeps.get("k8").get(0)).getCpu()).isEqualTo("k8");
+      assertThat(getConfiguration(splitDeps.get("k8").get(1)).getCpu()).isEqualTo("k8");
     }
   }
 
@@ -339,24 +338,9 @@ public abstract class AndroidStarlarkTest extends AndroidBuildViewTestCase {
         "load('//:foo_library.bzl', 'foo_library')",
         "filegroup(name = 'new_sdk')",
         "foo_library(name = 'lib')");
-    if (platformBasedToolchains()) {
-      // TODO(b/161709111): fails to find a matching Android toolchain.
-      if (true) {
-        return;
-      }
-      scratch.file(
-          "platform_toolchain_defs/BUILD",
-          "toolchain(",
-          "    name = 'new_sdk_toolchain',",
-          String.format("    toolchain_type = '%s',", TestConstants.ANDROID_TOOLCHAIN_TYPE_LABEL),
-          "toolchain = '//:new_sdk',",
-          ")");
-      useConfiguration(
-          "--extra_toolchains=//platform_toolchain_defs:new_sdk_toolchain",
-          "--android_sdk=//:new_sdk");
-    } else {
-      useConfiguration("--android_sdk=//:new_sdk");
-    }
+
+    // This test doesn't touch platforms, it directly reads the --android_sdk flag value.
+    useConfiguration("--android_sdk=//:new_sdk");
 
     ConfiguredTarget ct = getConfiguredTarget("//:lib");
     assertThat(getMyInfoFromTarget(ct).getValue("foo"))

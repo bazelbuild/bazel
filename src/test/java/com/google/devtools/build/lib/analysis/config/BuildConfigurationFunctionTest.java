@@ -23,7 +23,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationFunction;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -72,8 +73,8 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
     return getConfiguration(target).getOptions().get(CoreOptions.class);
   }
 
-  private String getTransitionDirectoryNameFragment(ConfiguredTarget target) {
-    return getConfiguration(target).getTransitionDirectoryNameFragment();
+  private String getMnemonic(ConfiguredTarget target) {
+    return getConfiguration(target).getMnemonic();
   }
 
   @Test
@@ -114,7 +115,7 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
     useConfiguration("--experimental_output_directory_naming_scheme=diff_against_baseline");
     ConfiguredTarget test = getConfiguredTarget("//test");
 
-    assertThat(getTransitionDirectoryNameFragment(test)).isEmpty();
+    assertThat(getMnemonic(test)).doesNotContain("-ST-");
     assertThat(getCoreOptions(test).affectedByStarlarkTransition).isEmpty();
 
     @SuppressWarnings("unchecked")
@@ -122,9 +123,9 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
         Iterables.getOnlyElement(
             (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
 
-    assertThat(getTransitionDirectoryNameFragment(dep))
-        .isEqualTo(
-            BuildConfigurationFunction.transitionDirectoryNameFragment(
+    assertThat(getMnemonic(dep))
+        .endsWith(
+            OutputPathMnemonicComputer.transitionDirectoryNameFragment(
                 ImmutableList.of("//test:foo=transitioned")));
     assertThat(getCoreOptions(dep).affectedByStarlarkTransition).isEmpty();
   }
@@ -168,7 +169,7 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
     ConfiguredTarget test = getConfiguredTarget("//test");
 
     assertThat(getConfiguration(test).getMnemonic()).contains("fastbuild");
-    assertThat(getTransitionDirectoryNameFragment(test)).isEmpty();
+    assertThat(getMnemonic(test)).doesNotContain("-ST-");
     assertThat(getCoreOptions(test).affectedByStarlarkTransition).isEmpty();
 
     @SuppressWarnings("unchecked")
@@ -177,7 +178,7 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
             (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
 
     assertThat(getConfiguration(dep).getMnemonic()).contains("opt");
-    assertThat(getTransitionDirectoryNameFragment(dep)).isEmpty();
+    assertThat(getMnemonic(dep)).doesNotContain("-ST-");
     assertThat(getCoreOptions(dep).affectedByStarlarkTransition).isEmpty();
   }
 
@@ -223,7 +224,7 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
     useConfiguration("--experimental_output_directory_naming_scheme=diff_against_baseline");
     ConfiguredTarget test = getConfiguredTarget("//test");
 
-    assertThat(getTransitionDirectoryNameFragment(test)).isEmpty();
+    assertThat(getMnemonic(test)).doesNotContain("-ST-");
     assertThat(getCoreOptions(test).affectedByStarlarkTransition).isEmpty();
 
     @SuppressWarnings("unchecked")
@@ -231,9 +232,9 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
         Iterables.getOnlyElement(
             (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
 
-    assertThat(getTransitionDirectoryNameFragment(middle))
-        .isEqualTo(
-            BuildConfigurationFunction.transitionDirectoryNameFragment(
+    assertThat(getMnemonic(middle))
+        .endsWith(
+            OutputPathMnemonicComputer.transitionDirectoryNameFragment(
                 ImmutableList.of("//test:foo=transitioned")));
     assertThat(getCoreOptions(middle).affectedByStarlarkTransition).isEmpty();
 
@@ -242,7 +243,7 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
         Iterables.getOnlyElement(
             (List<ConfiguredTarget>) getMyInfoFromTarget(middle).getValue("dep"));
 
-    assertThat(getTransitionDirectoryNameFragment(test)).isEmpty();
+    assertThat(getMnemonic(test)).doesNotContain("-ST-");
     assertThat(getCoreOptions(test).affectedByStarlarkTransition).isEmpty();
 
     assertThat(getConfiguration(test)).isEqualTo(getConfiguration(root));
@@ -251,5 +252,163 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
     // This should be implied by everything else but as a final check....
     assertThat(getConfiguration(test).getMnemonic())
         .isEqualTo(getConfiguration(root).getMnemonic());
+  }
+
+  @Test
+  public void testPlatformExplicitInOutputDirAndDynamicBaseline_withPlatformMappings()
+      throws Exception {
+    writeAllowlistFile();
+    scratch.file(
+        "test/transitions.bzl",
+        "def _platform_impl(settings, attr):",
+        "  return {'//command_line_option:platforms': [attr.platform]}",
+        "platform_transition = transition(implementation = _platform_impl, inputs = [],",
+        "  outputs = ['//command_line_option:platforms'])");
+    scratch.file(
+        "test/rules.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "load('//test:transitions.bzl', 'platform_transition')",
+        "def _impl(ctx):",
+        "  return MyInfo(dep = ctx.attr.dep)",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'dep': attr.label(), ",
+        "  })",
+        "def _basic_impl(ctx):",
+        "  return []",
+        "as_platform = rule(",
+        "  implementation = _basic_impl,",
+        "  cfg = platform_transition,",
+        "  attrs = {",
+        "    'platform': attr.label(default = '//platforms:alpha'),",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  })");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'my_rule', 'as_platform')",
+        "my_rule(name = 'test', dep = ':dep')",
+        "as_platform(name = 'dep', platform='//platforms:beta')");
+    scratch.file("platforms/BUILD", "platform(name = 'alpha')", "platform(name = 'beta')");
+    scratch.file(
+        "tools/platform_mappings",
+        "platforms:",
+        "  //platforms:alpha",
+        "    --cpu=alpha",
+        "  //platforms:beta",
+        "    --cpu=beta",
+        "flags:",
+        "  --cpu=alpha",
+        "    //platforms:alpha",
+        "  --cpu=beta",
+        "    //platforms:beta");
+
+    useConfiguration(
+        "--compilation_mode=fastbuild",
+        "--platforms=//platforms:alpha",
+        "--platform_mappings=tools/platform_mappings",
+        "--experimental_platform_in_output_dir",
+        "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
+        "--experimental_override_name_platform_in_output_dir=//platforms:alpha=alpha",
+        "--experimental_override_name_platform_in_output_dir=//platforms:beta=beta",
+        "--experimental_output_directory_naming_scheme=diff_against_dynamic_baseline");
+    ConfiguredTarget test = getConfiguredTarget("//test");
+
+    assertThat(getMnemonic(test)).contains("alpha-fastbuild");
+    assertThat(getMnemonic(test)).doesNotContain("-ST-");
+
+    ConfiguredTarget dep = (ConfiguredTarget) getMyInfoFromTarget(test).getValue("dep");
+
+    assertThat(getMnemonic(dep)).contains("beta-fastbuild");
+    assertThat(getMnemonic(dep)).doesNotContain("-ST-");
+
+    // Verify platform_mappings applied properly
+    assertThat(getConfiguration(test).getCpu()).isEqualTo("alpha");
+    assertThat(getConfiguration(dep).getCpu()).isEqualTo("beta");
+  }
+
+  @Test
+  public void testPlatformExplicitInOutputDirAndDynamicBaseline_withMorePlatformMappings()
+      throws Exception {
+    writeAllowlistFile();
+    scratch.file(
+        "test/transitions.bzl",
+        "def _platform_impl(settings, attr):",
+        "  return {'//command_line_option:platforms': [attr.platform]}",
+        "platform_transition = transition(implementation = _platform_impl, inputs = [],",
+        "  outputs = ['//command_line_option:platforms'])");
+    scratch.file(
+        "test/rules.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "load('//test:transitions.bzl', 'platform_transition')",
+        "def _impl(ctx):",
+        "  return MyInfo(dep = ctx.attr.dep)",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'dep': attr.label(), ",
+        "  })",
+        "def _basic_impl(ctx):",
+        "  return []",
+        "as_platform = rule(",
+        "  implementation = _basic_impl,",
+        "  cfg = platform_transition,",
+        "  attrs = {",
+        "    'platform': attr.label(default = '//platforms:alpha'),",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  })");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'my_rule', 'as_platform')",
+        "my_rule(name = 'test', dep = ':dep')",
+        "as_platform(name = 'dep', platform='//platforms:beta')");
+    scratch.file("platforms/BUILD", "platform(name = 'alpha')", "platform(name = 'beta')");
+
+    // Test just wants to transition some options not usually explicitly in the output path
+    // so if those options are changed/removed, just replace them here.
+    scratch.file(
+        "tools/platform_mappings",
+        "platforms:",
+        "  //platforms:alpha",
+        "    --cpu=alpha",
+        "    --use_ijars=false",
+        "    --dynamic_mode=default",
+        "  //platforms:beta",
+        "    --cpu=beta",
+        "    --use_ijars=true",
+        "    --dynamic_mode=off");
+
+    useConfiguration(
+        "--compilation_mode=fastbuild",
+        "--platforms=//platforms:alpha",
+        "--platform_mappings=tools/platform_mappings",
+        "--experimental_platform_in_output_dir",
+        "--noexperimental_use_platforms_in_output_dir_legacy_heuristic",
+        "--experimental_override_name_platform_in_output_dir=//platforms:alpha=alpha",
+        "--experimental_override_name_platform_in_output_dir=//platforms:beta=beta",
+        "--experimental_output_directory_naming_scheme=diff_against_dynamic_baseline");
+    ConfiguredTarget test = getConfiguredTarget("//test");
+
+    assertThat(getMnemonic(test)).contains("alpha-fastbuild");
+    assertThat(getMnemonic(test)).doesNotContain("-ST-");
+
+    ConfiguredTarget dep = (ConfiguredTarget) getMyInfoFromTarget(test).getValue("dep");
+
+    assertThat(getMnemonic(dep)).contains("beta-fastbuild");
+    assertThat(getMnemonic(dep)).doesNotContain("-ST-");
+
+    // Verify platform_mappings applied properly
+    assertThat(getConfiguration(test).getCpu()).isEqualTo("alpha");
+    assertThat(getConfiguration(test).getFragment(CppConfiguration.class).getDynamicModeFlag())
+        .isEqualTo(CppConfiguration.DynamicMode.DEFAULT);
+    assertThat(getConfiguration(test).getFragment(JavaConfiguration.class).getUseIjars()).isFalse();
+    assertThat(getConfiguration(dep).getCpu()).isEqualTo("beta");
+    assertThat(getConfiguration(dep).getFragment(CppConfiguration.class).getDynamicModeFlag())
+        .isEqualTo(CppConfiguration.DynamicMode.OFF);
+    assertThat(getConfiguration(dep).getFragment(JavaConfiguration.class).getUseIjars()).isTrue();
   }
 }

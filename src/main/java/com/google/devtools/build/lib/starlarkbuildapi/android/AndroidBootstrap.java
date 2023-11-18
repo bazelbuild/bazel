@@ -37,12 +37,12 @@ public class AndroidBootstrap implements Bootstrap {
           PackageIdentifier.createUnchecked("rules_android", ""),
           PackageIdentifier.createUnchecked("", "tools/build_defs/android"));
 
-  private final AndroidStarlarkCommonApi<?, ?> androidCommon;
+  private final AndroidStarlarkCommonApi<?, ?, ?, ?, ?> androidCommon;
   private final ImmutableMap<String, Object> providers;
 
   public AndroidBootstrap(
-      AndroidStarlarkCommonApi<?, ?> androidCommon,
-      ApkInfoApiProvider apkInfoProvider,
+      AndroidStarlarkCommonApi<?, ?, ?, ?, ?> androidCommon,
+      ApkInfoApiProvider<?> apkInfoProvider,
       AndroidInstrumentationInfoApiProvider<?> androidInstrumentationInfoProvider,
       AndroidDeviceBrokerInfoApiProvider androidDeviceBrokerInfoProvider,
       AndroidResourcesInfoApiProvider<?, ?, ?> androidResourcesInfoProvider,
@@ -67,7 +67,8 @@ public class AndroidBootstrap implements Bootstrap {
       BaselineProfileProviderApi.Provider<?> baselineProfileProvider,
       AndroidNeverLinkLibrariesProviderApi.Provider<?> androidNeverLinkLibrariesProvider,
       AndroidOptimizedJarInfoApi.Provider<?> androidOptimizedJarInfo,
-      AndroidDexInfoApi.Provider<?> androidDexInfoApiProvider) {
+      AndroidDexInfoApi.Provider<?> androidDexInfoApiProvider,
+      AndroidOptimizationInfoApi.Provider<?> androidOptimizationInfoProvider) {
 
     this.androidCommon = androidCommon;
     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
@@ -99,6 +100,7 @@ public class AndroidBootstrap implements Bootstrap {
     builder.put(AndroidNeverLinkLibrariesProviderApi.NAME, androidNeverLinkLibrariesProvider);
     builder.put(AndroidOptimizedJarInfoApi.NAME, androidOptimizedJarInfo);
     builder.put(AndroidDexInfoApi.NAME, androidDexInfoApiProvider);
+    builder.put(AndroidOptimizationInfoApi.NAME, androidOptimizationInfoProvider);
     providers = builder.build();
   }
 

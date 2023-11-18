@@ -13,12 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -275,19 +275,11 @@ public interface SpawnResult {
   /** Whether the spawn result was obtained through remote strategy. */
   boolean wasRemote();
 
-  /** A unique identifier for the spawn. */
-  @AutoValue
-  @Immutable
-  public abstract class Digest {
-    public abstract String getHash();
-
-    public abstract Long getSizeBytes();
-
-    public static Digest of(String hash, Long sizeBytes) {
-      return new AutoValue_SpawnResult_Digest(hash, sizeBytes);
-    }
-  }
-
+  /**
+   * Returns the remote or disk cache digest.
+   *
+   * <p>Only available when remote execution, remote cache or disk cache was enabled for the spawn.
+   */
   @Nullable
   default Digest getDigest() {
     return null;
@@ -523,7 +515,6 @@ public interface SpawnResult {
 
     public SpawnResult build() {
       Preconditions.checkArgument(!runnerName.isEmpty());
-
       switch (status) {
         case SUCCESS:
           Preconditions.checkArgument(exitCode == 0, exitCode);

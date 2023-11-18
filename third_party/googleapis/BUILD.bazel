@@ -60,7 +60,7 @@ filegroup(
         ":google_devtools_remoteexecution_v1test_remote_execution_java_grpc_srcs",
         ":google_watch_v1_java_grpc_srcs",
     ],
-    visibility = ["@//src:__pkg__"],
+    visibility = ["@io_bazel//src:__pkg__"],
 )
 
 java_proto_library(

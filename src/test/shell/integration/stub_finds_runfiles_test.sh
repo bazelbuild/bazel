@@ -37,6 +37,9 @@ fi
 function set_up() {
   mkdir -p pkg pkg/java
   cat > pkg/BUILD << 'EOF'
+load("@rules_python//python:py_binary.bzl", "py_binary")
+load("@rules_python//python:py_test.bzl", "py_test")
+
 java_binary(name = "javabin",
             main_class = "test.ExitZero",
             srcs = [ "java/ExitZero.java", ])

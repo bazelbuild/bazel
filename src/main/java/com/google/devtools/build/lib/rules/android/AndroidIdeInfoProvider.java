@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.android;
 
 import static com.google.devtools.build.lib.rules.android.AndroidStarlarkData.fromNoneable;
+import static com.google.devtools.build.lib.rules.android.AndroidStarlarkData.isNone;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidIdeInfoProviderApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -354,6 +356,7 @@ public final class AndroidIdeInfoProvider extends NativeInfo
         Sequence<?> apksUnderTest, // <Artifact>
         Dict<?, ?> nativeLibs) // <String, Depset>
         throws EvalException {
+
       Map<String, Depset> nativeLibsMap =
           Dict.cast(nativeLibs, String.class, Depset.class, "native_libs");
 
@@ -361,6 +364,19 @@ public final class AndroidIdeInfoProvider extends NativeInfo
       for (Map.Entry<String, Depset> entry : nativeLibsMap.entrySet()) {
         builder.put(entry.getKey(), Depset.cast(entry.getValue(), Artifact.class, "native_libs"));
       }
+
+      JavaOutput resourceJarJavaOutput;
+      if (isNone(resourceJar)) {
+        resourceJarJavaOutput = null;
+      } else if (resourceJar instanceof JavaOutput) {
+        resourceJarJavaOutput = (JavaOutput) resourceJar;
+      } else if (resourceJar instanceof StructImpl) {
+        resourceJarJavaOutput = JavaOutput.fromStarlarkJavaOutput((StructImpl) resourceJar);
+      } else {
+        throw new EvalException(
+            "resource_jar is not None, a native JavaOutput, nor a Starlark JavaOutput");
+      }
+
       return new AndroidIdeInfoProvider(
           fromNoneable(javaPackage, String.class),
           fromNoneable(idlImportRoot, String.class),
@@ -369,7 +385,7 @@ public final class AndroidIdeInfoProvider extends NativeInfo
           fromNoneable(signedApk, Artifact.class),
           fromNoneable(idlClassJar, Artifact.class),
           fromNoneable(idlSourceJar, Artifact.class),
-          fromNoneable(resourceJar, JavaOutput.class),
+          resourceJarJavaOutput,
           definesAndroidResources,
           fromNoneable(aar, Artifact.class),
           ImmutableList.copyOf(Sequence.cast(idlSrcs, Artifact.class, "idl_srcs")),

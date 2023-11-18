@@ -36,8 +36,7 @@ public class AndroidDataBindingProcessorBuilder {
       AndroidDataContext dataContext,
       AndroidResources androidResources,
       String appId,
-      Artifact dataBindingLayoutInfoOut,
-      boolean useDataBindingAndroidX) {
+      Artifact dataBindingLayoutInfoOut) {
 
     ImmutableList.Builder<Artifact> databindingProcessedResourcesBuilder = ImmutableList.builder();
     for (Artifact resource : androidResources.getResources()) {
@@ -91,7 +90,7 @@ public class AndroidDataBindingProcessorBuilder {
 
     builder.addOutput("--dataBindingInfoOut", dataBindingLayoutInfoOut);
     builder.addFlag("--appId", appId);
-    builder.maybeAddFlag("--useDataBindingAndroidX", useDataBindingAndroidX);
+    builder.addFlag("--useDataBindingAndroidX");
 
     builder.buildAndRegister("Processing data binding", "ProcessDatabinding");
 

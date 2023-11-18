@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.Type.LabelVisitor;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.HashSet;
@@ -83,6 +84,7 @@ public final class AspectDefinition {
 
   private final ImmutableSet<Label> execCompatibleWith;
   private final ImmutableMap<String, ExecGroup> execGroups;
+  private final ImmutableSet<? extends StarlarkSubruleApi> subrules;
 
   public AdvertisedProviderSet getAdvertisedProviders() {
     return advertisedProviders;
@@ -101,7 +103,8 @@ public final class AspectDefinition {
       boolean applyToGeneratingRules,
       ImmutableSet<AspectClass> requiredAspectClasses,
       ImmutableSet<Label> execCompatibleWith,
-      ImmutableMap<String, ExecGroup> execGroups) {
+      ImmutableMap<String, ExecGroup> execGroups,
+      ImmutableSet<? extends StarlarkSubruleApi> subrules) {
     this.aspectClass = aspectClass;
     this.advertisedProviders = advertisedProviders;
     this.requiredProviders = requiredProviders;
@@ -115,6 +118,7 @@ public final class AspectDefinition {
     this.requiredAspectClasses = requiredAspectClasses;
     this.execCompatibleWith = execCompatibleWith;
     this.execGroups = execGroups;
+    this.subrules = subrules;
   }
 
   public String getName() {
@@ -145,6 +149,11 @@ public final class AspectDefinition {
   /** Returns the execution groups that this aspect can use when creating actions. */
   public ImmutableMap<String, ExecGroup> execGroups() {
     return execGroups;
+  }
+
+  /** Returns the subrules declared by this aspect. */
+  public ImmutableSet<? extends StarlarkSubruleApi> getSubrules() {
+    return subrules;
   }
 
   /**
@@ -236,7 +245,7 @@ public final class AspectDefinition {
 
   private static <T> void visitSingleAttribute(
       Attribute attribute, Type<T> type, LabelVisitor labelVisitor) {
-    type.visitLabels(labelVisitor, type.cast(attribute.getDefaultValue()), attribute);
+    type.visitLabels(labelVisitor, type.cast(attribute.getDefaultValue(null)), attribute);
   }
 
   public static Builder builder(AspectClass aspectClass) {
@@ -262,6 +271,7 @@ public final class AspectDefinition {
     private ImmutableSet<AspectClass> requiredAspectClasses = ImmutableSet.of();
     private ImmutableSet<Label> execCompatibleWith = ImmutableSet.of();
     private ImmutableMap<String, ExecGroup> execGroups = ImmutableMap.of();
+    private ImmutableSet<? extends StarlarkSubruleApi> subrules = ImmutableSet.of();
 
     public Builder(AspectClass aspectClass) {
       this.aspectClass = aspectClass;
@@ -561,6 +571,12 @@ public final class AspectDefinition {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder subrules(ImmutableSet<? extends StarlarkSubruleApi> subrules) {
+      this.subrules = subrules;
+      return this;
+    }
+
     /**
      * Builds the aspect definition.
      *
@@ -587,7 +603,8 @@ public final class AspectDefinition {
           applyToGeneratingRules,
           requiredAspectClasses,
           execCompatibleWith,
-          execGroups);
+          execGroups,
+          subrules);
     }
   }
 }

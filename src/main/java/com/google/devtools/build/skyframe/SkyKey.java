@@ -116,13 +116,4 @@ public interface SkyKey extends Serializable {
       return weakIntern((T) sample);
     }
   }
-
-  /**
-   * A hint to schedulers that evaluating this key shouldn't cause high fanout.
-   *
-   * <p>Keys with high fan-out create memory pressure and are assigned low priority.
-   */
-  default boolean hasLowFanout() {
-    return false;
-  }
 }

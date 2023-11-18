@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAc
 import com.google.devtools.build.lib.skyframe.FilesystemValueChecker.ModifiedOutputsReceiver;
 import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
@@ -201,7 +202,7 @@ public final class FilesystemValueCheckerTest {
       throws IOException {
     Path path = artifact.getPath();
     FileArtifactValue noDigest =
-        ActionMetadataHandler.fileArtifactValueFromArtifact(
+        ActionOutputMetadataStore.fileArtifactValueFromArtifact(
             artifact,
             FileStatusWithDigestAdapter.maybeAdapt(path.statIfFound(Symlinks.NOFOLLOW)),
             SyscallCache.NO_CACHE,
@@ -260,7 +261,7 @@ public final class FilesystemValueCheckerTest {
     ENABLED {
       @Override
       BatchStat getBatchStat(FileSystem fileSystem) {
-        return (useDigest, includeLinks, paths) -> {
+        return (paths) -> {
           List<FileStatusWithDigest> stats = new ArrayList<>();
           for (PathFragment pathFrag : paths) {
             stats.add(
@@ -323,8 +324,10 @@ public final class FilesystemValueCheckerTest {
             null,
             /* packageProgress= */ null,
             PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE,
+            /* shouldUseRepoDotBazel= */ true,
             GlobbingStrategy.SKYFRAME_HYBRID,
-            k -> ThreadStateReceiver.NULL_INSTANCE));
+            k -> ThreadStateReceiver.NULL_INSTANCE,
+            new AtomicReference<>()));
     skyFunctions.put(
         SkyFunctions.PACKAGE_LOOKUP,
         new PackageLookupFunction(
@@ -1226,8 +1229,7 @@ public final class FilesystemValueCheckerTest {
     checkDirtyActions(
         new BatchStat() {
           @Override
-          public List<FileStatusWithDigest> batchStat(
-              boolean useDigest, boolean includeLinks, Iterable<PathFragment> paths)
+          public List<FileStatusWithDigest> batchStat(Iterable<PathFragment> paths)
               throws IOException {
             List<FileStatusWithDigest> stats = new ArrayList<>();
             for (PathFragment pathFrag : paths) {
@@ -1247,8 +1249,7 @@ public final class FilesystemValueCheckerTest {
     checkDirtyActions(
         new BatchStat() {
           @Override
-          public List<FileStatusWithDigest> batchStat(
-              boolean useDigest, boolean includeLinks, Iterable<PathFragment> paths)
+          public List<FileStatusWithDigest> batchStat(Iterable<PathFragment> paths)
               throws IOException {
             List<FileStatusWithDigest> stats = new ArrayList<>();
             for (PathFragment pathFrag : paths) {
@@ -1267,8 +1268,7 @@ public final class FilesystemValueCheckerTest {
     checkDirtyActions(
         new BatchStat() {
           @Override
-          public List<FileStatusWithDigest> batchStat(
-              boolean useDigest, boolean includeLinks, Iterable<PathFragment> paths)
+          public List<FileStatusWithDigest> batchStat(Iterable<PathFragment> paths)
               throws IOException {
             throw new IOException("try again");
           }
@@ -1284,7 +1284,7 @@ public final class FilesystemValueCheckerTest {
       try {
         Path path = output.getPath();
         FileArtifactValue noDigest =
-            ActionMetadataHandler.fileArtifactValueFromArtifact(
+            ActionOutputMetadataStore.fileArtifactValueFromArtifact(
                 output,
                 FileStatusWithDigestAdapter.maybeAdapt(path.statIfFound(Symlinks.NOFOLLOW)),
                 SyscallCache.NO_CACHE,

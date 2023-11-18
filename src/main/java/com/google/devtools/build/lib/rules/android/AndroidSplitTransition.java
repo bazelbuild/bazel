@@ -170,6 +170,8 @@ final class AndroidSplitTransition implements SplitTransition, AndroidSplitTrans
     setCcFlagsFromAndroid(androidOptions, splitOptions);
     // Ensure platforms aren't set so that platform mapping can take place.
     splitOptions.get(PlatformOptions.class).platforms = ImmutableList.of();
+    // Because configuration is based on cpu flags we need to disable C++ toolchain resolution
+    splitOptions.get(CppOptions.class).enableCcToolchainResolution = false;
     return handleDefaultSplit(splitOptions, androidOptions.cpu);
   }
 
@@ -193,6 +195,8 @@ final class AndroidSplitTransition implements SplitTransition, AndroidSplitTrans
       setCcFlagsFromAndroid(androidOptions, splitOptions);
       // Ensure platforms aren't set so that platform mapping can take place.
       splitOptions.get(PlatformOptions.class).platforms = ImmutableList.of();
+      // Because configuration is based on cpu flags we need to disable C++ toolchain resolution
+      splitOptions.get(CppOptions.class).enableCcToolchainResolution = false;
       result.put(cpu, splitOptions.underlying());
       addNonCpuSplits(result, cpu, splitOptions);
     }

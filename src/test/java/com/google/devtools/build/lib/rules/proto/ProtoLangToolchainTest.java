@@ -39,7 +39,6 @@ import org.junit.runners.JUnit4;
 public class ProtoLangToolchainTest extends BuildViewTestCase {
   @Before
   public void setUp() throws Exception {
-    MockProtoSupport.setupWorkspace(scratch);
     MockProtoSupport.setup(mockToolsConfig);
     useConfiguration("--protocopt=--myflag");
     invalidatePackages();
@@ -101,7 +100,8 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
   }
 
   @Test
-  public void protoToolchain_setProtoCompiler() throws Exception {
+  public void protoToolchainResolution_enabled() throws Exception {
+    setBuildLanguageOptions("--incompatible_enable_proto_toolchain_resolution");
     scratch.file(
         "third_party/x/BUILD",
         "licenses(['unencumbered'])",
@@ -109,9 +109,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         "cc_library(name = 'runtime', srcs = ['runtime.cc'])",
         "filegroup(name = 'descriptors', srcs = ['metadata.proto', 'descriptor.proto'])",
         "filegroup(name = 'any', srcs = ['any.proto'])",
-        "proto_library(name = 'denied', srcs = [':descriptors', ':any'])",
-        "cc_binary(name = 'compiler')");
-
+        "proto_library(name = 'denied', srcs = [':descriptors', ':any'])");
     scratch.file(
         "foo/BUILD",
         TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
@@ -124,14 +122,14 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         "    runtime = '//third_party/x:runtime',",
         "    progress_message = 'Progress Message %{label}',",
         "    mnemonic = 'MyMnemonic',",
-        "    proto_compiler = '//third_party/x:compiler',",
         ")");
 
+    update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
     ProtoLangToolchainProvider toolchain =
         ProtoLangToolchainProvider.get(getConfiguredTarget("//foo:toolchain"));
 
     validateProtoLangToolchain(toolchain);
-    validateProtoCompiler(toolchain, "//third_party/x:compiler");
+    validateProtoCompiler(toolchain, ProtoConstants.DEFAULT_PROTOC_LABEL);
   }
 
   @Test

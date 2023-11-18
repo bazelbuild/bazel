@@ -18,6 +18,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Splitter;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.OutputStream;
@@ -30,6 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import javax.annotation.Nullable;
+import javax.management.ObjectName;
 
 /**
  * Blaze memory profiler.
@@ -48,6 +50,7 @@ import javax.annotation.Nullable;
  */
 public final class MemoryProfiler {
 
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final MemoryProfiler INSTANCE = new MemoryProfiler();
 
   public static MemoryProfiler instance() {
@@ -90,13 +93,16 @@ public final class MemoryProfiler {
               nextPhase, bean, (duration) -> Thread.sleep(duration.toMillis()));
       String name = currentPhase.description;
       MemoryUsage memoryUsage = memoryUsages.getHeap();
+      var usedMemory = memoryUsage.getUsed();
+      // TODO(b/311665999) Remove this ASAP.
+      if (nextPhase == ProfilePhase.FINISH) {
+        usedMemory = memoryUsage.getUsed() - getSizeOfFillerArrayOnHeap();
+        heapUsedMemoryAtFinish = usedMemory;
+      }
       memoryProfile.println(name + ":heap:init:" + memoryUsage.getInit());
-      memoryProfile.println(name + ":heap:used:" + memoryUsage.getUsed());
+      memoryProfile.println(name + ":heap:used:" + usedMemory);
       memoryProfile.println(name + ":heap:commited:" + memoryUsage.getCommitted());
       memoryProfile.println(name + ":heap:max:" + memoryUsage.getMax());
-      if (nextPhase == ProfilePhase.FINISH) {
-        heapUsedMemoryAtFinish = memoryUsage.getUsed();
-      }
 
       memoryUsage = memoryUsages.getNonHeap();
       memoryProfile.println(name + ":non-heap:init:" + memoryUsage.getInit());
@@ -105,6 +111,45 @@ public final class MemoryProfiler {
       memoryProfile.println(name + ":non-heap:max:" + memoryUsage.getMax());
       currentPhase = nextPhase;
     }
+  }
+
+  /**
+   * Workaround for the FillerArray issue with JDK21. TODO(b/311665999) Remove this ASAP.
+   *
+   * <p>With JDK21, an arbitrary amount of FillerArray instances is retained on the heap at the end
+   * of each command, which fluctuates our heap metrics a lot. This method looks into the heap
+   * histogram and gets the total #bytes attributed to the FillerArray. We'll offset that against
+   * the final value to make it more stable.
+   */
+  @SuppressWarnings("StringSplitter")
+  private long getSizeOfFillerArrayOnHeap() {
+    long sizeInBytes = 0;
+    try {
+      String histogram =
+          (String)
+              ManagementFactory.getPlatformMBeanServer()
+                  .invoke(
+                      new ObjectName("com.sun.management:type=DiagnosticCommand"),
+                      "gcClassHistogram",
+                      new Object[] {null},
+                      new String[] {"[Ljava.lang.String;"});
+      for (String line : histogram.split("\n")) {
+        // ["", <num>, <#instances>, <#bytes>, <class name>]
+        if (line.contains("jdk.internal.vm.FillerArray")) {
+          sizeInBytes += Long.parseLong(line.split("\\s+")[3]);
+        }
+      }
+    } catch (Exception e) {
+      // Swallow all exceptions.
+      logger.atWarning().withCause(e).log(
+          "Failed to obtain the size of jdk.internal.vm.FillerArray");
+    }
+    if (sizeInBytes > 0) {
+      logger.atInfo().log(
+          "Offsetting %d bytes of jdk.internal.vm.FillerArray in the retained heap metric.",
+          sizeInBytes);
+    }
+    return sizeInBytes;
   }
 
   @VisibleForTesting

@@ -18,12 +18,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.InputFile;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
@@ -64,7 +64,6 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   private DependencyFilter dependencyFilter;
   private boolean packageGroupIncludesDoubleSlash;
   private boolean relativeLocations;
-  private boolean displaySourceFileLocation;
   private QueryOptions queryOptions;
 
   @Override
@@ -76,7 +75,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
       OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
     return new SynchronizedDelegatingOutputFormatterCallback<>(
-        createPostFactoStreamCallback(out, options, env.getMainRepoMapping()));
+        createPostFactoStreamCallback(out, options, env.getLabelPrinter()));
   }
 
   @Override
@@ -87,7 +86,6 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
     this.dependencyFilter = FormatUtils.getDependencyFilter(options);
     this.packageGroupIncludesDoubleSlash = options.incompatiblePackageGroupIncludesDoubleSlash;
     this.relativeLocations = options.relativeLocations;
-    this.displaySourceFileLocation = options.displaySourceFileLocation;
 
     Preconditions.checkArgument(options instanceof QueryOptions);
     this.queryOptions = (QueryOptions) options;
@@ -95,7 +93,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
 
   @Override
   public OutputFormatterCallback<Target> createPostFactoStreamCallback(
-      OutputStream out, QueryOptions options, RepositoryMapping mainRepoMapping) {
+      OutputStream out, QueryOptions options, LabelPrinter labelPrinter) {
     return new OutputFormatterCallback<Target>() {
 
       private Document doc;
@@ -119,7 +117,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       @Override
       public void processOutput(Iterable<Target> partialResult) throws InterruptedException {
         for (Target target : partialResult) {
-          queryElem.appendChild(createTargetElement(doc, target));
+          queryElem.appendChild(createTargetElement(doc, target, labelPrinter));
         }
       }
 
@@ -142,15 +140,12 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   /**
    * Creates and returns a new DOM tree for the specified build target.
    *
-   * XML structure:
-   * - element tag is &lt;source-file>, &lt;generated-file> or &lt;rule
-   *   class="cc_library">, following the terminology of
-   *   {@link Target#getTargetKind()}.
-   * - 'name' attribute is target's label.
-   * - 'location' attribute is consistent with output of --output location.
-   * - rule attributes are represented in the DOM structure.
+   * <p>XML structure: - element tag is &lt;source-file>, &lt;generated-file> or &lt;rule
+   * class="cc_library">, following the terminology of {@link Target#getTargetKind()}. - 'name'
+   * attribute is target's label. - 'location' attribute is consistent with output of --output
+   * location. - rule attributes are represented in the DOM structure.
    */
-  private Element createTargetElement(Document doc, Target target)
+  private Element createTargetElement(Document doc, Target target, LabelPrinter labelPrinter)
       throws InterruptedException {
     Element elem;
     if (target instanceof Rule) {
@@ -158,16 +153,13 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       elem = doc.createElement("rule");
       elem.setAttribute("class", rule.getRuleClass());
       for (Attribute attr : rule.getAttributes()) {
-        AttributeValueSource attributeValueSource =
-            AttributeValueSource.forRuleAndAttribute(rule, attr);
-        if (attributeValueSource == AttributeValueSource.RULE
-            || queryOptions.xmlShowDefaultValues) {
+        if (rule.isAttributeValueExplicitlySpecified(attr) || queryOptions.xmlShowDefaultValues) {
           // TODO(b/162524370): mayTreatMultipleAsNone should be true for types that drop multiple
           //  values.
           Iterable<Object> values =
               PossibleAttributeValues.forRuleAndAttribute(
-                  rule, attr, /*mayTreatMultipleAsNone=*/ false);
-          Element attrElem = createValueElement(doc, attr.getType(), values);
+                  rule, attr, /* mayTreatMultipleAsNone= */ false);
+          Element attrElem = createValueElement(doc, attr.getType(), values, labelPrinter);
           attrElem.setAttribute("name", attr.getName());
           elem.appendChild(attrElem);
         }
@@ -178,21 +170,26 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       // include implicit outputs, exec-configuration outputs, and default values.
       for (Label label : rule.getSortedLabels(dependencyFilter)) {
         Element inputElem = doc.createElement("rule-input");
-        inputElem.setAttribute("name", label.toString());
+        inputElem.setAttribute("name", labelPrinter.toString(label));
         elem.appendChild(inputElem);
       }
-      for (Label label :
-          aspectResolver.computeAspectDependencies(target, dependencyFilter).values()) {
-        Element inputElem = doc.createElement("rule-input");
-        inputElem.setAttribute("name", label.toString());
-        elem.appendChild(inputElem);
-      }
+
+      aspectResolver.computeAspectDependencies(target, dependencyFilter).values().stream()
+          .flatMap(m -> m.values().stream())
+          .distinct()
+          .forEach(
+              label -> {
+                Element inputElem = doc.createElement("rule-input");
+                inputElem.setAttribute("name", labelPrinter.toString(label));
+                elem.appendChild(inputElem);
+              });
+
       for (OutputFile outputFile : rule.getOutputFiles()) {
         Element outputElem = doc.createElement("rule-output");
-        outputElem.setAttribute("name", outputFile.getLabel().toString());
+        outputElem.setAttribute("name", labelPrinter.toString(outputFile.getLabel()));
         elem.appendChild(outputElem);
       }
-      for (String feature : rule.getPackage().getFeatures().toStringList()) {
+      for (String feature : rule.getPackage().getPackageArgs().features().toStringList()) {
         Element outputElem = doc.createElement("rule-default-setting");
         outputElem.setAttribute("name", feature);
         elem.appendChild(outputElem);
@@ -201,46 +198,44 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       PackageGroup packageGroup = (PackageGroup) target;
       elem = doc.createElement("package-group");
       elem.setAttribute("name", packageGroup.getName());
-      Element includes = createValueElement(doc,
-          BuildType.LABEL_LIST,
-          packageGroup.getIncludes());
+      Element includes =
+          createValueElement(doc, BuildType.LABEL_LIST, packageGroup.getIncludes(), labelPrinter);
       includes.setAttribute("name", "includes");
       elem.appendChild(includes);
       Element packages =
           createValueElement(
               doc,
               Type.STRING_LIST,
-              packageGroup.getContainedPackages(packageGroupIncludesDoubleSlash));
+              packageGroup.getContainedPackages(packageGroupIncludesDoubleSlash),
+              labelPrinter);
       packages.setAttribute("name", "packages");
       elem.appendChild(packages);
     } else if (target instanceof OutputFile) {
       OutputFile outputFile = (OutputFile) target;
       elem = doc.createElement("generated-file");
-      elem.setAttribute("generating-rule",
-                        outputFile.getGeneratingRule().getLabel().toString());
+      elem.setAttribute(
+          "generating-rule", labelPrinter.toString(outputFile.getGeneratingRule().getLabel()));
     } else if (target instanceof InputFile) {
       elem = doc.createElement("source-file");
       InputFile inputFile = (InputFile) target;
       if (inputFile.getName().equals("BUILD")) {
-        addStarlarkFilesToElement(doc, elem, inputFile);
+        addStarlarkFilesToElement(doc, elem, inputFile, labelPrinter);
         addFeaturesToElement(doc, elem, inputFile);
         elem.setAttribute("package_contains_errors",
             String.valueOf(inputFile.getPackage().containsErrors()));
       }
 
-      addPackageGroupsToElement(doc, elem, inputFile);
+      addPackageGroupsToElement(doc, elem, inputFile, labelPrinter);
     } else if (target instanceof EnvironmentGroup) {
       EnvironmentGroup envGroup = (EnvironmentGroup) target;
       elem = doc.createElement("environment-group");
       elem.setAttribute("name", envGroup.getName());
-      Element environments = createValueElement(doc,
-          BuildType.LABEL_LIST,
-          envGroup.getEnvironments());
+      Element environments =
+          createValueElement(doc, BuildType.LABEL_LIST, envGroup.getEnvironments(), labelPrinter);
       environments.setAttribute("name", "environments");
       elem.appendChild(environments);
-      Element defaults = createValueElement(doc,
-          BuildType.LABEL_LIST,
-          envGroup.getDefaults());
+      Element defaults =
+          createValueElement(doc, BuildType.LABEL_LIST, envGroup.getDefaults(), labelPrinter);
       defaults.setAttribute("name", "defaults");
       elem.appendChild(defaults);
     } else if (target instanceof FakeLoadTarget) {
@@ -249,8 +244,8 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       throw new IllegalArgumentException(target.toString());
     }
 
-    elem.setAttribute("name", target.getLabel().toString());
-    String location = FormatUtils.getLocation(target, relativeLocations, displaySourceFileLocation);
+    elem.setAttribute("name", labelPrinter.toString(target.getLabel()));
+    String location = FormatUtils.getLocation(target, relativeLocations);
     if (!queryOptions.xmlLineNumbers) {
       int firstColon = location.indexOf(':');
       if (firstColon != -1) {
@@ -262,54 +257,56 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
     return elem;
   }
 
-  private static void addPackageGroupsToElement(Document doc, Element parent, Target target) {
+  private static void addPackageGroupsToElement(
+      Document doc, Element parent, Target target, LabelPrinter labelPrinter) {
     for (Label visibilityDependency : target.getVisibilityDependencyLabels()) {
       Element elem = doc.createElement("package-group");
-      elem.setAttribute("name", visibilityDependency.toString());
+      elem.setAttribute("name", labelPrinter.toString(visibilityDependency));
       parent.appendChild(elem);
     }
 
     for (Label visibilityDeclaration : target.getVisibilityDeclaredLabels()) {
       Element elem = doc.createElement("visibility-label");
-      elem.setAttribute("name", visibilityDeclaration.toString());
+      elem.setAttribute("name", labelPrinter.toString(visibilityDeclaration));
       parent.appendChild(elem);
     }
   }
 
   private static void addFeaturesToElement(Document doc, Element parent, InputFile inputFile) {
-    for (String feature : inputFile.getPackage().getFeatures().toStringList()) {
+    for (String feature : inputFile.getPackage().getPackageArgs().features().toStringList()) {
       Element elem = doc.createElement("feature");
       elem.setAttribute("name", feature);
       parent.appendChild(elem);
     }
   }
 
-  private void addStarlarkFilesToElement(Document doc, Element parent, InputFile inputFile)
+  private void addStarlarkFilesToElement(
+      Document doc, Element parent, InputFile inputFile, LabelPrinter labelPrinter)
       throws InterruptedException {
     Iterable<Label> dependencies =
         aspectResolver.computeBuildFileDependencies(inputFile.getPackage());
 
     for (Label starlarkFileDep : dependencies) {
       Element elem = doc.createElement("load");
-      elem.setAttribute("name", starlarkFileDep.toString());
+      elem.setAttribute("name", labelPrinter.toString(starlarkFileDep));
       parent.appendChild(elem);
     }
   }
 
   /**
-   * Creates and returns a new DOM tree for the specified attribute values.
-   * For non-configurable attributes, this is a single value. For configurable
-   * attributes, this contains one value for each configuration.
-   * (Only toplevel values are named attributes; list elements are unnamed.)
+   * Creates and returns a new DOM tree for the specified attribute values. For non-configurable
+   * attributes, this is a single value. For configurable attributes, this contains one value for
+   * each configuration. (Only toplevel values are named attributes; list elements are unnamed.)
    *
-   * <p>In the case of configurable attributes, multi-value attributes (e.g. lists)
-   * merge all configured lists into an aggregate flattened list. Single-value attributes
-   * simply refrain to set a value and annotate the DOM element as configurable.
+   * <p>In the case of configurable attributes, multi-value attributes (e.g. lists) merge all
+   * configured lists into an aggregate flattened list. Single-value attributes simply refrain to
+   * set a value and annotate the DOM element as configurable.
    *
-   * <P>(The ungainly qualified class name is required to avoid ambiguity with
+   * <p>(The ungainly qualified class name is required to avoid ambiguity with
    * OutputFormatter.OutputType.)
    */
-  private static Element createValueElement(Document doc, Type<?> type, Iterable<Object> values) {
+  private static Element createValueElement(
+      Document doc, Type<?> type, Iterable<Object> values, LabelPrinter labelPrinter) {
     // "Import static" with method scope:
     Type<?> LABEL_LIST = BuildType.LABEL_LIST;
     Type<?> LICENSE = BuildType.LICENSE;
@@ -322,7 +319,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       elem = doc.createElement("list");
       for (Object value : values) {
         for (Object elemValue : (Collection<?>) value) {
-          elem.appendChild(createValueElement(doc, elemType, elemValue));
+          elem.appendChild(createValueElement(doc, elemType, elemValue, labelPrinter));
         }
       }
     } else if (type instanceof Type.DictType) {
@@ -334,10 +331,10 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
           if (visitedValues.add(entry.getKey())) {
             Element pairElem = doc.createElement("pair");
             elem.appendChild(pairElem);
-            pairElem.appendChild(createValueElement(doc,
-                    dictType.getKeyType(), entry.getKey()));
-            pairElem.appendChild(createValueElement(doc,
-                    dictType.getValueType(), entry.getValue()));
+            pairElem.appendChild(
+                createValueElement(doc, dictType.getKeyType(), entry.getKey(), labelPrinter));
+            pairElem.appendChild(
+                createValueElement(doc, dictType.getValueType(), entry.getValue(), labelPrinter));
           }
         }
       }
@@ -346,11 +343,13 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       if (!hasMultipleValues) {
         License license = (License) Iterables.getOnlyElement(values);
 
-        Element exceptions = createValueElement(doc, LABEL_LIST, license.getExceptions());
+        Element exceptions =
+            createValueElement(doc, LABEL_LIST, license.getExceptions(), labelPrinter);
         exceptions.setAttribute("name", "exceptions");
         elem.appendChild(exceptions);
 
-        Element licenseTypes = createValueElement(doc, STRING_LIST, license.getLicenseTypes());
+        Element licenseTypes =
+            createValueElement(doc, STRING_LIST, license.getLicenseTypes(), labelPrinter);
         licenseTypes.setAttribute("name", "license-types");
         elem.appendChild(licenseTypes);
       }
@@ -361,7 +360,11 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
         // Values such as those of attribute "linkstamp" may be null.
         if (value != null) {
           try {
-            elem.setAttribute("value", value.toString());
+            if (value instanceof Label) {
+              elem.setAttribute("value", labelPrinter.toString((Label) value));
+            } else {
+              elem.setAttribute("value", value.toString());
+            }
           } catch (DOMException e) {
             elem.setAttribute("value", "[[[ERROR: could not be encoded as XML]]]");
           }
@@ -371,17 +374,17 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
     return elem;
   }
 
-  private static Element createValueElement(Document doc, Type<?> type, Object value) {
-    return createValueElement(doc, type, ImmutableList.of(value));
+  private static Element createValueElement(
+      Document doc, Type<?> type, Object value, LabelPrinter labelPrinter) {
+    return createValueElement(doc, type, ImmutableList.of(value), labelPrinter);
   }
 
   /**
-   * Creates the given DOM element, adding <code>configurable="yes"</code> if it represents
-   * a configurable single-value attribute (configurable list attributes simply have their
-   * lists merged into an aggregate flat list).
+   * Creates the given DOM element, adding <code>configurable="yes"</code> if it represents a
+   * configurable single-value attribute (configurable list attributes simply have their lists
+   * merged into an aggregate flat list).
    */
-  private static Element createSingleValueElement(Document doc, String name,
-      boolean configurable) {
+  private static Element createSingleValueElement(Document doc, String name, boolean configurable) {
     Element elem = doc.createElement(name);
     if (configurable) {
       elem.setAttribute("configurable", "yes");

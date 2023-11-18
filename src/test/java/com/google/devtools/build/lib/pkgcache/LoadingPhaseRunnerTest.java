@@ -47,12 +47,10 @@ import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PatternExpandingError;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
@@ -80,7 +78,6 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -1342,7 +1339,7 @@ public final class LoadingPhaseRunnerTest {
       this.workspace = fs.getPath("/workspace");
       workspace.createDirectory();
       mockToolsConfig = new MockToolsConfig(workspace);
-      AnalysisMock analysisMock = AnalysisMock.get();
+      AnalysisMock analysisMock = AnalysisMock.getAnalysisMockWithoutBuiltinModules();
       analysisMock.setupMockClient(mockToolsConfig);
       BlazeDirectories directories =
           new BlazeDirectories(
@@ -1380,11 +1377,7 @@ public final class LoadingPhaseRunnerTest {
       packageOptions.defaultVisibility = RuleVisibility.PRIVATE;
       packageOptions.showLoadingProgress = true;
       packageOptions.globbingThreads = 7;
-      skyframeExecutor.injectExtraPrecomputedValues(
-          ImmutableList.of(
-              PrecomputedValue.injected(
-                  RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
-                  Optional.empty())));
+      skyframeExecutor.injectExtraPrecomputedValues(analysisMock.getPrecomputedValues());
       skyframeExecutor.preparePackageLoading(
           pkgLocator,
           packageOptions,

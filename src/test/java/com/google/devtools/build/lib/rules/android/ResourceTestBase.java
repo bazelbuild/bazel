@@ -223,7 +223,6 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
    * AndroidConfiguration}.
    */
   public RuleContext getRuleContextForActionTesting(ConfiguredTarget dummyTarget) throws Exception {
-    RuleContext dummy = getRuleContext(dummyTarget);
     ExtendedEventHandler eventHandler = new StoredEventHandler();
 
     SkyFunction.Environment skyframeEnv =
@@ -245,8 +244,7 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
             skyframeEnv,
             starlarkBuiltinsValue);
 
-    return view.getRuleContextForTesting(
-        eventHandler, dummyTarget, analysisEnv, dummy.getConfiguration());
+    return view.getRuleContextForTesting(eventHandler, dummyTarget, analysisEnv);
   }
 
   /**

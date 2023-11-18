@@ -29,8 +29,8 @@ public interface PathConverter {
       path -> {
         throw new IllegalStateException(
             String.format(
-                "Can't convert '%s', as it has not been"
-                    + "declared as a referenced artifact of a build event",
+                "Can't convert '%s', as it has not been declared as a referenced artifact of a"
+                    + " build event",
                 path.getPathString()));
       };
 

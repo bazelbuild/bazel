@@ -127,7 +127,7 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
         ImmutableList.copyOf(
             SkyframeExecutorTestUtils.getExistingConfiguredTargets(
                 skyframeExecutor, Label.parseCanonical("//foo:latebound_dep")));
-    assertThat(deps).hasSize(2);
+    assertThat(deps).hasSize(1);
     assertThat(deps.stream().filter(d -> getConfiguration(d).isExecConfiguration()).findFirst())
         .isPresent();
   }

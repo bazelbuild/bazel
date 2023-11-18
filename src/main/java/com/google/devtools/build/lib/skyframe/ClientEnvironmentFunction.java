@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -30,16 +31,17 @@ public final class ClientEnvironmentFunction implements SkyFunction {
     return ClientEnvironmentFunction.Key.create(keyString);
   }
 
-  @AutoCodec.VisibleForSerialization
+  /** The Skyframe key for the client environment function. */
+  @VisibleForSerialization
   @AutoCodec
-  static class Key extends AbstractSkyKey<String> {
+  public static class Key extends AbstractSkyKey<String> {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private Key(String arg) {
       super(arg);
     }
 
-    @AutoCodec.VisibleForSerialization
+    @VisibleForSerialization
     @AutoCodec.Instantiator
     static Key create(String arg) {
       return interner.intern(new Key(arg));
@@ -64,7 +66,7 @@ public final class ClientEnvironmentFunction implements SkyFunction {
 
   @Nullable
   @Override
-  public SkyValue compute(SkyKey key, Environment env) throws InterruptedException {
+  public SkyValue compute(SkyKey key, Environment env) {
     return new ClientEnvironmentValue(clientEnv.get().get((String) key.argument()));
   }
 }

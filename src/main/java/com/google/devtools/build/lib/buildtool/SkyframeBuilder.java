@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.devtools.build.lib.skyframe.CoverageReportValue.COVERAGE_REPORT_KEY;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
@@ -21,6 +24,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
+import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Executor;
@@ -30,6 +34,7 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.analysis.test.CoverageActionFinishedEvent;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
@@ -65,6 +70,7 @@ public class SkyframeBuilder implements Builder {
   private final ModifiedFileSet modifiedOutputFiles;
   private final InputMetadataProvider fileCache;
   private final ActionInputPrefetcher actionInputPrefetcher;
+  private final ActionOutputDirectoryHelper actionOutputDirectoryHelper;
   private final ActionCacheChecker actionCacheChecker;
   private final BugReporter bugReporter;
 
@@ -76,6 +82,7 @@ public class SkyframeBuilder implements Builder {
       ModifiedFileSet modifiedOutputFiles,
       InputMetadataProvider fileCache,
       ActionInputPrefetcher actionInputPrefetcher,
+      ActionOutputDirectoryHelper actionOutputDirectoryHelper,
       BugReporter bugReporter) {
     this.resourceManager = resourceManager;
     this.skyframeExecutor = skyframeExecutor;
@@ -83,6 +90,7 @@ public class SkyframeBuilder implements Builder {
     this.modifiedOutputFiles = modifiedOutputFiles;
     this.fileCache = fileCache;
     this.actionInputPrefetcher = actionInputPrefetcher;
+    this.actionOutputDirectoryHelper = actionOutputDirectoryHelper;
     this.bugReporter = bugReporter;
   }
 
@@ -119,6 +127,9 @@ public class SkyframeBuilder implements Builder {
     skyframeExecutor
         .getEventBus()
         .post(new ExecutionProgressReceiverAvailableEvent(executionProgressReceiver));
+    // When not in Skymeld mode, TargetCompleteEvents don't need to be held back.
+    // See {@link CoverageActionFinishedEvent}.
+    skyframeExecutor.getEventBus().post(new CoverageActionFinishedEvent());
 
     List<DetailedExitCode> detailedExitCodes = new ArrayList<>();
     EvaluationResult<?> result;
@@ -138,6 +149,14 @@ public class SkyframeBuilder implements Builder {
         executionProgressReceiver, statusReporter);
     watchdog.start();
 
+    // We need to extract out artifacts for the combined coverage report; these should only be built
+    // after any exclusive tests have been run, otherwise the tests get run as part of the build.
+    ImmutableSet<Artifact> coverageReportArtifacts =
+        artifacts.stream()
+            .filter(artifact -> artifact.getArtifactOwner().equals(COVERAGE_REPORT_KEY))
+            .collect(toImmutableSet());
+    Set<Artifact> artifactsToBuild = Sets.difference(artifacts, coverageReportArtifacts);
+
     targetsToBuild = Sets.difference(targetsToBuild, targetsToSkip);
     parallelTests = Sets.difference(parallelTests, targetsToSkip);
     exclusiveTests = Sets.difference(exclusiveTests, targetsToSkip);
@@ -148,13 +167,14 @@ public class SkyframeBuilder implements Builder {
               reporter,
               resourceManager,
               executor,
-              artifacts,
+              artifactsToBuild,
               targetsToBuild,
               aspects,
               parallelTests,
               exclusiveTests,
               options,
               actionCacheChecker,
+              actionOutputDirectoryHelper,
               executionProgressReceiver,
               topLevelArtifactContext);
       // progressReceiver is finished, so unsynchronized access to builtTargets is now safe.
@@ -184,6 +204,7 @@ public class SkyframeBuilder implements Builder {
                 exclusiveTest,
                 options,
                 actionCacheChecker,
+                actionOutputDirectoryHelper,
                 topLevelArtifactContext);
         detailedExitCode =
             SkyframeErrorProcessor.processResult(
@@ -198,6 +219,27 @@ public class SkyframeBuilder implements Builder {
             exclusiveTest,
             result);
 
+        if (detailedExitCode != null) {
+          detailedExitCodes.add(detailedExitCode);
+        }
+      }
+      // Build coverage report
+      if (!coverageReportArtifacts.isEmpty()) {
+        result =
+            skyframeExecutor.evaluateSkyKeysWithExecution(
+                reporter,
+                executor,
+                Artifact.keys(coverageReportArtifacts),
+                options,
+                actionCacheChecker,
+                actionOutputDirectoryHelper);
+        detailedExitCode =
+            SkyframeErrorProcessor.processResult(
+                reporter,
+                result,
+                options.getOptions(KeepGoingOption.class).keepGoing,
+                skyframeExecutor.getCyclesReporter(),
+                bugReporter);
         if (detailedExitCode != null) {
           detailedExitCodes.add(detailedExitCode);
         }
@@ -223,6 +265,10 @@ public class SkyframeBuilder implements Builder {
 
   InputMetadataProvider getFileCache() {
     return fileCache;
+  }
+
+  ActionOutputDirectoryHelper getActionOutputDirectoryHelper() {
+    return actionOutputDirectoryHelper;
   }
 
   ActionInputPrefetcher getActionInputPrefetcher() {

@@ -14,16 +14,18 @@
 
 """Utility functions for C++ rules."""
 
+load(":common/cc/cc_common.bzl", "cc_common")
+load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/objc/objc_common.bzl", "objc_common")
 load(":common/objc/semantics.bzl", objc_semantics = "semantics")
 load(":common/paths.bzl", "paths")
-load(":common/cc/cc_info.bzl", "CcInfo")
-load(":common/cc/cc_common.bzl", "cc_common")
 
 cc_internal = _builtins.internal.cc_internal
 CcNativeLibraryInfo = _builtins.internal.CcNativeLibraryInfo
 config_common = _builtins.toplevel.config_common
 coverage_common = _builtins.toplevel.coverage_common
 platform_common = _builtins.toplevel.platform_common
+apple_common = _builtins.toplevel.apple_common
 
 artifact_category = struct(
     STATIC_LIBRARY = "STATIC_LIBRARY",
@@ -51,17 +53,6 @@ linker_mode = struct(
     LINKING_STATIC = "static_linking_mode",
 )
 
-ios_cpus = struct(
-    IOS_SIMULATOR_TARGET_CPUS = ["ios_x86_64", "ios_i386", "ios_sim_arm64"],
-    IOS_DEVICE_TARGET_CPUS = ["ios_armv6", "ios_arm64", "ios_armv7", "ios_armv7s", "ios_arm64e"],
-    WATCHOS_SIMULATOR_TARGET_CPUS = ["watchos_i386", "watchos_x86_64", "watchos_arm64"],
-    WATCHOS_DEVICE_TARGET_CPUS = ["watchos_armv7k", "watchos_arm64_32", "watchos_device_arm64", "watchos_device_arm64e"],
-    TVOS_SIMULATOR_TARGET_CPUS = ["tvos_x86_64", "tvos_sim_arm64"],
-    TVOS_DEVICE_TARGET_CPUS = ["tvos_arm64"],
-    CATALYST_TARGET_CPUS = ["catalyst_x86_64"],
-    MACOS_TARGET_CPUS = ["darwin_x86_64", "darwin_arm64", "darwin_arm64e"],
-)
-
 cpp_file_types = struct(
     LINKER_SCRIPT = ["ld", "lds", "ldscript"],
 )
@@ -81,11 +72,6 @@ def _build_linking_context_from_libraries(ctx, libraries):
     )
 
     return linking_context
-
-def _grep_includes_executable(grep_includes):
-    if grep_includes == None:
-        return None
-    return grep_includes.files_to_run.executable
 
 def _check_file_extension(file, allowed_extensions, allow_versioned_shared_libraries):
     extension = "." + file.extension
@@ -256,7 +242,6 @@ def _use_cpp_toolchain(mandatory = False):
 
     Args:
       mandatory: Whether or not it should be an error if the toolchain cannot be resolved.
-        Currently ignored, this will be enabled when optional toolchain types are added.
 
     Returns:
       A list that can be used as the value for `rule.toolchains`.
@@ -299,6 +284,7 @@ def _build_output_groups_for_emitting_compile_providers(
     )
     output_groups_builder["compilation_outputs"] = files_to_compile
     output_groups_builder["compilation_prerequisites_INTERNAL_"] = _collect_compilation_prerequisites(ctx = ctx, compilation_context = compilation_context)
+    output_groups_builder["module_files"] = depset(compilation_outputs.module_files())
 
     if generate_hidden_top_level_group:
         output_groups_builder["_hidden_top_level_INTERNAL_"] = _collect_library_hidden_top_level_artifacts(
@@ -917,16 +903,19 @@ def _expand_single_make_variable(ctx, token, additional_make_variable_substituti
 
 def _expand_make_variables_for_copts(ctx, tokenization, unexpanded_tokens, additional_make_variable_substitutions):
     tokens = []
+    targets = []
+    for additional_compiler_input in getattr(ctx.attr, "additional_compiler_inputs", []):
+        targets.append(additional_compiler_input)
     for token in unexpanded_tokens:
         if tokenization:
-            expanded_token = _expand(ctx, token, additional_make_variable_substitutions)
+            expanded_token = _expand(ctx, token, additional_make_variable_substitutions, targets = targets)
             _tokenize(tokens, expanded_token)
         else:
             exp = _expand_single_make_variable(ctx, token, additional_make_variable_substitutions)
             if exp != None:
                 _tokenize(tokens, exp)
             else:
-                tokens.append(_expand(ctx, token, additional_make_variable_substitutions))
+                tokens.append(_expand(ctx, token, additional_make_variable_substitutions, targets = targets))
     return tokens
 
 def _get_copts(ctx, feature_configuration, additional_make_variable_substitutions):
@@ -1045,8 +1034,7 @@ def _report_invalid_options(cc_toolchain, cpp_config):
 def _is_repository_main(repository):
     return repository == ""
 
-def _repository_exec_path(ctx, sibling_repository_layout):
-    repository = ctx.label.workspace_name
+def _repository_exec_path(repository, sibling_repository_layout):
     if _is_repository_main(repository):
         return ""
     prefix = "external"
@@ -1057,31 +1045,27 @@ def _repository_exec_path(ctx, sibling_repository_layout):
     return paths.get_relative(prefix, repository)
 
 def _package_exec_path(ctx, package, sibling_repository_layout):
-    return paths.get_relative(_repository_exec_path(ctx, sibling_repository_layout), package)
+    return paths.get_relative(_repository_exec_path(ctx.label.workspace_name, sibling_repository_layout), package)
 
-def _package_source_root(ctx, package, sibling_repository_layout):
-    repository = ctx.label.workspace_name
+def _package_source_root(repository, package, sibling_repository_layout):
     if _is_repository_main(repository) or sibling_repository_layout:
         return package
     if repository.startswith("@"):
         repository = repository[1:]
     return paths.get_relative(paths.get_relative("external", repository), package)
 
-def _contains_up_level_references(path):
-    return path.startswith("..") and (len(path) == 2 or path[2] == "/")
-
 def _system_include_dirs(ctx, additional_make_variable_substitutions):
     result = []
     sibling_repository_layout = ctx.configuration.is_sibling_repository_layout()
     package = ctx.label.package
     package_exec_path = _package_exec_path(ctx, package, sibling_repository_layout)
-    package_source_root = _package_source_root(ctx, package, sibling_repository_layout)
+    package_source_root = _package_source_root(ctx.label.workspace_name, package, sibling_repository_layout)
     for include in ctx.attr.includes:
         includes_attr = _expand(ctx, include, additional_make_variable_substitutions)
         if includes_attr.startswith("/"):
             continue
         includes_path = paths.get_relative(package_exec_path, includes_attr)
-        if not sibling_repository_layout and _contains_up_level_references(includes_path):
+        if not sibling_repository_layout and paths.contains_up_level_references(includes_path):
             fail("Path references a path above the execution root.", attr = "includes")
 
         if includes_path == ".":
@@ -1136,16 +1120,6 @@ def _create_cc_instrumented_files_info(ctx, cc_config, cc_toolchain, metadata_fi
     )
     return info
 
-def _is_apple_platform(cpu):
-    return cpu in ios_cpus.IOS_SIMULATOR_TARGET_CPUS or \
-           cpu in ios_cpus.IOS_DEVICE_TARGET_CPUS or \
-           cpu in ios_cpus.WATCHOS_SIMULATOR_TARGET_CPUS or \
-           cpu in ios_cpus.WATCHOS_DEVICE_TARGET_CPUS or \
-           cpu in ios_cpus.TVOS_SIMULATOR_TARGET_CPUS or \
-           cpu in ios_cpus.TVOS_DEVICE_TARGET_CPUS or \
-           cpu in ios_cpus.CATALYST_TARGET_CPUS or \
-           cpu in ios_cpus.MACOS_TARGET_CPUS
-
 def _linkopts(ctx, additional_make_variable_substitutions, cc_toolchain):
     linkopts = getattr(ctx.attr, "linkopts", [])
     if len(linkopts) == 0:
@@ -1157,7 +1131,7 @@ def _linkopts(ctx, additional_make_variable_substitutions, cc_toolchain):
     for linkopt in linkopts:
         expanded_linkopt = _expand(ctx, linkopt, additional_make_variable_substitutions, targets = targets)
         _tokenize(tokens, expanded_linkopt)
-    if _is_apple_platform(cc_toolchain.cpu) and "-static" in tokens:
+    if objc_common.is_apple_platform(cc_toolchain.cpu) and "-static" in tokens:
         fail("in linkopts attribute of cc_library rule {}: Apple builds do not support statically linked binaries".format(ctx.label))
     return tokens
 
@@ -1209,14 +1183,21 @@ def _copts_filter(ctx, additional_make_variable_substitutions):
     # Expand nocopts and create CoptsFilter.
     return _expand(ctx, nocopts, additional_make_variable_substitutions)
 
-def _proto_output_root(proto_root, genfiles_dir_path, bin_dir_path):
+def _proto_output_root(proto_root, bin_dir_path):
     if proto_root == ".":
         return bin_dir_path
 
-    if proto_root.startswith(genfiles_dir_path):
-        return bin_dir_path + "/" + proto_root[len(genfiles_dir_path):]
+    if proto_root.startswith(bin_dir_path):
+        return proto_root
     else:
         return bin_dir_path + "/" + proto_root
+
+# buildifier: disable=unused-variable
+def _cc_toolchain_build_variables(xcode_config):
+    def cc_toolchain_build_variables(platform, cpu, cpp_config, sysroot):
+        return cc_internal.cc_toolchain_variables(vars = objc_common.get_common_vars(cpp_config, sysroot))
+
+    return cc_toolchain_build_variables
 
 cc_helper = struct(
     CPP_TOOLCHAIN_TYPE = _CPP_TOOLCHAIN_TYPE,
@@ -1260,7 +1241,6 @@ cc_helper = struct(
     get_expanded_env = _get_expanded_env,
     has_target_constraints = _has_target_constraints,
     is_non_empty_list_or_select = _is_non_empty_list_or_select,
-    grep_includes_executable = _grep_includes_executable,
     expand_make_variables_for_copts = _expand_make_variables_for_copts,
     build_linking_context_from_libraries = _build_linking_context_from_libraries,
     is_stamping_enabled = _is_stamping_enabled,
@@ -1282,4 +1262,6 @@ cc_helper = struct(
     package_exec_path = _package_exec_path,
     repository_exec_path = _repository_exec_path,
     proto_output_root = _proto_output_root,
+    cc_toolchain_build_variables = _cc_toolchain_build_variables,
+    package_source_root = _package_source_root,
 )

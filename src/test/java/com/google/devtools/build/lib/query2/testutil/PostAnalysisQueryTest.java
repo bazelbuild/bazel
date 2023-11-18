@@ -153,8 +153,15 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
     getHelper().turnOffFailFast();
     TargetParsingException e =
         assertThrows(TargetParsingException.class, super::testTargetLiteralWithMissingTargets);
-    checkResultOfTargetLiteralWithMissingTargets(
-        e.getMessage(), e.getDetailedExitCode().getFailureDetail());
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "no such target '//a:b': target 'b' not declared in package 'a' "
+                + "defined by "
+                + helper.getRootDirectory().getPathString()
+                + "/a/BUILD (Tip: use `query \"//a:*\"` to see all the targets in that package)");
+    assertThat(e.getDetailedExitCode().getFailureDetail().getPackageLoading().getCode())
+        .isEqualTo(FailureDetails.PackageLoading.Code.TARGET_MISSING);
   }
 
   @Override
@@ -252,7 +259,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
 
     // Check for implicit toolchain dependencies
     assertThat(evalToListOfStrings("deps(//test:my_rule)"))
-        .containsAtLeast(explicits, implicits, PLATFORM_LABEL);
+        .containsAtLeast(explicits, implicits, evalToString(PLATFORM_LABEL));
 
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
     ImmutableList<String> filteredDeps = evalToListOfStrings("deps(//test:my_rule)");
@@ -363,7 +370,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
 
     // Check for implicit toolchain dependencies
     assertThat(evalToListOfStrings("deps(//test:my_rule)"))
-        .containsAtLeast(explicits, implicits, PLATFORM_LABEL);
+        .containsAtLeast(explicits, implicits, evalToString(PLATFORM_LABEL));
 
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
     ImmutableList<String> filteredDeps = evalToListOfStrings("deps(//test:my_rule)");
@@ -464,6 +471,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
     assertThat(filteredDeps).doesNotContain(implicits);
   }
 
+  @Override
   @Test
   public void testNoImplicitDeps_computedDefault() throws Exception {
     MockRule computedDefaultRule =
@@ -547,7 +555,8 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
         () ->
             MockRule.define(
                 "transitioned_rule",
-                (builder, env) -> builder.cfg(new FooPatchTransition("SET BY PATCH")).build());
+                (builder, env) ->
+                    builder.cfg(unused -> new FooPatchTransition("SET BY PATCH")).build());
 
     MockRule untransitionedRule = () -> MockRule.define("untransitioned_rule");
 
@@ -579,7 +588,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
                 "rule_with_transition_and_dep",
                 (builder, env) ->
                     builder
-                        .cfg(new FooPatchTransition("SET BY PATCH"))
+                        .cfg(unused -> new FooPatchTransition("SET BY PATCH"))
                         .addAttribute(
                             attr("dep", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE).build())
                         .build());
@@ -671,15 +680,6 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
   @Override
   @Test
   public void testEqualityOfOrderedThreadSafeImmutableSet() {}
-
-  @Override
-  public void testHdrsCheck() {}
-
-  @Override
-  public void testFilesetPackageDeps() {}
-
-  @Override
-  public void testRegressionBug1686119() {}
 
   // The actual crosstool-related targets depended on are not the nominal crosstool label the test
   // expects.
@@ -834,6 +834,9 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
 
   @Override
   public void bzlPackageBadDueToBrokenSyntax() {}
+
+  @Override
+  public void testBuildfilesContainingScl() {}
 
   @Override
   public void buildfilesBazel() {}

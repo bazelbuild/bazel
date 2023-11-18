@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.query2.query.output;
 
 import com.google.common.hash.HashFunction;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
@@ -63,5 +63,5 @@ public interface StreamedFormatter {
    * already-computed result of a query.
    */
   OutputFormatterCallback<Target> createPostFactoStreamCallback(
-      OutputStream out, QueryOptions options, RepositoryMapping mainRepoMapping);
+      OutputStream out, QueryOptions options, LabelPrinter labelPrinter);
 }

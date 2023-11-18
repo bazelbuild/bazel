@@ -71,6 +71,8 @@ fi
 
 set -e
 
+disable_bzlmod
+
 function create_pkg() {
   local -r pkg=$1
   mkdir -p $pkg
@@ -150,11 +152,15 @@ function test_foo_runfiles() {
   local -r pkg=$FUNCNAME
   create_pkg $pkg
 cat > BUILD << EOF
+load("@rules_python//python:py_library.bzl", "py_library")
+
 py_library(name = "root",
            srcs = ["__init__.py"],
            visibility = ["//visibility:public"])
 EOF
 cat > $pkg/BUILD << EOF
+load("@rules_python//python:py_binary.bzl", "py_binary")
+
 sh_binary(name = "foo",
           srcs = [ "x/y/z.sh" ],
           data = [ ":py",
@@ -236,6 +242,7 @@ EOF
   assert_equals "$expected" "$actual"
 
   # The manifest only records files and symlinks, not real directories
+  expected="$expected$(get_repo_mapping_manifest_file)"
   expected_manifest_size=$(echo "$expected" | grep -v ' regular dir' | wc -l)
   actual_manifest_size=$(wc -l < ../MANIFEST)
   assert_equals $expected_manifest_size $actual_manifest_size
@@ -255,6 +262,17 @@ EOF
       fi
     fi
   done
+
+  # Add the repo mapping manifest entry for Bazel.
+  if [[ "$PRODUCT_NAME" == "bazel" ]]; then
+    repo_mapping="_repo_mapping"
+    repo_mapping_target="$(readlink "$repo_mapping")"
+    if "$is_windows"; then
+      repo_mapping_target="$(cygpath -m $repo_mapping_target)"
+    fi
+    echo "$repo_mapping $repo_mapping_target" >> ${TEST_TMPDIR}/MANIFEST2
+  fi
+
   sort MANIFEST > ${TEST_TMPDIR}/MANIFEST_sorted
   sort ${TEST_TMPDIR}/MANIFEST2 > ${TEST_TMPDIR}/MANIFEST2_sorted
   diff -u ${TEST_TMPDIR}/MANIFEST_sorted ${TEST_TMPDIR}/MANIFEST2_sorted
@@ -310,13 +328,21 @@ EOF
     assert_equals  0 $(find ${WORKSPACE_NAME} -type f | wc -l)
     assert_equals  5 $(find ${WORKSPACE_NAME} -type d | wc -l)
     assert_equals  9 $(find ${WORKSPACE_NAME} | wc -l)
-    assert_equals  4 $(wc -l < MANIFEST)
+    if [[ "$PRODUCT_NAME" == "bazel" ]]; then
+      assert_equals  5 $(wc -l < MANIFEST)
+    else
+      assert_equals  4 $(wc -l < MANIFEST)
+    fi
   else
     assert_equals  3 $(find ${WORKSPACE_NAME} -type l | wc -l)
     assert_equals  0 $(find ${WORKSPACE_NAME} -type f | wc -l)
     assert_equals  5 $(find ${WORKSPACE_NAME} -type d | wc -l)
     assert_equals  8 $(find ${WORKSPACE_NAME} | wc -l)
-    assert_equals  3 $(wc -l < MANIFEST)
+    if [[ "$PRODUCT_NAME" == "bazel" ]]; then
+      assert_equals  4 $(wc -l < MANIFEST)
+    else
+      assert_equals  3 $(wc -l < MANIFEST)
+    fi
   fi
 
   rm -f ${TEST_TMPDIR}/MANIFEST
@@ -333,6 +359,17 @@ EOF
       fi
     fi
   done
+
+  # Add the repo mapping manifest entry for Bazel.
+  if [[ "$PRODUCT_NAME" == "bazel" ]]; then
+    repo_mapping="_repo_mapping"
+    repo_mapping_target="$(readlink "$repo_mapping")"
+    if "$is_windows"; then
+      repo_mapping_target="$(cygpath -m $repo_mapping_target)"
+    fi
+    echo "$repo_mapping $repo_mapping_target" >> ${TEST_TMPDIR}/MANIFEST2
+  fi
+
   sort MANIFEST > ${TEST_TMPDIR}/MANIFEST_sorted
   sort ${TEST_TMPDIR}/MANIFEST2 > ${TEST_TMPDIR}/MANIFEST2_sorted
   diff -u ${TEST_TMPDIR}/MANIFEST_sorted ${TEST_TMPDIR}/MANIFEST2_sorted
@@ -396,5 +433,82 @@ EOF
   expect_log_once "Runfiles must not contain middleman artifacts"
 }
 
+function test_manifest_action_reruns_on_output_base_change() {
+  CURRENT_DIRECTORY=$(pwd)
+  if $is_windows; then
+    CURRENT_DIRECTORY=$(cygpath -m "${CURRENT_DIRECTORY}")
+  fi
+
+  if $is_windows; then
+    MANIFEST_PATH=bazel-bin/hello_world.exe.runfiles_manifest
+  else
+    MANIFEST_PATH=bazel-bin/hello_world.runfiles_manifest
+  fi
+
+  OUTPUT_BASE="${CURRENT_DIRECTORY}/test/outputs/__main__"
+  TEST_FOLDER_1="${CURRENT_DIRECTORY}/test/test1/$(basename ${CURRENT_DIRECTORY})"
+  TEST_FOLDER_2="${CURRENT_DIRECTORY}/test/test2/$(basename ${CURRENT_DIRECTORY})"
+
+  mkdir -p "${OUTPUT_BASE}"
+  mkdir -p "${TEST_FOLDER_1}"
+  mkdir -p "${TEST_FOLDER_2}"
+
+  cat > BUILD <<EOF
+sh_binary(
+    name = "hello_world",
+    srcs = ["hello_world.sh"],
+)
+EOF
+  cat > hello_world.sh <<EOF
+echo "Hello World"
+EOF
+  chmod +x hello_world.sh
+
+  for d in $(ls -a | grep -v '^test$' | grep -v '^\.*$'); do
+    cp -R "${CURRENT_DIRECTORY}/${d}" "${TEST_FOLDER_1}"
+    cp -R "${CURRENT_DIRECTORY}/${d}" "${TEST_FOLDER_2}"
+  done
+
+  cd "${TEST_FOLDER_1}"
+  bazel --output_base="${OUTPUT_BASE}" build //:hello_world
+  assert_contains "${TEST_FOLDER_1}" "${MANIFEST_PATH}"
+  assert_not_contains "${TEST_FOLDER_2}" "${MANIFEST_PATH}"
+
+  cd "${TEST_FOLDER_2}"
+  bazel --output_base="${OUTPUT_BASE}" build //:hello_world
+  assert_not_contains "${TEST_FOLDER_1}" "${MANIFEST_PATH}"
+  assert_contains "${TEST_FOLDER_2}" "${MANIFEST_PATH}"
+}
+
+function test_removal_of_old_tempfiles() {
+  cat > BUILD << EOF
+sh_binary(
+    name = "foo",
+    srcs = ["foo.sh"],
+)
+EOF
+  touch foo.sh
+  chmod +x foo.sh
+
+  # Build once to create a runfiles directory.
+  bazel build //:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "build failed"
+
+  # Remove the MANIFEST file that was created by the previous build.
+  # Create an inaccessible file in the place where build-runfiles writes
+  # its temporary results.
+  #
+  # This simulates the case where the runfiles creation process is
+  # interrupted and leaves the temporary file behind. The temporary file
+  # may become read-only if it was stored in a snapshot.
+  rm ${PRODUCT_NAME}-bin/foo${EXT}.runfiles/MANIFEST
+  touch ${PRODUCT_NAME}-bin/foo${EXT}.runfiles/MANIFEST.tmp
+  chmod 0 ${PRODUCT_NAME}-bin/foo${EXT}.runfiles/MANIFEST.tmp
+
+  # Even with the inaccessible temporary file in place, build-runfiles
+  # should complete successfully. The MANIFEST file should be recreated.
+  bazel build //:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "build failed"
+  [[ -f ${PRODUCT_NAME}-bin/foo${EXT}.runfiles/MANIFEST ]] \
+    || fail "MANIFEST file not recreated"
+}
 
 run_suite "runfiles"

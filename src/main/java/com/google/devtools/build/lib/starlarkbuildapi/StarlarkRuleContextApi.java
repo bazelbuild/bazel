@@ -19,7 +19,6 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
-import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
@@ -57,12 +56,6 @@ import net.starlark.java.eval.Tuple;
 public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValueInfoApi>
     extends StarlarkValue {
 
-  String DOC_NEW_FILE_TAIL =
-      "Does not actually create a file on the file system, just declares that some action will do"
-          + " so. You must create an action that generates the file. If the file should be visible"
-          + " to other rules, declare a rule output instead when possible. Doing so enables Blaze"
-          + " to associate a label with the file that rules can refer to (allowing finer"
-          + " dependency control) instead of referencing the whole rule.";
   String EXECUTABLE_DOC =
       "A <code>struct</code> containing executable files defined in <a"
           + " href='../toplevel/attr.html#label'>label type attributes</a> marked as <a"
@@ -147,16 +140,16 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
           + " href='../providers/DefaultInfo.html'><code>DefaultInfo</code></a>.</ul>";
 
   @StarlarkMethod(
-      name = "default_provider",
-      structField = true,
-      doc = "Deprecated. Use <a href=\"../providers/DefaultInfo.html\">DefaultInfo</a> instead.")
-  ProviderApi getDefaultProvider();
-
-  @StarlarkMethod(
       name = "actions",
       structField = true,
       doc = "Contains methods for declaring output files and the actions that produce them.")
   StarlarkActionFactoryApi actions();
+
+  @StarlarkMethod(
+      name = "super",
+      doc = "Experimental: Calls parent's implementation function and returns its providers",
+      useStarlarkThread = true)
+  Object callParent(StarlarkThread thread) throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "created_actions",
@@ -217,10 +210,10 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       name = "build_setting_value",
       structField = true,
       doc =
-          "<b>Experimental. This field is experimental and subject to change at any time. Do not "
-              + "depend on it.</b> <p>The value of the build setting that is represented "
-              + "by the current target. It is an error to access this field for rules that do not "
-              + "set the <code>build_setting</code> attribute in their rule definition.")
+          "Value of the build setting represented by the current target. If this isn't the context"
+              + " for an instance of a rule that sets the <a href=\""
+              + "https://bazel.build/extending/config#rule-parameter\"><code>build_setting</code>"
+              + "</a> attribute, reading this is an error.")
   Object getBuildSettingValue() throws EvalException;
 
   @StarlarkMethod(
@@ -299,7 +292,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       name = "var",
       structField = true,
       doc = "Dictionary (String to String) of configuration variables.")
-  Dict<String, String> var() throws EvalException;
+  Dict<String, String> var() throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "toolchains",
@@ -340,47 +333,6 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
             doc = "The string to split."),
       })
   Sequence<String> tokenize(String optionString) throws EvalException;
-
-  @StarlarkMethod(
-      name = "new_file",
-      doc =
-          "DEPRECATED. Use <a"
-              + " href=\"../builtins/actions.html#declare_file\">ctx.actions.declare_file</a>."
-              + " <br>Creates a file object. There are four possible signatures to this"
-              + " method:<br><ul><li>new_file(filename): Creates a file object with the given"
-              + " filename in the current package.</li><li>new_file(file_root, filename): Creates a"
-              + " file object with the given filename under the given file root.</li>"
-              + "<li>new_file(sibling_file, filename): Creates a file object in the same directory"
-              + " as the given sibling file.</li><li>new_file(file_root, sibling_file, suffix):"
-              + " Creates a file object with same base name of the sibling_file but with different"
-              + " given suffix, under the given file root.</li></ul> <br>"
-              + DOC_NEW_FILE_TAIL,
-      parameters = {
-        @Param(
-            name = "var1",
-            allowedTypes = {
-              @ParamType(type = String.class),
-              @ParamType(type = FileRootApi.class),
-              @ParamType(type = FileApi.class),
-            },
-            doc = ""),
-        @Param(
-            name = "var2",
-            allowedTypes = {
-              @ParamType(type = String.class),
-              @ParamType(type = FileApi.class),
-            },
-            defaultValue = "unbound",
-            doc = ""),
-        @Param(
-            name = "var3",
-            allowedTypes = {
-              @ParamType(type = String.class),
-            },
-            defaultValue = "unbound",
-            doc = "")
-      })
-  FileApi newFile(Object var1, Object var2, Object var3) throws EvalException;
 
   @StarlarkMethod(
       name = "check_placeholders",
@@ -434,7 +386,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       String attributeName,
       String command,
       final Dict<?, ?> additionalSubstitutions) // <String, String>
-      throws EvalException;
+      throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "info_file",
@@ -460,7 +412,9 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       name = "build_file_path",
       structField = true,
       documented = true,
-      doc = "The path to the BUILD file for this rule, relative to the source root.")
+      doc =
+          "Deprecated: Use <code>ctx.label.package + '/BUILD'</code>. "
+              + "The path to the BUILD file for this rule, relative to the source root.")
   String getBuildFileRelativePath() throws EvalException;
 
   @StarlarkMethod(
@@ -557,8 +511,10 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
               @ParamType(type = Depset.class, generic1 = SymlinkEntryApi.class)
             },
             doc =
-                "Either a SymlinkEntry depset or the map of symlinks, prefixed by workspace name,"
-                    + " to be added to the runfiles. See <a"
+                "Either a SymlinkEntry depset or the map of symlinks to be added to the runfiles."
+                    + " Symlinks are always added under the main workspace's runfiles directory"
+                    + " (e.g. <code>&lt;runfiles_root>/_main/&lt;symlink_path></code>, <b>not</b>"
+                    + " the directory corresponding to the current target's repository. See <a"
                     + " href=\"https://bazel.build/extending/rules#runfiles_symlinks\">Runfiles"
                     + " symlinks</a> in the rules guide."),
         @Param(
@@ -675,7 +631,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       Dict<?, ?> labelDictUnchecked,
       Dict<?, ?> executionRequirementsUnchecked,
       StarlarkThread thread)
-      throws EvalException;
+      throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "resolve_tools",

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
@@ -44,13 +45,13 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public final class ActionExecutionValueTest {
-  private static final FileArtifactValue VALUE_1 =
+  private static final FileArtifactValue VALUE_1_REMOTE =
       RemoteFileArtifactValue.create(
           /* digest= */ new byte[0],
           /* size= */ 0,
           /* locationIndex= */ 1,
           /* expireAtEpochMilli= */ -1);
-  private static final FileArtifactValue VALUE_2 =
+  private static final FileArtifactValue VALUE_2_REMOTE =
       RemoteFileArtifactValue.create(
           /* digest= */ new byte[0],
           /* size= */ 0,
@@ -69,11 +70,11 @@ public final class ActionExecutionValueTest {
     SpecialArtifact tree1 = tree("tree1");
     TreeArtifactValue tree1Value1 =
         TreeArtifactValue.newBuilder(tree1)
-            .putChild(TreeFileArtifact.createTreeOutput(tree1, "file1"), VALUE_1)
+            .putChild(TreeFileArtifact.createTreeOutput(tree1, "file1"), VALUE_1_REMOTE)
             .build();
     TreeArtifactValue tree1Value2 =
         TreeArtifactValue.newBuilder(tree1)
-            .putChild(TreeFileArtifact.createTreeOutput(tree1, "file1"), VALUE_2)
+            .putChild(TreeFileArtifact.createTreeOutput(tree1, "file1"), VALUE_2_REMOTE)
             .build();
     FilesetOutputSymlink symlink1 =
         FilesetOutputSymlink.createForTesting(
@@ -87,14 +88,15 @@ public final class ActionExecutionValueTest {
             PathFragment.create("execPath2"));
 
     new EqualsTester()
-        .addEqualityGroup(createWithArtifactData(ImmutableMap.of(output("file1"), VALUE_1)))
-        .addEqualityGroup(createWithArtifactData(ImmutableMap.of(output("file1"), VALUE_2)))
-        .addEqualityGroup(
-            createWithArtifactData(ImmutableMap.of(output("file1", ACTION_LOOKUP_DATA_2), VALUE_1)))
-        .addEqualityGroup(createWithArtifactData(ImmutableMap.of(output("file2"), VALUE_1)))
+        .addEqualityGroup(createWithArtifactData(ImmutableMap.of(output("file1"), VALUE_1_REMOTE)))
+        .addEqualityGroup(createWithArtifactData(ImmutableMap.of(output("file1"), VALUE_2_REMOTE)))
         .addEqualityGroup(
             createWithArtifactData(
-                ImmutableMap.of(output("file1"), VALUE_1, output("file2"), VALUE_2)))
+                ImmutableMap.of(output("file1", ACTION_LOOKUP_DATA_2), VALUE_1_REMOTE)))
+        .addEqualityGroup(createWithArtifactData(ImmutableMap.of(output("file2"), VALUE_1_REMOTE)))
+        .addEqualityGroup(
+            createWithArtifactData(
+                ImmutableMap.of(output("file1"), VALUE_1_REMOTE, output("file2"), VALUE_2_REMOTE)))
         // treeArtifactData
         .addEqualityGroup(
             createWithTreeArtifactData(ImmutableMap.of(tree1, TreeArtifactValue.empty())))
@@ -138,7 +140,7 @@ public final class ActionExecutionValueTest {
   public void serialization() throws Exception {
     new SerializationTester(
             // Single output file
-            createWithArtifactData(ImmutableMap.of(output("output1"), VALUE_1)),
+            createWithArtifactData(ImmutableMap.of(output("output1"), VALUE_1_REMOTE)),
             // Fileset
             createWithOutputSymlinks(
                 ImmutableList.of(
@@ -151,7 +153,8 @@ public final class ActionExecutionValueTest {
                 NestedSetBuilder.create(Order.STABLE_ORDER, output("module"))),
             // Multiple output files
             createWithArtifactData(
-                ImmutableMap.of(output("output1"), VALUE_1, output("output2"), VALUE_2)),
+                ImmutableMap.of(
+                    output("output1"), VALUE_1_REMOTE, output("output2"), VALUE_2_REMOTE)),
             // Single tree
             createWithTreeArtifactData(ImmutableMap.of(tree("tree"), TreeArtifactValue.empty())),
             // Multiple trees
@@ -162,8 +165,8 @@ public final class ActionExecutionValueTest {
                     tree("tree2"),
                     TreeArtifactValue.empty())),
             // Mixed file and tree
-            ActionExecutionValue.create(
-                ImmutableMap.of(output("file"), VALUE_1),
+            ActionExecutionValue.createFromOutputMetadataStore(
+                ImmutableMap.of(output("file"), VALUE_1_REMOTE),
                 ImmutableMap.of(tree("tree"), TreeArtifactValue.empty()),
                 /* outputSymlinks= */ ImmutableList.of(),
                 /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER)))
@@ -176,7 +179,7 @@ public final class ActionExecutionValueTest {
 
   private static ActionExecutionValue createWithArtifactData(
       ImmutableMap<Artifact, FileArtifactValue> artifactData) {
-    return ActionExecutionValue.create(
+    return ActionExecutionValue.createFromOutputMetadataStore(
         /* artifactData= */ artifactData,
         /* treeArtifactData= */ ImmutableMap.of(),
         /* outputSymlinks= */ ImmutableList.of(),
@@ -185,7 +188,7 @@ public final class ActionExecutionValueTest {
 
   private static ActionExecutionValue createWithTreeArtifactData(
       ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData) {
-    return ActionExecutionValue.create(
+    return ActionExecutionValue.createFromOutputMetadataStore(
         /* artifactData= */ ImmutableMap.of(),
         treeArtifactData,
         /* outputSymlinks= */ ImmutableList.of(),
@@ -194,8 +197,8 @@ public final class ActionExecutionValueTest {
 
   private static ActionExecutionValue createWithOutputSymlinks(
       ImmutableList<FilesetOutputSymlink> outputSymlinks) {
-    return ActionExecutionValue.create(
-        ImmutableMap.of(output("fileset.manifest"), VALUE_1),
+    return ActionExecutionValue.createFromOutputMetadataStore(
+        ImmutableMap.of(output("fileset.manifest"), VALUE_1_REMOTE),
         /* treeArtifactData= */ ImmutableMap.of(),
         outputSymlinks,
         /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
@@ -208,8 +211,8 @@ public final class ActionExecutionValueTest {
 
   private static ActionExecutionValue createWithDiscoveredModules(
       NestedSet<Artifact> discoveredModules) {
-    return ActionExecutionValue.create(
-        /* artifactData= */ ImmutableMap.of(output("modules.pcm"), VALUE_1),
+    return ActionExecutionValue.createFromOutputMetadataStore(
+        /* artifactData= */ ImmutableMap.of(output("modules.pcm"), VALUE_1_REMOTE),
         /* treeArtifactData= */ ImmutableMap.of(),
         /* outputSymlinks= */ ImmutableList.of(),
         discoveredModules);

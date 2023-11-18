@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.rules.objc.AppleCrosstoolTransition;
 import com.google.devtools.build.lib.rules.objc.ObjcLibraryBaseRule;
 
 /** Rule definition for {@code objc_library}. */
@@ -26,9 +25,7 @@ public class BazelObjcLibraryRule implements RuleDefinition {
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-    return builder
-        .cfg(AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
-        .build();
+    return builder.build();
   }
 
   @Override

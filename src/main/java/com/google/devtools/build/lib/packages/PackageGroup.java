@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -161,5 +162,18 @@ public class PackageGroup implements Target {
 
   public static String targetKind() {
     return "package group";
+  }
+
+  @Override
+  public TargetData reduceForSerialization() {
+    return new AutoValue_PackageGroup_PackageGroupData(getLocation(), getLabel());
+  }
+
+  @AutoValue
+  abstract static class PackageGroupData implements TargetData {
+    @Override
+    public final String getTargetKind() {
+      return targetKind();
+    }
   }
 }

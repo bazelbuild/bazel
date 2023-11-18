@@ -367,3 +367,4 @@ in which he benchmarks remote caching in Bazel.
 * [BuildGrid](https://gitlab.com/BuildGrid/buildgrid){: .external}
 * [issue #4558](https://github.com/bazelbuild/bazel/issues/4558){: .external}
 * [Application Authentication](https://cloud.google.com/docs/authentication/production){: .external}
+* [TurboCache](https://github.com/allada/turbo-cache){: .external}

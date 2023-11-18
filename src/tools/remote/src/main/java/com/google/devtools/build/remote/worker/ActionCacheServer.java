@@ -16,8 +16,11 @@ package com.google.devtools.build.remote.worker;
 
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
+import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheImplBase;
 import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.Command;
+import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.GetActionResultRequest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.UpdateActionResultRequest;
@@ -28,6 +31,7 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.protobuf.ExtensionRegistry;
 import io.grpc.stub.StreamObserver;
 
 /** A basic implementation of an {@link ActionCacheImplBase} service. */
@@ -75,10 +79,24 @@ final class ActionCacheServer extends ActionCacheImplBase {
       RequestMetadata requestMetadata = TracingMetadataUtils.fromCurrentContext();
       RemoteActionExecutionContext context = RemoteActionExecutionContext.create(requestMetadata);
 
-      ActionKey actionKey = digestUtil.asActionKey(request.getActionDigest());
+      Digest actionDigest = request.getActionDigest();
+      ActionKey actionKey = digestUtil.asActionKey(actionDigest);
+
+      var action =
+          Action.parseFrom(
+              getFromFuture(cache.downloadBlob(context, actionDigest)),
+              ExtensionRegistry.getEmptyRegistry());
+      var unusedCommand =
+          Command.parseFrom(
+              getFromFuture(cache.downloadBlob(context, action.getCommandDigest())),
+              ExtensionRegistry.getEmptyRegistry());
+
       getFromFuture(cache.uploadActionResult(context, actionKey, request.getActionResult()));
       responseObserver.onNext(request.getActionResult());
       responseObserver.onCompleted();
+    } catch (CacheNotFoundException e) {
+      logger.atWarning().withCause(e).log("updateActionResult precondition not met");
+      responseObserver.onError(StatusUtils.preconditionError(e));
     } catch (Exception e) {
       logger.atWarning().withCause(e).log("updateActionResult request failed");
       responseObserver.onError(StatusUtils.internalError(e));

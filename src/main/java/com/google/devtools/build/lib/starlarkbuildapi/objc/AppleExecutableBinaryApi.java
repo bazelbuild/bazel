@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.starlarkbuildapi.objc;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
@@ -52,6 +53,7 @@ public interface AppleExecutableBinaryApi extends StructApi {
       structField = true,
       doc =
           "A provider which contains information about the transitive dependencies linked into "
-              + "the binary.")
+              + "the binary.",
+      disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_LINKING_INFO)
   ObjcProviderApi<?> getDepsObjcProvider();
 }

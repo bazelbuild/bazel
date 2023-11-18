@@ -195,7 +195,8 @@ final class RemoteActionContextProvider {
             env.getReporter(),
             retryScheduler,
             logDir,
-            getRemoteExecutionService());
+            getRemoteExecutionService(),
+            digestUtil);
     registryBuilder.registerStrategy(
         new RemoteSpawnStrategy(env.getExecRoot(), spawnRunner, executionOptions), "remote");
   }
@@ -211,7 +212,8 @@ final class RemoteActionContextProvider {
             env.getExecRoot(),
             checkNotNull(env.getOptions().getOptions(RemoteOptions.class)),
             checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)).verboseFailures,
-            getRemoteExecutionService());
+            getRemoteExecutionService(),
+            digestUtil);
     registryBuilder.register(SpawnCache.class, spawnCache, "remote-cache");
   }
 

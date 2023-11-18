@@ -1,0 +1,86 @@
+book_path: /_book.yaml
+project_path: /_project.yaml
+title: Bazel Product Partners
+image_path: /images/placeholder.png
+
+landing_page:
+  nav: left
+  rows:
+  - options:
+    - cards
+    - centered-header
+    - no-image-background
+    background: white
+    heading: Bazel Product Partners
+    description: >
+      We categorize Bazel product partners as organizations that build open source or paid tooling that interfaces with Bazel.
+      These tools aim to improve Bazel end user experience and accelerate developer productivity.
+
+      Interested organizations can write to product@bazel.build to get added to the product partnership program.
+
+    items_across: 2
+    items:
+    # Item 1
+    - image_path: /community/images/AspectBuildlogohorizontal-black.png
+      heading: Aspect Build
+      description: >
+        Introducing Aspect Build - the ultimate build, test, and CI/CD platform designed exclusively for Bazel users. Harness the power of Aspect Workflows, a seamless, turn-key Bazel CI/CD system, fully compatible with your existing CI provider. Elevate your development experience with Aspect CLI, a convenient drop-in replacement for the native Bazel CLI. Unleash the full potential of Bazel for front-end development with Aspect's JavaScript Bazel rules. Enjoy accelerated build times and reduced compute costs with Aspect Workflows, thanks to fast warming, auto-scaling CI workers, horizontally scaling remote cache, and auto-scaling remote build executors - delivering a remarkable 10x performance boost to your Bazel projects. Say goodbye to waiting and hello to rapid iteration!
+      buttons:
+      - label: Learn more
+        path: https://www.aspect.build/
+        classname: button
+    # Item 2
+    - image_path: /community/images/Bitrise.png
+      heading: Bitrise
+      description: >
+        Bitrise Inc. is the world’s leading mobile-first CI/CD Platform.
+        Our Bitrise Build Cache & CDN product enables enterprises and high-growth organizations to optimize and elevate their Bazel projects.
+        Bitrise brings to market an uncontested build and test caching solution available nowhere else. The first of its kind, fully managed by Bitrise requiring no setup or maintenance, you can use our out-of-the-box cache Steps to enjoy a deeply integrated CI/CD & Bazel experience or integrate our cache directly into your builds on any other platform..
+      buttons:
+      - label: Learn more
+        path: https://bitrise.io/why/features/mobile-build-caching-for-better-build-test-performance
+        classname: button
+    # Item 3
+    - image_path: /community/images/buildbuddy-logo.svg
+      heading: BuildBuddy
+      description: >
+        BuildBuddy provides an open-core suite of enterprise features for Bazel.
+        Included are a Remote Build Execution service, a shared build cache, Bazel-optimized CI workflows,
+        and a build & test result UI for debugging and analytics.It's available as a fully-managed cloud service or as an easy to deploy on-prem solution. The service is free to use for small teams and open-source projects.
+        BuildBuddy is based in San Francisco, backed by Y Combinator,
+        and founded by two ex-Googlers deeply passionate about making developers more productive.
+      buttons:
+      - label: Learn more
+        path: https://www.buildbuddy.io/
+        classname: button
+    # Item 4
+    - image_path: /community/images/engflow-logo.svg
+      heading: EngFlow
+      description: >
+        EngFlow is the build and test acceleration company created by core Bazel engineers and funded by Andreessen Horowitz.
+        EngFlow’s secure (audited: SOC 2 type 2) remote execution, caching, and observability platform scales from 1 to 100,000+
+        cores, reduces time by 5-10x and cloud costs by 20-50%.
+        Whether deployed on your cloud or on EngFlow’s: our global Bazel experts provide 24x7 coverage,
+        support small and large teams, no hidden costs, and SSO included.
+      buttons:
+      - label: Learn more
+        path: https://www.engflow.com/product/demo
+        classname: button
+    # Item 5
+    - image_path: /community/images/gradle-enterprise-gradient-secondary.png
+      heading: Gradle Inc.
+      description: >
+        Gradle Enterprise is a multi-build-system platform for improving developer productivity and happiness. It does this by providing a comprehensive and end-to-end solution for build & test observability, acceleration, and failure analytics, and currently supports the Bazel, Apache Maven, Gradle, and SBT build systems. Specifically, Gradle Enterprise for Bazel supports Build Cache to speed up build and test feedback cycles; Build Scan® that is like an X-ray for your build to make troubleshooting more efficient; and Failure Analytics to improve toolchain reliability.
+      buttons:
+      - label: Learn more
+        path: https://gradle.com/gradle-enterprise-solutions/bazel-build-system/
+        classname: button
+    # Item 6
+    - image_path: /community/images/tweag-logo.png
+      heading: Tweag.
+      description: >
+        Tweag is one of Bazel's earliest adopters, an active contributor of new features and new open source extensions since early 2018. We have been helping companies and teams achieve near byte-for-byte reproducibility, fully traceable all the way to production and conveniently auditable builds that can be cached correctly and run fast. Besides our consulting work, we also have an array of tools and extensions. Skyscope to visualize and explore complex Bazel build graphs with hundreds of thousands of nodes in your web browser. Open source Bazel extensions to achieve fully reproducible builds with the power of Nix, manage shell tools in a principled way, and build Haskell projects with Bazel. Finally, our open source Gazelle extensions to automate your Bazel migration and build maintenance.
+      buttons:
+      - label: Learn more
+        path:  https://www.tweag.io/group/scalable-builds/
+        classname: button

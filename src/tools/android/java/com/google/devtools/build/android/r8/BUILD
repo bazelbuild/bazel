@@ -111,3 +111,22 @@ java_binary(
         ":r8",
     ],
 )
+
+java_binary(
+    name = "core_library_desugar",
+    jvm_flags = [
+        # b/71513487
+        "-XX:+TieredCompilation",
+        "-XX:TieredStopAtLevel=1",
+        # b/172508621
+        "-Dcom.android.tools.r8.sortMethodsOnCfWriting",
+        "-Dcom.android.tools.r8.disableL8AnnotationRemoval",
+    ],
+    main_class = "com.google.devtools.build.android.r8.CoreLibraryDesugar",
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [
+        ":r8",
+    ],
+)

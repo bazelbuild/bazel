@@ -21,26 +21,18 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.packages.Attribute.ValidityPredicate;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
-import java.util.Set;
-import javax.annotation.Nullable;
 
 /**
  * Abstract rule definition for j2objc_library.
+ *
+ * <p>This rule is implemented in Starlark. This class remains only for doc-gen purposes.
  */
 public class J2ObjcLibraryBaseRule implements RuleDefinition {
-  private final J2ObjcAspect j2ObjcAspect;
-
-  public J2ObjcLibraryBaseRule(J2ObjcAspect j2ObjcAspect) {
-    this.j2ObjcAspect = j2ObjcAspect;
-  }
-
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     // TODO(rduan): Add support for package prefixes.
@@ -81,7 +73,6 @@ public class J2ObjcLibraryBaseRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
             attr("deps", LABEL_LIST)
-                .aspect(j2ObjcAspect)
                 .allowedRuleClasses(
                     "j2objc_library", "java_library", "java_import", "java_proto_library")
                 .allowedFileTypes())
@@ -100,22 +91,7 @@ public class J2ObjcLibraryBaseRule implements RuleDefinition {
         The list of additional JRE emulation libraries required by all Java code translated by this
         <code>j2objc_library</code> rule. Only core JRE functionality is linked by default.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(
-            attr("jre_deps", LABEL_LIST)
-                .allowedRuleClasses("objc_library")
-                .allowedFileTypes()
-                .validityPredicate(
-                    new ValidityPredicate() {
-                      @Override
-                      @Nullable
-                      public String checkValid(
-                          Rule from, String toRuleClass, Set<String> toRuleTags) {
-                        if (!toRuleTags.contains("j2objc_jre_lib")) {
-                          return "Only J2ObjC JRE libraries are allowed";
-                        }
-                        return null;
-                      }
-                    }))
+        .add(attr("jre_deps", LABEL_LIST).allowedRuleClasses("objc_library").allowedFileTypes())
         .addToolchainTypes(CppRuleClasses.ccToolchainTypeRequirement(env))
         .build();
   }

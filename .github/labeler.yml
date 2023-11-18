@@ -38,6 +38,8 @@ team-Android:
 - src/tools/android/java/com/google/devtools/build/android/**/*
 - src/test/java/com/google/devtools/build/android/**/*
 - src/test/shell/bazel/android/**/*
+- tools/android/**/*
+- src/main/java/com/google/devtools/build/lib/starlarkbuildapi/android/**/*
 
 team-Configurability:
 - src/main/java/com/google/devtools/build/lib/analysis/**/*
@@ -68,8 +70,10 @@ team-Local-Exec:
 
 team-Rules-CPP:
 - tools/cpp/**/*
+- src/main/cpp/**/*
 - src/test/java/com/google/devtools/build/lib/rules/cpp/**/*
 - src/main/java/com/google/devtools/build/lib/rules/cpp/**/*
+- src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp/**/*
 
 # team-Bazel
 
@@ -85,6 +89,9 @@ team-Rules-CPP:
 
 # team-Loading-API
 
-# team-Rules-ObjC
+
+team-Rules-ObjC:
+  - src/main/java/com/google/devtools/build/lib/rules/objc/**/*
+  - src/main/java/com/google/devtools/build/lib/starlarkbuildapi/apple/**/*
 
 # team-Core

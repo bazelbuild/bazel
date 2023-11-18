@@ -16,15 +16,13 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.IntegerValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringSequence;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValue;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -101,242 +99,284 @@ public class LibraryToLinkValueTest {
   }
 
   @Test
-  public void getFieldValue_forDynamicLibrary() {
+  public void getFieldValue_forDynamicLibrary() throws Exception {
     LibraryToLinkValue libraryToLinkValue = LibraryToLinkValue.forDynamicLibrary("foo");
     assertThat(
-            libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "type",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
-        .isEqualTo(new StringValue("dynamic_library"));
+            libraryToLinkValue
+                .getFieldValue(
+                    /* variableName= */ "variable name doesn't matter",
+                    /* field= */ "type",
+                    /* expander= */ null,
+                    /* throwOnMissingVariable= */ false)
+                .getStringValue("variable name doesn't matter"))
+        .isEqualTo("dynamic_library");
+    assertThat(
+            libraryToLinkValue
+                .getFieldValue(
+                    /* variableName= */ "variable name doesn't matter",
+                    /* field= */ "is_whole_archive",
+                    /* expander= */ null,
+                    /* throwOnMissingVariable= */ false)
+                .getStringValue("variable name doesn't matter"))
+        .isEqualTo("0");
+    assertThat(
+            libraryToLinkValue
+                .getFieldValue(
+                    /* variableName= */ "variable name doesn't matter",
+                    /* field= */ "name",
+                    /* expander= */ null,
+                    /* throwOnMissingVariable= */ false)
+                .getStringValue("variable name doesn't matter"))
+        .isEqualTo("foo");
     assertThat(
             libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "is_whole_archive",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
-        .isEqualTo(new IntegerValue(0));
-    assertThat(
-            libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "name",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
-        .isEqualTo(new StringValue("foo"));
-    assertThat(
-            libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "object_files",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
+                /* variableName= */ "variable name doesn't matter",
+                /* field= */ "object_files",
+                /* expander= */ null,
+                /* throwOnMissingVariable= */ false))
         .isNull();
   }
 
   @Test
-  public void getFieldValue_forVersionedDynamicLibrary() {
+  public void getFieldValue_forVersionedDynamicLibrary() throws Exception {
     LibraryToLinkValue libraryToLinkValue = LibraryToLinkValue.forVersionedDynamicLibrary("foo");
     assertThat(
-            libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "type",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
-        .isEqualTo(new StringValue("versioned_dynamic_library"));
+            libraryToLinkValue
+                .getFieldValue(
+                    /* variableName= */ "variable name doesn't matter",
+                    /* field= */ "type",
+                    /* expander= */ null,
+                    /* throwOnMissingVariable= */ false)
+                .getStringValue("variable name doesn't matter"))
+        .isEqualTo("versioned_dynamic_library");
+    assertThat(
+            libraryToLinkValue
+                .getFieldValue(
+                    /* variableName= */ "variable name doesn't matter",
+                    /* field= */ "is_whole_archive",
+                    /* expander= */ null,
+                    /* throwOnMissingVariable= */ false)
+                .getStringValue("variable name doesn't matter"))
+        .isEqualTo("0");
+    assertThat(
+            libraryToLinkValue
+                .getFieldValue(
+                    /* variableName= */ "variable name doesn't matter",
+                    /* field= */ "name",
+                    /* expander= */ null,
+                    /* throwOnMissingVariable= */ false)
+                .getStringValue("variable name doesn't matter"))
+        .isEqualTo("foo");
     assertThat(
             libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "is_whole_archive",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
-        .isEqualTo(new IntegerValue(0));
-    assertThat(
-            libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "name",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
-        .isEqualTo(new StringValue("foo"));
-    assertThat(
-            libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "object_files",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
+                /* variableName= */ "variable name doesn't matter",
+                /* field= */ "object_files",
+                /* expander= */ null,
+                /* throwOnMissingVariable= */ false))
         .isNull();
   }
 
   @Test
-  public void getFieldValue_forInterfaceLibrary() {
+  public void getFieldValue_forInterfaceLibrary() throws Exception {
     LibraryToLinkValue libraryToLinkValue = LibraryToLinkValue.forInterfaceLibrary("foo");
     assertThat(
-            libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "type",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
-        .isEqualTo(new StringValue("interface_library"));
+            libraryToLinkValue
+                .getFieldValue(
+                    /* variableName= */ "variable name doesn't matter",
+                    /* field= */ "type",
+                    /* expander= */ null,
+                    /* throwOnMissingVariable= */ false)
+                .getStringValue("variable name doesn't matter"))
+        .isEqualTo("interface_library");
+    assertThat(
+            libraryToLinkValue
+                .getFieldValue(
+                    /* variableName= */ "variable name doesn't matter",
+                    /* field= */ "is_whole_archive",
+                    /* expander= */ null,
+                    /* throwOnMissingVariable= */ false)
+                .getStringValue("variable name doesn't matter"))
+        .isEqualTo("0");
+    assertThat(
+            libraryToLinkValue
+                .getFieldValue(
+                    /* variableName= */ "variable name doesn't matter",
+                    /* field= */ "name",
+                    /* expander= */ null,
+                    /* throwOnMissingVariable= */ false)
+                .getStringValue("variable name doesn't matter"))
+        .isEqualTo("foo");
     assertThat(
             libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "is_whole_archive",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
-        .isEqualTo(new IntegerValue(0));
-    assertThat(
-            libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "name",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
-        .isEqualTo(new StringValue("foo"));
-    assertThat(
-            libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "object_files",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
+                /* variableName= */ "variable name doesn't matter",
+                /* field= */ "object_files",
+                /* expander= */ null,
+                /* throwOnMissingVariable= */ false))
         .isNull();
   }
 
   @Test
-  public void getFieldValue_forStaticLibrary() {
+  public void getFieldValue_forStaticLibrary() throws Exception {
     LibraryToLinkValue libraryToLinkValue =
-        LibraryToLinkValue.forStaticLibrary("foo", /*isWholeArchive=*/ false);
+        LibraryToLinkValue.forStaticLibrary("foo", /* isWholeArchive= */ false);
+    assertThat(
+            libraryToLinkValue
+                .getFieldValue(
+                    /* variableName= */ "variable name doesn't matter",
+                    /* field= */ "type",
+                    /* expander= */ null,
+                    /* throwOnMissingVariable= */ false)
+                .getStringValue("variable name doesn't matter"))
+        .isEqualTo("static_library");
+    assertThat(
+            libraryToLinkValue
+                .getFieldValue(
+                    /* variableName= */ "variable name doesn't matter",
+                    /* field= */ "is_whole_archive",
+                    /* expander= */ null,
+                    /* throwOnMissingVariable= */ false)
+                .getStringValue("variable name doesn't matter"))
+        .isEqualTo("0");
+    assertThat(
+            libraryToLinkValue
+                .getFieldValue(
+                    /* variableName= */ "variable name doesn't matter",
+                    /* field= */ "name",
+                    /* expander= */ null,
+                    /* throwOnMissingVariable= */ false)
+                .getStringValue("variable name doesn't matter"))
+        .isEqualTo("foo");
     assertThat(
             libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "type",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
-        .isEqualTo(new StringValue("static_library"));
-    assertThat(
-            libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "is_whole_archive",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
-        .isEqualTo(new IntegerValue(0));
-    assertThat(
-            libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "name",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
-        .isEqualTo(new StringValue("foo"));
-    assertThat(
-            libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "object_files",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
+                /* variableName= */ "variable name doesn't matter",
+                /* field= */ "object_files",
+                /* expander= */ null,
+                /* throwOnMissingVariable= */ false))
         .isNull();
   }
 
   @Test
-  public void getFieldValue_forStaticLibrary_isWholeArchive() {
+  public void getFieldValue_forStaticLibrary_isWholeArchive() throws Exception {
     LibraryToLinkValue libraryToLinkValue =
-        LibraryToLinkValue.forStaticLibrary("foo", /*isWholeArchive=*/ true);
+        LibraryToLinkValue.forStaticLibrary("foo", /* isWholeArchive= */ true);
+    assertThat(
+            libraryToLinkValue
+                .getFieldValue(
+                    /* variableName= */ "variable name doesn't matter",
+                    /* field= */ "type",
+                    /* expander= */ null,
+                    /* throwOnMissingVariable= */ false)
+                .getStringValue("variable name doesn't matter"))
+        .isEqualTo("static_library");
+    assertThat(
+            libraryToLinkValue
+                .getFieldValue(
+                    /* variableName= */ "variable name doesn't matter",
+                    /* field= */ "is_whole_archive",
+                    /* expander= */ null,
+                    /* throwOnMissingVariable= */ false)
+                .getStringValue("variable name doesn't matter"))
+        .isEqualTo("1");
+    assertThat(
+            libraryToLinkValue
+                .getFieldValue(
+                    /* variableName= */ "variable name doesn't matter",
+                    /* field= */ "name",
+                    /* expander= */ null,
+                    /* throwOnMissingVariable= */ false)
+                .getStringValue("variable name doesn't matter"))
+        .isEqualTo("foo");
     assertThat(
             libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "type",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
-        .isEqualTo(new StringValue("static_library"));
-    assertThat(
-            libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "is_whole_archive",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
-        .isEqualTo(new IntegerValue(1));
-    assertThat(
-            libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "name",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
-        .isEqualTo(new StringValue("foo"));
-    assertThat(
-            libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "object_files",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
+                /* variableName= */ "variable name doesn't matter",
+                /* field= */ "object_files",
+                /* expander= */ null,
+                /* throwOnMissingVariable= */ false))
         .isNull();
   }
 
   @Test
-  public void getFieldValue_forObjectFile() {
+  public void getFieldValue_forObjectFile() throws Exception {
     LibraryToLinkValue libraryToLinkValue =
-        LibraryToLinkValue.forObjectFile("foo", /*isWholeArchive=*/ false);
+        LibraryToLinkValue.forObjectFile("foo", /* isWholeArchive= */ false);
+    assertThat(
+            libraryToLinkValue
+                .getFieldValue(
+                    /* variableName= */ "variable name doesn't matter",
+                    /* field= */ "type",
+                    /* expander= */ null,
+                    /* throwOnMissingVariable= */ false)
+                .getStringValue("variable name doesn't matter"))
+        .isEqualTo("object_file");
+    assertThat(
+            libraryToLinkValue
+                .getFieldValue(
+                    /* variableName= */ "variable name doesn't matter",
+                    /* field= */ "is_whole_archive",
+                    /* expander= */ null,
+                    /* throwOnMissingVariable= */ false)
+                .getStringValue("variable name doesn't matter"))
+        .isEqualTo("0");
+    assertThat(
+            libraryToLinkValue
+                .getFieldValue(
+                    /* variableName= */ "variable name doesn't matter",
+                    /* field= */ "name",
+                    /* expander= */ null,
+                    /* throwOnMissingVariable= */ false)
+                .getStringValue("variable name doesn't matter"))
+        .isEqualTo("foo");
     assertThat(
             libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "type",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
-        .isEqualTo(new StringValue("object_file"));
-    assertThat(
-            libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "is_whole_archive",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
-        .isEqualTo(new IntegerValue(0));
-    assertThat(
-            libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "name",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
-        .isEqualTo(new StringValue("foo"));
-    assertThat(
-            libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "object_files",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
+                /* variableName= */ "variable name doesn't matter",
+                /* field= */ "object_files",
+                /* expander= */ null,
+                /* throwOnMissingVariable= */ false))
         .isNull();
   }
 
   @Test
-  public void getFieldValue_forObjectFile_isWholeArchive() {
+  public void getFieldValue_forObjectFile_isWholeArchive() throws Exception {
     LibraryToLinkValue libraryToLinkValue =
-        LibraryToLinkValue.forObjectFile("foo", /*isWholeArchive=*/ true);
+        LibraryToLinkValue.forObjectFile("foo", /* isWholeArchive= */ true);
+    assertThat(
+            libraryToLinkValue
+                .getFieldValue(
+                    /* variableName= */ "variable name doesn't matter",
+                    /* field= */ "type",
+                    /* expander= */ null,
+                    /* throwOnMissingVariable= */ false)
+                .getStringValue("variable name doesn't matter"))
+        .isEqualTo("object_file");
+    assertThat(
+            libraryToLinkValue
+                .getFieldValue(
+                    /* variableName= */ "variable name doesn't matter",
+                    /* field= */ "is_whole_archive",
+                    /* expander= */ null,
+                    /* throwOnMissingVariable= */ false)
+                .getStringValue("variable name doesn't matter"))
+        .isEqualTo("1");
+    assertThat(
+            libraryToLinkValue
+                .getFieldValue(
+                    /* variableName= */ "variable name doesn't matter",
+                    /* field= */ "name",
+                    /* expander= */ null,
+                    /* throwOnMissingVariable= */ false)
+                .getStringValue("variable name doesn't matter"))
+        .isEqualTo("foo");
     assertThat(
             libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "type",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
-        .isEqualTo(new StringValue("object_file"));
-    assertThat(
-            libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "is_whole_archive",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
-        .isEqualTo(new IntegerValue(1));
-    assertThat(
-            libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "name",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
-        .isEqualTo(new StringValue("foo"));
-    assertThat(
-            libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "object_files",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
+                /* variableName= */ "variable name doesn't matter",
+                /* field= */ "object_files",
+                /* expander= */ null,
+                /* throwOnMissingVariable= */ false))
         .isNull();
   }
 
   @Test
-  public void getFieldValue_forObjectFileGroup() {
+  public void getFieldValue_forObjectFileGroup() throws Exception {
     Artifact artifact =
         new SourceArtifact(
             ArtifactRoot.asSourceRoot(
@@ -346,39 +386,47 @@ public class LibraryToLinkValueTest {
 
     LibraryToLinkValue libraryToLinkValue =
         LibraryToLinkValue.forObjectFileGroup(
-            ImmutableList.of(artifact), /*isWholeArchive=*/ false);
+            ImmutableList.of(artifact), /* isWholeArchive= */ false);
+    assertThat(
+            libraryToLinkValue
+                .getFieldValue(
+                    /* variableName= */ "variable name doesn't matter",
+                    /* field= */ "type",
+                    /* expander= */ null,
+                    /* throwOnMissingVariable= */ false)
+                .getStringValue("variable name doesn't matter"))
+        .isEqualTo("object_file_group");
+    assertThat(
+            libraryToLinkValue
+                .getFieldValue(
+                    /* variableName= */ "variable name doesn't matter",
+                    /* field= */ "is_whole_archive",
+                    /* expander= */ null,
+                    /* throwOnMissingVariable= */ false)
+                .getStringValue("variable name doesn't matter"))
+        .isEqualTo("0");
     assertThat(
             libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "type",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
-        .isEqualTo(new StringValue("object_file_group"));
-    assertThat(
-            libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "is_whole_archive",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
-        .isEqualTo(new IntegerValue(0));
-    assertThat(
-            libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "name",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
+                /* variableName= */ "variable name doesn't matter",
+                /* field= */ "name",
+                /* expander= */ null,
+                /* throwOnMissingVariable= */ false))
         .isNull();
     assertThat(
-            libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "object_files",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
-        .isEqualTo(new StringSequence(ImmutableList.of("artifact")));
+            Iterables.getOnlyElement(
+                    libraryToLinkValue
+                        .getFieldValue(
+                            /* variableName= */ "variable name doesn't matter",
+                            /* field= */ "object_files",
+                            /* expander= */ null,
+                            /* throwOnMissingVariable= */ false)
+                        .getSequenceValue("variable name doesn't matter"))
+                .getStringValue("variable name doesn't matter"))
+        .isEqualTo("artifact");
   }
 
   @Test
-  public void getFieldValue_forObjectFileGroup_isWholeArchive() {
+  public void getFieldValue_forObjectFileGroup_isWholeArchive() throws Exception {
     Artifact artifact =
         new SourceArtifact(
             ArtifactRoot.asSourceRoot(
@@ -387,34 +435,43 @@ public class LibraryToLinkValueTest {
             ArtifactOwner.NULL_OWNER);
 
     LibraryToLinkValue libraryToLinkValue =
-        LibraryToLinkValue.forObjectFileGroup(ImmutableList.of(artifact), /*isWholeArchive=*/ true);
+        LibraryToLinkValue.forObjectFileGroup(
+            ImmutableList.of(artifact), /* isWholeArchive= */ true);
+    assertThat(
+            libraryToLinkValue
+                .getFieldValue(
+                    /* variableName= */ "variable name doesn't matter",
+                    /* field= */ "type",
+                    /* expander= */ null,
+                    /* throwOnMissingVariable= */ false)
+                .getStringValue("variable name doesn't matter"))
+        .isEqualTo("object_file_group");
+    assertThat(
+            libraryToLinkValue
+                .getFieldValue(
+                    /* variableName= */ "variable name doesn't matter",
+                    /* field= */ "is_whole_archive",
+                    /* expander= */ null,
+                    /* throwOnMissingVariable= */ false)
+                .getStringValue("variable name doesn't matter"))
+        .isEqualTo("1");
     assertThat(
             libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "type",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
-        .isEqualTo(new StringValue("object_file_group"));
-    assertThat(
-            libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "is_whole_archive",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
-        .isEqualTo(new IntegerValue(1));
-    assertThat(
-            libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "name",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
+                /* variableName= */ "variable name doesn't matter",
+                /* field= */ "name",
+                /* expander= */ null,
+                /* throwOnMissingVariable= */ false))
         .isNull();
     assertThat(
-            libraryToLinkValue.getFieldValue(
-                /*variableName=*/ "variable name doesn't matter",
-                /*field=*/ "object_files",
-                /*expander=*/ null,
-                /*throwOnMissingVariable=*/ false))
-        .isEqualTo(new StringSequence(ImmutableList.of("artifact")));
+            Iterables.getOnlyElement(
+                    libraryToLinkValue
+                        .getFieldValue(
+                            /* variableName= */ "variable name doesn't matter",
+                            /* field= */ "object_files",
+                            /* expander= */ null,
+                            /* throwOnMissingVariable= */ false)
+                        .getSequenceValue("variable name doesn't matter"))
+                .getStringValue("variable name doesn't matter"))
+        .isEqualTo("artifact");
   }
 }

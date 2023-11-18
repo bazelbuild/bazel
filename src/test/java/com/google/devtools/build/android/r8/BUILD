@@ -1,4 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("//tools/android:android_genrule.bzl", "android_genrule")
 
 package(
     default_testonly = 1,
@@ -111,15 +112,17 @@ java_library(
     srcs = glob(["testdata/lambda/*.java"]),
 )
 
-genrule(
+# Needs to switch to dependencies to an android config.
+android_genrule(
     name = "desugar_testdata_lambda",
     srcs = [
         ":testdata_lambda",
         "@bazel_tools//tools/android:android_jar",
     ],
-    outs = ["testdata_lambda_desugared.jar"],
+    out = "testdata_lambda_desugared.jar",
     cmd = "$(location //src/tools/android/java/com/google/devtools/build/android/r8:desugar) " +
           "-i $(location :testdata_lambda) -o $@ " +
           "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)",
+    platform = "//tools/android:arm64-v8a",
     tools = ["//src/tools/android/java/com/google/devtools/build/android/r8:desugar"],
 )

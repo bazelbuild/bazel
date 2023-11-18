@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Configurations
 
+<devsite-mathjax config="TeX-AMS-MML_SVG"></devsite-mathjax>
+
 {% include "_buttons.html" %}
 
 This page covers the benefits and basic usage of Starlark configurations,
@@ -688,7 +690,7 @@ def _rule_impl(ctx):
     transitioned_dep = ctx.attr.dep[0]
 
     # Note: Access doesn't change, other_deps was already a list
-    for other dep in ctx.attr.other_deps:
+    for other_dep in ctx.attr.other_deps:
       # ...
 
 
@@ -755,11 +757,11 @@ might create exponential growth of your build graph.
 
 **Figure 1.** Scalability graph showing a top level target and its dependencies.
 
-This graph shows a top level target, //pkg:app, which depends on two targets, a
-//pkg:1_0 and //pkg:1_1. Both these targets depend on two targets, //pkg:2_0 and
-//pkg:2_1. Both these targets depend on two targets, //pkg:3_0 and //pkg:3_1.
-This continues on until //pkg:n_0 and //pkg:n_1, which both depend on a single
-target, //pkg:dep.
+This graph shows a top level target, `//pkg:app`, which depends on two targets, a
+`//pkg:1_0` and `//pkg:1_1`. Both these targets depend on two targets, `//pkg:2_0` and
+`//pkg:2_1`. Both these targets depend on two targets, `//pkg:3_0` and `//pkg:3_1`.
+This continues on until `//pkg:n_0` and `//pkg:n_1`, which both depend on a single
+target, `//pkg:dep`.
 
 Building `//pkg:app` requires \\(2n+2\\) targets:
 
@@ -767,7 +769,7 @@ Building `//pkg:app` requires \\(2n+2\\) targets:
 * `//pkg:dep`
 * `//pkg:i_0` and `//pkg:i_1` for \\(i\\) in \\([1..n]\\)
 
-Imagine you [implement](#user-defined-build-settings)) a flag
+Imagine you [implement](#user-defined-build-settings) a flag
 `--//foo:owner=<STRING>` and `//pkg:i_b` applies
 
     depConfig = myConfig + depConfig.owner="$(myConfig.owner)$(b)"

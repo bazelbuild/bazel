@@ -58,6 +58,7 @@ public class AutoRegistry {
           "java.io.IOException",
           "java.lang.StackTraceElement",
           "java.lang.invoke.SerializedLambda",
+          "java.time.Instant",
           "com.google.common.base.Predicates$InPredicate",
           // Sadly, these builders are serialized as part of StarlarkCustomCommandLine$Builder,
           // which apparently can be preserved through analysis. We may investigate if this actually

@@ -273,6 +273,7 @@ public final class HelpCommand implements BlazeCommand {
     flagBuilder.setHasNegativeFlag(option.hasNegativeOption());
     flagBuilder.setDocumentation(option.getHelpText());
     flagBuilder.setAllowsMultiple(option.allowsMultiple());
+    flagBuilder.setRequiresValue(option.requiresValue());
 
     List<String> optionEffectTags =
         Arrays.stream(option.getOptionEffectTags())

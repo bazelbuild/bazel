@@ -223,6 +223,13 @@ public final class AndroidRuleClasses {
           null,
           (rule, attributes, androidConfig) -> androidConfig.getLegacyMainDexListGenerator());
 
+  @SerializationConstant
+  static final LabelLateBoundDefault<AndroidConfiguration> OPTIMIZING_DEXER =
+      LabelLateBoundDefault.fromTargetConfiguration(
+          AndroidConfiguration.class,
+          null,
+          (rule, attributes, androidConfig) -> androidConfig.getOptimizingDexer());
+
   public static final FileType ANDROID_IDL = FileType.of(".aidl");
 
   public static final String[] ALLOWED_DEPENDENCIES = {
@@ -902,6 +909,12 @@ public final class AndroidRuleClasses {
                   .cfg(ExecutionTransitionFactory.createFactory())
                   .value(LEGACY_MAIN_DEX_LIST_GENERATOR)
                   .exec())
+          // This comes from the --optimizing_dexer flag.
+          .add(
+              attr(":optimizing_dexer", LABEL)
+                  .cfg(ExecutionTransitionFactory.createFactory())
+                  .value(OPTIMIZING_DEXER)
+                  .exec())
           .removeAttribute("data")
           .advertiseStarlarkProvider(StarlarkProviderIdentifier.forKey(ApkInfo.PROVIDER.getKey()))
           .advertiseStarlarkProvider(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
@@ -962,13 +975,7 @@ public final class AndroidRuleClasses {
   }
 
   /** Definition of the {@code android_tools_defaults_jar} rule. */
-  public static final class AndroidToolsDefaultsJarRule implements RuleDefinition {
-
-    private final Class<? extends AndroidToolsDefaultsJar> factoryClass;
-
-    public AndroidToolsDefaultsJarRule(Class<? extends AndroidToolsDefaultsJar> factoryClass) {
-      this.factoryClass = factoryClass;
-    }
+  public static final class AndroidBaseToolsDefaultsJarRule implements RuleDefinition {
 
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
@@ -984,9 +991,9 @@ public final class AndroidRuleClasses {
     @Override
     public Metadata getMetadata() {
       return Metadata.builder()
-          .name("android_tools_defaults_jar")
+          .name("$android_base_tools_defaults_jar")
+          .type(RuleClassType.ABSTRACT)
           .ancestors(BaseRuleClasses.NativeBuildRule.class)
-          .factoryClass(factoryClass)
           .build();
     }
   }

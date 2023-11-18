@@ -159,8 +159,19 @@ function test_sigint_sends_sigterm() {
 
 function test_debug_logging() {
   touch ${TEST_TMPDIR}/testfile
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D -- /bin/true &> $TEST_log || code=$?
-  expect_log "child exited normally with code 0"
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D /tmp/debug -- /bin/true &> $TEST_log || code=$?
+  assert_contains "child exited normally with code 0" /tmp/debug
+}
+
+function test_debug_logging_does_not_pollute_stdout_nor_stderr() {
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D /tmp/debug -l $OUT -L $ERR -- /bin/bash -c "echo out; echo err >&2" &> $TEST_log || code=$?
+  assert_equals "out" "$(cat $OUT)"
+  assert_equals "err" "$(cat $ERR)"
+}
+
+function test_debug_logging_does_not_leak_descriptor() {
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D /tmp/debug -- /bin/bash -c "ls /proc/\$\$/fd | tr '\n' ' '; echo ." &> $TEST_log || fail
+  expect_log "0 1 2 ."
 }
 
 function test_mount_additional_paths_success() {
@@ -171,25 +182,25 @@ function test_mount_additional_paths_success() {
   touch ${MOUNT_TARGET_ROOT}/sandboxed_testfile
 
   touch /tmp/sandboxed_testfile
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D \
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D /tmp/debug \
     -M ${TEST_TMPDIR}/foo -m ${MOUNT_TARGET_ROOT}/foo \
     -M ${TEST_TMPDIR}/bar \
     -M ${TEST_TMPDIR}/testfile -m ${MOUNT_TARGET_ROOT}/sandboxed_testfile \
     -- /bin/true &> $TEST_log || code=$?
   # mount a directory to a customized path inside the sandbox
-  expect_log "bind mount: ${TEST_TMPDIR}/foo -> ${MOUNT_TARGET_ROOT}/foo\$"
+  assert_contains "bind mount: ${TEST_TMPDIR}/foo -> ${MOUNT_TARGET_ROOT}/foo\$" /tmp/debug
   # mount a directory to the same path inside the sanxbox
-  expect_log "bind mount: ${TEST_TMPDIR}/bar -> ${TEST_TMPDIR}/bar\$"
+  assert_contains "bind mount: ${TEST_TMPDIR}/bar -> ${TEST_TMPDIR}/bar\$" /tmp/debug
   # mount a file to a customized path inside the sandbox
-  expect_log "bind mount: ${TEST_TMPDIR}/testfile -> ${MOUNT_TARGET_ROOT}/sandboxed_testfile\$"
-  expect_log "child exited normally with code 0"
+  assert_contains "bind mount: ${TEST_TMPDIR}/testfile -> ${MOUNT_TARGET_ROOT}/sandboxed_testfile\$" /tmp/debug
+  assert_contains "child exited normally with code 0" /tmp/debug
   rm -rf ${MOUNT_TARGET_ROOT}/foo
   rm -rf ${MOUNT_TARGET_ROOT}/sandboxed_testfile
 }
 
 function test_mount_additional_paths_relative_path() {
   touch ${TEST_TMPDIR}/testfile
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D \
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D /tmp/debug \
     -M ${TEST_TMPDIR}/testfile -m tmp/sandboxed_testfile \
     -- /bin/true &> $TEST_log || code=$?
   # mount a directory to a customized path inside the sandbox
@@ -199,7 +210,7 @@ function test_mount_additional_paths_relative_path() {
 function test_mount_additional_paths_leading_m() {
   mkdir -p ${TEST_TMPDIR}/foo
   touch ${TEST_TMPDIR}/testfile
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D \
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D /tmp/debug \
     -m /tmp/foo \
     -M ${TEST_TMPDIR}/testfile -m /tmp/sandboxed_testfile \
     -- /bin/true &> $TEST_log || code=$?
@@ -211,7 +222,7 @@ function test_mount_additional_paths_m_not_preceeded_by_M() {
   mkdir -p ${TEST_TMPDIR}/foo
   mkdir -p ${TEST_TMPDIR}/bar
   touch ${TEST_TMPDIR}/testfile
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D \
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D /tmp/debug \
     -M ${TEST_TMPDIR}/testfile -m /tmp/sandboxed_testfile \
     -m /tmp/foo \
     -M ${TEST_TMPDIR}/bar \
@@ -224,7 +235,7 @@ function test_mount_additional_paths_other_flag_between_M_m_pair() {
   mkdir -p ${TEST_TMPDIR}/bar
   touch ${TEST_TMPDIR}/testfile
   $linux_sandbox $SANDBOX_DEFAULT_OPTS \
-    -M ${TEST_TMPDIR}/testfile -D -m /tmp/sandboxed_testfile \
+    -M ${TEST_TMPDIR}/testfile -D /tmp/debug -m /tmp/sandboxed_testfile \
     -M ${TEST_TMPDIR}/bar \
     -- /bin/true &> $TEST_log || code=$?
   # mount a directory to a customized path inside the sandbox
@@ -235,15 +246,15 @@ function test_mount_additional_paths_multiple_sources_mount_to_one_target() {
   mkdir -p ${TEST_TMPDIR}/foo
   mkdir -p ${TEST_TMPDIR}/bar
   mkdir -p ${MOUNT_TARGET_ROOT}/foo
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D \
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D /tmp/debug \
     -M ${TEST_TMPDIR}/foo -m ${MOUNT_TARGET_ROOT}/foo \
     -M ${TEST_TMPDIR}/bar -m ${MOUNT_TARGET_ROOT}/foo \
     -- /bin/true &> $TEST_log || code=$?
   # mount a directory to a customized path inside the sandbox
-  expect_log "bind mount: ${TEST_TMPDIR}/foo -> ${MOUNT_TARGET_ROOT}/foo\$"
+  assert_contains "bind mount: ${TEST_TMPDIR}/foo -> ${MOUNT_TARGET_ROOT}/foo\$" /tmp/debug
   # mount a new source directory to the same target, which will overwrite the previous source path
-  expect_log "bind mount: ${TEST_TMPDIR}/bar -> ${MOUNT_TARGET_ROOT}/foo\$"
-  expect_log "child exited normally with code 0"
+  assert_contains "bind mount: ${TEST_TMPDIR}/bar -> ${MOUNT_TARGET_ROOT}/foo\$" /tmp/debug
+  assert_contains "child exited normally with code 0" /tmp/debug
   rm -rf ${MOUNT_TARGET_ROOT}/foo
 }
 

@@ -30,10 +30,12 @@ import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -81,7 +83,7 @@ public final class ExtraAction extends SpawnAction {
         progressMessage,
         CompositeRunfilesSupplier.of(shadowedAction.getRunfilesSupplier(), runfilesSupplier),
         mnemonic,
-        /* stripOutputPaths= */ false);
+        OutputPathsMode.OFF);
     this.shadowedAction = shadowedAction;
     this.createDummyOutput = createDummyOutput;
 
@@ -136,6 +138,11 @@ public final class ExtraAction extends SpawnAction {
         Order.STABLE_ORDER, Sets.difference(getInputs().toSet(), oldInputs.toSet()));
   }
 
+  @Override
+  public NestedSet<Artifact> getSchedulingDependencies() {
+    return shadowedAction.getSchedulingDependencies();
+  }
+
   private static NestedSet<Artifact> createInputs(
       NestedSet<Artifact> shadowedActionInputs,
       NestedSet<Artifact> inputFilesForExtraAction,
@@ -168,7 +175,9 @@ public final class ExtraAction extends SpawnAction {
 
   @Override
   protected void afterExecute(
-      ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults)
+      ActionExecutionContext actionExecutionContext,
+      List<SpawnResult> spawnResults,
+      PathMapper pathMapper)
       throws ExecException {
     // PHASE 3: create dummy output.
     // If the user didn't specify output, we need to create dummy output

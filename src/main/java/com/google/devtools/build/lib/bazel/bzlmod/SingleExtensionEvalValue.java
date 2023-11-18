@@ -55,8 +55,12 @@ public abstract class SingleExtensionEvalValue implements SkyValue {
     return Key.create(id);
   }
 
+  /**
+   * The {@link com.google.devtools.build.skyframe.SkyKey} of a {@link
+   * com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionEvalValue}
+   */
   @AutoCodec
-  static class Key extends AbstractSkyKey<ModuleExtensionId> {
+  public static class Key extends AbstractSkyKey<ModuleExtensionId> {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     protected Key(ModuleExtensionId arg) {

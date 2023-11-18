@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.MoreObjects;
@@ -80,7 +79,9 @@ public abstract class RequiredConfigFragmentsProvider implements TransitiveInfoP
   /** Merges the values of one or more {@link RequiredConfigFragmentsProvider} instances. */
   public static RequiredConfigFragmentsProvider merge(
       List<RequiredConfigFragmentsProvider> providers) {
-    checkArgument(!providers.isEmpty());
+    if (providers.isEmpty()) {
+      return EMPTY;
+    }
     RequiredConfigFragmentsProvider.Builder merged = null;
     RequiredConfigFragmentsProvider candidate = EMPTY;
     for (RequiredConfigFragmentsProvider provider : providers) {
@@ -163,10 +164,12 @@ public abstract class RequiredConfigFragmentsProvider implements TransitiveInfoP
 
     @CanIgnoreReturnValue
     public Builder merge(RequiredConfigFragmentsProvider provider) {
-      optionsClasses = appendAll(optionsClasses, provider.getOptionsClasses());
-      fragmentClasses = appendAll(fragmentClasses, provider.getFragmentClasses());
-      defines = appendAll(defines, provider.getDefines());
-      starlarkOptions = appendAll(starlarkOptions, provider.getStarlarkOptions());
+      if (provider != null) {
+        optionsClasses = appendAll(optionsClasses, provider.getOptionsClasses());
+        fragmentClasses = appendAll(fragmentClasses, provider.getFragmentClasses());
+        defines = appendAll(defines, provider.getDefines());
+        starlarkOptions = appendAll(starlarkOptions, provider.getStarlarkOptions());
+      }
       return this;
     }
 

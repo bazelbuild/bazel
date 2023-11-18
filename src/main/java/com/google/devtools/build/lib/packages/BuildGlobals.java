@@ -35,11 +35,11 @@ import net.starlark.java.syntax.Location;
 
 /** A set of miscellaneous APIs that are available to any BUILD file. */
 @GlobalMethods(environment = Environment.BUILD)
-class BuildGlobals {
+public class BuildGlobals {
 
   private BuildGlobals() {}
 
-  static final BuildGlobals INSTANCE = new BuildGlobals();
+  public static final BuildGlobals INSTANCE = new BuildGlobals();
 
   @StarlarkMethod(
       name = "environment_group",
@@ -76,6 +76,7 @@ class BuildGlobals {
       Sequence<?> defaultsList, // <Label>
       StarlarkThread thread)
       throws EvalException {
+    BazelStarlarkContext.checkLoadingPhase(thread, "environment_group");
     PackageContext context = PackageFactory.getContext(thread);
     List<Label> environments =
         BuildType.LABEL_LIST.convert(
@@ -118,10 +119,11 @@ class BuildGlobals {
       Sequence<?> licensesList, // list of license strings
       StarlarkThread thread)
       throws EvalException {
+    BazelStarlarkContext.checkLoadingPhase(thread, "licenses");
     PackageContext context = PackageFactory.getContext(thread);
     try {
       License license = BuildType.LICENSE.convert(licensesList, "'licenses' operand");
-      context.pkgBuilder.setDefaultLicense(license);
+      context.pkgBuilder.mergePackageArgsFrom(PackageArgs.builder().setLicense(license));
     } catch (ConversionException e) {
       context.eventHandler.handle(
           Package.error(thread.getCallerLocation(), e.getMessage(), Code.LICENSE_PARSE_FAILURE));
@@ -139,12 +141,13 @@ class BuildGlobals {
       documented = false,
       useStarlarkThread = true)
   public NoneType distribs(Object object, StarlarkThread thread) throws EvalException {
+    BazelStarlarkContext.checkLoadingPhase(thread, "distribs");
     PackageContext context = PackageFactory.getContext(thread);
 
     try {
       Set<DistributionType> distribs =
           BuildType.DISTRIBUTIONS.convert(object, "'distribs' operand");
-      context.pkgBuilder.setDefaultDistribs(distribs);
+      context.pkgBuilder.mergePackageArgsFrom(PackageArgs.builder().setDistribs(distribs));
     } catch (ConversionException e) {
       context.eventHandler.handle(
           Package.error(

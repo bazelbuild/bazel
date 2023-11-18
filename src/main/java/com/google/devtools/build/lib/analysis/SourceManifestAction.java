@@ -55,7 +55,8 @@ import javax.annotation.Nullable;
  * <p>This action carefully avoids building the manifest content in memory because it can be large.
  */
 @Immutable // if all ManifestWriter implementations are immutable
-public final class SourceManifestAction extends AbstractFileWriteAction {
+public final class SourceManifestAction extends AbstractFileWriteAction
+    implements AbstractFileWriteAction.FileContentsProvider {
 
   private static final String GUID = "07459553-a3d0-4d37-9d78-18ed942470f4";
 
@@ -94,6 +95,9 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
      * @return
      */
     boolean isRemotable();
+
+    /** Whether the manifest includes absolute paths to artifacts. */
+    boolean emitsAbsolutePaths();
   }
 
   /** The strategy we use to write manifest entries. */
@@ -193,7 +197,8 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
    *
    * @return returns the file contents as a string.
    */
-  public String getFileContentsAsString(@Nullable EventHandler eventHandler) throws IOException {
+  @Override
+  public String getFileContents(@Nullable EventHandler eventHandler) throws IOException {
     ByteArrayOutputStream stream = new ByteArrayOutputStream();
     writeOutputFile(stream, eventHandler);
     return stream.toString(UTF_8);
@@ -201,7 +206,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
 
   @Override
   public String getStarlarkContent() throws IOException {
-    return getFileContentsAsString(null);
+    return getFileContents(null);
   }
 
   @Override
@@ -252,7 +257,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
       Fingerprint fp) {
     fp.addString(GUID);
     fp.addBoolean(remotableSourceManifestActions);
-    runfiles.fingerprint(fp);
+    runfiles.fingerprint(actionKeyContext, fp, manifestWriter.emitsAbsolutePaths());
     fp.addBoolean(repoMappingManifest != null);
     if (repoMappingManifest != null) {
       fp.addPath(repoMappingManifest.getExecPath());
@@ -263,7 +268,9 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   public String describeKey() {
     return String.format(
         "GUID: %s\nremotableSourceManifestActions: %s\nrunfiles: %s\n",
-        GUID, remotableSourceManifestActions, runfiles.describeFingerprint());
+        GUID,
+        remotableSourceManifestActions,
+        runfiles.describeFingerprint(manifestWriter.emitsAbsolutePaths()));
   }
 
   /** Supported manifest writing strategies. */
@@ -309,6 +316,11 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
         // There is little gain to remoting these, since they include absolute path names inline.
         return false;
       }
+
+      @Override
+      public boolean emitsAbsolutePaths() {
+        return true;
+      }
     },
 
     /**
@@ -343,6 +355,11 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
       public boolean isRemotable() {
         // Source-only symlink manifest has root-relative paths and does not include absolute paths.
         return true;
+      }
+
+      @Override
+      public boolean emitsAbsolutePaths() {
+        return false;
       }
     }
   }

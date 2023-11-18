@@ -16,10 +16,11 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
+import net.starlark.java.eval.StarlarkValue;
 
 /** Provider that contains the profile used for propeller. */
 @Immutable
-public final class PropellerOptimizeProvider extends NativeInfo {
+public final class PropellerOptimizeProvider extends NativeInfo implements StarlarkValue {
   public static final BuiltinProvider<PropellerOptimizeProvider> PROVIDER =
       new BuiltinProvider<PropellerOptimizeProvider>(
           "PropellerOptimizeInfo", PropellerOptimizeProvider.class) {};

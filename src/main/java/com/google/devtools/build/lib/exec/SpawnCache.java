@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
-import java.io.Closeable;
 import java.io.IOException;
 import java.util.NoSuchElementException;
 
@@ -52,15 +51,12 @@ public interface SpawnCache extends ActionContext {
         public void store(SpawnResult result) throws InterruptedException, IOException {
           // Do nothing.
         }
-
-        @Override
-        public void close() {}
       };
 
   /**
    * Helper method to create a {@link CacheHandle} from a successful {@link SpawnResult} instance.
    */
-  public static CacheHandle success(final SpawnResult result) {
+  public static CacheHandle success(SpawnResult result) {
     return new CacheHandle() {
       @Override
       public boolean hasResult() {
@@ -81,9 +77,6 @@ public interface SpawnCache extends ActionContext {
       public void store(SpawnResult result) throws InterruptedException, IOException {
         throw new IllegalStateException();
       }
-
-      @Override
-      public void close() {}
     };
   }
 
@@ -99,19 +92,17 @@ public interface SpawnCache extends ActionContext {
   public static SpawnCache NO_CACHE = new NoSpawnCache();
 
   /**
-   * This object represents both a successful and an unsuccessful cache lookup. If
-   * {@link #hasResult} returns true, then {@link #getResult} must successfully return a non-null
-   * instance (use the {@link #success} helper method). Otherwise {@link #getResult} should throw an
-   * {@link IllegalStateException}.
+   * This object represents both a successful and an unsuccessful cache lookup.
    *
-   * <p>If {@link #hasResult} returns false, then {@link #store} may upload the result to the cache
-   * after successful execution.
+   * <p>If {@link #hasResult} returns true, then {@link #getResult} returns a non-null instance.
+   * Otherwise, if {@link #hasResult} returns false, then {@link #getResult} throws an {@link
+   * IllegalStateException}.
    *
-   * <p>Note that this interface extends {@link Closeable}, and callers must guarantee that
-   * {@link #close} is called on this entry (e.g., by using try-with-resources) to free up any
-   * acquired resources.
+   * <p>If {@link #willStore} returns true, then {@link #store} may be called to upload the result
+   * to the cache after successful execution. Otherwise, if {@link #willStore} returns false, then
+   * {@link #store} throws an {@link IllegalStateException}.
    */
-  interface CacheHandle extends Closeable {
+  interface CacheHandle {
     /** Returns whether the cache lookup was successful. */
     boolean hasResult();
 

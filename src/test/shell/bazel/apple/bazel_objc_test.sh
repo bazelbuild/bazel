@@ -24,9 +24,6 @@ if [ "${PLATFORM}" != "darwin" ]; then
   exit 0
 fi
 
-source "${CURRENT_DIR}/apple_common.sh" \
-  || { echo "apple_common.sh not found!" >&2; exit 1; }
-
 function test_xcodelocator_embedded_tool() {
   rm -rf ios
   mkdir -p ios

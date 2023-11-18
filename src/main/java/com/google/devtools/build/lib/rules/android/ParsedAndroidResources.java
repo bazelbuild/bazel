@@ -41,8 +41,6 @@ public class ParsedAndroidResources extends AndroidResources {
       throws InterruptedException {
     AndroidResourceParsingActionBuilder builder = new AndroidResourceParsingActionBuilder();
 
-    // TODO(b/120093531): This is only used in Databinding v1.
-    dataBindingContext.supplyLayoutInfo(builder::setDataBindingInfoZip);
     // In databinding v2, this strips out the databinding and generates the layout info file.
     AndroidResources databindingProcessedResources =
         dataBindingContext.processResources(dataContext, resources, manifest.getPackage());

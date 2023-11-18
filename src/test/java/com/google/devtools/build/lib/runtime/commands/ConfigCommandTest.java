@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.stream;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -111,6 +112,9 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     params.addAll(TestConstants.PRODUCT_SPECIFIC_FLAGS);
     params.add("//test:buildme");
     params.add("--nobuild"); // Execution phase isn't necessary to collect configurations.
+    // TODO: Enable Bzlmod for this test
+    // https://github.com/bazelbuild/bazel/issues/19823
+    params.add("--noenable_bzlmod");
     Collections.addAll(params, args);
     dispatcher.exec(params, "my client", outErr);
   }
@@ -127,6 +131,9 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     params.addAll(TestConstants.PRODUCT_SPECIFIC_FLAGS);
     params.add("//test:buildme_with_transition");
     params.add("--nobuild"); // Execution phase isn't necessary to collect configurations.
+    // TODO: Enable Bzlmod for this test
+    // https://github.com/bazelbuild/bazel/issues/19823
+    params.add("--noenable_bzlmod");
     Collections.addAll(params, args);
     dispatcher.exec(params, "my client", outErr);
   }
@@ -139,6 +146,9 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   private RecordingOutErr callConfigCommand(String... args) throws Exception {
     List<String> params = Lists.newArrayList("config");
     params.add("--output=json");
+    // TODO: Enable Bzlmod for this test
+    // https://github.com/bazelbuild/bazel/issues/19823
+    params.add("--noenable_bzlmod");
     Collections.addAll(params, args);
     RecordingOutErr recordingOutErr = new RecordingOutErr();
     dispatcher.exec(params, "my client", recordingOutErr);
@@ -221,12 +231,12 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
    *     it out.
    */
   private ImmutableList<String> getConfigHashes(boolean includeNoConfig) throws Exception {
-    return JsonParser.parseString(callConfigCommand().outAsLatin1())
-        .getAsJsonObject()
-        .get("configuration-IDs")
-        .getAsJsonArray()
-        .asList()
-        .stream()
+    return stream(
+            JsonParser.parseString(callConfigCommand().outAsLatin1())
+                .getAsJsonObject()
+                .get("configuration-IDs")
+                .getAsJsonArray()
+                .iterator())
         .filter(includeNoConfig ? Predicates.alwaysTrue() : this::skipNoConfig)
         .map(c -> c.getAsString())
         .collect(toImmutableList());

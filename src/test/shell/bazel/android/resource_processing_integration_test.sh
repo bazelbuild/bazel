@@ -126,7 +126,7 @@ function test_persistent_multiplex_resource_processor() {
   create_android_binary
   setup_font_resources
 
-  assert_build //java/bazel:bin --experimental_worker_multiplex \
+  assert_build //java/bazel:bin --worker_multiplex \
     --persistent_multiplex_android_tools \
     --worker_verbose &> $TEST_log
   expect_log "Created new non-sandboxed AndroidResourceParser multiplex-worker (id [0-9]\+, key hash -\?[0-9]\+)"

@@ -309,7 +309,7 @@ function test_absolute_path() {
 function test_symbolic_link() {
   bazel build examples/hermetic:symbolic_link &> $TEST_log \
     && fail "Fail due to non hermetic sandbox: examples/hermetic:symbolic_link" || true
-  expect_log "cat: \/execroot\/main\/examples\/hermetic\/unknown_file.txt: No such file or directory"
+  expect_log "cat: \/execroot\/_main\/examples\/hermetic\/unknown_file.txt: No such file or directory"
 }
 
 # Test that the sandbox discover if the bazel python rule miss dependencies.
@@ -366,16 +366,15 @@ function test_subdirectories_in_declared_directory() {
   assert_contains "dir/subdir1/subdir2" "bazel-bin/examples/hermetic/subdirectories_in_declared_directory.result"
 }
 
-# Test that the sandbox is not crashing and not producing warnings for various types of artifacts.
+# Test that the sandbox is able to handle various types of artifacts.
 # Regression test for Issue #15340
 function test_other_artifacts() {
-  bazel shutdown # Clear memory about duplicated warnings
-  bazel build examples/hermetic:other_artifacts &> $TEST_log
-  expect_not_log "WARNING"
-  assert_contains "regular_file_artifact" "bazel-bin/examples/hermetic/other_artifacts.result"
-  assert_contains "unresolved_symlink_artifact" "bazel-bin/examples/hermetic/other_artifacts.result"
-  assert_contains "directory_artifact" "bazel-bin/examples/hermetic/other_artifacts.result"
-  assert_contains "tree_artifact" "bazel-bin/examples/hermetic/other_artifacts.result"
+  bazel build --noincompatible_disallow_unsound_directory_outputs \
+    examples/hermetic:other_artifacts &> $TEST_log
+  assert_contains ".regular_file_artifact" "bazel-bin/examples/hermetic/other_artifacts.result"
+  assert_contains ".unresolved_symlink_artifact" "bazel-bin/examples/hermetic/other_artifacts.result"
+  assert_contains ".directory_artifact" "bazel-bin/examples/hermetic/other_artifacts.result"
+  assert_contains ".tree_artifact" "bazel-bin/examples/hermetic/other_artifacts.result"
 }
 
 # The test shouldn't fail if the environment doesn't support running it.

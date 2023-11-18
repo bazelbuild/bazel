@@ -43,21 +43,10 @@ public class LocalExecutionOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = Converters.RegexPatternConverter.class,
       defaultValue = "null",
-      deprecationWarning = "Deprecated, use --strategy_regexp instead.",
       help =
           "A regex whitelist for action types which may be run locally. If unset, "
               + "all actions are allowed to execute locally")
   public RegexPatternOption allowedLocalAction;
-
-  @Option(
-      name = "experimental_collect_local_action_metrics",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help =
-          "When enabled, execution statistics (such as user and system time) are recorded for "
-              + "locally executed actions which don't use sandboxing")
-  public boolean collectLocalExecutionStatistics;
 
   @Option(
       name = "experimental_local_lockfree_output",

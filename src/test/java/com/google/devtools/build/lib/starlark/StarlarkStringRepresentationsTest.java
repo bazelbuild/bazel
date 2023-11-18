@@ -233,9 +233,9 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
 
   @Test
   public void testStringRepresentations_labels() throws Exception {
-    assertThat(starlarkLoadingEval("str(Label('//foo:bar'))")).isEqualTo("@//foo:bar");
-    assertThat(starlarkLoadingEval("'%s' % Label('//foo:bar')")).isEqualTo("@//foo:bar");
-    assertThat(starlarkLoadingEval("'{}'.format(Label('//foo:bar'))")).isEqualTo("@//foo:bar");
+    assertThat(starlarkLoadingEval("str(Label('//foo:bar'))")).isEqualTo("@@//foo:bar");
+    assertThat(starlarkLoadingEval("'%s' % Label('//foo:bar')")).isEqualTo("@@//foo:bar");
+    assertThat(starlarkLoadingEval("'{}'.format(Label('//foo:bar'))")).isEqualTo("@@//foo:bar");
     assertThat(starlarkLoadingEval("repr(Label('//foo:bar'))")).isEqualTo("Label(\"//foo:bar\")");
     assertThat(starlarkLoadingEval("'%r' % Label('//foo:bar')")).isEqualTo("Label(\"//foo:bar\")");
 
@@ -268,7 +268,7 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
   @Test
   public void testStringRepresentations_rules() throws Exception {
     setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_library");
-    assertStringRepresentation("native.cc_library", "<rule>");
+    assertStringRepresentation("native.cc_library", "<rule cc_library>");
     assertStringRepresentation("def f(): pass", "rule(implementation=f)", "<rule>");
   }
 

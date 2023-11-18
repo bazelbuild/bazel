@@ -20,6 +20,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutionOptions.TestOutputFormat;
 import com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat;
@@ -108,6 +109,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
   private final TestLogPathFormatter testLogPathFormatter;
   private final OptionsParsingResult options;
   private final TestSummaryOptions summaryOptions;
+  private final RepositoryMapping mainRepoMapping;
 
   /**
    * @param printer The terminal to print to
@@ -115,11 +117,13 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
   public TerminalTestResultNotifier(
       AnsiTerminalPrinter printer,
       TestLogPathFormatter testLogPathFormatter,
-      OptionsParsingResult options) {
+      OptionsParsingResult options,
+      RepositoryMapping mainRepoMapping) {
     this.printer = printer;
     this.testLogPathFormatter = testLogPathFormatter;
     this.options = options;
     this.summaryOptions = options.getOptions(TestSummaryOptions.class);
+    this.mainRepoMapping = mainRepoMapping;
   }
 
   /**
@@ -142,13 +146,13 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
    * @param summaries summaries of tests {@link TestSummary}
    * @param showAllTests if true, print information about each test regardless of its status
    * @param showNoStatusTests if true, print information about not executed tests (no status tests)
-   * @param printFailedTestCases if true, print details about which test cases in a test failed
+   * @param showAllTestCases if true, print all test cases status and detailed information
    */
   private void printSummary(
       Set<TestSummary> summaries,
       boolean showAllTests,
       boolean showNoStatusTests,
-      boolean printFailedTestCases) {
+      boolean showAllTestCases) {
     boolean withConfig = duplicateLabels(summaries);
     int numFailedToBuildReported = 0;
     for (TestSummary summary : summaries) {
@@ -171,8 +175,9 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
           printer,
           testLogPathFormatter,
           summaryOptions.verboseSummary,
-          printFailedTestCases,
-          withConfig);
+          showAllTestCases,
+          withConfig,
+          mainRepoMapping);
     }
   }
 
@@ -243,9 +248,9 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
       case DETAILED:
         printSummary(
             summaries,
-            /* showAllTests= */ false,
+            /* showAllTests= */ true,
             /* showNoStatusTests= */ true,
-            /* printFailedTestCases= */ true);
+            /* showAllTestCases= */ true);
         break;
 
       case SHORT:
@@ -253,7 +258,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
             summaries,
             /* showAllTests= */ true,
             /* showNoStatusTests= */ false,
-            /* printFailedTestCases= */ false);
+            /* showAllTestCases= */ false);
         break;
 
       case TERSE:
@@ -261,7 +266,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
             summaries,
             /* showAllTests= */ false,
             /* showNoStatusTests= */ false,
-            /* printFailedTestCases= */ false);
+            /* showAllTestCases= */ false);
         break;
 
       case TESTCASE:

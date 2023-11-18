@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.config;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -46,43 +45,42 @@ public final class FeatureFlagValueTest {
   }
 
   @Test
-  public void flagState_startsEmpty() throws Exception {
-    assertThat(FeatureFlagValue.getFlagValues(emptyBuildOptions())).isEmpty();
-  }
-
-  @Test
-  public void flagState_ignoresNonFeatureFlagValues() throws Exception {
-    BuildOptions options =
-        emptyBuildOptions().toBuilder()
-            .addStarlarkOption(Label.parseCanonicalUnchecked("//unrelated/starlark:option"), true)
-            .build();
-    assertThat(FeatureFlagValue.getFlagValues(options)).isEmpty();
-  }
-
-  @Test
   public void replaceFlagValues_reflectedInGetFlagValues() throws Exception {
-    Map<Label, String> originalMap =
-        ImmutableMap.of(
-            Label.parseCanonicalUnchecked("//label:a"), "value",
-            Label.parseCanonicalUnchecked("//label:b"), "otherValue");
-    BuildOptions options = FeatureFlagValue.replaceFlagValues(emptyBuildOptions(), originalMap);
-    assertThat(FeatureFlagValue.getFlagValues(options)).containsExactlyEntriesIn(originalMap);
+    BuildOptions options =
+        FeatureFlagValue.replaceFlagValues(
+            emptyBuildOptions(),
+            ImmutableMap.of(
+                Label.parseCanonicalUnchecked("//label:a"), "value",
+                Label.parseCanonicalUnchecked("//label:b"), "otherValue"));
+    assertThat(options.getStarlarkOptions())
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//label:a"),
+            FeatureFlagValue.SetValue.of("value"),
+            Label.parseCanonicalUnchecked("//label:b"),
+            FeatureFlagValue.SetValue.of("otherValue"));
   }
 
   @Test
   public void replaceFlagValues_totallyReplacesFlagValuesMap() throws Exception {
-    Map<Label, String> originalMap =
-        ImmutableMap.of(
-            Label.parseCanonicalUnchecked("//label:a"), "value",
-            Label.parseCanonicalUnchecked("//label:b"), "otherValue");
-    Map<Label, String> newMap =
-        ImmutableMap.of(
-            Label.parseCanonicalUnchecked("//label:a"), "differentValue",
-            Label.parseCanonicalUnchecked("//label:c"), "differentFlag");
     BuildOptions options = emptyBuildOptions();
-    options = FeatureFlagValue.replaceFlagValues(options, originalMap);
-    options = FeatureFlagValue.replaceFlagValues(options, newMap);
-    assertThat(FeatureFlagValue.getFlagValues(options)).containsExactlyEntriesIn(newMap);
+    options =
+        FeatureFlagValue.replaceFlagValues(
+            options,
+            ImmutableMap.of(
+                Label.parseCanonicalUnchecked("//label:a"), "value",
+                Label.parseCanonicalUnchecked("//label:b"), "otherValue"));
+    options =
+        FeatureFlagValue.replaceFlagValues(
+            options,
+            ImmutableMap.of(
+                Label.parseCanonicalUnchecked("//label:a"), "differentValue",
+                Label.parseCanonicalUnchecked("//label:c"), "differentFlag"));
+    assertThat(options.getStarlarkOptions())
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//label:a"),
+            FeatureFlagValue.SetValue.of("differentValue"),
+            Label.parseCanonicalUnchecked("//label:c"),
+            FeatureFlagValue.SetValue.of("differentFlag"));
   }
 
   @Test
@@ -102,8 +100,6 @@ public final class FeatureFlagValueTest {
                 Label.parseCanonicalUnchecked("//label:d")));
     options = FeatureFlagValue.replaceFlagValues(options, originalMap);
     assertThat(options.get(ConfigFeatureFlagOptions.class).allFeatureFlagValuesArePresent).isTrue();
-    // testing that this does not throw UnknownValueException
-    FeatureFlagValue.getFlagValues(options);
   }
 
   @Test
@@ -132,7 +128,7 @@ public final class FeatureFlagValueTest {
 
     options = FeatureFlagValue.trimFlagValues(options, ImmutableSet.of());
 
-    assertThat(FeatureFlagValue.getFlagValues(options)).isEmpty();
+    assertThat(options.getStarlarkOptions()).isEmpty();
     assertThat(options.get(ConfigFeatureFlagOptions.class).allFeatureFlagValuesArePresent)
         .isFalse();
     assertThat(getKnownDefaultFlags(options)).isEmpty();
@@ -150,7 +146,11 @@ public final class FeatureFlagValueTest {
                 Label.parseCanonicalUnchecked("//label:b"),
                 Label.parseCanonicalUnchecked("//label:c")));
 
-    assertThat(FeatureFlagValue.getFlagValues(options)).isEmpty();
+    assertThat(options.getStarlarkOptions())
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//label:a"), FeatureFlagValue.DefaultValue.INSTANCE,
+            Label.parseCanonicalUnchecked("//label:b"), FeatureFlagValue.DefaultValue.INSTANCE,
+            Label.parseCanonicalUnchecked("//label:c"), FeatureFlagValue.DefaultValue.INSTANCE);
     assertThat(options.get(ConfigFeatureFlagOptions.class).allFeatureFlagValuesArePresent)
         .isFalse();
     assertThat(getKnownDefaultFlags(options))
@@ -174,7 +174,7 @@ public final class FeatureFlagValueTest {
 
     options = FeatureFlagValue.trimFlagValues(options, ImmutableSet.of());
 
-    assertThat(FeatureFlagValue.getFlagValues(options)).isEmpty();
+    assertThat(options.getStarlarkOptions()).isEmpty();
     assertThat(options.get(ConfigFeatureFlagOptions.class).allFeatureFlagValuesArePresent)
         .isFalse();
     assertThat(getKnownDefaultFlags(options)).isEmpty();
@@ -201,8 +201,11 @@ public final class FeatureFlagValueTest {
                 Label.parseCanonicalUnchecked("//label:b"),
                 Label.parseCanonicalUnchecked("//label:c")));
 
-    assertThat(FeatureFlagValue.getFlagValues(options))
-        .containsExactly(Label.parseCanonicalUnchecked("//label:a"), "value");
+    assertThat(options.getStarlarkOptions())
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//label:a"), FeatureFlagValue.SetValue.of("value"),
+            Label.parseCanonicalUnchecked("//label:b"), FeatureFlagValue.DefaultValue.INSTANCE,
+            Label.parseCanonicalUnchecked("//label:c"), FeatureFlagValue.DefaultValue.INSTANCE);
     assertThat(options.get(ConfigFeatureFlagOptions.class).allFeatureFlagValuesArePresent)
         .isFalse();
     assertThat(getKnownDefaultFlags(options))
@@ -230,7 +233,7 @@ public final class FeatureFlagValueTest {
 
     options = FeatureFlagValue.trimFlagValues(options, ImmutableSet.of());
 
-    assertThat(FeatureFlagValue.getFlagValues(options)).isEmpty();
+    assertThat(options.getStarlarkOptions()).isEmpty();
     assertThat(options.get(ConfigFeatureFlagOptions.class).allFeatureFlagValuesArePresent)
         .isFalse();
     assertThat(getKnownDefaultFlags(options)).isEmpty();
@@ -263,14 +266,11 @@ public final class FeatureFlagValueTest {
                 Label.parseCanonicalUnchecked("//label:b"),
                 Label.parseCanonicalUnchecked("//label:c")));
 
-    final BuildOptions testedOptions = options;
-
-    FeatureFlagValue.UnknownValueException unknownValueException =
-        assertThrows(
-            FeatureFlagValue.UnknownValueException.class,
-            () -> FeatureFlagValue.getFlagValues(testedOptions));
-    assertThat(unknownValueException.getUnknownFlags())
-        .containsExactly(Label.parseCanonicalUnchecked("//label:c"));
+    assertThat(options.getStarlarkOptions())
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//label:a"), FeatureFlagValue.SetValue.of("value"),
+            Label.parseCanonicalUnchecked("//label:b"), FeatureFlagValue.DefaultValue.INSTANCE,
+            Label.parseCanonicalUnchecked("//label:c"), FeatureFlagValue.UnknownValue.INSTANCE);
   }
 
   @Test

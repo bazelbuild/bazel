@@ -24,6 +24,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions.BesUploadMode;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
@@ -66,6 +67,7 @@ abstract class FileTransport implements BuildEventTransport {
   private final BuildEventArtifactUploader uploader;
   private final SequentialWriter writer;
   private final ArtifactGroupNamer namer;
+  private final BesUploadMode besUploadMode;
 
   private final ScheduledExecutorService timeoutExecutor =
       MoreExecutors.listeningDecorator(
@@ -76,12 +78,14 @@ abstract class FileTransport implements BuildEventTransport {
       BufferedOutputStream outputStream,
       BuildEventProtocolOptions options,
       BuildEventArtifactUploader uploader,
-      ArtifactGroupNamer namer) {
+      ArtifactGroupNamer namer,
+      BesUploadMode besUploadMode) {
     this.uploader = uploader;
     this.options = options;
     this.writer =
         new SequentialWriter(outputStream, this::serializeEvent, uploader, timeoutExecutor);
     this.namer = namer;
+    this.besUploadMode = besUploadMode;
   }
 
   @ThreadSafe
@@ -170,8 +174,7 @@ abstract class FileTransport implements BuildEventTransport {
       // Print a more useful error message when the upload times out.
       // An {@link ExecutionException} may be wrapping a {@link TimeoutException} if the
       // Future was created with {@link Futures#withTimeout}.
-      if (e instanceof ExecutionException
-          && e.getCause() instanceof TimeoutException) {
+      if (e instanceof ExecutionException && e.getCause() instanceof TimeoutException) {
         message = "Unable to write all BEP events to file due to timeout";
       } else {
         message =
@@ -320,6 +323,11 @@ abstract class FileTransport implements BuildEventTransport {
   }
 
   @Override
+  public BesUploadMode getBesUploadMode() {
+    return besUploadMode;
+  }
+
+  @Override
   public BuildEventArtifactUploader getUploader() {
     return uploader;
   }
@@ -329,4 +337,3 @@ abstract class FileTransport implements BuildEventTransport {
     return writer.getFlushInterval();
   }
 }
-

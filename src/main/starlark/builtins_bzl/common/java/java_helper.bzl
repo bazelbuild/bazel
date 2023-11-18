@@ -14,10 +14,10 @@
 
 """Common util functions for java_* rules"""
 
-load(":common/java/java_semantics.bzl", "semantics")
-load(":common/cc/cc_helper.bzl", "cc_helper")
-load(":common/paths.bzl", "paths")
 load(":common/cc/cc_common.bzl", "cc_common")
+load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/java/java_semantics.bzl", "semantics")
+load(":common/paths.bzl", "paths")
 
 testing = _builtins.toplevel.testing
 
@@ -47,12 +47,9 @@ def _filter_launcher_for_target(ctx):
         return None
 
     # BUILD rule "launcher" attribute
-    if hasattr(ctx.attr, "launcher") and ctx.attr.launcher:
+    if ctx.attr.launcher and cc_common.launcher_provider in ctx.attr.launcher:
         return ctx.attr.launcher
 
-    # Blaze flag --java_launcher
-    if hasattr(ctx.attr, "_java_launcher") and ctx.attr._java_launcher:
-        return ctx.attr._java_launcher
     return None
 
 def _launcher_artifact_for_target(ctx):
@@ -206,7 +203,9 @@ def _jar_and_target_arg_mapper(jar):
     return jar.path + "," + str(jar.owner)
 
 def _get_feature_config(ctx):
-    cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
+    cc_toolchain = cc_helper.find_cpp_toolchain(ctx, mandatory = False)
+    if not cc_toolchain:
+        return None
     feature_config = cc_common.configure_features(
         ctx = ctx,
         cc_toolchain = cc_toolchain,
@@ -226,11 +225,11 @@ def _should_strip_as_default(ctx, feature_config):
 
     return strip_as_default
 
-def _get_coverage_config(ctx):
+def _get_coverage_config(ctx, runner):
     toolchain = semantics.find_java_toolchain(ctx)
     if not ctx.configuration.coverage_enabled:
         return None
-    runner = semantics.get_coverage_runner(ctx) if ctx.attr.create_executable else None
+    runner = runner if ctx.attr.create_executable else None
     manifest = ctx.actions.declare_file("runtime_classpath_for_coverage/%s/runtime_classpath.txt" % ctx.label.name)
     singlejar = toolchain.single_jar
     return struct(
@@ -275,7 +274,10 @@ def _test_providers(ctx):
     test_env = {}
     test_env.update(cc_helper.get_expanded_env(ctx, {}))
 
-    coverage_config = _get_coverage_config(ctx)
+    coverage_config = _get_coverage_config(
+        ctx,
+        runner = None,  # we only need the environment
+    )
     if coverage_config:
         test_env.update(coverage_config.env)
     test_providers.append(testing.TestEnvironment(
@@ -285,7 +287,160 @@ def _test_providers(ctx):
 
     return test_providers
 
-util = struct(
+def _executable_providers(ctx):
+    if ctx.attr.create_executable:
+        return [_builtins.toplevel.RunEnvironmentInfo(cc_helper.get_expanded_env(ctx, {}))]
+    return []
+
+def _resource_mapper(file):
+    return "%s:%s" % (
+        file.path,
+        semantics.get_default_resource_path(file.short_path, segment_extractor = _java_segments),
+    )
+
+def _create_single_jar(
+        actions,
+        toolchain,
+        output,
+        sources = depset(),
+        resources = depset(),
+        mnemonic = "JavaSingleJar",
+        progress_message = "Building singlejar jar %{output}",
+        build_target = None,
+        output_creator = None):
+    """Register singlejar action for the output jar.
+
+    Args:
+      actions: (actions) ctx.actions
+      toolchain: (JavaToolchainInfo) The java toolchain
+      output: (File) Output file of the action.
+      sources: (depset[File]) The jar files to merge into the output jar.
+      resources: (depset[File]) The files to add to the output jar.
+      mnemonic: (str) The action identifier
+      progress_message: (str) The action progress message
+      build_target: (Label) The target label to stamp in the manifest. Optional.
+      output_creator: (str) The name of the tool to stamp in the manifest. Optional,
+          defaults to 'singlejar'
+    Returns:
+      (File) Output file which was used for registering the action.
+    """
+    args = actions.args()
+    args.set_param_file_format("shell").use_param_file("@%s", use_always = True)
+    args.add("--output", output)
+    args.add_all(
+        [
+            "--compression",
+            "--normalize",
+            "--exclude_build_data",
+            "--warn_duplicate_resources",
+        ],
+    )
+    args.add_all("--sources", sources)
+    args.add_all("--resources", resources, map_each = _resource_mapper)
+
+    args.add("--build_target", build_target)
+    args.add("--output_jar_creator", output_creator)
+
+    actions.run(
+        mnemonic = mnemonic,
+        progress_message = progress_message,
+        executable = toolchain.single_jar,
+        toolchain = semantics.JAVA_TOOLCHAIN_TYPE,
+        inputs = depset(transitive = [resources, sources]),
+        tools = [toolchain.single_jar],
+        outputs = [output],
+        arguments = [args],
+    )
+    return output
+
+# TODO(hvd): use skylib shell.quote()
+def _shell_escape(s):
+    """Shell-escape a string
+
+    Quotes a word so that it can be used, without further quoting, as an argument
+    (or part of an argument) in a shell command.
+
+    Args:
+        s: (str) the string to escape
+
+    Returns:
+        (str) the shell-escaped string
+    """
+    if not s:
+        # Empty string is a special case: needs to be quoted to ensure that it
+        # gets treated as a separate argument.
+        return "''"
+    for c in s.elems():
+        # We do this positively so as to be sure we don't inadvertently forget
+        # any unsafe characters.
+        if not c.isalnum() and c not in "@%-_+:,./":
+            return "'" + s.replace("'", "'\\''") + "'"
+    return s
+
+def _tokenize_javacopts(ctx, opts):
+    """Tokenizes a list or depset of options to a list.
+
+    Iff opts is a depset, we reverse the flattened list to ensure right-most
+    duplicates are preserved in their correct position.
+
+    Args:
+        ctx: (RuleContext) the rule context
+        opts: (depset[str]|[str]) the javac options to tokenize
+    Returns:
+        [str] list of tokenized options
+    """
+    if hasattr(opts, "to_list"):
+        opts = reversed(opts.to_list())
+    return [
+        token
+        for opt in opts
+        for token in ctx.tokenize(opt)
+    ]
+
+def _detokenize_javacopts(opts):
+    """Detokenizes a list of options to a depset.
+
+    Args:
+        opts: ([str]) the javac options to detokenize
+
+    Returns:
+        (depset[str]) depset of detokenized options
+    """
+    return depset(
+        [" ".join([_shell_escape(opt) for opt in opts])],
+        order = "preorder",
+    )
+
+def _derive_output_file(ctx, base_file, *, name_suffix = "", extension = None, extension_suffix = ""):
+    """Declares a new file whose name is derived from the given file
+
+    This method allows appending a suffix to the name (before extension), changing
+    the extension or appending a suffix after the extension. The new file is declared
+    as a sibling of the given base file. At least one of the three options must be
+    specified. It is an error to specify both `extension` and `extension_suffix`.
+
+    Args:
+        ctx: (RuleContext) the rule context.
+        base_file: (File) the file from which to derive the resultant file.
+        name_suffix: (str) Optional. The suffix to append to the name before the
+        extension.
+        extension: (str) Optional. The new extension to use (without '.'). By default,
+        the base_file's extension is used.
+        extension_suffix: (str) Optional. The suffix to append to the base_file's extension
+
+    Returns:
+        (File) the derived file
+    """
+    if not name_suffix and not extension_suffix and not extension:
+        fail("At least one of name_suffix, extension or extension_suffix is required")
+    if extension and extension_suffix:
+        fail("only one of extension or extension_suffix can be specified")
+    if extension == None:
+        extension = base_file.extension
+    new_basename = paths.replace_extension(base_file.basename, name_suffix + "." + extension + extension_suffix)
+    return ctx.actions.declare_file(new_basename, sibling = base_file)
+
+helper = struct(
     collect_all_targets_as_deps = _collect_all_targets_as_deps,
     filter_launcher_for_target = _filter_launcher_for_target,
     launcher_artifact_for_target = _launcher_artifact_for_target,
@@ -305,4 +460,10 @@ util = struct(
     runfiles_enabled = _runfiles_enabled,
     get_test_support = _get_test_support,
     test_providers = _test_providers,
+    executable_providers = _executable_providers,
+    create_single_jar = _create_single_jar,
+    shell_escape = _shell_escape,
+    tokenize_javacopts = _tokenize_javacopts,
+    detokenize_javacopts = _detokenize_javacopts,
+    derive_output_file = _derive_output_file,
 )

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.collect.nestedset;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
@@ -124,7 +125,11 @@ public class NestedSetStore {
 
     @Override
     public ListenableFuture<byte[]> get(ByteString fingerprint) {
-      return immediateFuture(fingerprintToContents.get(fingerprint));
+      byte[] serializedBytes = fingerprintToContents.get(fingerprint);
+      if (serializedBytes == null) {
+        return immediateFailedFuture(new MissingNestedSetException(fingerprint));
+      }
+      return immediateFuture(serializedBytes);
     }
   }
 
@@ -316,6 +321,10 @@ public class NestedSetStore {
         Futures.transformAsync(
             retrieved,
             bytes -> {
+              // The future should have failed with MissingNestedSetException if the fingerprint
+              // was not present in the NestedSetStorageEndpoint.
+              checkNotNull(bytes);
+
               Duration fetchDuration = fetchStopwatch.elapsed();
               if (FETCH_FROM_STORAGE_LOGGING_THRESHOLD.compareTo(fetchDuration) < 0) {
                 logger.atInfo().log(

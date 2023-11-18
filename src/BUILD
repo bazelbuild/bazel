@@ -1,9 +1,9 @@
 # Packaging
 
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
+load("//src:release_archive.bzl", "release_archive")
 load(":embedded_tools.bzl", "srcsfile")
 load(":rule_size_test.bzl", "rule_size_test")
-load("//src:release_archive.bzl", "release_archive")
 
 package(default_applicable_licenses = ["@io_bazel//:license"])
 
@@ -23,7 +23,8 @@ md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
         "//src/main/tools:process-wrapper",
         "//src/main/tools:linux-sandbox",
         "//tools/osx:xcode-locator",
-        ":platforms_archive",
+        "//:platforms-srcs",
+        "//:rules_java-srcs",
     ] + select({
         "//src/conditions:windows": [],
         "//conditions:default": [
@@ -126,7 +127,11 @@ JAVA_TOOLS = [
     ],
 ) for suffix, jdk in {
     "_jdk_allmodules": [":embedded_jdk_allmodules"],
-    "_jdk_minimal": [":embedded_jdk_minimal"],
+    "_jdk_minimal": select({
+        # We cannot minimize the JDK during cross compiling for Windows arm64
+        "//src/conditions:windows_arm64": [":embedded_jdk_vanilla"],
+        "//conditions:default": [":embedded_jdk_minimal"],
+    }),
     "_nojdk": [],
 }.items()]
 
@@ -149,8 +154,11 @@ filegroup(
         "//src/conditions:darwin_arm64": [
             "@openjdk_macos_aarch64_vanilla//file",
         ],
-        "//src/conditions:windows": [
+        "//src/conditions:windows_x86_64": [
             "@openjdk_win_vanilla//file",
+        ],
+        "//src/conditions:windows_arm64": [
+            "@openjdk_win_arm64_vanilla//file",
         ],
         "//src/conditions:linux_aarch64": [
             "@openjdk_linux_aarch64_vanilla//file",
@@ -236,7 +244,8 @@ genrule(
     srcs = ([":embedded_tools" + suffix + ".zip"] if embed else []) + [
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
         "install_base_key" + suffix,
-        ":platforms_archive",
+        "//:platforms-srcs",
+        "//:rules_java-srcs",
         # Non-ordered items follow:
         "//src/main/java/net/starlark/java/eval:cpu_profiler",
         "//src/main/tools:build-runfiles",
@@ -267,15 +276,6 @@ genrule(
         "//src/conditions:openbsd": "cat $(SRCS) | sed -e 's@#!/bin/bash@#!/usr/local/bin/bash@' > $@",
         "//conditions:default": "cp $(SRCS) $@",
     }),
-)
-
-genrule(
-    name = "platforms_archive",
-    srcs = ["@platforms//:srcs"],
-    outs = ["platforms.zip"],
-    # Removing the WORKSPACE file since local_repository creates it no matter what and leaving
-    # it there would make the zip nondeterministic.
-    cmd = "zip -qX $@ $$(echo $(SRCS) | xargs -n 1 | grep -v '.*/WORKSPACE$$' | sort | xargs)",
 )
 
 [genrule(
@@ -372,8 +372,10 @@ filegroup(
         "//src/test/shell:srcs",
         "//src/test/testdata/test_tls_certificate",
         "//src/test/tools:srcs",
+        "//src/test/tools/bzlmod:srcs",
         "//src/tools/android:srcs",
         "//src/tools/android/java/com/google/devtools/build/android:srcs",
+        "//src/tools/bzlmod:srcs",
         "//src/tools/execlog:srcs",
         "//src/tools/launcher:srcs",
         "//src/tools/remote:srcs",
@@ -484,6 +486,13 @@ release_archive(
     ],
 )
 
+release_archive(
+    name = "turbine_direct_graal_zip",
+    srcs = ["//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_direct_graal"],
+    package_dir = "java_tools",
+    visibility = ["//visibility:private"],
+)
+
 # Following target builds java_tools_prebuilt.zip part of java_tools
 release_archive(
     name = "java_tools_prebuilt_zip",
@@ -492,6 +501,7 @@ release_archive(
     },
     visibility = ["//src/test/shell/bazel:__pkg__"],
     deps = [
+        ":turbine_direct_graal_zip",
         "//src/tools/singlejar:singlejar_deploy_zip",
         "//third_party/ijar:ijar_deploy_zip",
     ],
@@ -560,41 +570,33 @@ filegroup(
     name = "test_repos",
     srcs = [
         "@android_gmaven_r8//jar:file",
-        "@android_tools_for_testing//:WORKSPACE",
+        "@android_tools//:all_android_tools_deploy.jar",
         "@bazel_skylib//:WORKSPACE",
-        "@com_google_protobuf//:WORKSPACE",
-        "@remote_coverage_tools//:WORKSPACE",
-        "@remote_java_tools_darwin_arm64_for_testing//:WORKSPACE",
-        "@remote_java_tools_darwin_x86_64_for_testing//:WORKSPACE",
-        "@remote_java_tools_for_testing//:WORKSPACE",
-        "@remote_java_tools_linux_for_testing//:WORKSPACE",
-        "@remote_java_tools_test//:WORKSPACE",
-        "@remote_java_tools_test_darwin_arm64//:WORKSPACE",
-        "@remote_java_tools_test_darwin_x86_64//:WORKSPACE",
-        "@remote_java_tools_test_linux//:WORKSPACE",
-        "@remote_java_tools_test_windows//:WORKSPACE",
-        "@remote_java_tools_windows_for_testing//:WORKSPACE",
-        "@remotejdk11_linux_aarch64_for_testing//:WORKSPACE",
-        "@remotejdk11_linux_for_testing//:WORKSPACE",
-        "@remotejdk11_linux_ppc64le_for_testing//:WORKSPACE",
-        "@remotejdk11_linux_s390x_for_testing//:WORKSPACE",
-        "@remotejdk11_macos_aarch64_for_testing//:WORKSPACE",
-        "@remotejdk11_macos_for_testing//:WORKSPACE",
-        "@remotejdk11_win_arm64_for_testing//:WORKSPACE",
-        "@remotejdk11_win_for_testing//:WORKSPACE",
-        "@rules_cc//:WORKSPACE",
+        "@com_google_protobuf//:LICENSE",
+        "@remote_coverage_tools//:all_lcov_merger_lib",
+        "@remote_java_tools//:GenClass",
+        "@remote_java_tools_darwin_arm64//:java_tools/src/tools/singlejar/singlejar_local",
+        "@remote_java_tools_darwin_x86_64//:java_tools/src/tools/singlejar/singlejar_local",
+        "@remote_java_tools_linux//:java_tools/src/tools/singlejar/singlejar_local",
+        "@remote_java_tools_windows//:java_tools/src/tools/singlejar/singlejar_local.exe",
+        "@remotejdk11_linux//:WORKSPACE",
+        "@remotejdk11_linux_aarch64//:WORKSPACE",
+        "@remotejdk11_macos//:WORKSPACE",
+        "@remotejdk11_macos_aarch64//:WORKSPACE",
+        "@remotejdk11_win//:WORKSPACE",
+        "@rules_cc//:LICENSE",
         "@rules_java//:WORKSPACE",
+        "@rules_license//:WORKSPACE",
         "@rules_pkg//:WORKSPACE",
-        "@rules_proto//:WORKSPACE",
+        "@rules_proto//proto:defs",
         "@rules_python//:WORKSPACE",
-        "@rules_testing//:WORKSPACE.bazel",
+        "@rules_testing//:LICENSE",
     ] + [
-        "@openjdk%s_%s_archive//:WORKSPACE" % (version, os)
-        for version in ("17", "20")
-        for os in ("darwin", "darwin_aarch64", "linux", "windows") + (("linux_s390x", "windows_arm64") if version != "20" else ())
+        "@remotejdk%s_%s//:WORKSPACE" % (version, os)
+        for version in ("17", "21")
+        for os in ("macos", "macos_aarch64", "linux", "win")
     ] + [
-        "@remotejdk%s_%s_for_testing//:WORKSPACE" % (version, os)
-        for version in ("17", "20")
-        for os in ("macos", "macos_aarch64", "linux", "win") + (("linux_s390x", "win_arm64") if version != "20" else ())
+        "@bazel_tools_repo_cache//:files",
+        "@workspace_repo_cache//:files",
     ],
 )

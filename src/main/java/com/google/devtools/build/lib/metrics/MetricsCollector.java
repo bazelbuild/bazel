@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.metrics;
 
-
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
@@ -21,6 +20,7 @@ import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.actions.AnalysisGraphStatsEvent;
 import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
+import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseStartedEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TimingMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerPoolMetrics;
 import com.google.devtools.build.lib.buildtool.BuildPrecompleteEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochConverter;
@@ -59,7 +60,9 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTarge
 import com.google.devtools.build.lib.worker.WorkerCreatedEvent;
 import com.google.devtools.build.lib.worker.WorkerDestroyedEvent;
 import com.google.devtools.build.lib.worker.WorkerEvictedEvent;
-import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
+import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
+import com.google.devtools.build.lib.worker.WorkerProcessStatus;
+import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.util.Durations;
@@ -108,7 +111,7 @@ class MetricsCollector {
     this.numAnalyses = numAnalyses;
     this.numBuilds = numBuilds;
     env.getEventBus().register(this);
-    WorkerMetricsCollector.instance().setClock(env.getClock());
+    WorkerProcessMetricsCollector.instance().setClock(env.getClock());
     this.buildAccountedFor = new AtomicBoolean();
   }
 
@@ -177,12 +180,19 @@ class MetricsCollector {
     numBuilds.getAndIncrement();
   }
 
+  // Skymeld-specific: we don't have an ExecutionStartingEvent for skymeld, so we have to use
+  // TopLevelTargetExecutionStartedEvent
   @Subscribe
-  public synchronized void accountForBuild(
+  public synchronized void handleExecutionPhaseStart(
       @SuppressWarnings("unused") TopLevelTargetPendingExecutionEvent event) {
-    if (buildAccountedFor.compareAndSet(/*expectedValue=*/ false, /*newValue=*/ true)) {
+    if (buildAccountedFor.compareAndSet(/* expectedValue= */ false, /* newValue= */ true)) {
       numBuilds.getAndIncrement();
     }
+  }
+
+  @Subscribe
+  public void handleExecutionPhaseComplete(ExecutionPhaseCompleteEvent event) {
+    timingMetrics.setExecutionPhaseTimeInMs(event.getTimeInMs());
   }
 
   @Subscribe
@@ -191,7 +201,7 @@ class MetricsCollector {
       WorkerPoolStats stats =
           getWorkerPoolStatsOrInsert(event.getWorkerPoolHash(), event.getMnemonic());
 
-      stats.incrementDestroyedCount();
+      stats.incrementDestroyedCount(event.getStatus());
     }
   }
 
@@ -230,7 +240,7 @@ class MetricsCollector {
     ActionStats actionStats =
         actionStatsMap.computeIfAbsent(event.getAction().getMnemonic(), ActionStats::new);
     actionStats.numActions.incrementAndGet();
-    actionStats.firstStarted.accumulate(event.getRelativeActionStartTime());
+    actionStats.firstStarted.accumulate(event.getRelativeActionStartTimeNanos());
     actionStats.lastEnded.accumulate(BlazeClock.nanoTime());
     spawnStats.incrementActionCount();
   }
@@ -283,6 +293,12 @@ class MetricsCollector {
     env.getEventBus().post(new BuildMetricsEvent(createBuildMetrics()));
   }
 
+  @SuppressWarnings("unused")
+  @Subscribe
+  private void logActionCacheStatistics(ActionCacheStatistics stats) {
+    actionSummary.setActionCacheStatistics(stats);
+  }
+
   private BuildMetrics createBuildMetrics() {
     BuildMetrics.Builder buildMetrics =
         BuildMetrics.newBuilder()
@@ -294,7 +310,8 @@ class MetricsCollector {
             .setCumulativeMetrics(createCumulativeMetrics())
             .setArtifactMetrics(artifactMetrics.build())
             .setBuildGraphMetrics(buildGraphMetrics.build())
-            .addAllWorkerMetrics(WorkerMetricsCollector.instance().createWorkerMetricsProto())
+            .addAllWorkerMetrics(
+                WorkerProcessMetricsCollector.instance().getPublishedWorkerMetrics())
             .setWorkerPoolMetrics(createWorkerPoolMetrics());
 
     NetworkMetrics networkMetrics = NetworkMetricsCollector.instance().collectMetrics();
@@ -411,15 +428,9 @@ class MetricsCollector {
     WorkerPoolMetrics.Builder metricsBuilder = WorkerPoolMetrics.newBuilder();
 
     workerPoolStats.forEach(
-        (workerPoolHash, workerStats) ->
+        (workerPoolHash, poolStats) ->
             metricsBuilder.addWorkerPoolStats(
-                WorkerPoolMetrics.WorkerPoolStats.newBuilder()
-                    .setHash(workerPoolHash)
-                    .setMnemonic(workerStats.getMnemonic())
-                    .setCreatedCount(workerStats.getCreatedCount())
-                    .setDestroyedCount(workerStats.getDestroyedCount())
-                    .setEvictedCount(workerStats.getEvictedCount())
-                    .build()));
+                poolStats.toProtoBuilder().setHash(workerPoolHash).build()));
 
     return metricsBuilder.build();
   }
@@ -428,6 +439,9 @@ class MetricsCollector {
     private int createdCount;
     private int destroyedCount;
     private int evictedCount;
+    private int userExecExceptionDestroyedCount;
+    private int ioExceptionDestroyedCount;
+    private int interruptedExceptionDestroyedCount;
     private final String mnemonic;
 
     WorkerPoolStats(String mnemonic) {
@@ -438,7 +452,17 @@ class MetricsCollector {
       createdCount++;
     }
 
-    void incrementDestroyedCount() {
+    void incrementDestroyedCount(WorkerProcessStatus status) {
+      // TODO(b/310640400): We ignore KILLED_DUE_TO_MEMORY_PRESSURE for now since that's already
+      //  accounted for by WorkerEvictedEvent. An evicted worker is destroyed, so it doesn't make
+      //  sense that we treat it differently from WorkerDestroyedEvent.
+      if (status.get() == Status.KILLED_DUE_TO_USER_EXEC_EXCEPTION) {
+        userExecExceptionDestroyedCount++;
+      } else if (status.get() == Status.KILLED_DUE_TO_IO_EXCEPTION) {
+        ioExceptionDestroyedCount++;
+      } else if (status.get() == Status.KILLED_DUE_TO_INTERRUPTED_EXCEPTION) {
+        interruptedExceptionDestroyedCount++;
+      }
       destroyedCount++;
     }
 
@@ -446,20 +470,15 @@ class MetricsCollector {
       evictedCount++;
     }
 
-    public int getCreatedCount() {
-      return createdCount;
-    }
-
-    public int getDestroyedCount() {
-      return destroyedCount;
-    }
-
-    public String getMnemonic() {
-      return mnemonic;
-    }
-
-    public int getEvictedCount() {
-      return evictedCount;
+    public WorkerPoolMetrics.WorkerPoolStats.Builder toProtoBuilder() {
+      return WorkerPoolMetrics.WorkerPoolStats.newBuilder()
+          .setMnemonic(mnemonic)
+          .setCreatedCount(createdCount)
+          .setDestroyedCount(destroyedCount)
+          .setEvictedCount(evictedCount)
+          .setUserExecExceptionDestroyedCount(userExecExceptionDestroyedCount)
+          .setIoExceptionDestroyedCount(ioExceptionDestroyedCount)
+          .setInterruptedExceptionDestroyedCount(interruptedExceptionDestroyedCount);
     }
   }
 

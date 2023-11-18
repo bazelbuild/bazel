@@ -69,7 +69,7 @@ public class AspectAwareAttributeMapperTest extends BuildViewTestCase {
 
   @Test
   public void getName() throws Exception {
-    assertThat(mapper.getName()).isEqualTo(rule.getName());
+    assertThat(mapper.getLabel().getName()).isEqualTo(rule.getName());
   }
 
   @Test
@@ -105,7 +105,8 @@ public class AspectAwareAttributeMapperTest extends BuildViewTestCase {
         assertThrows(IllegalArgumentException.class, () -> mapper.get("noexist", BuildType.LABEL));
     assertThat(e)
         .hasMessageThat()
-        .isEqualTo("no attribute 'noexist' in either //foo:myrule or its aspects");
+        .matches(
+            "no attribute 'noexist' in either cc_binary //foo:myrule \\([^)]+\\) or its aspects");
   }
 
   @Test

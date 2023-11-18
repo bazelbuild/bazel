@@ -1,4 +1,4 @@
-// Copyright 2018 The Bazel Authors. All rights reserved.
+// Copyright 2023 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,10 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -24,10 +26,27 @@ import java.util.Map;
 
 /** Timing, size, and memory statistics for a Spawn execution. */
 @SuppressWarnings("GoodTime") // Use ints instead of Durations to improve build time (cl/505728570)
-public final class SpawnMetrics {
+public class SpawnMetrics {
+
+  SpawnMetrics(Builder builder) {
+    this.execKind = builder.execKind;
+    this.totalTimeInMs = builder.totalTimeInMs;
+    this.parseTimeInMs = builder.parseTimeInMs;
+    this.networkTimeInMs = builder.networkTimeInMs;
+    this.fetchTimeInMs = builder.fetchTimeInMs;
+    this.queueTimeInMs = builder.queueTimeInMs;
+    this.setupTimeInMs = builder.setupTimeInMs;
+    this.uploadTimeInMs = builder.uploadTimeInMs;
+    this.executionWallTimeInMs = builder.executionWallTimeInMs;
+    this.retryTimeInMs = ImmutableMap.copyOf(builder.retryTimeInMs);
+    this.processOutputsTimeInMs = builder.processOutputsTimeInMs;
+    this.inputBytes = builder.inputBytes;
+    this.inputFiles = builder.inputFiles;
+    this.memoryEstimateBytes = builder.memoryEstimateBytes;
+  }
 
   /** Indicates whether the metrics correspond to the remote, local or worker execution. */
-  public static enum ExecKind {
+  public enum ExecKind {
     REMOTE("Remote"),
     LOCAL("Local"),
     WORKER("Worker"),
@@ -39,7 +58,7 @@ public final class SpawnMetrics {
 
     private final String name;
 
-    private ExecKind(String name) {
+    ExecKind(String name) {
       this.name = name;
     }
 
@@ -49,59 +68,91 @@ public final class SpawnMetrics {
     }
   }
 
-  /** Any non important stats < than 10% will not be shown in the summary. */
-  private static final double STATS_SHOW_THRESHOLD = 0.10;
+  ExecKind execKind;
+  int totalTimeInMs;
+  int parseTimeInMs;
+  int fetchTimeInMs;
+  int queueTimeInMs;
+  int uploadTimeInMs;
+  int setupTimeInMs;
+  int executionWallTimeInMs;
+  int processOutputsTimeInMs;
+  int networkTimeInMs;
+  // error code to duration in ms
+  ImmutableMap<Integer, Integer> retryTimeInMs;
+  long inputBytes;
+  long inputFiles;
+  long memoryEstimateBytes;
+
+  /** Any non-important stats < than 10% will not be shown in the summary. */
+  static final double STATS_SHOW_THRESHOLD = 0.10;
 
   public static SpawnMetrics forLocalExecution(int wallTimeInMs) {
-    return Builder.forLocalExec()
+    return SpawnMetrics.Builder.forLocalExec()
         .setTotalTimeInMs(wallTimeInMs)
         .setExecutionWallTimeInMs(wallTimeInMs)
         .build();
   }
 
-  private final ExecKind execKind;
-  private final int totalTimeInMs;
-  private final int parseTimeInMs;
-  private final int fetchTimeInMs;
-  private final int queueTimeInMs;
-  private final int uploadTimeInMs;
-  private final int setupTimeInMs;
-  private final int executionWallTimeInMs;
-  private final int processOutputsTimeInMs;
-  private final int networkTimeInMs;
-  // error code to duration in ms
-  private final Map<Integer, Integer> retryTimeInMs;
-  private final long inputBytes;
-  private final long inputFiles;
-  private final long memoryEstimateBytes;
-  private final long inputBytesLimit;
-  private final long inputFilesLimit;
-  private final long outputBytesLimit;
-  private final long outputFilesLimit;
-  private final long memoryBytesLimit;
-  private final int timeLimitInMs;
+  /**
+   * Generates a String representation of the stats.
+   *
+   * @param total total time in milliseconds used to compute the percentages
+   * @param summary whether to exclude input file count and sizes, and memory estimates
+   */
+  public String toString(int total, boolean summary) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("(");
+    sb.append(prettyPercentage(totalTimeInMs, total));
+    sb.append(" of the time): [");
+    List<String> stats = new ArrayList<>(8);
+    addStatToString(stats, "parse", !summary, parseTimeInMs, total);
+    addStatToString(stats, "queue", true, queueTimeInMs, total);
+    addStatToString(stats, "network", !summary, networkTimeInMs, total);
+    addStatToString(stats, "upload", !summary, uploadTimeInMs, total);
+    addStatToString(stats, "setup", true, setupTimeInMs, total);
+    addStatToString(stats, "process", true, executionWallTimeInMs, total);
+    addStatToString(stats, "fetch", !summary, fetchTimeInMs, total);
+    addStatToString(stats, "retry", !summary, retryTimeInMs(), total);
+    addStatToString(stats, "processOutputs", !summary, processOutputsTimeInMs, total);
+    addStatToString(stats, "other", !summary, otherTimeInMs(), total);
+    if (!summary) {
+      stats.add("input files: " + inputFiles);
+      stats.add("input bytes: " + inputBytes);
+      stats.add("memory bytes: " + memoryEstimateBytes);
+    }
+    Joiner.on(", ").appendTo(sb, stats);
+    sb.append("]");
+    return sb.toString();
+  }
 
-  private SpawnMetrics(Builder builder) {
-    this.execKind = builder.execKind;
-    this.totalTimeInMs = builder.totalTimeInMs;
-    this.parseTimeInMs = builder.parseTimeInMs;
-    this.networkTimeInMs = builder.networkTimeInMs;
-    this.fetchTimeInMs = builder.fetchTimeInMs;
-    this.queueTimeInMs = builder.queueTimeInMs;
-    this.setupTimeInMs = builder.setupTimeInMs;
-    this.uploadTimeInMs = builder.uploadTimeInMs;
-    this.executionWallTimeInMs = builder.executionWallTimeInMs;
-    this.retryTimeInMs = builder.retryTimeInMs;
-    this.processOutputsTimeInMs = builder.processOutputsTimeInMs;
-    this.inputBytes = builder.inputBytes;
-    this.inputFiles = builder.inputFiles;
-    this.memoryEstimateBytes = builder.memoryEstimateBytes;
-    this.inputBytesLimit = builder.inputBytesLimit;
-    this.inputFilesLimit = builder.inputFilesLimit;
-    this.outputBytesLimit = builder.outputBytesLimit;
-    this.outputFilesLimit = builder.outputFilesLimit;
-    this.memoryBytesLimit = builder.memoryBytesLimit;
-    this.timeLimitInMs = builder.timeLimitInMs;
+  /**
+   * Add to {@code strings} the string representation of {@code name} component. If {@code
+   * forceShow} is set to false it will only show if it is above certain threshold.
+   */
+  private static void addStatToString(
+      List<String> strings, String name, boolean forceShow, int time, int totalTime) {
+    if (forceShow || isAboveThreshold(time, totalTime)) {
+      strings.add(name + ": " + prettyPercentage(time, totalTime));
+    }
+  }
+
+  private static boolean isAboveThreshold(int time, int totalTime) {
+    return totalTime > 0 && (((float) time / totalTime) >= STATS_SHOW_THRESHOLD);
+  }
+
+  /**
+   * Converts relative duration to the percentage string.
+   *
+   * @return formatted percentage string or "N/A" if result is undefined
+   */
+  private static String prettyPercentage(int duration, int total) {
+    // Duration.toMillis() != 0 does not imply !Duration.isZero() (due to truncation).
+    if (total == 0) {
+      // Return "not available" string if total is 0 and result is undefined.
+      return "N/A";
+    }
+    return String.format(Locale.US, "%.2f%%", duration * 100.0 / total);
   }
 
   /** The kind of execution the metrics refer to (remote/local/worker). */
@@ -109,7 +160,7 @@ public final class SpawnMetrics {
     return execKind;
   }
 
-  /** Returns true if {@link #totalTime()} is zero. */
+  /** Returns true if {@link #totalTimeInMs()} is zero. */
   public boolean isEmpty() {
     return totalTimeInMs == 0;
   }
@@ -220,99 +271,32 @@ public final class SpawnMetrics {
 
   /** Limit of total size in bytes of inputs or 0 if unavailable. */
   public long inputBytesLimit() {
-    return inputBytesLimit;
+    return 0;
   }
 
   /** Limit of total number of input files or 0 if unavailable. */
   public long inputFilesLimit() {
-    return inputFilesLimit;
+    return 0;
   }
 
   /** Limit of total size in bytes of outputs or 0 if unavailable. */
   public long outputBytesLimit() {
-    return outputBytesLimit;
+    return 0;
   }
 
   /** Limit of total number of output files or 0 if unavailable. */
   public long outputFilesLimit() {
-    return outputFilesLimit;
+    return 0;
   }
 
   /** Memory limit or 0 if unavailable. */
   public long memoryLimit() {
-    return memoryBytesLimit;
+    return 0;
   }
 
   /** Time limit in milliseconds or 0 if unavailable. */
   public int timeLimitInMs() {
-    return timeLimitInMs;
-  }
-
-  /**
-   * Generates a String representation of the stats.
-   *
-   * @param total total time in milliseconds used to compute the percentages
-   * @param summary whether to exclude input file count and sizes, and memory estimates
-   */
-  public String toString(int total, boolean summary) {
-    StringBuilder sb = new StringBuilder();
-    sb.append("(");
-    sb.append(prettyPercentage(totalTimeInMs, total));
-    sb.append(" of the time): [");
-    List<String> stats = new ArrayList<>(8);
-    addStatToString(stats, "parse", !summary, parseTimeInMs, total);
-    addStatToString(stats, "queue", true, queueTimeInMs, total);
-    addStatToString(stats, "network", !summary, networkTimeInMs, total);
-    addStatToString(stats, "upload", !summary, uploadTimeInMs, total);
-    addStatToString(stats, "setup", true, setupTimeInMs, total);
-    addStatToString(stats, "process", true, executionWallTimeInMs, total);
-    addStatToString(stats, "fetch", !summary, fetchTimeInMs, total);
-    addStatToString(stats, "retry", !summary, retryTimeInMs(), total);
-    addStatToString(stats, "processOutputs", !summary, processOutputsTimeInMs, total);
-    addStatToString(stats, "other", !summary, otherTimeInMs(), total);
-    if (!summary) {
-      stats.add("input files: " + inputFiles);
-      stats.add("input bytes: " + inputBytes);
-      stats.add("memory bytes: " + memoryEstimateBytes);
-      stats.add("input files limit: " + inputFilesLimit);
-      stats.add("input bytes limit: " + inputBytesLimit);
-      stats.add("output files limit: " + outputFilesLimit);
-      stats.add("output bytes limit: " + outputBytesLimit);
-      stats.add("memory limit: " + memoryBytesLimit);
-      stats.add("time limit: " + timeLimitInMs / 1000 + " seconds");
-    }
-    Joiner.on(", ").appendTo(sb, stats);
-    sb.append("]");
-    return sb.toString();
-  }
-
-  /**
-   * Add to {@code strings} the string representation of {@code name} component. If {@code
-   * forceShow} is set to false it will only show if it is above certain threshold.
-   */
-  private static void addStatToString(
-      List<String> strings, String name, boolean forceShow, int time, int totalTime) {
-    if (forceShow || isAboveThreshold(time, totalTime)) {
-      strings.add(name + ": " + prettyPercentage(time, totalTime));
-    }
-  }
-
-  private static boolean isAboveThreshold(int time, int totalTime) {
-    return totalTime > 0 && (((float) time / totalTime) >= STATS_SHOW_THRESHOLD);
-  }
-
-  /**
-   * Converts relative duration to the percentage string.
-   *
-   * @return formatted percentage string or "N/A" if result is undefined
-   */
-  private static String prettyPercentage(int duration, int total) {
-    // Duration.toMillis() != 0 does not imply !Duration.isZero() (due to truncation).
-    if (total == 0) {
-      // Return "not available" string if total is 0 and result is undefined.
-      return "N/A";
-    }
-    return String.format(Locale.US, "%.2f%%", duration * 100.0 / total);
+    return 0;
   }
 
   /** Builder class for SpawnMetrics. */
@@ -331,12 +315,12 @@ public final class SpawnMetrics {
     private long inputBytes = 0;
     private long inputFiles = 0;
     private long memoryEstimateBytes = 0;
-    private long inputBytesLimit = 0;
-    private long inputFilesLimit = 0;
-    private long outputBytesLimit = 0;
-    private long outputFilesLimit = 0;
-    private long memoryBytesLimit = 0;
-    private int timeLimitInMs = 0;
+    long inputBytesLimit = 0;
+    long inputFilesLimit = 0;
+    long outputBytesLimit = 0;
+    long outputFilesLimit = 0;
+    long memoryBytesLimit = 0;
+    int timeLimitInMs = 0;
 
     public static Builder forLocalExec() {
       return forExec(ExecKind.LOCAL);
@@ -365,7 +349,15 @@ public final class SpawnMetrics {
     public SpawnMetrics build() {
       Preconditions.checkNotNull(execKind, "ExecKind must be explicitly set using `setExecKind`");
       // TODO(ulfjack): Add consistency checks here?
-      return new SpawnMetrics(this);
+      if (inputBytesLimit == 0
+          && inputFilesLimit == 0
+          && outputBytesLimit == 0
+          && outputFilesLimit == 0
+          && memoryBytesLimit == 0
+          && timeLimitInMs == 0) {
+        return new SpawnMetrics(this);
+      }
+      return new FullSpawnMetrics(this);
     }
 
     @CanIgnoreReturnValue
@@ -436,8 +428,8 @@ public final class SpawnMetrics {
     }
 
     @CanIgnoreReturnValue
-    public Builder setRetryTimeInMs(Map<Integer, Integer> retryTimeInMs) {
-      this.retryTimeInMs = new HashMap<>(retryTimeInMs);
+    public Builder setRetryTimeInMs(ImmutableMap<Integer, Integer> retryTimeInMs) {
+      this.retryTimeInMs = retryTimeInMs;
       return this;
     }
 
@@ -512,7 +504,7 @@ public final class SpawnMetrics {
       setupTimeInMs += metric.setupTimeInMs();
       executionWallTimeInMs += metric.executionWallTimeInMs();
       for (Map.Entry<Integer, Integer> entry : metric.retryTimeInMs.entrySet()) {
-        addRetryTimeInMs(entry.getKey().intValue(), entry.getValue());
+        addRetryTimeInMs(entry.getKey(), entry.getValue());
       }
       processOutputsTimeInMs += metric.processOutputsTimeInMs();
       return this;

@@ -47,7 +47,8 @@ public final class StarlarkBuiltinsValue implements SkyValue {
    */
   // TODO(#11437): Add actual enforcement that users cannot define a repo named "@_builtins".
   @SerializationConstant
-  static final RepositoryName BUILTINS_REPO = RepositoryName.createUnvalidated(BUILTINS_NAME);
+  public static final RepositoryName BUILTINS_REPO =
+      RepositoryName.createUnvalidated(BUILTINS_NAME);
 
   /** Reports whether the given repository is the special builtins pseudo-repository. */
   static boolean isBuiltinsRepo(RepositoryName repo) {

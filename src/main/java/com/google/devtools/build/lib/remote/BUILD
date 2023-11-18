@@ -8,6 +8,7 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["*"]) + [
+        "//src/main/java/com/google/devtools/build/lib/remote/circuitbreaker:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/common:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/disk:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/downloader:srcs",
@@ -29,14 +30,15 @@ java_library(
         exclude = [
             "ExecutionStatusException.java",
             "ReferenceCountedChannel.java",
-            "ReferenceCountedChannelPool.java",
+            "ChannelConnectionWithServerCapabilitiesFactory.java",
             "RemoteRetrier.java",
             "RemoteRetrierUtils.java",
             "Retrier.java",
             "RemoteOutputChecker.java",
             "AbstractActionInputPrefetcher.java",
-            "ToplevelArtifactsDownloader.java",
             "LeaseService.java",
+            "Scrubber.java",
+            "Store.java",
         ],
     ),
     exports = [
@@ -51,12 +53,15 @@ java_library(
         ":abstract_action_input_prefetcher",
         ":lease_service",
         ":remote_output_checker",
-        ":toplevel_artifacts_downloader",
+        ":scrubber",
+        ":store",
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:runtime/command_line_path_factory",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_output_directory_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
@@ -87,6 +92,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec/local",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/remote/circuitbreaker",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
         "//src/main/java/com/google/devtools/build/lib/remote/common:bulk_transfer_exception",
         "//src/main/java/com/google/devtools/build/lib/remote/common:cache_not_found_exception",
@@ -99,7 +105,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/remote/util",
         "//src/main/java/com/google/devtools/build/lib/remote/zstd",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:mutable_supplier",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
@@ -116,9 +124,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/worker:worker_options",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_spawn_runner",
         "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:cache_salt_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
-        "//src/main/protobuf:spawn_java_proto",
+        "//src/main/protobuf:remote_execution_log_java_proto",
         "//third_party:auth",
         "//third_party:caffeine",
         "//third_party:flogger",
@@ -155,15 +165,18 @@ java_library(
 java_library(
     name = "ReferenceCountedChannel",
     srcs = [
+        "ChannelConnectionWithServerCapabilitiesFactory.java",
         "ReferenceCountedChannel.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/remote/grpc",
         "//src/main/java/com/google/devtools/build/lib/remote/util",
         "//third_party:guava",
         "//third_party:netty",
         "//third_party:rxjava3",
         "//third_party/grpc-java:grpc-jar",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
 
@@ -195,6 +208,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/remote/options",
+        "//src/main/java/com/google/devtools/build/lib/remote/util",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:coverage_report_value",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -206,9 +223,11 @@ java_library(
     deps = [
         ":remote_output_checker",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_output_directory_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/remote/common:cache_not_found_exception",
         "//src/main/java/com/google/devtools/build/lib/remote/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -218,25 +237,6 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:rxjava3",
-    ],
-)
-
-java_library(
-    name = "toplevel_artifacts_downloader",
-    srcs = ["ToplevelArtifactsDownloader.java"],
-    deps = [
-        ":abstract_action_input_prefetcher",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:test/coverage_report",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -253,4 +253,22 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//third_party:jsr305",
     ],
+)
+
+java_library(
+    name = "scrubber",
+    srcs = ["Scrubber.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/protobuf:remote_scrubbing_java_proto",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "store",
+    srcs = ["Store.java"],
 )

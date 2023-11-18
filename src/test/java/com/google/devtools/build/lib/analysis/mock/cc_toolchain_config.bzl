@@ -54,6 +54,7 @@ _FEATURE_NAMES = struct(
     user_compile_flags = "user_compile_flags",
     thin_lto = "thin_lto",
     no_use_lto_indexing_bitcode_file = "no_use_lto_indexing_bitcode_file",
+    use_lto_native_object_directory = "use_lto_native_object_directory",
     thin_lto_linkstatic_tests_use_shared_nonlto_backends = "thin_lto_linkstatic_tests_use_shared_nonlto_backends",
     thin_lto_all_linkstatic_use_shared_nonlto_backends = "thin_lto_all_linkstatic_use_shared_nonlto_backends",
     enable_afdo_thinlto = "enable_afdo_thinlto",
@@ -475,6 +476,9 @@ _no_use_lto_indexing_bitcode_file_feature = feature(
     name = _FEATURE_NAMES.no_use_lto_indexing_bitcode_file,
 )
 
+_use_lto_native_object_directory_feature = feature(
+    name = _FEATURE_NAMES.use_lto_native_object_directory,
+)
 _thin_lto_feature = feature(
     name = _FEATURE_NAMES.thin_lto,
     flag_sets = [
@@ -1322,6 +1326,7 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.user_compile_flags: _user_compile_flags_feature,
     _FEATURE_NAMES.thin_lto: _thin_lto_feature,
     _FEATURE_NAMES.no_use_lto_indexing_bitcode_file: _no_use_lto_indexing_bitcode_file_feature,
+    _FEATURE_NAMES.use_lto_native_object_directory: _use_lto_native_object_directory_feature,
     _FEATURE_NAMES.thin_lto_linkstatic_tests_use_shared_nonlto_backends: _thin_lto_linkstatic_tests_use_shared_nonlto_backends_feature,
     _FEATURE_NAMES.thin_lto_all_linkstatic_use_shared_nonlto_backends: _thin_lto_all_linkstatic_use_shared_nonlto_backends_feature,
     _FEATURE_NAMES.enable_afdo_thinlto: _enable_afdo_thinlto_feature,

@@ -487,7 +487,7 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
         "apply_custom_transition = rule(",
         "    implementation = _apply_custom_transition_impl,",
         "    attrs = {",
-        "        '_whitelist_function_transition': attr.label(",
+        "        '_allowlist_function_transition': attr.label(",
         "            default = '//tools/allowlists/function_transition_allowlist',",
         "        ),",
         "        'deps': attr.label_list(cfg = custom_transition),",

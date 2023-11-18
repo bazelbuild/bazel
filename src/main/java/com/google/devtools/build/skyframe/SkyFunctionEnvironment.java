@@ -376,7 +376,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       newlyRequestedDepsValues.put(key, valueOrNullMarker);
       if (valueOrNullMarker == NULL_MARKER) {
         // TODO(mschaller): handle registered deps that transitioned from done to dirty during eval
-        // But how? Restarting the current node may not help, because this dep was *registered*, not
+        // But how? Resetting the current node may not help, because this dep was *registered*, not
         // requested. For now, no node that gets registered as a dep is eligible for
         // intra-evaluation dirtying, so let it crash.
         checkState(!assertDone, "%s had not done: %s", skyKey, key);
@@ -599,8 +599,28 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       // errors or return a value/null (but there's currently no way to enforce this).
       Thread.currentThread().interrupt();
     }
-    if ((!evaluatorContext.keepGoing() && bubbleErrorInfo == null)
-        || errorInfo.getException() == null) {
+
+    // If we get here, then the dep node is present and also (i) depends on a cycle or (ii) errorful
+    // or (iii) both. The remaining question is whether or not to convey to the SkyFunction that the
+    // dep node is missing.
+    //
+    // If the dep node depends on a cycle, then we always want the SkyFunction to act as though the
+    // dep is missing (cycles are not supposed to be observable by SkyFunctions), so we always set
+    // valuesMissing.
+    //
+    // If the dep node is errorful and we're in nokeep_going mode and not in error bubbling, then
+    // the SkyFunction is not supposed to be able to observe the error and is supposed to act like
+    // the dep is missing, so we set valuesMissing. In contrast, if we are in error bubbling, then
+    // the SkyFunction is supposed to be able to observe the error (so as to have the chance to
+    // produce an enriched error).
+    //
+    // If the dep node is errorful and we're in keep_going mode, then SkyFunction is supposed to be
+    // able to observe the error (say, with a followup SkyframeLookupResult#getOrThrow) so we don't
+    // set valuesMissing.
+    if (!errorInfo.getCycleInfo().isEmpty()
+        || (errorInfo.getException() != null
+            && !evaluatorContext.keepGoing()
+            && bubbleErrorInfo == null)) {
       valuesMissing = true;
       // We arbitrarily record the first child error if we are about to abort.
       if (!evaluatorContext.keepGoing() && depErrorKey == null) {
@@ -630,7 +650,9 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
   public boolean queryDep(SkyKey key, QueryDepCallback resultCallback) {
     SkyValue maybeWrappedValue = maybeGetValueFromErrorOrDeps(key);
     if (maybeWrappedValue == null) {
-      BugReport.sendBugReport("Value for %s was missing, this should never happen", key);
+      BugReport.sendNonFatalBugReport(
+          new IllegalStateException(
+              String.format("Value for %s was missing, this should never happen", key)));
       return false;
     }
     if (maybeWrappedValue == NULL_MARKER) {
@@ -671,7 +693,9 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
           @Nullable Class<E4> exceptionClass4)
           throws E1, E2, E3, E4 {
     if (maybeWrappedValue == null) {
-      BugReport.sendBugReport("Value for %s was missing, this should never happen", skyKey);
+      BugReport.sendNonFatalBugReport(
+          new IllegalStateException(
+              String.format("Value for %s was missing, this should never happen", skyKey)));
       return null;
     }
     if (maybeWrappedValue == NULL_MARKER) {
@@ -890,14 +914,18 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       valueWithMetadata = ValueWithMetadata.normal(value, errorInfo, events);
     }
     GroupedDeps temporaryDirectDeps = primaryEntry.getTemporaryDirectDeps();
-    if (!oldDeps.isEmpty()) {
-      // Remove the rdep on this entry for each of its old deps that is no longer a direct dep.
+    ImmutableSet<SkyKey> resetDeps = primaryEntry.getResetDirectDeps();
+    if (!oldDeps.isEmpty() || !resetDeps.isEmpty()) {
+      // Remove the rdep on this entry for each of 1) its old deps from a prior evaluation that are
+      // no longer direct deps and 2) reset deps that were not requested again post-restart.
       ImmutableList<SkyKey> depsToRemove =
-          ImmutableList.copyOf(Sets.difference(oldDeps, temporaryDirectDeps.toSet()));
+          ImmutableList.copyOf(
+              Sets.difference(Sets.union(oldDeps, resetDeps), temporaryDirectDeps.toSet()));
       NodeBatch oldDepEntries =
           evaluatorContext.getGraph().getBatch(skyKey, Reason.RDEP_REMOVAL, depsToRemove);
       for (SkyKey key : depsToRemove) {
-        oldDepEntries.get(key).removeReverseDep(skyKey);
+        NodeEntry oldDepEntry = checkNotNull(oldDepEntries.get(key), key);
+        oldDepEntry.removeReverseDep(skyKey);
       }
     }
 
@@ -1012,11 +1040,6 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
         .add("bubbleErrorInfo", bubbleErrorInfo)
         .add("evaluatorContext", evaluatorContext)
         .toString();
-  }
-
-  @Override
-  public boolean restartPermitted() {
-    return evaluatorContext.restartPermitted();
   }
 
   @Override
@@ -1200,7 +1223,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
             .getGraphInconsistencyReceiver()
             .noteInconsistencyAndMaybeThrow(
                 env.skyKey, allMissingDeps, Inconsistency.ALREADY_DECLARED_CHILD_MISSING);
-        throw new UndonePreviouslyRequestedDeps(ImmutableList.copyOf(allMissingDeps));
+        throw new UndonePreviouslyRequestedDeps(allMissingDeps);
       }
     }
 

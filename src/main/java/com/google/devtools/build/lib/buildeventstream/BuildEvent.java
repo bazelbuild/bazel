@@ -45,25 +45,34 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
      * associated files for.
      */
     public enum LocalFileType {
-      OUTPUT,
-      /** An OUTPUT_FILE is an OUTPUT that is known to be a file, not a directory. */
+      OUTPUT, /* of uncertain file type */
       OUTPUT_FILE,
+      OUTPUT_DIRECTORY,
+      OUTPUT_SYMLINK,
       SUCCESSFUL_TEST_OUTPUT,
       FAILED_TEST_OUTPUT,
       COVERAGE_OUTPUT,
+      QUERY_OUTPUT,
       STDOUT,
       STDERR,
       LOG,
       PERFORMANCE_LOG;
 
-      /** Returns true if the LocalFile is a generic output from an Action. */
+      /** Returns whether the LocalFile is a declared action output. */
       public boolean isOutput() {
-        return this == OUTPUT || this == OUTPUT_FILE;
+        return this == OUTPUT
+            || this == OUTPUT_FILE
+            || this == OUTPUT_DIRECTORY
+            || this == OUTPUT_SYMLINK;
       }
 
-      /** Returns true if the LocalFile is known by construction to be a file, not a directory. */
-      public boolean isGuaranteedFile() {
-        return this != OUTPUT;
+      public static LocalFileType forArtifact(Artifact artifact) {
+        if (artifact.isDirectory()) {
+          return LocalFileType.OUTPUT_DIRECTORY;
+        } else if (artifact.isSymlink()) {
+          return LocalFileType.OUTPUT_SYMLINK;
+        }
+        return LocalFileType.OUTPUT_FILE;
       }
     }
 

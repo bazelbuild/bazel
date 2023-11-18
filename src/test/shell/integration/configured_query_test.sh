@@ -202,7 +202,8 @@ function test_transitions_lite() {
     > output 2>"$TEST_log" || fail "Excepted success"
 
   assert_contains "//$pkg:main" output
-  assert_contains "host_dep#//$pkg:host#(exec + (TestTrimmingTransition + ConfigFeatureFlagTaggedTrimmingTransition))" output
+  # TODO(b/309849147): have cquery show this is an exec transition.
+  assert_contains "host_dep#//$pkg:host#(ComparingTransition + (TestTrimmingTransition + ConfigFeatureFlagTaggedTrimmingTransition))" output
 }
 
 
@@ -214,7 +215,8 @@ function test_transitions_full() {
     > output 2>"$TEST_log" || fail "Excepted success"
 
   assert_contains "//$pkg:main" output
-  assert_contains "host_dep#//$pkg:host#(exec + (TestTrimmingTransition + ConfigFeatureFlagTaggedTrimmingTransition))" output
+  # TODO(b/309849147): have cquery show this is an exec transition.
+  assert_contains "host_dep#//$pkg:host#(ComparingTransition + (TestTrimmingTransition + ConfigFeatureFlagTaggedTrimmingTransition))" output
 }
 
 function write_test_targets() {
@@ -255,6 +257,8 @@ function test_show_transitive_config_fragments() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<'EOF'
+load("@rules_python//python:py_library.bzl", "py_library")
+
 cc_library(
     name = "cclib",
     srcs = ["mylib.cc"],
@@ -326,6 +330,8 @@ function test_show_transitive_config_fragments_alias() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<'EOF'
+load("@rules_python//python:py_library.bzl", "py_library")
+
 cc_library(
     name = "cclib_with_py_dep",
     srcs = ["mylib2.cc"],
@@ -385,6 +391,8 @@ function test_show_transitive_config_fragments_host_deps() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<'EOF'
+load("@rules_python//python:py_library.bzl", "py_library")
+
 cc_library(
     name = "cclib_with_py_dep",
     srcs = ["mylib2.cc"],
@@ -414,6 +422,8 @@ function test_show_transitive_config_fragments_through_output_file() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<'EOF'
+load("@rules_python//python:py_library.bzl", "py_library")
+
 cc_library(
     name = "cclib_with_py_dep",
     srcs = ["mylib2.cc"],
@@ -443,6 +453,8 @@ function test_show_direct_config_fragments() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<'EOF'
+load("@rules_python//python:py_library.bzl", "py_library")
+
 cc_library(
     name = "cclib",
     srcs = ["mylib.cc"],
@@ -866,6 +878,8 @@ function test_starlark_output_mode() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
   cat > $pkg/BUILD <<'EOF'
+load("@rules_python//python:py_library.bzl", "py_library")
+
 py_library(
     name = "pylib",
     srcs = ["pylib.py"],
@@ -881,8 +895,17 @@ EOF
     --starlark:expr="str(target.label) + '%foo'" > output \
     2>"$TEST_log" || fail "Expected success"
 
-  assert_contains "//$pkg:pylib%foo" output
-  assert_contains "//$pkg:pylibtwo%foo" output
+  assert_contains "^@@\?//$pkg:pylib%foo$" output
+  assert_contains "^@@\?//$pkg:pylibtwo%foo$" output
+
+  bazel cquery "//$pkg:all" --output=starlark \
+    --noincompatible_unambiguous_label_stringification \
+    --starlark:expr="str(target.label) + '%foo'" > output \
+    2>"$TEST_log" || fail "Expected success"
+
+  # Verify use of the effective rather than default Starlark semantics.
+  assert_contains "^//$pkg:pylib%foo$" output
+  assert_contains "^//$pkg:pylibtwo%foo$" output
 
   # Test that the default for --starlark:expr str(target.label)
   bazel cquery "//$pkg:all" --output=starlark >output \
@@ -952,9 +975,18 @@ bool_flag = rule(
     build_setting = config.bool(flag = True),
 )
 
+def _list_flag_impl(ctx):
+    return BuildSettingInfo(value = ctx.build_setting_value)
+
+list_flag = rule(
+    implementation = _list_flag_impl,
+    build_setting = config.string_list(flag = True),
+)
+
 def _dep_transition_impl(settings, attr):
     return {
         "//$pkg:myflag": True,
+        "//$pkg:mylistflag": ["a", "b"],
         "//command_line_option:platform_suffix": "blah"
     }
 
@@ -963,6 +995,7 @@ _dep_transition = transition(
     inputs = [],
     outputs = [
         "//$pkg:myflag",
+        "//$pkg:mylistflag",
         "//command_line_option:platform_suffix",
     ],
 )
@@ -980,13 +1013,19 @@ root_rule = rule(
 EOF
 
   cat > $pkg/BUILD <<'EOF'
-load(":rules.bzl", "bool_flag", "root_rule")
+load(":rules.bzl", "bool_flag", "list_flag", "root_rule")
+load("@rules_python//python:py_library.bzl", "py_library")
 
 exports_files(["rules.bzl"])
 
 bool_flag(
     name = "myflag",
     build_setting_default = False,
+)
+
+list_flag(
+    name = "mylistflag",
+    build_setting_default = ["c"],
 )
 
 py_library(
@@ -1008,24 +1047,31 @@ def format(target):
     return str(target.label) + '%None'
   first = str(bo['//command_line_option:platform_suffix'])
   second = str(('//$pkg:myflag' in bo) and bo['//$pkg:myflag'])
-  return str(target.label) + '%' + first + '%' + second
+  third = str(bo['//$pkg:mylistflag'] if '//$pkg:mylistflag' in bo else None)
+  return str(target.label) + '%' + first + '%' + second + '%' + third
 EOF
 
   bazel cquery "//$pkg:bar" --output=starlark \
     --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
 
-  assert_contains "//$pkg:bar%None%False" output
+  assert_contains "//$pkg:bar%None%False%None" output
+
+  bazel cquery "//$pkg:bar" --output=starlark \
+    --//$pkg:myflag=True --//$pkg:mylistflag=c,d \
+    --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:bar%None%True%\\[\"c\", \"d\"]" output
 
   bazel cquery "//$pkg:foo" --output=starlark \
     --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
 
-  assert_contains "//$pkg:foo%None%False" output
+  assert_contains "//$pkg:foo%None%False%None" output
 
   bazel cquery "kind(rule, deps(//$pkg:foo))" --output=starlark \
     --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
 
-  assert_contains "//$pkg:foo%None%False" output
-  assert_contains "//$pkg:bar%blah%True" output
+  assert_contains "//$pkg:foo%None%False%None" output
+  assert_contains "//$pkg:bar%blah%True%\\[\"a\", \"b\"]" output
 
   bazel cquery "//$pkg:rules.bzl" --output=starlark \
     --starlark:file=$pkg/expr.star > output 2>"$TEST_log" || fail "Expected success"
@@ -1038,6 +1084,8 @@ function test_starlark_build_options_invalid_arg() {
   mkdir -p $pkg
 
   cat > $pkg/BUILD <<'EOF'
+load("@rules_python//python:py_library.bzl", "py_library")
+
 py_library(
     name = "foo",
     srcs = ["pylib.py"],
@@ -1244,7 +1292,7 @@ EOF
     2>"$TEST_log" || fail "Expected success"
   assert_contains "//$pkg:srcfile.txt:providers=.*FileProvider.*FilesToRunProvider.*LicensesProvider.*VisibilityProvider" \
     output
-  assert_contains "VisibilityProvider.label:@//$pkg:srcfile.txt" output
+  assert_contains "VisibilityProvider.label:@@\?//$pkg:srcfile.txt" output
 }
 
 function test_starlark_output_providers_starlark_provider() {
@@ -1344,6 +1392,7 @@ sh_library(name='japanese')
 EOF
 
   mkdir -p $dir/main
+  write_default_lockfile $dir/main/MODULE.bazel.lock
   cat > $dir/main/WORKSPACE <<EOF
 local_repository(name = "repo", path = "../repo")
 EOF

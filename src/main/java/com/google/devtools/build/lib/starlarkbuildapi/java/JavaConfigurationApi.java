@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -36,13 +37,30 @@ public interface JavaConfigurationApi extends StarlarkValue {
       doc = "The default flags for the Java compiler.")
   // TODO(bazel-team): this is the command-line passed options, we should remove from Starlark
   // probably.
-  ImmutableList<String> getDefaultJavacFlags();
+  ImmutableList<String> getDefaultJavacFlagsForStarlarkAsList();
+
+  @StarlarkMethod(
+      name = "default_javac_flags_depset",
+      structField = true,
+      doc = "The default flags for the Java compiler.")
+  // TODO(bazel-team): this is the command-line passed options, we should remove from Starlark
+  // probably.
+  Depset getDefaultJavacFlagsStarlark();
 
   @StarlarkMethod(
       name = "strict_java_deps",
       structField = true,
       doc = "The value of the strict_java_deps flag.")
   String getStrictJavaDepsName();
+
+  @StarlarkMethod(name = "use_header_compilation", useStarlarkThread = true, documented = false)
+  boolean useHeaderCompilationStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "generate_java_deps", useStarlarkThread = true, documented = false)
+  boolean getGenerateJavaDepsStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "reduce_java_classpath", useStarlarkThread = true, documented = false)
+  String getReduceJavaClasspathStarlark(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "default_jvm_opts",
@@ -129,4 +147,13 @@ public interface JavaConfigurationApi extends StarlarkValue {
               + " optimizer into. Note that if split_bytecode_optimization_pass is set, this will"
               + " only change behavior if it is > 2.")
   int bytecodeOptimizationPassActions();
+
+  @StarlarkMethod(
+      name = "enforce_proguard_file_extension",
+      structField = true,
+      doc =
+          "Returns whether ProGuard configuration files outside of third_party/ are required to use"
+              + " a *.pgcfg extension.",
+      documented = false)
+  boolean enforceProguardFileExtension();
 }

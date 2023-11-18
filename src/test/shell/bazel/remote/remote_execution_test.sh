@@ -99,15 +99,17 @@ function test_credential_helper_remote_cache() {
 
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
-      //a:a >& $TEST_log && fail "Build without credentials should have failed"
+      //a:a >& $TEST_log || fail "Build without credentials should have succeeded"
   expect_log "Failed to query remote execution capabilities"
+
+  bazel clean
 
   # Helper shouldn't have been called yet.
   expect_credential_helper_calls 0
 
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
-      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      --credential_helper="${TEST_TMPDIR}/credhelper" \
       //a:a >& $TEST_log || fail "Build with credentials should have succeeded"
 
   # First build should have called helper for 4 distinct URIs.
@@ -115,7 +117,7 @@ function test_credential_helper_remote_cache() {
 
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
-      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      --credential_helper="${TEST_TMPDIR}/credhelper" \
       //a:b >& $TEST_log || fail "Build with credentials should have succeeded"
 
   # Second build should have hit the credentials cache.
@@ -137,7 +139,7 @@ function test_credential_helper_remote_execution() {
   bazel build \
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
-      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      --credential_helper="${TEST_TMPDIR}/credhelper" \
       //a:a >& $TEST_log || fail "Build with credentials should have succeeded"
 
   # First build should have called helper for 5 distinct URIs.
@@ -146,7 +148,7 @@ function test_credential_helper_remote_execution() {
   bazel build \
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
-      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      --credential_helper="${TEST_TMPDIR}/credhelper" \
       //a:b >& $TEST_log || fail "Build with credentials should have succeeded"
 
   # Second build should have hit the credentials cache.
@@ -159,7 +161,7 @@ function test_credential_helper_clear_cache() {
   bazel build \
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
-      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      --credential_helper="${TEST_TMPDIR}/credhelper" \
       //a:a >& $TEST_log || fail "Build with credentials should have succeeded"
 
   expect_credential_helper_calls 5
@@ -169,7 +171,7 @@ function test_credential_helper_clear_cache() {
   bazel build \
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
-      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      --credential_helper="${TEST_TMPDIR}/credhelper" \
       //a:b >& $TEST_log || fail "Build with credentials should have succeeded"
 
   # Build after clean should have called helper again.
@@ -299,7 +301,7 @@ EOF
       --remote_executor=grpc://localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote execution"
-  expect_log "6 processes: 4 internal, 2 remote"
+  expect_log "7 processes: 5 internal, 2 remote"
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
       || fail "Remote execution generated different result"
 }
@@ -585,6 +587,7 @@ EOF
       --remote_executor=grpc://noexist.invalid \
       --remote_local_fallback \
       --build_event_text_file=gen1.log \
+      --nobuild_event_text_file_path_conversion \
       //gen1 >& $TEST_log \
       || fail "Expected success"
 
@@ -928,10 +931,14 @@ EOF
 
 function test_symlinks_in_directory() {
     set_symlinks_in_directory_testfixtures
+    # Need --remote_download_all because the genrule generates directory output
+    # for one of the declared outputs which is not supported when BwoB.
     bazel build \
           --incompatible_remote_symlinks \
           --noincompatible_remote_disallow_symlink_in_tree_artifact \
+          --noincompatible_disallow_unsound_directory_outputs \
           --remote_executor=grpc://localhost:${worker_port} \
+          --remote_download_all \
           --spawn_strategy=remote \
           //:make-links &> $TEST_log \
           || fail "Failed to build //:make-links with remote execution"
@@ -948,11 +955,16 @@ function test_symlinks_in_directory() {
 function test_symlinks_in_directory_cache_only() {
     # This test is the same as test_symlinks_in_directory, except it works
     # locally and uses the remote cache to query results.
+    #
+    # Need --remote_download_all because the genrule generates directory output
+    # for one of the declared outputs which is not supported when BwoB.
     set_symlinks_in_directory_testfixtures
     bazel build \
           --incompatible_remote_symlinks \
           --noincompatible_remote_disallow_symlink_in_tree_artifact \
+          --noincompatible_disallow_unsound_directory_outputs \
           --remote_cache=grpc://localhost:${worker_port} \
+          --remote_download_all \
           --spawn_strategy=local \
           //:make-links &> $TEST_log \
           || fail "Failed to build //:make-links with remote cache service"
@@ -961,7 +973,9 @@ function test_symlinks_in_directory_cache_only() {
     bazel build \
           --incompatible_remote_symlinks \
           --noincompatible_remote_disallow_symlink_in_tree_artifact \
+          --noincompatible_disallow_unsound_directory_outputs \
           --remote_cache=grpc://localhost:${worker_port} \
+          --remote_download_all \
           --spawn_strategy=local \
           //:make-links &> $TEST_log \
           || fail "Failed to build //:make-links with remote cache service"
@@ -1255,6 +1269,36 @@ EOF
   expect_not_log "1 local"
 }
 
+function test_require_cached() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = ["foo.in"],
+  outs = ["foo.out"],
+  cmd = "cp \"$<\" \"$@\"",
+)
+EOF
+
+  echo "input 1" >a/foo.in
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
+
+  expect_log "1 remote"
+
+  echo "input 2" >a/foo.in
+  if bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_remote_require_cached \
+    //a:foo >& $TEST_log; then
+    fail "Build of //a:foo succeeded but it should have failed"
+  fi
+
+  expect_log "Action must be cached due to --experimental_remote_require_cached but it is not"
+  expect_not_log "remote cache hit"
+}
+
 function test_nobuild_runfile_links() {
   mkdir data && echo "hello" > data/hello && echo "world" > data/world
     cat > WORKSPACE <<EOF
@@ -1264,8 +1308,8 @@ EOF
   cat > test.sh <<'EOF'
 #!/bin/bash
 set -e
-[[ -f ${RUNFILES_DIR}/foo/data/hello ]]
-[[ -f ${RUNFILES_DIR}/foo/data/world ]]
+[[ -f ${RUNFILES_DIR}/_main/data/hello ]]
+[[ -f ${RUNFILES_DIR}/_main/data/world ]]
 exit 0
 EOF
   chmod 755 test.sh
@@ -1285,17 +1329,17 @@ EOF
   bazel test \
     --nobuild_runfile_links \
     --remote_executor=grpc://localhost:${worker_port} \
-    //:test || fail "Testing //:test failed"
+    //:test --verbose_failures || fail "Testing //:test failed"
 
-  [[ ! -f bazel-bin/test.runfiles/foo/data/hello ]] || fail "expected no runfile data/hello"
-  [[ ! -f bazel-bin/test.runfiles/foo/data/world ]] || fail "expected no runfile data/world"
+  [[ ! -f bazel-bin/test.runfiles/_main/data/hello ]] || fail "expected no runfile data/hello"
+  [[ ! -f bazel-bin/test.runfiles/_main/data/world ]] || fail "expected no runfile data/world"
   [[ ! -f bazel-bin/test.runfiles/MANIFEST ]] || fail "expected output manifest to exist"
 }
 
 function test_platform_default_properties_invalidation() {
   # Test that when changing values of --remote_default_platform_properties all actions are
-  # invalidated.
-mkdir -p test
+  # invalidated if no platform is used.
+  mkdir -p test
   cat > test/BUILD << 'EOF'
 genrule(
     name = "test",
@@ -1308,23 +1352,23 @@ EOF
   bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_default_exec_properties="build=1234" \
-    //test:test >& $TEST_log || fail "Failed to build //a:remote"
+    //test:test >& $TEST_log || fail "Failed to build //test:test"
 
   expect_log "2 processes: 1 internal, 1 remote"
 
   bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_default_exec_properties="build=88888" \
-    //test:test >& $TEST_log || fail "Failed to build //a:remote"
+    //test:test >& $TEST_log || fail "Failed to build //test:test"
 
   # Changing --remote_default_platform_properties value should invalidate SkyFrames in-memory
   # caching and make it re-run the action.
   expect_log "2 processes: 1 internal, 1 remote"
 
-  bazel  build \
+  bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_default_exec_properties="build=88888" \
-    //test:test >& $TEST_log || fail "Failed to build //a:remote"
+    //test:test >& $TEST_log || fail "Failed to build //test:test"
 
   # The same value of --remote_default_platform_properties should NOT invalidate SkyFrames in-memory cache
   #  and make the action should not be re-run.
@@ -1332,16 +1376,16 @@ EOF
 
   bazel shutdown
 
-  bazel  build \
+  bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_default_exec_properties="build=88888" \
-    //test:test >& $TEST_log || fail "Failed to build //a:remote"
+    //test:test >& $TEST_log || fail "Failed to build //test:test"
 
-  # The same value of --remote_default_platform_properties should NOT invalidate SkyFrames od-disk cache
+  # The same value of --remote_default_platform_properties should NOT invalidate SkyFrames on-disk cache
   #  and the action should not be re-run.
   expect_log "1 process: 1 internal"
 
-  bazel build\
+  bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_default_exec_properties="build=88888" \
     --remote_default_platform_properties='properties:{name:"build" value:"1234"}' \
@@ -1353,6 +1397,81 @@ EOF
   expect_log "Setting both --remote_default_platform_properties and --remote_default_exec_properties is not allowed"
 }
 
+function test_platform_default_properties_invalidation_with_platform_exec_properties() {
+  # Test that when changing values of --remote_default_platform_properties all actions are
+  # invalidated.
+  mkdir -p test
+  cat > test/BUILD << 'EOF'
+platform(
+    name = "platform_with_exec_properties",
+    exec_properties = {
+        "foo": "bar",
+    },
+)
+
+genrule(
+    name = "test",
+    srcs = [],
+    outs = ["output.txt"],
+    cmd = "echo \"foo\" > \"$@\""
+)
+EOF
+
+  bazel build \
+    --extra_execution_platforms=//test:platform_with_exec_properties \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_default_exec_properties="build=1234" \
+    //test:test >& $TEST_log || fail "Failed to build //test:test"
+
+  expect_log "2 processes: 1 internal, 1 remote"
+
+  bazel build \
+    --extra_execution_platforms=//test:platform_with_exec_properties \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_default_exec_properties="build=88888" \
+    //test:test >& $TEST_log || fail "Failed to build //test:test"
+
+  # Changing --remote_default_platform_properties value does not invalidate SkyFrames
+  # given its is superseded by the platform exec_properties.
+  expect_log "1 process: 1 internal."
+}
+
+function test_platform_default_properties_invalidation_with_platform_remote_execution_properties() {
+  # Test that when changing values of --remote_default_platform_properties all actions are
+  # invalidated.
+  mkdir -p test
+  cat > test/BUILD << 'EOF'
+platform(
+    name = "platform_with_remote_execution_properties",
+    remote_execution_properties = """properties: {name: "foo" value: "baz"}""",
+)
+
+genrule(
+    name = "test",
+    srcs = [],
+    outs = ["output.txt"],
+    cmd = "echo \"foo\" > \"$@\""
+)
+EOF
+
+  bazel build \
+    --extra_execution_platforms=//test:platform_with_remote_execution_properties \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_default_exec_properties="build=1234" \
+    //test:test >& $TEST_log || fail "Failed to build //test:test"
+
+  expect_log "2 processes: 1 internal, 1 remote"
+
+  bazel build \
+    --extra_execution_platforms=//test:platform_with_remote_execution_properties \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_default_exec_properties="build=88888" \
+    //test:test >& $TEST_log || fail "Failed to build //test:test"
+
+  # Changing --remote_default_platform_properties value does not invalidate SkyFrames
+  # given its is superseded by the platform remote_execution_properties.
+  expect_log "2 processes: 1 remote cache hit, 1 internal"
+}
 
 function test_combined_disk_remote_exec_with_flag_combinations() {
   rm -f ${TEST_TMPDIR}/test_expected
@@ -1360,10 +1479,8 @@ function test_combined_disk_remote_exec_with_flag_combinations() {
      # ensure CAS entries get uploaded even when action entries don't.
      "--noremote_upload_local_results"
      "--remote_upload_local_results"
-     # we should see no cache hits  [incompatible_remote_results_ignore_disk=false is default]
-     "--noremote_accept_cached"
      # Should be some disk cache hits, just not remote.
-     "--noremote_accept_cached --incompatible_remote_results_ignore_disk"
+     "--noremote_accept_cached"
   )
 
   for flags in "${testcases[@]}"; do
@@ -1576,13 +1693,13 @@ EOF
   mkdir $cache
 
   # Build and push to disk cache but not grpc cache
-  bazel build $disk_flags $grpc_flags --incompatible_remote_results_ignore_disk=true --noremote_upload_local_results //a:test \
+  bazel build $disk_flags $grpc_flags --noremote_upload_local_results //a:test \
     || fail "Failed to build //a:test with combined disk grpc cache"
   cp -f bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected
 
   # Fetch from disk cache
   bazel clean
-  bazel build $disk_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_upload_local_results &> $TEST_log \
+  bazel build $disk_flags //a:test --noremote_upload_local_results &> $TEST_log \
     || fail "Failed to fetch //a:test from disk cache"
   expect_log "1 disk cache hit" "Fetch from disk cache failed"
   diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
@@ -1590,7 +1707,7 @@ EOF
 
   # No cache result from grpc cache, rebuild target
   bazel clean
-  bazel build $grpc_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_upload_local_results &> $TEST_log \
+  bazel build $grpc_flags //a:test --noremote_upload_local_results &> $TEST_log \
     || fail "Failed to build //a:test"
   expect_not_log "1 remote cache hit" "Should not get cache hit from grpc cache"
   expect_log "1 .*-sandbox" "Rebuild target failed"
@@ -1602,7 +1719,7 @@ EOF
 
   # No cache result from grpc cache, rebuild target, and upload result to grpc cache
   bazel clean
-  bazel build $grpc_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_accept_cached &> $TEST_log \
+  bazel build $grpc_flags //a:test --noremote_accept_cached &> $TEST_log \
     || fail "Failed to build //a:test"
   expect_not_log "1 remote cache hit" "Should not get cache hit from grpc cache"
   expect_log "1 .*-sandbox" "Rebuild target failed"
@@ -1611,7 +1728,7 @@ EOF
 
   # No cache result from grpc cache, rebuild target, and upload result to disk cache
   bazel clean
-  bazel build $disk_flags $grpc_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_accept_cached &> $TEST_log \
+  bazel build $disk_flags $grpc_flags //a:test --noremote_accept_cached &> $TEST_log \
     || fail "Failed to build //a:test"
   expect_not_log "1 remote cache hit" "Should not get cache hit from grpc cache"
   expect_log "1 .*-sandbox" "Rebuild target failed"
@@ -1620,7 +1737,7 @@ EOF
 
   # Fetch from disk cache
   bazel clean
-  bazel build $disk_flags $grpc_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_accept_cached &> $TEST_log \
+  bazel build $disk_flags $grpc_flags //a:test --noremote_accept_cached &> $TEST_log \
     || fail "Failed to build //a:test"
   expect_log "1 disk cache hit" "Fetch from disk cache failed"
   diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
@@ -1735,13 +1852,13 @@ EOF
   mkdir $cache
 
   # Build and push to disk cache but not remote cache
-  bazel build $disk_flags $grpc_flags --incompatible_remote_results_ignore_disk=true //a:test \
+  bazel build $disk_flags $grpc_flags //a:test \
     || fail "Failed to build //a:test with combined cache"
   cp -f bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected
 
   # Fetch from disk cache
   bazel clean
-  bazel build $disk_flags //a:test --incompatible_remote_results_ignore_disk=true &> $TEST_log \
+  bazel build $disk_flags //a:test &> $TEST_log \
     || fail "Failed to fetch //a:test from disk cache"
   expect_log "1 disk cache hit" "Fetch from disk cache failed"
   diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
@@ -1749,7 +1866,7 @@ EOF
 
   # No cache result from grpc cache, rebuild target
   bazel clean
-  bazel build $grpc_flags //a:test --incompatible_remote_results_ignore_disk=true &> $TEST_log \
+  bazel build $grpc_flags //a:test &> $TEST_log \
     || fail "Failed to build //a:test"
   expect_not_log "1 remote cache hit" "Should not get cache hit from grpc cache"
   diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
@@ -1775,7 +1892,6 @@ EOF
   bazel build \
     --disk_cache=${cache_dir} \
     --remote_executor=grpc://localhost:${worker_port} \
-    --incompatible_remote_results_ignore_disk=true \
     //a:test &> $TEST_log \
     || fail "Failed to build //a:test"
 
@@ -2009,8 +2125,7 @@ EOF
   expect_log "2 remote cache hit"
 }
 
-function test_exclusive_tag() {
-  # Test that the exclusive tag works with the remote cache.
+function setup_exclusive_test_case() {
   mkdir -p a
   cat > a/success.sh <<'EOF'
 #!/bin/sh
@@ -2024,17 +2139,60 @@ sh_test(
   tags = ["exclusive"],
 )
 EOF
+}
 
+function test_exclusive_test_hit_remote_cache() {
+  # Test that the exclusive test works with the remote cache.
+  setup_exclusive_test_case
+
+  # Warm up the cache
   bazel test \
     --remote_cache=grpc://localhost:${worker_port} \
     //a:success_test || fail "Failed to test //a:success_test"
+
+  bazel clean
+
+  bazel test \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //a:success_test >& $TEST_log || fail "Failed to test //a:success_test"
+
+  # test action + test xml generation
+  expect_log "2 remote cache hit"
+}
+
+function test_exclusive_test_and_no_cache_test_results() {
+  # Test that the exclusive test won't hit the remote cache if
+  # --nocache_test_results is set.
+  setup_exclusive_test_case
+
+  # Warm up the cache
+  bazel test \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //a:success_test || fail "Failed to test //a:success_test"
+
+  bazel clean
 
   bazel test \
     --remote_cache=grpc://localhost:${worker_port} \
     --nocache_test_results \
     //a:success_test >& $TEST_log || fail "Failed to test //a:success_test"
 
-  expect_log "remote cache hit"
+  # test action
+  expect_log "1.*-sandbox"
+  # test xml generation
+  expect_log "1 remote cache hit"
+}
+
+function test_exclusive_test_wont_remote_exec() {
+  # Test that the exclusive test won't execute remotely.
+  setup_exclusive_test_case
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:success_test >& $TEST_log || fail "Failed to test //a:success_test"
+
+  # test action + test xml generation
+  expect_log "2.*-sandbox"
 }
 
 # TODO(alpha): Add a test that fails remote execution when remote worker
@@ -2100,8 +2258,6 @@ public class FactorialTest {
 }
 EOF
   cd ../..
-
-  cat $(rlocation io_bazel/src/test/shell/bazel/testdata/jdk_http_archives) >> WORKSPACE
 
   bazel coverage \
     --test_output=all \
@@ -2182,8 +2338,8 @@ function test_empty_tree_artifact_as_inputs() {
   bazel build \
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_remote_discard_merkle_trees \
-    //pkg:a &>$TEST_log || fail "expected build to succeed with Merkle tree discarding"
+    --experimental_remote_discard_merkle_trees=false \
+    //pkg:a &>$TEST_log || fail "expected build to succeed without Merkle tree discarding"
 
   bazel clean --expunge
   bazel build \
@@ -2263,8 +2419,8 @@ function test_create_tree_artifact_outputs() {
   bazel build \
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_remote_discard_merkle_trees \
-    //pkg:a &>$TEST_log || fail "expected build to succeed with Merkle tree discarding"
+    --experimental_remote_discard_merkle_trees=false \
+    //pkg:a &>$TEST_log || fail "expected build to succeed without Merkle tree discarding"
   [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
   [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
 
@@ -2459,6 +2615,150 @@ EOF
   fi
 }
 
+# Runs coverage with `cc_test` using llvm-cov and RE, then checks that the coverage file is
+# returned non-empty.
+# See the above `test_java_rbe_coverage_produces_report` for more information.
+function test_cc_rbe_coverage_produces_report_with_llvm() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  local -r clang=$(which clang)
+  if [[ ! -x "${clang}" ]]; then
+    echo "clang not installed. Skipping"
+    return 0
+  fi
+  local -r clang_version=$(clang --version | grep -o "clang version [0-9]*" | cut -d " " -f 3)
+  if [ "$clang_version" -lt 9 ];  then
+    # No lcov produced with <9.0.
+    echo "clang versions <9.0 are not supported, got $clang_version. Skipping."
+    return 0
+  fi
+
+  if ! type -P llvm-cov; then
+    echo "llvm-cov not found. Skipping."
+    return 0
+  fi
+  if ! type -P llvm-profdata; then
+    echo "llvm-profdata not found. Skipping."
+    return 0
+  fi
+
+  local test_dir="a/cc/coverage_test"
+  mkdir -p $test_dir
+
+  cat > "$test_dir"/BUILD <<'EOF'
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "hello-lib",
+    srcs = ["hello-lib.cc"],
+    hdrs = ["hello-lib.h"],
+)
+
+cc_binary(
+    name = "hello-world",
+    srcs = ["hello-world.cc"],
+    deps = [":hello-lib"],
+)
+
+cc_test(
+    name = "hello-test",
+    srcs = ["hello-world.cc"],
+    deps = [":hello-lib"],
+)
+
+EOF
+
+  cat > "$test_dir"/hello-lib.cc <<'EOF'
+#include "hello-lib.h"
+
+#include <iostream>
+
+using std::cout;
+using std::endl;
+using std::string;
+
+namespace hello {
+
+HelloLib::HelloLib(const string& greeting) : greeting_(new string(greeting)) {
+}
+
+void HelloLib::greet(const string& thing) {
+  cout << *greeting_ << " " << thing << endl;
+}
+
+}  // namespace hello
+
+EOF
+
+  cat > "$test_dir"/hello-lib.h <<'EOF'
+#ifndef HELLO_LIB_H_
+#define HELLO_LIB_H_
+
+#include <string>
+#include <memory>
+
+namespace hello {
+
+class HelloLib {
+ public:
+  explicit HelloLib(const std::string &greeting);
+
+  void greet(const std::string &thing);
+
+ private:
+  std::unique_ptr<const std::string> greeting_;
+};
+
+}  // namespace hello
+
+#endif  // HELLO_LIB_H_
+
+EOF
+
+  cat > "$test_dir"/hello-world.cc <<'EOF'
+#include "hello-lib.h"
+
+#include <string>
+
+using hello::HelloLib;
+using std::string;
+
+int main(int argc, char** argv) {
+  HelloLib lib("Hello");
+  string thing = "world";
+  if (argc > 1) {
+    thing = argv[1];
+  }
+  lib.greet(thing);
+  return 0;
+}
+
+EOF
+
+  BAZEL_USE_LLVM_NATIVE_COVERAGE=1 GCOV=llvm-profdata BAZEL_LLVM_COV=llvm-cov CC=clang \
+    bazel coverage \
+      --test_output=all \
+      --experimental_fetch_all_coverage_outputs \
+      --experimental_generate_llvm_lcov \
+      --experimental_split_coverage_postprocessing \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //"$test_dir":hello-test >& $TEST_log \
+      || fail "Failed to run coverage for cc_test"
+
+  # Different LLVM versions generate different outputs.
+  # Simply check if this is empty or not.
+  if [[ ! -s bazel-testlogs/a/cc/coverage_test/hello-test/coverage.dat ]]; then
+    echo "Coverage is empty. Failing now."
+    return 1
+  fi
+}
+
 function test_grpc_connection_errors_are_propagated() {
   # Test that errors when creating grpc connection are propagated instead of crashing Bazel.
   # https://github.com/bazelbuild/bazel/issues/13724
@@ -2477,7 +2777,7 @@ EOF
       --tls_certificate=/nope \
       //a:foo >& $TEST_log && fail "Expected to fail" || true
 
-  expect_log "ERROR: Failed to query remote execution capabilities: Failed to init TLS infrastructure using '/nope' as root certificate: File does not contain valid certificates: /nope"
+  expect_log "Failed to init TLS infrastructure using '/nope' as root certificate: File does not contain valid certificates: /nope"
 }
 
 function test_async_upload_works_for_flaky_tests() {
@@ -2581,7 +2881,7 @@ EOF
     --disk_cache=$CACHEDIR \
     //a:test >& $TEST_log || fail "Failed to build //a:test"
 
-  expect_log "5 processes: 3 internal, 2 .*-sandbox"
+  expect_log "6 processes: 4 internal, 2 .*-sandbox"
 
   bazel clean
 
@@ -2589,7 +2889,7 @@ EOF
     --disk_cache=$CACHEDIR \
     //a:test >& $TEST_log || fail "Failed to build //a:test"
 
-  expect_log "5 processes: 2 disk cache hit, 3 internal"
+  expect_log "6 processes: 2 disk cache hit, 4 internal"
 }
 
 # Bazel assumes that non-ASCII characters in file contents (and, in
@@ -2880,8 +3180,8 @@ EOF
     build \
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
-    --experimental_remote_discard_merkle_trees \
-    //pkg:b &>$TEST_log || fail "expected build to succeed with Merkle tree discarding"
+    --experimental_remote_discard_merkle_trees=false \
+    //pkg:b &>$TEST_log || fail "expected build to succeed without Merkle tree discarding"
 
   if [[ "$(cat bazel-bin/pkg/b.txt)" != "$link_target" ]]; then
     fail "expected symlink target to be $link_target"
@@ -3054,6 +3354,62 @@ EOF
       --incompatible_check_sharding_support \
       --remote_download_minimal \
       //:x  &> $TEST_log || fail "expected success"
+}
+
+function test_cache_key_scrubbing() {
+  echo foo > foo
+  echo bar > bar
+  cat<<'EOF' > BUILD
+exports_files(["foo", "bar"])
+
+label_flag(
+  name = "src",
+  build_setting_default = "//missing:target",
+)
+
+genrule(
+  name = "gen",
+  srcs = [":src"],
+  outs = ["out"],
+  cmd = "echo built > $@",
+)
+EOF
+  cat<<'EOF' > scrubbing.cfg
+rules {
+  transform {
+    omitted_inputs: "^(foo|bar)$"
+  }
+}
+EOF
+
+  # First build without a cache. Even though the remote cache keys can be
+  # scrubbed, Bazel still considers the actions distinct.
+
+  bazel build --experimental_remote_scrubbing_config=scrubbing.cfg \
+        --//:src=//:foo :gen &> $TEST_log \
+        || fail "failed to build with input foo and no cache"
+    expect_log "2 processes: 1 internal, 1 .*-sandbox"
+
+  bazel build --experimental_remote_scrubbing_config=scrubbing.cfg \
+      --//:src=//:bar :gen &> $TEST_log \
+      || fail "failed to build with input bar and no cache"
+  expect_log "2 processes: 1 internal, 1 .*-sandbox"
+
+  # Now build with a cache. Even though Bazel considers the actions distinct,
+  # they will be looked up in the remote cache using the scrubbed key, so one
+  # can serve as a cache hit for the other.
+
+  CACHEDIR=$(mktemp -d)
+
+  bazel build --experimental_remote_scrubbing_config=scrubbing.cfg \
+        --disk_cache=$CACHEDIR --//:src=//:foo :gen &> $TEST_log \
+        || fail "failed to build with input foo and a cache"
+  expect_log "2 processes: 1 internal, 1 .*-sandbox"
+
+  bazel build --experimental_remote_scrubbing_config=scrubbing.cfg \
+      --disk_cache=$CACHEDIR --//:src=//:bar :gen &> $TEST_log \
+      || fail "failed to build with input bar and a cache"
+  expect_log "2 processes: 1 disk cache hit, 1 internal"
 }
 
 run_suite "Remote execution and remote cache tests"

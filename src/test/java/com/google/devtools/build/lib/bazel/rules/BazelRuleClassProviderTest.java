@@ -148,11 +148,6 @@ public class BazelRuleClassProviderTest {
   }
 
   @Test
-  public void j2objcConsistency() {
-    checkModule(J2ObjcRules.INSTANCE);
-  }
-
-  @Test
   public void variousWorkspaceConsistency() {
     checkModule(BazelRuleClassProvider.VARIOUS_WORKSPACE_RULES);
   }

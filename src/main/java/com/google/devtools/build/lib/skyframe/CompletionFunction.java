@@ -91,7 +91,7 @@ public final class CompletionFunction<
 
     /** Creates a failed completion value. */
     ExtendedEventHandler.Postable createFailed(
-        ValueT value,
+        KeyT skyKey,
         NestedSet<Cause> rootCauses,
         CompletionContext ctx,
         ImmutableMap<String, ArtifactsInOutputGroup> outputs,
@@ -268,7 +268,7 @@ public final class CompletionFunction<
           new SuccessfulArtifactFilter(builtArtifactsBuilder.build())
               .filterArtifactsInOutputGroup(artifactsToBuild.getAllArtifactsByOutputGroup());
       env.getListener()
-          .post(completor.createFailed(value, rootCauses, ctx, builtOutputs, failureData));
+          .post(completor.createFailed(key, rootCauses, ctx, builtOutputs, failureData));
       if (firstActionExecutionException != null) {
         throw new CompletionFunctionException(firstActionExecutionException);
       }
@@ -328,7 +328,7 @@ public final class CompletionFunction<
       Pair<ValueT, ArtifactsToBuild> getValueAndArtifactsToBuild(
           TopLevelActionLookupKeyWrapper key, Environment env) throws InterruptedException {
     @SuppressWarnings("unchecked")
-    ValueT value = (ValueT) env.getValue(key.actionLookupKey().toKey());
+    ValueT value = (ValueT) env.getValue(key.actionLookupKey());
     if (env.valuesMissing()) {
       return null;
     }

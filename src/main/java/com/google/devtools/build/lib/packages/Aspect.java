@@ -13,14 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
-import com.google.common.base.Preconditions;
+import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -30,8 +34,9 @@ import java.io.IOException;
  *
  * <p>This is an aspect equivalent of {@link Rule} class for build rules.
  *
- * <p>Note: this class does not have {@code equals()} and {@code hashCode()} redefined, so should
- * not be used in SkyKeys.
+ * <p>Note: equality is only implemented for purposes of interning. It delegates to {@link
+ * AspectDefinition} equality, which is not overridden. For this reason, this class should not be
+ * used in SkyKeys - use {@link AspectDescriptor} instead.
  */
 @Immutable
 public final class Aspect implements DependencyFilter.AttributeInfoProvider {
@@ -50,20 +55,19 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
                   nativeAspectClass ->
                       Caffeine.newBuilder().build(nativeAspectClass::getDefinition));
 
+  private static final Interner<Aspect> interner = BlazeInterners.newWeakInterner();
+
   private final AspectDescriptor aspectDescriptor;
   private final AspectDefinition aspectDefinition;
 
-  private Aspect(
-      AspectClass aspectClass, AspectDefinition aspectDefinition, AspectParameters parameters) {
-    this.aspectDescriptor =
-        new AspectDescriptor(
-            Preconditions.checkNotNull(aspectClass), Preconditions.checkNotNull(parameters));
-    this.aspectDefinition = Preconditions.checkNotNull(aspectDefinition);
+  private Aspect(AspectDescriptor aspectDescriptor, AspectDefinition aspectDefinition) {
+    this.aspectDescriptor = checkNotNull(aspectDescriptor);
+    this.aspectDefinition = checkNotNull(aspectDefinition);
   }
 
   public static Aspect forNative(NativeAspectClass nativeAspectClass, AspectParameters parameters) {
     AspectDefinition definition = definitionCache.get(nativeAspectClass).get(parameters);
-    return new Aspect(nativeAspectClass, definition, parameters);
+    return createInterned(nativeAspectClass, definition, parameters);
   }
 
   public static Aspect forNative(NativeAspectClass nativeAspectClass) {
@@ -74,7 +78,12 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
       StarlarkAspectClass starlarkAspectClass,
       AspectDefinition aspectDefinition,
       AspectParameters parameters) {
-    return new Aspect(starlarkAspectClass, aspectDefinition, parameters);
+    return createInterned(starlarkAspectClass, aspectDefinition, parameters);
+  }
+
+  private static Aspect createInterned(
+      AspectClass aspectClass, AspectDefinition definition, AspectParameters parameters) {
+    return interner.intern(new Aspect(AspectDescriptor.of(aspectClass, parameters), definition));
   }
 
   /** Returns the aspectClass required for building the aspect. */
@@ -91,11 +100,6 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
     return aspectDescriptor;
   }
 
-  @Override
-  public String toString() {
-    return String.format("Aspect %s", aspectDescriptor.toString());
-  }
-
   public AspectDefinition getDefinition() {
     return aspectDefinition;
   }
@@ -104,6 +108,30 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
   public boolean isAttributeValueExplicitlySpecified(Attribute attribute) {
     // All aspect attributes are implicit.
     return false;
+  }
+
+  @Override
+  public String toString() {
+    return "Aspect " + aspectDescriptor;
+  }
+
+  @Override
+  public int hashCode() {
+    return HashCodes.hashObjects(aspectDescriptor, aspectDefinition);
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof Aspect)) {
+      return false;
+    }
+
+    Aspect that = (Aspect) obj;
+    return aspectDescriptor.equals(that.aspectDescriptor)
+        && aspectDefinition.equals(that.aspectDefinition);
   }
 
   /** {@link ObjectCodec} for {@link Aspect}. */

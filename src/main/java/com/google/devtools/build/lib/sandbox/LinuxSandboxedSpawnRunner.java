@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
+import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -103,10 +104,11 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   private static boolean computeIsSupported(CommandEnvironment cmdEnv, Path linuxSandbox)
       throws InterruptedException {
+    LocalExecutionOptions options = cmdEnv.getOptions().getOptions(LocalExecutionOptions.class);
     ImmutableList<String> linuxSandboxArgv =
         LinuxSandboxCommandLineBuilder.commandLineBuilder(
                 linuxSandbox, ImmutableList.of("/bin/true"))
-            .setTimeout(Duration.ofSeconds(1))
+            .setTimeout(options.getLocalSigkillGraceSeconds())
             .build();
     ImmutableMap<String, String> env = ImmutableMap.of();
     Path execRoot = cmdEnv.getExecRoot();
@@ -133,8 +135,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final Path inaccessibleHelperDir;
   private final LocalEnvProvider localEnvProvider;
   private final Duration timeoutKillDelay;
-  @Nullable private final SandboxfsProcess sandboxfsProcess;
-  private final boolean sandboxfsMapSymlinkTargets;
   private final TreeDeleter treeDeleter;
   private final Reporter reporter;
   private final ImmutableList<Root> packageRoots;
@@ -149,9 +149,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    * @param inaccessibleHelperFile path to a file that is (already) inaccessible
    * @param inaccessibleHelperDir path to a directory that is (already) inaccessible
    * @param timeoutKillDelay an additional grace period before killing timing out commands
-   * @param sandboxfsProcess instance of the sandboxfs process to use; may be null for none, in
-   *     which case the runner uses a symlinked sandbox
-   * @param sandboxfsMapSymlinkTargets map the targets of symlinks within the sandbox if true
    */
   LinuxSandboxedSpawnRunner(
       SandboxHelpers helpers,
@@ -160,8 +157,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       Path inaccessibleHelperFile,
       Path inaccessibleHelperDir,
       Duration timeoutKillDelay,
-      @Nullable SandboxfsProcess sandboxfsProcess,
-      boolean sandboxfsMapSymlinkTargets,
       TreeDeleter treeDeleter) {
     super(cmdEnv);
     this.helpers = helpers;
@@ -174,8 +169,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.inaccessibleHelperFile = inaccessibleHelperFile;
     this.inaccessibleHelperDir = inaccessibleHelperDir;
     this.timeoutKillDelay = timeoutKillDelay;
-    this.sandboxfsProcess = sandboxfsProcess;
-    this.sandboxfsMapSymlinkTargets = sandboxfsMapSymlinkTargets;
     this.localEnvProvider = new PosixLocalEnvProvider(cmdEnv.getClientEnv());
     this.treeDeleter = treeDeleter;
     this.reporter = cmdEnv.getReporter();
@@ -191,6 +184,12 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private boolean useHermeticTmp() {
     if (!getSandboxOptions().sandboxHermeticTmp) {
       // No hermetic /tmp requested, so let's not do it
+      return false;
+    }
+
+    if (getSandboxOptions().useHermetic) {
+      // The hermetic sandbox is, well, already hermetic. Also, it creates an empty /tmp by default
+      // so nothing needs to be done to achieve a /tmp that is also hermetic.
       return false;
     }
 
@@ -330,8 +329,13 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             .setUseFakeHostname(getSandboxOptions().sandboxFakeHostname)
             .setEnablePseudoterminal(getSandboxOptions().sandboxExplicitPseudoterminal)
             .setCreateNetworkNamespace(createNetworkNamespace ? NETNS_WITH_LOOPBACK : NO_NETNS)
-            .setUseDebugMode(sandboxOptions.sandboxDebug)
             .setKillDelay(timeoutKillDelay);
+
+    Path sandboxDebugPath = null;
+    if (sandboxOptions.sandboxDebug) {
+      sandboxDebugPath = sandboxPath.getRelative("debug.out");
+      commandLineBuilder.setSandboxDebugPath(sandboxDebugPath.getPathString());
+    }
 
     if (sandboxOptions.memoryLimitMb > 0) {
       CgroupsInfo cgroupsInfo = CgroupsInfo.getInstance();
@@ -355,26 +359,9 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     } else if (sandboxOptions.sandboxFakeUsername) {
       commandLineBuilder.setUseFakeUsername(true);
     }
-    Path statisticsPath = null;
-    if (sandboxOptions.collectLocalSandboxExecutionStatistics) {
-      statisticsPath = sandboxPath.getRelative("stats.out");
-      commandLineBuilder.setStatisticsPath(statisticsPath);
-    }
-    if (sandboxfsProcess != null) {
-      return new SandboxfsSandboxedSpawn(
-          sandboxfsProcess,
-          sandboxPath,
-          workspaceName,
-          commandLineBuilder.build(),
-          environment,
-          inputs,
-          outputs,
-          ImmutableSet.of(),
-          sandboxfsMapSymlinkTargets,
-          treeDeleter,
-          spawn.getMnemonic(),
-          statisticsPath);
-    } else if (sandboxOptions.useHermetic) {
+    Path statisticsPath = sandboxPath.getRelative("stats.out");
+    commandLineBuilder.setStatisticsPath(statisticsPath);
+    if (sandboxOptions.useHermetic) {
       commandLineBuilder.setHermeticSandboxPath(sandboxPath);
       return new HardlinkedSandboxedSpawn(
           sandboxPath,
@@ -385,6 +372,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           outputs,
           writableDirs,
           treeDeleter,
+          sandboxDebugPath,
           statisticsPath,
           sandboxOptions.sandboxDebug,
           spawn.getMnemonic());
@@ -398,6 +386,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           outputs,
           writableDirs,
           treeDeleter,
+          sandboxDebugPath,
           statisticsPath,
           spawn.getMnemonic());
     }

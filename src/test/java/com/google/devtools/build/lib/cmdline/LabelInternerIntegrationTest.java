@@ -15,11 +15,13 @@ package com.google.devtools.build.lib.cmdline;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.stream.Collectors.toCollection;
 import static org.junit.Assume.assumeFalse;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.util.SkyframeIntegrationTestBase;
 import com.google.devtools.build.lib.cmdline.Label.LabelInterner;
@@ -33,6 +35,7 @@ import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -173,8 +176,49 @@ public final class LabelInternerIntegrationTest extends SkyframeIntegrationTestB
                 .isSameInstanceAs(l));
   }
 
+  /**
+   * This test case addresses b/289354550.
+   *
+   * <p>Label interner can sometimes be disabled when blaze does not use {@link InMemoryGraph}. This
+   * test case deliberately disables label interner and check identical label are always weak
+   * interned.
+   */
+  @Test
+  public void labelInterner_alwaysRespectWeakInternerWhenLabelInternerDisabled() throws Exception {
+    write("hello/BUILD", "genrule(name = 'foo', outs = ['out'], cmd = '/bin/echo hello > $@')");
+    // Deliberately set label interner's global pool to null to disable labelInterner.
+    LabelInterner.setGlobalPool(null);
+    assertThat(labelInterner.enabled()).isFalse();
+
+    // Target label //hello:foo is definitely created when build hello:foo target. So create it
+    // before target build to ensure it is stored in weak interner.
+    Label preBuildLabel = Label.parseCanonical("//hello:foo");
+    buildTarget("//hello:foo");
+
+    InMemoryGraph graph = skyframeExecutor().getEvaluator().getInMemoryGraph();
+    PackageIdentifier packageKey = PackageIdentifier.createInMainRepo(/* name= */ "hello");
+    NodeEntry nodeEntry = graph.get(/* requestor= */ null, Reason.OTHER, packageKey);
+    assertThat(nodeEntry).isNotNull();
+
+    Set<Label> targetLabels =
+        ((PackageValue) nodeEntry.toValue())
+            .getPackage().getTargets().values().stream()
+                .map(TargetApi::getLabel)
+                .collect(toCollection(Sets::newIdentityHashSet));
+
+    // Target label //hello:foo stored in InMemoryGraph should exist and be the same instance as
+    // what is created for weak interner in advance.
+    assertThat(targetLabels).contains(preBuildLabel);
+
+    // Post build, we still need to make sure that target label //hello:foo was not removed from
+    // weak interner's underlying map. So create a new //hello:foo target label and expect it to be
+    // the same instance as the original one.
+    Label postBuildLabel = Label.parseCanonical("//hello:foo");
+    assertThat(postBuildLabel).isSameInstanceAs(preBuildLabel);
+  }
+
   @After
   public void cleanup() {
-    skyframeExecutor().getEvaluator().getInMemoryGraph().cleanupInterningPool();
+    skyframeExecutor().getEvaluator().getInMemoryGraph().cleanupInterningPools();
   }
 }

@@ -476,11 +476,7 @@ public class ResourceLinker {
             .add("--java", javaSourceDirectory)
             .add("--proguard", proguardConfig)
             .add("--proguard-main-dex", mainDexProguard)
-            // By default, exclude the file path location comments, since the paths
-            // include temporary directory names, which otherwise cause
-            // nondeterministic build output.
-            .when(!includeProguardLocationReferences)
-            .thenAdd("--no-proguard-location-reference")
+            .add("--no-proguard-location-reference")
             .when(conditionalKeepRules)
             .thenAdd("--proguard-conditional-keep-rules")
             .add("-o", linked)

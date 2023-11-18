@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -84,32 +85,15 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link GlobFunction}.
- */
-public abstract class GlobFunctionTest {
+/** Tests for {@link GlobFunction}. */
+@RunWith(JUnit4.class)
+public class GlobFunctionTest {
   private static final EvaluationContext EVALUATION_OPTIONS =
       EvaluationContext.newBuilder()
           .setKeepGoing(false)
           .setParallelism(SkyframeExecutor.DEFAULT_THREAD_COUNT)
           .setEventHandler(NullEventHandler.INSTANCE)
           .build();
-
-  @RunWith(JUnit4.class)
-  public static class GlobFunctionAlwaysUseDirListingTest extends GlobFunctionTest {
-    @Override
-    protected boolean alwaysUseDirListing() {
-      return true;
-    }
-  }
-
-  @RunWith(JUnit4.class)
-  public static class RegularGlobFunctionTest extends GlobFunctionTest {
-    @Override
-    protected boolean alwaysUseDirListing() {
-      return false;
-    }
-  }
 
   private CustomInMemoryFs fs;
   private MemoizingEvaluator evaluator;
@@ -162,7 +146,7 @@ public abstract class GlobFunctionTest {
             directories);
 
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
-    skyFunctions.put(SkyFunctions.GLOB, new GlobFunction(alwaysUseDirListing()));
+    skyFunctions.put(SkyFunctions.GLOB, new GlobFunction());
     skyFunctions.put(
         SkyFunctions.DIRECTORY_LISTING_STATE,
         new DirectoryListingStateFunction(externalFilesHelper, SyscallCache.NO_CACHE));
@@ -203,10 +187,24 @@ public abstract class GlobFunctionTest {
     skyFunctions.put(
         SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
         new LocalRepositoryLookupFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
+    skyFunctions.put(
+        SkyFunctions.REPOSITORY_MAPPING,
+        new SkyFunction() {
+          @Override
+          public SkyValue compute(SkyKey skyKey, Environment env) {
+            return RepositoryMappingValue.VALUE_FOR_ROOT_MODULE_WITHOUT_REPOS;
+          }
+        });
+    skyFunctions.put(
+        BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
+        new SkyFunction() {
+          @Override
+          public SkyValue compute(SkyKey skyKey, Environment env) {
+            return BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE;
+          }
+        });
     return skyFunctions;
   }
-
-  protected abstract boolean alwaysUseDirListing();
 
   private void createTestFiles() throws IOException {
     pkgPath.createDirectoryAndParents();
@@ -474,44 +472,28 @@ public abstract class GlobFunctionTest {
   }
 
   @Test
-  public void testGlobWithoutWildcards() throws Exception {
+  public void testGlobWithoutWildcardsDoesNotCallReaddir() throws Exception {
     String pattern = "foo/bar/wiz/file";
 
     assertGlobMatches(pattern, "foo/bar/wiz/file");
     // Ensure that the glob depends on the FileValue and not on the DirectoryListingValue.
     pkgPath.getRelative("foo/bar/wiz/file").delete();
+
     // Nothing has been invalidated yet, so the cached result is returned.
     assertGlobMatches(pattern, "foo/bar/wiz/file");
 
-    if (alwaysUseDirListing()) {
-      differencer.invalidate(
-          ImmutableList.of(
-              FileStateValue.key(
-                  RootedPath.toRootedPath(
-                      Root.fromPath(root), pkgPath.getRelative("foo/bar/wiz/file")))));
-      // The result should not rely on the FileStateValue, so it's still a cache hit.
-      assertGlobMatches(pattern, "foo/bar/wiz/file");
+    differencer.invalidate(
+        ImmutableList.of(
+            DirectoryListingStateValue.key(
+                RootedPath.toRootedPath(Root.fromPath(root), pkgPath.getRelative("foo/bar/wiz")))));
+    // The result should not rely on the DirectoryListingValue, so it's still a cache hit.
+    assertGlobMatches(pattern, "foo/bar/wiz/file");
 
-      differencer.invalidate(
-          ImmutableList.of(
-              DirectoryListingStateValue.key(
-                  RootedPath.toRootedPath(
-                      Root.fromPath(root), pkgPath.getRelative("foo/bar/wiz")))));
-    } else {
-      differencer.invalidate(
-          ImmutableList.of(
-              DirectoryListingStateValue.key(
-                  RootedPath.toRootedPath(
-                      Root.fromPath(root), pkgPath.getRelative("foo/bar/wiz")))));
-      // The result should not rely on the DirectoryListingValue, so it's still a cache hit.
-      assertGlobMatches(pattern, "foo/bar/wiz/file");
-
-      differencer.invalidate(
-          ImmutableList.of(
-              FileStateValue.key(
-                  RootedPath.toRootedPath(
-                      Root.fromPath(root), pkgPath.getRelative("foo/bar/wiz/file")))));
-    }
+    differencer.invalidate(
+        ImmutableList.of(
+            FileStateValue.key(
+                RootedPath.toRootedPath(
+                    Root.fromPath(root), pkgPath.getRelative("foo/bar/wiz/file")))));
     // This should have invalidated the glob result.
     assertGlobMatches(pattern /* => nothing */);
   }

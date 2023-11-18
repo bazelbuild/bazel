@@ -52,7 +52,7 @@ class AarNativeLibsZipCreatorTest(unittest.TestCase):
     aar.writestr("jni/armeabi/foo.so", "")
     outzip = zipfile.ZipFile(io.BytesIO(), "w")
     self.assertRaises(
-        aar_native_libs_zip_creator.UnsupportedArchitectureException,
+        aar_native_libs_zip_creator.UnsupportedArchitectureError,
         aar_native_libs_zip_creator.CreateNativeLibsZip,
         aar, "x86", outzip)
 

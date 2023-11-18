@@ -14,20 +14,22 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
 import com.google.devtools.build.lib.query2.cquery.ConfiguredTargetQueryEnvironment;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions;
-import com.google.devtools.build.lib.query2.cquery.KeyedConfiguredTarget;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.Collection;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** Performs {@code cquery} processing. */
-public final class CqueryProcessor extends PostAnalysisQueryProcessor<KeyedConfiguredTarget> {
+public final class CqueryProcessor extends PostAnalysisQueryProcessor<ConfiguredTarget> {
 
   public CqueryProcessor(
       QueryExpression queryExpression, TargetPattern.Parser mainRepoTargetParser) {
@@ -48,6 +50,9 @@ public final class CqueryProcessor extends PostAnalysisQueryProcessor<KeyedConfi
             .addAll(env.getRuntime().getQueryFunctions())
             .build();
     CqueryOptions cqueryOptions = request.getOptions(CqueryOptions.class);
+    StarlarkSemantics starlarkSemantics =
+        env.getSkyframeExecutor()
+            .getEffectiveStarlarkSemantics(env.getOptions().getOptions(BuildLanguageOptions.class));
     return new ConfiguredTargetQueryEnvironment(
         request.getKeepGoing(),
         env.getReporter(),
@@ -58,6 +63,9 @@ public final class CqueryProcessor extends PostAnalysisQueryProcessor<KeyedConfi
         env.getPackageManager().getPackagePath(),
         () -> walkableGraph,
         cqueryOptions,
-        request.getTopLevelArtifactContext());
+        request.getTopLevelArtifactContext(),
+        request
+            .getOptions(CqueryOptions.class)
+            .getLabelPrinter(starlarkSemantics, mainRepoTargetParser.getRepoMapping()));
   }
 }

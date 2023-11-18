@@ -607,7 +607,7 @@ public abstract class AarImportTest extends AndroidBuildViewTestCase {
     checkError(
         "aar",
         "aar",
-        platformBasedToolchains()
+        platformBasedToolchains() // Error changes based on the flag used
             ? "resolved to target //sdk:sdk, but that target does not provide ToolchainInfo"
             : "No Android SDK found. Use the --android_sdk command line option to specify one.",
         "aar_import(",

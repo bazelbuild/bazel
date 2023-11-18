@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -81,16 +80,28 @@ public class StarlarkOptionsParser {
 
   // Local cache of build settings so we don't repeatedly load them.
   private final Map<String, Target> buildSettings = new HashMap<>();
+  // whether options explicitly set to their default values are added to {@code starlarkOptions}
+  private final boolean includeDefaultValues;
 
   private StarlarkOptionsParser(
-      BuildSettingLoader buildSettingLoader, OptionsParser nativeOptionsParser) {
+      BuildSettingLoader buildSettingLoader,
+      OptionsParser nativeOptionsParser,
+      boolean includeDefaultValues) {
     this.buildSettingLoader = buildSettingLoader;
     this.nativeOptionsParser = nativeOptionsParser;
+    this.includeDefaultValues = includeDefaultValues;
   }
 
   public static StarlarkOptionsParser newStarlarkOptionsParser(
       BuildSettingLoader buildSettingLoader, OptionsParser optionsParser) {
-    return new StarlarkOptionsParser(buildSettingLoader, optionsParser);
+    return newStarlarkOptionsParser(buildSettingLoader, optionsParser, false);
+  }
+
+  public static StarlarkOptionsParser newStarlarkOptionsParser(
+      BuildSettingLoader buildSettingLoader,
+      OptionsParser optionsParser,
+      boolean includeDefaultValues) {
+    return new StarlarkOptionsParser(buildSettingLoader, optionsParser, includeDefaultValues);
   }
 
   /**
@@ -103,7 +114,6 @@ public class StarlarkOptionsParser {
   // OptionsParserImpl.identifyOptionAndPossibleArgument. Consider combining. This would probably
   // require multiple rounds of parsing to fit starlark-defined options into native option format.
   @VisibleForTesting
-  @CanIgnoreReturnValue
   public boolean parse() throws OptionsParsingException {
     return parseGivenArgs(nativeOptionsParser.getSkippedArgs());
   }
@@ -115,7 +125,6 @@ public class StarlarkOptionsParser {
    *     work to retrieve build setting targets (after which it'll call this method again)
    */
   @VisibleForTesting
-  @CanIgnoreReturnValue
   public boolean parseGivenArgs(List<String> args) throws OptionsParsingException {
     // Map of <option name (label), <unparsed option value, loaded option>>.
     Multimap<String, Pair<String, Target>> unparsedOptions = LinkedListMultimap.create();
@@ -194,14 +203,15 @@ public class StarlarkOptionsParser {
                         .getAssociatedRule()
                         .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME)));
         List<?> newValue = (List<?>) value;
-        if (!newValue.equals(defaultValue)) {
+        if (!newValue.equals(defaultValue) || includeDefaultValues) {
           parsedOptions.put(buildSetting, value);
         }
       } else {
         if (!value.equals(
-            buildSettingTarget
-                .getAssociatedRule()
-                .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))) {
+                buildSettingTarget
+                    .getAssociatedRule()
+                    .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))
+            || includeDefaultValues) {
           parsedOptions.put(buildSetting, buildSettingAndFinalValue.getSecond());
         }
       }

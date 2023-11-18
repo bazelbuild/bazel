@@ -15,7 +15,6 @@ package com.google.devtools.build.android.r8;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.max;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.joining;
 
 import com.android.tools.r8.ArchiveClassFileProvider;
@@ -26,6 +25,7 @@ import com.android.tools.r8.D8;
 import com.android.tools.r8.D8Command;
 import com.android.tools.r8.Diagnostic;
 import com.android.tools.r8.DiagnosticsHandler;
+import com.android.tools.r8.errors.DexFileOverflowDiagnostic;
 import com.android.tools.r8.errors.InterfaceDesugarMissingTypeDiagnostic;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.google.common.collect.ImmutableList;
@@ -42,7 +42,6 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.PrintWriter;
@@ -369,9 +368,11 @@ public class Desugar {
   }
 
   private final DesugarOptions options;
+  private final PrintStream diagnosticsHandlerPrintStream;
 
-  private Desugar(DesugarOptions options) {
+  private Desugar(DesugarOptions options, PrintStream diagnosticsHandlerPrintStream) {
     this.options = options;
+    this.diagnosticsHandlerPrintStream = diagnosticsHandlerPrintStream;
   }
 
   private static DesugarOptions parseCommandLineOptions(String[] args) {
@@ -412,12 +413,14 @@ public class Desugar {
     }
   }
 
-  private class DesugarDiagnosticsHandler implements DiagnosticsHandler {
+  private static class DesugarDiagnosticsHandler implements DiagnosticsHandler {
 
-    OutputConsumer outputConsumer;
+    private final OutputConsumer outputConsumer;
+    private final PrintStream stream;
 
-    private DesugarDiagnosticsHandler(OutputConsumer outputConsumer) {
+    private DesugarDiagnosticsHandler(OutputConsumer outputConsumer, PrintStream stream) {
       this.outputConsumer = outputConsumer;
+      this.stream = stream;
     }
 
     @Override
@@ -440,7 +443,26 @@ public class Desugar {
         // Ignore.
         return;
       }
-      DiagnosticsHandler.super.warning(warning);
+      DiagnosticsHandler.printDiagnosticToStream(warning, "Warning", stream);
+    }
+
+    @Override
+    public void info(Diagnostic info) {
+      DiagnosticsHandler.printDiagnosticToStream(info, "Info", stream);
+    }
+
+    @Override
+    public void error(Diagnostic error) {
+      if (error instanceof DexFileOverflowDiagnostic) {
+        DexFileOverflowDiagnostic overflowDiagnostic = (DexFileOverflowDiagnostic) error;
+        if (!overflowDiagnostic.hasMainDexSpecification()) {
+          DiagnosticsHandler.super.error(
+              new StringDiagnostic(
+                  overflowDiagnostic.getDiagnosticMessage() + ". Try supplying a main-dex list"));
+          return;
+        }
+      }
+      DiagnosticsHandler.super.error(error);
     }
   }
 
@@ -449,7 +471,8 @@ public class Desugar {
       ClassFileResourceProvider classpath,
       Path input,
       Path output,
-      Path desugaredLibConfig)
+      Path desugaredLibConfig,
+      PrintStream diagnosticsHandlerPrintStream)
       throws CompilationFailedException, IOException {
     checkArgument(!Files.isDirectory(input), "Input must be a jar (%s is a directory)", input);
     DependencyCollector dependencyCollector = createDependencyCollector();
@@ -483,7 +506,7 @@ public class Desugar {
                   ArchiveProgramResourceProvider.includeClassFileOrDexEntries(p)
                       && isProgramClassForShard(numberOfShards, currentShard, p));
       D8Command.Builder builder =
-          D8Command.builder(new DesugarDiagnosticsHandler(consumer))
+          D8Command.builder(new DesugarDiagnosticsHandler(consumer, diagnosticsHandlerPrintStream))
               .addClasspathResourceProvider(orderedClassFileResourceProvider)
               .addProgramResourceProvider(programProvider)
               .setIntermediate(true)
@@ -497,7 +520,7 @@ public class Desugar {
     }
   }
 
-  private void desugar() throws CompilationFailedException, IOException {
+  public void desugar() throws CompilationFailedException, IOException {
     // Prepare bootclasspath and classpath. Some jars on the classpath are considered to be
     // bootclasspath, and are moved there.
     ImmutableList.Builder<ClassFileResourceProvider> bootclasspathProvidersBuilder =
@@ -529,7 +552,8 @@ public class Desugar {
           classpathProvider,
           options.inputJars.get(i),
           options.outputJars.get(i),
-          options.desugarCoreLibs ? options.desugaredLibConfig.get(0) : null);
+          options.desugarCoreLibs ? options.desugaredLibConfig.get(0) : null,
+          diagnosticsHandlerPrintStream);
     }
   }
 
@@ -644,50 +668,37 @@ public class Desugar {
         options.outputJars.size());
   }
 
-  private static int processRequest(List<String> args) throws Exception {
+  private static int processRequest(List<String> args, PrintStream diagnosticsHandlerPrintStream)
+      throws Exception {
     DesugarOptions options = parseCommandLineOptions(args.toArray(new String[0]));
     validateOptions(options);
-    new Desugar(options).desugar();
+    new Desugar(options, diagnosticsHandlerPrintStream).desugar();
     return 0;
   }
 
-  private static int processRequest(List<String> args, PrintWriter pw, ByteArrayOutputStream buf) {
+  private static int processRequest(
+      List<String> args, PrintWriter pw, PrintStream diagnosticsHandlerPrintStream) {
     int exitCode;
     try {
       // Process the actual request and grab the exit code
-      exitCode = processRequest(args);
+      exitCode = processRequest(args, diagnosticsHandlerPrintStream);
     } catch (Exception e) {
       e.printStackTrace(pw);
       exitCode = 1;
-    } finally {
-      // Write the captured buffer to the work response. We synchronize to avoid race conditions
-      // while reading from and calling reset on the shared ByteArrayOutputStream.
-      String captured;
-      synchronized (buf) {
-        captured = buf.toString(UTF_8).trim();
-        buf.reset();
-      }
-      pw.print(captured);
     }
     return exitCode;
   }
 
   private static int runPersistentWorker() {
-    ByteArrayOutputStream buf = new ByteArrayOutputStream();
-    PrintStream ps = new PrintStream(buf, true);
-    PrintStream realStdOut = System.out;
     PrintStream realStdErr = System.err;
 
-    // Redirect all stdout and stderr output for logging.
-    System.setOut(ps);
-    System.setErr(ps);
     try {
       WorkRequestHandler workerHandler =
           new WorkRequestHandler.WorkRequestHandlerBuilder(
                   new WorkRequestHandler.WorkRequestCallback(
-                      (request, pw) -> processRequest(request.getArgumentsList(), pw, buf)),
+                      (request, pw) -> processRequest(request.getArgumentsList(), pw, realStdErr)),
                   realStdErr,
-                  new ProtoWorkerMessageProcessor(System.in, realStdOut))
+                  new ProtoWorkerMessageProcessor(System.in, System.out))
               .setCpuUsageBeforeGc(Duration.ofSeconds(10))
               .build();
       workerHandler.processRequests();
@@ -695,9 +706,6 @@ public class Desugar {
       logger.severe(e.getMessage());
       e.printStackTrace(realStdErr);
       return 1;
-    } finally {
-      System.setOut(realStdOut);
-      System.setErr(realStdErr);
     }
     return 0;
   }
@@ -706,7 +714,7 @@ public class Desugar {
     if (args.length > 0 && args[0].equals("--persistent_worker")) {
       System.exit(runPersistentWorker());
     } else {
-      System.exit(processRequest(Arrays.asList(args)));
+      System.exit(processRequest(Arrays.asList(args), System.err));
     }
   }
 }

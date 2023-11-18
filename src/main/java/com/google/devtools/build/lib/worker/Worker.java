@@ -35,22 +35,21 @@ public abstract class Worker {
 
   /** An unique identifier of the work process. */
   protected final WorkerKey workerKey;
+
   /** An unique ID of the worker. It will be used in WorkRequest and WorkResponse as well. */
   protected final int workerId;
+
   /** The path of the log file for this worker. */
   protected final Path logFile;
-  /**
-   * Indicated that worker should be destroyed after usage. If worker doomed, then after its
-   * desctruction we automacically shrink the pool size for its worker key.
-   */
-  protected boolean doomed;
 
-  public Worker(WorkerKey workerKey, int workerId, Path logFile) {
+  public Worker(WorkerKey workerKey, int workerId, Path logFile, WorkerProcessStatus status) {
     this.workerKey = workerKey;
     this.workerId = workerId;
     this.logFile = logFile;
-    this.doomed = false;
+    this.status = status;
   }
+
+  protected final WorkerProcessStatus status;
 
   /**
    * Returns a unique id for this worker. This is used to distinguish different worker processes in
@@ -70,12 +69,8 @@ public abstract class Worker {
     return workerKey;
   }
 
-  public boolean isDoomed() {
-    return doomed;
-  }
-
-  void setDoomed(boolean doomed) {
-    this.doomed = doomed;
+  public WorkerProcessStatus getStatus() {
+    return status;
   }
 
   HashCode getWorkerFilesCombinedHash() {
@@ -129,7 +124,11 @@ public abstract class Worker {
    * @param execRoot The global execRoot, where outputs must go.
    * @param outputs The expected outputs.
    */
-  public abstract void finishExecution(Path execRoot, SandboxOutputs outputs) throws IOException;
+  public void finishExecution(Path execRoot, SandboxOutputs outputs) throws IOException {
+    status.maybeUpdateStatus(WorkerProcessStatus.Status.ALIVE);
+    WorkerProcessMetricsCollector.instance().onWorkerFinishExecution(getProcessId());
+  }
+  ;
 
   /**
    * Destroys this worker. Once this has been called, we assume it's safe to clean up related

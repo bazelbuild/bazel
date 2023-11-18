@@ -88,20 +88,6 @@ class AsynchronousTreeDeleter implements TreeDeleter {
   }
 
   @Override
-  public void deleteTreesBelow(Path path) {
-    checkNotNull(service, "Cannot call deleteTree after shutdown")
-        .execute(
-            () -> {
-              try {
-                path.deleteTreesBelow();
-              } catch (IOException e) {
-                logger.atWarning().withCause(e).log(
-                    "Failed to delete contents of %s asynchronously", path);
-              }
-            });
-  }
-
-  @Override
   public void shutdown() {
     if (service != null) {
       logger.atInfo().log("Finishing %d pending async tree deletions", service.getTaskCount());

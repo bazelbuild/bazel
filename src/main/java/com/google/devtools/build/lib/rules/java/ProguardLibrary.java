@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import java.util.Collection;
 
 /**
@@ -47,7 +48,7 @@ public final class ProguardLibrary {
   }
 
   /** Collects the validated proguard specs exported by this rule and its dependencies. */
-  public NestedSet<Artifact> collectProguardSpecs() {
+  public NestedSet<Artifact> collectProguardSpecs() throws RuleErrorException {
     return collectProguardSpecs(DEPENDENCY_ATTRIBUTES);
   }
 
@@ -55,7 +56,8 @@ public final class ProguardLibrary {
    * Collects the validated proguard specs exported by this rule and its dependencies through the
    * given attributes.
    */
-  public NestedSet<Artifact> collectProguardSpecs(Iterable<String> attributes) {
+  public NestedSet<Artifact> collectProguardSpecs(Iterable<String> attributes)
+      throws RuleErrorException {
     NestedSetBuilder<Artifact> specsBuilder = NestedSetBuilder.naiveLinkOrder();
 
     for (String attribute : attributes) {
@@ -109,7 +111,8 @@ public final class ProguardLibrary {
    * validated Proguard spec, ready to be exported.
    */
   private Artifact validateProguardSpec(
-      RuleContext ruleContext, FilesToRunProvider proguardAllowlister, Artifact specToValidate) {
+      RuleContext ruleContext, FilesToRunProvider proguardAllowlister, Artifact specToValidate)
+      throws RuleErrorException {
     // If we're validating j/a/b/testapp/proguard.cfg, the output will be:
     // j/a/b/testapp/proguard.cfg_valid
     Artifact output =

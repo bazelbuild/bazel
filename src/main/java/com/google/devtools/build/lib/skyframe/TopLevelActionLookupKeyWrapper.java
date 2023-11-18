@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.skyframe.SkyKey;
 
 /** The common interface for keys that wraps a top level action lookup keys. */
 public interface TopLevelActionLookupKeyWrapper extends SkyKey {
-  ActionLookupKeyOrProxy actionLookupKey();
+  ActionLookupKey actionLookupKey();
 
   TopLevelArtifactContext topLevelArtifactContext();
 }

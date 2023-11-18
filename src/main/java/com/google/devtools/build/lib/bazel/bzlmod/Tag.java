@@ -40,8 +40,25 @@ public abstract class Tag {
   /** The source location in the module file where this tag was created. */
   public abstract Location getLocation();
 
+  public abstract Builder toBuilder();
+
   public static Builder builder() {
     return new AutoValue_Tag.Builder();
+  }
+
+  /**
+   * Returns a new tag with all information removed that does not influence the evaluation of the
+   * extension defining the tag.
+   */
+  Tag trimForEvaluation() {
+    // We start with the full usage and selectively remove information that does not influence the
+    // evaluation of the extension. Compared to explicitly copying over the parts that do, this
+    // preserves correctness in case new fields are added without updating this code.
+    return toBuilder()
+        // Locations are only used for error reporting and thus don't influence whether the
+        // evaluation of the extension is successful and what its result is in case of success.
+        .setLocation(Location.BUILTIN)
+        .build();
   }
 
   /** Builder for {@link Tag}. */

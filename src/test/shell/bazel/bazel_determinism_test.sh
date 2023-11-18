@@ -18,6 +18,17 @@
 # Test that bootstrapping bazel is a fixed point
 #
 
+# --- begin runfiles.bash initialization v3 ---
+# Copy-pasted from the Bazel Bash runfiles library v3.
+set -uo pipefail; set +e; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$0.runfiles/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v3 ---
+
 set -u
 DISTFILE=$(rlocation io_bazel/${1#./})
 shift 1
@@ -55,18 +66,26 @@ function test_determinism()  {
     cd "${workdir}" || fail "Could not change to work directory"
     unzip -q "${DISTFILE}"
 
-    distdir="derived/distdir"
-    maven="${workdir}/maven"
-
     # Set up the maven repository properly.
-    cp maven/BUILD.vendor maven/BUILD
+    cp derived/maven/BUILD.vendor derived/maven/BUILD
+
+    # Update the hash of bazel_tools in lockfile to avoid rerunning module resolution.
+    new_hash=$(shasum -a 256 "src/MODULE.tools" | awk '{print $1}')
+    sed -i.bak "/\"bazel_tools\":/s/\"[a-f0-9]*\"/\"$new_hash\"/" MODULE.bazel.lock
+    rm MODULE.bazel.lock.bak
+
+    # Use @bazel_tools//tools/python:autodetecting_toolchain to avoid
+    # downloading python toolchain.
 
     # Build Bazel once.
     bazel \
       --output_base="${TEST_TMPDIR}/out1" \
       build \
-      --distdir=$distdir \
-      --override_repository=maven=$maven \
+      --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain \
+      --enable_bzlmod \
+      --check_direct_dependencies=error \
+      --lockfile_mode=update \
+      --override_repository=$(cat derived/maven/MAVEN_CANONICAL_REPO_NAME)=derived/maven \
       --nostamp \
       //src:bazel
     hash_outputs >"${TEST_TMPDIR}/sum1"
@@ -77,8 +96,11 @@ function test_determinism()  {
       --install_base="${TEST_TMPDIR}/install_base2" \
       --output_base="${TEST_TMPDIR}/out2" \
       build \
-      --distdir=$distdir \
-      --override_repository=maven=$maven \
+      --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain \
+      --enable_bzlmod \
+      --check_direct_dependencies=error \
+      --lockfile_mode=update \
+      --override_repository=$(cat derived/maven/MAVEN_CANONICAL_REPO_NAME)=derived/maven \
       --nostamp \
       //src:bazel
     hash_outputs >"${TEST_TMPDIR}/sum2"

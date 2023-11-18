@@ -1,6 +1,8 @@
 # Description:
 #   A grab-bag of testing utilities.
 
+load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
@@ -73,6 +75,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
@@ -245,10 +248,22 @@ java_library(
     ],
 )
 
+write_file(
+    name = "gen_rules_cc_repo_name",
+    out = "RulesCcRepoName.java",
+    content = [
+        "package com.google.devtools.build.lib.testutil;",
+        "class RulesCcRepoName {",
+        "  protected static final String CANONICAL_REPO_NAME = \"%s\";" % get_canonical_repo_name("@rules_cc"),
+        "}",
+    ],
+)
+
 # Library exposing Blaze constants for TAP's usage.
 java_library(
     name = "TestConstants",
     srcs = [
+        "RulesCcRepoName.java",
         "TestConstants.java",
     ],
     deps = [
@@ -318,6 +333,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:middleman_type",
+        "//src/main/java/com/google/devtools/build/lib/actions:runfiles_supplier",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/net/starlark/java/syntax",

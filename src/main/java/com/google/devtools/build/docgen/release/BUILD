@@ -22,6 +22,6 @@ java_binary(
     deps = [
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:flogger",
-        "@org_snakeyaml//:snakeyaml",
+        "@maven//:org_yaml_snakeyaml",
     ],
 )

@@ -20,7 +20,6 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
-import com.google.devtools.build.lib.concurrent.ComparableRunnable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reportable;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
@@ -44,7 +43,7 @@ class ParallelEvaluatorContext {
   private final EmittedEventState emittedEventState;
   private final NestedSetVisitor<Reportable> replayingNestedSetEventVisitor;
   private final boolean keepGoing;
-  private final DirtyTrackingProgressReceiver progressReceiver;
+  private final InflightTrackingProgressReceiver progressReceiver;
   private final EventFilter storedEventFilter;
   private final ErrorInfoManager errorInfoManager;
   private final GraphInconsistencyReceiver graphInconsistencyReceiver;
@@ -59,14 +58,9 @@ class ParallelEvaluatorContext {
    */
   private final Supplier<NodeEntryVisitor> visitorSupplier;
 
-  /**
-   * Returns a {@link Runnable} given a {@code key} to evaluate.
-   *
-   * <p>The returned {@link Runnable} is a {@link ComparableRunnable} so that it can be ordered by a
-   * priority queue.
-   */
+  /** * Returns a {@link Runnable} given a {@code key} to evaluate. */
   interface RunnableMaker {
-    ComparableRunnable make(SkyKey key, int priority);
+    Runnable make(SkyKey key);
   }
 
   public ParallelEvaluatorContext(
@@ -77,7 +71,7 @@ class ParallelEvaluatorContext {
       ExtendedEventHandler reporter,
       EmittedEventState emittedEventState,
       boolean keepGoing,
-      DirtyTrackingProgressReceiver progressReceiver,
+      InflightTrackingProgressReceiver progressReceiver,
       EventFilter storedEventFilter,
       ErrorInfoManager errorInfoManager,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
@@ -127,7 +121,7 @@ class ParallelEvaluatorContext {
       NodeEntry entry = checkNotNull(batch.get(parent), parent);
       boolean evaluationRequired = entry.signalDep(version, skyKey);
       if (evaluationRequired || parent.supportsPartialReevaluation()) {
-        getVisitor().enqueueEvaluation(parent, entry.getPriority(), skyKey);
+        getVisitor().enqueueEvaluation(parent, skyKey);
       }
     }
   }
@@ -152,7 +146,7 @@ class ParallelEvaluatorContext {
     return visitorSupplier.get();
   }
 
-  DirtyTrackingProgressReceiver getProgressReceiver() {
+  InflightTrackingProgressReceiver getProgressReceiver() {
     return progressReceiver;
   }
 
@@ -182,10 +176,6 @@ class ParallelEvaluatorContext {
 
   ErrorInfoManager getErrorInfoManager() {
     return errorInfoManager;
-  }
-
-  boolean restartPermitted() {
-    return graphInconsistencyReceiver.restartPermitted();
   }
 
   boolean mergingSkyframeAnalysisExecutionPhases() {

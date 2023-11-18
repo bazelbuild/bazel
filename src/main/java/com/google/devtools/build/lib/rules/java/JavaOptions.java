@@ -325,13 +325,12 @@ public class JavaOptions extends FragmentOptions {
    */
   @Option(
       name = "experimental_local_java_optimization_configuration",
-      allowMultiple = true,
       defaultValue = "null",
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Do not use.")
-  public List<Label> localJavaOptimizationConfiguration;
+  public Label localJavaOptimizationConfiguration;
 
   // TODO(b/237004872) Remove this after rollout of bytecode_optimization_pass_actions.
   /** If true, the OPTIMIZATION stage of the bytecode optimizer will be split across two actions. */
@@ -365,14 +364,6 @@ public class JavaOptions extends FragmentOptions {
           "If enabled, requires that ProGuard configuration files outside of third_party/ use the"
               + " *.pgcfg file extension.")
   public boolean enforceProguardFileExtension;
-
-  @Option(
-      name = "java_optimization_mode",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Do not use.")
-  public String javaOptimizationMode;
 
   @Option(
       name = "legacy_bazel_java_test",
@@ -567,17 +558,8 @@ public class JavaOptions extends FragmentOptions {
   public boolean dontCollectDataLibraries;
 
   @Option(
-      name = "incompatible_require_javaplugininfo_in_javacommon",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "When enabled java_common.compile only accepts JavaPluginInfo for plugins.")
-  public boolean requireJavaPluginInfo;
-
-  @Option(
       name = "incompatible_multi_release_deploy_jars",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -666,8 +648,6 @@ public class JavaOptions extends FragmentOptions {
     exec.hostJavaLanguageVersion = hostJavaLanguageVersion;
 
     exec.experimentalTurbineAnnotationProcessing = experimentalTurbineAnnotationProcessing;
-
-    exec.requireJavaPluginInfo = requireJavaPluginInfo;
 
     exec.multiReleaseDeployJars = multiReleaseDeployJars;
 

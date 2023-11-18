@@ -44,7 +44,10 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/** Caches the results of glob expansion for a package. Has lifetime of a single build. */
+/**
+ * Caches the results of glob evaluations for a single package. Has lifetime of evaluation of that
+ * package.
+ */
 @ThreadSafety.ThreadCompatible
 public class GlobCache {
   /**

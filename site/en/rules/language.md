@@ -41,8 +41,8 @@ types are supported:
 * [None](lib/globals#None)
 * [bool](lib/bool)
 * [dict](lib/dict)
-* [tuple](lib/globals#tuple)
-* function
+* [tuple](lib/tuple)
+* [function](lib/function)
 * [int](lib/int)
 * [list](lib/list)
 * [string](lib/string)

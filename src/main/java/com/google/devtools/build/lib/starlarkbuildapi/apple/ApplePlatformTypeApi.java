@@ -23,10 +23,10 @@ import net.starlark.java.eval.StarlarkValue;
     name = "apple_platform_type",
     category = DocCategory.BUILTIN,
     doc =
-        "Describes an Apple \"platform type\", such as iOS, macOS, tvOS, or watchOS. This is"
-            + " distinct from a \"platform\", which is the platform type combined with one or more"
-            + " CPU architectures.<p>Specific instances of this type can be retrieved by accessing"
-            + " the fields of the <a"
+        "Describes an Apple \"platform type\", such as iOS, macOS, tvOS, visionOS, or watchOS. This"
+            + " is distinct from a \"platform\", which is the platform type combined with one or"
+            + " more CPU architectures.<p>Specific instances of this type can be retrieved by"
+            + " accessing the fields of the <a"
             + " href='../toplevel/apple_common.html#platform_type'>apple_common.platform_type</a>:<br><ul>"
             + "<li><code>apple_common.platform_type.ios</code></li>"
             + "<li><code>apple_common.platform_type.macos</code></li>"

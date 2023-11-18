@@ -12,3 +12,8 @@ package_group(
     name = "config_feature_flag",
     packages = ["public"],
 )
+
+package_group(
+    name = "config_feature_flag_setter",
+    packages = ["public"],
+)

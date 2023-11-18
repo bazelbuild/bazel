@@ -233,4 +233,9 @@ function test_unzipper_zip64_archive() {
   diff -r unzipped source
 }
 
+function test_zipper_file_large_than_2G() {
+  dd if=/dev/zero of=${TEST_TMPDIR}/file_2064M.bin bs=16M count=129
+  $ZIPPER c ${TEST_TMPDIR}/output.zip ${TEST_TMPDIR}/file_2064M.bin
+}
+
 run_suite "zipper tests"

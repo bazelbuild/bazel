@@ -44,9 +44,8 @@ public class EditDuringBuildTest extends BuildIntegrationTestCase {
     Path in = write("edit/in", "line1");
     in.setLastModifiedTime(123456789);
 
-    // Make in writable from sandbox (in case sandbox strategy is used).
-    String absoluteInPath = in.getPathString();
-    addOptions("--sandbox_writable_path=" + absoluteInPath);
+    // Modify the actual source file, not a sandboxed copy.
+    addOptions("--spawn_strategy=local");
 
     // The "echo" effects editing of the source file during the build:
     write("edit/BUILD",

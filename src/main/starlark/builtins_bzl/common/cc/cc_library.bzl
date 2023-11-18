@@ -14,10 +14,10 @@
 
 """cc_library Starlark implementation replacing native"""
 
-load(":common/cc/cc_helper.bzl", "cc_helper")
-load(":common/cc/semantics.bzl", "semantics")
-load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_common.bzl", "cc_common")
+load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/semantics.bzl", "semantics")
 
 cc_internal = _builtins.internal.cc_internal
 
@@ -58,7 +58,6 @@ def _cc_library_impl(ctx):
         user_compile_flags = cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions),
         defines = cc_helper.defines(ctx, additional_make_variable_substitutions),
         local_defines = cc_helper.local_defines(ctx, additional_make_variable_substitutions) + cc_helper.get_local_defines_for_runfiles_lookup(ctx),
-        loose_includes = common.loose_include_dirs,
         system_includes = cc_helper.system_include_dirs(ctx, additional_make_variable_substitutions),
         copts_filter = cc_helper.copts_filter(ctx, additional_make_variable_substitutions),
         purpose = "cc_library-compile",
@@ -68,11 +67,10 @@ def _cc_library_impl(ctx):
         code_coverage_enabled = cc_helper.is_code_coverage_enabled(ctx),
         compilation_contexts = compilation_contexts,
         implementation_compilation_contexts = implementation_compilation_contexts,
-        hdrs_checking_mode = semantics.determine_headers_checking_mode(ctx),
-        grep_includes = ctx.executable._grep_includes,
         textual_hdrs = ctx.files.textual_hdrs,
         include_prefix = ctx.attr.include_prefix,
         strip_include_prefix = ctx.attr.strip_include_prefix,
+        additional_inputs = ctx.files.additional_compiler_inputs,
     )
 
     precompiled_objects = cc_common.create_compilation_outputs(
@@ -147,9 +145,8 @@ def _cc_library_impl(ctx):
             compilation_outputs = compilation_outputs,
             cc_toolchain = cc_toolchain,
             feature_configuration = feature_configuration,
-            additional_inputs = _filter_linker_scripts(ctx.files.deps),
+            additional_inputs = _filter_linker_scripts(ctx.files.deps) + ctx.files.additional_linker_inputs,
             linking_contexts = linking_contexts,
-            grep_includes = ctx.executable._grep_includes,
             user_link_flags = cc_helper.linkopts(ctx, additional_make_variable_substitutions, cc_toolchain),
             alwayslink = ctx.attr.alwayslink,
             disallow_dynamic_library = not create_dynamic_library or is_windows_enabled and win_def_file == None,
@@ -170,7 +167,6 @@ def _cc_library_impl(ctx):
             cc_toolchain = cc_toolchain,
             compilation_outputs = cc_common.create_compilation_outputs(),
             feature_configuration = feature_configuration,
-            grep_includes = ctx.executable._grep_includes,
             disallow_dynamic_library = True,
             alwayslink = ctx.attr.alwayslink,
         )
@@ -205,11 +201,12 @@ def _cc_library_impl(ctx):
     else:
         user_link_flags = cc_helper.linkopts(ctx, additional_make_variable_substitutions, cc_toolchain)
         linker_scripts = _filter_linker_scripts(ctx.files.deps)
-        if len(user_link_flags) > 0 or len(linker_scripts) > 0 or not semantics.should_create_empty_archive():
+        additional_linker_inputs = ctx.files.additional_linker_inputs
+        if len(user_link_flags) > 0 or len(linker_scripts) > 0 or len(additional_linker_inputs) > 0 or not semantics.should_create_empty_archive():
             linker_input = cc_common.create_linker_input(
                 owner = ctx.label,
                 user_link_flags = user_link_flags,
-                additional_inputs = depset(linker_scripts),
+                additional_inputs = depset(linker_scripts + additional_linker_inputs),
             )
             contexts_to_merge.append(cc_common.create_linking_context(linker_inputs = depset([linker_input])))
 
@@ -277,6 +274,9 @@ def _cc_library_impl(ctx):
     for dep in ctx.attr.deps:
         runfiles_list.append(dep[DefaultInfo].default_runfiles)
 
+    for dep in ctx.attr.implementation_deps:
+        runfiles_list.append(dep[DefaultInfo].default_runfiles)
+
     runfiles = ctx.runfiles().merge_all(runfiles_list)
 
     default_runfiles = ctx.runfiles(files = cc_helper.get_dynamic_libraries_for_runtime(linking_context_for_runfiles, True))
@@ -302,7 +302,10 @@ def _cc_library_impl(ctx):
         data_runfiles = data_runfiles,
     ))
 
-    debug_context = cc_helper.merge_cc_debug_contexts(compilation_outputs, cc_helper.get_providers(ctx.attr.deps, CcInfo))
+    debug_context = cc_helper.merge_cc_debug_contexts(
+        compilation_outputs,
+        cc_helper.get_providers(ctx.attr.deps + ctx.attr.implementation_deps, CcInfo),
+    )
     cc_info = CcInfo(
         compilation_context = compilation_context,
         linking_context = linking_context,
@@ -571,6 +574,10 @@ attrs = {
     ),
     "linkstamp": attr.label(allow_single_file = True),
     "linkopts": attr.string_list(),
+    "additional_linker_inputs": attr.label_list(
+        allow_files = True,
+        flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
+    ),
     "includes": attr.string_list(),
     "defines": attr.string_list(),
     "copts": attr.string_list(),
@@ -589,19 +596,16 @@ attrs = {
     "win_def_file": attr.label(allow_single_file = [".def"]),
     # buildifier: disable=attr-license
     "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
-    "_stl": semantics.get_stl(),
-    "_grep_includes": attr.label(
+    "additional_compiler_inputs": attr.label_list(
         allow_files = True,
-        executable = True,
-        cfg = "exec",
-        default = Label("@" + semantics.get_repo() + "//tools/cpp:grep-includes"),
+        flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
     ),
+    "_stl": semantics.get_stl(),
     "_def_parser": semantics.get_def_parser(),
     "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
     "_use_auto_exec_groups": attr.bool(default = True),
 }
 attrs.update(semantics.get_distribs_attr())
-attrs.update(semantics.get_loose_mode_in_hdrs_check_allowed_attr())
 attrs.update(semantics.get_implementation_deps_allowed_attr())
 attrs.update(semantics.get_nocopts_attr())
 
@@ -611,7 +615,6 @@ cc_library = rule(
     toolchains = cc_helper.use_cpp_toolchain() +
                  semantics.get_runtimes_toolchain(),
     fragments = ["cpp"] + semantics.additional_fragments(),
-    incompatible_use_toolchain_transition = True,
     provides = [CcInfo],
     exec_groups = {
         "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),

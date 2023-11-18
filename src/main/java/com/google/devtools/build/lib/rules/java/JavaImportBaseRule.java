@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 
 /**
@@ -42,14 +41,11 @@ public class JavaImportBaseRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE($java_import_base).ATTRIBUTE(jars) -->
         The list of JAR files provided to Java targets that depend on this target.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("jars", LABEL_LIST).mandatory().allowedFileTypes(JavaSemantics.JAR))
+        .add(attr("jars", LABEL_LIST).mandatory().allowedFileTypes())
         /* <!-- #BLAZE_RULE($java_import_base).ATTRIBUTE(srcjar) -->
         A JAR file that contains source code for the compiled JAR files.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(
-            attr("srcjar", LABEL)
-                .allowedFileTypes(JavaSemantics.SOURCE_JAR, JavaSemantics.JAR)
-                .direct_compile_time_input())
+        .add(attr("srcjar", LABEL).allowedFileTypes())
         .removeAttribute("deps") // only exports are allowed; nothing is compiled
         /* <!-- #BLAZE_RULE($java_import_base).ATTRIBUTE(neverlink) -->
         Only use this library for compilation and not at runtime.
@@ -62,12 +58,7 @@ public class JavaImportBaseRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE($java_import_base).ATTRIBUTE(constraints) -->
         Extra constraints imposed on this rule as a Java library.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(
-            attr("constraints", STRING_LIST)
-                .orderIndependent()
-                .nonconfigurable(
-                    "used in Attribute.validityPredicate implementations (loading time)"))
-        .advertiseStarlarkProvider(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
+        .add(attr("constraints", STRING_LIST))
         .build();
   }
 

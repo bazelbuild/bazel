@@ -453,6 +453,7 @@ public class WorkRequestHandler implements AutoCloseable {
             e.printStackTrace(stderr);
             currentThread.interrupt();
             idleGcScheduler.stop();
+            System.exit(1);
           }
         });
     RequestInfo previous = activeRequests.putIfAbsent(request.getRequestId(), new RequestInfo(t));

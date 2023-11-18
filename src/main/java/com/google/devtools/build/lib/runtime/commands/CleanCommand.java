@@ -102,17 +102,6 @@ public final class CleanCommand implements BlazeCommand {
               + "in the background."
     )
     public boolean async;
-
-    @Option(
-        name = "remove_all_convenience_symlinks",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-        help =
-            "If true, all symlinks in the workspace with  the prefix symlink_prefix will be"
-                + " deleted. Without this flag, only symlinks with the predefined suffixes are"
-                + " cleaned.")
-    public boolean removeAllConvenienceSymlinks;
   }
 
   private final OS os;
@@ -149,13 +138,7 @@ public final class CleanCommand implements BlazeCommand {
           options
               .getOptions(BuildRequestOptions.class)
               .getSymlinkPrefix(env.getRuntime().getProductName());
-      return actuallyClean(
-          env,
-          env.getOutputBase(),
-          cleanOptions.expunge,
-          async,
-          symlinkPrefix,
-          cleanOptions.removeAllConvenienceSymlinks);
+      return actuallyClean(env, env.getOutputBase(), cleanOptions.expunge, async, symlinkPrefix);
     } catch (CleanException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
       return BlazeCommandResult.failureDetail(e.getFailureDetail());
@@ -227,12 +210,7 @@ public final class CleanCommand implements BlazeCommand {
   }
 
   private BlazeCommandResult actuallyClean(
-      CommandEnvironment env,
-      Path outputBase,
-      boolean expunge,
-      boolean async,
-      String symlinkPrefix,
-      boolean removeAllConvenienceSymlinks)
+      CommandEnvironment env, Path outputBase, boolean expunge, boolean async, String symlinkPrefix)
       throws CleanException, InterruptedException {
     BlazeRuntime runtime = env.getRuntime();
     if (env.getOutputService() != null) {
@@ -317,8 +295,7 @@ public final class CleanCommand implements BlazeCommand {
         env.getOutputBase(),
         env.getReporter(),
         symlinkPrefix,
-        env.getRuntime().getProductName(),
-        removeAllConvenienceSymlinks);
+        env.getRuntime().getProductName());
 
     // shutdown on expunge cleans
     if (expunge) {

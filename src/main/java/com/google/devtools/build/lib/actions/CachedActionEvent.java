@@ -21,18 +21,20 @@ public final class CachedActionEvent implements Postable {
 
   private final Action action;
   private final long nanoTimeStart;
+  private final long nanoTimeFinish;
 
   /**
    * Create an event for an action that was cached.
    *
    * @param action the cached action
-   * @param nanoTimeStart the time when the action was started. This allow us to
-   * record more accurately the time spend by the action, since we execute some code before
-   * deciding if we execute the action or not.
+   * @param nanoTimeStart the time when the action was started. This allow us to record more
+   *     accurately the time spend by the action, since we execute some code before deciding if we
+   *     execute the action or not.
    */
-  public CachedActionEvent(Action action, long nanoTimeStart) {
+  public CachedActionEvent(Action action, long nanoTimeStart, long nanoTimeFinish) {
     this.action = action;
     this.nanoTimeStart = nanoTimeStart;
+    this.nanoTimeFinish = nanoTimeFinish;
   }
 
   public Action getAction() {
@@ -41,5 +43,9 @@ public final class CachedActionEvent implements Postable {
 
   public long getNanoTimeStart() {
     return nanoTimeStart;
+  }
+
+  public long getNanoTimeFinish() {
+    return nanoTimeFinish;
   }
 }

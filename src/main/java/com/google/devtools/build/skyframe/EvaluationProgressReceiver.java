@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -52,14 +53,6 @@ public interface EvaluationProgressReceiver {
     }
   }
 
-  /** New state of the value entry after invalidation. */
-  enum InvalidationState {
-    /** The value is dirty, although it might get re-validated again. */
-    DIRTY,
-    /** The value is dirty and got deleted, cannot get re-validated again. */
-    DELETED,
-  }
-
   /** Overall state of the node while it is being evaluated. */
   enum NodeState {
     /** The node is undergoing a dirtiness check and may be re-validated. */
@@ -73,16 +66,18 @@ public interface EvaluationProgressReceiver {
   }
 
   /**
-   * Notifies that the node for {@code key} has been invalidated.
-   *
-   * <p>{@code state} indicates the new state of the value.
+   * Notifies that the node for {@code skyKey} has been {@linkplain NodeEntry#markDirty marked
+   * dirty} with the given {@link DirtyType}.
    *
    * <p>May be called concurrently from multiple threads.
    *
-   * <p>If {@code state} is {@link InvalidationState#DIRTY}, should only be called after a
-   * successful {@link NodeEntry#markDirty} call: a call that returns a non-null value.
+   * <p>Only called after a successful {@link NodeEntry#markDirty} call: a call that returns a
+   * non-null value.
    */
-  default void invalidated(SkyKey skyKey, InvalidationState state) {}
+  default void dirtied(SkyKey skyKey, DirtyType dirtyType) {}
+
+  /** Notifies that the node for {@code skyKey} was deleted. */
+  default void deleted(SkyKey skyKey) {}
 
   /**
    * Notifies that {@code skyKey} is about to get queued for evaluation.

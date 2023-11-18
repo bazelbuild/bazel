@@ -15,45 +15,43 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.Interner;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
-import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 
 /** Value that stores expanded actions from ActionTemplate. */
 public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
-  ActionTemplateExpansionValue(GeneratingActions generatingActions) {
+
+  ActionTemplateExpansionValue(ImmutableList<ActionAnalysisMetadata> generatingActions) {
     super(generatingActions);
   }
 
-  public static ActionTemplateExpansionKey key(
-      ActionLookupKeyOrProxy actionLookupKey, int actionIndex) {
+  public static ActionTemplateExpansionKey key(ActionLookupKey actionLookupKey, int actionIndex) {
     return ActionTemplateExpansionKey.of(actionLookupKey, actionIndex);
   }
 
   /** Key for {@link ActionTemplateExpansionValue} nodes. */
   @AutoCodec
   public static final class ActionTemplateExpansionKey implements ActionLookupKey {
-    private static final Interner<ActionTemplateExpansionKey> interner =
-        BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<ActionTemplateExpansionKey> interner = SkyKey.newInterner();
 
-    private final ActionLookupKeyOrProxy actionLookupKey;
+    private final ActionLookupKey actionLookupKey;
     private final int actionIndex;
 
-    private ActionTemplateExpansionKey(ActionLookupKeyOrProxy actionLookupKey, int actionIndex) {
+    private ActionTemplateExpansionKey(ActionLookupKey actionLookupKey, int actionIndex) {
       this.actionLookupKey = actionLookupKey;
       this.actionIndex = actionIndex;
     }
 
     @VisibleForTesting
     @AutoCodec.Instantiator
-    public static ActionTemplateExpansionKey of(
-        ActionLookupKeyOrProxy actionLookupKey, int actionIndex) {
+    public static ActionTemplateExpansionKey of(ActionLookupKey actionLookupKey, int actionIndex) {
       return interner.intern(new ActionTemplateExpansionKey(actionLookupKey, actionIndex));
     }
 
@@ -72,7 +70,7 @@ public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
       return actionLookupKey.getConfigurationKey();
     }
 
-    public ActionLookupKeyOrProxy getActionLookupKey() {
+    public ActionLookupKey getActionLookupKey() {
       return actionLookupKey;
     }
 
@@ -82,6 +80,11 @@ public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
      */
     public int getActionIndex() {
       return actionIndex;
+    }
+
+    @Override
+    public SkyKeyInterner<ActionTemplateExpansionKey> getSkyKeyInterner() {
+      return interner;
     }
 
     @Override

@@ -20,7 +20,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import com.google.devtools.build.lib.actions.PathStripper.PathMapper;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -70,8 +69,8 @@ public abstract class CommandLines {
    *
    * @param artifactExpander The artifact expander to use.
    * @param paramFileBasePath Used to derive param file names. Often the first output of an action
-   * @param pathMapper function to strip configuration prefixes from output paths, in accordance
-   *     with the logic in {@link PathStripper}
+   * @param pathMapper function to map configuration prefixes in output paths to more cache-friendly
+   *     identifiers
    * @param limits The command line limits the host OS can support.
    * @return The expanded command line and its param files (if any).
    */
@@ -170,11 +169,11 @@ public abstract class CommandLines {
   }
 
   /** Variation of {@link #allArguments()} that supports output path stripping. */
-  public ImmutableList<String> allArguments(PathMapper stripPaths)
+  public ImmutableList<String> allArguments(PathMapper pathMapper)
       throws CommandLineExpansionException, InterruptedException {
     ImmutableList.Builder<String> arguments = ImmutableList.builder();
     for (CommandLineAndParamFileInfo pair : unpack()) {
-      arguments.addAll(pair.commandLine.arguments(/* artifactExpander= */ null, stripPaths));
+      arguments.addAll(pair.commandLine.arguments(/* artifactExpander= */ null, pathMapper));
     }
     return arguments.build();
   }
@@ -182,14 +181,13 @@ public abstract class CommandLines {
   public void addToFingerprint(
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
-      Fingerprint fingerprint,
-      PathMapper pathStripper)
+      Fingerprint fingerprint)
       throws CommandLineExpansionException, InterruptedException {
     ImmutableList<CommandLineAndParamFileInfo> commandLines = unpack();
     for (CommandLineAndParamFileInfo pair : commandLines) {
       CommandLine commandLine = pair.commandLine;
       ParamFileInfo paramFileInfo = pair.paramFileInfo;
-      commandLine.addToFingerprint(actionKeyContext, artifactExpander, fingerprint, pathStripper);
+      commandLine.addToFingerprint(actionKeyContext, artifactExpander, fingerprint);
       if (paramFileInfo != null) {
         addParamFileInfoToFingerprint(paramFileInfo, fingerprint);
       }
@@ -414,17 +412,6 @@ public abstract class CommandLines {
 
     OnePartCommandLines(Object part1) {
       this.part1 = part1;
-    }
-
-    @Override
-    public void addToFingerprint(
-        ActionKeyContext actionKeyContext,
-        @Nullable ArtifactExpander artifactExpander,
-        Fingerprint fingerprint,
-        PathMapper pathMapper)
-        throws CommandLineExpansionException, InterruptedException {
-      toCommandLine(part1)
-          .addToFingerprint(actionKeyContext, artifactExpander, fingerprint, pathMapper);
     }
 
     @Override

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.starlark;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.BzlVisibility;
 import com.google.devtools.build.lib.packages.PackageSpecification;
@@ -33,8 +32,9 @@ import net.starlark.java.eval.StarlarkThread;
  * Bazel implementation of {@link StarlarkBuildApiGlobals}: a collection of global Starlark build
  * API functions that belong in the global namespace.
  */
-// TODO(brandjon): This should probably be refactored into a StarlarkLibrary#BZL field, analogous to
-// StarlarkLibrary#COMMON and StarlarkLibrary#BUILD.
+// TODO(bazel-team): Consider renaming this file BzlGlobals for consistency with BuildGlobals.
+// Maybe wait until after eliminating the StarlarkBuildApiGlobals interface along with the rest of
+// the starlarkbuildapi/ dir.
 public class BazelBuildApiGlobals implements StarlarkBuildApiGlobals {
 
   @Override
@@ -46,7 +46,7 @@ public class BazelBuildApiGlobals implements StarlarkBuildApiGlobals {
     }
 
     // Fail if we're not initializing a .bzl module
-    BzlInitThreadContext context = BzlInitThreadContext.fromOrFailFunction(thread, "visibility");
+    BzlInitThreadContext context = BzlInitThreadContext.fromOrFail(thread, "visibility()");
     // Fail if we're not called from the top level. (We prohibit calling visibility() from within
     // helper functions because it's more magical / less readable, and it makes it more difficult
     // for static tooling to mechanically find and modify visibility() declarations.)
@@ -90,7 +90,7 @@ public class BazelBuildApiGlobals implements StarlarkBuildApiGlobals {
   @Override
   public StarlarkLateBoundDefault<?> configurationField(
       String fragment, String name, StarlarkThread thread) throws EvalException {
-    BazelStarlarkContext context = BazelStarlarkContext.from(thread);
+    BzlInitThreadContext context = BzlInitThreadContext.fromOrFail(thread, "configuration_field()");
     Class<?> fragmentClass = context.getFragmentNameToClass().get(fragment);
     if (fragmentClass == null) {
       throw Starlark.errorf("invalid configuration fragment name '%s'", fragment);

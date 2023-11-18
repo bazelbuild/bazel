@@ -14,11 +14,15 @@
 # limitations under the License.
 
 import os
-import unittest
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 
 
 class BazelWorkspaceTest(test_base.TestBase):
+
+  def setUp(self):
+    test_base.TestBase.setUp(self)
+    self.DisableBzlmod()
 
   def testWorkspaceDotBazelFileInMainRepo(self):
     workspace_dot_bazel = self.ScratchFile("WORKSPACE.bazel")
@@ -71,7 +75,7 @@ class BazelWorkspaceTest(test_base.TestBase):
         args=["build", ":bin"], cwd=work_dir, allow_failure=True
     )
     self.AssertExitCode(exit_code, 1, stderr)
-    self.assertIn("no such package '@A//'", "".join(stderr))
+    self.assertIn("no such package '@@A//'", "".join(stderr))
 
     # Test a WORKSPACE.bazel directory won't confuse Bazel
     self.ScratchFile("B/WORKSPACE",
@@ -81,4 +85,4 @@ class BazelWorkspaceTest(test_base.TestBase):
 
 
 if __name__ == "__main__":
-  unittest.main()
+  absltest.main()

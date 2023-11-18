@@ -20,28 +20,36 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Assembles the single-page version of the Build Encyclopedia.
- */
+/** Assembles the single-page version of the Build Encyclopedia. */
 public class SinglePageBuildEncyclopediaProcessor extends BuildEncyclopediaProcessor {
   public SinglePageBuildEncyclopediaProcessor(
-      RuleLinkExpander linkExpander, ConfiguredRuleClassProvider ruleClassProvider) {
-    super(linkExpander, ruleClassProvider);
+      RuleLinkExpander linkExpander,
+      SourceUrlMapper urlMapper,
+      ConfiguredRuleClassProvider ruleClassProvider) {
+    super(linkExpander, urlMapper, ruleClassProvider);
   }
 
   /**
-   * Collects and processes all the rule and attribute documentation in inputDirs and generates the
-   * Build Encyclopedia into the outputDir.
+   * Collects and processes all the rule and attribute documentation in inputJavaDirs and generates
+   * the Build Encyclopedia into outputDir.
    *
-   * @param inputDirs list of directory to scan for document in the source code
+   * @param inputJavaDirs list of directories to scan for documentation in Java source code
+   * @param inputStardocProtos list of file paths of stardoc_output.ModuleInfo binary proto files
+   *     generated from Build Encyclopedia entry point .bzl files; documentation from these protos
+   *     takes precedence over documentation from {@code inputJavaDirs}
    * @param outputDir output directory where to write the build encyclopedia
    * @param denyList optional path to a file listing rules to not document
    */
   @Override
-  public void generateDocumentation(List<String> inputDirs, String outputDir, String denyList)
+  public void generateDocumentation(
+      List<String> inputJavaDirs,
+      List<String> inputStardocProtos,
+      String outputDir,
+      String denyList)
       throws BuildEncyclopediaDocException, IOException {
-    BuildDocCollector collector = new BuildDocCollector(linkExpander, ruleClassProvider, false);
-    Map<String, RuleDocumentation> ruleDocEntries = collector.collect(inputDirs, denyList);
+    BuildDocCollector collector = new BuildDocCollector(linkExpander, urlMapper, ruleClassProvider);
+    Map<String, RuleDocumentation> ruleDocEntries =
+        collector.collect(inputJavaDirs, inputStardocProtos, denyList);
     warnAboutUndocumentedRules(
         Sets.difference(ruleClassProvider.getRuleClassMap().keySet(), ruleDocEntries.keySet()));
     RuleFamilies ruleFamilies = assembleRuleFamilies(ruleDocEntries.values());

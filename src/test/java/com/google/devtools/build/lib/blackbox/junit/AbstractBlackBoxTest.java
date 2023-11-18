@@ -79,6 +79,10 @@ public abstract class AbstractBlackBoxTest {
     prepareEnvironment(getAdditionalTools());
   }
 
+  public void disableBzlmod() throws Exception {
+    PathUtils.append(context.getWorkDir().resolve(".bazelrc"), "common --noenable_bzlmod");
+  }
+
   @After
   public void tearDown() throws Exception {
     if (context != null) {

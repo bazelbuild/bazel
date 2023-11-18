@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -51,6 +50,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
@@ -160,8 +160,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       ruleContext.attributeError("opts", "option --experimental_graphless_query is not allowed");
       return null;
     }
-    queryOptions.useGraphlessQuery =
-        ruleContext.getConfiguration().getOptions().get(CoreOptions.class).useGraphlessQuery;
+    // Genquery should always use AUTO, while build isn't affected by query options, .
+    queryOptions.useGraphlessQuery = TriState.AUTO;
 
     // force relative_locations to true so it has a deterministic output across machines.
     queryOptions.relativeLocations = true;
@@ -283,10 +283,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
                 OutputFormatters.formatterNames(OutputFormatters.getDefaultFormatters())));
         return null;
       }
-      graphlessQuery =
-          queryOptions.useGraphlessQuery == TriState.YES
-              || (queryOptions.useGraphlessQuery == TriState.AUTO
-                  && formatter instanceof StreamedFormatter);
+      graphlessQuery = formatter instanceof StreamedFormatter;
       if (graphlessQuery) {
         queryOptions.orderOutput = OrderOutput.NO;
       } else {
@@ -316,21 +313,22 @@ public class GenQuery implements RuleConfiguredTargetFactory {
                   RepositoryName.MAIN,
                   repositoryMappingValue.getRepositoryMapping()),
               PathFragment.EMPTY_FRAGMENT,
-              /*keepGoing=*/ false,
+              /* keepGoing= */ false,
               ruleContext.attributes().get("strict", Type.BOOLEAN),
-              /*orderedResults=*/ !graphlessQuery,
+              /* orderedResults= */ !graphlessQuery,
               UniverseScope.EMPTY,
               // Use a single thread to prevent race conditions causing nondeterministic output
               // (b/127644784). All the packages are already loaded at this point, so there is
               // no need to start up multiple threads anyway.
-              /*loadingPhaseThreads=*/ 1,
+              /* loadingPhaseThreads= */ 1,
               packageProvider.getValidTargetPredicate(),
               getEventHandler(ruleContext),
               settings,
-              /*extraFunctions=*/ ImmutableList.of(),
-              /*packagePath=*/ null,
-              /*blockUniverseEvaluationErrors=*/ false,
-              /*useGraphlessQuery=*/ graphlessQuery);
+              /* extraFunctions= */ ImmutableList.of(),
+              /* packagePath= */ null,
+              /* blockUniverseEvaluationErrors= */ false,
+              /* useGraphlessQuery= */ graphlessQuery,
+              LabelPrinter.legacy());
       QueryExpression expr = QueryExpression.parse(query, queryEnvironment);
       formatter.verifyCompatible(queryEnvironment, expr);
       targets =
@@ -352,14 +350,11 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       throw new RuntimeException(e);
     }
 
-    GenQueryOutputStream outputStream =
-        new GenQueryOutputStream(
-            ruleContext
-                .getConfiguration()
-                .getFragment(GenQueryConfiguration.class)
-                .inMemoryCompressionEnabled());
-    Set<Target> result = targets.getResult();
     try {
+      boolean compressedOutputRequested =
+          ruleContext.attributes().get("compressed_output", Type.BOOLEAN);
+      GenQueryOutputStream outputStream = new GenQueryOutputStream(compressedOutputRequested);
+      Set<Target> result = targets.getResult();
       QueryOutputUtils.output(
           queryOptions,
           queryResult,
@@ -369,15 +364,14 @@ public class GenQuery implements RuleConfiguredTargetFactory {
           queryOptions.aspectDeps.createResolver(packageProvider, getEventHandler(ruleContext)),
           getEventHandler(ruleContext),
           hashFunction,
-          queryEnvironment.getMainRepoMapping());
+          queryEnvironment.getLabelPrinter());
       outputStream.close();
+      return outputStream.getResult();
     } catch (ClosedByInterruptException e) {
       throw new InterruptedException(e.getMessage());
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
-
-    return outputStream.getResult();
   }
 
   @Immutable // assuming no other reference to result

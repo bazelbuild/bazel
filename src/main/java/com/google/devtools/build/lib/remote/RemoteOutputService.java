@@ -19,8 +19,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
@@ -31,11 +34,17 @@ import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.server.FailureDetails.Execution;
+import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -48,10 +57,16 @@ import javax.annotation.Nullable;
 /** Output service implementation for the remote module */
 public class RemoteOutputService implements OutputService {
 
+  private final CommandEnvironment env;
+
   @Nullable private RemoteOutputChecker remoteOutputChecker;
   @Nullable private RemoteActionInputFetcher actionInputFetcher;
   @Nullable private LeaseService leaseService;
   @Nullable private Supplier<InputMetadataProvider> fileCacheSupplier;
+
+  public RemoteOutputService(CommandEnvironment env) {
+    this.env = checkNotNull(env);
+  }
 
   void setRemoteOutputChecker(RemoteOutputChecker remoteOutputChecker) {
     this.remoteOutputChecker = remoteOutputChecker;
@@ -99,11 +114,12 @@ public class RemoteOutputService implements OutputService {
 
   @Override
   public void updateActionFileSystemContext(
+      ActionExecutionMetadata action,
       FileSystem actionFileSystem,
       Environment env,
       MetadataInjector injector,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
-    ((RemoteActionFileSystem) actionFileSystem).updateContext(injector);
+    ((RemoteActionFileSystem) actionFileSystem).updateContext(action);
   }
 
   @Override
@@ -114,6 +130,26 @@ public class RemoteOutputService implements OutputService {
   @Override
   public ModifiedFileSet startBuild(
       EventHandler eventHandler, UUID buildId, boolean finalizeActions) throws AbruptExitException {
+    // One of the responsibilities of OutputService.startBuild() is that
+    // it ensures the output path is valid. If the previous
+    // OutputService redirected the output path to a remote location, we
+    // must undo this.
+    Path outputPath = env.getDirectories().getOutputPath(env.getWorkspaceName());
+    if (outputPath.isSymbolicLink()) {
+      try {
+        outputPath.delete();
+      } catch (IOException e) {
+        throw new AbruptExitException(
+            DetailedExitCode.of(
+                FailureDetail.newBuilder()
+                    .setMessage(
+                        String.format("Couldn't remove output path symlink: %s", e.getMessage()))
+                    .setExecution(
+                        Execution.newBuilder().setCode(Code.LOCAL_OUTPUT_DIRECTORY_SYMLINK_FAILURE))
+                    .build()),
+            e);
+      }
+    }
     return ModifiedFileSet.EVERYTHING_MODIFIED;
   }
 
@@ -131,15 +167,13 @@ public class RemoteOutputService implements OutputService {
 
   @Subscribe
   public void onExecutionPhaseCompleteEvent(ExecutionPhaseCompleteEvent event) {
-    if (leaseService != null && actionInputFetcher != null) {
-      leaseService.handleMissingInputs(actionInputFetcher.getMissingActionInputs());
+    if (leaseService != null) {
+      var missingActionInputs = ImmutableSet.<ActionInput>of();
+      if (actionInputFetcher != null) {
+        missingActionInputs = actionInputFetcher.getMissingActionInputs();
+      }
+      leaseService.finalizeExecution(missingActionInputs);
     }
-  }
-
-  @Override
-  public void flushActionFileSystem(FileSystem actionFileSystem)
-      throws InterruptedException, IOException {
-    ((RemoteActionFileSystem) actionFileSystem).flush();
   }
 
   @Override
@@ -148,6 +182,15 @@ public class RemoteOutputService implements OutputService {
     if (actionInputFetcher != null) {
       actionInputFetcher.finalizeAction(action, outputMetadataStore);
     }
+
+    if (leaseService != null) {
+      leaseService.finalizeAction();
+    }
+  }
+
+  @Override
+  public boolean shouldStoreRemoteOutputMetadataInActionCache() {
+    return true;
   }
 
   @Override

@@ -324,7 +324,7 @@ outer = rule(
                 "${TOOLS_REPOSITORY}//tools/cpp:current_cc_toolchain",
             ),
         ),
-        "_whitelist_function_transition": attr.label(default = "${TOOLS_REPOSITORY}//tools/whitelists/function_transition_whitelist"),
+        "_allowlist_function_transition": attr.label(default = "${TOOLS_REPOSITORY}//tools/allowlists/function_transition_allowlist"),
     },
 )
 
@@ -366,6 +366,7 @@ EOF
 
 
   bazel build \
+    --noenable_bzlmod \
     --noincompatible_enable_cc_toolchain_resolution \
     --cpu=fake --host_cpu=fake \
     --crosstool_top=//$pkg/toolchain:alpha \

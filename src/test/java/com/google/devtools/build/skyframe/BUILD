@@ -20,6 +20,7 @@ TESTUTIL_FILES = [
     "TrackingAwaiter.java",
     "GraphTester.java",
     "GenericFunctionException.java",
+    "InvalidationProgressReceiver.java",
     "SimpleSkyframeLookupResult.java",
     "SomeErrorException.java",
     "TrackingProgressReceiver.java",
@@ -34,6 +35,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/skyframe",
@@ -59,7 +61,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/util",
@@ -80,14 +81,13 @@ java_library(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
-        "@com_google_testparameterinjector//:testparameterinjector",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
 
 java_test(
     name = "SkyframeTests",
     size = "medium",
-    jvm_flags = ["-DBAZEL_USE_POOLED_LABEL_INTERNER=1"],
     shard_count = 2,
     tags = ["not_run:arm"],
     test_class = "com.google.devtools.build.skyframe.AllTests",

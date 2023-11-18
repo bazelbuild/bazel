@@ -22,7 +22,6 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.skyframe.EvaluationContext.UnnecessaryTemporaryStateDropperReceiver;
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
@@ -30,6 +29,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.state.Driver;
 import com.google.devtools.build.skyframe.state.StateMachine;
+import com.google.devtools.build.skyframe.state.StateMachineEvaluatorForTesting;
 import com.google.devtools.build.skyframe.state.ValueOrException2Producer;
 import com.google.devtools.build.skyframe.state.ValueOrException3Producer;
 import com.google.devtools.build.skyframe.state.ValueOrExceptionProducer;
@@ -47,12 +47,14 @@ import org.junit.runner.RunWith;
 
 @RunWith(TestParameterInjector.class)
 public final class StateMachineTest {
+  private static final int TEST_PARALLELISM = 5;
+
   private final ProcessableGraph graph = new InMemoryGraphImpl();
   private final GraphTester tester = new GraphTester();
 
   private final StoredEventHandler reportedEvents = new StoredEventHandler();
-  private final DirtyTrackingProgressReceiver revalidationReceiver =
-      new DirtyTrackingProgressReceiver(null);
+  private final DirtyAndInflightTrackingProgressReceiver revalidationReceiver =
+      new DirtyAndInflightTrackingProgressReceiver(EvaluationProgressReceiver.NULL);
 
   private static final Version VERSION = IntVersion.of(0);
 
@@ -72,27 +74,27 @@ public final class StateMachineTest {
             revalidationReceiver,
             GraphInconsistencyReceiver.THROWING,
             AbstractQueueVisitor.create(
-                "test-pool", 200, ParallelEvaluatorErrorClassifier.instance()),
+                "test-pool", TEST_PARALLELISM, ParallelEvaluatorErrorClassifier.instance()),
             new SimpleCycleDetector(),
             /* mergingSkyframeAnalysisExecutionPhases= */ false,
             UnnecessaryTemporaryStateDropperReceiver.NULL)
         .eval(ImmutableList.of(root));
   }
 
-  private static final SkyKey KEY_A1 = GraphTester.toSkyKey("A1");
+  private static final SkyKey KEY_A1 = GraphTester.skyKey("A1");
   private static final SkyValue VALUE_A1 = new StringValue("A1");
-  private static final SkyKey KEY_A2 = GraphTester.toSkyKey("A2");
+  private static final SkyKey KEY_A2 = GraphTester.skyKey("A2");
   private static final SkyValue VALUE_A2 = new StringValue("A2");
-  private static final SkyKey KEY_A3 = GraphTester.toSkyKey("A3");
+  private static final SkyKey KEY_A3 = GraphTester.skyKey("A3");
   private static final SkyValue VALUE_A3 = new StringValue("A3");
-  private static final SkyKey KEY_B1 = GraphTester.toSkyKey("B1");
+  private static final SkyKey KEY_B1 = GraphTester.skyKey("B1");
   private static final SkyValue VALUE_B1 = new StringValue("B1");
-  private static final SkyKey KEY_B2 = GraphTester.toSkyKey("B2");
+  private static final SkyKey KEY_B2 = GraphTester.skyKey("B2");
   private static final SkyValue VALUE_B2 = new StringValue("B2");
-  private static final SkyKey KEY_B3 = GraphTester.toSkyKey("B3");
+  private static final SkyKey KEY_B3 = GraphTester.skyKey("B3");
   private static final SkyValue VALUE_B3 = new StringValue("B3");
 
-  private static final SkyKey ROOT_KEY = GraphTester.toSkyKey("root");
+  private static final SkyKey ROOT_KEY = GraphTester.skyKey("root");
   private static final SkyValue DONE_VALUE = new StringValue("DONE");
   private static final StringValue SUCCESS_VALUE = new StringValue("SUCCESS");
 
@@ -113,9 +115,8 @@ public final class StateMachineTest {
       this.driver = new Driver(machine);
     }
 
-    private boolean drive(Environment env, ExtendedEventHandler listener)
-        throws InterruptedException {
-      return driver.drive(env, listener);
+    private boolean drive(Environment env) throws InterruptedException {
+      return driver.drive(env);
     }
   }
 
@@ -123,9 +124,9 @@ public final class StateMachineTest {
    * Defines a {@link SkyFunction} that executes the gives state machine.
    *
    * <p>The function always has key {@link ROOT_KEY} and value {@link DONE_VALUE}. State machine
-   * internal can be observed with consumers.
+   * internals can be observed with consumers.
    *
-   * @return an counter that stores the restart count.
+   * @return a counter that stores the restart count.
    */
   private AtomicInteger defineRootMachine(Supplier<StateMachine> rootMachineSupplier) {
     var restartCount = new AtomicInteger();
@@ -134,7 +135,7 @@ public final class StateMachineTest {
         .setBuilder(
             (k, env) -> {
               if (!env.getState(() -> new StateMachineWrapper(rootMachineSupplier.get()))
-                  .drive(env, env.getListener())) {
+                  .drive(env)) {
                 restartCount.getAndIncrement();
                 return null;
               }
@@ -147,6 +148,19 @@ public final class StateMachineTest {
     var restartCount = defineRootMachine(rootMachineSupplier);
     assertThat(eval(ROOT_KEY, /* keepGoing= */ false).get(ROOT_KEY)).isEqualTo(DONE_VALUE);
     return restartCount.get();
+  }
+
+  private boolean runMachine(StateMachine root) throws InterruptedException {
+    return !StateMachineEvaluatorForTesting.run(
+            root,
+            new InMemoryMemoizingEvaluator(
+                tester.getSkyFunctionMap(), new SequencedRecordingDifferencer()),
+            EvaluationContext.newBuilder()
+                .setKeepGoing(true)
+                .setParallelism(TEST_PARALLELISM)
+                .setEventHandler(reportedEvents)
+                .build())
+        .hasError();
   }
 
   /**
@@ -164,22 +178,27 @@ public final class StateMachineTest {
     }
 
     @Override
-    public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+    public StateMachine step(Tasks tasks) {
       tasks.lookUp(KEY_A1, sink1);
       return this::step2;
     }
 
-    public StateMachine step2(Tasks tasks, ExtendedEventHandler listener) {
+    public StateMachine step2(Tasks tasks) {
       tasks.lookUp(KEY_A2, sink2);
       return DONE;
     }
   }
 
   @Test
-  public void smoke() throws InterruptedException {
+  public void smoke(@TestParameter boolean useTestingEvaluator) throws InterruptedException {
     var v1Sink = new SkyValueSink();
     var v2Sink = new SkyValueSink();
-    assertThat(evalMachine(() -> new TwoStepMachine(v1Sink, v2Sink))).isEqualTo(2);
+    Supplier<StateMachine> factory = () -> new TwoStepMachine(v1Sink, v2Sink);
+    if (useTestingEvaluator) {
+      assertThat(runMachine(factory.get())).isTrue();
+    } else {
+      assertThat(evalMachine(factory)).isEqualTo(2);
+    }
     assertThat(v1Sink.get()).isEqualTo(VALUE_A1);
     assertThat(v2Sink.get()).isEqualTo(VALUE_A2);
   }
@@ -209,46 +228,47 @@ public final class StateMachineTest {
     }
 
     @Override
-    public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+    public StateMachine step(Tasks tasks) {
       // Starts submachines in parallel.
       tasks.enqueue(this::stepA1);
       tasks.enqueue(this::stepB1);
       return DONE;
     }
 
-    private StateMachine stepA1(Tasks tasks, ExtendedEventHandler listener) {
+    private StateMachine stepA1(Tasks tasks) {
       tasks.lookUp(KEY_A1, sinkA1);
       return this::stepA2;
     }
 
-    private StateMachine stepA2(Tasks tasks, ExtendedEventHandler listener) {
+    private StateMachine stepA2(Tasks tasks) {
       tasks.lookUp(KEY_A2, sinkA2);
       return this::stepA3;
     }
 
-    private StateMachine stepA3(Tasks tasks, ExtendedEventHandler listener) {
+    private StateMachine stepA3(Tasks tasks) {
       tasks.lookUp(KEY_A3, sinkA3);
       return DONE;
     }
 
-    private StateMachine stepB1(Tasks tasks, ExtendedEventHandler listener) {
+    private StateMachine stepB1(Tasks tasks) {
       tasks.lookUp(KEY_B1, sinkB1);
       return this::stepB2;
     }
 
-    private StateMachine stepB2(Tasks tasks, ExtendedEventHandler listener) {
+    private StateMachine stepB2(Tasks tasks) {
       tasks.lookUp(KEY_B2, sinkB2);
       return this::stepB3;
     }
 
-    private StateMachine stepB3(Tasks tasks, ExtendedEventHandler listener) {
+    private StateMachine stepB3(Tasks tasks) {
       tasks.lookUp(KEY_B3, sinkB3);
       return DONE;
     }
   }
 
   @Test
-  public void parallelSubmachines_runInParallel() throws InterruptedException {
+  public void parallelSubmachines_runInParallel(@TestParameter boolean useTestingEvaluator)
+      throws InterruptedException {
     var a1Sink = new SkyValueSink();
     var a2Sink = new SkyValueSink();
     var a3Sink = new SkyValueSink();
@@ -256,10 +276,13 @@ public final class StateMachineTest {
     var b2Sink = new SkyValueSink();
     var b3Sink = new SkyValueSink();
 
-    assertThat(
-            evalMachine(
-                () -> new ExampleWithSubmachines(a1Sink, a2Sink, a3Sink, b1Sink, b2Sink, b3Sink)))
-        .isEqualTo(3);
+    Supplier<StateMachine> factory =
+        () -> new ExampleWithSubmachines(a1Sink, a2Sink, a3Sink, b1Sink, b2Sink, b3Sink);
+    if (useTestingEvaluator) {
+      assertThat(runMachine(factory.get())).isTrue();
+    } else {
+      assertThat(evalMachine(factory)).isEqualTo(3);
+    }
 
     assertThat(a1Sink.get()).isEqualTo(VALUE_A1);
     assertThat(a2Sink.get()).isEqualTo(VALUE_A2);
@@ -346,7 +369,7 @@ public final class StateMachineTest {
     var restartCount =
         defineRootMachine(
             () ->
-                (tasks, listener) -> {
+                tasks -> {
                   // Fully swallows the error.
                   tasks.lookUp(
                       KEY_A1,
@@ -366,7 +389,7 @@ public final class StateMachineTest {
       assertThat(result.get(ROOT_KEY)).isEqualTo(DONE_VALUE);
       assertThat(result.hasError()).isFalse();
     } else {
-      // In nokeepGoing mode, the error is procesed in error bubbling, but the function does not
+      // In nokeepGoing mode, the error is processed in error bubbling, but the function does not
       // complete and the error is still propagated to the top level.
       assertThat(result.get(ROOT_KEY)).isNull();
       assertThatEvaluationResult(result).hasSingletonErrorThat(KEY_A1);
@@ -379,8 +402,13 @@ public final class StateMachineTest {
   private static class StringOrExceptionProducer
       extends ValueOrExceptionProducer<StringValue, SomeErrorException>
       implements SkyKeyComputeState {
+    // Static boolean isProcessValueOrExceptionCalled is added to verify StateMachine chained after
+    // `step()` is invoked regardless of KEY_A1 looks up ends with a value or an exception.
+    // See b/290998109#comment6.
+    public static boolean isProcessValueOrExceptionCalled = false;
+
     @Override
-    public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+    public StateMachine step(Tasks tasks) {
       tasks.lookUp(
           KEY_A1,
           SomeErrorException.class,
@@ -391,7 +419,10 @@ public final class StateMachineTest {
             }
             setException(e);
           });
-      return DONE;
+      return t -> {
+        isProcessValueOrExceptionCalled = true;
+        return DONE;
+      };
     }
   }
 
@@ -405,7 +436,7 @@ public final class StateMachineTest {
 
               SkyValue value;
               try {
-                if ((value = producer.tryProduceValue(env, env.getListener())) == null) {
+                if ((value = producer.tryProduceValue(env)) == null) {
                   return null;
                 }
               } catch (SomeErrorException e) {
@@ -414,6 +445,7 @@ public final class StateMachineTest {
               return DONE_VALUE;
             });
     assertThat(eval(ROOT_KEY, /* keepGoing= */ false).get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+    assertThat(StringOrExceptionProducer.isProcessValueOrExceptionCalled).isTrue();
   }
 
   @Test
@@ -430,14 +462,13 @@ public final class StateMachineTest {
                 try {
                   // The first call returns null because a restart is needed to compute the
                   // requested key.
-                  assertThat(producer.tryProduceValue(env, env.getListener())).isNull();
+                  assertThat(producer.tryProduceValue(env)).isNull();
                 } catch (SomeErrorException e) {
                   fail("Unexpecteded exception: " + e);
                 }
                 return null;
               }
-              assertThrows(
-                  SomeErrorException.class, () -> producer.tryProduceValue(env, env.getListener()));
+              assertThrows(SomeErrorException.class, () -> producer.tryProduceValue(env));
               return DONE_VALUE;
             });
     var result = eval(ROOT_KEY, keepGoing);
@@ -448,6 +479,7 @@ public final class StateMachineTest {
       assertThat(result.get(ROOT_KEY)).isNull();
       assertThatEvaluationResult(result).hasSingletonErrorThat(KEY_A1);
     }
+    assertThat(StringOrExceptionProducer.isProcessValueOrExceptionCalled).isTrue();
   }
 
   /**
@@ -462,7 +494,7 @@ public final class StateMachineTest {
       extends ValueOrExceptionProducer<StringValue, SomeErrorException>
       implements SkyKeyComputeState {
     @Override
-    public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+    public StateMachine step(Tasks tasks) {
       tasks.lookUp(KEY_A1, unusedValue -> fail("should not be reachable"));
       tasks.lookUp(
           KEY_A2,
@@ -497,9 +529,7 @@ public final class StateMachineTest {
               // At this point, KEY_A2 is available but KEY_A1 is not. The state machine is in an
               // incomplete state, but throws the exception anyway.
               var error =
-                  assertThrows(
-                      SomeErrorException.class,
-                      () -> producer.tryProduceValue(env, env.getListener()));
+                  assertThrows(SomeErrorException.class, () -> producer.tryProduceValue(env));
               gotError.set(true);
               throw new GenericFunctionException(error);
             });
@@ -533,7 +563,7 @@ public final class StateMachineTest {
       extends ValueOrException2Producer<StringValue, SomeErrorException1, SomeErrorException2>
       implements SkyKeyComputeState {
     @Override
-    public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+    public StateMachine step(Tasks tasks) {
       tasks.lookUp(
           KEY_A1,
           SomeErrorException.class,
@@ -550,7 +580,7 @@ public final class StateMachineTest {
               setException2(new SomeErrorException2(e.getMessage()));
             }
           });
-      return (t, l) -> {
+      return t -> {
         if (getException1() == null && getException2() == null) {
           setValue(SUCCESS_VALUE);
         }
@@ -568,7 +598,7 @@ public final class StateMachineTest {
               var producer = env.getState(StringOrException2Producer::new);
               SkyValue value;
               try {
-                if ((value = producer.tryProduceValue(env, env.getListener())) == null) {
+                if ((value = producer.tryProduceValue(env)) == null) {
                   return null;
                 }
                 assertThat(value).isEqualTo(SUCCESS_VALUE);
@@ -594,20 +624,16 @@ public final class StateMachineTest {
               var producer = env.getState(StringOrException2Producer::new);
               if (!hasRestarted.getAndSet(true)) {
                 try {
-                  assertThat(producer.tryProduceValue(env, env.getListener())).isNull();
+                  assertThat(producer.tryProduceValue(env)).isNull();
                 } catch (SomeErrorException e) {
                   fail("Unexpecteded exception: " + e);
                 }
                 return null;
               }
               if (trueForException1) {
-                assertThrows(
-                    SomeErrorException1.class,
-                    () -> producer.tryProduceValue(env, env.getListener()));
+                assertThrows(SomeErrorException1.class, () -> producer.tryProduceValue(env));
               } else {
-                assertThrows(
-                    SomeErrorException2.class,
-                    () -> producer.tryProduceValue(env, env.getListener()));
+                assertThrows(SomeErrorException2.class, () -> producer.tryProduceValue(env));
               }
               return DONE_VALUE;
             });
@@ -621,12 +647,127 @@ public final class StateMachineTest {
     }
   }
 
+  /**
+   * {@link #valueOrException2Producer_singleLookup_propagatesValuesAndInvokesRunAfter} and {@link
+   * #valueOrException2Producer_singleLookup_propagatesExceptionsAndInvokesRunAfter} are added in
+   * order to verify that if looking up the SkyKey throws an exception, the runAfter {@link
+   * StateMachine} defined as the return of {@link StringOrException2ProducerWithSingleLookup#step}
+   * is invoked.
+   *
+   * <p>These tests are designed not to be integrated into {@link
+   * #valueOrException2Producer_propagatesValues} and {@link
+   * #valueOrException2Producer_propagatesExceptions}. The reason is that only when {@link
+   * Driver#drive} looks up **one** newly added {@link SkyKey}, will {@link Lookup#doLookup} be
+   * called. And these tests aim at covering calling this method.
+   *
+   * <p>Similar tests for {@link ValueOrException3Producer} are also added below.
+   *
+   * <p>See b/290998109#comment6 for more details.
+   */
+  private static class StringOrException2ProducerWithSingleLookup
+      extends ValueOrException2Producer<StringValue, SomeErrorException1, SomeErrorException2>
+      implements SkyKeyComputeState {
+    public static boolean isProcessValueOrExceptionCalled = false;
+
+    @Override
+    public StateMachine step(Tasks tasks) {
+      tasks.lookUp(
+          KEY_A1,
+          SomeErrorException1.class,
+          SomeErrorException2.class,
+          (v, e1, e2) -> {
+            if (v != null) {
+              setValue((StringValue) v);
+            }
+            if (e1 != null) {
+              setException1(new SomeErrorException1(e1.getMessage()));
+            }
+            if (e2 != null) {
+              setException2(new SomeErrorException2(e2.getMessage()));
+            }
+          });
+      return t -> {
+        if (getException1() == null && getException2() == null) {
+          setValue(SUCCESS_VALUE);
+        }
+        isProcessValueOrExceptionCalled = true;
+        return DONE;
+      };
+    }
+  }
+
+  @Test
+  public void valueOrException2Producer_singleLookup_propagatesValuesAndInvokesRunAfter()
+      throws InterruptedException {
+    tester
+        .getOrCreate(ROOT_KEY)
+        .setBuilder(
+            (k, env) -> {
+              var producer = env.getState(StringOrException2ProducerWithSingleLookup::new);
+              SkyValue value;
+              try {
+                if ((value = producer.tryProduceValue(env)) == null) {
+                  return null;
+                }
+                assertThat(value).isEqualTo(SUCCESS_VALUE);
+              } catch (SomeErrorException e) {
+                fail("Unexpecteded exception: " + e);
+              }
+              return DONE_VALUE;
+            });
+    assertThat(eval(ROOT_KEY, /* keepGoing= */ false).get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+    assertThat(StringOrException2ProducerWithSingleLookup.isProcessValueOrExceptionCalled).isTrue();
+  }
+
+  @Test
+  public void valueOrException2Producer_singleLookup_propagatesExceptionsAndInvokesRunAfter(
+      @TestParameter boolean trueForException1) throws InterruptedException {
+    var hasRestarted = new AtomicBoolean(false);
+    tester
+        .getOrCreate(KEY_A1)
+        .unsetConstantValue()
+        .setBuilder(
+            (k, env) -> {
+              throw new ExceptionWrapper(
+                  trueForException1
+                      ? new SomeErrorException1("Exception 1")
+                      : new SomeErrorException2("Exception 2"));
+            });
+
+    tester
+        .getOrCreate(ROOT_KEY)
+        .setBuilder(
+            (k, env) -> {
+              var producer = env.getState(StringOrException2ProducerWithSingleLookup::new);
+              if (!hasRestarted.getAndSet(true)) {
+                try {
+                  assertThat(producer.tryProduceValue(env)).isNull();
+                } catch (SomeErrorException e) {
+                  fail("Unexpecteded exception: " + e);
+                }
+                return null;
+              }
+              if (trueForException1) {
+                assertThrows(SomeErrorException1.class, () -> producer.tryProduceValue(env));
+              } else {
+                assertThrows(SomeErrorException2.class, () -> producer.tryProduceValue(env));
+              }
+              return DONE_VALUE;
+            });
+
+    var result = eval(ROOT_KEY, /* keepGoing= */ false);
+
+    assertThat(result.get(ROOT_KEY)).isNull();
+    assertThatEvaluationResult(result).hasSingletonErrorThat(KEY_A1);
+    assertThat(StringOrException2ProducerWithSingleLookup.isProcessValueOrExceptionCalled).isTrue();
+  }
+
   private static class StringOrException3Producer
       extends ValueOrException3Producer<
           StringValue, SomeErrorException1, SomeErrorException2, SomeErrorException3>
       implements SkyKeyComputeState {
     @Override
-    public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+    public StateMachine step(Tasks tasks) {
       tasks.lookUp(
           KEY_A1,
           SomeErrorException.class,
@@ -651,7 +792,7 @@ public final class StateMachineTest {
               setException3(new SomeErrorException3(e.getMessage()));
             }
           });
-      return (t, l) -> {
+      return t -> {
         if (getException1() == null && getException2() == null && getException3() == null) {
           setValue(SUCCESS_VALUE);
         }
@@ -669,7 +810,7 @@ public final class StateMachineTest {
               var producer = env.getState(StringOrException3Producer::new);
               SkyValue value;
               try {
-                if ((value = producer.tryProduceValue(env, env.getListener())) == null) {
+                if ((value = producer.tryProduceValue(env)) == null) {
                   return null;
                 }
                 assertThat(value).isEqualTo(SUCCESS_VALUE);
@@ -718,7 +859,7 @@ public final class StateMachineTest {
               var producer = env.getState(StringOrException3Producer::new);
               if (!hasRestarted.getAndSet(true)) {
                 try {
-                  assertThat(producer.tryProduceValue(env, env.getListener())).isNull();
+                  assertThat(producer.tryProduceValue(env)).isNull();
                 } catch (SomeErrorException e) {
                   fail("Unexpecteded exception: " + e);
                 }
@@ -726,19 +867,13 @@ public final class StateMachineTest {
               }
               switch (exceptionCase) {
                 case ONE:
-                  assertThrows(
-                      SomeErrorException1.class,
-                      () -> producer.tryProduceValue(env, env.getListener()));
+                  assertThrows(SomeErrorException1.class, () -> producer.tryProduceValue(env));
                   break;
                 case TWO:
-                  assertThrows(
-                      SomeErrorException2.class,
-                      () -> producer.tryProduceValue(env, env.getListener()));
+                  assertThrows(SomeErrorException2.class, () -> producer.tryProduceValue(env));
                   break;
                 case THREE:
-                  assertThrows(
-                      SomeErrorException3.class,
-                      () -> producer.tryProduceValue(env, env.getListener()));
+                  assertThrows(SomeErrorException3.class, () -> producer.tryProduceValue(env));
                   break;
               }
               return DONE_VALUE;
@@ -753,26 +888,155 @@ public final class StateMachineTest {
     }
   }
 
+  /** See the comments above {@link StringOrException2ProducerWithSingleLookup} for more details. */
+  private static class StringOrException3ProducerWithSingleLookup
+      extends ValueOrException3Producer<
+          StringValue, SomeErrorException1, SomeErrorException2, SomeErrorException3>
+      implements SkyKeyComputeState {
+    public static boolean isProcessValueOrExceptionCalled = false;
+
+    @Override
+    public StateMachine step(Tasks tasks) {
+      tasks.lookUp(
+          KEY_A1,
+          SomeErrorException1.class,
+          SomeErrorException2.class,
+          SomeErrorException3.class,
+          (v, e1, e2, e3) -> {
+            if (v != null) {
+              setValue((StringValue) v);
+            }
+            if (e1 != null) {
+              setException1(new SomeErrorException1(e1.getMessage()));
+            }
+            if (e2 != null) {
+              setException2(new SomeErrorException2(e2.getMessage()));
+            }
+            if (e3 != null) {
+              setException3(new SomeErrorException3(e3.getMessage()));
+            }
+          });
+      return t -> {
+        if (getException1() == null && getException2() == null && getException3() == null) {
+          setValue(SUCCESS_VALUE);
+        }
+        isProcessValueOrExceptionCalled = true;
+        return DONE;
+      };
+    }
+  }
+
+  @Test
+  public void valueOrException3Producer_singleLookup_propagatesValues()
+      throws InterruptedException {
+    tester
+        .getOrCreate(ROOT_KEY)
+        .setBuilder(
+            (k, env) -> {
+              var producer = env.getState(StringOrException3ProducerWithSingleLookup::new);
+              SkyValue value;
+              try {
+                if ((value = producer.tryProduceValue(env)) == null) {
+                  return null;
+                }
+                assertThat(value).isEqualTo(SUCCESS_VALUE);
+              } catch (SomeErrorException e) {
+                fail("Unexpecteded exception: " + e);
+              }
+              return DONE_VALUE;
+            });
+    assertThat(eval(ROOT_KEY, /* keepGoing= */ false).get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+    assertThat(StringOrException3ProducerWithSingleLookup.isProcessValueOrExceptionCalled).isTrue();
+  }
+
+  @Test
+  public void valueOrException3Producer_singleLookup_propagatesExceptionsAndExecuteRunAfter(
+      @TestParameter ValueOrException3ExceptionCase exceptionCase) throws InterruptedException {
+    var hasRestarted = new AtomicBoolean(false);
+    tester
+        .getOrCreate(KEY_A1)
+        .unsetConstantValue()
+        .setBuilder(
+            (k, env) -> {
+              Exception exception = null;
+              switch (exceptionCase) {
+                case ONE:
+                  exception = new SomeErrorException1("Exception 1");
+                  break;
+                case TWO:
+                  exception = new SomeErrorException2("Exception 2");
+                  break;
+                case THREE:
+                  exception = new SomeErrorException3("Exception 3");
+                  break;
+              }
+              throw new ExceptionWrapper(exception);
+            });
+
+    tester
+        .getOrCreate(ROOT_KEY)
+        .setBuilder(
+            (k, env) -> {
+              var producer = env.getState(StringOrException3ProducerWithSingleLookup::new);
+              if (!hasRestarted.getAndSet(true)) {
+                try {
+                  assertThat(producer.tryProduceValue(env)).isNull();
+                } catch (SomeErrorException e) {
+                  fail("Unexpecteded exception: " + e);
+                }
+                return null;
+              }
+              switch (exceptionCase) {
+                case ONE:
+                  assertThrows(SomeErrorException1.class, () -> producer.tryProduceValue(env));
+                  break;
+                case TWO:
+                  assertThrows(SomeErrorException2.class, () -> producer.tryProduceValue(env));
+                  break;
+                case THREE:
+                  assertThrows(SomeErrorException3.class, () -> producer.tryProduceValue(env));
+                  break;
+              }
+              return DONE_VALUE;
+            });
+
+    var result = eval(ROOT_KEY, /* keepGoing= */ false);
+
+    assertThat(result.get(ROOT_KEY)).isNull();
+    assertThatEvaluationResult(result).hasSingletonErrorThat(KEY_A1);
+    assertThat(StringOrException3ProducerWithSingleLookup.isProcessValueOrExceptionCalled).isTrue();
+  }
+
   @Test
   public void lookupValue_matrix(
       @TestParameter LookupType lookupType,
       @TestParameter boolean useBatch,
-      @TestParameter boolean keepGoing)
+      @TestParameter boolean useTestingEvaluator)
       throws InterruptedException {
     var sink = new OmniSink();
-    var unused =
-        defineRootMachine(
-            () -> {
-              var lookup = lookupType.newLookup(KEY_A1, sink);
-              if (!useBatch) {
-                return lookup;
-              }
-              return new BatchPair(lookup);
-            });
-
-    assertThat(eval(ROOT_KEY, keepGoing).get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+    Supplier<StateMachine> rootSupplier =
+        () -> {
+          var lookup = lookupType.newLookup(KEY_A1, sink);
+          if (!useBatch) {
+            return lookup;
+          }
+          return new BatchPair(lookup);
+        };
+    if (useTestingEvaluator) {
+      assertThat(runMachine(rootSupplier.get())).isTrue();
+    } else {
+      var unused = defineRootMachine(rootSupplier);
+      // There are no errors in this test so the keepGoing value is arbitrary.
+      assertThat(eval(ROOT_KEY, /* keepGoing= */ true).get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+    }
     assertThat(sink.value).isEqualTo(VALUE_A1);
     assertThat(sink.exception).isNull();
+  }
+
+  enum EvaluationMode {
+    NO_KEEP_GOING,
+    KEEP_GOING,
+    TEST_EVALUATOR,
   }
 
   @Test
@@ -780,7 +1044,7 @@ public final class StateMachineTest {
       @TestParameter LookupType lookupType,
       @TestParameter ExceptionCase exceptionCase,
       @TestParameter boolean useBatch,
-      @TestParameter boolean keepGoing)
+      @TestParameter EvaluationMode evaluationMode)
       throws InterruptedException {
     var exception = exceptionCase.getException();
     tester
@@ -791,15 +1055,35 @@ public final class StateMachineTest {
               throw new ExceptionWrapper(exception);
             });
     var sink = new OmniSink();
-    var unused =
-        defineRootMachine(
-            () -> {
-              var lookup = lookupType.newLookup(KEY_A1, sink);
-              if (!useBatch) {
-                return lookup;
-              }
-              return new BatchPair(lookup);
-            });
+    Supplier<StateMachine> rootSupplier =
+        () -> {
+          var lookup = lookupType.newLookup(KEY_A1, sink);
+          if (!useBatch) {
+            return lookup;
+          }
+          return new BatchPair(lookup);
+        };
+
+    boolean keepGoing = false;
+    switch (evaluationMode) {
+      case TEST_EVALUATOR:
+        assertThat(runMachine(rootSupplier.get())).isFalse();
+        if (exceptionCase.exceptionOrdinal() > lookupType.exceptionCount()) {
+          // Undeclared exception is not handled.
+          assertThat(sink.exception).isNull();
+        } else {
+          // Declared exception is captured.
+          assertThat(sink.exception).isEqualTo(exception);
+        }
+        return;
+      case KEEP_GOING:
+        keepGoing = true;
+        break;
+      case NO_KEEP_GOING:
+        break;
+    }
+
+    var unused = defineRootMachine(rootSupplier);
     var result = eval(ROOT_KEY, keepGoing);
     assertThat(sink.value).isNull();
     if (exceptionCase.exceptionOrdinal() > lookupType.exceptionCount()) {
@@ -868,7 +1152,7 @@ public final class StateMachineTest {
     }
 
     @Override
-    public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+    public StateMachine step(Tasks tasks) {
       tasks.enqueue(other);
       tasks.lookUp(KEY_B1, v -> assertThat(v).isEqualTo(VALUE_B1));
       return DONE;
@@ -885,7 +1169,7 @@ public final class StateMachineTest {
     }
 
     @Override
-    public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+    public StateMachine step(Tasks tasks) {
       tasks.lookUp(key, sink);
       return DONE;
     }
@@ -901,7 +1185,7 @@ public final class StateMachineTest {
     }
 
     @Override
-    public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+    public StateMachine step(Tasks tasks) {
       tasks.lookUp(key, Exception1.class, sink);
       return DONE;
     }
@@ -917,7 +1201,7 @@ public final class StateMachineTest {
     }
 
     @Override
-    public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+    public StateMachine step(Tasks tasks) {
       tasks.lookUp(key, Exception1.class, Exception2.class, sink);
       return DONE;
     }
@@ -933,7 +1217,7 @@ public final class StateMachineTest {
     }
 
     @Override
-    public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+    public StateMachine step(Tasks tasks) {
       tasks.lookUp(key, Exception1.class, Exception2.class, Exception3.class, sink);
       return DONE;
     }

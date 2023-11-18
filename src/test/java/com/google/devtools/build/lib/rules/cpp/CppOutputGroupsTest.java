@@ -121,4 +121,23 @@ public class CppOutputGroupsTest extends BuildViewTestCase {
     assertThat(ActionsTestUtil.prettyArtifactNames(getFilesToBuild(groupDynamic)))
         .contains("a/liblib.so");
   }
+
+  @Test
+  public void testModuleOutputGroups() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures("header_modules_feature_configuration"));
+    scratch.file("header.h");
+    scratch.file(
+        "a/BUILD",
+        "cc_library(name='lib', hdrs=['src.h'], features=['header_modules'])",
+        "filegroup(name='group_modules', srcs=[':lib'], output_group = 'module_files')");
+
+    ConfiguredTarget groupArchive = getConfiguredTarget("//a:group_modules");
+
+    assertThat(ActionsTestUtil.prettyArtifactNames(getFilesToBuild(groupArchive)))
+        .containsExactly("a/_objs/lib/lib.pcm");
+  }
 }

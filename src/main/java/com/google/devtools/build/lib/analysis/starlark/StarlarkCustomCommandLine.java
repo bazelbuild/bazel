@@ -30,11 +30,12 @@ import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.FilesetManifest;
 import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehaviorWithoutError;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
-import com.google.devtools.build.lib.actions.PathStripper.PathMapper;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.DirectoryExpander;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
@@ -112,7 +113,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       this.features = features;
     }
 
-    @AutoCodec.VisibleForSerialization
+    @VisibleForSerialization
     @AutoCodec.Instantiator
     static VectorArg create(int features) {
       return interner.intern(new VectorArg(features));
@@ -373,8 +374,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         int argi,
         ActionKeyContext actionKeyContext,
         Fingerprint fingerprint,
-        @Nullable ArtifactExpander artifactExpander,
-        PathMapper pathMapper)
+        @Nullable ArtifactExpander artifactExpander)
         throws CommandLineExpansionException, InterruptedException {
       final Location location =
           ((features & HAS_LOCATION) != 0) ? (Location) arguments.get(argi++) : null;
@@ -390,8 +390,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
                   mapEach,
                   location,
                   starlarkSemantics,
-                  (features & EXPAND_DIRECTORIES) != 0 ? artifactExpander : null,
-                  pathMapper);
+                  (features & EXPAND_DIRECTORIES) != 0 ? artifactExpander : null);
           try {
             actionKeyContext.addNestedSetToFingerprint(commandLineItemMapFn, fingerprint, values);
           } finally {
@@ -409,9 +408,13 @@ public class StarlarkCustomCommandLine extends CommandLine {
         }
       } else {
         int count = (Integer) arguments.get(argi++);
+        // The effect of a PathMapper is a pure function of the current OutputPathMode and an
+        // action's inputs, which are already part of an action's finterprint, so we can use
+        // PathMapper.NOOP throughout this function instead of the actual instance used during
+        // execution.
         List<Object> maybeExpandedValues =
             maybeExpandDirectories(
-                artifactExpander, arguments.subList(argi, argi + count), pathMapper);
+                artifactExpander, arguments.subList(argi, argi + count), PathMapper.NOOP);
         argi += count;
         if (mapEach != null) {
           // TODO(b/160181927): If artifactExpander == null (which happens in the analysis phase)
@@ -595,7 +598,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       this.hasFormat = hasFormat;
     }
 
-    @AutoCodec.VisibleForSerialization
+    @VisibleForSerialization
     @AutoCodec.Instantiator
     static ScalarArg create(boolean hasFormat) {
       return interner.intern(new ScalarArg(hasFormat));
@@ -726,13 +729,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
   @Override
   public Iterable<String> arguments() throws CommandLineExpansionException, InterruptedException {
-    return arguments(null);
-  }
-
-  @Override
-  public Iterable<String> arguments(@Nullable ArtifactExpander artifactExpander)
-      throws CommandLineExpansionException, InterruptedException {
-    return arguments(artifactExpander, PathMapper.NOOP);
+    return arguments(null, PathMapper.NOOP);
   }
 
   @Override
@@ -778,12 +775,6 @@ public class StarlarkCustomCommandLine extends CommandLine {
         Object[] arguments, ImmutableList<Integer> argStartIndexes) {
       super(arguments);
       this.argStartIndexes = argStartIndexes;
-    }
-
-    @Override
-    public Iterable<String> arguments(@Nullable ArtifactExpander artifactExpander)
-        throws CommandLineExpansionException, InterruptedException {
-      return arguments(artifactExpander, PathMapper.NOOP);
     }
 
     @Override
@@ -848,8 +839,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
   public void addToFingerprint(
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
-      Fingerprint fingerprint,
-      PathMapper pathMapper)
+      Fingerprint fingerprint)
       throws CommandLineExpansionException, InterruptedException {
     List<Object> arguments = rawArgsAsList();
     for (int argi = 0; argi < arguments.size(); ) {
@@ -857,8 +847,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       if (arg instanceof VectorArg) {
         argi =
             ((VectorArg) arg)
-                .addToFingerprint(
-                    arguments, argi, actionKeyContext, fingerprint, artifactExpander, pathMapper);
+                .addToFingerprint(arguments, argi, actionKeyContext, fingerprint, artifactExpander);
       } else if (arg instanceof ScalarArg) {
         argi = ((ScalarArg) arg).addToFingerprint(arguments, argi, fingerprint);
       } else {
@@ -970,20 +959,16 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
     @Nullable private ArtifactExpander artifactExpander;
 
-    private final PathMapper pathMapper;
-
     CommandLineItemMapEachAdaptor(
         StarlarkCallable mapFn,
         Location location,
         StarlarkSemantics starlarkSemantics,
-        @Nullable ArtifactExpander artifactExpander,
-        PathMapper pathMapper) {
+        @Nullable ArtifactExpander artifactExpander) {
       this.mapFn = mapFn;
       this.location = location;
       this.starlarkSemantics = starlarkSemantics;
       this.hasArtifactExpander = artifactExpander != null;
       this.artifactExpander = artifactExpander;
-      this.pathMapper = pathMapper;
     }
 
     @Override
@@ -999,7 +984,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
         return ImmutableList.of(object);
       }
 
-      return VectorArg.expandDirectories(artifactExpander, ImmutableList.of(object), pathMapper);
+      return VectorArg.expandDirectories(
+          artifactExpander, ImmutableList.of(object), PathMapper.NOOP);
     }
 
     @Override

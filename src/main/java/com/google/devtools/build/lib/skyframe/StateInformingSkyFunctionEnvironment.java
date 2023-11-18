@@ -157,11 +157,6 @@ final class StateInformingSkyFunctionEnvironment implements SkyFunction.Environm
   }
 
   @Override
-  public boolean restartPermitted() {
-    return delegate.restartPermitted();
-  }
-
-  @Override
   public SkyframeLookupResult getLookupHandleForPreviouslyRequestedDeps() {
     return delegate.getLookupHandleForPreviouslyRequestedDeps();
   }

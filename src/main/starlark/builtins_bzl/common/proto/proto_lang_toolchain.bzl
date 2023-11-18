@@ -14,9 +14,11 @@
 
 """A Starlark implementation of the proto_lang_toolchain rule."""
 
+load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo", "toolchains", proto_common = "proto_common_do_not_use")
 load(":common/proto/proto_info.bzl", "ProtoInfo")
-load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo")
 load(":common/proto/proto_semantics.bzl", "semantics")
+
+PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
 
 def _rule_impl(ctx):
     provided_proto_sources = depset(transitive = [bp[ProtoInfo]._transitive_proto_sources for bp in ctx.attr.blacklisted_protos]).to_list()
@@ -30,59 +32,66 @@ def _rule_impl(ctx):
     if ctx.attr.plugin != None:
         plugin = ctx.attr.plugin[DefaultInfo].files_to_run
 
-    proto_compiler = getattr(ctx.attr, "proto_compiler", None)
-    proto_compiler = getattr(ctx.attr, "_proto_compiler", proto_compiler)
+    if proto_common.INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION:
+        proto_compiler = ctx.toolchains[semantics.PROTO_TOOLCHAIN].proto.proto_compiler
+        protoc_opts = ctx.toolchains[semantics.PROTO_TOOLCHAIN].proto.protoc_opts
+    else:
+        proto_compiler = ctx.attr._proto_compiler.files_to_run
+        protoc_opts = ctx.fragments.proto.experimental_protoc_opts
 
+    proto_lang_toolchain_info = ProtoLangToolchainInfo(
+        out_replacement_format_flag = flag,
+        output_files = ctx.attr.output_files,
+        plugin_format_flag = ctx.attr.plugin_format_flag,
+        plugin = plugin,
+        runtime = ctx.attr.runtime,
+        provided_proto_sources = provided_proto_sources,
+        proto_compiler = proto_compiler,
+        protoc_opts = protoc_opts,
+        progress_message = ctx.attr.progress_message,
+        mnemonic = ctx.attr.mnemonic,
+        allowlist_different_package = ctx.attr.allowlist_different_package,
+        toolchain_type = ctx.attr.toolchain_type.label if ctx.attr.toolchain_type else None,
+    )
     return [
-        DefaultInfo(
-            files = depset(),
-            runfiles = ctx.runfiles(),
-        ),
-        ProtoLangToolchainInfo(
-            out_replacement_format_flag = flag,
-            plugin_format_flag = ctx.attr.plugin_format_flag,
-            plugin = plugin,
-            runtime = ctx.attr.runtime,
-            provided_proto_sources = provided_proto_sources,
-            proto_compiler = proto_compiler.files_to_run,
-            protoc_opts = ctx.fragments.proto.experimental_protoc_opts,
-            progress_message = ctx.attr.progress_message,
-            mnemonic = ctx.attr.mnemonic,
-        ),
+        DefaultInfo(files = depset(), runfiles = ctx.runfiles()),
+        _builtins.toplevel.platform_common.ToolchainInfo(proto = proto_lang_toolchain_info),
+        # TODO(b/300592942): remove when --incompatible_enable_proto_toolchains is flipped and removed
+        proto_lang_toolchain_info,
     ]
 
-def make_proto_lang_toolchain(custom_proto_compiler):
-    return rule(
-        _rule_impl,
-        attrs = dict(
-            {
-                "progress_message": attr.string(default = "Generating proto_library %{label}"),
-                "mnemonic": attr.string(default = "GenProto"),
-                "command_line": attr.string(mandatory = True),
-                "plugin_format_flag": attr.string(),
-                "plugin": attr.label(
-                    executable = True,
-                    cfg = "exec",
-                ),
-                "runtime": attr.label(),
-                "blacklisted_protos": attr.label_list(
-                    providers = [ProtoInfo],
-                ),
-            },
-            **({
-                "proto_compiler": attr.label(
-                    cfg = "exec",
-                    executable = True,
-                ),
-            } if custom_proto_compiler else {
-                "_proto_compiler": attr.label(
-                    cfg = "exec",
-                    executable = True,
-                    allow_files = True,
-                    default = configuration_field("proto", "proto_compiler"),
-                ),
-            })
-        ),
-        provides = [ProtoLangToolchainInfo],
-        fragments = ["proto"] + semantics.EXTRA_FRAGMENTS,
-    )
+proto_lang_toolchain = rule(
+    _rule_impl,
+    attrs =
+        {
+            "progress_message": attr.string(default = "Generating proto_library %{label}"),
+            "mnemonic": attr.string(default = "GenProto"),
+            "command_line": attr.string(mandatory = True),
+            "output_files": attr.string(values = ["single", "multiple", "legacy"], default = "legacy"),
+            "plugin_format_flag": attr.string(),
+            "plugin": attr.label(
+                executable = True,
+                cfg = "exec",
+            ),
+            "runtime": attr.label(),
+            "blacklisted_protos": attr.label_list(
+                providers = [ProtoInfo],
+            ),
+            "allowlist_different_package": attr.label(
+                default = semantics.allowlist_different_package,
+                cfg = "exec",
+                providers = [PackageSpecificationInfo],
+            ),
+            "toolchain_type": attr.label(),
+        } | ({} if proto_common.INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION else {
+            "_proto_compiler": attr.label(
+                cfg = "exec",
+                executable = True,
+                allow_files = True,
+                default = configuration_field("proto", "proto_compiler"),
+            ),
+        }),
+    provides = [ProtoLangToolchainInfo],
+    fragments = ["proto"],
+    toolchains = toolchains.use_toolchain(semantics.PROTO_TOOLCHAIN),  # Used to obtain protoc
+)

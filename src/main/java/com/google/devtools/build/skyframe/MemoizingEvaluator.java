@@ -203,8 +203,11 @@ public interface MemoizingEvaluator {
   void dumpRdeps(PrintStream out, Predicate<String> filter) throws InterruptedException;
 
   /**
-   * Cleans up the pool when {@link InMemoryGraph} serves as an alternative global pool to weak
-   * interner for interning {@link SkyKey} and {@link com.google.devtools.build.lib.cmdline.Label}.
+   * Cleans up {@linkplain com.google.devtools.build.lib.concurrent.PooledInterner.Pool interning
+   * pools} by moving objects to weak interners and uninstalling the current pools.
+   *
+   * <p>May destroy this evaluator's {@linkplain #getInMemoryGraph graph}. Only call when the graph
+   * is about to be thrown away.
    */
   void cleanupInterningPools();
 }

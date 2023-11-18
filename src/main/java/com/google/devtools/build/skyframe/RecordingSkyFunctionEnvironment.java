@@ -177,11 +177,6 @@ public final class RecordingSkyFunctionEnvironment implements Environment {
   }
 
   @Override
-  public boolean restartPermitted() {
-    return delegate.restartPermitted();
-  }
-
-  @Override
   public SkyframeLookupResult getLookupHandleForPreviouslyRequestedDeps() {
     return delegate.getLookupHandleForPreviouslyRequestedDeps();
   }

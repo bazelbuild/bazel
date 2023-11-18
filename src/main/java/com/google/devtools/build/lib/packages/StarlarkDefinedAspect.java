@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.Optional;
@@ -55,6 +56,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
   private final boolean applyToGeneratingRules;
   private final ImmutableSet<Label> execCompatibleWith;
   private final ImmutableMap<String, ExecGroup> execGroups;
+  private final ImmutableSet<? extends StarlarkSubruleApi> subrules;
 
   private StarlarkAspectClass aspectClass;
 
@@ -78,7 +80,8 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
       ImmutableSet<ToolchainTypeRequirement> toolchainTypes,
       boolean applyToGeneratingRules,
       ImmutableSet<Label> execCompatibleWith,
-      ImmutableMap<String, ExecGroup> execGroups) {
+      ImmutableMap<String, ExecGroup> execGroups,
+      ImmutableSet<? extends StarlarkSubruleApi> subrules) {
     this.implementation = implementation;
     this.documentation = documentation.orElse(null);
     this.attributeAspects = attributeAspects;
@@ -93,6 +96,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     this.applyToGeneratingRules = applyToGeneratingRules;
     this.execCompatibleWith = execCompatibleWith;
     this.execGroups = execGroups;
+    this.subrules = subrules;
   }
 
   public StarlarkCallable getImplementation() {
@@ -216,6 +220,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     builder.requiredAspectClasses(requiredAspectsClasses.build());
     builder.execCompatibleWith(execCompatibleWith);
     builder.execGroups(execGroups);
+    builder.subrules(subrules);
     return builder.build();
   }
 
@@ -322,7 +327,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
 
       String parameterValue =
           parametersValues.getOrDefault(
-              parameterName, parameterType.cast(aspectParameter.getDefaultValue()).toString());
+              parameterName, parameterType.cast(aspectParameter.getDefaultValue(null)).toString());
 
       Object castedParameterValue = parameterValue;
       // Validate integer and boolean parameters values
@@ -374,24 +379,12 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     return toolchainTypes;
   }
 
-  @Override
-  public void attachToAspectsList(String baseAspectName, AspectsListBuilder aspectsList)
-      throws EvalException {
-
-    if (!this.isExported()) {
-      throw Starlark.errorf(
-          "Aspects should be top-level values in extension files that define them.");
-    }
-
-    for (StarlarkAspect requiredAspect : requiredAspects) {
-      requiredAspect.attachToAspectsList(this.getName(), aspectsList);
-    }
-
-    aspectsList.addAspect(this, baseAspectName);
-  }
-
   public ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> getRequiredProviders() {
     return requiredProviders;
+  }
+
+  public ImmutableSet<StarlarkAspect> getRequiredAspects() {
+    return requiredAspects;
   }
 
   @Override

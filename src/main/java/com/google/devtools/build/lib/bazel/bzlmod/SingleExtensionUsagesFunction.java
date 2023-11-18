@@ -20,7 +20,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nullable;
@@ -42,8 +41,7 @@ public class SingleExtensionUsagesFunction implements SkyFunction {
 
   @Override
   @Nullable
-  public SkyValue compute(SkyKey skyKey, Environment env)
-      throws SkyFunctionException, InterruptedException {
+  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     BazelDepGraphValue bazelDepGraphValue =
         (BazelDepGraphValue) env.getValue(BazelDepGraphValue.KEY);
     if (bazelDepGraphValue == null) {

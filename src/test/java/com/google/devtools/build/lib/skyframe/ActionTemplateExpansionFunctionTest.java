@@ -391,11 +391,12 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
   }
 
   private static ActionLookupValue createActionLookupValue(ActionTemplate<?> actionTemplate)
-      throws ActionConflictException, InterruptedException,
+      throws ActionConflictException,
+          InterruptedException,
           Actions.ArtifactGeneratedByOtherRuleException {
-    return new BasicActionLookupValue(
-        Actions.assignOwnersAndFindAndThrowActionConflict(
-            new ActionKeyContext(), ImmutableList.of(actionTemplate), CTKEY));
+    ImmutableList<ActionAnalysisMetadata> actions = ImmutableList.of(actionTemplate);
+    Actions.assignOwnersAndThrowIfConflict(new ActionKeyContext(), actions, CTKEY);
+    return new BasicActionLookupValue(actions);
   }
 
   private SpecialArtifact createTreeArtifact(String path) {
@@ -527,11 +528,6 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     @Override
     public NestedSet<Artifact> getMandatoryInputs() {
       return NestedSetBuilder.create(Order.STABLE_ORDER, inputTreeArtifact);
-    }
-
-    @Override
-    public boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action) {
-      return false;
     }
 
     @Override

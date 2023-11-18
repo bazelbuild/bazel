@@ -11,8 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.analysis.test;
+
+import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationId;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -167,14 +168,14 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
         testAction.getRunNumber(),
         testAction.getShardNum(),
         attempt,
-        testAction.getConfiguration().getEventId());
+        configurationId(testAction.getConfiguration()));
   }
 
   @Override
   public Collection<BuildEventId> postedAfter() {
     return ImmutableList.of(
         BuildEventIdUtil.targetCompleted(
-            testAction.getOwner().getLabel(), testAction.getConfiguration().getEventId()));
+            testAction.getOwner().getLabel(), configurationId(testAction.getConfiguration())));
   }
 
   @Override
@@ -188,7 +189,7 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
               testAction.getRunNumber(),
               testAction.getShardNum(),
               attempt + 1,
-              testAction.getConfiguration().getEventId()));
+              configurationId(testAction.getConfiguration())));
     }
   }
 

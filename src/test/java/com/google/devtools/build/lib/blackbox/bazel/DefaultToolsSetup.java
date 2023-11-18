@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.blackbox.bazel;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.blackbox.framework.BlackBoxTestContext;
 import com.google.devtools.build.lib.blackbox.framework.ToolsSetup;
+import com.google.devtools.build.lib.util.OS;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -28,9 +29,11 @@ public class DefaultToolsSetup implements ToolsSetup {
 
   private static ImmutableList<String> repos =
       ImmutableList.<String>builder()
+          .add("bazel_skylib")
           .add("rules_cc")
           .add("rules_proto")
           .add("rules_java")
+          .add("rules_java_builtin_for_testing")
           .add("rules_python")
           .build();
 
@@ -48,6 +51,8 @@ public class DefaultToolsSetup implements ToolsSetup {
     ImmutableList.Builder<String> lines = ImmutableList.builder();
     for (String repo : repos) {
       Path sharedRepoPath = sharedRepoHomePath.resolve(repo);
+      String suffix = "_for_testing";
+      repo = repo.endsWith(suffix) ? repo.substring(0, repo.length() - suffix.length()) : repo;
       lines.add(
           "common --override_repository="
               + repo
@@ -73,8 +78,16 @@ public class DefaultToolsSetup implements ToolsSetup {
     String sharedRepoCache = System.getenv("REPOSITORY_CACHE");
     if (sharedRepoCache != null) {
       lines.add("common --repository_cache=" + sharedRepoCache);
-      lines.add("common --experimental_repository_cache_hardlinks");
+      // TODO: Remove this flag once all dependencies are mirrored.
+      // See https://github.com/bazelbuild/bazel/pull/19549 for more context.
+      lines.add("common --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0");
+      if (OS.getCurrent() == OS.DARWIN) {
+        // For reducing SSD usage on our physical Mac machines.
+        lines.add("common --experimental_repository_cache_hardlinks");
+      }
     }
+
+    lines.add("common --enable_bzlmod");
 
     context.write(".bazelrc", lines);
   }

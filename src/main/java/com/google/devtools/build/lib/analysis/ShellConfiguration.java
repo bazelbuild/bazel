@@ -13,21 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
-import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
-import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OptionsUtils.PathFragmentConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -36,10 +31,6 @@ import java.util.function.Function;
 public class ShellConfiguration extends Fragment {
 
   private static Map<OS, PathFragment> shellExecutables;
-
-  private static final ConstraintSettingInfo OS_CONSTRAINT_SETTING =
-      ConstraintSettingInfo.create(
-          Label.parseCanonicalUnchecked("@platforms//os:os"));
 
   private static Function<Options, PathFragment> optionsBasedDefault;
 
@@ -65,44 +56,12 @@ public class ShellConfiguration extends Fragment {
     optionsBasedDefault = (options) -> null;
     shellExecutables = osToShellMap;
   }
-  // Standard mapping between OS and the corresponding platform constraints.
-  static final ImmutableMap<OS, ConstraintValueInfo> OS_TO_CONSTRAINTS =
-      ImmutableMap.<OS, ConstraintValueInfo>builder()
-          .put(
-              OS.DARWIN,
-              ConstraintValueInfo.create(
-                  OS_CONSTRAINT_SETTING,
-                  Label.parseCanonicalUnchecked("@platforms//os:osx")))
-          .put(
-              OS.WINDOWS,
-              ConstraintValueInfo.create(
-                  OS_CONSTRAINT_SETTING,
-                  Label.parseCanonicalUnchecked("@platforms//os:windows")))
-          .put(
-              OS.FREEBSD,
-              ConstraintValueInfo.create(
-                  OS_CONSTRAINT_SETTING,
-                  Label.parseCanonicalUnchecked("@platforms//os:freebsd")))
-          .put(
-              OS.OPENBSD,
-              ConstraintValueInfo.create(
-                  OS_CONSTRAINT_SETTING,
-                  Label.parseCanonicalUnchecked("@platforms//os:openbsd")))
-          .put(
-              OS.UNKNOWN,
-              ConstraintValueInfo.create(
-                  OS_CONSTRAINT_SETTING,
-                  Label.parseCanonicalUnchecked("@platforms//os:none")))
-          .buildOrThrow();
-
-  private final boolean useShBinaryStubScript;
 
   private final PathFragment defaultShellExecutableFromOptions;
 
   public ShellConfiguration(BuildOptions buildOptions) {
     this.defaultShellExecutableFromOptions =
         optionsBasedDefault.apply(buildOptions.get(Options.class));
-    this.useShBinaryStubScript = buildOptions.get(Options.class).useShBinaryStubScript;
   }
 
   public static Map<OS, PathFragment> getShellExecutables() {
@@ -112,10 +71,6 @@ public class ShellConfiguration extends Fragment {
   /* Returns a function for retrieving the default shell from build options. */
   public PathFragment getOptionsBasedDefault() {
     return defaultShellExecutableFromOptions;
-  }
-
-  public boolean useShBinaryStubScript() {
-    return useShBinaryStubScript;
   }
 
   /** An option that tells Bazel where the shell is. */
@@ -137,20 +92,10 @@ public class ShellConfiguration extends Fragment {
     )
     public PathFragment shellExecutable;
 
-    @Option(
-        name = "experimental_use_sh_binary_stub_script",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-        defaultValue = "false",
-        help = "If enabled, use a stub script for sh_binary targets.")
-    public boolean useShBinaryStubScript;
-
     @Override
     public Options getExec() {
       Options exec = (Options) getDefault();
       exec.shellExecutable = shellExecutable;
-      exec.useShBinaryStubScript = useShBinaryStubScript;
       return exec;
     }
   }

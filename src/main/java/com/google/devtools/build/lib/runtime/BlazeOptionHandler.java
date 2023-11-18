@@ -13,8 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -30,6 +33,7 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.In
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Command.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -42,6 +46,7 @@ import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
+import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -74,6 +79,17 @@ public final class BlazeOptionHandler {
           "client_env",
           "client_cwd");
 
+  // All options set on this pseudo command are inherited by all commands, with unrecognized options
+  // resulting in an error.
+  private static final String ALWAYS_PSEUDO_COMMAND = "always";
+
+  // All options set on this pseudo command are inherited by all commands, with unrecognized options
+  // being ignored as long as they are recognized by at least one (other) command.
+  private static final String COMMON_PSEUDO_COMMAND = "common";
+
+  private static final ImmutableSet<String> BUILD_COMMAND_ANCESTORS =
+      ImmutableSet.of("build", COMMON_PSEUDO_COMMAND, ALWAYS_PSEUDO_COMMAND);
+
   // Marks an event to indicate a parsing error.
   static final String BAD_OPTION_TAG = "invalidOption";
   // Separates the invalid tag from the full error message for easier parsing.
@@ -86,6 +102,7 @@ public final class BlazeOptionHandler {
   private final Command commandAnnotation;
   private final InvocationPolicy invocationPolicy;
   private final List<String> rcfileNotes = new ArrayList<>();
+  private final ImmutableList<Class<? extends OptionsBase>> allOptionsClasses;
 
   BlazeOptionHandler(
       BlazeRuntime runtime,
@@ -100,6 +117,16 @@ public final class BlazeOptionHandler {
     this.commandAnnotation = commandAnnotation;
     this.optionsParser = optionsParser;
     this.invocationPolicy = invocationPolicy;
+    this.allOptionsClasses =
+        runtime.getCommandMap().values().stream()
+            .map(BlazeCommand::getClass)
+            .flatMap(
+                cmd ->
+                    BlazeCommandUtils.getOptions(
+                        cmd, runtime.getBlazeModules(), runtime.getRuleClassProvider())
+                        .stream())
+            .distinct()
+            .collect(toImmutableList());
   }
 
   /**
@@ -199,7 +226,36 @@ public final class BlazeOptionHandler {
                   "%s:\n  %s'%s' options: %s",
                   source, inherited, commandToParse, Joiner.on(' ').join(rcArgs.getArgs())));
         }
-        optionsParser.parse(PriorityCategory.RC_FILE, rcArgs.getRcFile(), rcArgs.getArgs());
+        if (commandToParse.equals(COMMON_PSEUDO_COMMAND)) {
+          // Pass in options data for all commands supported by the runtime so that options that
+          // apply to some but not the current command can be ignored.
+          //
+          // Important note: The consistency checks performed by
+          // OptionsParser#getFallbackOptionsData ensure that there aren't any two options across
+          // all commands that have the same name but parse differently (e.g. because one accepts
+          // a value and the other doesn't). This means that the options available on a command
+          // limit the options available on other commands even without command inheritance. This
+          // restriction is necessary to ensure that the options specified on the "common"
+          // pseudo command can be parsed unambiguously.
+          ImmutableList<String> ignoredArgs =
+              optionsParser.parseWithSourceFunction(
+                  PriorityCategory.RC_FILE,
+                  o -> rcArgs.getRcFile(),
+                  rcArgs.getArgs(),
+                  OptionsParser.getFallbackOptionsData(allOptionsClasses));
+          if (!ignoredArgs.isEmpty()) {
+            // Append richer information to the note.
+            int index = rcfileNotes.size() - 1;
+            String note = rcfileNotes.get(index);
+            note +=
+                String.format(
+                    "\n  Ignored as unsupported by '%s': %s",
+                    commandAnnotation.name(), Joiner.on(' ').join(ignoredArgs));
+            rcfileNotes.set(index, note);
+          }
+        } else {
+          optionsParser.parse(PriorityCategory.RC_FILE, rcArgs.getRcFile(), rcArgs.getArgs());
+        }
       }
     }
   }
@@ -235,7 +291,8 @@ public final class BlazeOptionHandler {
     optionsParser.parseWithSourceFunction(
         PriorityCategory.COMMAND_LINE,
         commandOptionSourceFunction,
-        defaultOverridesAndRcSources.build());
+        defaultOverridesAndRcSources.build(),
+        /* fallbackData= */ null);
 
     // Command-specific options from .blazerc passed in via --default_override and --rc_source.
     ClientOptions rcFileOptions = optionsParser.getOptions(ClientOptions.class);
@@ -249,7 +306,10 @@ public final class BlazeOptionHandler {
 
     // Parses the remaining command-line options.
     optionsParser.parseWithSourceFunction(
-        PriorityCategory.COMMAND_LINE, commandOptionSourceFunction, remainingCmdLine.build());
+        PriorityCategory.COMMAND_LINE,
+        commandOptionSourceFunction,
+        remainingCmdLine.build(),
+        /* fallbackData= */ null);
 
     if (commandAnnotation.builds()) {
       // splits project files from targets in the traditional sense
@@ -330,15 +390,20 @@ public final class BlazeOptionHandler {
     @Override
     public Target loadBuildSetting(String targetLabel)
         throws InterruptedException, TargetParsingException {
-      TargetPatternPhaseValue result =
+      TargetPatternPhaseValue tpv =
           skyframeExecutor.loadTargetPatternsWithoutFilters(
               reporter,
               Collections.singletonList(targetLabel),
               relativeWorkingDirectory,
               SkyframeExecutor.DEFAULT_THREAD_COUNT,
               /* keepGoing= */ false);
-      return Iterables.getOnlyElement(
-          result.getTargets(reporter, skyframeExecutor.getPackageManager()));
+      ImmutableSet<Target> result = tpv.getTargets(reporter, skyframeExecutor.getPackageManager());
+      if (result.size() != 1) {
+        throw new TargetParsingException(
+            "user-defined flags must reference exactly one target",
+            TargetPatterns.Code.TARGET_FORMAT_INVALID);
+      }
+      return Iterables.getOnlyElement(result);
     }
   }
 
@@ -357,9 +422,10 @@ public final class BlazeOptionHandler {
       return DetailedExitCode.success();
     }
     try {
-      StarlarkOptionsParser.newStarlarkOptionsParser(
-              new SkyframeExecutorTargetLoader(env), optionsParser)
-          .parse();
+      Preconditions.checkState(
+          StarlarkOptionsParser.newStarlarkOptionsParser(
+                  new SkyframeExecutorTargetLoader(env), optionsParser)
+              .parse());
     } catch (OptionsParsingException e) {
       String logMessage = "Error parsing Starlark options";
       logger.atInfo().withCause(e).log("%s", logMessage);
@@ -459,14 +525,17 @@ public final class BlazeOptionHandler {
     ConfigExpander.expandConfigOptions(
         eventHandler,
         commandToRcArgs,
+        commandAnnotation.name(),
         getCommandNamesToParse(commandAnnotation),
         rcfileNotes::add,
-        optionsParser);
+        optionsParser,
+        OptionsParser.getFallbackOptionsData(allOptionsClasses));
   }
 
   private static List<String> getCommandNamesToParse(Command commandAnnotation) {
     List<String> result = new ArrayList<>();
-    result.add("common");
+    result.add(ALWAYS_PSEUDO_COMMAND);
+    result.add(COMMON_PSEUDO_COMMAND);
     getCommandNamesToParseHelper(commandAnnotation, result);
     return result;
   }
@@ -542,22 +611,24 @@ public final class BlazeOptionHandler {
       // canonicalize-flags can't recognize.
       if ((override.option.startsWith("--" + Converters.BLAZE_ALIASING_FLAG + "=")
               || override.option.equals("--" + Converters.BLAZE_ALIASING_FLAG))
-          // In production, "build" is always a valid command, but not necessarily in tests.
-          // Particularly C0Command, which some tests use for low-level options parsing logic. We
-          // don't want to interfere with those.
-          && validCommands.contains("build")
-          && !override.command.equals("build")) {
+          && !BUILD_COMMAND_ANCESTORS.contains(override.command)) {
         throw new OptionsParsingException(
             String.format(
-                "%s: \"%s %s\" disallowed. --%s only supports the \"build\" command.",
-                rcFile, override.command, override.option, Converters.BLAZE_ALIASING_FLAG));
+                "%s: \"%s %s\" disallowed. --%s only supports these commands: %s",
+                rcFile,
+                override.command,
+                override.option,
+                Converters.BLAZE_ALIASING_FLAG,
+                String.join(", ", BUILD_COMMAND_ANCESTORS)));
       }
       String command = override.command;
       int index = command.indexOf(':');
       if (index > 0) {
         command = command.substring(0, index);
       }
-      if (!validCommands.contains(command) && !command.equals("common")) {
+      if (!validCommands.contains(command)
+          && !command.equals(ALWAYS_PSEUDO_COMMAND)
+          && !command.equals(COMMON_PSEUDO_COMMAND)) {
         eventHandler.handle(
             Event.warn(
                 "while reading option defaults file '"

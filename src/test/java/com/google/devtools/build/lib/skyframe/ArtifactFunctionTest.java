@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionTemplate;
@@ -417,16 +418,11 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
       throws InterruptedException, ActionConflictException,
           Actions.ArtifactGeneratedByOtherRuleException {
     if (evaluator.getExistingValue(ALL_OWNER) == null) {
+      ImmutableList<ActionAnalysisMetadata> generatingActions = ImmutableList.copyOf(actions);
+      Actions.assignOwnersAndThrowIfConflictToleratingSharedActions(
+          actionKeyContext, generatingActions, ALL_OWNER);
       differencer.inject(
-          ImmutableMap.of(
-              ALL_OWNER,
-              Delta.justNew(
-                  new BasicActionLookupValue(
-                      Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-                          actionKeyContext,
-                          ImmutableList.copyOf(actions),
-                          ALL_OWNER,
-                          /* outputFiles= */ null)))));
+          ImmutableMap.of(ALL_OWNER, Delta.justNew(new BasicActionLookupValue(generatingActions))));
     }
   }
 
@@ -460,7 +456,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
       Map<Artifact, TreeArtifactValue> treeArtifactData = new HashMap<>();
       ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
       ActionLookupValue actionLookupValue =
-          (ActionLookupValue) env.getValue(actionLookupData.getActionLookupKey().toKey());
+          (ActionLookupValue) env.getValue(actionLookupData.getActionLookupKey());
       Action action = actionLookupValue.getAction(actionLookupData.getActionIndex());
       Artifact output = Iterables.getOnlyElement(action.getOutputs());
 
@@ -485,7 +481,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
         } else if (action.getActionType() == MiddlemanType.NORMAL) {
           Path path = output.getPath();
           FileArtifactValue noDigest =
-              ActionMetadataHandler.fileArtifactValueFromArtifact(
+              ActionOutputMetadataStore.fileArtifactValueFromArtifact(
                   output,
                   FileStatusWithDigestAdapter.maybeAdapt(path.statIfFound(Symlinks.NOFOLLOW)),
                   SyscallCache.NO_CACHE,

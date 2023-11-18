@@ -26,10 +26,13 @@ load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/objc/compilation_support.bzl", "compilation_support")
 load(":common/objc/j2objc_aspect.bzl", "j2objc_aspect")
 
+_MIGRATION_TAG = "__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__"
+
 def _jre_deps_aspect_impl(_, ctx):
     if "j2objc_jre_lib" not in ctx.rule.attr.tags:
         fail("in jre_deps attribute of j2objc_library rule: objc_library rule '%s' is misplaced here (Only J2ObjC JRE libraries are allowed)" %
              str(ctx.label).removeprefix("@"))
+    return []
 
 jre_deps_aspect = aspect(
     implementation = _jre_deps_aspect_impl,
@@ -59,7 +62,15 @@ def _mapping_file_provider(deps):
         archive_source_mapping_files = depset([], transitive = transitive_archive_source_mapping_files),
     )
 
+def j2objc_library_lockdown(ctx):
+    if not ctx.fragments.j2objc.j2objc_library_migration():
+        return
+    if _MIGRATION_TAG not in ctx.attr.tags:
+        fail("j2objc_library is locked. Please do not use this rule since it will be deleted in the future.")
+
 def _j2objc_library_impl(ctx):
+    j2objc_library_lockdown(ctx)
+
     _check_entry_classes(ctx)
 
     common_variables = compilation_support.build_common_variables(

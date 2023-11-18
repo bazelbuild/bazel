@@ -29,7 +29,7 @@ public class CcToolchainSuiteTest extends BuildViewTestCase {
   @Test
   public void testInvalidCpu() throws Exception {
     reporter.removeHandler(failFastHandler);
-    useConfiguration("--cpu=bogus");
+    useConfiguration("--cpu=bogus", "--noincompatible_enable_cc_toolchain_resolution");
     getConfiguredTarget(
         ruleClassProvider.getToolsRepository() + "//tools/cpp:current_cc_toolchain");
     assertContainsEvent("does not contain a toolchain for cpu 'bogus'");

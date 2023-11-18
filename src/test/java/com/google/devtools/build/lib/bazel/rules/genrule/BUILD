@@ -15,15 +15,7 @@ filegroup(
 
 java_library(
     name = "GenruleTests_lib",
-    srcs = glob(
-               ["*.java"],
-               exclude = ["GenRuleWindowsConfiguredTargetTest.java"],
-           ) +
-           # If we are on windows add back the test
-           select({
-               "//conditions:default": [],
-               "//src/conditions:windows": ["GenRuleWindowsConfiguredTargetTest.java"],
-           }),
+    srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",

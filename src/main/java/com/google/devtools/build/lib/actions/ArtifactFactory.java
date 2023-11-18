@@ -353,11 +353,25 @@ public class ArtifactFactory implements ArtifactResolver {
     if (type == null) {
       return root.isSourceRoot()
           ? new Artifact.SourceArtifact(root, execPath, owner)
-          : DerivedArtifact.create(
-              root, execPath, (ActionLookupKeyOrProxy) owner, contentBasedPath);
+          : DerivedArtifact.create(root, execPath, (ActionLookupKey) owner, contentBasedPath);
     } else {
-      return SpecialArtifact.create(root, execPath, (ActionLookupKeyOrProxy) owner, type);
+      return SpecialArtifact.create(root, execPath, (ActionLookupKey) owner, type);
     }
+  }
+
+  private boolean isDefinitelyNotSourceExecPath(PathFragment execPath) {
+    // Source exec paths cannot escape the source root.
+    if (siblingRepositoryLayout) {
+      // The exec path may start with .. if using --experimental_sibling_repository_layout, so test
+      // the subfragment from index 1 onwards.
+      if (execPath.subFragment(1).containsUplevelReferences()) {
+        return true;
+      }
+    } else if (execPath.containsUplevelReferences()) {
+      return true;
+    }
+
+    return false;
   }
 
   /**
@@ -389,14 +403,7 @@ public class ArtifactFactory implements ArtifactResolver {
     PathFragment execPath =
         baseExecPath != null ? baseExecPath.getRelative(relativePath) : relativePath;
 
-    // Source exec paths cannot escape the source root.
-    if (siblingRepositoryLayout) {
-      // The exec path may start with .. if using --experimental_sibling_repository_layout, so test
-      // the subfragment from index 1 onwards.
-      if (execPath.subFragment(1).containsUplevelReferences()) {
-        return null;
-      }
-    } else if (execPath.containsUplevelReferences()) {
+    if (isDefinitelyNotSourceExecPath(execPath)) {
       return null;
     }
 
@@ -463,8 +470,7 @@ public class ArtifactFactory implements ArtifactResolver {
     ArrayList<PathFragment> unresolvedPaths = new ArrayList<>();
 
     for (PathFragment execPath : execPaths) {
-      if (execPath.containsUplevelReferences()) {
-        // Source exec paths cannot escape the source root.
+      if (isDefinitelyNotSourceExecPath(execPath)) {
         result.put(execPath, null);
         continue;
       }

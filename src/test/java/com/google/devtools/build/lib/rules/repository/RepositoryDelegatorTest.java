@@ -35,7 +35,10 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionRepoMappingEntriesFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.RepoSpecFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
@@ -197,8 +200,10 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                         /* packageProgress= */ null,
                         PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException
                             .INSTANCE,
+                        /* shouldUseRepoDotBazel= */ true,
                         GlobbingStrategy.SKYFRAME_HYBRID,
-                        k -> ThreadStateReceiver.NULL_INSTANCE))
+                        k -> ThreadStateReceiver.NULL_INSTANCE,
+                        /* cpuBoundSemaphore= */ new AtomicReference<>()))
                 .put(
                     SkyFunctions.PACKAGE_LOOKUP,
                     new PackageLookupFunction(
@@ -241,16 +246,22 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                     SkyFunctions.IGNORED_PACKAGE_PREFIXES,
                     new IgnoredPackagePrefixesFunction(
                         /* ignoredPackagePrefixesFile= */ PathFragment.EMPTY_FRAGMENT))
-                .put(SkyFunctions.RESOLVED_HASH_VALUES, new ResolvedHashesFunction())
-                .put(SkyFunctions.REPOSITORY_MAPPING, new RepositoryMappingFunction())
+                .put(
+                    SkyFunctions.REPOSITORY_MAPPING,
+                    new RepositoryMappingFunction(ruleClassProvider))
                 .put(
                     SkyFunctions.MODULE_FILE,
                     new ModuleFileFunction(registryFactory, rootPath, ImmutableMap.of()))
-                .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction(rootDirectory))
+                .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
+                .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(rootDirectory))
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
                 .put(
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
                     new BzlmodRepoRuleFunction(ruleClassProvider, directories))
+                .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction(registryFactory))
+                .put(
+                    SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
+                    new ModuleExtensionRepoMappingEntriesFunction())
                 .put(
                     SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE,
                     new ClientEnvironmentFunction(new AtomicReference<>(ImmutableMap.of())))
@@ -259,8 +270,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     overrideDirectory = scratch.dir("/foo");
     scratch.file("/foo/WORKSPACE");
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
-    RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING.set(
-        differencer, RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY);
+    RepositoryDelegatorFunction.FORCE_FETCH.set(
+        differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
     PrecomputedValue.STARLARK_SEMANTICS.set(
         differencer,
@@ -268,17 +279,14 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.empty());
     PrecomputedValue.REPO_ENV.set(differencer, ImmutableMap.of());
-    RepositoryDelegatorFunction.OUTPUT_VERIFICATION_REPOSITORY_RULES.set(
-        differencer, ImmutableSet.of());
-    RepositoryDelegatorFunction.RESOLVED_FILE_FOR_VERIFICATION.set(differencer, Optional.empty());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
-    BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
+    YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
         differencer, CheckDirectDepsMode.WARNING);
     BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(
         differencer, BazelCompatibilityMode.ERROR);
-    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.OFF);
+    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.UPDATE);
   }
 
   @Test
@@ -320,7 +328,9 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             .setDigest(new byte[] {1})
             .build();
 
-    assertThat(checker.check(key, usual, SyscallCache.NO_CACHE, tsgm).isDirty()).isFalse();
+    assertThat(
+            checker.check(key, usual, /* oldMtsv= */ null, SyscallCache.NO_CACHE, tsgm).isDirty())
+        .isFalse();
 
     SuccessfulRepositoryDirectoryValue fetchDelayed =
         RepositoryDirectoryValue.builder()
@@ -329,7 +339,11 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             .setDigest(new byte[] {1})
             .build();
 
-    assertThat(checker.check(key, fetchDelayed, SyscallCache.NO_CACHE, tsgm).isDirty()).isTrue();
+    assertThat(
+            checker
+                .check(key, fetchDelayed, /* oldMtsv= */ null, SyscallCache.NO_CACHE, tsgm)
+                .isDirty())
+        .isTrue();
   }
 
   @Test
@@ -398,7 +412,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     assertThat(result.hasError()).isFalse();
     RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
     assertThat(repositoryDirectoryValue.repositoryExists()).isFalse();
-    assertThat(repositoryDirectoryValue.getErrorMsg()).contains("Repository '@foo' is not defined");
+    assertThat(repositoryDirectoryValue.getErrorMsg())
+        .contains("Repository '@@foo' is not defined");
   }
 
   @Test
@@ -468,7 +483,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
     assertThat(repositoryDirectoryValue.repositoryExists()).isFalse();
     assertThat(repositoryDirectoryValue.getErrorMsg())
-        .contains("No repository visible as '@foo' from repository '@fake_owner_repo'");
+        .contains("No repository visible as '@foo' from repository '@@fake_owner_repo'");
   }
 
   @Test

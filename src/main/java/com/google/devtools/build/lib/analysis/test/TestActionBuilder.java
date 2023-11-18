@@ -40,16 +40,11 @@ import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.LazyWriteNestedSetOfTupleAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.TestTimeout;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -75,20 +70,6 @@ public final class TestActionBuilder {
   private static final String COVERAGE_REPORTED_TO_ACTUAL_SOURCES_FILE =
       "COVERAGE_REPORTED_TO_ACTUAL_SOURCES_FILE";
 
-  static class EmptyPackageProvider extends PackageGroupConfiguredTarget {
-    EmptyPackageProvider() {
-      super(null, null, null);
-    }
-
-    @Override
-    public NestedSet<PackageGroupContents> getPackageSpecifications() {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-  }
-
-  @VisibleForSerialization @SerializationConstant
-  static final PackageSpecificationProvider EMPTY_PACKAGES_PROVIDER = new EmptyPackageProvider();
-
   private final RuleContext ruleContext;
   private final ImmutableList.Builder<Artifact> additionalTools;
   private RunfilesSupport runfilesSupport;
@@ -112,8 +93,6 @@ public final class TestActionBuilder {
    * <p>This is only really useful for things like creating incompatible test actions.
    */
   public static TestParams createEmptyTestParams() {
-    NestedSet<Artifact> filesToBuild = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    FilesToRunProvider filesToRunProvider = new FilesToRunProvider(filesToBuild, null, null);
     return new TestProvider.TestParams(
         0,
         0,
@@ -122,7 +101,7 @@ public final class TestActionBuilder {
         "invalid",
         ImmutableList.of(),
         ImmutableList.of(),
-        filesToRunProvider,
+        FilesToRunProvider.EMPTY,
         ImmutableList.of());
   }
 
@@ -222,11 +201,7 @@ public final class TestActionBuilder {
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
     ArtifactRoot root = ruleContext.getTestLogsDirectory();
 
-    // TODO(laszlocsomor), TODO(ulfjack): `isExecutedOnWindows` should use the execution platform,
-    // not the host platform. Once Bazel can tell apart these platforms, fix the right side of this
-    // initialization.
-    final boolean isExecutedOnWindows = OS.getCurrent() == OS.WINDOWS;
-    final boolean isUsingTestWrapperInsteadOfTestSetupScript = isExecutedOnWindows;
+    final boolean isUsingTestWrapperInsteadOfTestSetupScript = ruleContext.isExecutedOnWindows();
 
     NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
     inputsBuilder.addTransitive(
@@ -390,8 +365,8 @@ public final class TestActionBuilder {
               runfilesSupport.getRunfilesDirectoryExecPath(),
               runfilesSupport.getRunfiles(),
               runfilesSupport.getRepoMappingManifest(),
-              runfilesSupport.isBuildRunfileLinks(),
-              runfilesSupport.isRunfilesEnabled());
+              runfilesSupport.getRunfileSymlinksMode(),
+              runfilesSupport.isBuildRunfileLinks());
     } else {
       testRunfilesSupplier = runfilesSupport;
     }
@@ -434,6 +409,9 @@ public final class TestActionBuilder {
           }
         }
 
+        Artifact undeclaredOutputsDir =
+            ruleContext.getPackageRelativeTreeArtifact(dir.getRelative("test.outputs"), root);
+
         boolean cancelConcurrentTests =
             testConfiguration.runsPerTestDetectsFlakes()
                 && testConfiguration.cancelConcurrentTests();
@@ -452,6 +430,7 @@ public final class TestActionBuilder {
                 cacheStatus,
                 coverageArtifact,
                 coverageDirectory,
+                undeclaredOutputsDir,
                 testProperties,
                 runfilesSupport
                     .getActionEnvironment()
@@ -462,7 +441,7 @@ public final class TestActionBuilder {
                 config,
                 ruleContext.getWorkspaceName(),
                 (!isUsingTestWrapperInsteadOfTestSetupScript
-                        || executionSettings.needsShell(isExecutedOnWindows))
+                        || executionSettings.needsShell(ruleContext.isExecutedOnWindows()))
                     ? ShToolchain.getPathForPlatform(
                         ruleContext.getConfiguration(), ruleContext.getExecutionPlatform())
                     : null,
@@ -475,7 +454,8 @@ public final class TestActionBuilder {
                 MoreObjects.firstNonNull(
                     Allowlist.fetchPackageSpecificationProviderOrNull(
                         ruleContext, "external_network"),
-                    EMPTY_PACKAGES_PROVIDER));
+                    PackageSpecificationProvider.EMPTY),
+                ruleContext.isExecutedOnWindows());
 
         testOutputs.addAll(testRunnerAction.getSpawnOutputs());
         testOutputs.addAll(testRunnerAction.getOutputs());

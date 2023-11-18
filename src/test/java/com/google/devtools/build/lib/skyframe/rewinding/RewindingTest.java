@@ -18,21 +18,31 @@ import static com.google.common.truth.TruthJUnit.assume;
 
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.includescanning.IncludeScanningModule;
+import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.testutil.ActionEventRecorder;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Tests for action rewinding on non-incremental builds. */
-// TODO(b/228090759): Add back actionFromPreviousBuildReevaluated when incrementality is supported.
+/**
+ * Integration tests for action rewinding.
+ *
+ * <p>Uses {@link TestParameter}s to run tests with all four combinations of {@code
+ * --track_incremental_state} and {@code --keep_going}.
+ */
+// TODO(b/228090759): Consider asserting on graph structure to improve coverage for incrementality.
+// TODO(b/228090759): Add back actionFromPreviousBuildReevaluated.
 @RunWith(TestParameterInjector.class)
 public final class RewindingTest extends BuildIntegrationTestCase {
 
+  @TestParameter private boolean trackIncrementalState;
   @TestParameter private boolean keepGoing;
 
   private final ActionEventRecorder actionEventRecorder = new ActionEventRecorder();
@@ -42,7 +52,18 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
     return super.getRuntimeBuilder()
         .addBlazeModule(new IncludeScanningModule())
-        .addBlazeModule(helper.makeControllableActionStrategyModule("standalone"));
+        .addBlazeModule(helper.makeControllableActionStrategyModule("standalone"))
+        .addBlazeModule(
+            new BlazeModule() {
+              @Override
+              public void workspaceInit(
+                  BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
+                // Null out RepositoryHelpersHolder so that we don't trigger
+                // RepoMappingManifestAction. This preserves action graph structure between blaze
+                // and bazel, which is important for this test's assertions.
+                builder.setSkyframeExecutorRepositoryHelpersHolder(null);
+              }
+            });
   }
 
   @Override
@@ -50,11 +71,11 @@ public final class RewindingTest extends BuildIntegrationTestCase {
     super.setupOptions();
     addOptions(
         "--spawn_strategy=standalone",
-        "--notrack_incremental_state",
-        "--nouse_action_cache",
+        "--noexperimental_merged_skyframe_analysis_execution",
         "--rewind_lost_inputs",
         "--features=cc_include_scanning",
         "--experimental_remote_include_extraction_size_threshold=0",
+        "--track_incremental_state=" + trackIncrementalState,
         "--keep_going=" + keepGoing);
     runtimeWrapper.registerSubscriber(actionEventRecorder);
   }
@@ -83,12 +104,6 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   @Test
   public void dependentActionsReevaluated() throws Exception {
     helper.runDependentActionsReevaluated_spawnFailed();
-  }
-
-  @Test
-  public void inputDiscoveringActionNoticesMissingDep() throws Exception {
-    skipIfBazel();
-    helper.runInputDiscoveringActionNoticesMissingDep();
   }
 
   @Test

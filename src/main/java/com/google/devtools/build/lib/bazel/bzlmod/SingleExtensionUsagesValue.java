@@ -30,10 +30,12 @@ import com.google.devtools.build.skyframe.SkyValue;
 @AutoValue
 public abstract class SingleExtensionUsagesValue implements SkyValue {
   /** All usages of this extension, by the key of the module where the usage occurs. */
+  // Note: Equality of SingleExtensionUsagesValue does not check for equality of the order of the
+  // entries of this map, but it is tracked implicitly via the order of the abridged modules.
   public abstract ImmutableMap<ModuleKey, ModuleExtensionUsage> getExtensionUsages();
 
   /**
-   * The "unique name" (see {@link BazelDepGraphValue#getExtensionUniqueNames} of this extension.
+   * The "unique name" (see {@link BazelDepGraphValue#getExtensionUniqueNames}) of this extension.
    */
   public abstract String getExtensionUniqueName();
 

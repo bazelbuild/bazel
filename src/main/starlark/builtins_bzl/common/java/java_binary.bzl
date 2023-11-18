@@ -14,21 +14,25 @@
 
 """ Implementation of java_binary for bazel """
 
-load(":common/java/java_common.bzl", "BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS", "basic_java_library", "collect_deps")
-load(":common/java/java_util.bzl", "create_single_jar")
-load(":common/java/java_helper.bzl", helper = "util")
-load(":common/java/java_semantics.bzl", "semantics")
-load(":common/rule_util.bzl", "merge_attrs")
-load(":common/cc/cc_helper.bzl", "cc_helper")
-load(":common/cc/semantics.bzl", cc_semantics = "semantics")
-load(":common/proto/proto_info.bzl", "ProtoInfo")
+load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/semantics.bzl", cc_semantics = "semantics")
+load(":common/java/basic_java_library.bzl", "BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS", "basic_java_library", "collect_deps")
+load(":common/java/boot_class_path_info.bzl", "BootClassPathInfo")
+load(":common/java/java_common.bzl", "java_common")
+load(
+    ":common/java/java_common_internal_for_builtins.bzl",
+    "collect_native_deps_dirs",
+    "get_runtime_classpath_for_archive",
+)
+load(":common/java/java_helper.bzl", "helper")
+load(":common/java/java_info.bzl", "JavaCompilationInfo", "JavaInfo", "JavaPluginInfo", "to_java_binary_info")
+load(":common/java/java_semantics.bzl", "semantics")
 load(":common/paths.bzl", "paths")
+load(":common/proto/proto_info.bzl", "ProtoInfo")
+load(":common/rule_util.bzl", "merge_attrs")
 
 CcLauncherInfo = _builtins.internal.cc_internal.launcher_provider
-JavaInfo = _builtins.toplevel.JavaInfo
-JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
-java_common = _builtins.toplevel.java_common
 
 InternalDeployJarInfo = provider(
     "Provider for passing info to deploy jar rule",
@@ -47,11 +51,6 @@ InternalDeployJarInfo = provider(
     ],
 )
 
-JavaRuntimeClasspathInfo = provider(
-    "Provider for the runtime classpath contributions of a Java binary.",
-    fields = ["runtime_classpath"],
-)
-
 def basic_java_binary(
         ctx,
         deps,
@@ -62,7 +61,6 @@ def basic_java_binary(
         coverage_config,
         launcher_info,
         executable,
-        feature_config,
         strip_as_default,
         extension_registry_provider = None,
         is_test_rule_class = False):
@@ -78,7 +76,6 @@ def basic_java_binary(
         coverage_config: (Struct|None) If coverage is enabled, a struct with fields (runner, manifest, env, support_files), None otherwise
         launcher_info: (Struct) Structure with fields (launcher, unstripped_launcher, runfiles, runtime_jars, jvm_flags, classpath_resources)
         executable: (File) The executable output of the rule
-        feature_config: (FeatureConfiguration) The result of cc_common.configure_features()
         strip_as_default: (bool) Whether this target outputs a stripped launcher and deploy jar
         extension_registry_provider: (GeneratedExtensionRegistryProvider) internal param, do not use
         is_test_rule_class: (bool) Whether this rule is a test rule
@@ -95,9 +92,9 @@ def basic_java_binary(
           )
 
     """
-    if not ctx.attr.create_executable and ctx.attr.launcher:
+    if not ctx.attr.create_executable and (ctx.attr.launcher and cc_common.launcher_provider in ctx.attr.launcher):
         fail("launcher specified but create_executable is false")
-    if not ctx.attr.use_launcher and ctx.attr.launcher:
+    if not ctx.attr.use_launcher and (ctx.attr.launcher and ctx.attr.launcher.label != semantics.LAUNCHER_FLAG_LABEL):
         fail("launcher specified but use_launcher is false")
 
     if not ctx.attr.srcs and ctx.attr.deps:
@@ -113,7 +110,7 @@ def basic_java_binary(
         classpath_resources.extend(ctx.files.classpath_resources)
 
     toolchain = semantics.find_java_toolchain(ctx)
-    timezone_data = [toolchain.timezone_data()] if toolchain.timezone_data() else []
+    timezone_data = [toolchain._timezone_data] if toolchain._timezone_data else []
     target, common_info = basic_java_library(
         ctx,
         srcs = ctx.files.srcs,
@@ -129,8 +126,10 @@ def basic_java_binary(
         coverage_config = coverage_config,
         add_exports = ctx.attr.add_exports,
         add_opens = ctx.attr.add_opens,
+        bootclasspath = ctx.attr.bootclasspath,
     )
     java_info = target["JavaInfo"]
+    compilation_info = java_info.compilation_info
     runtime_classpath = depset(
         order = "preorder",
         transitive = [
@@ -153,6 +152,13 @@ def basic_java_binary(
                 ),
             ],
         )
+        compilation_info = JavaCompilationInfo(
+            compilation_classpath = compilation_info.compilation_classpath,
+            runtime_classpath = runtime_classpath,
+            boot_classpath = compilation_info.boot_classpath,
+            javac_options = compilation_info.javac_options,
+            javac_options_list = compilation_info.javac_options_list,
+        )
 
     java_attrs = _collect_attrs(ctx, runtime_classpath, classpath_resources)
 
@@ -160,7 +166,13 @@ def basic_java_binary(
 
     jvm_flags.extend(launcher_info.jvm_flags)
 
-    native_libs_dirs = java_common.collect_native_deps_dirs(runtime_deps)
+    native_libs_depsets = []
+    for dep in runtime_deps:
+        if JavaInfo in dep:
+            native_libs_depsets.append(dep[JavaInfo].transitive_native_libraries)
+        if CcInfo in dep:
+            native_libs_depsets.append(dep[CcInfo].transitive_native_libraries())
+    native_libs_dirs = collect_native_deps_dirs(depset(transitive = native_libs_depsets))
     if native_libs_dirs:
         prefix = "${JAVA_RUNFILES}/" + ctx.workspace_name + "/"
         jvm_flags.append("-Djava.library.path=%s" % (
@@ -202,42 +214,26 @@ def basic_java_binary(
             transitive = [output_groups["_source_jars"]],
         )
 
-    one_version_output = _create_one_version_check(ctx, java_attrs.runtime_classpath) if (
-        ctx.fragments.java.one_version_enforcement_on_java_tests or not is_test_rule_class
-    ) else None
+    if (ctx.fragments.java.one_version_enforcement_on_java_tests or not is_test_rule_class):
+        one_version_output = _create_one_version_check(ctx, java_attrs.runtime_classpath, is_test_rule_class)
+    else:
+        one_version_output = None
+
     validation_outputs = [one_version_output] if one_version_output else []
 
     _create_deploy_sources_jar(ctx, output_groups["_source_jars"])
 
     files = depset(files_to_build + common_info.files_to_build)
 
-    java_runtime_toolchain = semantics.find_java_runtime_toolchain(ctx)
     transitive_runfiles_artifacts = depset(transitive = [
         files,
         java_attrs.runtime_classpath,
         depset(transitive = launcher_info.runfiles),
-        java_runtime_toolchain.files,
     ])
-
-    # Add symlinks to the C++ runtime libraries under a path that can be built
-    # into the Java binary without having to embed the crosstool, gcc, and grte
-    # version information contained within the libraries' package paths.
-    runfiles_symlinks = {}
-
-    # TODO(hvd): do we need this in bazel? if yes, fix abs path check on windows
-    if not helper.is_absolute_path(ctx, java_runtime_toolchain.java_home):
-        runfiles_symlinks = {
-            ("_cpp_runtimes/%s" % lib.basename): lib
-            for lib in cc_helper.find_cpp_toolchain(ctx).dynamic_runtime_lib(
-                feature_configuration = feature_config,
-            ).to_list()
-        }
 
     runfiles = ctx.runfiles(
         transitive_files = transitive_runfiles_artifacts,
         collect_default = True,
-        symlinks = runfiles_symlinks,
-        skip_conflict_checking = True,
     )
 
     if launcher_info.launcher:
@@ -278,7 +274,7 @@ def basic_java_binary(
 
     _filter_validation_output_group(ctx, output_groups)
 
-    java_binary_info = java_common.to_java_binary_info(java_info)
+    java_binary_info = to_java_binary_info(java_info, compilation_info)
 
     default_info = struct(
         files = files,
@@ -290,7 +286,7 @@ def basic_java_binary(
         "OutputGroupInfo": OutputGroupInfo(**output_groups),
         "JavaInfo": java_binary_info,
         "InstrumentedFilesInfo": target["InstrumentedFilesInfo"],
-        "JavaRuntimeClasspathInfo": JavaRuntimeClasspathInfo(runtime_classpath = java_info.transitive_runtime_jars),
+        "JavaRuntimeClasspathInfo": java_common.JavaRuntimeClasspathInfo(runtime_classpath = java_info.transitive_runtime_jars),
         "InternalDeployJarInfo": InternalDeployJarInfo(
             java_attrs = java_attrs,
             launcher_info = struct(
@@ -312,11 +308,11 @@ def basic_java_binary(
 
 def _collect_attrs(ctx, runtime_classpath, classpath_resources):
     deploy_env_jars = depset(transitive = [
-        dep[JavaRuntimeClasspathInfo].runtime_classpath
+        dep[java_common.JavaRuntimeClasspathInfo].runtime_classpath
         for dep in ctx.attr.deploy_env
     ]) if hasattr(ctx.attr, "deploy_env") else depset()
 
-    runtime_classpath_for_archive = java_common.get_runtime_classpath_for_archive(runtime_classpath, deploy_env_jars)
+    runtime_classpath_for_archive = get_runtime_classpath_for_archive(runtime_classpath, deploy_env_jars)
     runtime_jars = [ctx.outputs.classjar]
 
     resources = [p for p in ctx.files.srcs if p.extension == "properties"]
@@ -348,17 +344,17 @@ def _generate_coverage_manifest(ctx, output, runtime_classpath):
 
 #TODO(hvd): not needed in bazel
 def _create_shared_archive(ctx, java_attrs):
-    runtime = semantics.find_java_runtime_toolchain(ctx)
     classlist = ctx.file.classlist if hasattr(ctx.file, "classlist") else None
     if not classlist:
         return None
+    runtime = semantics.find_java_runtime_toolchain(ctx)
     jsa = ctx.actions.declare_file("%s.jsa" % ctx.label.name)
     merged = ctx.actions.declare_file(jsa.dirname + "/" + helper.strip_extension(jsa) + "-merged.jar")
-    create_single_jar(
-        ctx,
-        merged,
-        java_attrs.runtime_jars,
-        java_attrs.runtime_classpath_for_archive,
+    helper.create_single_jar(
+        ctx.actions,
+        toolchain = semantics.find_java_toolchain(ctx),
+        output = merged,
+        sources = depset(transitive = [java_attrs.runtime_jars, java_attrs.runtime_classpath_for_archive]),
     )
 
     args = ctx.actions.args()
@@ -393,12 +389,18 @@ def _create_shared_archive(ctx, java_attrs):
     )
     return jsa
 
-def _create_one_version_check(ctx, inputs):
+def _create_one_version_check(ctx, inputs, is_test_rule_class):
     one_version_level = ctx.fragments.java.one_version_enforcement_level
     if one_version_level == "OFF":
         return None
-    tool = helper.check_and_get_one_version_attribute(ctx, "one_version_tool")
-    allowlist = helper.check_and_get_one_version_attribute(ctx, "one_version_allowlist")
+    tool = helper.check_and_get_one_version_attribute(ctx, "_one_version_tool")
+
+    if is_test_rule_class:
+        toolchain = semantics.find_java_toolchain(ctx)
+        allowlist = toolchain._one_version_allowlist_for_tests
+    else:
+        allowlist = helper.check_and_get_one_version_attribute(ctx, "_one_version_allowlist")
+
     if not tool or not allowlist:  # On Mac oneversion tool is not available
         return None
 
@@ -431,10 +433,11 @@ def _create_one_version_check(ctx, inputs):
     return output
 
 def _create_deploy_sources_jar(ctx, sources):
-    create_single_jar(
-        ctx,
-        ctx.outputs.deploysrcjar,
-        sources,
+    helper.create_single_jar(
+        ctx.actions,
+        toolchain = semantics.find_java_toolchain(ctx),
+        output = ctx.outputs.deploysrcjar,
+        sources = sources,
     )
 
 def _filter_validation_output_group(ctx, output_group):
@@ -452,6 +455,7 @@ def _filter_validation_output_group(ctx, output_group):
                attr_name not in [
                    "deploy_env",
                    "applicable_licenses",
+                   "package_metadata",
                    "plugins",
                    "translations",
                    # special ignored attributes
@@ -523,12 +527,16 @@ BASIC_JAVA_BINARY_ATTRIBUTES = merge_attrs(
             cfg = "exec",
         ),
         "deploy_env": attr.label_list(
-            allow_rules = ["java_binary"],
+            providers = [java_common.JavaRuntimeClasspathInfo],
             allow_files = False,
         ),
         "launcher": attr.label(
             allow_files = False,
-            providers = [CcLauncherInfo],
+            # TODO(b/295221112): add back CcLauncherInfo
+        ),
+        "bootclasspath": attr.label(
+            providers = [BootClassPathInfo],
+            flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
         ),
         "neverlink": attr.bool(),
         "javacopts": attr.string_list(),
@@ -537,7 +545,6 @@ BASIC_JAVA_BINARY_ATTRIBUTES = merge_attrs(
         "main_class": attr.string(),
         "jvm_flags": attr.string_list(),
         "deploy_manifest_lines": attr.string_list(),
-        "create_executable": attr.bool(default = True),
         "stamp": attr.int(default = -1, values = [-1, 0, 1]),
         "use_testrunner": attr.bool(default = False),
         "use_launcher": attr.bool(default = True),
@@ -548,11 +555,8 @@ BASIC_JAVA_BINARY_ATTRIBUTES = merge_attrs(
             default = semantics.JAVA_STUB_TEMPLATE_LABEL,
             allow_single_file = True,
         ),
-        "_cc_toolchain": attr.label(default = "@" + cc_semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
-        "_grep_includes": cc_semantics.get_grep_includes(),
         "_java_toolchain_type": attr.label(default = semantics.JAVA_TOOLCHAIN_TYPE),
-        "_java_runtime_toolchain_type": attr.label(default = semantics.JAVA_RUNTIME_TOOLCHAIN_TYPE),
-    },
+    } | ({} if _builtins.internal.java_common_internal_do_not_use.incompatible_disable_non_executable_java_binary() else {"create_executable": attr.bool(default = True)}),
 )
 
 BASE_TEST_ATTRIBUTES = {
@@ -563,6 +567,7 @@ BASE_TEST_ATTRIBUTES = {
             "@" + paths.join(cc_semantics.get_platforms_root(), "os:ios"),
             "@" + paths.join(cc_semantics.get_platforms_root(), "os:macos"),
             "@" + paths.join(cc_semantics.get_platforms_root(), "os:tvos"),
+            "@" + paths.join(cc_semantics.get_platforms_root(), "os:visionos"),
             "@" + paths.join(cc_semantics.get_platforms_root(), "os:watchos"),
         ],
     ),

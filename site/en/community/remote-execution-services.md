@@ -17,7 +17,7 @@ Use the following services to run Bazel with remote execution:
     * [Buildbarn](https://github.com/buildbarn){: .external}
     * [Buildfarm](https://github.com/bazelbuild/bazel-buildfarm){: .external}
     * [BuildGrid](https://gitlab.com/BuildGrid/buildgrid){: .external}
-    * [Scoot](https://github.com/twitter/scoot){: .external}
+    * [TurboCache](https://github.com/allada/turbo-cache){: .external}
 
 *   Commercial
 
@@ -25,6 +25,4 @@ Use the following services to run Bazel with remote execution:
       and remote caching service. Can be self-hosted or hosted.
     * [BuildBuddy](https://www.buildbuddy.io){: .external} - Remote build execution,
       caching, and results UI.
-    * [Flare](https://www.flare.build){: .external} - Providing a cache + CDN for Bazel
-      artifacts and Apple-focused remote builds in addition to build & test
-      analytics.
+    * [Bitrise](https://bitrise.io/why/features/mobile-build-caching-for-better-build-test-performance){: .external} - Providing the world's leading mobile-first CI/CD and remote build caching platform.

@@ -19,21 +19,11 @@ import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createMo
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 import static org.junit.Assert.fail;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.Version;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -44,10 +34,7 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.EvaluationResult;
-import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -55,61 +42,25 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link RepositoryMappingFunction} and {@link RepositoryMappingValue}. */
 @RunWith(JUnit4.class)
 public class RepositoryMappingFunctionTest extends BuildViewTestCase {
-  private FakeRegistry registry;
 
   private EvaluationResult<RepositoryMappingValue> eval(SkyKey key)
       throws InterruptedException, AbruptExitException {
     getSkyframeExecutor()
         .invalidateFilesUnderPathForTesting(
             reporter,
-            ModifiedFileSet.builder().modify(PathFragment.create("WORKSPACE")).build(),
+            ModifiedFileSet.builder()
+                .modify(PathFragment.create("WORKSPACE"))
+                .modify(PathFragment.create("MODULE.bazel"))
+                .build(),
             Root.fromPath(rootDirectory));
     return SkyframeExecutorTestUtils.evaluate(
         getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
   }
 
-  @Before
-  public void setUpForBzlmod() throws Exception {
-    setBuildLanguageOptions("--enable_bzlmod");
-    scratch.file("MODULE.bazel");
-  }
-
-  @Override
-  protected ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues() throws Exception {
-    registry = FakeRegistry.DEFAULT_FACTORY.newFakeRegistry(scratch.dir("modules").getPathString());
-    return ImmutableList.of(
-        PrecomputedValue.injected(
-            ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
-        PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
-        PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
-        PrecomputedValue.injected(
-            BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
-        PrecomputedValue.injected(
-            BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING),
-        PrecomputedValue.injected(
-            BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE, BazelCompatibilityMode.ERROR),
-        PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.OFF));
-  }
-
   @Override
   protected AnalysisMock getAnalysisMock() {
     // Make sure we don't have built-in modules affecting the dependency graph.
-    return new AnalysisMock.Delegate(super.getAnalysisMock()) {
-      @Override
-      public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(
-          BlazeDirectories directories) {
-        return ImmutableMap.<SkyFunctionName, SkyFunction>builder()
-            .putAll(
-                Maps.filterKeys(
-                    super.getSkyFunctions(directories),
-                    fnName -> !fnName.equals(SkyFunctions.MODULE_FILE)))
-            .put(
-                SkyFunctions.MODULE_FILE,
-                new ModuleFileFunction(
-                    FakeRegistry.DEFAULT_FACTORY, directories.getWorkspace(), ImmutableMap.of()))
-            .buildOrThrow();
-      }
-    };
+    return AnalysisMock.getAnalysisMockWithoutBuiltinModules();
   }
 
   private static RepositoryMappingValue valueForWorkspace(
@@ -192,7 +143,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
                     RepositoryName.MAIN,
                     "aaa",
                     RepositoryName.MAIN,
-                    TestConstants.WORKSPACE_NAME,
+                    TestConstants.LEGACY_WORKSPACE_NAME,
                     RepositoryName.MAIN,
                     "com_foo_bar_b",
                     RepositoryName.create("bbb~1.0")),
@@ -221,7 +172,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
                     RepositoryName.MAIN,
                     "haha",
                     RepositoryName.MAIN,
-                    TestConstants.WORKSPACE_NAME,
+                    TestConstants.LEGACY_WORKSPACE_NAME,
                     RepositoryName.MAIN,
                     "com_foo_bar_b",
                     RepositoryName.create("bbb~1.0")),
@@ -312,7 +263,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
                     RepositoryName.MAIN,
                     "aaa",
                     RepositoryName.MAIN,
-                    TestConstants.WORKSPACE_NAME,
+                    TestConstants.LEGACY_WORKSPACE_NAME,
                     RepositoryName.MAIN,
                     "bbb1",
                     RepositoryName.create("bbb~1.0"),
@@ -466,6 +417,18 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testMixtureOfBothSystems_workspaceRepo() throws Exception {
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='1.0')",
+        "bazel_dep(name='ccc',version='2.0')",
+        "ext=use_extension('@ccc//:ext.bzl', 'ext')",
+        "use_repo(ext, 'ddd')");
+    registry
+        .addModule(createModuleKey("bbb", "1.0"), "module(name='bbb', version='1.0')")
+        .addModule(createModuleKey("ccc", "2.0"), "module(name='ccc', version='2.0')");
+
+    // Called last as it triggers package invalidation, which requires a valid MODULE.bazel setup.
     rewriteWorkspace(
         "workspace(name = 'root')",
         "local_repository(",
@@ -478,16 +441,6 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         "        '@eee_alias' : '@eee',",
         "    },",
         ")");
-    scratch.overwriteFile(
-        "MODULE.bazel",
-        "module(name='aaa',version='0.1')",
-        "bazel_dep(name='bbb',version='1.0')",
-        "bazel_dep(name='ccc',version='2.0')",
-        "ext=use_extension('@ccc//:ext.bzl', 'ext')",
-        "use_repo(ext, 'ddd')");
-    registry
-        .addModule(createModuleKey("bbb", "1.0"), "module(name='bbb', version='1.0')")
-        .addModule(createModuleKey("ccc", "2.0"), "module(name='ccc', version='2.0')");
 
     RepositoryName name = RepositoryName.create("ws_repo");
     SkyKey skyKey = RepositoryMappingValue.key(name);
@@ -516,12 +469,6 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testMixtureOfBothSystems_mainRepo() throws Exception {
-    rewriteWorkspace(
-        "workspace(name = 'root')",
-        "local_repository(",
-        "    name = 'ws_repo',",
-        "    path = '/ws_repo',",
-        ")");
     scratch.overwriteFile(
         "MODULE.bazel", "module(name='aaa',version='0.1')", "bazel_dep(name='bbb',version='1.0')");
     registry
@@ -529,6 +476,14 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
             createModuleKey("bbb", "1.0"),
             "module(name='bbb', version='1.0');bazel_dep(name='ccc', version='2.0')")
         .addModule(createModuleKey("ccc", "2.0"), "module(name='ccc', version='2.0')");
+
+    // Called last as it triggers package invalidation, which requires a valid MODULE.bazel setup.
+    rewriteWorkspace(
+        "workspace(name = 'root')",
+        "local_repository(",
+        "    name = 'ws_repo',",
+        "    path = '/ws_repo',",
+        ")");
 
     SkyKey skyKey = RepositoryMappingValue.key(RepositoryName.MAIN);
     assertThatEvaluationResult(eval(skyKey))
@@ -547,12 +502,6 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testMixtureOfBothSystems_mainRepo_shouldNotSeeWorkspaceRepos() throws Exception {
-    rewriteWorkspace(
-        "workspace(name = 'root')",
-        "local_repository(",
-        "    name = 'ws_repo',",
-        "    path = '/ws_repo',",
-        ")");
     scratch.overwriteFile(
         "MODULE.bazel", "module(name='aaa',version='0.1')", "bazel_dep(name='bbb',version='1.0')");
     registry
@@ -560,6 +509,14 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
             createModuleKey("bbb", "1.0"),
             "module(name='bbb', version='1.0');bazel_dep(name='ccc', version='2.0')")
         .addModule(createModuleKey("ccc", "2.0"), "module(name='ccc', version='2.0')");
+
+    // Called last as it triggers package invalidation, which requires a valid MODULE.bazel setup.
+    rewriteWorkspace(
+        "workspace(name = 'root')",
+        "local_repository(",
+        "    name = 'ws_repo',",
+        "    path = '/ws_repo',",
+        ")");
 
     SkyKey skyKey = RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS;
     assertThatEvaluationResult(eval(skyKey))
@@ -599,26 +556,6 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testDefaultMainRepoNameInMapping() throws Exception {
-    scratch.overwriteFile(
-        "WORKSPACE",
-        "local_repository(",
-        "    name = 'a_remote_repo',",
-        "    path = '/a_remote_repo',",
-        "    repo_mapping = {},",
-        ")");
-    RepositoryName name = RepositoryName.create("a_remote_repo");
-    SkyKey skyKey = RepositoryMappingValue.key(name);
-
-    assertThatEvaluationResult(eval(skyKey))
-        .hasEntryThat(skyKey)
-        .isEqualTo(
-            valueForWorkspace(
-                ImmutableMap.of(
-                    TestConstants.WORKSPACE_NAME, RepositoryName.MAIN, "", RepositoryName.MAIN)));
-  }
-
-  @Test
   public void testExplicitMainRepoNameInMapping() throws Exception {
     scratch.overwriteFile(
         "WORKSPACE",
@@ -651,27 +588,19 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
             "bazel_dep(name='foo', version='1.0')")
         .addModule(createModuleKey("foo", "1.0"), "module(name='foo', version='1.0')");
 
-    RepositoryName name = RepositoryName.create("_builtins");
-    SkyKey skyKey = RepositoryMappingValue.key(name);
-    EvaluationResult<RepositoryMappingValue> result = eval(skyKey);
+    SkyKey builtinsKey = RepositoryMappingValue.key(RepositoryName.create("_builtins"));
+    SkyKey toolsKey =
+        RepositoryMappingValue.Key.create(ruleClassProvider.getToolsRepository(), false);
+    EvaluationResult<RepositoryMappingValue> builtinsResult = eval(builtinsKey);
+    assertThat(builtinsResult.hasError()).isFalse();
+    RepositoryMapping builtinsMapping = builtinsResult.get(builtinsKey).getRepositoryMapping();
+    EvaluationResult<RepositoryMappingValue> toolsResult = eval(toolsKey);
+    assertThat(toolsResult.hasError()).isFalse();
+    RepositoryMapping toolsMapping = toolsResult.get(toolsKey).getRepositoryMapping();
 
-    assertThat(result.hasError()).isFalse();
-    assertThatEvaluationResult(result)
-        .hasEntryThat(skyKey)
-        .isEqualTo(
-            valueForBzlmod(
-                ImmutableMap.of(
-                    "bazel_tools",
-                    RepositoryName.BAZEL_TOOLS, // bazel_tools is a well-known module
-                    "foo",
-                    RepositoryName.create("foo~1.0"),
-                    "_builtins",
-                    RepositoryName.create("_builtins"),
-                    "",
-                    RepositoryName.MAIN),
-                name,
-                "bazel_tools",
-                ""));
+    assertThat(builtinsMapping.entries()).containsAtLeastEntriesIn(toolsMapping.entries());
+    assertThat(builtinsMapping.get("_builtins")).isEqualTo(RepositoryName.create("_builtins"));
+    assertThat(builtinsMapping.get("")).isEqualTo(RepositoryName.MAIN);
   }
 
   @Test

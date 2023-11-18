@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.query2.aquery;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
@@ -23,14 +25,13 @@ import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.Collection;
 
 /** Helper class for aquery test */
-public class ActionGraphQueryHelper extends PostAnalysisQueryHelper<KeyedConfiguredTargetValue> {
+public class ActionGraphQueryHelper extends PostAnalysisQueryHelper<ConfiguredTargetValue> {
 
   @Override
-  protected PostAnalysisQueryEnvironment<KeyedConfiguredTargetValue>
-      getPostAnalysisQueryEnvironment(
-          WalkableGraph walkableGraph,
-          TopLevelConfigurations topLevelConfigurations,
-          Collection<SkyKey> transitiveConfigurationKeys) {
+  protected PostAnalysisQueryEnvironment<ConfiguredTargetValue> getPostAnalysisQueryEnvironment(
+      WalkableGraph walkableGraph,
+      TopLevelConfigurations topLevelConfigurations,
+      Collection<SkyKey> transitiveConfigurationKeys) {
     ImmutableList<QueryFunction> extraFunctions =
         ImmutableList.copyOf(ActionGraphQueryEnvironment.AQUERY_FUNCTIONS);
     return new ActionGraphQueryEnvironment(
@@ -41,11 +42,12 @@ public class ActionGraphQueryHelper extends PostAnalysisQueryHelper<KeyedConfigu
         mainRepoTargetParser,
         analysisHelper.getPackageManager().getPackagePath(),
         () -> walkableGraph,
-        settings);
+        settings,
+        LabelPrinter.legacy());
   }
 
   @Override
-  public String getLabel(KeyedConfiguredTargetValue configuredTargetValue) {
-    return configuredTargetValue.getConfiguredTarget().getLabel().toString();
+  public String getLabel(ConfiguredTargetValue configuredTargetValue) {
+    return configuredTargetValue.getConfiguredTarget().getOriginalLabel().toString();
   }
 }

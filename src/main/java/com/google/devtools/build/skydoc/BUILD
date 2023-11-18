@@ -17,7 +17,6 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi:srcs",
-        "//src/main/java/com/google/devtools/build/skydoc/renderer:srcs",
         "//src/main/java/com/google/devtools/build/skydoc/rendering:srcs",
         "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:srcs",
     ],
@@ -43,7 +42,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi",
         "//src/main/java/com/google/devtools/build/skydoc/rendering",
-        "//src/main/java/com/google/devtools/build/skydoc/rendering:function_util",
+        "//src/main/java/com/google/devtools/build/skydoc/rendering:rendering_util",
         "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:stardoc_output_java_proto",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/annot",

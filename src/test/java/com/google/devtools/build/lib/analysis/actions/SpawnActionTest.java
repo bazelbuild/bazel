@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
@@ -135,7 +136,7 @@ public final class SpawnActionTest extends BuildViewTestCase {
             Label.parseCanonicalUnchecked("//target"),
             new Location("dummy-file", 0, 0),
             /* targetKind= */ "dummy-kind",
-            /* mnemonic= */ "dummy-configuration-mnemonic",
+            /* buildConfigurationMnemonic= */ "dummy-configuration-mnemonic",
             /* configurationChecksum= */ "dummy-configuration",
             new BuildConfigurationEvent(
                 BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
@@ -231,7 +232,7 @@ public final class SpawnActionTest extends BuildViewTestCase {
 
   @Test
   public void testBuilderWithJarExecutableAndParameterFile2() throws Exception {
-    useConfiguration("--min_param_file_size=0", "--defer_param_files");
+    useConfiguration("--min_param_file_size=0");
     collectingAnalysisEnvironment =
         new AnalysisTestUtil.CollectingAnalysisEnvironment(getTestAnalysisEnvironment());
     Artifact output = getBinArtifactWithNoOwner("output");
@@ -321,27 +322,6 @@ public final class SpawnActionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGetArgumentsWithParameterFiles() throws Exception {
-    useConfiguration("--min_param_file_size=0", "--nodefer_param_files");
-    Artifact input = getSourceArtifact("input");
-    Artifact output = getBinArtifactWithNoOwner("output");
-    SpawnAction action =
-        builder()
-            .addInput(input)
-            .addOutput(output)
-            .setExecutable(scratch.file("/bin/xxx").asFragment())
-            .addCommandLine(
-                CommandLine.of(ImmutableList.of("arg1")),
-                ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
-            .addCommandLine(
-                CommandLine.of(ImmutableList.of("arg2")),
-                ParamFileInfo.builder(ParameterFileType.UNQUOTED).build())
-            .build(nullOwnerWithTargetConfig(), targetConfig);
-    // getArguments returns all arguments, regardless whether some go in parameter files or not
-    assertThat(action.getArguments()).containsExactly("/bin/xxx", "arg1", "arg2").inOrder();
-  }
-
-  @Test
   public void testExtraActionInfo() throws Exception {
     SpawnAction action = createCopyFromWelcomeToDestination(ImmutableMap.of());
     ExtraActionInfo info = action.getExtraActionInfo(actionKeyContext).build();
@@ -399,8 +379,8 @@ public final class SpawnActionTest extends BuildViewTestCase {
                     Runfiles.EMPTY,
                     manifest,
                     /* repoMappingManifest= */ null,
-                    /* buildRunfileLinks= */ false,
-                    /* runfileLinksEnabled= */ false))
+                    RunfileSymlinksMode.SKIP,
+                    /* buildRunfileLinks= */ false))
             .addOutput(getBinArtifactWithNoOwner("output"))
             .setExecutable(scratch.file("/bin/xxx").asFragment())
             .setProgressMessage("Test")
@@ -611,8 +591,8 @@ public final class SpawnActionTest extends BuildViewTestCase {
         Runfiles.EMPTY,
         manifest,
         /* repoMappingManifest= */ null,
-        /* buildRunfileLinks= */ false,
-        /* runfileLinksEnabled= */ false);
+        RunfileSymlinksMode.SKIP,
+        /* buildRunfileLinks= */ false);
   }
 
   private ActionOwner nullOwnerWithTargetConfig() {

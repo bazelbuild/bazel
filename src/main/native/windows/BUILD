@@ -76,6 +76,7 @@ cc_binary(
     deps = [
         ":lib-file",
         ":lib-process",
+        "//src/main/native:blake3_jni",
     ],
 )
 

@@ -715,7 +715,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "badlib",
         "lib_with_dash_static",
         // message:
-        "in linkopts attribute of cc_library rule @//badlib:lib_with_dash_static: "
+        "in linkopts attribute of cc_library rule @@//badlib:lib_with_dash_static: "
             + "Apple builds do not support statically linked binaries",
         // build file:
         "cc_library(name = 'lib_with_dash_static',",
@@ -920,6 +920,21 @@ public class CcCommonTest extends BuildViewTestCase {
     assertThat(ActionsTestUtil.prettyArtifactNames(absolute.getDeclaredIncludeSrcs()))
         .containsExactly(
             "third_party/a/_virtual_includes/absolute/a/v1/b.h", "third_party/a/v1/b.h");
+  }
+
+  @Test
+  public void testEmptyPackageStripPrefix() throws Exception {
+    if (!AnalysisMock.get().isThisBazel()) {
+      return;
+    }
+    scratch.file(
+        "BUILD",
+        "licenses(['notice'])",
+        "cc_library(name='a', hdrs=['b.h'], strip_include_prefix='.')");
+    CcCompilationContext ccContext =
+        getConfiguredTarget("//:a").get(CcInfo.PROVIDER).getCcCompilationContext();
+    assertThat(ActionsTestUtil.prettyArtifactNames(ccContext.getDeclaredIncludeSrcs()))
+        .containsExactly("b.h");
   }
 
   @Test
@@ -1274,5 +1289,31 @@ public class CcCommonTest extends BuildViewTestCase {
     assertContainsEvent(
         "This attribute was removed. See https://github.com/bazelbuild/bazel/issues/8706 for"
             + " details.");
+  }
+
+  @Test
+  public void testLinkExtra() throws Exception {
+    ConfiguredTarget target =
+        scratchConfiguredTarget(
+            "mypackage",
+            "mybinary",
+            "cc_binary(name = 'mybinary',",
+            "          srcs = ['mybinary.cc'])");
+    List<String> artifactNames = baseArtifactNames(getLinkerInputs(target));
+    assertThat(artifactNames).contains("liblink_extra_lib.a");
+  }
+
+  @Test
+  public void testNoLinkExtra() throws Exception {
+    ConfiguredTarget target =
+        scratchConfiguredTarget(
+            "mypackage",
+            "mybinary",
+            "cc_library(name = 'empty_lib')",
+            "cc_binary(name = 'mybinary',",
+            "          srcs = ['mybinary.cc'],",
+            "          link_extra_lib = ':empty_lib')");
+    List<String> artifactNames = baseArtifactNames(getLinkerInputs(target));
+    assertThat(artifactNames).doesNotContain("liblink_extra_lib.a");
   }
 }

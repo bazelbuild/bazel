@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.analysis.config.transitions.Configur
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -29,15 +30,16 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.OptionInfo;
+import com.google.devtools.build.lib.analysis.config.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.ValidationException;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.common.options.OptionDefinition;
-import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.lang.reflect.Field;
 import java.util.HashSet;
@@ -52,6 +54,7 @@ import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
 
 /**
  * Utility class for common work done across {@link StarlarkAttributeTransitionProvider} and {@link
@@ -66,14 +69,14 @@ public final class FunctionTransitionUtil {
    *
    * <p>Also validate that transitions output the declared results.
    *
-   * @param buildOptions the pre-transition build options
+   * @param fromOptions the pre-transition build options
    * @param starlarkTransition the transition to apply
    * @param attrObject the attributes of the rule to which this transition is attached
    * @return the post-transition build options, or null if errors were reported to handler.
    */
   @Nullable
   static ImmutableMap<String, BuildOptions> applyAndValidate(
-      BuildOptions buildOptions,
+      BuildOptions fromOptions,
       StarlarkDefinedConfigTransition starlarkTransition,
       StructImpl attrObject,
       EventHandler handler)
@@ -83,34 +86,90 @@ public final class FunctionTransitionUtil {
 
       // TODO(waltl): Consider building this once and using it across different split transitions,
       // or reusing BuildOptionDetails.
-      ImmutableMap<String, OptionInfo> optionInfoMap = OptionInfo.buildMapFrom(buildOptions);
+      ImmutableMap<String, OptionInfo> optionInfoMap = OptionInfo.buildMapFrom(fromOptions);
       ImmutableMap<String, Object> settings =
-          buildSettings(buildOptions, optionInfoMap, starlarkTransition);
+          buildSettings(fromOptions, optionInfoMap, starlarkTransition);
 
       ImmutableMap.Builder<String, BuildOptions> splitBuildOptions = ImmutableMap.builder();
 
+      // For anything except the exec transition this is just fromOptions. See maybeGetExecDefaults
+      // for why the exec transition is different.
+      BuildOptions baselineToOptions = maybeGetExecDefaults(fromOptions, starlarkTransition);
+
       ImmutableMap<String, Map<String, Object>> transitions =
-          starlarkTransition.evaluate(settings, attrObject, handler);
+          starlarkTransition.evaluate(settings, attrObject, optionInfoMap, handler);
       if (transitions == null) {
         return null; // errors reported to handler
       } else if (transitions.isEmpty()) {
         // The transition produced a no-op.
-        return ImmutableMap.of(PATCH_TRANSITION_KEY, buildOptions);
+        return ImmutableMap.of(PATCH_TRANSITION_KEY, baselineToOptions);
       }
 
       for (Map.Entry<String, Map<String, Object>> entry : transitions.entrySet()) {
         Map<String, Object> newValues =
-            handleImplicitPlatformChange(buildOptions, entry.getValue());
+            handleImplicitPlatformChange(baselineToOptions, entry.getValue());
         BuildOptions transitionedOptions =
-            applyTransition(buildOptions, newValues, optionInfoMap, starlarkTransition);
+            applyTransition(baselineToOptions, newValues, optionInfoMap, starlarkTransition);
         splitBuildOptions.put(entry.getKey(), transitionedOptions);
       }
-      return splitBuildOptions.build();
+      return splitBuildOptions.buildOrThrow();
 
     } catch (ValidationException ex) {
       handler.handle(Event.error(starlarkTransition.getLocation(), ex.getMessage()));
       return null;
     }
+  }
+
+  /**
+   * For all transitions except the exec transition, returns {@code fromOptions}.
+   *
+   * <p>The exec transition is special: any options not explicitly set by the transition take their
+   * defaults, not {@code fromOptions}'s values. This method adjusts the baseline options
+   * accordingly.
+   *
+   * <p>The exec transition's full sequence is:
+   *
+   * <ol>
+   *   <li>The transition's Starlark function runs over {@code fromOptions}: {@code
+   *       {"//command_line_option:foo": settings["//command_line_option:foo"}} sets {@code foo} to
+   *       {@code fromOptions}'s value (i.e. propagates from the source config)
+   *   <li>This method constructs a {@link BuildOptions} default value (which doesn't inherit from
+   *       the source config)
+   *   <li>{@link #applyTransition} creates final options: use whatever options the Starlark logic
+   *       set (which may propagate from the source config). For all other options, use default
+   *       values
+   *       <p>See {@link com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory}.
+   */
+  private static BuildOptions maybeGetExecDefaults(
+      BuildOptions fromOptions, StarlarkDefinedConfigTransition starlarkTransition) {
+    if (starlarkTransition == null
+        || fromOptions.get(CoreOptions.class).starlarkExecConfig == null
+        || !starlarkTransition.matchesExecConfigFlag(
+            fromOptions.get(CoreOptions.class).starlarkExecConfig)) {
+      // Not an exec transition: the baseline options are just the input options.
+      return fromOptions;
+    }
+    BuildOptions.Builder defaultBuilder = BuildOptions.builder();
+    // Get the defaults:
+    fromOptions.getNativeOptions().forEach(o -> defaultBuilder.addFragmentOptions(o.getDefault()));
+    // Propagate Starlark options from the source config:
+    // TODO(b/288258583) don't automatically propagate Starlark options.
+    defaultBuilder.addStarlarkOptions(fromOptions.getStarlarkOptions());
+    // Hard-code TestConfiguration.getExec() for now, which clones the source options.
+    // TODO(b/295936652): handle this directly in Starlark. This has two complications:
+    //  1: --trim_test_configuration means the flags may not exist. Starlark logic needs to handle
+    //     that possibility.
+    //  2: --runs_per_test has a non-Starlark readable type.
+    if (fromOptions.contains(TestOptions.class)) {
+      defaultBuilder.removeFragmentOptions(TestOptions.class);
+      defaultBuilder.addFragmentOptions(fromOptions.get(TestOptions.class));
+    }
+    // Propagate --define values from the source config:
+    // TODO(b/288258583) don't automatically propagate --defines.
+    BuildOptions ans = defaultBuilder.build();
+    ans.get(CoreOptions.class).commandLineBuildVariables =
+        fromOptions.get(CoreOptions.class).commandLineBuildVariables;
+    return ans;
   }
 
   /**
@@ -143,7 +202,7 @@ public final class FunctionTransitionUtil {
     return ImmutableMap.<String, Object>builder()
         .putAll(rawTransitionOutput)
         .put(COMMAND_LINE_OPTION_PREFIX + "platforms", ImmutableList.<Label>of())
-        .build();
+        .buildOrThrow();
   }
 
   private static void checkForDenylistedOptions(StarlarkDefinedConfigTransition transition)
@@ -292,6 +351,20 @@ public final class FunctionTransitionUtil {
         // Convert NoneType to null.
         if (optionValue instanceof NoneType) {
           optionValue = null;
+        } else if (optionValue instanceof StarlarkInt) {
+          optionValue = ((StarlarkInt) optionValue).toIntUnchecked();
+        } else if (optionValue instanceof List<?>) {
+          // Converting back to the Java-native type makes it easier to check if a Starlark
+          // transition set the same value a native transition would. This is important for
+          // ExecutionTransitionFactory#ComparingTransition.
+          // TODO(b/288258583): remove this case when ComparingTransition is no longer needed for
+          // debugging. Production code just iterates over the lists, which both Starlark and
+          // native List types implement.
+          optionValue = ImmutableList.copyOf((List<?>) optionValue);
+        } else if (optionValue instanceof Map<?, ?>) {
+          // TODO(b/288258583): remove this case when ComparingTransition is no longer needed for
+          // debugging. See above TODO.
+          optionValue = ImmutableMap.copyOf(((Map<?, ?>) optionValue));
         }
         try {
           if (!optionInfoMap.containsKey(optionName)) {
@@ -304,7 +377,7 @@ public final class FunctionTransitionUtil {
           Field field = def.getField();
           // TODO(b/153867317): check for crashing options types in this logic.
           Object convertedValue;
-          if (def.getType() == List.class && optionValue instanceof List && !def.allowsMultiple()) {
+          if (def.getType() == List.class && optionValue instanceof List) {
             // This is possible with Starlark code like "{ //command_line_option:foo: ["a", "b"] }".
             // In that case def.getType() == List.class while optionValue.type == StarlarkList.
             // Unfortunately we can't check the *element* types because OptionDefinition won't tell
@@ -314,13 +387,10 @@ public final class FunctionTransitionUtil {
             // generically safe way to do this. We convert its elements with .toString() with a ","
             // separator, which happens to work for most implementations. But that's not universally
             // guaranteed.
-            // TODO(b/153867317): support allowMultiple options too. This is subtle: see the
-            // description of allowMultiple in Option.java. allowMultiple converts have the choice
-            // of returning either a scalar or list.
             List<?> optionValueAsList = (List<?>) optionValue;
             if (optionValueAsList.isEmpty()) {
               convertedValue = ImmutableList.of();
-            } else {
+            } else if (!def.allowsMultiple()) {
               convertedValue =
                   def.getConverter()
                       .convert(
@@ -332,6 +402,21 @@ public final class FunctionTransitionUtil {
                                           : element.toString())
                               .collect(joining(",")),
                           starlarkTransition.getPackageContext());
+            } else {
+              var valueBuilder = ImmutableList.builder();
+              // We can't use streams because def.getConverter().convert may throw an
+              // OptionsParsingException.
+              for (Object e : optionValueAsList) {
+                Object converted =
+                    def.getConverter()
+                        .convert(e.toString(), starlarkTransition.getPackageContext());
+                if (converted instanceof List) {
+                  valueBuilder.addAll((List<?>) converted);
+                } else {
+                  valueBuilder.add(converted);
+                }
+              }
+              convertedValue = valueBuilder.build();
             }
           } else if (def.getType() == List.class && optionValue == null) {
             throw ValidationException.format(
@@ -339,6 +424,8 @@ public final class FunctionTransitionUtil {
                     + " trying to set option to empty value.",
                 optionName);
           } else if (optionValue == null || def.getType().isInstance(optionValue)) {
+            convertedValue = optionValue;
+          } else if (def.getType().equals(int.class) && optionValue instanceof Integer) {
             convertedValue = optionValue;
           } else if (def.getType().equals(boolean.class) && optionValue instanceof Boolean) {
             convertedValue = optionValue;
@@ -357,16 +444,14 @@ public final class FunctionTransitionUtil {
             }
             field.set(toOptions.get(optionInfo.getOptionClass()), convertedValue);
 
-            if (!optionInfo.hasOptionMetadataTag(OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH)) {
-              convertedAffectedOptions.add(optionKey);
-            }
+            convertedAffectedOptions.add(optionKey);
           }
 
         } catch (IllegalArgumentException e) {
           throw ValidationException.format(
               "IllegalArgumentError for option '%s': %s", optionName, e.getMessage());
         } catch (IllegalAccessException e) {
-          throw new RuntimeException(
+          throw new VerifyException(
               "IllegalAccess for option " + optionName + ": " + e.getMessage());
         } catch (OptionsParsingException e) {
           throw ValidationException.format(
@@ -375,16 +460,16 @@ public final class FunctionTransitionUtil {
       }
     }
 
-    if (!changedStarlarkOptions.isEmpty()) {
-      toOptions =
-          BuildOptions.builder()
-              .merge(toOptions == null ? fromOptions.clone() : toOptions)
-              .addStarlarkOptions(changedStarlarkOptions)
-              .build();
-    }
-    if (toOptions == null) {
+    if (toOptions == null && changedStarlarkOptions.isEmpty()) {
       return fromOptions;
     }
+    // Note that rebuilding also calls FragmentOptions.getNormalized() to guarantee --define,
+    // --features, and similar flags are consistently ordered.
+    toOptions =
+        BuildOptions.builder()
+            .merge(toOptions == null ? fromOptions.clone() : toOptions)
+            .addStarlarkOptions(changedStarlarkOptions)
+            .build();
     if (starlarkTransition.isForAnalysisTesting()) {
       // We need to record every time we change a configuration option.
       // see {@link #updateOutputDirectoryNameFragment} for usage.
@@ -393,8 +478,15 @@ public final class FunctionTransitionUtil {
     }
 
     CoreOptions coreOptions = toOptions.get(CoreOptions.class);
-    if (coreOptions.outputDirectoryNamingScheme.equals(
-        CoreOptions.OutputDirectoryNamingScheme.LEGACY)) {
+    boolean isExecTransition =
+        coreOptions.starlarkExecConfig != null
+            && starlarkTransition != null
+            && starlarkTransition.matchesExecConfigFlag(coreOptions.starlarkExecConfig);
+
+    if (!isExecTransition
+        && coreOptions.outputDirectoryNamingScheme.equals(
+            CoreOptions.OutputDirectoryNamingScheme.LEGACY)) {
+      // The exec transition uses its own logic in ExecutionTransitionFactory.
       updateAffectedByStarlarkTransition(coreOptions, convertedAffectedOptions);
     }
     return toOptions;
@@ -409,12 +501,9 @@ public final class FunctionTransitionUtil {
       return ImmutableSet.of();
     }
 
-    BuildOptions.OptionsDiff diff = BuildOptions.diff(toOptions, baselineOptions);
+    OptionsDiff diff = OptionsDiff.diff(toOptions, baselineOptions);
     Stream<String> diffNative =
         diff.getFirst().keySet().stream()
-            .filter(
-                optionDef ->
-                    !optionDef.hasOptionMetadataTag(OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH))
             .map(option -> COMMAND_LINE_OPTION_PREFIX + option.getOptionName());
     // Note: getChangedStarlarkOptions includes all changed options, added options and removed
     //   options between baselineOptions and toOptions. This is necessary since there is no current

@@ -16,14 +16,13 @@ package com.google.devtools.build.lib.rules.repository;
 
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.LabelValidator;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
+import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -73,13 +72,11 @@ public class NewRepositoryFileHandler {
    */
   private abstract static class BaseFileHandler {
 
-    private final Path workspacePath;
     private final String filename;
     private FileValue fileValue;
     private String fileContent;
 
-    private BaseFileHandler(Path workspacePath, String filename) {
-      this.workspacePath = workspacePath;
+    private BaseFileHandler(String filename) {
       this.filename = filename;
     }
 
@@ -147,14 +144,7 @@ public class NewRepositoryFileHandler {
       if (fileValue != null) {
         // Link x/FILENAME to <build_root>/x.FILENAME.
         symlinkFile(fileValue, filename, outputDirectory);
-        String fileAttribute = getFileAttributeValue(rule);
-        String fileKey;
-        if (LabelValidator.isAbsolute(fileAttribute)) {
-          fileKey = getFileAttributeAsLabel(rule).toString();
-        } else {
-          // TODO(pcloudy): Don't add absolute path into markerData once it's not supported
-          fileKey = fileValue.realRootedPath().asPath().getPathString();
-        }
+        String fileKey = getFileAttributeAsLabel(rule).toString();
         try {
           markerData.put("FILE:" + fileKey, RepositoryFunction.fileValueToMarkerValue(fileValue));
         } catch (IOException e) {
@@ -167,75 +157,37 @@ public class NewRepositoryFileHandler {
       }
     }
 
-    private String getFileAttributeValue(Rule rule) throws RepositoryFunctionException {
-      WorkspaceAttributeMapper mapper = WorkspaceAttributeMapper.of(rule);
-      String fileAttribute;
+    private Label getFileAttributeAsLabel(Rule rule) throws RepositoryFunctionException {
       try {
-        fileAttribute = mapper.get(getFileAttrName(), Type.STRING);
+        return WorkspaceAttributeMapper.of(rule).get(getFileAttrName(), BuildType.NODEP_LABEL);
       } catch (EvalException e) {
         throw new RepositoryFunctionException(e, Transience.PERSISTENT);
       }
-      return fileAttribute;
-    }
-
-    private Label getFileAttributeAsLabel(Rule rule) throws RepositoryFunctionException {
-      Label label;
-      try {
-        // Parse a label
-        label = Label.parseCanonical(getFileAttributeValue(rule));
-      } catch (LabelSyntaxException ex) {
-        throw new RepositoryFunctionException(
-            Starlark.errorf(
-                "the '%s' attribute does not specify a valid label: %s",
-                getFileAttrName(), ex.getMessage()),
-            Transience.PERSISTENT);
-      }
-      return label;
     }
 
     @Nullable
     private FileValue getFileValue(Rule rule, Environment env)
         throws RepositoryFunctionException, InterruptedException {
-      String fileAttribute = getFileAttributeValue(rule);
-      RootedPath rootedFile;
-
-      if (LabelValidator.isAbsolute(fileAttribute)) {
-        Label label = getFileAttributeAsLabel(rule);
-        SkyKey pkgSkyKey = PackageLookupValue.key(label.getPackageIdentifier());
-        PackageLookupValue pkgLookupValue = (PackageLookupValue) env.getValue(pkgSkyKey);
-        if (pkgLookupValue == null) {
-          return null;
-        }
-        if (!pkgLookupValue.packageExists()) {
-          throw new RepositoryFunctionException(
-              Starlark.errorf("Unable to load package for %s: not found.", fileAttribute),
-              Transience.PERSISTENT);
-        }
-
-        // And now for the file
-        Root packageRoot = pkgLookupValue.getRoot();
-        rootedFile = RootedPath.toRootedPath(packageRoot, label.toPathFragment());
-      } else {
-        // TODO(dmarting): deprecate using a path for the workspace_file attribute.
-        PathFragment file = PathFragment.create(fileAttribute);
-        Path fileTarget = workspacePath.getRelative(file);
-        if (!fileTarget.exists()) {
-          throw new RepositoryFunctionException(
-              Starlark.errorf(
-                  "the '%s' attribute does not specify an existing file (%s does not exist)",
-                  getFileAttrName(), fileTarget),
-              Transience.PERSISTENT);
-        }
-
-        if (file.isAbsolute()) {
-          rootedFile =
-              RootedPath.toRootedPath(
-                  Root.fromPath(fileTarget.getParentDirectory()),
-                  PathFragment.create(fileTarget.getBaseName()));
-        } else {
-          rootedFile = RootedPath.toRootedPath(Root.fromPath(workspacePath), file);
-        }
+      Label label = getFileAttributeAsLabel(rule);
+      SkyKey pkgSkyKey = PackageLookupValue.key(label.getPackageIdentifier());
+      PackageLookupValue pkgLookupValue = (PackageLookupValue) env.getValue(pkgSkyKey);
+      if (pkgLookupValue == null) {
+        return null;
       }
+      if (!pkgLookupValue.packageExists()) {
+        String message = pkgLookupValue.getErrorMsg();
+        if (pkgLookupValue == PackageLookupValue.NO_BUILD_FILE_VALUE) {
+          message =
+              PackageLookupFunction.explainNoBuildFileValue(label.getPackageIdentifier(), env);
+        }
+        throw new RepositoryFunctionException(
+            Starlark.errorf("Unable to load package for %s: %s", label, message),
+            Transience.PERSISTENT);
+      }
+
+      // And now for the file
+      Root packageRoot = pkgLookupValue.getRoot();
+      RootedPath rootedFile = RootedPath.toRootedPath(packageRoot, label.toPathFragment());
       SkyKey fileKey = FileValue.key(rootedFile);
       FileValue fileValue;
       try {
@@ -251,13 +203,17 @@ public class NewRepositoryFileHandler {
         }
       } catch (IOException e) {
         throw new RepositoryFunctionException(
-            new IOException("Cannot lookup " + fileAttribute + ": " + e.getMessage()),
+            new IOException("Cannot lookup " + label + ": " + e.getMessage()),
             Transience.TRANSIENT);
       }
 
       if (!fileValue.isFile() || fileValue.isSpecialFile()) {
         throw new RepositoryFunctionException(
-            Starlark.errorf("%s is not a regular file", rootedFile.asPath()),
+            Starlark.errorf(
+                "%s is not a regular file; if you're using a relative or absolute path for "
+                    + "`build_file` in your `new_local_repository` rule, please switch to using a "
+                    + "label instead",
+                rootedFile.asPath()),
             Transience.PERSISTENT);
       }
 
@@ -284,7 +240,7 @@ public class NewRepositoryFileHandler {
   public static class NewRepositoryWorkspaceFileHandler extends BaseFileHandler {
 
     public NewRepositoryWorkspaceFileHandler(Path workspacePath) {
-      super(workspacePath, "WORKSPACE");
+      super("WORKSPACE");
     }
 
     @Override
@@ -310,7 +266,7 @@ public class NewRepositoryFileHandler {
   public static class NewRepositoryBuildFileHandler extends BaseFileHandler {
 
     public NewRepositoryBuildFileHandler(Path workspacePath) {
-      super(workspacePath, "BUILD.bazel");
+      super("BUILD.bazel");
     }
 
     @Override

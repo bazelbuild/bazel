@@ -70,10 +70,13 @@ public class BazelAndroidLocalTestRule implements RuleDefinition {
                     ImmutableList.of(
                         ImmutableList.of(
                             StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey())))))
-        .override(attr("$testsupport", LABEL).value(environment.getToolsLabel(JUNIT_TESTRUNNER)))
+        .add(attr("$testsupport", LABEL).value(environment.getToolsLabel(JUNIT_TESTRUNNER)))
         .add(
             attr("$robolectric_implicit_classpath", LABEL_LIST)
                 .value(ImmutableList.of(environment.getToolsLabel("//tools/android:android_jar"))))
+        .add(
+            attr("$build_info_translator", LABEL)
+                .value(environment.getToolsLabel("//tools/build_defs/build_info:java_build_info")))
         .override(attr("stamp", TRISTATE).value(TriState.NO))
         .removeAttribute("classpath_resources")
         .removeAttribute("create_executable")
@@ -83,7 +86,6 @@ public class BazelAndroidLocalTestRule implements RuleDefinition {
         .removeAttribute("main_class")
         .removeAttribute("resources")
         .removeAttribute("use_testrunner")
-        .removeAttribute(":java_launcher") // Input files for test actions collecting code coverage
         .add(
             attr(":lcov_merger", LABEL)
                 .cfg(ExecutionTransitionFactory.createFactory())
@@ -94,14 +96,15 @@ public class BazelAndroidLocalTestRule implements RuleDefinition {
   }
 
   @Override
-  public Metadata getMetadata() {
+  public RuleDefinition.Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("android_local_test")
         .type(RuleClassType.TEST)
         .ancestors(
             AndroidLocalTestBaseRule.class,
             BaseJavaBinaryRule.class,
-            BaseRuleClasses.TestBaseRule.class)
+            BaseRuleClasses.TestBaseRule.class,
+            BazelSdkToolchainRule.class)
         .factoryClass(BazelAndroidLocalTest.class)
         .build();
   }

@@ -44,12 +44,32 @@ public interface AndroidDexInfoApi<FileT extends FileApi> extends StructApi {
       structField = true)
   FileT getDeployJar();
 
+  @Nullable
   @StarlarkMethod(
       name = "final_classes_dex_zip",
       doc = "The zip file containing the final dex classes.",
       documented = false,
-      structField = true)
+      structField = true,
+      allowReturnNones = true)
   FileT getFinalClassesDexZip();
+
+  @Nullable
+  @StarlarkMethod(
+      name = "filtered_deploy_jar",
+      doc = "The filtered deploy jar.",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  FileT getFilteredDeployJar();
+
+  @Nullable
+  @StarlarkMethod(
+      name = "final_proguard_output_map",
+      doc = "The final proguard output map.",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  FileT getFinalProguardOutputMap();
 
   @Nullable
   @StarlarkMethod(
@@ -59,6 +79,15 @@ public interface AndroidDexInfoApi<FileT extends FileApi> extends StructApi {
       structField = true,
       allowReturnNones = true)
   FileT getJavaResourceJar();
+
+  @Nullable
+  @StarlarkMethod(
+      name = "shuffled_java_resource_jar",
+      doc = "The output java resource jar after shuffling the proguarded jar.",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  FileT getShuffledJavaResourceJar();
 
   /** Provider for {@link AndroidDexInfoApi}. */
   @StarlarkBuiltin(
@@ -85,9 +114,28 @@ public interface AndroidDexInfoApi<FileT extends FileApi> extends StructApi {
               name = "final_classes_dex_zip",
               allowedTypes = {
                 @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
               },
               named = true,
               doc = "The zip file containing the final dex classes."),
+          @Param(
+              name = "filtered_deploy_jar",
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
+              named = true,
+              doc = "The filtered deploy jar.",
+              defaultValue = "None"),
+          @Param(
+              name = "final_proguard_output_map",
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
+              named = true,
+              doc = "The final proguard output map.",
+              defaultValue = "None"),
           @Param(
               name = "java_resource_jar",
               allowedTypes = {
@@ -95,11 +143,27 @@ public interface AndroidDexInfoApi<FileT extends FileApi> extends StructApi {
                 @ParamType(type = NoneType.class),
               },
               named = true,
-              doc = "The final Java resource jar."),
+              doc = "The final Java resource jar.",
+              defaultValue = "None"),
+          @Param(
+              name = "shuffled_java_resource_jar",
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
+              named = true,
+              doc = "The output java resource jar after shuffling the proguarded jar.",
+              defaultValue = "None"),
         },
         selfCall = true)
     @StarlarkConstructor
     AndroidDexInfoApi<FileT> createInfo(
-        FileT deployJar, FileT finalClassesDexZip, Object javaResourceJar) throws EvalException;
+        FileT deployJar,
+        Object finalClassesDexZip,
+        Object filteredDeployJar,
+        Object finalProguardOutputMap,
+        Object javaResourceJar,
+        Object shuffledJavaResourceJar)
+        throws EvalException;
   }
 }

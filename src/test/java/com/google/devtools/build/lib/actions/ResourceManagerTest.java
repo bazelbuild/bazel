@@ -15,7 +15,11 @@ package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
@@ -30,6 +34,9 @@ import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Worker.Code;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -39,6 +46,8 @@ import com.google.devtools.build.lib.worker.Worker;
 import com.google.devtools.build.lib.worker.WorkerFactory;
 import com.google.devtools.build.lib.worker.WorkerKey;
 import com.google.devtools.build.lib.worker.WorkerPoolImpl;
+import com.google.devtools.build.lib.worker.WorkerProcessStatus;
+import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.Collection;
@@ -61,6 +70,7 @@ public final class ResourceManagerTest {
   private final ActionExecutionMetadata resourceOwner = new ResourceOwnerStub();
   private final ResourceManager rm = ResourceManager.instanceForTestingOnly();
   private Worker worker;
+  private WorkerProcessStatus workerStatus;
   private AtomicInteger counter;
   CyclicBarrier sync;
   CyclicBarrier sync2;
@@ -79,8 +89,9 @@ public final class ResourceManagerTest {
     sync = new CyclicBarrier(2);
     sync2 = new CyclicBarrier(2);
     rm.resetResourceUsage();
-    rm.setPrioritizeLocalActions(true);
     worker = mock(Worker.class);
+    workerStatus = spy(new WorkerProcessStatus());
+    when(worker.getStatus()).thenReturn(workerStatus);
     rm.setWorkerPool(createWorkerPool());
   }
 
@@ -408,7 +419,7 @@ public final class ResourceManagerTest {
     // This should process the queue. If the request from above is still present, it will take all
     // the available memory. But it shouldn't.
     rm.setAvailableResources(
-        ResourceSet.create(/*memoryMb=*/ 2000, /*cpuUsage=*/ 1, /* localTestCount= */ 2));
+        ResourceSet.create(/* memoryMb= */ 2000, /* cpuUsage= */ 1, /* localTestCount= */ 2));
     TestThread thread2 =
         new TestThread(
             () -> {
@@ -513,66 +524,6 @@ public final class ResourceManagerTest {
     thread4.join();
 
     assertThat(rm.inUse()).isFalse();
-  }
-
-  @Test
-  @SuppressWarnings("ThreadPriorityCheck")
-  public void testRelease_noPriority() throws Exception {
-    rm.setPrioritizeLocalActions(false);
-    assertThat(rm.inUse()).isFalse();
-
-    TestThread thread1 =
-        new TestThread(
-            () -> {
-              acquire(700, 0, 0);
-              sync.await();
-              sync2.await();
-              release(700, 0, 0);
-            });
-    thread1.start();
-    // Wait for thread1 to have acquired its RAM
-    sync.await(1, TimeUnit.SECONDS);
-
-    // Set up threads that compete for resources
-    CyclicBarrier syncDynamicStandalone =
-        startAcquireReleaseThread(ResourcePriority.DYNAMIC_STANDALONE);
-    while (rm.getWaitCount() < 1) {
-      Thread.yield();
-    }
-    CyclicBarrier syncDynamicWorker = startAcquireReleaseThread(ResourcePriority.DYNAMIC_WORKER);
-    while (rm.getWaitCount() < 2) {
-      Thread.yield();
-    }
-    CyclicBarrier syncLocal = startAcquireReleaseThread(ResourcePriority.LOCAL);
-    while (rm.getWaitCount() < 3) {
-      Thread.yield();
-    }
-
-    sync2.await();
-
-    while (syncLocal.getNumberWaiting()
-            + syncDynamicWorker.getNumberWaiting()
-            + syncDynamicStandalone.getNumberWaiting()
-        == 0) {
-      Thread.yield();
-    }
-    assertThat(rm.getWaitCount()).isEqualTo(2);
-    assertThat(syncDynamicStandalone.getNumberWaiting()).isEqualTo(1);
-    syncDynamicStandalone.await(1, TimeUnit.SECONDS);
-
-    while (syncDynamicWorker.getNumberWaiting() + syncLocal.getNumberWaiting() == 0) {
-      Thread.yield();
-    }
-    assertThat(syncDynamicWorker.getNumberWaiting()).isEqualTo(1);
-    assertThat(rm.getWaitCount()).isEqualTo(1);
-
-    syncDynamicWorker.await(1, TimeUnit.SECONDS);
-    while (syncLocal.getNumberWaiting() == 0) {
-      Thread.yield();
-    }
-    assertThat(syncLocal.getNumberWaiting()).isEqualTo(1);
-    assertThat(rm.getWaitCount()).isEqualTo(0);
-    syncLocal.await(1, TimeUnit.SECONDS);
   }
 
   @Test
@@ -756,14 +707,35 @@ public final class ResourceManagerTest {
     assertThat(rm.inUse()).isFalse();
   }
 
-  synchronized boolean isAvailable(ResourceManager rm, double ram, double cpu, int localTestCount) {
-    return rm.areResourcesAvailable(ResourceSet.create(ram, cpu, localTestCount));
+  @Test
+  public void testInvalidateAndClose() throws IOException, InterruptedException {
+    ResourceHandle handle;
+    verify(workerStatus, times(0)).maybeUpdateStatus(any());
+
+    handle = acquire(0, 0, 0, "dummy");
+    handle.invalidateAndClose(new InterruptedException());
+    verify(workerStatus).maybeUpdateStatus(Status.PENDING_KILL_DUE_TO_INTERRUPTED_EXCEPTION);
+
+    handle = acquire(0, 0, 0, "dummy");
+    handle.invalidateAndClose(new IOException());
+    verify(workerStatus).maybeUpdateStatus(Status.PENDING_KILL_DUE_TO_IO_EXCEPTION);
+
+    handle = acquire(0, 0, 0, "dummy");
+    handle.invalidateAndClose(
+        new UserExecException(
+            FailureDetail.newBuilder()
+                .setWorker(FailureDetails.Worker.newBuilder().setCode(Code.NO_RESPONSE))
+                .build()));
+    verify(workerStatus)
+        .maybeUpdateStatus(Status.PENDING_KILL_DUE_TO_USER_EXEC_EXCEPTION, Code.NO_RESPONSE);
+
+    handle = acquire(0, 0, 0, "dummy");
+    handle.invalidateAndClose(null);
+    verify(workerStatus).maybeUpdateStatus(Status.PENDING_KILL_DUE_TO_UNKNOWN);
   }
 
-  synchronized boolean isAvailable(
-      ResourceManager rm, double ram, double cpu, int localTestCount, WorkerKey workerKey) {
-    return rm.areResourcesAvailable(
-        ResourceSet.createWithWorkerKey(ram, cpu, localTestCount, workerKey));
+  synchronized boolean isAvailable(ResourceManager rm, double ram, double cpu, int localTestCount) {
+    return rm.areResourcesAvailable(ResourceSet.create(ram, cpu, localTestCount));
   }
 
   private static class ResourceOwnerStub implements ActionExecutionMetadata {
@@ -853,7 +825,7 @@ public final class ResourceManagerTest {
     public NestedSet<Artifact> getInputFilesForExtraAction(
         ActionExecutionContext actionExecutionContext) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-  }
+    }
 
     @Override
     public String getKey(
@@ -875,11 +847,6 @@ public final class ResourceManagerTest {
     @Override
     public ImmutableSet<Artifact> getMandatoryOutputs() {
       return ImmutableSet.of();
-    }
-
-    @Override
-    public boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action) {
-      throw new IllegalStateException();
     }
 
     @Override

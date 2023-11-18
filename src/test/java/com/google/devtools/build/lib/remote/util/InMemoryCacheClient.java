@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote.util;
 
 import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
@@ -103,6 +104,16 @@ public class InMemoryCacheClient implements RemoteCacheClient {
     }
     numSuccess.incrementAndGet();
     return Futures.immediateFuture(null);
+  }
+
+  @Override
+  public CacheCapabilities getCacheCapabilities() {
+    return CacheCapabilities.getDefaultInstance();
+  }
+
+  @Override
+  public ListenableFuture<String> getAuthority() {
+    return Futures.immediateFuture("");
   }
 
   @Override

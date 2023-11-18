@@ -15,14 +15,25 @@ package com.google.devtools.build.lib.analysis.util;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionRepoMappingEntriesFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
+import com.google.devtools.build.lib.bazel.bzlmod.RepoSpecFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionEvalFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionUsagesFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
+import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction;
@@ -37,6 +48,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunctio
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.packages.PackageFactoryBuilderWithSkyframeForTesting;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -46,8 +58,10 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import org.mockito.Mockito;
 
 /** Create a mock client for the analysis phase, as well as a configuration factory. */
 public abstract class AnalysisMock extends LoadingMock {
@@ -60,6 +74,16 @@ public abstract class AnalysisMock extends LoadingMock {
     } catch (Exception e) {
       throw new IllegalStateException(e);
     }
+  }
+
+  public static AnalysisMock getAnalysisMockWithoutBuiltinModules() {
+    return new AnalysisMock.Delegate(AnalysisMock.get()) {
+      @Override
+      public ImmutableMap<String, NonRegistryOverride> getBuiltinModules(
+          BlazeDirectories directories) {
+        return ImmutableMap.of();
+      }
+    };
   }
 
   @Override
@@ -75,7 +99,8 @@ public abstract class AnalysisMock extends LoadingMock {
   public PackageFactoryBuilderWithSkyframeForTesting getPackageFactoryBuilderForTesting(
       BlazeDirectories directories) {
     return super.getPackageFactoryBuilderForTesting(directories)
-        .setExtraSkyFunctions(getSkyFunctions(directories));
+        .setExtraSkyFunctions(getSkyFunctions(directories))
+        .setExtraPrecomputeValues(getPrecomputedValues());
   }
 
   /**
@@ -83,7 +108,7 @@ public abstract class AnalysisMock extends LoadingMock {
    * configuration.
    */
   public void setupMockClient(MockToolsConfig mockToolsConfig) throws IOException {
-    List<String> workspaceContents = getWorkspaceContents(mockToolsConfig);
+    ImmutableList<String> workspaceContents = getWorkspaceContents(mockToolsConfig);
     setupMockClient(mockToolsConfig, workspaceContents);
   }
 
@@ -126,28 +151,62 @@ public abstract class AnalysisMock extends LoadingMock {
 
     addExtraRepositoryFunctions(repositoryHandlers);
 
-    return ImmutableMap.of(
-        SkyFunctions.REPOSITORY_DIRECTORY,
-        new RepositoryDelegatorFunction(
-            repositoryHandlers.build(),
-            null,
-            new AtomicBoolean(true),
-            ImmutableMap::of,
-            directories,
-            BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER),
-        SkyFunctions.MODULE_FILE,
-        new ModuleFileFunction(
-            FakeRegistry.DEFAULT_FACTORY,
-            directories.getWorkspace(),
-            getBuiltinModules(directories)),
-        SkyFunctions.BAZEL_DEP_GRAPH,
-        new BazelDepGraphFunction(directories.getWorkspace()),
-        SkyFunctions.BAZEL_LOCK_FILE,
-        new BazelLockFileFunction(directories.getWorkspace()),
-        SkyFunctions.BAZEL_MODULE_RESOLUTION,
-        new BazelModuleResolutionFunction(),
-        SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE,
-        new ClientEnvironmentFunction(new AtomicReference<>(ImmutableMap.of())));
+    DownloadManager downloadManager = Mockito.mock(DownloadManager.class);
+
+    return ImmutableMap.<SkyFunctionName, SkyFunction>builder()
+        .put(
+            SkyFunctions.REPOSITORY_DIRECTORY,
+            new RepositoryDelegatorFunction(
+                repositoryHandlers.buildKeepingLast(),
+                new StarlarkRepositoryFunction(downloadManager),
+                new AtomicBoolean(true),
+                ImmutableMap::of,
+                directories,
+                BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
+        .put(
+            SkyFunctions.MODULE_FILE,
+            new ModuleFileFunction(
+                FakeRegistry.DEFAULT_FACTORY,
+                directories.getWorkspace(),
+                getBuiltinModules(directories)))
+        .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
+        .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(directories.getWorkspace()))
+        .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
+        .put(
+            SkyFunctions.SINGLE_EXTENSION_EVAL,
+            new SingleExtensionEvalFunction(directories, ImmutableMap::of, downloadManager))
+        .put(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())
+        .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction(FakeRegistry.DEFAULT_FACTORY))
+        .put(
+            SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
+            new ModuleExtensionRepoMappingEntriesFunction())
+        .put(
+            SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE,
+            new ClientEnvironmentFunction(new AtomicReference<>(ImmutableMap.of())))
+        .buildOrThrow();
+  }
+
+  public ImmutableList<PrecomputedValue.Injected> getPrecomputedValues() {
+    // PrecomputedValues required by SkyFunctions in getSkyFunctions()
+    return ImmutableList.of(
+        PrecomputedValue.injected(PrecomputedValue.REPO_ENV, ImmutableMap.of()),
+        PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
+        PrecomputedValue.injected(
+            RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
+        PrecomputedValue.injected(
+            RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
+        PrecomputedValue.injected(
+            RepositoryDelegatorFunction.FORCE_FETCH,
+            RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
+        PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, ImmutableList.of()),
+        PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
+        PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
+        PrecomputedValue.injected(YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
+        PrecomputedValue.injected(
+            BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING),
+        PrecomputedValue.injected(
+            BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE, BazelCompatibilityMode.ERROR),
+        PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE));
   }
 
   // Allow subclasses to add extra repository functions.
@@ -155,7 +214,7 @@ public abstract class AnalysisMock extends LoadingMock {
       ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers);
 
   /** Returns the built-in modules. */
-  protected abstract ImmutableMap<String, NonRegistryOverride> getBuiltinModules(
+  public abstract ImmutableMap<String, NonRegistryOverride> getBuiltinModules(
       BlazeDirectories directories);
 
   /**
@@ -219,11 +278,22 @@ public abstract class AnalysisMock extends LoadingMock {
     @Override
     public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(
         BlazeDirectories directories) {
-      return delegate.getSkyFunctions(directories);
+      return ImmutableMap.<SkyFunctionName, SkyFunction>builder()
+          .putAll(
+              Maps.filterKeys(
+                  super.getSkyFunctions(directories),
+                  fnName -> !fnName.equals(SkyFunctions.MODULE_FILE)))
+          .put(
+              SkyFunctions.MODULE_FILE,
+              new ModuleFileFunction(
+                  FakeRegistry.DEFAULT_FACTORY,
+                  directories.getWorkspace(),
+                  getBuiltinModules(directories)))
+          .buildOrThrow();
     }
 
     @Override
-    protected ImmutableMap<String, NonRegistryOverride> getBuiltinModules(
+    public ImmutableMap<String, NonRegistryOverride> getBuiltinModules(
         BlazeDirectories directories) {
       return delegate.getBuiltinModules(directories);
     }

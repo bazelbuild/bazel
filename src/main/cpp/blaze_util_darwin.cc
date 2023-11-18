@@ -14,17 +14,18 @@
 
 #include "src/main/cpp/blaze_util_platform.h"
 
-#include <sys/types.h>
-#include <sys/resource.h>
-#include <sys/sysctl.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-
 #include <libproc.h>
 #include <pthread/spawn.h>
 #include <signal.h>
 #include <spawn.h>
 #include <stdlib.h>
+#include <sys/resource.h>
+#include <sys/socket.h>
+#include <sys/sysctl.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/un.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <CoreFoundation/CoreFoundation.h>
@@ -135,16 +136,12 @@ string GetSelfPath(const char* argv0) {
 }
 
 uint64_t GetMillisecondsMonotonic() {
-  struct timeval ts = {};
-  if (gettimeofday(&ts, nullptr) < 0) {
+  uint64_t nsec = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
+  if (nsec == 0) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-        << "error calling gettimeofday: " << GetLastErrorString();
+        << "error calling clock_gettime_nsec_np: " << GetLastErrorString();
   }
-  return ts.tv_sec * 1000LL + ts.tv_usec / 1000LL;
-}
-
-uint64_t GetMillisecondsSinceProcessStart() {
-  return (clock() * 1000LL) / CLOCKS_PER_SEC;
+  return nsec / 1000000LL;
 }
 
 void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {

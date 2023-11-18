@@ -32,18 +32,21 @@ public final class ParsedOptionDescription {
   @Nullable private final String unconvertedValue;
   private final OptionInstanceOrigin origin;
   @Nullable private final Object conversionContext;
+  private final boolean oldNameUsed;
 
   private ParsedOptionDescription(
       OptionDefinition optionDefinition,
       @Nullable String commandLineForm,
       @Nullable String unconvertedValue,
       OptionInstanceOrigin origin,
-      @Nullable Object conversionContext) {
+      @Nullable Object conversionContext,
+      boolean oldNameUsed) {
     this.optionDefinition = Preconditions.checkNotNull(optionDefinition);
     this.commandLineForm = commandLineForm;
     this.unconvertedValue = unconvertedValue;
     this.origin = Preconditions.checkNotNull(origin);
     this.conversionContext = conversionContext;
+    this.oldNameUsed = oldNameUsed;
   }
 
   static ParsedOptionDescription newParsedOptionDescription(
@@ -59,7 +62,26 @@ public final class ParsedOptionDescription {
         Preconditions.checkNotNull(commandLineForm),
         unconvertedValue,
         origin,
-        conversionContext);
+        conversionContext,
+        false);
+  }
+
+  static ParsedOptionDescription newParsedOptionDescription(
+      OptionDefinition optionDefinition,
+      String commandLineForm,
+      @Nullable String unconvertedValue,
+      OptionInstanceOrigin origin,
+      @Nullable Object conversionContext,
+      boolean oldNameUsed) {
+    // An actual ParsedOptionDescription should always have a form in which it was parsed, but some
+    // options, such as expansion options, legitimately have no value.
+    return new ParsedOptionDescription(
+        optionDefinition,
+        Preconditions.checkNotNull(commandLineForm),
+        unconvertedValue,
+        origin,
+        conversionContext,
+        oldNameUsed);
   }
 
   /**
@@ -70,7 +92,8 @@ public final class ParsedOptionDescription {
       OptionDefinition optionDefinition,
       OptionInstanceOrigin origin,
       @Nullable Object conversionContext) {
-    return new ParsedOptionDescription(optionDefinition, null, null, origin, conversionContext);
+    return new ParsedOptionDescription(
+        optionDefinition, null, null, origin, conversionContext, false);
   }
 
   public OptionDefinition getOptionDefinition() {
@@ -154,6 +177,10 @@ public final class ParsedOptionDescription {
 
   public OptionPriority getPriority() {
     return origin.getPriority();
+  }
+
+  public boolean isOldNameUsed() {
+    return oldNameUsed;
   }
 
   @Nullable

@@ -18,12 +18,12 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.nullToEmpty;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Multimap;
+import com.google.common.collect.LinkedHashMultimap;
+import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
@@ -106,8 +106,11 @@ public class BuildEventStreamer {
   @GuardedBy("this")
   private List<Pair<String, String>> bufferedStdoutStderrPairs = new ArrayList<>();
 
+  // Use LinkedHashMultimap to maintain a FIFO ordering of pending events.
+  // This is important in case of Skymeld, so that the TestAttempt events are resolved in the
+  // correct order.
   @GuardedBy("this")
-  private final Multimap<BuildEventId, BuildEvent> pendingEvents = HashMultimap.create();
+  private final SetMultimap<BuildEventId, BuildEvent> pendingEvents = LinkedHashMultimap.create();
 
   @GuardedBy("this")
   private int progressCount;
@@ -119,8 +122,9 @@ public class BuildEventStreamer {
   @GuardedBy("this")
   private final Set<AbortReason> abortReasons = new LinkedHashSet<>();
 
-  // Will be set to true if the build was invoked through "bazel test" or "bazel coverage".
-  private boolean isTestCommand;
+  // Will be set to true if the build was invoked through "bazel test", "bazel coverage", or
+  // "bazel run".
+  private boolean isCommandToSkipBuildCompleteEvent;
 
   // After #buildComplete is called, contains the set of events that the streamer is expected to
   // process. The streamer will fully close after seeing them. This field is null until
@@ -405,11 +409,8 @@ public class BuildEventStreamer {
     }
   }
 
-  private void maybeReportConfiguration(BuildEvent configuration) {
-    BuildEvent event = configuration;
-    if (configuration == null) {
-      event = new NullConfiguration();
-    }
+  private void maybeReportConfiguration(@Nullable BuildEvent configuration) {
+    BuildEvent event = configuration == null ? NullConfiguration.INSTANCE : configuration;
     BuildEventId id = event.getEventId();
     synchronized (this) {
       if (configurationsPosted.contains(id)) {
@@ -464,9 +465,10 @@ public class BuildEventStreamer {
 
     if (event instanceof BuildStartingEvent) {
       BuildRequest buildRequest = ((BuildStartingEvent) event).request();
-      isTestCommand =
-          "test".equals(buildRequest.getCommandName())
-              || "coverage".equals(buildRequest.getCommandName());
+      isCommandToSkipBuildCompleteEvent =
+          buildRequest.getCommandName().equals("test")
+              || buildRequest.getCommandName().equals("coverage")
+              || buildRequest.getCommandName().equals("run");
     }
 
     if (event instanceof BuildEventWithConfiguration) {
@@ -494,11 +496,11 @@ public class BuildEventStreamer {
     }
 
     // Reconsider all events blocked by the event just posted.
-    Collection<BuildEvent> toReconsider;
+    Set<BuildEvent> blockedEventsFifo;
     synchronized (this) {
-      toReconsider = pendingEvents.removeAll(event.getEventId());
+      blockedEventsFifo = pendingEvents.removeAll(event.getEventId());
     }
-    for (BuildEvent freedEvent : toReconsider) {
+    for (BuildEvent freedEvent : blockedEventsFifo) {
       buildEvent(freedEvent);
     }
 
@@ -559,14 +561,14 @@ public class BuildEventStreamer {
       // a lot of extra locking e.g. for every ActionExecutedEvent and it's only necessary to
       // check for this where events are configured to "post after" events that may be discarded.
       BuildEventId eventId = event.getEventId();
-      Collection<BuildEvent> toReconsider;
+      Set<BuildEvent> blockedEventsFifo;
       synchronized (this) {
-        toReconsider = pendingEvents.removeAll(eventId);
+        blockedEventsFifo = pendingEvents.removeAll(eventId);
         // Pretend we posted this event so a target summary arriving after this test summary (which
         // is common) doesn't get erroneously buffered in bufferUntilPrerequisitesReceived().
         postedEvents.add(eventId);
       }
-      for (BuildEvent freedEvent : toReconsider) {
+      for (BuildEvent freedEvent : blockedEventsFifo) {
         buildEvent(freedEvent);
       }
     }
@@ -724,9 +726,9 @@ public class BuildEventStreamer {
       return RetentionDecision.DISCARD;
     }
 
-    if (isTestCommand && event instanceof BuildCompleteEvent) {
-      // In case of "bazel test" ignore the BuildCompleteEvent, as it will be followed by a
-      // TestingCompleteEvent that contains the correct exit code.
+    if (isCommandToSkipBuildCompleteEvent && event instanceof BuildCompleteEvent) {
+      // In case of "bazel test" or "bazel run" ignore the BuildCompleteEvent, as it will be
+      // followed by a TestingCompleteEvent that contains the correct exit code.
       return isCrash((BuildCompleteEvent) event)
           ? RetentionDecision.POST
           : RetentionDecision.DISCARD;

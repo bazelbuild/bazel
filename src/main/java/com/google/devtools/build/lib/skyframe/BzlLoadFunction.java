@@ -577,9 +577,10 @@ public class BzlLoadFunction implements SkyFunction {
   /**
    * Obtain a suitable StarlarkBuiltinsValue.
    *
-   * <p>For BUILD-loaded and WORKSPACE-loaded .bzl files, this is a real builtins value, obtained
-   * using either Skyframe or inlining of StarlarkBuiltinsFunction (depending on whether {@code
-   * inliningState} is non-null). The returned value includes the StarlarkSemantics.
+   * <p>For BUILD-loaded, WORKSPACE-loaded and *almost* all bzlmod-loaded .bzl files, this is a real
+   * builtins value, obtained using either Skyframe or inlining of StarlarkBuiltinsFunction
+   * (depending on whether {@code inliningState} is non-null). The returned value includes the
+   * StarlarkSemantics.
    *
    * <p>For other .bzl files, the builtins computation is not needed and would create a Skyframe
    * cycle if requested, so we instead return an empty builtins value that just wraps the
@@ -589,8 +590,7 @@ public class BzlLoadFunction implements SkyFunction {
   private StarlarkBuiltinsValue getBuiltins(
       BzlLoadValue.Key key, Environment env, @Nullable InliningState inliningState)
       throws BzlLoadFailedException, InterruptedException {
-    if (!(key instanceof BzlLoadValue.KeyForBuild)
-        && !(key instanceof BzlLoadValue.KeyForWorkspace)) {
+    if (!requiresBuiltinsInjection(key)) {
       StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
       if (starlarkSemantics == null) {
         return null;
@@ -611,6 +611,16 @@ public class BzlLoadFunction implements SkyFunction {
     } catch (BuiltinsFailedException e) {
       throw BzlLoadFailedException.builtinsFailed(key.getLabel(), e);
     }
+  }
+
+  private static boolean requiresBuiltinsInjection(BzlLoadValue.Key key) {
+    return key instanceof BzlLoadValue.KeyForBuild
+        || key instanceof BzlLoadValue.KeyForWorkspace
+        // https://github.com/bazelbuild/bazel/issues/17713
+        // `@_builtins` depends on `@bazel_tools` for repo mapping, so we ignore some bzl files
+        // to avoid a cyclic dependency
+        || (key instanceof BzlLoadValue.KeyForBzlmod
+            && !(key instanceof BzlLoadValue.KeyForBzlmodBootstrap));
   }
 
   /**
@@ -845,10 +855,11 @@ public class BzlLoadFunction implements SkyFunction {
     BzlInitThreadContext context =
         new BzlInitThreadContext(
             label,
+            transitiveDigest,
             ruleClassProvider.getToolsRepository(),
+            ruleClassProvider.getNetworkAllowlistForTests(),
             ruleClassProvider.getConfigurationFragmentMap(),
-            new SymbolGenerator<>(label),
-            ruleClassProvider.getNetworkAllowlistForTests().orElse(null));
+            new SymbolGenerator<>(label));
 
     // executeBzlFile may post events to the Environment's handler, but events do not matter when
     // caching BzlLoadValues. Note that executing the code mutates the Module and
@@ -922,12 +933,12 @@ public class BzlLoadFunction implements SkyFunction {
     }
 
     if (key instanceof BzlLoadValue.KeyForBzlmod) {
-      if (repoName.equals(RepositoryName.BAZEL_TOOLS)) {
-        // Special case: we're only here to get the @bazel_tools repo (for example, for
-        // http_archive). This repo shouldn't have visibility into anything else (during repo
-        // generation), so we just return an empty repo mapping.
-        // TODO(wyv): disallow fallback.
-        return RepositoryMapping.ALWAYS_FALLBACK;
+      if (key instanceof BzlLoadValue.KeyForBzlmodBootstrap) {
+        // Special case: we're only here to get one of the rules in the @bazel_tools repo that
+        // load Bazel modules. At this point we can't load from any other modules and thus use a
+        // repository mapping that contains only @bazel_tools itself.
+        return RepositoryMapping.create(
+            ImmutableMap.of("bazel_tools", RepositoryName.BAZEL_TOOLS), RepositoryName.BAZEL_TOOLS);
       }
       if (repoName.isMain()) {
         // Special case: when we try to run an extension in the main repo, we need to grab the repo
@@ -1267,8 +1278,8 @@ public class BzlLoadFunction implements SkyFunction {
   }
 
   /**
-   * Obtains the predeclared environment for a .bzl file, based on the type of .bzl and (if
-   * applicable) the injected builtins.
+   * Obtains the predeclared environment for a .bzl (or .scl) file, based on the type of .bzl and
+   * (if applicable) the injected builtins.
    *
    * <p>Returns null if there was a missing Skyframe dep or unspecified exception.
    *
@@ -1279,32 +1290,45 @@ public class BzlLoadFunction implements SkyFunction {
   private ImmutableMap<String, Object> getAndDigestPredeclaredEnvironment(
       BzlLoadValue.Key key, StarlarkBuiltinsValue builtins, Fingerprint fp) {
     BazelStarlarkEnvironment starlarkEnv = ruleClassProvider.getBazelStarlarkEnvironment();
-    if (key instanceof BzlLoadValue.KeyForBuild) {
-      // TODO(#11437): Remove ability to disable injection by setting flag to empty string.
-      if (builtins
-          .starlarkSemantics
-          .get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH)
-          .isEmpty()) {
-        return starlarkEnv.getUninjectedBuildBzlEnv();
-      }
-      fp.addBytes(builtins.transitiveDigest);
-      return builtins.predeclaredForBuildBzl;
-    } else if (key instanceof BzlLoadValue.KeyForWorkspace) {
-      // TODO(#11437): Remove ability to disable injection by setting flag to empty string.
-      if (builtins
-          .starlarkSemantics
-          .get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH)
-          .isEmpty()) {
-        return starlarkEnv.getUninjectedWorkspaceBzlEnv();
-      }
-      fp.addBytes(builtins.transitiveDigest);
-      return builtins.predeclaredForWorkspaceBzl;
-    } else if (key instanceof BzlLoadValue.KeyForBzlmod) {
-      return starlarkEnv.getBzlmodBzlEnv();
-    } else if (key instanceof BzlLoadValue.KeyForBuiltins) {
-      return starlarkEnv.getBuiltinsBzlEnv();
+    if (key.isSclDialect()) {
+      // .scl doesn't use injection and doesn't care what kind of key it is.
+      return starlarkEnv.getStarlarkGlobals().getSclToplevels();
     } else {
-      throw new AssertionError("Unknown key type: " + key.getClass());
+      // TODO(#11437): Remove ability to disable injection by setting flag to empty string.
+      boolean injectionDisabled =
+          builtins
+              .starlarkSemantics
+              .get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH)
+              .isEmpty();
+      if (key instanceof BzlLoadValue.KeyForBuild) {
+        if (injectionDisabled) {
+          return starlarkEnv.getUninjectedBuildBzlEnv();
+        }
+        fp.addBytes(builtins.transitiveDigest);
+        return builtins.predeclaredForBuildBzl;
+      } else if (key instanceof BzlLoadValue.KeyForWorkspace
+          || key instanceof BzlLoadValue.KeyForBzlmod) {
+        // TODO(#11954): We should converge all .bzl dialects regardless of whether they're loaded
+        //  by BUILD, WORKSPACE, or MODULE. At the moment, WORKSPACE-loaded and MODULE-loaded .bzl
+        //  files are already converged, so we use the same environment for both.
+        if (injectionDisabled || key instanceof BzlLoadValue.KeyForBzlmodBootstrap) {
+          return starlarkEnv.getUninjectedWorkspaceBzlEnv();
+        }
+        // Note that we don't actually fingerprint the injected builtins here. The actual builtins
+        // values should not be used in WORKSPACE-loaded or MODULE-loaded .bzl files; they're only
+        // injected to avoid certain type errors at loading time (e.g. #17713). If we included their
+        // digest, we'd be causing widespread repo refetches when _any_ builtin bzl file changes
+        // (when Bazel upgrades, for example), and potentially even thrashing if the user is using
+        // Bazelisk. Thus we make the explicit choice to not fingerprint the injected builtins, and
+        // thereby prohibit any meaningful use of injected builtins in WORKSPACE/MODULE-loaded .bzl
+        // files. This additionally means that native repo rules should not be migrated to
+        // @_builtins; they should just live in @bazel_tools instead.
+        return builtins.predeclaredForWorkspaceBzl;
+      } else if (key instanceof BzlLoadValue.KeyForBuiltins) {
+        return starlarkEnv.getBuiltinsBzlEnv();
+      } else {
+        throw new AssertionError("Unknown key type: " + key.getClass());
+      }
     }
   }
 

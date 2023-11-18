@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Actions;
@@ -68,7 +69,8 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Test the behavior of ActionMetadataHandler and ArtifactFunction with respect to TreeArtifacts.
+ * Test the behavior of ActionOutputMetadataStore and ArtifactFunction with respect to
+ * TreeArtifacts.
  */
 @RunWith(JUnit4.class)
 public final class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
@@ -233,16 +235,11 @@ public final class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
       throws InterruptedException, ActionConflictException,
           Actions.ArtifactGeneratedByOtherRuleException {
     if (evaluator.getExistingValue(ALL_OWNER) == null) {
+      ImmutableList<ActionAnalysisMetadata> generatingActions = ImmutableList.copyOf(actions);
+      Actions.assignOwnersAndThrowIfConflictToleratingSharedActions(
+          actionKeyContext, generatingActions, ALL_OWNER);
       differencer.inject(
-          ImmutableMap.of(
-              ALL_OWNER,
-              Delta.justNew(
-                  new BasicActionLookupValue(
-                      Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-                          actionKeyContext,
-                          ImmutableList.copyOf(actions),
-                          ALL_OWNER,
-                          /* outputFiles= */ null)))));
+          ImmutableMap.of(ALL_OWNER, Delta.justNew(new BasicActionLookupValue(generatingActions))));
     }
   }
 
@@ -265,7 +262,7 @@ public final class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
         throws SkyFunctionException, InterruptedException {
       ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
       ActionLookupValue actionLookupValue =
-          (ActionLookupValue) env.getValue(actionLookupData.getActionLookupKey().toKey());
+          (ActionLookupValue) env.getValue(actionLookupData.getActionLookupKey());
       Action action = actionLookupValue.getAction(actionLookupData.getActionIndex());
       SpecialArtifact output = (SpecialArtifact) Iterables.getOnlyElement(action.getOutputs());
       TreeArtifactValue.Builder tree = TreeArtifactValue.newBuilder(output);
@@ -274,7 +271,7 @@ public final class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
           TreeFileArtifact suboutput = TreeFileArtifact.createTreeOutput(output, subpath);
           Path path = suboutput.getPath();
           FileArtifactValue noDigest =
-              ActionMetadataHandler.fileArtifactValueFromArtifact(
+              ActionOutputMetadataStore.fileArtifactValueFromArtifact(
                   suboutput,
                   FileStatusWithDigestAdapter.maybeAdapt(path.statIfFound(Symlinks.NOFOLLOW)),
                   SyscallCache.NO_CACHE,

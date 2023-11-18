@@ -19,5 +19,8 @@ java_library(
 java_library(
     name = "string",
     srcs = ["StringUnsafe.java"],
+    add_opens = [
+        "java.base/java.lang",
+    ],
     deps = [":unsafe-provider"],
 )

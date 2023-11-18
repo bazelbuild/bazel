@@ -19,13 +19,10 @@ import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -35,20 +32,17 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.BuiltinProvider.WithLegacyStarlarkName;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcModule;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.objc.ObjcProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
-import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -115,8 +109,10 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     }
   }
 
+  @SerializationConstant
   public static final Key<Artifact> LIBRARY = new Key<>(LINK_ORDER, "library", Artifact.class);
 
+  @SerializationConstant
   public static final Key<Artifact> IMPORTED_LIBRARY =
       new Key<>(LINK_ORDER, "imported_library", Artifact.class);
 
@@ -124,68 +120,80 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
    * Indicates which libraries to load with {@code -force_load}. This is a subset of the union of
    * the {@link #LIBRARY} and {@link #IMPORTED_LIBRARY} sets.
    */
+  @SerializationConstant
   public static final Key<Artifact> FORCE_LOAD_LIBRARY =
       new Key<>(LINK_ORDER, "force_load_library", Artifact.class);
 
-  /**
-   * Contains all source files.
-   */
+  /** Contains all source files. */
+  @SerializationConstant
   public static final Key<Artifact> SOURCE = new Key<>(STABLE_ORDER, "source", Artifact.class);
 
   /**
    * Include search paths {@code -I} that are stored specially in their own field, and not
    * propagated transitively.
    */
+  @SerializationConstant
   public static final Key<PathFragment> STRICT_INCLUDE =
       new Key<>(LINK_ORDER, "strict_include", PathFragment.class);
 
+  @SerializationConstant
   public static final Key<String> SDK_DYLIB = new Key<>(STABLE_ORDER, "sdk_dylib", String.class);
+
+  @SerializationConstant
   public static final Key<String> SDK_FRAMEWORK =
       new Key<>(STABLE_ORDER, "sdk_framework", String.class);
+
+  @SerializationConstant
   public static final Key<String> WEAK_SDK_FRAMEWORK =
       new Key<>(STABLE_ORDER, "weak_sdk_framework", String.class);
+
+  @SerializationConstant
   public static final Key<Flag> FLAG = new Key<>(STABLE_ORDER, "flag", Flag.class);
 
   /**
    * Clang umbrella header. Public headers are #included in umbrella headers to be compatible with
    * J2ObjC segmented headers.
    */
+  @SerializationConstant
   public static final Key<Artifact> UMBRELLA_HEADER =
       new Key<>(STABLE_ORDER, "umbrella_header", Artifact.class);
 
-  /**
-   * Clang module maps, used to enforce proper use of private header files.
-   */
+  /** Clang module maps, used to enforce proper use of private header files. */
+  @SerializationConstant
   public static final Key<Artifact> MODULE_MAP =
       new Key<>(STABLE_ORDER, "module_map", Artifact.class);
 
   /** The static library files of user-specified static frameworks. */
+  @SerializationConstant
   public static final Key<Artifact> STATIC_FRAMEWORK_FILE =
       new Key<>(STABLE_ORDER, "static_framework_file", Artifact.class);
 
   /** The dynamic library files of user-specified dynamic frameworks. */
+  @SerializationConstant
   public static final Key<Artifact> DYNAMIC_FRAMEWORK_FILE =
       new Key<>(STABLE_ORDER, "dynamic_framework_file", Artifact.class);
 
   /** Linking information from cc dependencies. */
+  @SerializationConstant
   public static final Key<LibraryToLink> CC_LIBRARY =
       new Key<>(LINK_ORDER, "cc_library", LibraryToLink.class);
 
-  /**
-   * Linking options from dependencies.
-   */
+  /** Linking options from dependencies. */
+  @SerializationConstant
   public static final Key<String> LINKOPT = new Key<>(LINK_ORDER, "linkopt", String.class);
 
   /**
    * Link time artifacts from dependencies. These do not fall into any other category such as
-   * libraries or archives, rather provide a way to add arbitrary data (e.g. Swift AST files)
-   * to the linker. The rule that adds these is also responsible to add the necessary linker flags
-   * in {@link #LINKOPT}.
+   * libraries or archives, rather provide a way to add arbitrary data (e.g. Swift AST files) to the
+   * linker. The rule that adds these is also responsible to add the necessary linker flags in
+   * {@link #LINKOPT}.
    */
+  @SerializationConstant
   public static final Key<Artifact> LINK_INPUTS =
       new Key<>(LINK_ORDER, "link_inputs", Artifact.class);
 
   /** Static libraries that are built from J2ObjC-translated Java code. */
+  @SerializationConstant
   public static final Key<Artifact> J2OBJC_LIBRARY =
       new Key<>(LINK_ORDER, "j2objc_library", Artifact.class);
 
@@ -200,8 +208,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
      */
     USES_CPP,
   }
-
-  private final StarlarkSemantics semantics;
 
   // Items which are propagated transitively to dependents.
   private final ImmutableMap<Key<?>, NestedSet<?>> items;
@@ -249,6 +255,22 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
    * </ul>
    */
   static final ImmutableSet<Key<?>> KEYS_FOR_DIRECT = ImmutableSet.<Key<?>>of(MODULE_MAP, SOURCE);
+
+  /** Keys that are deprecated and will be removed at conclusion of linking info migration. */
+  static final ImmutableSet<Key<?>> DEPRECATED_KEYS =
+      ImmutableSet.<Key<?>>of(
+          CC_LIBRARY,
+          DYNAMIC_FRAMEWORK_FILE,
+          FORCE_LOAD_LIBRARY,
+          FLAG,
+          IMPORTED_LIBRARY,
+          LIBRARY,
+          LINK_INPUTS,
+          LINKOPT,
+          SDK_DYLIB,
+          SDK_FRAMEWORK,
+          STATIC_FRAMEWORK_FILE,
+          WEAK_SDK_FRAMEWORK);
 
   public ImmutableList<PathFragment> getStrictDependencyIncludes() {
     return strictDependencyIncludes;
@@ -374,25 +396,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
           STRICT_INCLUDE);
 
   /**
-   * Set of {@link ObjcProvider} whose values are not subtracted via {@link #subtractSubtrees}.
-   *
-   * <p>Only keys which are unrelated to statically-linked library dependencies should be listed.
-   * For example, LIBRARY is a subtractable key because it contains objects of individual
-   * objc_library dependencies, but keys pertaining to resources are non-subtractable keys, because
-   * the top level binary will need these resources whether or not the library is statically or
-   * dynamically linked.
-   */
-  private static final ImmutableSet<Key<?>> NON_SUBTRACTABLE_KEYS =
-      ImmutableSet.<Key<?>>of(
-          DYNAMIC_FRAMEWORK_FILE,
-          FLAG,
-          LINKOPT,
-          LINK_INPUTS,
-          SDK_DYLIB,
-          SDK_FRAMEWORK,
-          WEAK_SDK_FRAMEWORK);
-
-  /**
    * Returns the Starlark key for the given string, or null if no such key exists or is available to
    * Starlark.
    */
@@ -410,11 +413,9 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   public static final BuiltinProvider<ObjcProvider> STARLARK_CONSTRUCTOR = new Constructor();
 
   private ObjcProvider(
-      StarlarkSemantics semantics,
       ImmutableMap<Key<?>, NestedSet<?>> items,
       ImmutableList<PathFragment> strictDependencyIncludes,
       ImmutableListMultimap<Key<?>, ?> directItems) {
-    this.semantics = semantics;
     this.items = Preconditions.checkNotNull(items);
     this.strictDependencyIncludes = Preconditions.checkNotNull(strictDependencyIncludes);
     this.directItems = Preconditions.checkNotNull(directItems);
@@ -452,20 +453,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     return StarlarkList.empty();
   }
 
-  /**
-   * All artifacts, bundleable files, etc, that should be propagated to transitive dependers, of
-   * the type specified by {@code key}.
-   */
-  @SuppressWarnings("unchecked")
-  private <E> NestedSet<E> getPropagable(Key<E> key) {
-    Preconditions.checkNotNull(key);
-    NestedSetBuilder<E> builder = new NestedSetBuilder<>(key.order);
-    if (items.containsKey(key)) {
-      builder.addTransitive((NestedSet<E>) items.get(key));
-    }
-    return builder.build();
-  }
-
   /** Indicates whether {@code flag} is set on this provider. */
   public boolean flagIs(Flag flag) {
     return get(FLAG).toList().contains(flag);
@@ -494,176 +481,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     CcLinkingContext ccLinkingContext =
         CcLinkingContext.builder().addLibraries(get(CC_LIBRARY).toList()).build();
     return ccLinkingContext.getStaticModeParamsForExecutableLibraries();
-  }
-
-  @StarlarkMethod(
-      name = "subtract_subtrees",
-      documented = false,
-      useStarlarkThread = true,
-      parameters = {
-        @Param(
-            name = "avoid_objc_providers",
-            defaultValue = "[]",
-            documented = false,
-            named = true,
-            positional = false),
-        @Param(
-            name = "avoid_cc_providers",
-            defaultValue = "[]",
-            documented = false,
-            named = true,
-            positional = false),
-      })
-  public ObjcProvider subtractSubtreesForStarlark(
-      Sequence<?> avoidObjcProviders, Sequence<?> avoidCcProviders, StarlarkThread thread)
-      throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return subtractSubtrees(
-        Sequence.cast(avoidObjcProviders, ObjcProvider.class, "avoid_objc_providers"),
-        Sequence.cast(avoidCcProviders, CcInfo.class, "avoid_cc_providers").stream()
-            .map(CcInfo::getCcLinkingContext)
-            .collect(ImmutableList.toImmutableList()));
-  }
-  /**
-   * Subtracts dependency subtrees from this provider and returns the result (subtraction does not
-   * mutate this provider). Note that not all provider keys are subtracted; generally only keys
-   * which correspond with compiled libraries will be subtracted.
-   *
-   * <p>This is an expensive operation, as it requires flattening of all nested sets contained in
-   * each provider.
-   *
-   * @param avoidObjcProviders objc providers which contain the dependency subtrees to subtract
-   * @param avoidCcProviders cc providers which contain the dependency subtrees to subtract
-   */
-  // TODO(b/65156211): Investigate subtraction generalized to NestedSet.
-  @SuppressWarnings("unchecked") // Due to depending on Key types, when the keys map erases type.
-  public ObjcProvider subtractSubtrees(
-      Iterable<ObjcProvider> avoidObjcProviders, Iterable<CcLinkingContext> avoidCcProviders) {
-    // LIBRARY and CC_LIBRARY need to be special cased for objc-cc interop.
-    // A library which is a dependency of a cc_library may be present in all or any of
-    // three possible locations (and may be duplicated!):
-    // 1. ObjcProvider.LIBRARY
-    // 2. ObjcProvider.CC_LIBRARY
-    // 3. CcLinkingContext->LibraryToLink->getArtifact()
-    // TODO(cpeyser): Clean up objc-cc interop.
-    HashSet<PathFragment> avoidLibrariesSet = new HashSet<>();
-    for (CcLinkingContext ccLinkingContext : avoidCcProviders) {
-      List<Artifact> libraries = ccLinkingContext.getStaticModeParamsForExecutableLibraries();
-      for (Artifact library : libraries) {
-        avoidLibrariesSet.add(library.getRunfilesPath());
-      }
-    }
-    for (ObjcProvider avoidProvider : avoidObjcProviders) {
-      for (Artifact ccLibrary : avoidProvider.getCcLibraries()) {
-        avoidLibrariesSet.add(ccLibrary.getRunfilesPath());
-      }
-      for (Artifact libraryToAvoid : avoidProvider.getPropagable(LIBRARY).toList()) {
-        avoidLibrariesSet.add(libraryToAvoid.getRunfilesPath());
-      }
-      for (Artifact libraryToAvoid : avoidProvider.getPropagable(IMPORTED_LIBRARY).toList()) {
-        avoidLibrariesSet.add(libraryToAvoid.getRunfilesPath());
-      }
-    }
-    ObjcProvider.Builder objcProviderBuilder = new ObjcProvider.Builder(semantics);
-    for (Key<?> key : items.keySet()) {
-      if (key == CC_LIBRARY) {
-        addTransitiveAndFilter(objcProviderBuilder, CC_LIBRARY,
-            ccLibraryNotYetLinked(avoidLibrariesSet));
-      } else if (key == LIBRARY) {
-        addTransitiveAndFilter(objcProviderBuilder, LIBRARY, notContainedIn(avoidLibrariesSet));
-      } else if (NON_SUBTRACTABLE_KEYS.contains(key)) {
-        addTransitiveAndAvoid(objcProviderBuilder, key, ImmutableList.<ObjcProvider>of());
-      } else if (key.getType() == Artifact.class) {
-        addTransitiveAndAvoidArtifacts(objcProviderBuilder, ((Key<Artifact>) key),
-            avoidObjcProviders);
-      } else {
-        addTransitiveAndAvoid(objcProviderBuilder, key, avoidObjcProviders);
-      }
-    }
-    objcProviderBuilder.addStrictDependencyIncludes(strictDependencyIncludes);
-    return objcProviderBuilder.build();
-  }
-
-  /**
-   * Returns a predicate which returns true for a given artifact if the artifact's runfiles path
-   * is not contained in the given set.
-   *
-   * @param runfilesPaths if a given artifact has runfiles path present in this set, the predicate
-   *     will return false
-   */
-  private static Predicate<Artifact> notContainedIn(
-      final HashSet<PathFragment> runfilesPaths) {
-    return libraryToLink -> !runfilesPaths.contains(libraryToLink.getRunfilesPath());
-  }
-
-  /**
-   * Returns a predicate which returns true for a given {@link LibraryToLink} if the library's
-   * runfiles path is not contained in the given set.
-   *
-   * @param runfilesPaths if a given library has runfiles path present in this set, the predicate
-   *     will return false
-   */
-  private static Predicate<LibraryToLink> ccLibraryNotYetLinked(
-      final HashSet<PathFragment> runfilesPaths) {
-    return libraryToLink -> !checkIfLibraryIsInPaths(libraryToLink, runfilesPaths);
-  }
-
-  private static boolean checkIfLibraryIsInPaths(
-      LibraryToLink libraryToLink, HashSet<PathFragment> runfilesPaths) {
-    ImmutableList.Builder<PathFragment> libraryRunfilesPaths = ImmutableList.builder();
-    if (libraryToLink.getStaticLibrary() != null) {
-      libraryRunfilesPaths.add(libraryToLink.getStaticLibrary().getRunfilesPath());
-    }
-    if (libraryToLink.getPicStaticLibrary() != null) {
-      libraryRunfilesPaths.add(libraryToLink.getPicStaticLibrary().getRunfilesPath());
-    }
-    if (libraryToLink.getDynamicLibrary() != null) {
-      libraryRunfilesPaths.add(libraryToLink.getDynamicLibrary().getRunfilesPath());
-    }
-    if (libraryToLink.getResolvedSymlinkDynamicLibrary() != null) {
-      libraryRunfilesPaths.add(libraryToLink.getResolvedSymlinkDynamicLibrary().getRunfilesPath());
-    }
-    if (libraryToLink.getInterfaceLibrary() != null) {
-      libraryRunfilesPaths.add(libraryToLink.getInterfaceLibrary().getRunfilesPath());
-    }
-    if (libraryToLink.getResolvedSymlinkInterfaceLibrary() != null) {
-      libraryRunfilesPaths.add(
-          libraryToLink.getResolvedSymlinkInterfaceLibrary().getRunfilesPath());
-    }
-
-    return !Collections.disjoint(libraryRunfilesPaths.build(), runfilesPaths);
-  }
-
-  @SuppressWarnings("unchecked")
-  private <T> void addTransitiveAndFilter(ObjcProvider.Builder objcProviderBuilder, Key<T> key,
-      Predicate<T> filterPredicate) {
-    NestedSet<T> propagableItems = (NestedSet<T>) items.get(key);
-    if (propagableItems != null) {
-      objcProviderBuilder.addAll(key,
-          Iterables.filter(propagableItems.toList(), filterPredicate));
-    }
-  }
-
-  private void addTransitiveAndAvoidArtifacts(ObjcProvider.Builder objcProviderBuilder,
-      Key<Artifact> key, Iterable<ObjcProvider> avoidProviders) {
-    // Artifacts to avoid may be in a different configuration and thus a different
-    // root directory, hence only the path fragment after the root directory is compared.
-    HashSet<PathFragment> avoidPathsSet = new HashSet<>();
-    for (ObjcProvider avoidProvider : avoidProviders) {
-      for (Artifact artifact : avoidProvider.getPropagable(key).toList()) {
-        avoidPathsSet.add(artifact.getRunfilesPath());
-      }
-    }
-    addTransitiveAndFilter(objcProviderBuilder, key, notContainedIn(avoidPathsSet));
-  }
-
-  private <T> void addTransitiveAndAvoid(
-      ObjcProvider.Builder objcProviderBuilder, Key<T> key, Iterable<ObjcProvider> avoidProviders) {
-    HashSet<T> avoidItemsSet = new HashSet<T>();
-    for (ObjcProvider avoidProvider : avoidProviders) {
-      avoidItemsSet.addAll(avoidProvider.getPropagable(key).toList());
-    }
-    addTransitiveAndFilter(objcProviderBuilder, key, Predicates.not(Predicates.in(avoidItemsSet)));
   }
 
   /**
@@ -761,7 +578,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
    */
   public static class Builder {
 
-    private final StarlarkSemantics starlarkSemantics;
+    protected final StarlarkSemantics starlarkSemantics;
     private final Map<Key<?>, NestedSetBuilder<?>> items = new HashMap<>();
     private final ImmutableList.Builder<PathFragment> strictDependencyIncludes =
         ImmutableList.builder();
@@ -890,7 +707,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
         propagatedBuilder.put(typeEntry.getKey(), typeEntry.getValue().build());
       }
       return new ObjcProvider(
-          starlarkSemantics,
           propagatedBuilder.buildOrThrow(),
           strictDependencyIncludes.build(),
           directItems.build());

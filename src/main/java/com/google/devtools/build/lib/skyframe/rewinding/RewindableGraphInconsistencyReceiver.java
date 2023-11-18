@@ -169,11 +169,6 @@ public final class RewindableGraphInconsistencyReceiver implements GraphInconsis
   }
 
   @Override
-  public boolean restartPermitted() {
-    return true;
-  }
-
-  @Override
   public InconsistencyStats getInconsistencyStats() {
     InconsistencyStats.Builder builder = InconsistencyStats.newBuilder();
     addInconsistencyStats(selfCounts, builder::addSelfStatsBuilder);

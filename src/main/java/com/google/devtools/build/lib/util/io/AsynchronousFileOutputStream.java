@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util.io;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -37,7 +35,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /** An output stream supporting asynchronous writes, backed by a file. */
 @ThreadSafety.ThreadSafe
-public class AsynchronousFileOutputStream extends OutputStream implements MessageOutputStream {
+public class AsynchronousFileOutputStream<T extends Message> extends OutputStream
+    implements MessageOutputStream<T> {
   private static final byte[] POISON_PILL = new byte[1];
 
   private final Thread writerThread;
@@ -84,10 +83,6 @@ public class AsynchronousFileOutputStream extends OutputStream implements Messag
     writerThread.start();
   }
 
-  public void write(String message) {
-    write(message.getBytes(UTF_8));
-  }
-
   /**
    * Writes a delimited protocol buffer message in the same format as {@link
    * MessageLite#writeDelimitedTo(java.io.OutputStream)}.
@@ -97,7 +92,7 @@ public class AsynchronousFileOutputStream extends OutputStream implements Messag
    * instead of the caller using it directly.
    */
   @Override
-  public void write(Message m) {
+  public void write(T m) {
     Preconditions.checkNotNull(m);
     final int size = m.getSerializedSize();
     ByteArrayOutputStream bos =
@@ -138,20 +133,6 @@ public class AsynchronousFileOutputStream extends OutputStream implements Messag
       }
     }
     Uninterruptibles.putUninterruptibly(queue, data);
-  }
-
-  /** Returns whether the stream is open for writing. */
-  public boolean isOpen() {
-    return !closeFuture.isDone();
-  }
-
-  /**
-   * Closes the stream without waiting until pending writes are committed, and suppressing errors.
-   *
-   * <p>Pending writes will still continue asynchronously, but any errors will be ignored.
-   */
-  public void closeNow() {
-    writerThread.interrupt();
   }
 
   /**

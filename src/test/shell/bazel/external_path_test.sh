@@ -693,6 +693,7 @@ http_archive(
   urls=["file://$(pwd)/data.tar"],
 )
 EOF
+  write_default_lockfile "main/MODULE.bazel.lock"
 }
 
 test_embedded_foreign_paths_local() {

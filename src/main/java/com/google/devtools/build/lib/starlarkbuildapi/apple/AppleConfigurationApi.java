@@ -73,6 +73,6 @@ public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfo
       structField = true)
   String getBitcodeMode();
 
-  @StarlarkMethod(name = "mandatory_minimum_version", documented = false, useStarlarkThread = true)
-  boolean isMandatoryMinimumVersionForStarlark(StarlarkThread thread) throws EvalException;
+  @StarlarkMethod(name = "cpu", documented = false, useStarlarkThread = true)
+  String getCpuForStarlark(StarlarkThread thread) throws EvalException;
 }

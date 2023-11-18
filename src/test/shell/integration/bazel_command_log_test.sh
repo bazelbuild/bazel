@@ -46,6 +46,7 @@ function strip_lines_from_bazel_cc() {
     -e '/^WARNING: The startup option --host_javabase is deprecated; prefer --server_javabase.$/d' \
     -e '/^WARNING: The home directory is not defined, no home_rc will be looked for.$/d' \
     -e '/Options -Xverify:none and -noverify were deprecated in JDK 13 and will likely be removed in a future release/d' \
+    -e '/^E[0-9]* /d' \
     $TEST_log)
 
   echo "$clean_log" > $TEST_log

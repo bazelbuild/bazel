@@ -20,12 +20,15 @@ import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Ordering;
+import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NonconfiguredAttributeMapper;
@@ -64,7 +67,18 @@ public class ConfigFeatureFlagTaggedTrimmingTransitionFactory
               .enforceTransitiveConfigsForConfigFeatureFlag)) {
         return options.underlying();
       }
-      return FeatureFlagValue.trimFlagValues(options.underlying(), flags);
+      BuildOptions toOptions = FeatureFlagValue.trimFlagValues(options.underlying(), flags);
+      // In legacy mode, need to update `affected by Starlark transition` to include changed flags.
+      if (toOptions
+          .get(CoreOptions.class)
+          .outputDirectoryNamingScheme
+          .equals(CoreOptions.OutputDirectoryNamingScheme.LEGACY)) {
+        FunctionTransitionUtil.updateAffectedByStarlarkTransition(
+            toOptions.get(CoreOptions.class),
+            FunctionTransitionUtil.getAffectedByStarlarkTransitionViaDiff(
+                toOptions, options.underlying()));
+      }
+      return toOptions;
     }
 
     @Override
@@ -94,6 +108,12 @@ public class ConfigFeatureFlagTaggedTrimmingTransitionFactory
   public PatchTransition create(RuleTransitionData ruleData) {
     NonconfiguredAttributeMapper attrs = NonconfiguredAttributeMapper.of(ruleData.rule());
     RuleClass ruleClass = ruleData.rule().getRuleClassObject();
+
+    if (AliasProvider.mayBeAlias(ruleData.rule())) {
+      // As a convenience, do not require transitive_config to be set for alias rule.
+      return NoTransition.INSTANCE;
+    }
+
     if (ruleClass.getName().equals(ConfigRuleClasses.ConfigFeatureFlagRule.RULE_NAME)) {
       return new ConfigFeatureFlagTaggedTrimmingTransition(
           ImmutableSortedSet.of(ruleData.rule().getLabel()));

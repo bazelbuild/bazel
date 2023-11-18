@@ -21,11 +21,10 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkGlobalsImpl;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.packages.StarlarkLibrary;
-import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
@@ -108,7 +107,7 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
 
       // Add Starlark options.
       for (Map.Entry<Label, Object> e : buildOptions.getStarlarkOptions().entrySet()) {
-        result.put(e.getKey().toString(), e.getValue());
+        result.put(e.getKey().toString(), Starlark.fromJava(e.getValue(), null));
       }
       return result.buildOrThrow();
     }
@@ -120,7 +119,7 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
           @Param(name = "target"),
         })
     public Object providers(ConfiguredTarget target) {
-      Dict<String, Object> ret = target.getProvidersDict();
+      Dict<String, Object> ret = target.getProvidersDictForQuery();
       if (ret == null) {
         return Starlark.NONE;
       }
@@ -132,15 +131,18 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
 
   // Starlark function with single required parameter "target", a ConfiguredTarget query result.
   private final StarlarkFunction formatFn;
+  private final StarlarkSemantics starlarkSemantics;
 
   StarlarkOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<KeyedConfiguredTarget> accessor)
+      TargetAccessor<ConfiguredTarget> accessor,
+      StarlarkSemantics starlarkSemantics)
       throws QueryException, InterruptedException {
-    super(eventHandler, options, out, skyframeExecutor, accessor, /*uniquifyResults=*/ false);
+    super(eventHandler, options, out, skyframeExecutor, accessor, /* uniquifyResults= */ false);
+    this.starlarkSemantics = starlarkSemantics;
 
     ParserInput input = null;
     String exceptionMessagePrefix;
@@ -183,12 +185,11 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
     }
     try (Mutability mu = Mutability.create("formatter")) {
       ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-      Starlark.addMethods(env, new CqueryDialectGlobals(), StarlarkSemantics.DEFAULT);
-      env.putAll(StarlarkLibrary.COMMON);
-      env.put("struct", StructProvider.STRUCT);
-      Module module = Module.withPredeclared(StarlarkSemantics.DEFAULT, env.buildOrThrow());
+      Starlark.addMethods(env, new CqueryDialectGlobals(), starlarkSemantics);
+      env.putAll(StarlarkGlobalsImpl.INSTANCE.getUtilToplevelsForCquery());
+      Module module = Module.withPredeclared(starlarkSemantics, env.buildOrThrow());
 
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
       Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
       Object formatFn = module.getGlobal("format");
       if (formatFn == null) {
@@ -226,18 +227,15 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   @Override
-  public void processOutput(Iterable<KeyedConfiguredTarget> partialResult)
-      throws InterruptedException {
-    for (KeyedConfiguredTarget target : partialResult) {
+  public void processOutput(Iterable<ConfiguredTarget> partialResult) throws InterruptedException {
+    for (ConfiguredTarget target : partialResult) {
       try {
         StarlarkThread thread =
-            new StarlarkThread(Mutability.create("cquery evaluation"), StarlarkSemantics.DEFAULT);
+            new StarlarkThread(Mutability.create("cquery evaluation"), starlarkSemantics);
         thread.setMaxExecutionSteps(500_000L);
 
         // Invoke formatFn with `target` argument.
-        Object result =
-            Starlark.fastcall(
-                thread, this.formatFn, new Object[] {target.getConfiguredTarget()}, NO_ARGS);
+        Object result = Starlark.fastcall(thread, this.formatFn, new Object[] {target}, NO_ARGS);
 
         addResult(Starlark.str(result, thread.getSemantics()));
       } catch (EvalException ex) {
@@ -245,7 +243,7 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
             Event.error(
                 String.format(
                     "Starlark evaluation error for %s: %s",
-                    target.getLabel(), ex.getMessageWithStack())));
+                    target.getOriginalLabel(), ex.getMessageWithStack())));
         continue;
       }
     }

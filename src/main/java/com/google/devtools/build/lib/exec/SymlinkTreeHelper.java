@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -77,7 +79,6 @@ public final class SymlinkTreeHelper {
   /** Creates a symlink tree by making VFS calls. */
   public void createSymlinksDirectly(Path symlinkTreeRoot, Map<PathFragment, Artifact> symlinks)
       throws IOException {
-    Preconditions.checkState(!filesetTree);
     // Our strategy is to minimize mutating file system operations as much as possible. Ideally, if
     // there is an existing symlink tree with the expected contents, we don't make any changes. Our
     // algorithm goes as follows:
@@ -108,42 +109,37 @@ public final class SymlinkTreeHelper {
     //
     // 3. For every remaining entry in the node, create the corresponding file, symlink, or
     //    directory on disk. If it is a directory, recurse into that directory.
-    Directory root = new Directory();
-    for (Map.Entry<PathFragment, Artifact> entry : symlinks.entrySet()) {
-      // This creates intermediate directory nodes as a side effect.
-      Directory parentDir = root.walk(entry.getKey().getParentDirectory());
-      parentDir.addSymlink(entry.getKey().getBaseName(), entry.getValue());
-    }
-    root.syncTreeRecursively(symlinkTreeRoot);
-  }
-
-  /**
-   * Creates symlink tree and output manifest using the {@code build-runfiles.cc} tool.
-   *
-   * @param enableRunfiles If {@code false} only the output manifest is created.
-   */
-  public void createSymlinks(
-      Path execRoot,
-      OutErr outErr,
-      BinTools binTools,
-      Map<String, String> shellEnvironment,
-      boolean enableRunfiles)
-      throws ExecException, InterruptedException {
-    if (enableRunfiles) {
-      createSymlinksUsingCommand(execRoot, binTools, shellEnvironment, outErr);
-    } else {
-      copyManifest();
+    try (SilentCloseable c = Profiler.instance().profile("Create symlink tree in-process")) {
+      Preconditions.checkState(!filesetTree);
+      Directory root = new Directory();
+      for (Map.Entry<PathFragment, Artifact> entry : symlinks.entrySet()) {
+        // This creates intermediate directory nodes as a side effect.
+        Directory parentDir = root.walk(entry.getKey().getParentDirectory());
+        parentDir.addSymlink(entry.getKey().getBaseName(), entry.getValue());
+      }
+      root.syncTreeRecursively(symlinkTreeRoot);
     }
   }
 
-  /** Copies the input manifest to the output manifest. */
-  public void copyManifest() throws ExecException {
-    // Pretend we created the runfiles tree by copying the manifest
+  /** Deletes the contents of the runfiles directory. */
+  public void clearRunfilesDirectory() throws ExecException {
+    try (SilentCloseable c = Profiler.instance().profile("Clear symlink tree")) {
+      symlinkTreeRoot.deleteTreesBelow();
+    } catch (IOException e) {
+      throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_DELETION_IO_EXCEPTION);
+    }
+  }
+
+  /** Links the output manifest to the input manifest. */
+  public void linkManifest() throws ExecException {
+    // Pretend we created the runfiles tree by symlinking the output manifest to the input manifest.
+    Path outputManifest = getOutputManifest();
     try {
       symlinkTreeRoot.createDirectoryAndParents();
-      FileSystemUtils.copyFile(inputManifest, getOutputManifest());
+      outputManifest.delete();
+      outputManifest.createSymbolicLink(inputManifest);
     } catch (IOException e) {
-      throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_MANIFEST_COPY_IO_EXCEPTION);
+      throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_MANIFEST_LINK_IO_EXCEPTION);
     }
   }
 
@@ -157,21 +153,23 @@ public final class SymlinkTreeHelper {
   public void createSymlinksUsingCommand(
       Path execRoot, BinTools binTools, Map<String, String> shellEnvironment, OutErr outErr)
       throws EnvironmentalExecException, InterruptedException {
-    Command command = createCommand(execRoot, binTools, shellEnvironment);
-    try {
-      if (outErr != null) {
-        command.execute(outErr.getOutputStream(), outErr.getErrorStream());
-      } else {
-        command.execute();
+    try (SilentCloseable c = Profiler.instance().profile("Create symlink tree out-of-process")) {
+      Command command = createCommand(execRoot, binTools, shellEnvironment);
+      try {
+        if (outErr != null) {
+          command.execute(outErr.getOutputStream(), outErr.getErrorStream());
+        } else {
+          command.execute();
+        }
+      } catch (CommandException e) {
+        throw new EnvironmentalExecException(
+            e,
+            FailureDetail.newBuilder()
+                .setMessage(CommandUtils.describeCommandFailure(true, e))
+                .setExecution(
+                    Execution.newBuilder().setCode(Code.SYMLINK_TREE_CREATION_COMMAND_EXCEPTION))
+                .build());
       }
-    } catch (CommandException e) {
-      throw new EnvironmentalExecException(
-          e,
-          FailureDetail.newBuilder()
-              .setMessage(CommandUtils.describeCommandFailure(true, e))
-              .setExecution(
-                  Execution.newBuilder().setCode(Code.SYMLINK_TREE_CREATION_COMMAND_EXCEPTION))
-              .build());
     }
   }
 

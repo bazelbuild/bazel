@@ -18,10 +18,10 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
@@ -66,6 +66,7 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
     private final Writer writer;
     private final BiPredicate<Rule, Attribute> preserveSelect;
     private final String lineTerm;
+    private final LabelPrinter labelPrinter;
     private final Set<Label> printed = CompactHashSet.create();
 
     /**
@@ -76,10 +77,14 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
      * @param lineTerm character to add to the end of each line
      */
     public TargetOutputter(
-        Writer writer, BiPredicate<Rule, Attribute> preserveSelect, String lineTerm) {
+        Writer writer,
+        BiPredicate<Rule, Attribute> preserveSelect,
+        String lineTerm,
+        LabelPrinter labelPrinter) {
       this.writer = writer;
       this.preserveSelect = preserveSelect;
       this.lineTerm = lineTerm;
+      this.labelPrinter = labelPrinter;
     }
 
     /** Outputs a given target in BUILD-style syntax. */
@@ -92,8 +97,8 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
       printed.add(rule.getLabel());
     }
 
-    /** Outputs a given rule in BUILD-style syntax. */
-    private void outputRule(Rule rule, AttributeReader attrReader, Writer writer)
+    /** Outputs a given rule in BUILD-style syntax. Made visible for Modquery command. */
+    public void outputRule(Rule rule, AttributeReader attrReader, Writer writer)
         throws IOException {
       // TODO(b/151151653): display the filenames in root-relative form.
       // This is an incompatible change, but Blaze users (and their editors)
@@ -121,9 +126,7 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
               .append(lineTerm);
           continue;
         }
-        AttributeValueSource attributeValueSource =
-            AttributeValueSource.forRuleAndAttribute(rule, attr);
-        if (attributeValueSource != AttributeValueSource.RULE) {
+        if (!rule.isAttributeValueExplicitlySpecified(attr)) {
           continue; // Don't print default values.
         }
 
@@ -194,7 +197,7 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
         // Print labels in their canonical form.
         @Override
         public Printer repr(Object o) {
-          return super.repr(o instanceof Label ? ((Label) o).getCanonicalForm() : o);
+          return super.repr(o instanceof Label ? labelPrinter.toString((Label) o) : o);
         }
       }.repr(value).toString();
     }
@@ -221,27 +224,29 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
   /** Query's implementation. */
   @Override
   public OutputFormatterCallback<Target> createPostFactoStreamCallback(
-      OutputStream out, final QueryOptions options, RepositoryMapping mainRepoMapping) {
-    return new BuildOutputFormatterCallback(out, options.getLineTerminator());
+      OutputStream out, final QueryOptions options, LabelPrinter labelPrinter) {
+    return new BuildOutputFormatterCallback(out, options.getLineTerminator(), labelPrinter);
   }
 
   @Override
   public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
       OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
     return new SynchronizedDelegatingOutputFormatterCallback<>(
-        createPostFactoStreamCallback(out, options, env.getMainRepoMapping()));
+        createPostFactoStreamCallback(out, options, env.getLabelPrinter()));
   }
 
-  private static class BuildOutputFormatterCallback extends TextOutputFormatterCallback<Target> {
+  /** BuildOutputFormatter callback for Query. Made visible for ModQuery. */
+  public static class BuildOutputFormatterCallback extends TextOutputFormatterCallback<Target> {
     private final TargetOutputter targetOutputter;
 
-    BuildOutputFormatterCallback(OutputStream out, String lineTerm) {
+    BuildOutputFormatterCallback(OutputStream out, String lineTerm, LabelPrinter labelPrinter) {
       super(out);
       this.targetOutputter =
           new TargetOutputter(
               writer,
               (rule, attr) -> RawAttributeMapper.of(rule).isConfigurable(attr.getName()),
-              lineTerm);
+              lineTerm,
+              labelPrinter);
     }
 
     @Override

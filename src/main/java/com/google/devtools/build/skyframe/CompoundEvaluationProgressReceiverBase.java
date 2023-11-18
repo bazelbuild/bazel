@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -30,9 +31,16 @@ public class CompoundEvaluationProgressReceiverBase implements EvaluationProgres
   }
 
   @Override
-  public void invalidated(SkyKey skyKey, InvalidationState state) {
+  public void dirtied(SkyKey skyKey, DirtyType dirtyType) {
     for (EvaluationProgressReceiver receiver : receivers) {
-      receiver.invalidated(skyKey, state);
+      receiver.dirtied(skyKey, dirtyType);
+    }
+  }
+
+  @Override
+  public void deleted(SkyKey skyKey) {
+    for (EvaluationProgressReceiver receiver : receivers) {
+      receiver.deleted(skyKey);
     }
   }
 

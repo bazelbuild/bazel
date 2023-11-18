@@ -100,7 +100,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
+import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.devtools.common.options.CommandNameCache;
 import com.google.devtools.common.options.InvocationPolicyParser;
 import com.google.devtools.common.options.OptionDefinition;
@@ -378,8 +378,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                       + " will be omitted in merged actions."));
         }
         Profiler profiler = Profiler.instance();
-        WorkerMetricsCollector workerMetricsCollector = WorkerMetricsCollector.instance();
-        workerMetricsCollector.setClock(clock);
+        WorkerProcessMetricsCollector workerProcessMetricsCollector =
+            WorkerProcessMetricsCollector.instance();
+        workerProcessMetricsCollector.setClock(clock);
         profiler.start(
             profiledTasks,
             out,
@@ -399,7 +400,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             options.collectPressureStallIndicators,
             options.collectResourceEstimation,
             env.getLocalResourceManager(),
-            WorkerMetricsCollector.instance(),
+            WorkerProcessMetricsCollector.instance(),
             bugReporter);
         // Instead of logEvent() we're calling the low level function to pass the timings we took in
         // the launcher. We're setting the INIT phase marker so that it follows immediately the
@@ -680,7 +681,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     DebugLoggerConfigurator.flushServerLog();
     storedExitCode.set(null);
     return BlazeCommandResult.withResponseExtensions(
-        finalCommandResult, env.getResponseExtensions());
+        finalCommandResult, env.getResponseExtensions(), commonOptions.keepStateAfterBuild);
   }
 
   /**
@@ -1112,7 +1113,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
     // Then parse the command line again, this time with the correct option sources
     parser = OptionsParser.builder().optionsClasses(optionClasses).allowResidue(false).build();
-    parser.parseWithSourceFunction(PriorityCategory.COMMAND_LINE, sourceFunction, args);
+    parser.parseWithSourceFunction(
+        PriorityCategory.COMMAND_LINE, sourceFunction, args, /* fallbackData= */ null);
     return parser;
   }
 

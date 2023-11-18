@@ -23,12 +23,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
@@ -134,6 +136,11 @@ public class CommandEnvironment {
 
   @GuardedBy("fileCacheLock")
   private InputMetadataProvider fileCache;
+
+  private final Object outputDirectoryHelperLock = new Object();
+
+  @GuardedBy("outputDirectoryHelperLock")
+  private ActionOutputDirectoryHelper outputDirectoryHelper;
 
   private class BlazeModuleEnvironment implements BlazeModule.ModuleEnvironment {
     @Nullable
@@ -830,6 +837,17 @@ public class CommandEnvironment {
                 getExecRoot().getPathString(), getRuntime().getFileSystem(), syscallCache);
       }
       return fileCache;
+    }
+  }
+
+  public ActionOutputDirectoryHelper getOutputDirectoryHelper() {
+    synchronized (outputDirectoryHelperLock) {
+      if (outputDirectoryHelper == null) {
+        var buildRequestOptions = options.getOptions(BuildRequestOptions.class);
+        outputDirectoryHelper =
+            new ActionOutputDirectoryHelper(buildRequestOptions.directoryCreationCacheSpec);
+      }
+      return outputDirectoryHelper;
     }
   }
 

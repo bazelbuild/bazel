@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.MiddlemanType;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
@@ -148,14 +149,17 @@ public final class ExecutionProgressReceiver
 
       if (buildDriverKey.isTopLevelAspectDriver()) {
         ((TopLevelAspectsValue) buildDriverValue.getWrappedSkyValue())
-            .getTopLevelAspectsValues()
-            .forEach(x -> eventBus.post(AspectBuiltEvent.create(x.getKey())));
+            .getTopLevelAspectsMap()
+            .keySet()
+            .forEach(x -> eventBus.post(AspectBuiltEvent.create(x)));
         return;
       }
 
       eventBus.post(
           TopLevelTargetBuiltEvent.create(
-              (ConfiguredTargetKey) buildDriverKey.getActionLookupKey()));
+              ConfiguredTargetKey.fromConfiguredTarget(
+                  ((ConfiguredTargetValue) buildDriverValue.getWrappedSkyValue())
+                      .getConfiguredTarget())));
     }
   }
 

@@ -563,6 +563,10 @@ public final class Crosstool {
                 "toolchain_type(name = 'toolchain_type')",
                 "toolchain_type(name = 'test_runner_toolchain_type')",
                 "cc_toolchain_alias(name = 'current_cc_toolchain')",
+                "cc_toolchain_alias(",
+                "    name = 'optional_current_cc_toolchain',",
+                "    mandatory = False,",
+                ")",
                 "alias(name = 'toolchain', actual = 'everything')",
                 "filegroup(name = 'everything-multilib',",
                 "          srcs = glob(['mock_version/**/*'],",
@@ -583,8 +587,8 @@ public final class Crosstool {
                 "    name = 'interface_library_builder',",
                 "    srcs = ['build_interface_so'],",
                 ")",
-                // We add an empty :link_extra_lib target in case we need it.
-                "cc_library(name = 'link_extra_lib')",
+                // We add a :link_extra_lib target in case we need it.
+                "cc_library(name = 'link_extra_lib', srcs = ['linkextra.cc'])",
                 // We add an empty :malloc target in case we need it.
                 "cc_library(name = 'malloc')",
                 // Fake targets to get us through loading/analysis.

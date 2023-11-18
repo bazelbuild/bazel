@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
+import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -139,7 +140,8 @@ public final class StarlarkRepositoryContextTest {
             RootedPath.toRootedPath(root, workspaceFile),
             "runfiles",
             RepositoryMapping.ALWAYS_FALLBACK,
-            starlarkSemantics);
+            starlarkSemantics,
+            PackageOverheadEstimator.NOOP_ESTIMATOR);
     ExtendedEventHandler listener = Mockito.mock(ExtendedEventHandler.class);
     Rule rule =
         WorkspaceFactoryHelper.createAndAddRepositoryRule(
@@ -314,7 +316,7 @@ public final class StarlarkRepositoryContextTest {
     context.createFile(
         context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
     context.patch(patchFile, StarlarkInt.of(0), thread);
-    testOutputFile(foo.getPath(), String.format("line one%nline two%n"));
+    testOutputFile(foo.getPath(), "line one\nline two\n");
   }
 
   @Test
@@ -375,16 +377,9 @@ public final class StarlarkRepositoryContextTest {
           .hasCauseThat()
           .hasMessageThat()
           .isEqualTo(
-              "Error applying patch /outputDir/my.patch: Incorrect Chunk: the chunk content "
-                  + "doesn't match the target\n"
-                  + "**Original Position**: 1\n"
-                  + "\n"
-                  + "**Original Content**:\n"
-                  + "line one\n"
-                  + "\n"
-                  + "**Revised Content**:\n"
-                  + "line one\n"
-                  + "line two\n");
+              "Error applying patch /outputDir/my.patch: in patch applied to "
+                  + "/outputDir/foo: could not apply patch due to"
+                  + " CONTENT_DOES_NOT_MATCH_TARGET, error applying change near line 1");
     }
   }
 

@@ -63,8 +63,16 @@ public class FakeRegistry implements Registry {
   }
 
   @Override
-  public Optional<byte[]> getModuleFile(ModuleKey key, ExtendedEventHandler eventHandler) {
-    return Optional.ofNullable(modules.get(key)).map(value -> value.getBytes(UTF_8));
+  public Optional<ModuleFile> getModuleFile(ModuleKey key, ExtendedEventHandler eventHandler) {
+    return Optional.ofNullable(modules.get(key))
+        .map(value -> value.getBytes(UTF_8))
+        .map(
+            content ->
+                ModuleFile.create(
+                    content,
+                    String.format(
+                        "%s/modules/%s/%s/MODULE.bazel",
+                        url, key.getName(), key.getVersion().toString())));
   }
 
   @Override

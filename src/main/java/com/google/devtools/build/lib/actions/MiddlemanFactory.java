@@ -69,43 +69,7 @@ public final class MiddlemanFactory {
   }
 
   /**
-   * Creates a {@link MiddlemanType#SCHEDULING_DEPENDENCY_MIDDLEMAN scheduling dependency}
-   * middleman.
-   *
-   * @param owner the owner of the action that will be created. May not be null.
-   * @param middlemanName a unique file name for the middleman artifact in the {@code middlemanDir};
-   *     in practice this is usually the owning rule's label (so it gets escaped as such)
-   * @param purpose the purpose for which this middleman is created. This should be a string which
-   *     is suitable for use as a filename. A single rule may have many middlemen with distinct
-   *     purposes.
-   * @param inputs the set of artifacts for which the created artifact is to be the middleman; must
-   *     not be null or empty
-   * @param middlemanDir the directory in which to place the middleman.
-   * @return a middleman that enforces scheduling order (just like a scheduling middleman) and
-   *     propagates errors, but is ignored by the dependency checker
-   * @throws IllegalArgumentException if {@code inputs} is null or empty
-   */
-  public Artifact createSchedulingDependencyMiddleman(
-      ActionOwner owner,
-      String middlemanName,
-      String purpose,
-      NestedSet<Artifact> inputs,
-      ArtifactRoot middlemanDir) {
-    Preconditions.checkArgument(inputs != null);
-    Preconditions.checkArgument(!inputs.isEmpty());
-    // We must always create this middleman even if there is only one input.
-    return createMiddleman(
-            owner,
-            middlemanName,
-            purpose,
-            inputs,
-            middlemanDir,
-            MiddlemanType.SCHEDULING_DEPENDENCY_MIDDLEMAN)
-        .getFirst();
-  }
-
-  /**
-   * Creates both normal and scheduling middlemen.
+   * Creates middlemen.
    *
    * <p>Note: there's no need to synchronize this method; the only use of a field is via a call to
    * another synchronized method (getArtifact()).

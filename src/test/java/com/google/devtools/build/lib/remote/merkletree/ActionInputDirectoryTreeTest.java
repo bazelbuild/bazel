@@ -55,6 +55,7 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
         new StaticInputMetadataProvider(metadata),
         execRoot,
         ArtifactPathResolver.forExecRoot(execRoot),
+        /* spawnScrubber= */ null,
         digestUtil);
   }
 
@@ -72,6 +73,7 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
             new StaticInputMetadataProvider(metadata),
             execRoot,
             ArtifactPathResolver.forExecRoot(execRoot),
+            /* spawnScrubber= */ null,
             digestUtil);
     assertLexicographicalOrder(tree);
 
@@ -121,6 +123,7 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
             new StaticInputMetadataProvider(metadata),
             execRoot,
             ArtifactPathResolver.forExecRoot(execRoot),
+            /* spawnScrubber= */ null,
             digestUtil);
     assertLexicographicalOrder(tree);
 
@@ -169,6 +172,7 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
             new StaticInputMetadataProvider(metadata),
             execRoot,
             ArtifactPathResolver.forExecRoot(execRoot),
+            /* spawnScrubber= */ null,
             digestUtil);
     assertLexicographicalOrder(tree);
 

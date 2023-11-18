@@ -86,10 +86,10 @@ EOF
   # If dependencies were not properly accounted for, the order would have been:
   # rule1, rule2, dir1, dir2
 
-  dir1Num=`grep "Action dir_name1" -n output.json | grep -Eo '^[^:]+'`
-  dir2Num=`grep "Action dir_name2" -n output.json | grep -Eo '^[^:]+'`
-  rule1Num=`grep "Executing genrule //:rule1" -n output.json | grep -Eo '^[^:]+'`
-  rule2Num=`grep "Executing genrule //:rule2" -n output.json | grep -Eo '^[^:]+'`
+  dir1Num=`grep "//:dir" -n output.json | grep -Eo '^[^:]+'`
+  dir2Num=`grep "//:dir2" -n output.json | grep -Eo '^[^:]+'`
+  rule1Num=`grep "//:rule1" -n output.json | grep -Eo '^[^:]+'`
+  rule2Num=`grep "//:rule2" -n output.json | grep -Eo '^[^:]+'`
 
   if [ "$rule1Num" -lt "$dir1Num" ]
   then
@@ -115,7 +115,7 @@ genrule(
       cmd = "echo hello > $(location out.txt)"
 )
 EOF
-  bazel build //:all --experimental_execution_log_file output 2>&1 >> $TEST_log || fail "could not build"
+  bazel build //:all --execution_log_binary_file output 2>&1 >> $TEST_log || fail "could not build"
   wc output || fail "no output produced"
 }
 
@@ -135,7 +135,7 @@ genrule(
     cmd = "echo hello > $(location out.txt)"
 )
 EOF
-  bazel build //:rule --experimental_execution_log_file output 2>&1 >> $TEST_log || fail "could not build"
+  bazel build //:rule --execution_log_binary_file output 2>&1 >> $TEST_log || fail "could not build"
   [[ -e output ]] || fail "no output produced"
 }
 
@@ -147,11 +147,6 @@ genrule(
       cmd = "echo hello > $(location out.txt)"
 )
 EOF
-  bazel build //:all --experimental_execution_log_file=output --experimental_execution_log_file= 2>&1 >> $TEST_log || fail "could not build"
-  if [[ -e output ]]; then
-    fail "file shouldn't exist"
-  fi
-
   bazel build //:all --execution_log_json_file=output --execution_log_json_file= 2>&1 >> $TEST_log || fail "could not build"
   if [[ -e output ]]; then
     fail "file shouldn't exist"
@@ -199,6 +194,54 @@ genrule(
 EOF
   bazel build //:action --execution_log_json_file=output.json 2>&1 >> $TEST_log || fail "could not build"
   grep "\"remoteCacheable\": false" output.json || fail "log does not contain valid remoteCacheable entry"
+}
+
+function test_digest() {
+  cat > BUILD <<'EOF'
+genrule(
+    name = "gen",
+    outs = ["out.txt"],
+    cmd = "touch $@",
+)
+EOF
+
+  DIGEST="\"digest\": "
+
+  CACHEDIR=$(mktemp -d)
+
+  # No cache
+  # Expect 2 digests (genrule-setup.sh and out.txt).
+  bazel build //:gen --execution_log_json_file=output.json \
+       >& $TEST_log || fail "build failed"
+  expect_log "1 .*-sandbox"
+  local num_digests=$(grep -c "$DIGEST" output.json)
+  if [[ $num_digests -ne 2 ]]; then
+    fail "expected 2 digests, got $num_digests"
+  fi
+
+  # Cache miss
+  # Expect 3 digests (genrule-setup.sh, out.txt, action digest).
+  bazel clean
+  bazel build //:gen --execution_log_json_file=output.json \
+      --remote_download_minimal --disk_cache="$CACHEDIR"  \
+      >& $TEST_log || fail "build failed"
+  expect_log "1 .*-sandbox"
+  local num_digests=$(grep -c "$DIGEST" output.json)
+  if [[ $num_digests -ne 3 ]]; then
+    fail "expected 3 digests, got $num_digests"
+  fi
+
+  # Cache hit
+  # Expect 3 digests (genrule-setup.sh, out.txt, action digest).
+  bazel clean
+  bazel build //:gen --execution_log_json_file=output.json \
+      --remote_download_minimal --disk_cache="$CACHEDIR" \
+      >& $TEST_log || fail "build failed"
+  expect_log "1 disk cache hit"
+  local num_digests=$(grep -c "$DIGEST" output.json)
+  if [[ $num_digests -ne 3 ]]; then
+    fail "expected 3 digests, got $num_digests"
+  fi
 }
 
 run_suite "execlog_tests"

@@ -17,8 +17,7 @@
 import os
 import pathlib
 import tempfile
-import unittest
-
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 from src.test.py.bazel.bzlmod.test_utils import BazelRegistry
 from src.test.py.bazel.bzlmod.test_utils import scratchFile
@@ -448,6 +447,28 @@ class BazelModuleTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', ':a'])
     self.assertIn('I LUV U!', '\n'.join(stderr))
 
+  def testNoModuleDotBazelAndFallbackToWorkspace(self):
+    if os.path.exists(self.Path('MODULE.bazel')):
+      os.remove(self.Path('MODULE.bazel'))
+    os.remove(self.Path('WORKSPACE.bzlmod'))
+    self.ScratchFile(
+        'WORKSPACE',
+        [
+            'local_repository(name="hello", path="hello")',
+            'load("@hello//:world.bzl", "message")',
+            'print(message)',
+        ],
+    )
+    self.ScratchFile('BUILD', ['filegroup(name="a")'])
+    self.ScratchFile('hello/WORKSPACE')
+    self.ScratchFile('hello/BUILD')
+    self.ScratchFile('hello/world.bzl', ['message="I LUV U!"'])
+
+    _, _, stderr = self.RunBazel(['build', ':a'])
+    self.assertIn('I LUV U!', '\n'.join(stderr))
+    # MODULE.bazel file should be generated automatically
+    self.assertTrue(os.path.exists(self.Path('MODULE.bazel')))
+
   def testArchiveWithArchiveType(self):
     # make the archive without the .zip extension
     self.main_registry.createCcModule(
@@ -588,6 +609,209 @@ class BazelModuleTest(test_base.TestBase):
     self.assertIn('@@bar~override reporting in: bar@2.0', stderr)
     self.assertIn('@@quux reporting in: None@None', stderr)
 
+  def testWorkspaceToolchainRegistrationWithPlatformsConstraint(self):
+    """Regression test for https://github.com/bazelbuild/bazel/issues/17289."""
+    self.ScratchFile('MODULE.bazel')
+    self.ScratchFile(
+        'WORKSPACE', ['register_toolchains("//:my_toolchain_toolchain")']
+    )
+    os.remove(self.Path('WORKSPACE.bzlmod'))
+
+    self.ScratchFile(
+        'BUILD.bazel',
+        [
+            'load(":defs.bzl", "get_host_os", "my_consumer", "my_toolchain")',
+            'toolchain_type(name = "my_toolchain_type")',
+            'my_toolchain(',
+            '    name = "my_toolchain",',
+            '    my_value = "Hello, Bzlmod!",',
+            ')',
+            'toolchain(',
+            '    name = "my_toolchain_toolchain",',
+            '    toolchain = ":my_toolchain",',
+            '    toolchain_type = ":my_toolchain_type",',
+            '    target_compatible_with = [',
+            '        "@platforms//os:" + get_host_os(),',
+            '    ],',
+            ')',
+            'my_consumer(',
+            '    name = "my_consumer",',
+            ')',
+        ],
+    )
+
+    self.ScratchFile(
+        'defs.bzl',
+        [
+            (
+                'load("@local_config_platform//:constraints.bzl",'
+                ' "HOST_CONSTRAINTS")'
+            ),
+            'def _my_toolchain_impl(ctx):',
+            '    return [',
+            '        platform_common.ToolchainInfo(',
+            '            my_value = ctx.attr.my_value,',
+            '        ),',
+            '    ]',
+            'my_toolchain = rule(',
+            '    implementation = _my_toolchain_impl,',
+            '    attrs = {',
+            '        "my_value": attr.string(),',
+            '    },',
+            ')',
+            'def _my_consumer(ctx):',
+            '    my_toolchain_info = ctx.toolchains["//:my_toolchain_type"]',
+            '    out = ctx.actions.declare_file(ctx.attr.name)',
+            (
+                '    ctx.actions.write(out, "my_value ='
+                ' {}".format(my_toolchain_info.my_value))'
+            ),
+            '    return [DefaultInfo(files = depset([out]))]',
+            'my_consumer = rule(',
+            '    implementation = _my_consumer,',
+            '    attrs = {},',
+            '    toolchains = ["//:my_toolchain_type"],',
+            ')',
+            'def get_host_os():',
+            '    for constraint in HOST_CONSTRAINTS:',
+            '        if constraint.startswith("@platforms//os:"):',
+            '            return constraint.removeprefix("@platforms//os:")',
+        ],
+    )
+
+    self.RunBazel([
+        'build',
+        '//:my_consumer',
+        '--toolchain_resolution_debug=//:my_toolchain_type',
+    ])
+    with open(self.Path('bazel-bin/my_consumer'), 'r') as f:
+      self.assertEqual(f.read().strip(), 'my_value = Hello, Bzlmod!')
+
+  def testModuleExtensionWithRuleError(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extensions.bzl", "ext")',
+            'use_repo(ext, "ext")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile(
+        'extensions.bzl',
+        [
+            'def _rule_impl(ctx):',
+            '  print("RULE CALLED")',
+            'init_rule = rule(_rule_impl)',
+            'def ext_impl(module_ctx):',
+            '  init_rule()',
+            'ext = module_extension(implementation = ext_impl,)',
+        ],
+    )
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--nobuild', '@ext//:all'],
+        allow_failure=True,
+    )
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+        'Error in init_rule: A rule can only be instantiated in a BUILD file, '
+        'or a macro invoked from a BUILD file',
+        stderr,
+    )
+
+  def testLocationRoot(self):
+    """Tests that the reported location of the MODULE.bazel file of the root module is as expected."""
+    self.ScratchFile('MODULE.bazel', ['wat'])
+    _, _, stderr = self.RunBazel(['build', '@what'], allow_failure=True)
+    self.assertIn(
+        'ERROR: ' + self.Path('MODULE.bazel').replace('\\', '/'),
+        '\n'.join(stderr).replace('\\', '/'),
+    )
+
+  def testLocationRegistry(self):
+    """Tests that the reported location of the MODULE.bazel file of a module from a registry is as expected."""
+    self.ScratchFile('MODULE.bazel', ['bazel_dep(name="hello",version="1.0")'])
+    self.main_registry.createCcModule(
+        'hello', '1.0', extra_module_file_contents=['wat']
+    )
+    _, _, stderr = self.RunBazel(['build', '@what'], allow_failure=True)
+    self.assertIn(
+        'ERROR: '
+        + self.main_registry.getURL()
+        + '/modules/hello/1.0/MODULE.bazel',
+        '\n'.join(stderr),
+    )
+
+  def testLocationNonRegistry(self):
+    """Tests that the reported location of the MODULE.bazel file of a module with a non-registry override is as expected."""
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name="hello")',
+            'local_path_override(module_name="hello",path="hello")',
+        ],
+    )
+    self.ScratchFile('hello/MODULE.bazel', ['wat'])
+    self.ScratchFile('hello/WORKSPACE.bazel')
+    _, _, stderr = self.RunBazel(['build', '@what'], allow_failure=True)
+    self.assertIn('ERROR: @@hello~override//:MODULE.bazel', '\n'.join(stderr))
+
+  def testLoadRulesJavaSymbolThroughBazelTools(self):
+    """Tests that loads from @bazel_tools that delegate to other modules resolve."""
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("//:ext.bzl", "ext")',
+            'use_repo(ext, "data")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile(
+        'ext.bzl',
+        [
+            (
+                "load('@bazel_tools//tools/jdk:toolchain_utils.bzl',"
+                " 'find_java_toolchain')"
+            ),
+            'def _repo_impl(ctx):',
+            "  ctx.file('WORKSPACE')",
+            "  ctx.file('BUILD', 'exports_files([\"data.txt\"])')",
+            "  ctx.file('data.txt', 'hi')",
+            'repo = repository_rule(implementation = _repo_impl)',
+            'def _ext_impl(ctx):',
+            "  repo(name='data')",
+            'ext = module_extension(implementation = _ext_impl)',
+        ],
+    )
+
+    self.RunBazel(['build', '@data//:data.txt'])
+
+  def testHttpJar(self):
+    """Tests that using http_jar does not require a bazel_dep on rules_java."""
+
+    my_jar_path = self.ScratchFile('my_jar.jar')
+    my_jar_uri = pathlib.Path(my_jar_path).as_uri()
+
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            (
+                'http_jar ='
+                ' use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl",'
+                ' "http_jar")'
+            ),
+            'http_jar(',
+            '  name = "my_jar",',
+            '  url = "%s",' % my_jar_uri,
+            (
+                '  sha256 ='
+                ' "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",'
+            ),
+            ')',
+        ],
+    )
+
+    self.RunBazel(['build', '@my_jar//jar'])
+
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

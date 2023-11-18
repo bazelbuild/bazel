@@ -46,15 +46,18 @@ class SingleplexWorker extends Worker {
 
   /** The execution root of the worker. */
   protected final Path workDir;
+
   /**
    * Stream for recording the WorkResponse as it's read, so that it can be printed in the case of
    * parsing failures.
    */
   @Nullable private RecordingInputStream recordingInputStream;
+
   /** The implementation of the worker protocol (JSON or Proto). */
   @Nullable private WorkerProtocolImpl workerProtocol;
 
   private Subprocess process;
+
   /** True if we deliberately destroyed this process. */
   private boolean wasDestroyed;
 
@@ -66,7 +69,7 @@ class SingleplexWorker extends Worker {
   protected Thread shutdownHook;
 
   SingleplexWorker(WorkerKey workerKey, int workerId, final Path workDir, Path logFile) {
-    super(workerKey, workerId, logFile);
+    super(workerKey, workerId, logFile, new WorkerProcessStatus());
     this.workDir = workDir;
   }
 
@@ -96,6 +99,7 @@ class SingleplexWorker extends Worker {
     if (process == null) {
       addShutdownHook();
       process = createProcess();
+      status.maybeUpdateStatus(WorkerProcessStatus.Status.ALIVE);
       recordingInputStream = new RecordingInputStream(process.getInputStream());
     }
     if (workerProtocol == null) {
@@ -156,9 +160,6 @@ class SingleplexWorker extends Worker {
   }
 
   @Override
-  public void finishExecution(Path execRoot, SandboxOutputs outputs) throws IOException {}
-
-  @Override
   void destroy() {
     if (workerProtocol != null) {
       try {
@@ -179,6 +180,7 @@ class SingleplexWorker extends Worker {
       wasDestroyed = true;
       process.destroyAndWait();
     }
+    status.setKilled();
   }
 
   /** Returns true if this process is dead but we didn't deliberately kill it. */

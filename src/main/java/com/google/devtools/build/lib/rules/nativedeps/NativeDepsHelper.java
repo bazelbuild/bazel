@@ -27,10 +27,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -43,7 +41,6 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
-import com.google.devtools.build.lib.rules.cpp.CppBuildInfo;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
@@ -71,26 +68,6 @@ import javax.annotation.Nullable;
  * that some rules are implicitly neverlink.
  */
 public abstract class NativeDepsHelper {
-  /**
-   * An implementation of {@link
-   * com.google.devtools.build.lib.rules.cpp.CppLinkAction.LinkArtifactFactory} that can create
-   * artifacts anywhere.
-   *
-   * <p>Necessary because the actions of nativedeps libraries should be shareable, and thus cannot
-   * be under the package directory.
-   */
-  private static final CppLinkAction.LinkArtifactFactory SHAREABLE_LINK_ARTIFACT_FACTORY =
-      new CppLinkAction.LinkArtifactFactory() {
-        @Override
-        public Artifact create(
-            ActionConstructionContext actionConstructionContext,
-            RepositoryName repositoryName,
-            BuildConfigurationValue configuration,
-            PathFragment rootRelativePath) {
-          return actionConstructionContext.getShareableArtifact(
-              rootRelativePath, configuration.getBinDirectory(repositoryName));
-        }
-      };
 
   private NativeDepsHelper() {}
 
@@ -211,12 +188,15 @@ public abstract class NativeDepsHelper {
     List<Artifact> buildInfoArtifacts =
         linkstamps.isEmpty()
             ? ImmutableList.<Artifact>of()
-            : ruleContext
-                .getAnalysisEnvironment()
-                .getBuildInfo(
-                    AnalysisUtils.isStampingEnabled(ruleContext, configuration),
-                    CppBuildInfo.KEY,
-                    configuration);
+            : AnalysisUtils.isStampingEnabled(ruleContext, configuration)
+                ? toolchain
+                    .getCcBuildInfoTranslator()
+                    .getOutputGroup("non_redacted_build_info_files")
+                    .toList()
+                : toolchain
+                    .getCcBuildInfoTranslator()
+                    .getOutputGroup("redacted_build_info_files")
+                    .toList();
 
     ImmutableSortedSet.Builder<String> requestedFeaturesBuilder =
         ImmutableSortedSet.<String>naturalOrder()
@@ -288,7 +268,7 @@ public abstract class NativeDepsHelper {
         .setNeverLink(true)
         .setShouldCreateStaticLibraries(false)
         .addCcLinkingContexts(ImmutableList.of(ccLinkingContext))
-        .setLinkArtifactFactory(SHAREABLE_LINK_ARTIFACT_FACTORY)
+        .setLinkArtifactFactory(CppLinkAction.SHAREABLE_LINK_ARTIFACT_FACTORY)
         .setDynamicLinkType(LinkTargetType.DYNAMIC_LIBRARY)
         .link(CcCompilationOutputs.EMPTY);
 

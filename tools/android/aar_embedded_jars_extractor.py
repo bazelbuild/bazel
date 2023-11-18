@@ -21,13 +21,13 @@ of the jars and creates a param file for singlejar to merge them into one jar.
 
 import os
 import re
-import sys
 import zipfile
 
 # Do not edit this line. Copybara replaces it with PY2 migration helper.
 from absl import app
 from absl import flags
 
+from tools.android import json_worker_wrapper
 from tools.android import junction
 
 FLAGS = flags.FLAGS
@@ -45,6 +45,14 @@ def ExtractEmbeddedJars(aar,
                         singlejar_param_file,
                         output_dir,
                         output_dir_orig=None):
+  """Extracts all embedded jars from an AAR.
+
+  Args:
+    aar: The aar to extract from
+    singlejar_param_file: The param file to pass to singlejar
+    output_dir: Where to extract do
+    output_dir_orig: The original unshortened path to the params file
+  """
   if not output_dir_orig:
     output_dir_orig = output_dir
   jar_pattern = re.compile("^(classes|libs/.+)\\.jar$")
@@ -92,5 +100,4 @@ def main(unused_argv):
 
 
 if __name__ == "__main__":
-  FLAGS(sys.argv)
-  app.run(main)
+  json_worker_wrapper.wrap_worker(FLAGS, main, app.run)

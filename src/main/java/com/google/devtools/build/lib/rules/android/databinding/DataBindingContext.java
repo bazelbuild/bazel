@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.android.AndroidDataContext;
 import com.google.devtools.build.lib.rules.android.AndroidResources;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
@@ -25,34 +26,6 @@ import java.util.function.Consumer;
 
 /** Contains Android Databinding configuration and resource generation information. */
 public interface DataBindingContext {
-
-  /**
-   * Returns the file where data binding's resource processing produces binding xml. For example,
-   * given:
-   *
-   * <pre>{@code
-   * <layout>
-   *   <data>
-   *     <variable name="foo" type="String" />
-   *   </data>
-   * </layout>
-   * <LinearLayout>
-   *   ...
-   * </LinearLayout>
-   * }</pre>
-   *
-   * <p>data binding strips out and processes this part:
-   *
-   * <pre>{@code
-   * <data>
-   *   <variable name="foo" type="String" />
-   * </data>
-   * }</pre>
-   *
-   * for each layout file with data binding expressions. Since this may produce multiple files,
-   * outputs are zipped up into a single container.
-   */
-  void supplyLayoutInfo(Consumer<Artifact> consumer);
 
   /** The javac flags that are needed to configure data binding's annotation processor. */
   void supplyJavaCoptsUsing(
@@ -69,7 +42,8 @@ public interface DataBindingContext {
    * outputs of the processor as the second argument.
    */
   void supplyAnnotationProcessor(
-      RuleContext ruleContext, BiConsumer<JavaPluginInfo, Iterable<Artifact>> consumer);
+      RuleContext ruleContext, BiConsumer<JavaPluginInfo, Iterable<Artifact>> consumer)
+      throws RuleErrorException;
 
   /**
    * Processes deps that also apply data binding.
@@ -89,7 +63,8 @@ public interface DataBindingContext {
    * <p>This triggers the annotation processor. Annotation processor settings are configured
    * separately in {@link #supplyJavaCoptsUsing(RuleContext, boolean, Consumer)}.
    */
-  ImmutableList<Artifact> getAnnotationSourceFiles(RuleContext ruleContext);
+  ImmutableList<Artifact> getAnnotationSourceFiles(RuleContext ruleContext)
+      throws RuleErrorException;
 
   /**
    * Adds the appropriate {@link UsesDataBindingProvider} for a rule if it should expose one.
@@ -107,7 +82,4 @@ public interface DataBindingContext {
       AndroidDataContext dataContext,
       AndroidResources resources,
       String appId);
-
-  /** Returns whether this context supports generating AndroidX dependencies. */
-  boolean usesAndroidX();
 }
