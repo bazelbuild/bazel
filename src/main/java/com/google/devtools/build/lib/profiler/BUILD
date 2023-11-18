@@ -47,6 +47,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:auto_value",
         "//third_party:error_prone_annotations",
+        "//third_party:flogger",
         "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
