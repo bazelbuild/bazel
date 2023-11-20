@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.skyframe.serialization.CodecHelpers;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Context;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Marshaller;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.PrimitiveValueSerializationCodeGenerator;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationProcessorUtil.SerializationProcessingFailedException;
 import com.squareup.javapoet.TypeName;
 import java.lang.reflect.Array;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -41,7 +40,7 @@ class Marshallers {
     this.env = env;
   }
 
-  void writeSerializationCode(Context context) throws SerializationProcessingFailedException {
+  void writeSerializationCode(Context context) throws SerializationProcessingException {
     SerializationCodeGenerator generator = getMatchingCodeGenerator(context.type);
     boolean needsNullHandling = context.canBeNull() && generator != contextMarshaller;
     if (needsNullHandling) {
@@ -56,7 +55,7 @@ class Marshallers {
     }
   }
 
-  void writeDeserializationCode(Context context) throws SerializationProcessingFailedException {
+  void writeDeserializationCode(Context context) throws SerializationProcessingException {
     SerializationCodeGenerator generator = getMatchingCodeGenerator(context.type);
     boolean needsNullHandling = context.canBeNull() && generator != contextMarshaller;
     // If we have a generic or a wildcard parameter we need to erase it when we write the code out.
@@ -84,7 +83,7 @@ class Marshallers {
   }
 
   private SerializationCodeGenerator getMatchingCodeGenerator(TypeMirror type)
-      throws SerializationProcessingFailedException {
+      throws SerializationProcessingException {
     if (type.getKind() == TypeKind.ARRAY) {
       return arrayCodeGenerator;
     }
@@ -96,7 +95,7 @@ class Marshallers {
           .findFirst()
           .orElseThrow(
               () ->
-                  new SerializationProcessingFailedException(
+                  new SerializationProcessingException(
                       null, "No generator for: %s", primitiveType));
     }
 
@@ -126,8 +125,7 @@ class Marshallers {
   private final SerializationCodeGenerator arrayCodeGenerator =
       new SerializationCodeGenerator() {
         @Override
-        public void addSerializationCode(Context context)
-            throws SerializationProcessingFailedException {
+        public void addSerializationCode(Context context) throws SerializationProcessingException {
           String length = context.makeName("length");
           context.builder.addStatement("int $L = $L.length", length, context.name);
           context.builder.addStatement("codedOut.writeInt32NoTag($L)", length);
@@ -145,7 +143,7 @@ class Marshallers {
 
         @Override
         public void addDeserializationCode(Context context)
-            throws SerializationProcessingFailedException {
+            throws SerializationProcessingException {
           Context repeated =
               context.with(
                   ((ArrayType) context.type).getComponentType(), context.makeName("repeated"));
@@ -345,8 +343,7 @@ class Marshallers {
         }
 
         @Override
-        public void addSerializationCode(Context context)
-            throws SerializationProcessingFailedException {
+        public void addSerializationCode(Context context) throws SerializationProcessingException {
           DeclaredType suppliedType =
               (DeclaredType) context.getDeclaredType().getTypeArguments().get(0);
           writeSerializationCode(context.with(suppliedType, context.name + ".get()"));
@@ -354,7 +351,7 @@ class Marshallers {
 
         @Override
         public void addDeserializationCode(Context context)
-            throws SerializationProcessingFailedException {
+            throws SerializationProcessingException {
           DeclaredType suppliedType =
               (DeclaredType) context.getDeclaredType().getTypeArguments().get(0);
           String suppliedName = context.makeName("supplied");
