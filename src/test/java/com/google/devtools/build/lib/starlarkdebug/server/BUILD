@@ -70,3 +70,25 @@ java_test(
         "//third_party:truth",
     ],
 )
+
+java_test(
+    name = "StarlarkDebugIntegrationTest",
+    size = "medium",
+    srcs = ["StarlarkDebugIntegrationTest.java"],
+    jvm_flags = ["-Djava.net.preferIPv6Addresses=true"],  # https://github.com/bazelbuild/bazel/issues/5206
+    deps = [
+        ":utils",
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdebug/module",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdebug/proto:starlark_debugging_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)

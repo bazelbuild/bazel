@@ -20,6 +20,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
+import com.google.devtools.build.lib.starlarkdebug.server.StarlarkDebugServer.DebugCallback;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Breakpoint;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.ContinueExecutionRequest;
@@ -106,9 +107,10 @@ public class StarlarkDebugServerTest {
         executor.submit(
             () ->
                 StarlarkDebugServer.createAndWaitForConnection(
-                    events.reporter(), serverSocket, false));
+                    events.reporter(), serverSocket, false, DebugCallback.noop()));
     client = new MockDebugClient();
-    client.connect(serverSocket, Duration.ofSeconds(10));
+    client.connect(
+        serverSocket.getInetAddress(), serverSocket.getLocalPort(), Duration.ofSeconds(10));
 
     server = future.get(10, TimeUnit.SECONDS);
     assertThat(server).isNotNull();
