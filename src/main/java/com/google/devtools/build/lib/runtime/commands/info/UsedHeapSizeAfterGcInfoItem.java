@@ -18,6 +18,7 @@ import com.google.common.base.Supplier;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
+import com.google.devtools.build.lib.util.HeapOffsetHelper;
 import com.google.devtools.build.lib.util.StringUtilities;
 
 /** Info item for the used heap size after garbage collection. */
@@ -33,6 +34,10 @@ public final class UsedHeapSizeAfterGcInfoItem extends InfoItem {
   public byte[] get(
       Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env) {
     System.gc();
-    return print(StringUtilities.prettyPrintBytes(InfoItemUtils.getMemoryUsage().getUsed()));
+    // TODO(b/311665999) Remove the subtraction of FillerArray once we figure out an alternative.
+    return print(
+        StringUtilities.prettyPrintBytes(
+            InfoItemUtils.getMemoryUsage().getUsed()
+                - HeapOffsetHelper.getSizeOfFillerArrayOnHeap()));
   }
 }

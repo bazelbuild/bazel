@@ -347,6 +347,14 @@ java_library(
 )
 
 java_library(
+    name = "heap_offset_helper",
+    srcs = ["HeapOffsetHelper.java"],
+    deps = [
+        "//third_party:flogger",
+    ],
+)
+
+java_library(
     name = "interrupted_failure_details",
     srcs = ["InterruptedFailureDetails.java"],
     deps = [
