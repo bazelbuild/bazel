@@ -1374,6 +1374,16 @@ public class RuleClass implements RuleClassData {
       return subrules;
     }
 
+    public ImmutableSet<? extends StarlarkSubruleApi> getParentSubrules() {
+      ImmutableSet.Builder<StarlarkSubruleApi> builder = ImmutableSet.builder();
+      RuleClass currentParent = starlarkParent;
+      while (currentParent != null) {
+        builder.addAll(starlarkParent.getSubrules());
+        currentParent = currentParent.starlarkParent;
+      }
+      return builder.build();
+    }
+
     @CanIgnoreReturnValue
     public Builder setExternalBindingsFunction(Function<? super Rule, Map<String, Label>> func) {
       this.externalBindingsFunction = func;

@@ -330,8 +330,12 @@ public final class StarlarkRuleContext
     if (isForAspect()) {
       return getRuleContext().getMainAspect().getDefinition().getSubrules();
     } else {
-      return getRuleContext().getRule().getRuleClassObject().getSubrules();
+      return getRuleClassUnderEvaluation().getSubrules();
     }
+  }
+
+  public RuleClass getRuleClassUnderEvaluation() {
+    return ruleClassUnderEvaluation;
   }
 
   void setLockedForSubrule(@Nullable SubruleContext lockedBy) {

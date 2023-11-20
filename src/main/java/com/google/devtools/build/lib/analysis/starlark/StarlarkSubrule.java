@@ -192,7 +192,7 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
     } else {
       return Starlark.errorf(
           "rule '%s' must declare '%s' in 'subrules'",
-          starlarkRuleContext.getRuleContext().getRule().getRuleClass(), this.getName());
+          starlarkRuleContext.getRuleClassUnderEvaluation(), this.getName());
     }
   }
 

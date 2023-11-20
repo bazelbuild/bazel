@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.RUN_UNDER;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.TIMEOUT_DEFAULT;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.getTestRuntimeLabelList;
@@ -380,8 +381,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       failIf(testUnchecked != Starlark.UNBOUND, "Omit test parameter when extending rules.");
       // TODO b/300201845 - add cfg support
       failIf(cfg != Starlark.NONE, "cfg is not supported in extended rules yet.");
-      // TODO b/300201845 - add subrules support
-      failIf(!subrules.isEmpty(), "subrules are not supported in extended rules yet.");
       failIf(
           implicitOutputs != Starlark.NONE,
           "implicit_outputs is not supported when extending rules (deprecated).");
@@ -1166,7 +1165,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       // exploit dependency resolution for "free"
       ImmutableList<Pair<String, Descriptor>> subruleAttributes;
       try {
-        subruleAttributes = StarlarkSubrule.discoverAttributes(builder.getSubrules());
+        var parentSubrules = builder.getParentSubrules();
+        ImmutableList<StarlarkSubruleApi> subrulesNotInParents =
+            builder.getSubrules().stream()
+                .filter(subrule -> !parentSubrules.contains(subrule))
+                .collect(toImmutableList());
+        subruleAttributes = StarlarkSubrule.discoverAttributes(subrulesNotInParents);
       } catch (EvalException e) {
         errorf(handler, "%s", e.getMessage());
         return;
