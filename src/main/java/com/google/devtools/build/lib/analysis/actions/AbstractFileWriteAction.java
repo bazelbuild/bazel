@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -115,5 +116,10 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
     String getFileContents(@Nullable EventHandler eventHandler) throws IOException;
 
     public boolean makeExecutable();
+  }
+
+  @Override
+  public ImmutableMap<String, String> getExecProperties() {
+    return ImmutableMap.of();
   }
 }
