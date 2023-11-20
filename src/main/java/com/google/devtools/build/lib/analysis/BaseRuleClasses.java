@@ -535,6 +535,37 @@ public class BaseRuleClasses {
   }
 
   /**
+   * An empty rule that exists for the sole purpose to completely remove a native rule while it's
+   * still defined as a Starlark rule in builtins.
+   *
+   * <p>Use it like <code>builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("name") {});
+   * </code>. The <code>{}</code> create a new class for each rule. That's needed because {@link
+   * ConfiguredRuleClassProvider.Builder} assumes each rule class has a different Java class.
+   */
+  public static class EmptyRule implements RuleDefinition {
+    private final String name;
+
+    public EmptyRule(String name) {
+      this.name = name;
+    }
+
+    @Override
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
+      return builder.build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return Metadata.builder()
+          .name(name)
+          .type(RuleClassType.NORMAL)
+          .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
+          .factoryClass(EmptyRuleConfiguredTargetFactory.class)
+          .build();
+    }
+  }
+
+  /**
    * Factory used by rules' definitions that exist for the sole purpose of providing documentation.
    * For most of these rules, the actual rule is implemented in Starlark but the documentation
    * generation mechanism does not work yet for Starlark rules. TODO(bazel-team): Delete once
