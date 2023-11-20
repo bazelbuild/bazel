@@ -2821,6 +2821,36 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void initializer_legacyAnyType() throws Exception {
+    scratch.file(
+        "initializer_testing/b.bzl",
+        "MyInfo = provider()",
+        "def initializer(tristate = -1):",
+        "  return {'tristate': int(tristate)}",
+        "def impl(ctx): ",
+        "  return [MyInfo(tristate = ctx.attr.tristate)]",
+        "my_rule = rule(impl,",
+        "  initializer = initializer,",
+        "  attrs = {",
+        "    'tristate': attr.int(),",
+        "    '_legacy_any_type_attrs': attr.string_list(default = ['tristate']),",
+        "  })");
+    scratch.file(
+        "initializer_testing/BUILD", //
+        "load(':b.bzl','my_rule')",
+        "my_rule(name = 'my_target', tristate = True)");
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//initializer_testing:my_target");
+    StructImpl info =
+        (StructImpl)
+            myTarget.get(
+                new StarlarkProvider.Key(
+                    Label.parseCanonical("//initializer_testing:b.bzl"), "MyInfo"));
+
+    assertThat((StarlarkInt) info.getValue("tristate")).isEqualTo(StarlarkInt.of(1));
+  }
+
+  @Test
   public void initializer_wrongType() throws Exception {
     scratch.file(
         "initializer_testing/b.bzl",

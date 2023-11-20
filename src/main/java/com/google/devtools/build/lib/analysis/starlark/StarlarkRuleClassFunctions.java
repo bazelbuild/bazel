@@ -98,6 +98,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -949,6 +950,16 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         ImmutableSet.copyOf(subrules));
   }
 
+  private static ImmutableSet<String> getLegacyAnyTypeAttrs(RuleClass ruleClass) {
+    Attribute attr = ruleClass.getAttributeByNameMaybe("$legacy_any_type_attrs");
+    if (attr == null
+        || attr.getType() != STRING_LIST
+        || !(attr.getDefaultValueUnchecked() instanceof List<?>)) {
+      return ImmutableSet.of();
+    }
+    return ImmutableSet.copyOf(STRING_LIST.cast(attr.getDefaultValueUnchecked()));
+  }
+
   /**
    * The implementation for the magic function "rule" that creates Starlark rule classes.
    *
@@ -1022,6 +1033,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
       validateRulePropagatedAspects(ruleClass);
 
+      ImmutableSet<String> legacyAnyTypeAttrs = getLegacyAnyTypeAttrs(ruleClass);
+
       // Remove {@link BazelStarlarkContext} to prevent calls to load and analysis time functions.
       // Mutating values in initializers is mostly not a problem, because the attribute values are
       // copied before calling the initializers (<-TODO) and before they are set on the target.
@@ -1054,11 +1067,13 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                   continue;
                 }
                 Object reifiedValue =
-                    BuildType.copyAndLiftStarlarkValue(
-                        currentRuleClass.getName(),
-                        attr,
-                        value,
-                        pkgContext.getBuilder().getLabelConverter());
+                    legacyAnyTypeAttrs.contains(attr.getName())
+                        ? value
+                        : BuildType.copyAndLiftStarlarkValue(
+                            currentRuleClass.getName(),
+                            attr,
+                            value,
+                            pkgContext.getBuilder().getLabelConverter());
                 initializerKwargs.put(attr.getName(), reifiedValue);
               }
             }
@@ -1092,7 +1107,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
             }
             Object value = newKwargs.get(arg);
             Object reifiedValue =
-                attr == null || value == Starlark.NONE
+                attr == null
+                        || value == Starlark.NONE
+                        || legacyAnyTypeAttrs.contains(attr.getName())
                     ? value
                     : BuildType.copyAndLiftStarlarkValue(
                         currentRuleClass.getName(),
