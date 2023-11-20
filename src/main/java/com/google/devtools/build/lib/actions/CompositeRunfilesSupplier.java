@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -30,6 +31,7 @@ import javax.annotation.Nullable;
 public final class CompositeRunfilesSupplier implements RunfilesSupplier {
 
   private final ImmutableList<RunfilesSupplier> suppliers;
+  private NestedSet<Artifact> allArtifacts;
 
   /**
    * Create a composite {@link RunfilesSupplier} from a collection of suppliers. Suppliers earlier
@@ -65,11 +67,14 @@ public final class CompositeRunfilesSupplier implements RunfilesSupplier {
 
   @Override
   public NestedSet<Artifact> getAllArtifacts() {
-    NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
-    for (RunfilesSupplier supplier : suppliers) {
-      result.addTransitive(supplier.getAllArtifacts());
+    if (allArtifacts == null) {
+      allArtifacts =
+          NestedSetBuilder.fromNestedSets(
+                  Iterables.transform(suppliers, RunfilesSupplier::getAllArtifacts))
+              .build();
     }
-    return result.build();
+
+    return allArtifacts;
   }
 
   @Override
