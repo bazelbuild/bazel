@@ -419,6 +419,10 @@ public class BlazeRuntimeWrapper {
                     AttributeTransitionData.builder()
                         .attributes(FakeAttributeMapper.empty())
                         .executionPlatform(Label.parseCanonicalUnchecked("//platform:exec"))
+                        .analysisData(
+                            getSkyframeExecutor()
+                                .getStarlarkExecTransitionForTesting(
+                                    targetOptions, events.reporter()))
                         .build())
                 .apply(
                     new BuildOptionsView(targetOptions, targetOptions.getFragmentClasses()),

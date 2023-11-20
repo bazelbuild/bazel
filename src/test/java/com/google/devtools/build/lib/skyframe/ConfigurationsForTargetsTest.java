@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -33,8 +34,10 @@ import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
+import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.producers.DependencyContext;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -53,6 +56,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.List;
+import java.util.Optional;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
@@ -131,6 +135,15 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
         var targetAndConfiguration = (TargetAndConfiguration) skyKey.argument();
         // Set up the toolchain context so that exec transitions resolve properly.
         var state = DependencyResolver.State.createForTesting(targetAndConfiguration);
+        Optional<StarlarkAttributeTransitionProvider> starlarkExecTransition =
+            StarlarkExecTransitionLoader.loadStarlarkExecTransition(
+                targetAndConfiguration.getTarget() == null
+                    ? null
+                    : targetAndConfiguration.getConfiguration().getOptions(),
+                (bzlKey) -> (BzlLoadValue) env.getValue(bzlKey));
+        if (starlarkExecTransition == null) {
+          return null;
+        }
         state.dependencyContext =
             DependencyContext.create(
                 ToolchainCollection.<UnloadedToolchainContext>builder()
@@ -157,7 +170,7 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
                     .build(),
                 /* aspects= */ ImmutableList.of(),
                 stateProvider.lateBoundSkyframeBuildView().getStarlarkTransitionCache(),
-                /* starlarkTransitionProvider= */ null,
+                starlarkExecTransition.orElse(null),
                 env,
                 env.getListener(),
                 /* baseTargetPrerequisitesSupplier= */ null);
@@ -223,7 +236,7 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
   }
 
   /** Returns the configured deps for a given target. */
-  private Multimap<DependencyKind, ConfiguredTargetAndData> getConfiguredDeps(
+  private SetMultimap<DependencyKind, ConfiguredTargetAndData> getConfiguredDeps(
       ConfiguredTarget target) throws Exception {
     String targetLabel = AliasProvider.getDependencyLabel(target).toString();
     SkyKey key = ComputeDependenciesFunction.key(getTarget(targetLabel), getConfiguration(target));

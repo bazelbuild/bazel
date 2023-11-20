@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfigu
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
@@ -183,8 +184,11 @@ public final class ConfiguredTargetFactory {
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       @Nullable NestedSet<Package> transitivePackages,
-      ExecGroupCollection.Builder execGroupCollectionBuilder)
-      throws InterruptedException, ActionConflictException, InvalidExecGroupException,
+      ExecGroupCollection.Builder execGroupCollectionBuilder,
+      @Nullable StarlarkAttributeTransitionProvider starlarkExecTransition)
+      throws InterruptedException,
+          ActionConflictException,
+          InvalidExecGroupException,
           AnalysisFailurePropagationException {
     if (target instanceof Rule) {
       try {
@@ -198,7 +202,8 @@ public final class ConfiguredTargetFactory {
             configConditions,
             toolchainContexts,
             transitivePackages,
-            execGroupCollectionBuilder);
+            execGroupCollectionBuilder,
+            starlarkExecTransition);
       } finally {
         CurrentRuleTracker.endConfiguredTarget();
       }
@@ -290,7 +295,8 @@ public final class ConfiguredTargetFactory {
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       @Nullable NestedSet<Package> transitivePackages,
-      ExecGroupCollection.Builder execGroupCollectionBuilder)
+      ExecGroupCollection.Builder execGroupCollectionBuilder,
+      @Nullable StarlarkAttributeTransitionProvider starlarkExecTransition)
       throws InterruptedException,
           ActionConflictException,
           InvalidExecGroupException,
@@ -317,7 +323,8 @@ public final class ConfiguredTargetFactory {
                     ruleClassProvider.getFragmentRegistry().getUniversalFragments(),
                     configConditions,
                     Iterables.transform(
-                        prerequisiteMap.values(), ConfiguredTargetAndData::getConfiguredTarget)))
+                        prerequisiteMap.values(), ConfiguredTargetAndData::getConfiguredTarget),
+                    starlarkExecTransition))
             .setTransitivePackagesForRunfileRepoMappingManifest(transitivePackages)
             .build();
 
@@ -559,7 +566,8 @@ public final class ConfiguredTargetFactory {
       @Nullable ExecGroupCollection.Builder execGroupCollectionBuilder,
       BuildConfigurationValue aspectConfiguration,
       @Nullable NestedSet<Package> transitivePackages,
-      AspectKeyCreator.AspectKey aspectKey)
+      AspectKeyCreator.AspectKey aspectKey,
+      StarlarkAttributeTransitionProvider starlarkExecTransition)
       throws InterruptedException,
           ActionConflictException,
           InvalidExecGroupException,
@@ -588,7 +596,8 @@ public final class ConfiguredTargetFactory {
                     Iterables.concat(
                         Iterables.transform(
                             prerequisiteMap.values(), ConfiguredTargetAndData::getConfiguredTarget),
-                        ImmutableList.of(configuredTarget))))
+                        ImmutableList.of(configuredTarget)),
+                    starlarkExecTransition))
             .setTransitivePackagesForRunfileRepoMappingManifest(transitivePackages)
             .build();
 

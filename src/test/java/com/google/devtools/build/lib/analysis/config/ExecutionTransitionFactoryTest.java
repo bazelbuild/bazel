@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.common.options.OptionsParsingException;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import org.junit.Test;
@@ -41,23 +40,27 @@ import org.junit.runner.RunWith;
 public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
   private static final Label EXECUTION_PLATFORM = Label.parseCanonicalUnchecked("//platform:exec");
 
-  @Test
-  public void executionTransition() throws OptionsParsingException, InterruptedException {
-    PatchTransition transition =
-        ExecutionTransitionFactory.createFactory()
-            .create(
-                AttributeTransitionData.builder()
-                    .attributes(FakeAttributeMapper.empty())
-                    .executionPlatform(EXECUTION_PLATFORM)
-                    .build());
+  private PatchTransition getExecTransition(Label execPlatform) throws Exception {
+    return ExecutionTransitionFactory.createFactory()
+        .create(
+            AttributeTransitionData.builder()
+                .attributes(FakeAttributeMapper.empty())
+                .analysisData(
+                    getSkyframeExecutor()
+                        .getStarlarkExecTransitionForTesting(targetConfig.getOptions(), reporter))
+                .executionPlatform(execPlatform)
+                .build());
+  }
 
+  @Test
+  public void executionTransition() throws Exception {
+    PatchTransition transition = getExecTransition(EXECUTION_PLATFORM);
     assertThat(transition).isNotNull();
 
     // Apply the transition.
     BuildOptions options =
         BuildOptions.of(
-            ImmutableList.of(CoreOptions.class, PlatformOptions.class),
-            "--platforms=//platform:target");
+            targetConfig.getOptions().getFragmentClasses(), "--platforms=//platform:target");
 
     BuildOptions result =
         transition.patch(
@@ -73,24 +76,15 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
   }
 
   @Test
-  public void executionTransition_noExecPlatform()
-      throws OptionsParsingException, InterruptedException {
+  public void executionTransition_noExecPlatform() throws Exception {
     // No execution platform available.
-    PatchTransition transition =
-        ExecutionTransitionFactory.createFactory()
-            .create(
-                AttributeTransitionData.builder()
-                    .attributes(FakeAttributeMapper.empty())
-                    .executionPlatform(null)
-                    .build());
-
+    PatchTransition transition = getExecTransition(null);
     assertThat(transition).isNotNull();
 
     // Apply the transition.
     BuildOptions options =
         BuildOptions.of(
-            ImmutableList.of(CoreOptions.class, PlatformOptions.class),
-            "--platforms=//platform:target");
+            targetConfig.getOptions().getFragmentClasses(), "--platforms=//platform:target");
 
     BuildOptions result =
         transition.patch(
@@ -101,22 +95,14 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
   }
 
   @Test
-  public void executionTransition_confDist_legacy()
-      throws OptionsParsingException, InterruptedException {
-    PatchTransition transition =
-        ExecutionTransitionFactory.createFactory()
-            .create(
-                AttributeTransitionData.builder()
-                    .attributes(FakeAttributeMapper.empty())
-                    .executionPlatform(EXECUTION_PLATFORM)
-                    .build());
-
+  public void executionTransition_confDist_legacy() throws Exception {
+    PatchTransition transition = getExecTransition(EXECUTION_PLATFORM);
     assertThat(transition).isNotNull();
 
     // Apply the transition.
     BuildOptions options =
         BuildOptions.of(
-            ImmutableList.of(CoreOptions.class, PlatformOptions.class),
+            targetConfig.getOptions().getFragmentClasses(),
             "--platforms=//platform:target",
             "--experimental_exec_configuration_distinguisher=legacy");
 
@@ -131,22 +117,14 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
   }
 
   @Test
-  public void executionTransition_confDist_fullHash()
-      throws OptionsParsingException, InterruptedException {
-    PatchTransition transition =
-        ExecutionTransitionFactory.createFactory()
-            .create(
-                AttributeTransitionData.builder()
-                    .attributes(FakeAttributeMapper.empty())
-                    .executionPlatform(EXECUTION_PLATFORM)
-                    .build());
-
+  public void executionTransition_confDist_fullHash() throws Exception {
+    PatchTransition transition = getExecTransition(EXECUTION_PLATFORM);
     assertThat(transition).isNotNull();
 
     // Apply the transition.
     BuildOptions options =
         BuildOptions.of(
-            ImmutableList.of(CoreOptions.class, PlatformOptions.class),
+            targetConfig.getOptions().getFragmentClasses(),
             "--platforms=//platform:target",
             "--experimental_exec_configuration_distinguisher=full_hash");
 
@@ -165,22 +143,14 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
   }
 
   @Test
-  public void executionTransition_confDist_diffToAffected()
-      throws OptionsParsingException, InterruptedException {
-    PatchTransition transition =
-        ExecutionTransitionFactory.createFactory()
-            .create(
-                AttributeTransitionData.builder()
-                    .attributes(FakeAttributeMapper.empty())
-                    .executionPlatform(EXECUTION_PLATFORM)
-                    .build());
-
+  public void executionTransition_confDist_diffToAffected() throws Exception {
+    PatchTransition transition = getExecTransition(EXECUTION_PLATFORM);
     assertThat(transition).isNotNull();
 
     // Apply the transition.
     BuildOptions options =
         BuildOptions.of(
-            ImmutableList.of(CoreOptions.class, PlatformOptions.class),
+            targetConfig.getOptions().getFragmentClasses(),
             "--platforms=//platform:target",
             "--experimental_exec_configuration_distinguisher=diff_to_affected");
 
@@ -194,22 +164,14 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
   }
 
   @Test
-  public void executionTransition_confDist_off()
-      throws OptionsParsingException, InterruptedException {
-    PatchTransition transition =
-        ExecutionTransitionFactory.createFactory()
-            .create(
-                AttributeTransitionData.builder()
-                    .attributes(FakeAttributeMapper.empty())
-                    .executionPlatform(EXECUTION_PLATFORM)
-                    .build());
-
+  public void executionTransition_confDist_off() throws Exception {
+    PatchTransition transition = getExecTransition(EXECUTION_PLATFORM);
     assertThat(transition).isNotNull();
 
     // Apply the transition.
     BuildOptions options =
         BuildOptions.of(
-            ImmutableList.of(CoreOptions.class, PlatformOptions.class),
+            targetConfig.getOptions().getFragmentClasses(),
             "--platforms=//platform:target",
             "--experimental_exec_configuration_distinguisher=off");
 
