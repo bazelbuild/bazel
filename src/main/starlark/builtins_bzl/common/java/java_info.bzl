@@ -299,6 +299,28 @@ def make_non_strict(java_info):
     )
     return _new_javainfo(**result)
 
+def add_module_flags(java_info, add_exports = [], add_opens = []):
+    """Returns a new JavaInfo instance with the additional add_exports/add_opens
+
+    Args:
+        java_info: (JavaInfo) The java info to enhance.
+        add_exports: ([str]) The <module>/<package>s given access to.
+        add_opens: ([str]) The <module>/<package>s given reflective access to.
+    Returns:
+        (JavaInfo)
+    """
+    if not add_exports and not add_opens:
+        return java_info
+
+    result = _to_mutable_dict(java_info)
+    result.update(
+        module_flags_info = _create_module_flags_info(
+            add_exports = depset(add_exports, transitive = [java_info.module_flags_info.add_exports]),
+            add_opens = depset(add_opens, transitive = [java_info.module_flags_info.add_opens]),
+        ),
+    )
+    return _new_javainfo(**result)
+
 def set_annotation_processing(
         java_info,
         enabled = False,

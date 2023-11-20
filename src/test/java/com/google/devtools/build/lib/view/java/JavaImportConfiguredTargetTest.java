@@ -223,10 +223,6 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testModuleFlags() throws Exception {
-    if (!analysisMock.isThisBazel()) {
-      return;
-    }
-
     scratch.file(
         "java/jarlib2/BUILD",
         "java_library(name  = 'lib',",
