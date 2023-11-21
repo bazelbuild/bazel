@@ -1965,5 +1965,20 @@ EOF
   expect_log "in pkg/Library.java: ''"
 }
 
+function test_header_compiler_direct_supports_release() {
+  mkdir -p pkg
+  cat << 'EOF' > pkg/BUILD
+java_library(name = "a", srcs = ["A.java"], deps = [":b"])
+java_library(name = "b", srcs = ["B.java"], javacopts = ["--release", "11"])
+EOF
+  cat << 'EOF' > pkg/A.java
+public class A extends B {}
+EOF
+  cat << 'EOF' > pkg/B.java
+public class B {}
+EOF
+
+  bazel build //pkg:a >& $TEST_log || fail "build failed"
+}
 
 run_suite "Java integration tests"

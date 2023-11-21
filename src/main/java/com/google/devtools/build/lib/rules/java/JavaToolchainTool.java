@@ -64,8 +64,8 @@ public abstract class JavaToolchainTool {
   public abstract NestedSet<Artifact> data();
 
   /**
-   * JVM flags to invoke the tool with, or empty if it is not a {@code _deploy.jar}. Location
-   * expansion is performed on these flags using the inputs in {@link #data}.
+   * JVM flags to invoke the tool with. Location expansion is performed on these flags using the
+   * inputs in {@link #data}.
    */
   public abstract NestedSet<String> jvmOpts();
 
@@ -105,7 +105,7 @@ public abstract class JavaToolchainTool {
 
     Artifact executable = tool().getExecutable();
     if (!executable.getExtension().equals("jar")) {
-      command.addExecPath(executable);
+      command.addExecPath(executable).addAll(jvmOpts());
     } else {
       command
           .addPath(toolchain.getJavaRuntime().javaBinaryExecPathFragment())

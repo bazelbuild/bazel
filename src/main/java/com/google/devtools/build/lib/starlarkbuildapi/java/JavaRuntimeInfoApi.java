@@ -80,6 +80,15 @@ public interface JavaRuntimeInfoApi extends StructApi {
       structField = true)
   Depset starlarkHermeticInputs();
 
+  /** The lib/ct.sym file. */
+  @StarlarkMethod(
+      name = "lib_ct_sym",
+      doc = "Returns the lib/ct.sym file.",
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  FileApi libCtSym();
+
   /** The lib/modules file. */
   @StarlarkMethod(
       name = "lib_modules",
