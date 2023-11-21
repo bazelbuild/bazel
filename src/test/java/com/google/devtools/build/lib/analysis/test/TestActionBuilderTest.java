@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.test;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -53,6 +54,8 @@ public class TestActionBuilderTest extends BuildViewTestCase {
 
     scratch.file(
         "tests/BUILD",
+        getPyLoad("py_binary"),
+        getPyLoad("py_test"),
         "py_test(name = 'small_test_1',",
         "        srcs = ['small_test_1.py'],",
         "        data = [':xUnit'],",

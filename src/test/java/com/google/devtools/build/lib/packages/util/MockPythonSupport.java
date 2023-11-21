@@ -17,9 +17,7 @@ package com.google.devtools.build.lib.packages.util;
 import com.google.devtools.build.lib.rules.python.PythonSemantics;
 import java.io.IOException;
 
-/**
- * Creates mock BUILD files required for the python rules.
- */
+/** Creates mock BUILD files required for the python rules. */
 public abstract class MockPythonSupport {
 
   /** Setup the support for building Python. */

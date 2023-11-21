@@ -127,6 +127,9 @@ public class TestConstants {
   /** The directory in which rules_cc repo resides in execroot. */
   public static final String RULES_CC_REPOSITORY_EXECROOT = "external/" + RulesCcRepoName.CANONICAL_REPO_NAME + "/";
 
+  /** The repo/package rules_python is rooted at. If empty, builtin rules are used. */
+  public static final String RULES_PYTHON_PACKAGE_ROOT = "";
+
   public static final ImmutableList<String> DOCS_RULES_PATHS = ImmutableList.of(
       "src/main/java/com/google/devtools/build/lib/rules");
 

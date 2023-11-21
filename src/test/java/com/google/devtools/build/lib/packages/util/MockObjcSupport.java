@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.packages.util;
 
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -187,6 +189,7 @@ public final class MockObjcSupport {
     }
     config.create(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/BUILD",
+        getPyLoad("py_binary"),
         "package(default_visibility=['//visibility:public'])",
         "exports_files(glob(['**']))",
         "filegroup(name = 'default_provisioning_profile', srcs = ['foo.mobileprovision'])",

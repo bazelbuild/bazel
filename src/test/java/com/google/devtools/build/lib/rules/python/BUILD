@@ -57,6 +57,7 @@ java_test(
     name = "PyRuntimeConfiguredTargetTest",
     srcs = ["PyRuntimeConfiguredTargetTest.java"],
     deps = [
+        ":PythonTestUtils",
         "//src/main/java/com/google/devtools/build/lib/rules/python",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
@@ -83,7 +84,6 @@ java_library(
     srcs = ["PyExecutableConfiguredTargetTestBase.java"],
     deps = [
         ":PyBaseTestBase",
-        ":PythonTestUtils",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
@@ -114,6 +114,7 @@ java_test(
     srcs = ["PyTestConfiguredTargetTest.java"],
     deps = [
         ":PyExecutableTestBase",
+        ":PythonTestUtils",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/execution_info",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
@@ -206,7 +207,7 @@ java_test(
     name = "PythonStarlarkApiTest",
     srcs = ["PythonStarlarkApiTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        ":PythonTestUtils",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/rules/python",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",

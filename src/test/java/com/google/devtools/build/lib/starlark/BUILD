@@ -83,6 +83,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/analysis/testing",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/exec/util",
+        "//src/test/java/com/google/devtools/build/lib/rules/python:PythonTestUtils",
         "//src/test/java/com/google/devtools/build/lib/starlark/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",

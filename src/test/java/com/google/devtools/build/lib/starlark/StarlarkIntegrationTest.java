@@ -17,6 +17,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SUFFIX;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -788,6 +789,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
     scratch.file(
         "test/starlark/BUILD",
+        getPyLoad("py_binary"),
         "load('//test/starlark:extension.bzl', 'custom_rule')",
         "",
         "custom_rule(name = 'cr')",
