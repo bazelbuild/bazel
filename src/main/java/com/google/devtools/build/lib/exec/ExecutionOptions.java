@@ -294,6 +294,8 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
       name = "local_cpu_resources",
       defaultValue = "HOST_CPUS",
+      deprecationWarning =
+          "--local_cpu_resources is deprecated, please use --local_resources=cpu= instead.",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
@@ -308,6 +310,8 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
       name = "local_ram_resources",
       defaultValue = "HOST_RAM*.67",
+      deprecationWarning =
+          "--local_ram_resources is deprecated, please use --local_resources=memory= instead.",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
@@ -322,6 +326,8 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
       name = "local_extra_resources",
       defaultValue = "null",
+      deprecationWarning =
+          "--local_extra_resources is deprecated, please use --local_resources instead.",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       allowMultiple = true,
@@ -335,6 +341,22 @@ public class ExecutionOptions extends OptionsBase {
               + "Available CPU, RAM and resources cannot be set with this flag.",
       converter = Converters.StringToDoubleAssignmentConverter.class)
   public List<Map.Entry<String, Double>> localExtraResources;
+
+  @Option(
+      name = "local_resources",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      allowMultiple = true,
+      help =
+          "Set the number of resources available to Bazel. "
+              + "Takes in a string-float pair. Can be used multiple times to specify multiple "
+              + "types of extra resources. Bazel will limit concurrently running actions "
+              + "based on the available resources and the resources required. "
+              + "Tests can declare the amount of resources they need "
+              + "by using a tag of the \"resources:<resoucename>:<amount>\" format.",
+      converter = Converters.StringToDoubleAssignmentConverter.class)
+  public List<Map.Entry<String, Double>> localResources;
 
   @Option(
       name = "local_test_jobs",

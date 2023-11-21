@@ -997,7 +997,9 @@ public class ExecutionTool {
             ResourceSet.MEMORY,
             options.localRamResources);
     ImmutableMap<String, Double> resources =
-        Stream.concat(options.localExtraResources.stream(), cpuRam.entrySet().stream())
+        Stream.concat(
+          Stream.concat(options.localExtraResources.stream(), cpuRam.entrySet().stream()),
+          options.localResources.stream())
             .collect(
                 ImmutableMap.toImmutableMap(
                     Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v2));
