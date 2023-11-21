@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SyscallCache;
@@ -208,7 +209,8 @@ public final class BlazeWorkspace {
       long waitTimeInMs,
       long commandStartTime,
       List<Any> commandExtensions,
-      Consumer<String> shutdownReasonConsumer) {
+      Consumer<String> shutdownReasonConsumer,
+      CommandExtensionReporter commandExtensionReporter) {
     quiescingExecutors.resetParameters(options);
     CommandEnvironment env =
         new CommandEnvironment(
@@ -224,7 +226,8 @@ public final class BlazeWorkspace {
             waitTimeInMs,
             commandStartTime,
             commandExtensions,
-            shutdownReasonConsumer);
+            shutdownReasonConsumer,
+            commandExtensionReporter);
     skyframeExecutor.setClientEnv(env.getClientEnv());
     BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
     if (buildRequestOptions != null && !buildRequestOptions.useActionCache) {

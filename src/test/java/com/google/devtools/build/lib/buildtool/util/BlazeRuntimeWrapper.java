@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.buildtool.util;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.util.io.CommandExtensionReporter.NO_OP_COMMAND_EXTENSION_REPORTER;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -212,10 +213,11 @@ public class BlazeRuntimeWrapper {
                 commandAnnotation,
                 optionsParser,
                 workspaceSetupWarnings,
-                0L,
-                0L,
+                /* waitTimeInMs= */ 0L,
+                /* commandStartTime= */ 0L,
                 extensions.stream().map(Any::pack).collect(toImmutableList()),
-                this.crashMessages::add);
+                this.crashMessages::add,
+                NO_OP_COMMAND_EXTENSION_REPORTER);
     return env;
   }
 

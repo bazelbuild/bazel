@@ -13,6 +13,10 @@ filegroup(
 
 # I/O utilities.
 
+IO_PROTO_SRCS = [
+    "CommandExtensionReporter.java",
+]
+
 OUT_ERR_SRCS = [
     "OutErr.java",
     "LinePrefixingOutputStream.java",
@@ -23,7 +27,7 @@ java_library(
     name = "io",
     srcs = glob(
         ["*.java"],
-        exclude = OUT_ERR_SRCS,
+        exclude = OUT_ERR_SRCS + IO_PROTO_SRCS,
     ),
     deps = [
         ":out-err",
@@ -37,6 +41,12 @@ java_library(
         "//third_party/protobuf:protobuf_java",
         "//third_party/protobuf:protobuf_java_util",
     ],
+)
+
+java_library(
+    name = "io-proto",
+    srcs = IO_PROTO_SRCS,
+    deps = ["//third_party/protobuf:protobuf_java"],
 )
 
 java_library(

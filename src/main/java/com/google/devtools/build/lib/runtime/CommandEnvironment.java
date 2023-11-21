@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -115,6 +116,7 @@ public class CommandEnvironment {
   private final Consumer<String> shutdownReasonConsumer;
   private final BuildResultListener buildResultListener;
   private final CommandLinePathFactory commandLinePathFactory;
+  private final CommandExtensionReporter commandExtensionReporter;
 
   private boolean mergedAnalysisAndExecution;
 
@@ -186,7 +188,8 @@ public class CommandEnvironment {
       long waitTimeInMs,
       long commandStartTime,
       List<Any> commandExtensions,
-      Consumer<String> shutdownReasonConsumer) {
+      Consumer<String> shutdownReasonConsumer,
+      CommandExtensionReporter commandExtensionReporter) {
     this.runtime = runtime;
     this.workspace = workspace;
     this.directories = workspace.getDirectories();
@@ -198,6 +201,7 @@ public class CommandEnvironment {
     this.shutdownReasonConsumer = shutdownReasonConsumer;
     this.syscallCache = syscallCache;
     this.quiescingExecutors = quiescingExecutors;
+    this.commandExtensionReporter = commandExtensionReporter;
     this.blazeModuleEnvironment = new BlazeModuleEnvironment();
     this.timestampGranularityMonitor = new TimestampGranularityMonitor(runtime.getClock());
     // Record the command's starting time again, for use by
@@ -364,6 +368,10 @@ public class CommandEnvironment {
 
   public Clock getClock() {
     return getRuntime().getClock();
+  }
+
+  public CommandExtensionReporter getCommandExtensionReporter() {
+    return commandExtensionReporter;
   }
 
   void notifyOnCrash(String message) {
