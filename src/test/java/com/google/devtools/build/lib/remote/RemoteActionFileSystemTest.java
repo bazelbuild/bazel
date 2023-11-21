@@ -25,12 +25,14 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
+import com.google.common.base.Utf8;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -50,7 +52,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.testing.vfs.SpiedFileSystem;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
@@ -62,7 +64,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
-import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -81,12 +82,10 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
       new RemoteOutputChecker(
           new JavaClock(), "build", RemoteOutputsMode.MINIMAL, ImmutableList.of());
 
-  private static final DigestHashFunction HASH_FUNCTION = DigestHashFunction.SHA256;
-
   private static final String RELATIVE_OUTPUT_PATH = "out";
 
   private final RemoteActionInputFetcher inputFetcher = mock(RemoteActionInputFetcher.class);
-  private final FileSystem fs = new InMemoryFileSystem(HASH_FUNCTION);
+  private final SpiedFileSystem fs = SpiedFileSystem.createInMemorySpy();
   private final Path execRoot = fs.getPath("/exec");
   private final ArtifactRoot sourceRoot = ArtifactRoot.asSourceRoot(Root.fromPath(execRoot));
   private final ArtifactRoot outputRoot =
@@ -459,6 +458,91 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
 
     assertThrows(
         FileNotFoundException.class, () -> actionFs.stat(path, /* followSymlinks= */ true));
+  }
+
+  @Test
+  public void getDigest_fromInputArtifactData_forLocalArtifact() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(1);
+    Artifact artifact = createRemoteArtifact("file", "local contents", inputs);
+    PathFragment path = artifact.getPath().asFragment();
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+
+    // Verify that we don't fall back to a slow digest.
+    reset(fs);
+    assertThat(actionFs.getFastDigest(path)).isEqualTo(getDigest("local contents"));
+    verify(fs, never()).getDigest(any());
+
+    assertThat(actionFs.getDigest(path)).isEqualTo(getDigest("local contents"));
+  }
+
+  @Test
+  public void getDigest_fromInputArtifactData_forRemoteArtifact() throws Exception {
+    ActionInputMap inputs = new ActionInputMap(1);
+    Artifact artifact = createRemoteArtifact("file", "remote contents", inputs);
+    PathFragment path = artifact.getPath().asFragment();
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
+
+    // Verify that we don't fall back to a slow digest.
+    reset(fs);
+    assertThat(actionFs.getFastDigest(path)).isEqualTo(getDigest("remote contents"));
+    verify(fs, never()).getDigest(any());
+
+    assertThat(actionFs.getDigest(path)).isEqualTo(getDigest("remote contents"));
+  }
+
+  @Test
+  public void getDigest_fromRemoteOutputTree() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
+    PathFragment path = artifact.getPath().asFragment();
+    injectRemoteFile(actionFs, artifact.getPath().asFragment(), "remote contents");
+
+    assertThat(actionFs.getFastDigest(path)).isEqualTo(getDigest("remote contents"));
+    assertThat(actionFs.getDigest(path)).isEqualTo(getDigest("remote contents"));
+  }
+
+  @Test
+  public void getDigest_fromLocalFilesystem() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
+    PathFragment path = artifact.getPath().asFragment();
+    writeLocalFile(actionFs, artifact.getPath().asFragment(), "local contents");
+
+    assertThat(actionFs.getFastDigest(path)).isNull();
+    assertThat(actionFs.getDigest(path)).isEqualTo(getDigest("local contents"));
+  }
+
+  @Test
+  public void getDigest_notFound() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
+    PathFragment path = artifact.getPath().asFragment();
+
+    assertThrows(FileNotFoundException.class, () -> actionFs.getFastDigest(path));
+    assertThrows(FileNotFoundException.class, () -> actionFs.getDigest(path));
+  }
+
+  @Test
+  public void getDigest_followSymlinks(
+      @TestParameter FilesystemTestParam from, @TestParameter FilesystemTestParam to)
+      throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    FileSystem fromFs = from.getFilesystem(actionFs);
+    FileSystem toFs = to.getFilesystem(actionFs);
+
+    PathFragment linkPath = getOutputPath("sym");
+    PathFragment targetPath = getOutputPath("target");
+    fromFs.getPath(linkPath).createSymbolicLink(execRoot.getRelative(targetPath).asFragment());
+
+    if (toFs.equals(actionFs.getLocalFileSystem())) {
+      writeLocalFile(actionFs, targetPath, "content");
+      assertThat(actionFs.getFastDigest(linkPath)).isNull();
+    } else {
+      injectRemoteFile(actionFs, targetPath, "content");
+      assertThat(actionFs.getFastDigest(linkPath)).isEqualTo(getDigest("content"));
+    }
+
+    assertThat(actionFs.getDigest(linkPath)).isEqualTo(getDigest("content"));
   }
 
   @Test
@@ -943,16 +1027,12 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   @CanIgnoreReturnValue
   protected FileArtifactValue injectRemoteFile(
       FileSystem actionFs, PathFragment path, String content) throws IOException {
-    byte[] contentBytes = content.getBytes(UTF_8);
-    HashCode hashCode = HASH_FUNCTION.getHashFunction().hashBytes(contentBytes);
+    byte[] digest = getDigest(content);
+    int size = Utf8.encodedLength(content);
     ((RemoteActionFileSystem) actionFs)
-        .injectRemoteFile(
-            path, hashCode.asBytes(), contentBytes.length, /* expireAtEpochMilli= */ -1);
+        .injectRemoteFile(path, digest, size, /* expireAtEpochMilli= */ -1);
     return RemoteFileArtifactValue.create(
-        hashCode.asBytes(),
-        contentBytes.length,
-        /* locationIndex= */ 1,
-        /* expireAtEpochMilli= */ -1);
+        digest, size, /* locationIndex= */ 1, /* expireAtEpochMilli= */ -1);
   }
 
   @Override
@@ -964,13 +1044,14 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
 
   /** Returns a remote artifact and puts its metadata into the action input map. */
   private Artifact createRemoteArtifact(
-      String pathFragment, String contents, ActionInputMap inputs) {
+      String pathFragment, String content, ActionInputMap inputs) {
     Artifact a = ActionsTestUtil.createArtifact(outputRoot, pathFragment);
-    byte[] b = contents.getBytes(UTF_8);
-    HashCode h = HASH_FUNCTION.getHashFunction().hashBytes(b);
     RemoteFileArtifactValue f =
         RemoteFileArtifactValue.create(
-            h.asBytes(), b.length, /* locationIndex= */ 1, /* expireAtEpochMilli= */ -1);
+            getDigest(content),
+            Utf8.encodedLength(content),
+            /* locationIndex= */ 1,
+            /* expireAtEpochMilli= */ -1);
     inputs.putWithNoDepOwner(a, f);
     return a;
   }
@@ -989,11 +1070,13 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     TreeArtifactValue.Builder builder = TreeArtifactValue.newBuilder(a);
     for (Map.Entry<String, String> entry : contentMap.entrySet()) {
       TreeFileArtifact child = TreeFileArtifact.createTreeOutput(a, entry.getKey());
-      byte[] b = entry.getValue().getBytes(UTF_8);
-      HashCode h = HASH_FUNCTION.getHashFunction().hashBytes(b);
+      String content = entry.getValue();
       RemoteFileArtifactValue childMeta =
           RemoteFileArtifactValue.create(
-              h.asBytes(), b.length, /* locationIndex= */ 0, /* expireAtEpochMilli= */ -1);
+              getDigest(content),
+              Utf8.encodedLength(content),
+              /* locationIndex= */ 0,
+              /* expireAtEpochMilli= */ -1);
       builder.putChild(child, childMeta);
     }
     return builder.build();
@@ -1044,5 +1127,9 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
       builder.putChild(child, childMeta);
     }
     return builder.build();
+  }
+
+  private byte[] getDigest(String content) {
+    return fs.getDigestFunction().getHashFunction().hashString(content, UTF_8).asBytes();
   }
 }
