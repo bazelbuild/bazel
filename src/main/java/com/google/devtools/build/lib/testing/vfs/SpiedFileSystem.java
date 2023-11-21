@@ -58,6 +58,11 @@ public class SpiedFileSystem extends DelegateFileSystem {
   }
 
   @Override
+  public byte[] getDigest(PathFragment path) throws IOException {
+    return super.getDigest(path);
+  }
+
+  @Override
   public void chmod(PathFragment path, int mode) throws IOException {
     super.chmod(path, mode);
   }

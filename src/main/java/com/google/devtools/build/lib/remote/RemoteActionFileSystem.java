@@ -349,16 +349,22 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   protected byte[] getFastDigest(PathFragment path) throws IOException {
-    var stat = statInMemory(path, FollowMode.FOLLOW_ALL);
-    if (stat instanceof FileStatusWithDigest) {
-      return ((FileStatusWithDigest) stat).getDigest();
+    path = resolveSymbolicLinks(path).asFragment();
+    // The parent path has already been canonicalized by resolveSymbolicLinks, so FOLLOW_NONE is
+    // effectively the same as FOLLOW_PARENT, but more efficient.
+    var status = statInMemory(path, FollowMode.FOLLOW_NONE);
+    if (status instanceof FileStatusWithDigest) {
+      return ((FileStatusWithDigest) status).getDigest();
     }
     return localFs.getPath(path).getFastDigest();
   }
 
   @Override
   protected byte[] getDigest(PathFragment path) throws IOException {
-    var status = statInMemory(path, FollowMode.FOLLOW_ALL);
+    path = resolveSymbolicLinks(path).asFragment();
+    // The parent path has already been canonicalized by resolveSymbolicLinks, so FOLLOW_NONE is
+    // effectively the same as FOLLOW_PARENT, but more efficient.
+    var status = statInMemory(path, FollowMode.FOLLOW_NONE);
     if (status instanceof FileStatusWithDigest) {
       return ((FileStatusWithDigest) status).getDigest();
     }
@@ -566,6 +572,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
     if (status != null) {
       return status;
     }
+
     // The path has already been canonicalized above.
     return localFs.getPath(path).stat(Symlinks.NOFOLLOW);
   }
