@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.devtools.build.lib.clock.BlazeClock.formatTime;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -27,10 +29,11 @@ import com.google.devtools.build.lib.view.test.TestStatus.FailedTestCasesStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase.Status;
 import java.io.IOException;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 /**
@@ -220,9 +223,8 @@ public class TestSummaryPrinter {
   static void printTestCase(AnsiTerminalPrinter terminalPrinter, TestCase testCase) {
     String timeSummary;
     if (testCase.hasRunDurationMillis()) {
-      timeSummary = " ("
-          + timeInSec(testCase.getRunDurationMillis(), TimeUnit.MILLISECONDS)
-          + ")";
+      Duration duration = Duration.of(testCase.getRunDurationMillis(), ChronoUnit.MILLIS);
+      timeSummary = " (" + formatTime(duration) + ")";
     } else {
       timeSummary = "";
     }
@@ -238,15 +240,6 @@ public class TestSummaryPrinter {
             + testCase.getName()
             + timeSummary
             + "\n");
-  }
-
-  /**
-   * Return the given time in seconds, to 1 decimal place,
-   * i.e. "32.1s".
-   */
-  static String timeInSec(long time, TimeUnit unit) {
-    double ms = TimeUnit.MILLISECONDS.convert(time, unit);
-    return String.format(Locale.US, "%.1fs", ms / 1000.0);
   }
 
   static String getAttemptSummary(TestSummary summary) {
@@ -284,7 +277,8 @@ public class TestSummaryPrinter {
         || summary.getStatus() == BlazeTestStatus.FAILED_TO_BUILD) {
       return ""; // either no tests ran, or information isn't useful
     } else if (summary.getTestTimes().size() == 1) {
-      return " in " + timeInSec(summary.getTestTimes().get(0), TimeUnit.MILLISECONDS);
+      Duration duration = Duration.of(summary.getTestTimes().get(0), ChronoUnit.MILLIS);
+      return " in " + formatTime(duration);
     } else {
       // We previously used com.google.math for this, which added about 1 MB of deps to the total
       // size. If we re-introduce a dependency on that package, we could revert this change.
@@ -304,16 +298,20 @@ public class TestSummaryPrinter {
       // For sharded tests, we print the max time on the same line as
       // the test, and then print more detailed info about the
       // distribution of times on the next line.
-      String maxTime = timeInSec(max, TimeUnit.MILLISECONDS);
+      Duration maxDuration = Duration.of(max, ChronoUnit.MILLIS);
+      String maxTime = formatTime(maxDuration);
+      Duration minDuration = Duration.of(min, ChronoUnit.MILLIS);
+      Duration meanDuration = Duration.of((long) mean, ChronoUnit.MILLIS);
+      Duration stddevDuration = Duration.of((long) stddev, ChronoUnit.MILLIS);
       return String.format(
           Locale.US,
           " in %s\n  Stats over %d runs: max = %s, min = %s, avg = %s, dev = %s",
           maxTime,
           summary.getTestTimes().size(),
           maxTime,
-          timeInSec(min, TimeUnit.MILLISECONDS),
-          timeInSec((long) mean, TimeUnit.MILLISECONDS),
-          timeInSec((long) stddev, TimeUnit.MILLISECONDS));
+          formatTime(minDuration),
+          formatTime(meanDuration),
+          formatTime(stddevDuration));
     }
   }
 }

@@ -14,11 +14,15 @@
 
 package com.google.devtools.build.lib.metrics.criticalpath;
 
+import static com.google.devtools.build.lib.clock.BlazeClock.formatTime;
+
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.AggregatedSpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.Locale;
 
 /**
@@ -30,7 +34,7 @@ public class AggregatedCriticalPath {
   public static final AggregatedCriticalPath EMPTY =
       new AggregatedCriticalPath(0, AggregatedSpawnMetrics.EMPTY, ImmutableList.of());
 
-  private final int totalTimeInMs;
+  private final Duration totalTime;
   private final AggregatedSpawnMetrics aggregatedSpawnMetrics;
   private final ImmutableList<CriticalPathComponent> criticalPathComponents;
 
@@ -38,14 +42,15 @@ public class AggregatedCriticalPath {
       int totalTimeInMs,
       AggregatedSpawnMetrics aggregatedSpawnMetrics,
       ImmutableList<CriticalPathComponent> criticalPathComponents) {
-    this.totalTimeInMs = totalTimeInMs;
+    this.totalTime = Duration.ofMillis(totalTimeInMs);
     this.aggregatedSpawnMetrics = aggregatedSpawnMetrics;
     this.criticalPathComponents = criticalPathComponents;
   }
 
   /** Total wall time spent running the critical path actions. */
-  public int totalTimeInMs() {
-    return totalTimeInMs;
+  @VisibleForTesting
+  public Duration totalTime() {
+    return totalTime;
   }
 
   public AggregatedSpawnMetrics getSpawnMetrics() {
@@ -58,17 +63,19 @@ public class AggregatedCriticalPath {
   }
 
   public String getNewStringSummary() {
-    int executionWallTimeInMs =
-        aggregatedSpawnMetrics.getTotalDuration(SpawnMetrics::executionWallTimeInMs);
-    int overheadTimeInMs =
-        aggregatedSpawnMetrics.getTotalDuration(SpawnMetrics::totalTimeInMs)
-            - executionWallTimeInMs;
+    Duration executionWallTime =
+        aggregatedSpawnMetrics.getTotalDuration(
+            SpawnMetrics::executionWallTimeInMs, ChronoUnit.MILLIS);
+    Duration overheadTime =
+        aggregatedSpawnMetrics
+            .getTotalDuration(SpawnMetrics::totalTimeInMs, ChronoUnit.MILLIS)
+            .minus(executionWallTime);
     return String.format(
         Locale.US,
-        "Execution critical path %.2fs (setup %.2fs, action wall time %.2fs)",
-        totalTimeInMs / 1000.0,
-        overheadTimeInMs / 1000.0,
-        executionWallTimeInMs / 1000.0);
+        "Execution critical path %s (setup %s, action wall time %s)",
+        formatTime(totalTime),
+        formatTime(overheadTime),
+        formatTime(executionWallTime));
   }
 
   @Override
@@ -78,11 +85,10 @@ public class AggregatedCriticalPath {
 
   private String toString(boolean summary, boolean remote) {
     StringBuilder sb = new StringBuilder("Critical Path: ");
-    sb.append(String.format(Locale.US, "%.2f", totalTimeInMs / 1000.0));
-    sb.append("s");
+    sb.append(String.format("%s", formatTime(totalTime)));
     if (remote) {
       sb.append(", ");
-      sb.append(getSpawnMetrics().toString(Duration.ofMillis(totalTimeInMs), summary));
+      sb.append(getSpawnMetrics().toString(totalTime, summary));
     }
     if (summary || criticalPathComponents.isEmpty()) {
       return sb.toString();

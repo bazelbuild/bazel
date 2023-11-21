@@ -50,7 +50,7 @@ public enum TestTimeout {
   public static final String COVERAGE_CMD_TIMEOUT = "--test_timeout=300,600,1200,3600";
 
   /** Map from test time to suggested TestTimeout. */
-  private static final RangeMap<Integer, TestTimeout> SUGGESTED_TIMEOUT;
+  private static final RangeMap<Long, TestTimeout> SUGGESTED_TIMEOUT;
 
   /**
    * Map from TestTimeout to fuzzy range.
@@ -59,19 +59,19 @@ public enum TestTimeout {
    * the current timeout or much smaller than the next shorter timeout. This is used to give
    * suggestions to developers to update their timeouts.
    */
-  private static final Map<TestTimeout, Range<Integer>> TIMEOUT_FUZZY_RANGE;
+  private static final Map<TestTimeout, Range<Long>> TIMEOUT_FUZZY_RANGE;
 
   static {
     // For the largest timeout, cap suggested and fuzzy ranges at one year.
     final int maxTimeout = 365 * 24 * 60 * 60 /* One year */;
 
-    ImmutableRangeMap.Builder<Integer, TestTimeout> suggestedTimeoutBuilder =
+    ImmutableRangeMap.Builder<Long, TestTimeout> suggestedTimeoutBuilder =
         ImmutableRangeMap.builder();
-    ImmutableMap.Builder<TestTimeout, Range<Integer>> timeoutFuzzyRangeBuilder =
+    ImmutableMap.Builder<TestTimeout, Range<Long>> timeoutFuzzyRangeBuilder =
         ImmutableMap.builder();
 
-    int previousMaxSuggested = 0;
-    int previousTimeout = 0;
+    long previousMaxSuggested = 0;
+    long previousTimeout = 0;
 
     Iterator<TestTimeout> timeoutIterator = Arrays.asList(values()).iterator();
     while (timeoutIterator.hasNext()) {
@@ -84,19 +84,19 @@ public enum TestTimeout {
 
       // This should be exactly the previous max because there should be exactly one suggested
       // timeout for any given time.
-      final int minSuggested = previousMaxSuggested;
+      final long minSuggested = previousMaxSuggested;
       // Only suggest timeouts that are less than 75% of the actual timeout (unless there are no
       // higher timeouts). This should be low enough to prevent suggested times from causing test
       // timeout flakiness.
-      final int maxSuggested =
-          timeoutIterator.hasNext() ? (int) (timeout.timeout * 0.75) : maxTimeout;
+      final long maxSuggested =
+          timeoutIterator.hasNext() ? (long) (timeout.timeout * 0.75) : maxTimeout;
 
       // Set fuzzy minimum timeout to half the previous timeout. If the test is that fast, it should
       // be safe to use the shorter timeout.
-      final int minFuzzy = previousTimeout / 2;
+      final long minFuzzy = previousTimeout / 2;
       // Set fuzzy maximum timeout to 90% of the timeout. A test this close to the limit can easily
       // become timeout flaky.
-      final int maxFuzzy = timeoutIterator.hasNext() ? (int) (timeout.timeout * 0.9) : maxTimeout;
+      final long maxFuzzy = timeoutIterator.hasNext() ? (long) (timeout.timeout * 0.9) : maxTimeout;
 
       timeoutFuzzyRangeBuilder.put(timeout, Range.closedOpen(minFuzzy, maxFuzzy));
 
@@ -182,9 +182,9 @@ public enum TestTimeout {
    * should be assigned a different timeout.
    *
    * <p>This is used to give suggestions to developers to update their timeouts. If this returns
-   * true, a more reasonable timeout can be selected with {@link #getSuggestedTestTimeout(int)}
+   * true, a more reasonable timeout can be selected with {@link #getSuggestedTestTimeout(long)}
    */
-  public boolean isInRangeFuzzy(int timeInSeconds) {
+  public boolean isInRangeFuzzy(long timeInSeconds) {
     return TIMEOUT_FUZZY_RANGE.get(this).contains(timeInSeconds);
   }
 
@@ -194,7 +194,7 @@ public enum TestTimeout {
    * <p>Will suggest times that are unlikely to result in timeout flakiness even if the test has a
    * significant amount of time variance.
    */
-  public static TestTimeout getSuggestedTestTimeout(int timeInSeconds) {
+  public static TestTimeout getSuggestedTestTimeout(long timeInSeconds) {
     return SUGGESTED_TIMEOUT.get(timeInSeconds);
   }
 

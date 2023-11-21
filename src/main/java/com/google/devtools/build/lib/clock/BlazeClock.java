@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.clock;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -95,5 +96,10 @@ public abstract class BlazeClock {
     long nowInMillis = clock.currentTimeMillis();
     long nowInNanos = clock.nanoTime();
     return (timeMillis) -> nowInNanos - TimeUnit.MILLISECONDS.toNanos(nowInMillis - timeMillis);
+  }
+
+  /** Format a duration value into a human-readable string. */
+  public static String formatTime(Duration duration) {
+    return duration.toString().substring(2).toLowerCase();
   }
 }

@@ -14,9 +14,13 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+import java.time.Instant;
 
 /** This event is fired during the build, when an action is started. */
 public final class ActionStartedEvent implements Postable {
+  // TODO: remove.
+  private static final int NANOS_PER_SECOND = 1000000000;
+
   private final Action action;
   private final long nanoTimeStart;
 
@@ -42,5 +46,9 @@ public final class ActionStartedEvent implements Postable {
 
   public long getNanoTimeStart() {
     return nanoTimeStart;
+  }
+
+  public Instant getTimeStart() {
+    return Instant.ofEpochSecond(nanoTimeStart / NANOS_PER_SECOND, nanoTimeStart % NANOS_PER_SECOND);
   }
 }

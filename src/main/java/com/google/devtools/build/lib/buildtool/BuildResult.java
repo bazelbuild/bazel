@@ -35,10 +35,13 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -46,8 +49,8 @@ import javax.annotation.Nullable;
  * mutable.
  */
 public final class BuildResult {
-  private long startTimeMillis = 0; // milliseconds since UNIX epoch.
-  private long stopTimeMillis = 0;
+  private Optional<Instant> startTime = Optional.empty();
+  private Optional<Instant> stopTime = Optional.empty();
 
   private Throwable crash = null;
   private boolean catastrophe = false;
@@ -66,7 +69,7 @@ public final class BuildResult {
   @Nullable private FailureDetail postBuildCallbackFailureDetail;
 
   public BuildResult(long startTimeMillis) {
-    this.startTimeMillis = startTimeMillis;
+    this.startTime = Optional.of(Instant.ofEpochMilli(startTimeMillis));
   }
 
   /**
@@ -74,7 +77,7 @@ public final class BuildResult {
    * was completed.
    */
   public void setStopTime(long stopTimeMillis) {
-    this.stopTimeMillis = stopTimeMillis;
+    this.stopTime = Optional.of(Instant.ofEpochMilli(stopTimeMillis));
   }
 
   /**
@@ -82,18 +85,18 @@ public final class BuildResult {
    * was completed.
    */
   public long getStopTime() {
-    return stopTimeMillis;
+    return stopTime.get().toEpochMilli();
   }
 
   /**
    * Returns the elapsed time in seconds for the service of this request. Not defined for requests
    * that have not been serviced.
    */
-  public double getElapsedSeconds() {
-    if (startTimeMillis == 0 || stopTimeMillis == 0) {
+  public Duration getElapsedDuration() {
+    if (startTime.isEmpty() || stopTime.isEmpty()) {
       throw new IllegalStateException("BuildRequest has not been serviced");
     }
-    return (stopTimeMillis - startTimeMillis) / 1000.0;
+    return Duration.between(startTime.get(), stopTime.get());
   }
 
   public void setDetailedExitCode(DetailedExitCode detailedExitCode) {
@@ -263,8 +266,8 @@ public final class BuildResult {
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
-        .add("startTimeMillis", startTimeMillis)
-        .add("stopTimeMillis", stopTimeMillis)
+        .add("startTime", startTime)
+        .add("stopTime", stopTime)
         .add("crash", crash)
         .add("catastrophe", catastrophe)
         .add("detailedExitCode", detailedExitCode)

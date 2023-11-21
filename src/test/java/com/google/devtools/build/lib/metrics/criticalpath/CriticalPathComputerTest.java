@@ -451,7 +451,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
   public void testEmptyCriticalPath() {
     AggregatedCriticalPath empty = computer.aggregate();
     assertThat(empty.components()).isEmpty();
-    assertThat(empty.totalTimeInMs()).isEqualTo(0);
+    assertThat(empty.totalTime()).isEqualTo(Duration.ZERO);
     checkTopComponentsTimes(computer);
   }
 
@@ -560,7 +560,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
   @Test
   public void testWallTime() throws Exception {
     simulateActionExec(new NullAction(), 2000);
-    checkCriticalPath(2000, "2.00");
+    checkCriticalPath(Duration.ofMillis(2000), "2.00");
     checkTopComponentsTimes(computer, 2000L);
     NanosToMillisSinceEpochConverter converter =
         BlazeClock.createNanosToMillisSinceEpochConverter(clock);
@@ -1054,11 +1054,11 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     return ActionsTestUtil.createArtifact(middlemanRoot, path);
   }
 
-  private void checkCriticalPath(int totalWallTimeInMillis, String totalWallTimeStr) {
+  private void checkCriticalPath(Duration totalWallTime, String totalWallTimeStr) {
     AggregatedCriticalPath criticalPath = computer.aggregate();
 
     assertThat(criticalPath).isNotNull();
-    assertThat(criticalPath.totalTimeInMs()).isEqualTo(totalWallTimeInMillis);
+    assertThat(criticalPath.totalTime()).isEqualTo(totalWallTime);
 
     String summary = criticalPath.toStringSummary();
     assertThat(summary).contains("Critical Path: " + totalWallTimeStr + "s");
@@ -1075,7 +1075,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
     AggregatedCriticalPath criticalPath = computer.aggregate();
 
     assertThat(criticalPath).isNotNull();
-    assertThat(criticalPath.totalTimeInMs()).isEqualTo(totalWallTime.toMillis());
+    assertThat(criticalPath.totalTime()).isEqualTo(totalWallTime);
     assertThat(criticalPath.getSpawnMetrics().getRemoteMetrics().totalTimeInMs())
         .isEqualTo(totalTime.toMillis());
     assertThat(criticalPath.getSpawnMetrics().getRemoteMetrics().executionWallTimeInMs())

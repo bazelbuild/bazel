@@ -14,8 +14,12 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.devtools.build.lib.clock.BlazeClock.formatTime;
+
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Ordering;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -30,6 +34,7 @@ import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -306,27 +311,24 @@ final class TestResultAggregator {
 
     TestTimeout specifiedTimeout =
         target.getProvider(TestProvider.class).getTestParams().getTimeout();
-    long maxTimeOfShard = 0;
+    Duration maxTimeOfShard =
+        testTimes.stream()
+            .filter(Predicates.notNull())
+            .map(Duration::ofMillis)
+            .max(Ordering.natural())
+            .orElse(Duration.ZERO);
 
-    for (Long shardTime : testTimes) {
-      if (shardTime != null) {
-        maxTimeOfShard = Math.max(maxTimeOfShard, shardTime);
-      }
-    }
-
-    int maxTimeInSeconds = (int) (maxTimeOfShard / 1000);
-
-    if (!specifiedTimeout.isInRangeFuzzy(maxTimeInSeconds)) {
-      TestTimeout expectedTimeout = TestTimeout.getSuggestedTestTimeout(maxTimeInSeconds);
+    if (!specifiedTimeout.isInRangeFuzzy(maxTimeOfShard.toSeconds())) {
+      TestTimeout expectedTimeout = TestTimeout.getSuggestedTestTimeout(maxTimeOfShard.toSeconds());
       TestSize expectedSize = TestSize.getTestSize(expectedTimeout);
       if (verbose) {
         StringBuilder builder =
             new StringBuilder(
                 String.format(
-                    "%s: Test execution time (%.1fs excluding execution overhead) outside of "
+                    "%s: Test execution time (%s excluding execution overhead) outside of "
                         + "range for %s tests. Consider setting timeout=\"%s\"",
                     AliasProvider.getDependencyLabel(target),
-                    maxTimeOfShard / 1000.0,
+                    formatTime(maxTimeOfShard),
                     specifiedTimeout.prettyPrint(),
                     expectedTimeout));
         if (expectedSize != null) {

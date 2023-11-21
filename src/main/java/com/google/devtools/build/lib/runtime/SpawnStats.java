@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multiset;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -62,8 +63,8 @@ public class SpawnStats {
     totalNumberOfActions.incrementAndGet();
   }
 
-  public long getTotalWallTimeMillis() {
-    return totalWallTimeMillis.get();
+  public Duration getTotalWallTime() {
+    return Duration.ofMillis(totalWallTimeMillis.get());
   }
 
   /*

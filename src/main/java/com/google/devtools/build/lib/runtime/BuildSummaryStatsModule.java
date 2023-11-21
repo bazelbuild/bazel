@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.devtools.build.lib.clock.BlazeClock.formatTime;
+
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.AllowConcurrentEvents;
@@ -42,6 +44,8 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTarge
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -60,9 +64,9 @@ public class BuildSummaryStatsModule extends BlazeModule {
   private boolean enabled;
 
   private boolean statsSummary;
-  private long commandStartMillis;
-  private long executionStartMillis;
-  private long executionEndMillis;
+  private Instant commandStart;
+  private Instant executionStart;
+  private Instant executionEnd;
   private SpawnStats spawnStats;
   private Path profilePath;
   private AtomicBoolean executionStarted;
@@ -72,7 +76,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
     this.reporter = env.getReporter();
     this.eventBus = env.getEventBus();
     this.actionKeyContext = env.getSkyframeExecutor().getActionKeyContext();
-    commandStartMillis = env.getCommandStartTime();
+    commandStart = Instant.ofEpochMilli(env.getCommandStartTime());
     this.spawnStats = new SpawnStats();
     eventBus.register(this);
     executionStarted = new AtomicBoolean(false);
@@ -116,8 +120,8 @@ public class BuildSummaryStatsModule extends BlazeModule {
   }
 
   private void markExecutionPhaseStarted() {
-    // TODO(ulfjack): Make sure to use the same clock as for commandStartMillis.
-    executionStartMillis = BlazeClock.instance().currentTimeMillis();
+    // TODO(ulfjack): Make sure to use the same clock as for commandStart.
+    executionStart = BlazeClock.instance().now();
   }
 
   @Subscribe
@@ -127,7 +131,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
 
   @Subscribe
   public void executionPhaseFinish(@SuppressWarnings("unused") ExecutionFinishedEvent event) {
-    executionEndMillis = BlazeClock.instance().currentTimeMillis();
+    executionEnd = BlazeClock.instance().now();
   }
 
   @Subscribe
@@ -147,12 +151,15 @@ public class BuildSummaryStatsModule extends BlazeModule {
     try {
       // We might want to make this conditional on a flag; it can sometimes be a bit of a nuisance.
       List<String> items = new ArrayList<>();
-      items.add(String.format("Elapsed time: %.3fs", event.getResult().getElapsedSeconds()));
-      event.getResult().getBuildToolLogCollection()
+      items.add(
+          String.format("Elapsed time: %s", formatTime(event.getResult().getElapsedDuration())));
+      event
+          .getResult()
+          .getBuildToolLogCollection()
           .addDirectValue(
               "elapsed time",
-              String.format(
-                  "%f", event.getResult().getElapsedSeconds()).getBytes(StandardCharsets.UTF_8));
+              String.format("%d", event.getResult().getElapsedDuration().toSeconds())
+                  .getBytes(StandardCharsets.UTF_8));
 
       AggregatedCriticalPath criticalPath = AggregatedCriticalPath.EMPTY;
       if (criticalPathComputer != null) {
@@ -202,20 +209,19 @@ public class BuildSummaryStatsModule extends BlazeModule {
         reporter.handle(
             Event.info(
                 String.format(
-                    "Total action wall time %.2fs", spawnStats.getTotalWallTimeMillis() / 1000.0)));
+                    "Total action wall time %s", formatTime(spawnStats.getTotalWallTime()))));
         if (criticalPath != AggregatedCriticalPath.EMPTY) {
           reporter.handle(Event.info(criticalPath.getNewStringSummary()));
         }
-        long now = event.getResult().getStopTime();
-        long executionTime = executionEndMillis - executionStartMillis;
-        long overheadTime = now - commandStartMillis - executionTime;
+        Instant now = Instant.ofEpochMilli(event.getResult().getStopTime());
+        Duration elapsedTime = Duration.between(commandStart, now);
+        Duration executionTime = Duration.between(executionStart, executionEnd);
+        Duration overheadTime = elapsedTime.minus(executionTime);
         reporter.handle(
             Event.info(
                 String.format(
-                    "Elapsed time %.2fs (preparation %.2fs, execution %.2fs)",
-                    (now - commandStartMillis) / 1000.0,
-                    overheadTime / 1000.0,
-                    executionTime / 1000.0)));
+                    "Elapsed time %s (preparation %s, execution %s)",
+                    formatTime(elapsedTime), formatTime(overheadTime), formatTime(executionTime))));
       } else {
         reporter.handle(Event.info(Joiner.on(", ").join(items)));
         reporter.handle(Event.info(spawnSummaryString));

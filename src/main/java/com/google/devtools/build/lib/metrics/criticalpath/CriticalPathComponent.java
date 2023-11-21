@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.metrics.criticalpath;
 
+import static com.google.devtools.build.lib.clock.BlazeClock.formatTime;
+
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -322,7 +324,7 @@ public class CriticalPathComponent {
     StringBuilder sb = new StringBuilder();
     String currentTime = "still running";
     if (!isRunning) {
-      currentTime = String.format("%.2f", getElapsedTimeNoCheck().toMillis() / 1000.0) + "s";
+      currentTime = formatTime(getElapsedTimeNoCheck());
     }
     sb.append(currentTime);
     if (remote) {

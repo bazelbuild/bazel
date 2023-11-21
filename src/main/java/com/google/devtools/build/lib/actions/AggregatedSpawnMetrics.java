@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.time.Duration;
+import java.time.temporal.TemporalUnit;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.function.Function;
@@ -132,10 +133,11 @@ public final class AggregatedSpawnMetrics {
    * <p>Example: {@code getTotalDuration(SpawnMetrics::queueTime)} will give the total queue time
    * across all execution kinds.
    */
-  public int getTotalDuration(Function<SpawnMetrics, Integer> extract) {
-    int result = 0;
+  public Duration getTotalDuration(Function<SpawnMetrics, Integer> extract, TemporalUnit unit) {
+    Duration result = Duration.ZERO;
     for (SpawnMetrics metric : metricsMap.values()) {
-      result += extract.apply(metric);
+      int metricDurationInMillis = extract.apply(metric);
+      result = result.plus(metricDurationInMillis, unit);
     }
     return result;
   }
