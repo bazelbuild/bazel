@@ -216,6 +216,9 @@ EOF
 bazel_dep(name = "platforms", version = "0.0.7")
 EOF
 
+  # The next line ensures that the test passes in IPv6-only networks.
+  export JAVA_TOOL_OPTIONS="-Djava.net.preferIPv6Addresses=true"
+
   bazel clean
   # Check that android builds with bzlmod enable work.
   bazel build --experimental_enable_bzlmod \
