@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.exec;
 
 import build.bazel.remote.execution.v2.Platform;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.HashCode;
@@ -244,7 +245,8 @@ public class SpawnLogContext implements ActionContext {
     }
   }
 
-  private static com.google.protobuf.Duration millisToProto(int t) {
+  @VisibleForTesting
+  static com.google.protobuf.Duration millisToProto(int t) {
     return Durations.fromMillis(t);
   }
 
