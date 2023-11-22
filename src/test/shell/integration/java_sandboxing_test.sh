@@ -83,9 +83,12 @@ public class Main {
 }
 EOF
 
+  # ReannotatingJlink doesn't support workers.
   bazel build \
     --strategy=Javac="${strategy}" \
     --strategy=JavaResourceJar="${strategy}" \
+    --strategy=ReannotatingJlink=sandboxed \
+    --strategy=CopyReannotatedJdk=sandboxed \
     --sandbox_debug \
     --min_param_file_size=100 \
     "${@}" \
