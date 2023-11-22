@@ -414,12 +414,8 @@ public class CcStarlarkInternal implements StarlarkValue {
       parameters = {
         @Param(name = "ctx", positional = false, named = true),
       })
-  public CcCommon createCommon(StarlarkRuleContext starlarkRuleContext) throws EvalException {
-    try {
-      return new CcCommon(starlarkRuleContext.getRuleContext());
-    } catch (RuleErrorException e) {
-      throw new EvalException(e);
-    }
+  public CcCommon createCommon(StarlarkRuleContext starlarkRuleContext) {
+    return new CcCommon(starlarkRuleContext.getRuleContext());
   }
 
   @StarlarkMethod(name = "launcher_provider", documented = false, structField = true)

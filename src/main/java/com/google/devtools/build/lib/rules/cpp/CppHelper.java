@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionExce
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
-import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -75,10 +74,6 @@ public class CppHelper {
 
   public static final PathFragment SHARED_NONLTO_BACKEND_ROOT_PREFIX =
       PathFragment.create("shared.nonlto");
-
-  // TODO(bazel-team): should this use Link.SHARED_LIBRARY_FILETYPES?
-  public static final FileTypeSet SHARED_LIBRARY_FILETYPES =
-      FileTypeSet.of(CppFileTypes.SHARED_LIBRARY, CppFileTypes.VERSIONED_SHARED_LIBRARY);
 
   /** Base label of the c++ toolchain category. */
   public static final String TOOLCHAIN_TYPE_LABEL = "//tools/cpp:toolchain_type";

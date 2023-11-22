@@ -2534,7 +2534,7 @@ public abstract class CcModule
 
     SourceCategory sourceCategory =
         (language == Language.CPP) ? SourceCategory.CC : SourceCategory.CC_AND_OBJC;
-    CcCommon common = new CcCommon(actions.getRuleContext(), ccToolchainProvider);
+    CcCommon common = new CcCommon(actions.getRuleContext());
     BuildConfigurationValue configuration =
         actions.getActionConstructionContext().getConfiguration();
     CcCompilationHelper helper =
