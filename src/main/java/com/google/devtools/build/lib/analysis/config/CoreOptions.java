@@ -88,19 +88,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public String starlarkExecConfig;
 
   @Option(
-      name = "experimental_exec_config_diff",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "For debugging --experimental_exec_config only: if set and  --experimental_exec_config is"
-              + " set, Bazel also runs internal logic on `cfg =  \"exec\"` transitions and prints "
-              + "the diff between that and the Starlark transition to the screen.  "
-              + "`cfg =  \"exec\"` semantics still use the Starlark transition.")
-  public boolean execConfigDiff;
-
-  @Option(
       name = "experimental_platform_in_output_dir",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -949,82 +936,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     public IncludeConfigFragmentsEnumConverter() {
       super(IncludeConfigFragmentsEnum.class, "include config fragments provider option");
     }
-  }
-
-  @Override
-  public FragmentOptions getExec() {
-    CoreOptions exec = (CoreOptions) getDefault();
-
-    exec.compilationMode = hostCompilationMode;
-    exec.isExec = false;
-    exec.outputPathsMode = outputPathsMode;
-    exec.enableRunfiles = enableRunfiles;
-    exec.commandLineBuildVariables = commandLineBuildVariables;
-    exec.enforceConstraints = enforceConstraints;
-    exec.mergeGenfilesDirectory = mergeGenfilesDirectory;
-    exec.cpu = hostCpu;
-    exec.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;
-    exec.debugSelectsAlwaysSucceed = debugSelectsAlwaysSucceed;
-    exec.checkTestonlyForOutputFiles = checkTestonlyForOutputFiles;
-    exec.useAutoExecGroups = useAutoExecGroups;
-    exec.experimentalWritableOutputs = experimentalWritableOutputs;
-    exec.strictConflictChecks = strictConflictChecks;
-    exec.disallowUnsoundDirectoryOutputs = disallowUnsoundDirectoryOutputs;
-
-    // === Output path calculation
-    exec.outputDirectoryNamingScheme = outputDirectoryNamingScheme;
-    exec.execConfigurationDistinguisherScheme = execConfigurationDistinguisherScheme;
-    exec.platformInOutputDir = platformInOutputDir;
-    exec.usePlatformsInOutputDirLegacyHeuristic = usePlatformsInOutputDirLegacyHeuristic;
-    exec.overrideNamePlatformInOutputDirEntries = overrideNamePlatformInOutputDirEntries;
-
-    // === Runfiles ===
-    exec.buildRunfileManifests = buildRunfileManifests;
-    exec.buildRunfileLinks = buildRunfileLinks;
-    exec.legacyExternalRunfiles = legacyExternalRunfiles;
-    exec.remotableSourceManifestActions = remotableSourceManifestActions;
-    exec.alwaysIncludeFilesToBuildInData = alwaysIncludeFilesToBuildInData;
-
-    // === Filesets ===
-    exec.strictFilesetOutput = strictFilesetOutput;
-    exec.strictFilesets = strictFilesets;
-
-    // === Linkstamping ===
-    // Disable all link stamping for the exec configuration, to improve action
-    // cache hit rates for tools.
-    exec.stampBinaries = false;
-
-    // === Visibility ===
-    exec.checkVisibility = checkVisibility;
-
-    // === Licenses ===
-    exec.checkLicenses = checkLicenses;
-
-    // === Pass on C++ compiler features.
-    exec.incompatibleUseHostFeatures = incompatibleUseHostFeatures;
-    exec.hostFeatures = ImmutableList.copyOf(hostFeatures);
-    if (incompatibleUseHostFeatures) {
-      exec.defaultFeatures = ImmutableList.copyOf(hostFeatures);
-    } else {
-      exec.defaultFeatures = ImmutableList.copyOf(defaultFeatures);
-    }
-
-    // Save host options in case of a further exec->host transition.
-    exec.hostCpu = hostCpu;
-    exec.hostCompilationMode = hostCompilationMode;
-
-    // Pass exec action environment variables
-    exec.actionEnvironment = hostActionEnvironment;
-    exec.hostActionEnvironment = hostActionEnvironment;
-
-    // Pass archived tree artifacts filter.
-    exec.archivedArtifactsMnemonicsFilter = archivedArtifactsMnemonicsFilter;
-
-    exec.allowUnresolvedSymlinks = allowUnresolvedSymlinks;
-
-    exec.starlarkExecConfig = starlarkExecConfig;
-    exec.execConfigDiff = execConfigDiff;
-    return exec;
   }
 
   /// Normalizes --define flags, preserving the last one to appear in the event of conflicts.

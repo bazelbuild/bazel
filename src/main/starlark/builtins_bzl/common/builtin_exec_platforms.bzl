@@ -196,7 +196,6 @@ _add_fragment(
         "//command_line_option:archived_tree_artifact_mnemonics_filter",
         "//command_line_option:allow_unresolved_symlinks",
         "//command_line_option:experimental_exec_config",
-        "//command_line_option:experimental_exec_config_diff",
     ],
     inputs = ["//command_line_option:features"],
     outputs = [

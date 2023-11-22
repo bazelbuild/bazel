@@ -388,36 +388,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
     return DottedVersion.maybeUnwrap(option);
   }
 
-  @Override
-  public FragmentOptions getExec() {
-    AppleCommandLineOptions exec = (AppleCommandLineOptions) super.getExec();
-
-    // Set options needed in the exec configuration.
-    exec.xcodeVersionConfig = xcodeVersionConfig;
-    exec.xcodeVersion = xcodeVersion;
-    exec.iosSdkVersion = iosSdkVersion;
-    exec.watchOsSdkVersion = watchOsSdkVersion;
-    exec.tvOsSdkVersion = tvOsSdkVersion;
-    exec.macOsSdkVersion = macOsSdkVersion;
-    exec.macosMinimumOs = hostMacosMinimumOs;
-    // The exec apple platform type will always be MACOS, as no other apple platform type can
-    // currently execute build actions. If that were the case, a host_apple_platform_type flag might
-    // be needed.
-    exec.applePlatformType = PlatformType.MACOS;
-    exec.configurationDistinguisher = ConfigurationDistinguisher.UNKNOWN;
-    // Preserve Xcode selection preferences so that the same Xcode version is used throughout the
-    // build.
-    exec.preferMutualXcode = preferMutualXcode;
-    exec.includeXcodeExecutionRequirements = includeXcodeExecutionRequirements;
-    exec.appleCrosstoolTop = appleCrosstoolTop;
-    exec.incompatibleUseToolchainResolution = incompatibleUseToolchainResolution;
-
-    // Save host option for further use.
-    exec.hostMacosMinimumOs = hostMacosMinimumOs;
-
-    return exec;
-  }
-
   void serialize(SerializationContext context, CodedOutputStream out)
       throws IOException, SerializationException {
     context.serialize(this, out);

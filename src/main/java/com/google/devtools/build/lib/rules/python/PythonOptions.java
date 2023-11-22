@@ -348,34 +348,6 @@ public class PythonOptions extends FragmentOptions {
   }
 
   @Override
-  public FragmentOptions getExec() {
-    PythonOptions hostPythonOptions = (PythonOptions) getDefault();
-    PythonVersion hostVersion = getDefaultPythonVersion();
-    if (hostForcePython != null) {
-      hostVersion = hostForcePython;
-      hostPythonOptions.defaultPythonVersion = hostForcePython;
-    }
-    hostPythonOptions.setPythonVersion(hostVersion);
-    hostPythonOptions.incompatiblePy3IsDefault = incompatiblePy3IsDefault;
-    hostPythonOptions.incompatiblePy2OutputsAreSuffixed = incompatiblePy2OutputsAreSuffixed;
-    hostPythonOptions.buildPythonZip = buildPythonZip;
-    hostPythonOptions.incompatibleUsePythonToolchains = incompatibleUsePythonToolchains;
-    hostPythonOptions.incompatibleAllowPythonVersionTransitions =
-        incompatibleAllowPythonVersionTransitions;
-    hostPythonOptions.incompatibleDefaultToExplicitInitPy = incompatibleDefaultToExplicitInitPy;
-    hostPythonOptions.incompatibleDisallowLegacyPyProvider = incompatibleDisallowLegacyPyProvider;
-    hostPythonOptions.incompatibleRemoveOldPythonVersionApi = incompatibleRemoveOldPythonVersionApi;
-    hostPythonOptions.disablePy2 = disablePy2;
-    hostPythonOptions.nativeRulesAllowlist = nativeRulesAllowlist;
-    hostPythonOptions.disallowNativeRules = disallowNativeRules;
-
-    // Save host options in case of a further exec->host transition.
-    hostPythonOptions.hostForcePython = hostForcePython;
-
-    return hostPythonOptions;
-  }
-
-  @Override
   public FragmentOptions getNormalized() {
     // We want to ensure that options with "null" physical default values are normalized, to avoid
     // #7808.

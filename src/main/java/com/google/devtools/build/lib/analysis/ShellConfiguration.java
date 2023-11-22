@@ -91,12 +91,5 @@ public class ShellConfiguration extends Fragment {
                 + "to build failures or runtime failures of the generated binaries."
     )
     public PathFragment shellExecutable;
-
-    @Override
-    public Options getExec() {
-      Options exec = (Options) getDefault();
-      exec.shellExecutable = shellExecutable;
-      return exec;
-    }
   }
 }

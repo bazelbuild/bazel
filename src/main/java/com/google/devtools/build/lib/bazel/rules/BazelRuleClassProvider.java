@@ -156,13 +156,6 @@ public class BazelRuleClassProvider {
                 + "inherit specific environment variables from the client, but note that doing so "
                 + "can prevent cross-user caching if a shared cache is used.")
     public boolean useStrictActionEnv;
-
-    @Override
-    public StrictActionEnvOptions getExec() {
-      StrictActionEnvOptions exec = (StrictActionEnvOptions) getDefault();
-      exec.useStrictActionEnv = useStrictActionEnv;
-      return exec;
-    }
   }
 
   private static final PathFragment FALLBACK_SHELL = PathFragment.create("/bin/bash");

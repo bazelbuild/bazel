@@ -149,11 +149,5 @@ public final class DummyTestFragment extends Fragment {
         return "a string that is not readable by Starlark";
       }
     }
-
-    @Override
-    public FragmentOptions getExec() {
-      DummyTestOptions exec = (DummyTestOptions) getDefault();
-      return exec;
-    }
   }
 }

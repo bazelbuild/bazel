@@ -724,13 +724,6 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "This option is not trimmed and is used by all host targets.")
     public String hostRelevantOption;
-
-    @Override
-    public DiffResetOptions getExec() {
-      DiffResetOptions exec = ((DiffResetOptions) super.getExec());
-      exec.definitelyRelevantOption = hostRelevantOption;
-      return exec;
-    }
   }
 
   /** Test fragment. */

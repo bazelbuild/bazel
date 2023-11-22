@@ -48,15 +48,6 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
   }
 
   /**
-   * Creates a new instance of this {@code FragmentOptions} with all flags adjusted as needed to
-   * represent the execution platform.
-   */
-  @SuppressWarnings("unused")
-  public FragmentOptions getExec() {
-    return getDefault();
-  }
-
-  /**
    * Returns an instance of {@code FragmentOptions} with all flags adjusted to be suitable for
    * forming configurations.
    *
@@ -82,7 +73,7 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
 
   /**
    * Helper method for subclasses to normalize set valued options. In addition to removing
-   * duplicates, it picks a deterministic ordering. The fact that the determinisitic ordering is
+   * duplicates, it picks a deterministic ordering. The fact that the deterministic ordering is
    * based on sorting is an accident and should NOT be relied upon.
    */
   protected static ImmutableList<String> dedupAndSort(@Nullable List<String> values) {

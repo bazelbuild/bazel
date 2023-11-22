@@ -155,7 +155,7 @@ public final class FunctionTransitionUtil {
     // Propagate Starlark options from the source config:
     // TODO(b/288258583) don't automatically propagate Starlark options.
     defaultBuilder.addStarlarkOptions(fromOptions.getStarlarkOptions());
-    // Hard-code TestConfiguration.getExec() for now, which clones the source options.
+    // Hard-code TestConfiguration for now, which clones the source options.
     // TODO(b/295936652): handle this directly in Starlark. This has two complications:
     //  1: --trim_test_configuration means the flags may not exist. Starlark logic needs to handle
     //     that possibility.

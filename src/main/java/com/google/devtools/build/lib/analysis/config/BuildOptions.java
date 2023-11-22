@@ -79,15 +79,6 @@ public final class BuildOptions implements Cloneable {
     }
   }
 
-  /** Creates a new BuildOptions instance for an exec configuration. */
-  public BuildOptions createExecOptions() {
-    Builder builder = builder();
-    for (FragmentOptions options : fragmentOptionsMap.values()) {
-      builder.addFragmentOptions(options.getExec());
-    }
-    return builder.addStarlarkOptions(starlarkOptionsMap).build();
-  }
-
   /**
    * Creates a BuildOptions class by taking the option values from an options provider (eg. an
    * OptionsParser).
