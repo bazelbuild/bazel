@@ -53,6 +53,35 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testTestResourcesFlag() throws Exception {
+    scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
+    scratch.file(
+        "tests/BUILD",
+        "sh_test(",
+        "  name = 'test',",
+        "  size = 'medium',",
+        "  srcs = ['test.sh'],",
+        "  tags = ['resources:gpu:4'],",
+        ")");
+    useConfiguration(
+        "--test_resources=memory=10,20,30,40",
+        "--test_resources=cpu=1,2,3,4",
+        "--test_resources=gpu=1",
+        "--test_resources=cpu=5");
+    ConfiguredTarget testTarget = getConfiguredTarget("//tests:test");
+    TestRunnerAction testAction =
+        (TestRunnerAction)
+            getGeneratingAction(TestProvider.getTestStatusArtifacts(testTarget).get(0));
+    ResourceSet localResourceUsage =
+        testAction
+            .getTestProperties()
+            .getLocalResourceUsage(testAction.getOwner().getLabel(), false);
+    assertThat(localResourceUsage.getResources().get("gpu")).isEqualTo(4.0);
+    assertThat(localResourceUsage.getCpuUsage()).isEqualTo(5.0);
+    assertThat(localResourceUsage.getMemoryMb()).isEqualTo(20);
+  }
+
+  @Test
   public void testTestWithExclusiveRunLocallyByDefault() throws Exception {
     useConfiguration("--noincompatible_exclusive_test_sandboxed");
     scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");

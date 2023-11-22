@@ -71,6 +71,7 @@ public class TestTargetProperties {
   private final boolean isExternal;
   private final String language;
   private final ImmutableMap<String, String> executionInfo;
+  private final TestConfiguration testConfiguration;
 
   /**
    * Creates test target properties instance. Constructor expects that it will be called only for
@@ -93,7 +94,7 @@ public class TestTargetProperties {
 
     boolean incompatibleExclusiveTestSandboxed = false;
 
-    TestConfiguration testConfiguration = ruleContext.getFragment(TestConfiguration.class);
+    testConfiguration = ruleContext.getFragment(TestConfiguration.class);
     if (testConfiguration != null) {
       incompatibleExclusiveTestSandboxed = testConfiguration.incompatibleExclusiveTestSandboxed();
     }
@@ -201,11 +202,22 @@ public class TestTargetProperties {
       return LOCAL_TEST_JOBS_BASED_RESOURCES;
     }
 
-    Map<String, Double> resources = parseTags(label, executionInfo);
-    ResourceSet testResourcesFromSize = TestTargetProperties.getResourceSetFromSize(size);
-    testResourcesFromSize.getResources().forEach(resources::putIfAbsent);
+    ResourceSet defaultResources = getResourceSetFromSize(size);
+    Map<String, Double> resourcesFromTags = parseTags(label, executionInfo);
+    Map<String, Double> configResources = testConfiguration == null ?
+          ImmutableMap.of() :
+          testConfiguration.getTestResources(size);
+    if (resourcesFromTags.isEmpty() && configResources.isEmpty()) {
+      return defaultResources;
+    }
+
     return ResourceSet.create(
-        ImmutableMap.copyOf(resources), testResourcesFromSize.getLocalTestCount());
+        ImmutableMap.<String, Double>builder()
+            .putAll(defaultResources.getResources())
+            .putAll(configResources)
+            .putAll(resourcesFromTags)
+            .buildKeepingLast(),
+        defaultResources.getLocalTestCount());
   }
 
   private static FailureDetail createFailureDetail(String message, Code detailedCode) {
