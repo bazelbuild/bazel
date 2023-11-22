@@ -15,11 +15,14 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -30,8 +33,11 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.common.options.OptionDefinition;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
+import java.lang.reflect.Field;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -273,5 +279,69 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
             InvalidConfigurationException.class,
             () -> useConfiguration("--experimental_exec_config=" + cmdLineRef));
     assertThat(e).hasMessageThat().contains(expectedError);
+  }
+
+  /** Checks all incompatible options propagate to the exec configuration. */
+  @Test
+  public void incompatibleOptionsPreservedInExec() throws Exception {
+    BuildOptions defaultOptions =
+        BuildOptions.getDefaultBuildOptionsForFragments(
+            targetConfig.getOptions().getFragmentClasses());
+    ImmutableMap<String, OptionInfo> optionInfoMap = OptionInfo.buildMapFrom(defaultOptions);
+
+    // Find all options with the INCOMPATIBLE_CHANGE metadata tag or start with "--incompatible_".
+    ImmutableMap<String, OptionInfo> incompatibleOptions =
+        optionInfoMap.entrySet().stream()
+            .filter(
+                o ->
+                    o.getKey().startsWith("incompatible_")
+                        || o.getValue().hasOptionMetadataTag(OptionMetadataTag.INCOMPATIBLE_CHANGE))
+            .filter(
+                o ->
+                    o.getValue()
+                        .getDefinition()
+                        .getField()
+                        .getType()
+                        .isAssignableFrom(boolean.class))
+            .filter(
+                o -> !o.getValue().getDefinition().getField().isAnnotationPresent(Deprecated.class))
+            .collect(toImmutableMap(k -> k.getKey(), v -> v.getValue()));
+
+    // Verify all "--incompatible_*" options also have the INCOMPATIBLE_CHANGE metadata tag.
+    ImmutableList<String> missingMetadataTagOptions =
+        incompatibleOptions.entrySet().stream()
+            .filter(o -> !o.getValue().hasOptionMetadataTag(OptionMetadataTag.INCOMPATIBLE_CHANGE))
+            .map(o -> "--" + o.getValue().getDefinition().getOptionName())
+            .collect(toImmutableList());
+
+    // Flip all incompatible (boolean) options to their non-default value.
+    BuildOptions flipped = defaultOptions.clone(); // To be flipped by below logic.
+    for (OptionInfo option : incompatibleOptions.values()) {
+      Field field = option.getDefinition().getField();
+      FragmentOptions fragment = flipped.get(option.getOptionClass());
+      field.setBoolean(fragment, !field.getBoolean(fragment));
+    }
+
+    PatchTransition execTransition = getExecTransition(EXECUTION_PLATFORM);
+    BuildOptions execOptions =
+        execTransition.patch(
+            new BuildOptionsView(flipped, execTransition.requiresOptionFragments()),
+            new StoredEventHandler());
+
+    // Find which incompatible options are different in the exec config (shouldn't be any).
+    ImmutableMultimap.Builder<Class<? extends FragmentOptions>, OptionDefinition>
+        unpreservedOptions = new ImmutableMultimap.Builder<>();
+    for (OptionInfo incompatibleOption : incompatibleOptions.values()) {
+      Field field = incompatibleOption.getDefinition().getField();
+      Class<? extends FragmentOptions> optionClass = incompatibleOption.getOptionClass();
+      if (field.getBoolean(execOptions.get(optionClass))
+          != field.getBoolean(flipped.get(optionClass))) {
+        unpreservedOptions.put(
+            incompatibleOption.getOptionClass(), incompatibleOption.getDefinition());
+      }
+    }
+
+    assertThat(missingMetadataTagOptions).isEmpty();
+    assertThat(unpreservedOptions.build()).isEmpty();
   }
 }

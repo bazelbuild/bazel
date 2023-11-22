@@ -110,6 +110,13 @@ _add_fragment(
 )
 
 _add_fragment(
+    name = "BazelConfiguration$Options",
+    propagate = [
+        "//command_line_option:incompatible_check_visibility_for_toolchains",
+    ],
+)
+
+_add_fragment(
     name = "BazelPythonConfiguration$Options",
     propagate = [
         "//command_line_option:python2_path",

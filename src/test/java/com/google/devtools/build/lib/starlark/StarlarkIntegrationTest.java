@@ -1069,7 +1069,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "      '//command_line_option:is exec configuration': True,",
         "      '//command_line_option:platforms': [],",
         // Need to propagate so we don't parse unparseable default @local_config_platform. Remember
-        // getExec() starts from defaults.
+        // the exec transition starts from defaults.
         "      '//command_line_option:host_platform':"
             + " settings['//command_line_option:host_platform'],",
         "      '//command_line_option:experimental_exec_config':"

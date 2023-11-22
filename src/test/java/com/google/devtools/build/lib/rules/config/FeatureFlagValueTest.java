@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.Map;
 import java.util.Set;
@@ -31,7 +32,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for feature flag options data. */
 @RunWith(JUnit4.class)
-public final class FeatureFlagValueTest {
+public final class FeatureFlagValueTest extends BuildViewTestCase {
 
   private BuildOptions emptyBuildOptions() throws Exception {
     return BuildOptions.of(ImmutableList.of(ConfigFeatureFlagOptions.class));
@@ -362,40 +363,5 @@ public final class FeatureFlagValueTest {
         .containsEntry(
             Label.parseCanonicalUnchecked("//unrelated/starlark:option"),
             FeatureFlagValue.UnknownValue.INSTANCE);
-  }
-
-  @Test
-  public void hostMode_disablesTrimmingButIsOtherwiseEquivalent() throws Exception {
-    BuildOptions options = emptyBuildOptions();
-    options.get(ConfigFeatureFlagOptions.class).enforceTransitiveConfigsForConfigFeatureFlag = true;
-    options =
-        FeatureFlagValue.replaceFlagValues(
-            options,
-            ImmutableMap.of(
-                Label.parseCanonicalUnchecked("//label:a"),
-                "value",
-                Label.parseCanonicalUnchecked("//label:d"),
-                "otherValue"));
-    options =
-        FeatureFlagValue.trimFlagValues(
-            options,
-            ImmutableSet.of(
-                Label.parseCanonicalUnchecked("//label:a"),
-                Label.parseCanonicalUnchecked("//label:b")));
-    options =
-        FeatureFlagValue.trimFlagValues(
-            options,
-            ImmutableSet.of(
-                Label.parseCanonicalUnchecked("//label:a"),
-                Label.parseCanonicalUnchecked("//label:b"),
-                Label.parseCanonicalUnchecked("//label:c")));
-
-    BuildOptions hostOptions = options.createExecOptions();
-    assertThat(hostOptions).isNotEqualTo(options);
-    BuildOptions withTransitiveConfigsDisabled = options.clone();
-    withTransitiveConfigsDisabled.get(ConfigFeatureFlagOptions.class)
-            .enforceTransitiveConfigsForConfigFeatureFlag =
-        false;
-    assertThat(hostOptions).isEqualTo(withTransitiveConfigsDisabled);
   }
 }
