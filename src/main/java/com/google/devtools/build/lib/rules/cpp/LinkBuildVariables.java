@@ -18,6 +18,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
@@ -128,7 +129,12 @@ public enum LinkBuildVariables {
       throws EvalException, InterruptedException {
     CcToolchainVariables.Builder buildVariables =
         CcToolchainVariables.builder(
-            ccToolchainProvider.getBuildVariables(thread, buildOptions, cppConfiguration));
+            CcToolchainProvider.getBuildVars(
+                ccToolchainProvider,
+                thread,
+                cppConfiguration,
+                buildOptions,
+                buildOptions.get(CoreOptions.class).cpu));
 
     // pic
     if (cppConfiguration.forcePic()) {

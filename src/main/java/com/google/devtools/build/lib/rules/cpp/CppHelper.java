@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -385,10 +386,12 @@ public class CppHelper {
     CcToolchainVariables baseVars;
     try {
       baseVars =
-          toolchain.getBuildVariables(
+          CcToolchainProvider.getBuildVars(
+              toolchain,
               ruleContext.getStarlarkThread(),
+              cppConfiguration,
               ruleContext.getConfiguration().getOptions(),
-              cppConfiguration);
+              ruleContext.getConfiguration().getOptions().get(CoreOptions.class).cpu);
     } catch (EvalException e) {
       throw new RuleErrorException(e.getMessage());
     }

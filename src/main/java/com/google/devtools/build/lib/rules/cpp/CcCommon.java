@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -680,10 +681,12 @@ public final class CcCommon implements StarlarkValue {
     if (featureConfiguration.actionIsConfigured(CppActionNames.CC_FLAGS_MAKE_VARIABLE)) {
       try {
         CcToolchainVariables buildVariables =
-            toolchainProvider.getBuildVariables(
+            CcToolchainProvider.getBuildVars(
+                toolchainProvider,
                 ruleContext.getStarlarkThread(),
+                cppConfiguration,
                 ruleContext.getConfiguration().getOptions(),
-                cppConfiguration);
+                ruleContext.getConfiguration().getOptions().get(CoreOptions.class).cpu);
       return CppHelper.getCommandLine(
           ruleContext, featureConfiguration, buildVariables, CppActionNames.CC_FLAGS_MAKE_VARIABLE);
 

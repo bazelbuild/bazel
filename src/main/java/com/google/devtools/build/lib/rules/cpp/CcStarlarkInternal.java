@@ -230,7 +230,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         /* ccCompilationContext= */ ccCompilationContext,
         /* supportsParamFiles= */ attributes.isSupportsParamFiles(),
         /* supportsHeaderParsing= */ attributes.isSupportsHeaderParsing(),
-        /* buildOptions */ ruleContext.getRuleContext().getConfiguration().getOptions(),
         /* buildVariables= */ (CcToolchainVariables) vars,
         /* builtinIncludeFiles= */ Sequence.cast(
                 builtinIncludeFiles, Artifact.class, "builtin_include_files")

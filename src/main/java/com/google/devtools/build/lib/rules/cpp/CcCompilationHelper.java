@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -328,10 +329,10 @@ public final class CcCompilationHelper {
     this.configuration = buildConfiguration;
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
     setGenerateNoPicAction(
-        !ccToolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration)
+        !CcToolchainProvider.usePicForDynamicLibraries(cppConfiguration, featureConfiguration)
             || !CppHelper.usePicForBinaries(ccToolchain, cppConfiguration, featureConfiguration));
     setGeneratePicAction(
-        ccToolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration)
+        CcToolchainProvider.usePicForDynamicLibraries(cppConfiguration, featureConfiguration)
             || CppHelper.usePicForBinaries(ccToolchain, cppConfiguration, featureConfiguration));
     this.ruleErrorConsumer = actionConstructionContext.getRuleErrorConsumer();
     this.actionRegistry = Preconditions.checkNotNull(actionRegistry);
@@ -476,7 +477,7 @@ public final class CcCompilationHelper {
     Preconditions.checkState(isHeader || isTextualInclude);
 
     if (shouldProcessHeaders
-        && ccToolchain.shouldProcessHeaders(featureConfiguration, cppConfiguration)
+        && CcToolchainProvider.shouldProcessHeaders(featureConfiguration, cppConfiguration)
         && !shouldProvideHeaderModules()
         && !isTextualInclude) {
       compilationUnitSources.put(
@@ -539,7 +540,7 @@ public final class CcCompilationHelper {
     if (!shouldProcessHeaders
         || isTextualInclude
         || !isHeader
-        || !ccToolchain.shouldProcessHeaders(featureConfiguration, cppConfiguration)
+        || !CcToolchainProvider.shouldProcessHeaders(featureConfiguration, cppConfiguration)
         || shouldProvideHeaderModules()) {
       return;
     }
@@ -1049,7 +1050,8 @@ public final class CcCompilationHelper {
             // The source action does not generate dwo when it has bitcode
             // output (since it isn't generating a native object with debug
             // info). In that case the LtoBackendAction will generate the dwo.
-            ccToolchain.shouldCreatePerObjectDebugInfo(featureConfiguration, cppConfiguration),
+            CcToolchainProvider.shouldCreatePerObjectDebugInfo(
+                featureConfiguration, cppConfiguration),
             bitcodeOutput);
       } else {
         switch (source.getType()) {
@@ -1307,7 +1309,12 @@ public final class CcCompilationHelper {
       CcToolchainVariables cctoolchainVariables;
       try {
         cctoolchainVariables =
-            ccToolchain.getBuildVariables(thread, configuration.getOptions(), cppConfiguration);
+            CcToolchainProvider.getBuildVars(
+                ccToolchain,
+                thread,
+                cppConfiguration,
+                configuration.getOptions(),
+                configuration.getOptions().get(CoreOptions.class).cpu);
       } catch (EvalException e) {
         throw new RuleErrorException(e.getMessage());
       }
@@ -1415,7 +1422,7 @@ public final class CcCompilationHelper {
             : null;
 
     boolean generateDwo =
-        ccToolchain.shouldCreatePerObjectDebugInfo(featureConfiguration, cppConfiguration);
+        CcToolchainProvider.shouldCreatePerObjectDebugInfo(featureConfiguration, cppConfiguration);
     Artifact dwoFile = generateDwo ? getDwoFile(builder.getOutputFile()) : null;
     // TODO(tejohnson): Add support for ThinLTO if needed.
     boolean bitcodeOutput =

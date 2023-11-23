@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -92,7 +93,6 @@ public final class CcToolchainProvider extends NativeInfo
   private final CcInfo ccInfo;
   private final boolean supportsParamFiles;
   private final boolean supportsHeaderParsing;
-  private final BuildOptions buildOptions;
   private final CcToolchainVariables buildVariables;
   private final ImmutableList<Artifact> builtinIncludeFiles;
   private final ImmutableList<Artifact> targetBuiltinIncludeFiles;
@@ -166,7 +166,6 @@ public final class CcToolchainProvider extends NativeInfo
       CcCompilationContext ccCompilationContext,
       boolean supportsParamFiles,
       boolean supportsHeaderParsing,
-      BuildOptions buildOptions,
       CcToolchainVariables buildVariables,
       ImmutableList<Artifact> builtinIncludeFiles,
       ImmutableList<Artifact> targetBuiltinIncludeFiles,
@@ -231,7 +230,6 @@ public final class CcToolchainProvider extends NativeInfo
             .build();
     this.supportsParamFiles = supportsParamFiles;
     this.supportsHeaderParsing = supportsHeaderParsing;
-    this.buildOptions = buildOptions;
     this.buildVariables = buildVariables;
     this.builtinIncludeFiles = builtinIncludeFiles;
     this.targetBuiltinIncludeFiles = targetBuiltinIncludeFiles;
@@ -300,7 +298,7 @@ public final class CcToolchainProvider extends NativeInfo
    *
    * @return true if this rule's compilations should apply -fPIC, false otherwise
    */
-  public boolean usePicForDynamicLibraries(
+  public static boolean usePicForDynamicLibraries(
       CppConfiguration cppConfiguration, FeatureConfiguration featureConfiguration) {
     return cppConfiguration.forcePic()
         || featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC);
@@ -310,7 +308,7 @@ public final class CcToolchainProvider extends NativeInfo
    * Returns true if PER_OBJECT_DEBUG_INFO are specified and supported by the CROSSTOOL for the
    * build implied by the given configuration, toolchain and feature configuration.
    */
-  public boolean shouldCreatePerObjectDebugInfo(
+  public static boolean shouldCreatePerObjectDebugInfo(
       FeatureConfiguration featureConfiguration, CppConfiguration cppConfiguration) {
     return cppConfiguration.fissionIsActiveForCurrentCompilationMode()
         && featureConfiguration.isEnabled(CppRuleClasses.PER_OBJECT_DEBUG_INFO);
@@ -328,7 +326,7 @@ public final class CcToolchainProvider extends NativeInfo
    * It will run compiler's parser to ensure the header is self-contained. This is required for
    * layering_check to work.
    */
-  public boolean shouldProcessHeaders(
+  public static boolean shouldProcessHeaders(
       FeatureConfiguration featureConfiguration, CppConfiguration cppConfiguration) {
     return featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS);
   }
@@ -755,8 +753,11 @@ public final class CcToolchainProvider extends NativeInfo
   }
 
   /** Returns build variables to be templated into the crosstool. */
-  public CcToolchainVariables getBuildVariables(
-      StarlarkThread thread, BuildOptions buildOptions, CppConfiguration cppConfiguration)
+  private CcToolchainVariables getBuildVariables(
+      StarlarkThread thread,
+      CppConfiguration cppConfiguration,
+      AppleConfiguration appleConfiguration,
+      String cpu)
       throws EvalException, InterruptedException {
     if (!cppConfiguration.enableCcToolchainResolution()) {
       return buildVariables;
@@ -767,13 +768,11 @@ public final class CcToolchainProvider extends NativeInfo
     String minOsVersion = cppConfiguration.getMinimumOsVersion();
     if (Objects.equals(sysroot, this.sysroot)
         && Objects.equals(minOsVersion, this.cppConfiguration.getMinimumOsVersion())
-        && (ccToolchainBuildVariablesFunc.getName().equals("cc_toolchain_build_variables")
-            || buildOptions.equals(this.buildOptions))) {
+        && ccToolchainBuildVariablesFunc.getName().equals("cc_toolchain_build_variables")) {
       return buildVariables;
     }
     // With platforms, cc toolchain is analyzed in the exec configuration, so we cannot reuse
     // build variables instance.
-    AppleConfiguration appleConfiguration = new AppleConfiguration(buildOptions);
     ApplePlatform platform = appleConfiguration.getSingleArchPlatform();
     Object ccToolchainVariables =
         Starlark.call(
@@ -781,11 +780,27 @@ public final class CcToolchainProvider extends NativeInfo
             ccToolchainBuildVariablesFunc,
             ImmutableList.of(
                 /* platform */ platform,
-                /* cpu */ buildOptions.get(CoreOptions.class).cpu,
+                /* cpu */ cpu,
                 /* cpp_config */ cppConfiguration,
                 /* sysroot */ (sysroot != null ? sysroot.getPathString() : Starlark.NONE)),
             ImmutableMap.of());
     return (CcToolchainVariables) ccToolchainVariables;
+  }
+
+  public static CcToolchainVariables getBuildVars(
+      CcToolchainProvider ccToolchainProvider,
+      StarlarkThread thread,
+      CppConfiguration cppConfiguration,
+      BuildOptions buildOptions,
+      String cpu)
+      throws EvalException, InterruptedException {
+    return ccToolchainProvider.getBuildVariables(
+        thread,
+        cppConfiguration,
+        buildOptions.contains(AppleCommandLineOptions.class)
+            ? new AppleConfiguration(buildOptions)
+            : null,
+        cpu);
   }
 
   @Override
@@ -797,8 +812,21 @@ public final class CcToolchainProvider extends NativeInfo
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return getBuildVariables(
         starlarkRuleContext.getRuleContext().getStarlarkThread(),
-        starlarkRuleContext.getRuleContext().getConfiguration().getOptions(),
-        cppConfiguration);
+        cppConfiguration,
+        starlarkRuleContext
+                .getRuleContext()
+                .getConfiguration()
+                .getOptions()
+                .contains(AppleCommandLineOptions.class)
+            ? new AppleConfiguration(
+                starlarkRuleContext.getRuleContext().getConfiguration().getOptions())
+            : null,
+        starlarkRuleContext
+            .getRuleContext()
+            .getConfiguration()
+            .getOptions()
+            .get(CoreOptions.class)
+            .cpu);
   }
 
   /**

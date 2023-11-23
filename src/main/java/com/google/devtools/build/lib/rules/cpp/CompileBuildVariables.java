@@ -21,6 +21,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -176,7 +177,12 @@ public enum CompileBuildVariables {
       }
       return setupVariables(
           featureConfiguration,
-          ccToolchainProvider.getBuildVariables(thread, buildOptions, cppConfiguration),
+          ccToolchainProvider.getBuildVars(
+              ccToolchainProvider,
+              thread,
+              cppConfiguration,
+              buildOptions,
+              buildOptions.get(CoreOptions.class).cpu),
           sourceFile,
           outputFile,
           gcnoFile,
@@ -247,7 +253,12 @@ public enum CompileBuildVariables {
     }
     return setupVariables(
         featureConfiguration,
-        ccToolchainProvider.getBuildVariables(thread, buildOptions, cppConfiguration),
+        ccToolchainProvider.getBuildVars(
+            ccToolchainProvider,
+            thread,
+            cppConfiguration,
+            buildOptions,
+            buildOptions.get(CoreOptions.class).cpu),
         sourceFile,
         outputFile,
         gcnoFile,
