@@ -104,7 +104,7 @@ final class HttpConnectorMultiplexer {
     }
     ImmutableMap.Builder<String, List<String>> baseHeaders = new ImmutableMap.Builder();
     baseHeaders.putAll(headers);
-    // REQUEST_HEADERS should not be overriable by user provided headers
+    // REQUEST_HEADERS should not be overridable by user provided headers
     baseHeaders.putAll(REQUEST_HEADERS);
     
     Function<URL, ImmutableMap<String, List<String>>> headerFunction =
