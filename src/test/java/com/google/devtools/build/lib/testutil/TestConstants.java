@@ -123,9 +123,10 @@ public class TestConstants {
   /** The output file path prefix for tool file dependencies. */
   public static final String TOOLS_REPOSITORY_PATH_PREFIX = "external/bazel_tools/";
 
-  public static final String RULES_CC_REPOSITORY_SCRATCH = "rules_cc_workspace/";
   /** The directory in which rules_cc repo resides in execroot. */
   public static final String RULES_CC_REPOSITORY_EXECROOT = "external/" + RulesCcRepoName.CANONICAL_REPO_NAME + "/";
+  /* Prefix for loads from rules_cc */
+  public static final String RULES_CC = "@rules_cc//cc";
 
   /** The repo/package rules_python is rooted at. If empty, builtin rules are used. */
   public static final String RULES_PYTHON_PACKAGE_ROOT = "";

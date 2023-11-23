@@ -40,8 +40,7 @@ public final class CcCompilationHelperTest extends BuildViewTestCase {
     ConfiguredTarget target =
         scratchConfiguredTarget("a", "b", "cc_library(name = 'b', srcs = [],)");
     RuleContext ruleContext = getRuleContext(target);
-    CcToolchainProvider ccToolchain =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+    CcToolchainProvider ccToolchain = CppHelper.getToolchain(ruleContext);
     FdoContext fdoContext = ccToolchain.getFdoContext();
     NullPointerTester tester =
         new NullPointerTester()
@@ -73,8 +72,7 @@ public final class CcCompilationHelperTest extends BuildViewTestCase {
         scratchConfiguredTarget("a", "b", "cc_library(name = 'b', srcs = ['cpp.cc'])");
     Artifact objcSrc = getSourceArtifact("objc.m");
     RuleContext ruleContext = getRuleContext(target);
-    CcToolchainProvider ccToolchain =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(target));
+    CcToolchainProvider ccToolchain = CppHelper.getToolchain(getRuleContext(target));
     FdoContext fdoContext = ccToolchain.getFdoContext();
     CcCompilationHelper helper =
         new CcCompilationHelper(
@@ -103,8 +101,7 @@ public final class CcCompilationHelperTest extends BuildViewTestCase {
         scratchConfiguredTarget("a", "b", "cc_library(name = 'b', srcs = ['cpp.cc'])");
     Artifact objcSrc = getSourceArtifact("objc.m");
     RuleContext ruleContext = getRuleContext(target);
-    CcToolchainProvider ccToolchain =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(target));
+    CcToolchainProvider ccToolchain = CppHelper.getToolchain(getRuleContext(target));
     FdoContext fdoContext = ccToolchain.getFdoContext();
     CcCompilationHelper helper =
         new CcCompilationHelper(
