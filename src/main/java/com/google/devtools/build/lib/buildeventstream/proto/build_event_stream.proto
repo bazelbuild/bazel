@@ -1012,7 +1012,7 @@ message BuildMetrics {
   PackageMetrics package_metrics = 4;
 
   message TimingMetrics {
-    // For Skymeld,
+    // For Skymeld, it's possible that
     // analysis_phase_time_in_ms + execution_phase_time_in_ms >= wall_time_in_ms
     //
     // The CPU time in milliseconds consumed during this build.
