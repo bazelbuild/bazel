@@ -122,21 +122,24 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/rule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "load('"
+            + TestConstants.RULES_CC
+            + ":find_cc_toolchain.bzl', 'find_cc_toolchain', 'use_cc_toolchain')",
         "def _impl(ctx):",
-        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  toolchain = find_cc_toolchain(ctx)",
         "  return [MyInfo(all_files = toolchain.all_files)]",
         "crule = rule(",
         "  _impl,",
         "  attrs = { ",
         "    '_cc_toolchain': attr.label(default=Label('//a:alias'))",
         "  },",
+        "  toolchains = use_cc_toolchain()",
         ");");
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     Depset allFiles = (Depset) getMyInfoFromTarget(r).getValue("all_files");
     RuleContext ruleContext = getRuleContext(r);
-    CcToolchainProvider toolchain =
-        CppHelper.getToolchain(ruleContext, ruleContext.getPrerequisite("$cc_toolchain"));
+    CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     assertThat(allFiles.getSet(Artifact.class)).isEqualTo(toolchain.getAllFiles());
   }
 
@@ -150,9 +153,12 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     scratch.file(
         "a/rule.bzl",
+        "load('"
+            + TestConstants.RULES_CC
+            + ":find_cc_toolchain.bzl', 'find_cc_toolchain', 'use_cc_toolchain')",
         "CruleInfo = provider(fields=['static', 'dynamic'])",
         "def _impl(ctx):",
-        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  toolchain = find_cc_toolchain(ctx)",
         "  feature_configuration = cc_common.configure_features(",
         "    ctx = ctx,",
         "    cc_toolchain = toolchain,",
@@ -168,6 +174,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "    '_cc_toolchain': attr.label(default=Label('//a:alias'))",
         "  },",
         "  fragments = ['cpp'],",
+        "  toolchains = use_cc_toolchain()",
         ");");
 
     // 1. Build without static_link_cpp_runtimes
@@ -195,8 +202,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     dynamicRuntimeLib = (Depset) cruleInfo.getValue("dynamic");
 
     RuleContext ruleContext = getRuleContext(r);
-    CcToolchainProvider toolchain =
-        CppHelper.getToolchain(ruleContext, ruleContext.getPrerequisite("$cc_toolchain"));
+    CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     assertThat(staticRuntimeLib.getSet(Artifact.class))
         .isEqualTo(toolchain.getStaticRuntimeLibForTesting());
     assertThat(dynamicRuntimeLib.getSet(Artifact.class))
@@ -214,8 +220,11 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/rule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "load('"
+            + TestConstants.RULES_CC
+            + ":find_cc_toolchain.bzl', 'find_cc_toolchain', 'use_cc_toolchain')",
         "def _impl(ctx):",
-        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  toolchain = find_cc_toolchain(ctx)",
         "  return [MyInfo(",
         "    dynamic_runtime_solib_dir = toolchain.dynamic_runtime_solib_dir,",
         "    toolchain_id = toolchain.toolchain_id,",
@@ -226,6 +235,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "    '_cc_toolchain': attr.label(default=Label('//a:alias'))",
         "  },",
         "  fragments = ['cpp'],",
+        "  toolchains = use_cc_toolchain()",
         ");");
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
@@ -234,8 +244,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     String toolchainId = (String) info.getValue("toolchain_id");
 
     RuleContext ruleContext = getRuleContext(r);
-    CcToolchainProvider toolchain =
-        CppHelper.getToolchain(ruleContext, ruleContext.getPrerequisite("$cc_toolchain"));
+    CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
 
     assertThat(dynamicRuntimeSolibDir).isEqualTo(toolchain.getDynamicRuntimeSolibDirForStarlark());
     assertThat(toolchainId).isEqualTo(toolchain.getToolchainIdentifier());
@@ -252,8 +261,11 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/rule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "load('"
+            + TestConstants.RULES_CC
+            + ":find_cc_toolchain.bzl', 'find_cc_toolchain', 'use_cc_toolchain')",
         "def _impl(ctx):",
-        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  toolchain = find_cc_toolchain(ctx)",
         "  feature_configuration = cc_common.configure_features(",
         "    ctx = ctx,",
         "    cc_toolchain = toolchain,",
@@ -268,13 +280,13 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "    '_cc_toolchain': attr.label(default=Label('//a:alias'))",
         "  },",
         "  fragments = ['cpp'],",
+        "  toolchains = use_cc_toolchain()",
         ");");
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     String actionToolPath = (String) getMyInfoFromTarget(r).getValue("action_tool_path");
     RuleContext ruleContext = getRuleContext(r);
-    CcToolchainProvider toolchain =
-        CppHelper.getToolchain(ruleContext, ruleContext.getPrerequisite("$cc_toolchain"));
+    CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
             ImmutableSet.of(),
@@ -417,8 +429,11 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "a/rule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "load('"
+            + TestConstants.RULES_CC
+            + ":find_cc_toolchain.bzl', 'find_cc_toolchain', 'use_cc_toolchain')",
         "def _impl(ctx):",
-        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  toolchain = find_cc_toolchain(ctx)",
         "  feature_configuration = cc_common.configure_features(",
         "    ctx = ctx,",
         "    cc_toolchain = toolchain,",
@@ -434,6 +449,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "    '_cc_toolchain': attr.label(default=Label('//a:alias'))",
         "  },",
         "  fragments = ['cpp'],",
+        "  toolchains = use_cc_toolchain()",
         ");");
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
@@ -441,8 +457,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     Sequence<String> commandLine =
         (Sequence<String>) getMyInfoFromTarget(r).getValue("command_line");
     RuleContext ruleContext = getRuleContext(r);
-    CcToolchainProvider toolchain =
-        CppHelper.getToolchain(ruleContext, ruleContext.getPrerequisite("$cc_toolchain"));
+    CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
             ImmutableSet.of(),
@@ -465,9 +480,12 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     scratch.file(
         "a/rule.bzl",
+        "load('"
+            + TestConstants.RULES_CC
+            + ":find_cc_toolchain.bzl', 'find_cc_toolchain', 'use_cc_toolchain')",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def _impl(ctx):",
-        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  toolchain = find_cc_toolchain(ctx)",
         "  feature_configuration = cc_common.configure_features(",
         "    ctx = ctx,",
         "    cc_toolchain = toolchain,",
@@ -483,6 +501,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "    '_cc_toolchain': attr.label(default=Label('//a:alias'))",
         "  },",
         "  fragments = ['cpp'],",
+        "  toolchains = use_cc_toolchain()",
         ");");
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
@@ -490,8 +509,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     Map<String, String> environmentVariables =
         (Map<String, String>) getMyInfoFromTarget(r).getValue("environment_variables");
     RuleContext ruleContext = getRuleContext(r);
-    CcToolchainProvider toolchain =
-        CppHelper.getToolchain(ruleContext, ruleContext.getPrerequisite("$cc_toolchain"));
+    CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
             ImmutableSet.of(),
@@ -1467,8 +1485,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         ")");
     ConfiguredTarget a = getConfiguredTarget("//foo:a");
     RuleContext ruleContext = getRuleContext(a);
-    CcToolchainProvider toolchain =
-        CppHelper.getToolchain(ruleContext, ruleContext.getPrerequisite("$cc_toolchain"));
+    CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
     Depset librariesToLink = info.getValue("libraries_to_link", Depset.class);
     assertThat(
@@ -1502,8 +1519,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         ")");
     ConfiguredTarget a = getConfiguredTarget("//foo:a");
     RuleContext ruleContext = getRuleContext(a);
-    CcToolchainProvider toolchain =
-        CppHelper.getToolchain(ruleContext, ruleContext.getPrerequisite("$cc_toolchain"));
+    CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
     Depset librariesToLink = info.getValue("libraries_to_link", Depset.class);
     assertThat(
@@ -1688,6 +1704,9 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "tools/build_defs/cc/rule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "load('"
+            + TestConstants.RULES_CC
+            + ":find_cc_toolchain.bzl', 'find_cc_toolchain', 'use_cc_toolchain')",
         "linker_input = cc_common.create_linker_input(",
         "                 owner=Label('//toplevel'),",
         "                 user_link_flags=[['-first_flag'], ['-second_flag']])",
@@ -1709,7 +1728,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         enableExperimentalCcImport ? "    pic_objects=pic_objects" : "",
         "    )",
         "def _impl(ctx):",
-        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  toolchain = find_cc_toolchain(ctx)",
         "  feature_configuration = cc_common.configure_features(",
         "    ctx = ctx,",
         "    cc_toolchain = toolchain,",
@@ -1777,6 +1796,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "    'deps': attr.label_list(),",
         "  },",
         "  fragments = ['cpp'],",
+        "  toolchains = use_cc_toolchain()",
         ");");
   }
 

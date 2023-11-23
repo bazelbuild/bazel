@@ -455,8 +455,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
           @Override
           public Action generate(ImmutableSet<NonStaticAttributes> attributesToFlip)
               throws InterruptedException, RuleErrorException {
-            CcToolchainProvider toolchain =
-                CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+            CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
             CppLinkActionBuilder builder =
                 new CppLinkActionBuilder(
                     ruleContext,
@@ -518,8 +517,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
           @Override
           public Action generate(ImmutableSet<StaticKeyAttributes> attributes)
               throws InterruptedException, RuleErrorException {
-            CcToolchainProvider toolchain =
-                CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+            CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
             CppLinkActionBuilder builder =
                 new CppLinkActionBuilder(
                     ruleContext,
@@ -556,8 +554,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
             PathFragment.create("output/path.xyz"),
             ruleContext.getBinDirectory(),
             ActionsTestUtil.NULL_ARTIFACT_OWNER);
-    CcToolchainProvider toolchain =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+    CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     FeatureConfiguration featureConfiguration =
         CcToolchainTestHelper.buildFeatures("feature {name: 'archive_param_file'}")
             .getFeatureConfiguration(ImmutableSet.of());
@@ -594,8 +591,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
             PathFragment.create("output/path.ifso"),
             ruleContext.getBinDirectory(),
             ActionsTestUtil.NULL_ARTIFACT_OWNER);
-    CcToolchainProvider toolchain =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+    CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     FeatureConfiguration featureConfiguration =
         CcToolchainTestHelper.buildFeatures("feature {name: 'archive_param_file'}")
             .getFeatureConfiguration(ImmutableSet.of());
@@ -629,8 +625,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
             PathFragment.create("output/path.xyz"),
             ruleContext.getBinDirectory(),
             ActionsTestUtil.NULL_ARTIFACT_OWNER);
-    CcToolchainProvider toolchain =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+    CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     FeatureConfiguration featureConfiguration =
         CcToolchainTestHelper.buildFeatures("feature {name: 'archive_param_file'}")
             .getFeatureConfiguration(ImmutableSet.of());
@@ -671,8 +666,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
             PathFragment.create("output/path.xyz"),
             ruleContext.getBinDirectory(),
             ActionsTestUtil.NULL_ARTIFACT_OWNER);
-    CcToolchainProvider toolchain =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+    CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     FeatureConfiguration featureConfiguration =
         CcToolchainTestHelper.buildFeatures("feature {name: 'archive_param_file'}")
             .getFeatureConfiguration(ImmutableSet.of("archive_param_file"));
@@ -709,8 +703,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
             PathFragment.create("output/path.ifso"),
             ruleContext.getBinDirectory(),
             ActionsTestUtil.NULL_ARTIFACT_OWNER);
-    CcToolchainProvider toolchain =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+    CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     FeatureConfiguration featureConfiguration =
         CcToolchainTestHelper.buildFeatures("feature {name: 'archive_param_file'}")
             .getFeatureConfiguration(ImmutableSet.of("archive_param_file"));
@@ -744,8 +737,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
             PathFragment.create("output/path.xyz"),
             ruleContext.getBinDirectory(),
             ActionsTestUtil.NULL_ARTIFACT_OWNER);
-    CcToolchainProvider toolchain =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+    CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     FeatureConfiguration featureConfiguration =
         CcToolchainTestHelper.buildFeatures("feature {name: 'archive_param_file'}")
             .getFeatureConfiguration(ImmutableSet.of("archive_param_file"));
@@ -838,8 +830,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
       ImmutableList<LibraryToLink> libraryInputs,
       FeatureConfiguration featureConfiguration)
       throws RuleErrorException {
-    CcToolchainProvider toolchain =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+    CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     return new CppLinkActionBuilder(
             ruleContext,
             ruleContext,

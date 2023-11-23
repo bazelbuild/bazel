@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
@@ -136,35 +135,23 @@ public class CppHelper {
     return ImmutableList.of();
   }
 
-  /**
-   * This almost trivial method looks up the default cc toolchain attribute on the rule context,
-   * makes sure that it refers to a rule that has a {@link CcToolchainProvider} (gives an error
-   * otherwise), and returns a reference to that {@link CcToolchainProvider}. The method only
-   * returns {@code null} if there is no such attribute (this is currently not an error).
-   *
-   * <p>Be careful to provide explicit attribute name if the rule doesn't store cc_toolchain under
-   * the default name.
-   */
   @Nullable
-  public static CcToolchainProvider getToolchainUsingDefaultCcToolchainAttribute(
+  private static CcToolchainProvider getToolchainUsingDefaultCcToolchainAttribute(
       RuleContext ruleContext) throws RuleErrorException {
     if (ruleContext.attributes().has(CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME)) {
-      return getToolchain(ruleContext, CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
+      return getToolchainUsingAttribute(
+          ruleContext, CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
     } else if (ruleContext
         .attributes()
         .has(CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME_FOR_STARLARK)) {
-      return getToolchain(
+      return getToolchainUsingAttribute(
           ruleContext, CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME_FOR_STARLARK);
     }
     return null;
   }
 
-  /**
-   * Makes sure that the given info collection has a {@link CcToolchainProvider} (gives an error
-   * otherwise), and returns a reference to that {@link CcToolchainProvider}.
-   */
-  public static CcToolchainProvider getToolchain(RuleContext ruleContext, String toolchainAttribute)
-      throws RuleErrorException {
+  private static CcToolchainProvider getToolchainUsingAttribute(
+      RuleContext ruleContext, String toolchainAttribute) throws RuleErrorException {
     if (!ruleContext.isAttrDefined(toolchainAttribute, LABEL)) {
       throw ruleContext.throwWithRuleError(
           String.format(
@@ -173,54 +160,27 @@ public class CppHelper {
               toolchainAttribute));
     }
     TransitiveInfoCollection dep = ruleContext.getPrerequisite(toolchainAttribute);
-    return getToolchain(ruleContext, dep);
-  }
-
-  /**
-   * Makes sure that the given info collection has a {@link CcToolchainProvider} (gives an error
-   * otherwise), and returns a reference to that {@link CcToolchainProvider}. The method never
-   * returns {@code null}, even if there is no toolchain.
-   */
-  public static CcToolchainProvider getToolchain(
-      RuleContext ruleContext, TransitiveInfoCollection dep) throws RuleErrorException {
-    Label toolchainType = getToolchainTypeFromRuleClass(ruleContext);
-    return getToolchain(ruleContext, dep, toolchainType);
-  }
-
-  public static CcToolchainProvider getToolchain(
-      RuleContext ruleContext, TransitiveInfoCollection dep, Label toolchainType)
-      throws RuleErrorException {
-    if (toolchainType != null && useToolchainResolution(ruleContext)) {
-      return getToolchainFromPlatformConstraints(ruleContext, toolchainType);
-    }
     return getToolchainFromLegacyToolchain(ruleContext, dep);
   }
 
-  /** Returns the c++ toolchain type, or null if it is not specified on the rule class. */
-  public static Label getToolchainTypeFromRuleClass(RuleContext ruleContext) {
-    Label toolchainType;
-    // TODO(b/65835260): Remove this conditional once j2objc can learn the toolchain type.
-    if (ruleContext
-        .attributes()
-        .has(CcToolchainRule.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)) {
-      toolchainType =
-          ruleContext
-              .attributes()
-              .get(CcToolchainRule.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL);
-    } else if (ruleContext
-        .attributes()
-        .has(CcToolchainRule.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, LABEL)) {
-      toolchainType =
-          ruleContext.getPrerequisite(CcToolchainRule.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME).getLabel();
-    } else {
-      toolchainType = null;
+  /** Returns C++ toolchain, using toolchain resolution or via default cc toolchain attribute */
+  public static CcToolchainProvider getToolchain(RuleContext ruleContext)
+      throws RuleErrorException {
+    if (useToolchainResolution(ruleContext)) {
+      return getToolchainFromPlatformConstraints(ruleContext);
     }
-    return toolchainType;
+    return getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
   }
 
-  private static CcToolchainProvider getToolchainFromPlatformConstraints(
-      RuleContext ruleContext, Label toolchainType) throws RuleErrorException {
-    ToolchainInfo toolchainInfo = ruleContext.getToolchainInfo(toolchainType);
+  private static CcToolchainProvider getToolchainFromPlatformConstraints(RuleContext ruleContext)
+      throws RuleErrorException {
+    ToolchainInfo toolchainInfo =
+        ruleContext.getToolchainInfo(Label.parseCanonicalUnchecked("//tools/cpp:toolchain_type"));
+    if (toolchainInfo == null) {
+      toolchainInfo =
+          ruleContext.getToolchainInfo(
+              Label.parseCanonicalUnchecked("@bazel_tools//tools/cpp:toolchain_type"));
+    }
     if (toolchainInfo == null) {
       throw ruleContext.throwWithRuleError(
           "Unable to find a CC toolchain using toolchain resolution. Did you properly set"

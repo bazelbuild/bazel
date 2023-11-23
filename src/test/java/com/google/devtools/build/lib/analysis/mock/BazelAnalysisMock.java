@@ -531,6 +531,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create("third_party/bazel_rules/rules_proto/WORKSPACE");
     config.create("third_party/bazel_rules/rules_proto/MODULE.bazel", "module(name='rules_proto')");
 
+    config.create("third_party/bazel_rules/rules_cc/WORKSPACE");
+    config.create("third_party/bazel_rules/rules_cc/MODULE.bazel", "module(name='rules_cc')");
+
     MockPlatformSupport.setup(config);
     ccSupport().setup(config);
     pySupport().setup(config);
@@ -732,6 +735,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
             .put("rules_proto", "third_party/bazel_rules/rules_proto")
             .put("build_bazel_apple_support", "build_bazel_apple_support")
             .put("local_config_xcode", "local_config_xcode_workspace")
+            .put("rules_cc", "third_party/bazel_rules/rules_cc")
             .buildOrThrow();
     return moduleNameToPath.entrySet().stream()
         .collect(

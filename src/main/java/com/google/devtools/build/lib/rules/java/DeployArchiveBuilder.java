@@ -443,9 +443,7 @@ public class DeployArchiveBuilder {
 
     String toolchainIdentifier = null;
     try {
-      toolchainIdentifier =
-          CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext)
-              .getToolchainIdentifier();
+      toolchainIdentifier = CppHelper.getToolchain(ruleContext).getToolchainIdentifier();
     } catch (RuleErrorException e) {
       // Something went wrong loading the toolchain, which is an exceptional condition.
       throw new IllegalStateException("Unable to load cc toolchain", e);

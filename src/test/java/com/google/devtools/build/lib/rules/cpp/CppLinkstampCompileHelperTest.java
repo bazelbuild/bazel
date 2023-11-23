@@ -224,8 +224,7 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
     Artifact executable = getExecutable(target);
-    CcToolchainProvider toolchain =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(target));
+    CcToolchainProvider toolchain = CppHelper.getToolchain(getRuleContext(target));
     CppConfiguration cppConfiguration = getRuleContext(target).getFragment(CppConfiguration.class);
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrThrowEvalException(
