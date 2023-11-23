@@ -475,8 +475,6 @@ tasks:
       - "-//src/test/shell/bazel/android:aapt_integration_test"
       - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
       - "-//src/test/shell/bazel/android:aapt_integration_test_with_platforms"
-      # https://github.com/bazelbuild/bazel/issues/20288
-      - "-//src/test/shell/bazel:jdeps_test"
     include_json_profile:
       - build
       - test
