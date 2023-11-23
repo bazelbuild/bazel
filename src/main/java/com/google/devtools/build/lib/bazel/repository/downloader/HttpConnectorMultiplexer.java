@@ -108,7 +108,7 @@ final class HttpConnectorMultiplexer {
     baseHeaders.putAll(REQUEST_HEADERS);
     
     Function<URL, ImmutableMap<String, List<String>>> headerFunction =
-        getHeaderFunction(baseHeaders.buildOrThrow(), credentials);
+        getHeaderFunction(baseHeaders.buildKeepingLast(), credentials);
     URLConnection connection = connector.connect(url, headerFunction);
     return httpStreamFactory.create(
         connection,
