@@ -186,16 +186,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean strictFilesets;
 
   @Option(
-      name = "incompatible_strict_conflict_checks",
-      oldName = "experimental_strict_conflict_checks",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help = "No-op.")
-  public boolean strictConflictChecks;
-
-  @Option(
       name = "incompatible_disallow_unsound_directory_outputs",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
