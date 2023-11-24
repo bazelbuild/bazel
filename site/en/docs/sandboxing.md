@@ -5,8 +5,8 @@ Book: /_book.yaml
 
 {% include "_buttons.html" %}
 
-This article covers sandboxing in Bazel, installing `sandboxfs`, and debugging
-your sandboxing environment.
+This article covers sandboxing in Bazel and debugging your sandboxing
+environment.
 
 *Sandboxing* is a permission restricting strategy that isolates processes from
 each other or from resources in a system. For Bazel, this means restricting file
@@ -116,49 +116,7 @@ sandboxes [persistent workers](/remote/persistent).
 -   [Multiplex workers](/remote/multiplex) require explicit worker support
     to be sandboxed. Workers that do not support multiplex sandboxing run as
     singleplex workers under dynamic execution, which can cost extra memory.
-
-## sandboxfs {:#sandboxfs}
-
-`sandboxfs` is a FUSE file system that exposes an arbitrary view of the
-underlying file system without time penalties. Bazel uses `sandboxfs` to
-generate `execroot/` instantaneously for each action, avoiding the cost of
-issuing thousands of system calls. Note that further I/O within `execroot/` may
-be slower due to FUSE overhead.
-
-### Install sandboxfs {:#install-sandboxfs}
-
-Use the following steps to install `sandboxfs` and perform a Bazel build with
-it:
-
-**Download**
-
-[Download and install](https://github.com/bazelbuild/sandboxfs/blob/master/INSTALL.md){: .external}
-`sandboxfs` so that the `sandboxfs` binary ends up in your `PATH`.
-
-**Run `sandboxfs`**
-
-1.  (macOS-only) [Install OSXFUSE](https://osxfuse.github.io/){: .external}.
-2.  (macOS-only) Run:
-
-    ```posix-terminal
-    sudo sysctl -w vfs.generic.osxfuse.tunables.allow_other=1
     ```
-
-    You will need to do this after installation and after every reboot to ensure
-    core macOS system services work through sandboxfs.
-
-3.  Run a Bazel build with `--experimental_use_sandboxfs`.
-
-    ```posix-terminal
-    bazel build {{ '<var>' }}target{{ '</var>' }} --experimental_use_sandboxfs
-    ```
-
-**Troubleshooting**
-
-If you see `local` instead of `darwin-sandbox` or `linux-sandbox` as an
-annotation for the actions that are executed, this may mean that sandboxing is
-disabled. Pass `--genrule_strategy=sandboxed --spawn_strategy=sandboxed` to
-enable it.
 
 ## Debugging {:#debugging}
 
