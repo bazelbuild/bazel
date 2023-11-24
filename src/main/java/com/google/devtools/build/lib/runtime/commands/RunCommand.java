@@ -264,7 +264,7 @@ public class RunCommand implements BlazeCommand {
               ENV_VARIABLES_TO_CLEAR,
               runCommandLine.workingDir.getPathString(),
               builtTargets.configuration.checksum(),
-              /* executionPlatformAsLabelString= */ null);
+              /* executionPlatformLabel= */ null);
 
       PathFragment shExecutable = ShToolchain.getPathForHost(builtTargets.configuration);
       if (shExecutable.isEmpty()) {

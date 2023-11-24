@@ -51,7 +51,6 @@ import java.io.PrintStream;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.stream.Collectors;
 import net.starlark.java.eval.EvalException;
 
@@ -272,9 +271,9 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                   /* environmentVariablesToClear= */ null,
                   /* cwd= */ null,
                   action.getOwner().getConfigurationChecksum(),
-                  action.getExecutionPlatform() == null
-                      ? null
-                      : Objects.toString(action.getExecutionPlatform().label())))
+                  action.getExecutionPlatform() != null
+                      ? action.getExecutionPlatform().label()
+                      : null))
           .append("\n");
     }
 
