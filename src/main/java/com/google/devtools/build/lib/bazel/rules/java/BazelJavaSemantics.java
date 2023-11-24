@@ -405,11 +405,6 @@ public class BazelJavaSemantics implements JavaSemantics {
     return javaPath == null ? path : javaPath;
   }
 
-  @Override
-  public Artifact getProtoMapping(RuleContext ruleContext) throws InterruptedException {
-    return null;
-  }
-
   @Nullable
   @Override
   public GeneratedExtensionRegistryProvider createGeneratedExtensionRegistry(
@@ -420,12 +415,6 @@ public class BazelJavaSemantics implements JavaSemantics {
       JavaRuleOutputJarsProvider.Builder javaRuleOutputJarsProviderBuilder,
       JavaSourceJarsProvider.Builder javaSourceJarsProviderBuilder)
     throws InterruptedException {
-    return null;
-  }
-
-  @Override
-  public Artifact getObfuscatedConstantStringMap(RuleContext ruleContext)
-      throws InterruptedException {
     return null;
   }
 }

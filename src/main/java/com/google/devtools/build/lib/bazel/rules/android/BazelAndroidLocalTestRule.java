@@ -34,10 +34,10 @@ import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.AndroidFeatureFlagSetProvider;
 import com.google.devtools.build.lib.rules.android.AndroidLocalTestBaseRule;
+import com.google.devtools.build.lib.rules.android.AndroidSemantics;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagTransitionFactory;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
-import com.google.devtools.build.lib.rules.java.JavaSemantics;
 
 /** Rule definition for Bazel android_local_test */
 public class BazelAndroidLocalTestRule implements RuleDefinition {
@@ -52,10 +52,11 @@ public class BazelAndroidLocalTestRule implements RuleDefinition {
           "java_library",
           "java_lite_proto_library");
 
-  static final ImplicitOutputsFunction ANDROID_ROBOLECTRIC_IMPLICIT_OUTPUTS = fromFunctions(
-      JavaSemantics.JAVA_BINARY_CLASS_JAR,
-      JavaSemantics.JAVA_BINARY_SOURCE_JAR,
-      JavaSemantics.JAVA_BINARY_DEPLOY_JAR);
+  static final ImplicitOutputsFunction ANDROID_ROBOLECTRIC_IMPLICIT_OUTPUTS =
+      fromFunctions(
+          AndroidSemantics.ANDROID_BINARY_CLASS_JAR,
+          AndroidSemantics.ANDROID_BINARY_SOURCE_JAR,
+          AndroidSemantics.ANDROID_BINARY_DEPLOY_JAR);
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {

@@ -44,20 +44,6 @@ import javax.annotation.Nullable;
 
 /** Pluggable Java compilation semantics. */
 public interface JavaSemantics {
-  SafeImplicitOutputsFunction JAVA_LIBRARY_CLASS_JAR = fromTemplates("lib%{name}.jar");
-  SafeImplicitOutputsFunction JAVA_LIBRARY_SOURCE_JAR = fromTemplates("lib%{name}-src.jar");
-
-  SafeImplicitOutputsFunction JAVA_BINARY_CLASS_JAR = fromTemplates("%{name}.jar");
-  SafeImplicitOutputsFunction JAVA_BINARY_SOURCE_JAR = fromTemplates("%{name}-src.jar");
-
-  SafeImplicitOutputsFunction JAVA_BINARY_DEPLOY_JAR = fromTemplates("%{name}_deploy.jar");
-  SafeImplicitOutputsFunction JAVA_BINARY_PROGUARD_MAP = fromTemplates("%{name}_proguard.map");
-  SafeImplicitOutputsFunction JAVA_BINARY_PROGUARD_PROTO_MAP =
-      fromTemplates("%{name}_proguard.pbmap");
-  SafeImplicitOutputsFunction JAVA_BINARY_PROGUARD_SEEDS = fromTemplates("%{name}_proguard.seeds");
-  SafeImplicitOutputsFunction JAVA_BINARY_PROGUARD_USAGE = fromTemplates("%{name}_proguard.usage");
-  SafeImplicitOutputsFunction JAVA_BINARY_PROGUARD_CONFIG =
-      fromTemplates("%{name}_proguard.config");
   SafeImplicitOutputsFunction JAVA_ONE_VERSION_ARTIFACT = fromTemplates("%{name}-one-version.txt");
 
   FileType JAVA_SOURCE = FileType.of(".java");
@@ -257,12 +243,6 @@ public interface JavaSemantics {
   PathFragment getDefaultJavaResourcePath(PathFragment path);
 
   /**
-   * @return An artifact representing the protobuf-format version of the proguard mapping, or null
-   *     if the proguard version doesn't support this.
-   */
-  Artifact getProtoMapping(RuleContext ruleContext) throws InterruptedException;
-
-  /**
    * Produces the proto generated extension registry artifacts, or <tt>null</tt> if no registry
    * needs to be generated for the provided <tt>ruleContext</tt>.
    */
@@ -275,6 +255,4 @@ public interface JavaSemantics {
       JavaRuleOutputJarsProvider.Builder javaRuleOutputJarsProviderBuilder,
       JavaSourceJarsProvider.Builder javaSourceJarsProviderBuilder)
       throws InterruptedException, RuleErrorException;
-
-  Artifact getObfuscatedConstantStringMap(RuleContext ruleContext) throws InterruptedException;
 }

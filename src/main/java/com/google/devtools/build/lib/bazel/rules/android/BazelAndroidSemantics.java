@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidDataContext;
 import com.google.devtools.build.lib.rules.android.AndroidSemantics;
 import com.google.devtools.build.lib.rules.android.ProguardHelper.ProguardOutput;
-import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 
 /**
@@ -92,7 +91,7 @@ public class BazelAndroidSemantics implements AndroidSemantics {
 
   @Override
   public Artifact getProguardOutputMap(RuleContext ruleContext) throws InterruptedException {
-    return ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_MAP);
+    return ruleContext.getImplicitOutputArtifact(AndroidSemantics.ANDROID_BINARY_PROGUARD_MAP);
   }
 
   /** Bazel does not currently support any dex postprocessing. */
@@ -170,6 +169,17 @@ public class BazelAndroidSemantics implements AndroidSemantics {
       Artifact deployJar,
       Artifact mergedStaticProfile,
       String baselineProfileDir) {
+    return null;
+  }
+
+  @Override
+  public Artifact getProtoMapping(RuleContext ruleContext) throws InterruptedException {
+    return null;
+  }
+
+  @Override
+  public Artifact getObfuscatedConstantStringMap(RuleContext ruleContext)
+      throws InterruptedException {
     return null;
   }
 }

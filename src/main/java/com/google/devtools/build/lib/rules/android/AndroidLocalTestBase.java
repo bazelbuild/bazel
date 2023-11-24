@@ -203,13 +203,15 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             attributesBuilder,
             additionalJavaInputsFromDatabinding);
 
-    Artifact srcJar = ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_SOURCE_JAR);
+    Artifact srcJar =
+        ruleContext.getImplicitOutputArtifact(AndroidSemantics.ANDROID_BINARY_SOURCE_JAR);
     JavaSourceJarsProvider.Builder javaSourceJarsProviderBuilder =
         JavaSourceJarsProvider.builder()
             .addSourceJar(srcJar)
             .addAllTransitiveSourceJars(javaCommon.collectTransitiveSourceJars(srcJar));
 
-    Artifact classJar = ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_CLASS_JAR);
+    Artifact classJar =
+        ruleContext.getImplicitOutputArtifact(AndroidSemantics.ANDROID_BINARY_CLASS_JAR);
 
     JavaCompilationArtifacts.Builder javaArtifactsBuilder = new JavaCompilationArtifacts.Builder();
 
@@ -326,7 +328,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         RunfilesSupport.withExecutable(ruleContext, defaultRunfiles, executable);
 
     Artifact deployJar =
-        ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_DEPLOY_JAR);
+        ruleContext.getImplicitOutputArtifact(AndroidSemantics.ANDROID_BINARY_DEPLOY_JAR);
 
     // Create the deploy jar and make it dependent on the runfiles middleman if an executable is
     // created. Do not add the deploy jar to files to build, so we will only build it when it gets

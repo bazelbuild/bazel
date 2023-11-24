@@ -578,6 +578,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           applyProguard(
               ruleContext,
               androidCommon,
+              androidSemantics,
               javaSemantics,
               binaryJar,
               proguardSpecs,
@@ -647,7 +648,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       symlinkOptimizationOutputs(
           ruleContext,
           androidSemantics,
-          javaSemantics,
           dataContext,
           filesBuilder,
           hasProguardSpecs,
@@ -1085,7 +1085,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   private static void symlinkOptimizationOutputs(
       RuleContext ruleContext,
       AndroidSemantics androidSemantics,
-      JavaSemantics javaSemantics,
       AndroidDataContext dataContext,
       NestedSetBuilder<Artifact> filesBuilder,
       boolean hasProguardSpecs,
@@ -1116,7 +1115,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     if (proguardOutput.getSeeds() != null) {
       Artifact proguardSeeds =
-          ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_SEEDS);
+          ruleContext.getImplicitOutputArtifact(AndroidSemantics.ANDROID_BINARY_PROGUARD_SEEDS);
       ruleContext.registerAction(
           SymlinkAction.toArtifact(
               ruleContext.getActionOwner(),
@@ -1131,7 +1130,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     if (proguardOutput.getConfig() != null) {
       Artifact proguardConfig =
-          ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_CONFIG);
+          ruleContext.getImplicitOutputArtifact(AndroidSemantics.ANDROID_BINARY_PROGUARD_CONFIG);
       ruleContext.registerAction(
           SymlinkAction.toArtifact(
               ruleContext.getActionOwner(),
@@ -1146,7 +1145,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     if (proguardOutput.getUsage() != null) {
       Artifact proguardUsage =
-          ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_USAGE);
+          ruleContext.getImplicitOutputArtifact(AndroidSemantics.ANDROID_BINARY_PROGUARD_USAGE);
       ruleContext.registerAction(
           SymlinkAction.toArtifact(
               ruleContext.getActionOwner(),
@@ -1160,8 +1159,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     }
 
     if (proguardOutput.getProtoMapping() != null
-        && javaSemantics.getProtoMapping(ruleContext) != null) {
-      Artifact proguardProtoMapping = javaSemantics.getProtoMapping(ruleContext);
+        && androidSemantics.getProtoMapping(ruleContext) != null) {
+      Artifact proguardProtoMapping = androidSemantics.getProtoMapping(ruleContext);
       ruleContext.registerAction(
           SymlinkAction.toArtifact(
               ruleContext.getActionOwner(),
@@ -1357,6 +1356,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   private static ProguardOutput applyProguard(
       RuleContext ruleContext,
       AndroidCommon common,
+      AndroidSemantics androidSemantics,
       JavaSemantics javaSemantics,
       Artifact deployJarArtifact,
       ImmutableList<Artifact> proguardSpecs,
@@ -1377,7 +1377,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       // produce at the time of implicit output determination. As a result, this artifact must
       // always be created.
       return createEmptyProguardAction(
-          ruleContext, javaSemantics, proguardOutputJar, deployJarArtifact, proguardOutputMap);
+          ruleContext, androidSemantics, proguardOutputJar, deployJarArtifact, proguardOutputMap);
     }
 
     AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
@@ -1394,9 +1394,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     libraryJars.addTransitive(common.getTransitiveNeverLinkLibraries());
 
     Artifact proguardSeeds =
-        ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_SEEDS);
+        ruleContext.getImplicitOutputArtifact(AndroidSemantics.ANDROID_BINARY_PROGUARD_SEEDS);
     Artifact proguardUsage =
-        ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_USAGE);
+        ruleContext.getImplicitOutputArtifact(AndroidSemantics.ANDROID_BINARY_PROGUARD_USAGE);
     Artifact proguardDictionary = ruleContext.getPrerequisiteArtifact("proguard_apply_dictionary");
     return ProguardHelper.createOptimizationActions(
         ruleContext,
@@ -1409,6 +1409,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         proguardDictionary,
         libraryJars.build(),
         proguardOutputJar,
+        androidSemantics,
         javaSemantics,
         getProguardOptimizationPasses(ruleContext),
         proguardOutputMap,
@@ -1430,7 +1431,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
   private static ProguardOutput createEmptyProguardAction(
       RuleContext ruleContext,
-      JavaSemantics semantics,
+      AndroidSemantics androidSemantics,
       Artifact proguardOutputJar,
       Artifact deployJarArtifact,
       Artifact proguardOutputMap)
@@ -1442,7 +1443,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             /* proguardSeeds= */ null,
             /* proguardUsage= */ null,
             ruleContext,
-            semantics,
+            androidSemantics,
             proguardOutputMap,
             /* libraryJar= */ null,
             /* startupProfileRewritten= */ null,
