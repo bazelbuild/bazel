@@ -32,6 +32,8 @@ import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCacheHitEv
 import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriter.RewrittenURL;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -123,8 +125,11 @@ public class DownloadManager {
       Map<String, String> clientEnv,
       String context) {
     return DOWNLOAD_SERVICE.submit(() -> {
-      return reallyDownload(originalUrls, authHeaders, checksum, canonicalId,
-          type, output, eventHandler, clientEnv, context);
+      try (SilentCloseable c =
+          Profiler.instance().profile("fetching: " + context)) {
+        return reallyDownload(originalUrls, authHeaders, checksum, canonicalId,
+            type, output, eventHandler, clientEnv, context);
+      }
     });
   }
 
@@ -138,6 +143,7 @@ public class DownloadManager {
       throw new IllegalStateException(e);
     }
   }
+
   public Path download(
       List<URL> originalUrls,
       Map<URI, Map<String, List<String>>> authHeaders,
