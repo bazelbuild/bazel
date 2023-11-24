@@ -97,7 +97,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       Object allowEmptyArgument,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
-    BazelStarlarkContext.from(thread).checkLoadingPhase("native.glob");
+    BazelStarlarkContext.checkLoadingPhase(thread, "native.glob");
     PackageContext context = getContext(thread);
 
     List<String> includes = Type.STRING_LIST.convert(include, "'glob' argument");
@@ -435,7 +435,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     if (thread.getThreadLocal(ExistingRulesShouldBeNoOp.class) != null) {
       return Starlark.NONE;
     }
-    BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("native.existing_rule");
+    BazelStarlarkContext.checkLoadingOrWorkspacePhase(thread, "native.existing_rule");
     PackageContext context = getContext(thread);
     Target target = context.pkgBuilder.getTarget(name);
     if (target instanceof Rule /* `instanceof` also verifies that target != null */) {
@@ -508,7 +508,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     if (thread.getThreadLocal(ExistingRulesShouldBeNoOp.class) != null) {
       return Dict.empty();
     }
-    BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("native.existing_rules");
+    BazelStarlarkContext.checkLoadingOrWorkspacePhase(thread, "native.existing_rules");
     PackageContext context = getContext(thread);
     if (thread
         .getSemantics()
@@ -531,7 +531,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   public NoneType packageGroup(
       String name, Sequence<?> packagesO, Sequence<?> includesO, StarlarkThread thread)
       throws EvalException {
-    BazelStarlarkContext.from(thread).checkLoadingPhase("native.package_group");
+    BazelStarlarkContext.checkLoadingPhase(thread, "native.package_group");
     PackageContext context = getContext(thread);
 
     List<String> packages =
@@ -566,7 +566,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   public NoneType exportsFiles(
       Sequence<?> srcs, Object visibilityO, Object licensesO, StarlarkThread thread)
       throws EvalException {
-    BazelStarlarkContext.from(thread).checkLoadingPhase("native.exports_files");
+    BazelStarlarkContext.checkLoadingPhase(thread, "native.exports_files");
     Package.Builder pkgBuilder = getContext(thread).pkgBuilder;
     List<String> files = Type.STRING_LIST.convert(srcs, "'exports_files' operand");
 
@@ -607,7 +607,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
   @Override
   public String packageName(StarlarkThread thread) throws EvalException {
-    BazelStarlarkContext.from(thread).checkLoadingPhase("native.package_name");
+    BazelStarlarkContext.checkLoadingPhase(thread, "native.package_name");
     PackageIdentifier packageId =
         PackageFactory.getContext(thread).getBuilder().getPackageIdentifier();
     return packageId.getPackageFragment().getPathString();
@@ -615,15 +615,16 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
   @Override
   public String repositoryName(StarlarkThread thread) throws EvalException {
-    BazelStarlarkContext.from(thread).checkLoadingPhase("native.repository_name");
+    BazelStarlarkContext.checkLoadingPhase(thread, "native.repository_name");
     PackageIdentifier packageId =
         PackageFactory.getContext(thread).getBuilder().getPackageIdentifier();
-    return packageId.getRepository().getNameWithAt();
+    // for legacy reasons, this is prefixed with a single '@'.
+    return '@' + packageId.getRepository().getName();
   }
 
   @Override
   public Label packageRelativeLabel(Object input, StarlarkThread thread) throws EvalException {
-    BazelStarlarkContext.from(thread).checkLoadingPhase("native.package_relative_label");
+    BazelStarlarkContext.checkLoadingPhase(thread, "native.package_relative_label");
     if (input instanceof Label) {
       return (Label) input;
     }
@@ -638,14 +639,14 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   @Override
   @Nullable
   public String moduleName(StarlarkThread thread) throws EvalException {
-    BazelStarlarkContext.from(thread).checkLoadingPhase("native.module_name");
+    BazelStarlarkContext.checkLoadingPhase(thread, "native.module_name");
     return PackageFactory.getContext(thread).getBuilder().getAssociatedModuleName().orElse(null);
   }
 
   @Override
   @Nullable
   public String moduleVersion(StarlarkThread thread) throws EvalException {
-    BazelStarlarkContext.from(thread).checkLoadingPhase("native.module_version");
+    BazelStarlarkContext.checkLoadingPhase(thread, "native.module_version");
     return PackageFactory.getContext(thread).getBuilder().getAssociatedModuleVersion().orElse(null);
   }
 
@@ -826,7 +827,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   public Sequence<?> subpackages(
       Sequence<?> include, Sequence<?> exclude, boolean allowEmpty, StarlarkThread thread)
       throws EvalException, InterruptedException {
-    BazelStarlarkContext.from(thread).checkLoadingPhase("native.subpackages");
+    BazelStarlarkContext.checkLoadingPhase(thread, "native.subpackages");
     PackageContext context = getContext(thread);
 
     List<String> includes = Type.STRING_LIST.convert(include, "'subpackages' argument");

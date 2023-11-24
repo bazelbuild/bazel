@@ -275,6 +275,7 @@ public class ExecutionTool {
               singleSourceRoot,
               env.getEventBus(),
               env.getDirectories().getProductName() + "-",
+              skyframeExecutor.getIgnoredPaths(),
               request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout,
               runtime.getWorkspace().doesAllowExternalRepositories());
       if (shouldSymlinksBePlanted) {
@@ -1010,6 +1011,10 @@ public class ExecutionTool {
 
     if (actionCache != null) {
       actionCache.mergeIntoActionCacheStatistics(builder);
+      Duration duration = actionCache.getLoadTime();
+      if (duration != null) {
+        builder.setLoadTimeInMs(duration.toMillis());
+      }
 
       AutoProfiler p =
           GoogleAutoProfilerUtils.profiledAndLogged("Saving action cache", ProfilerTask.INFO);

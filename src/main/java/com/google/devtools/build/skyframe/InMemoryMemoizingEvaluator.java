@@ -87,14 +87,7 @@ public final class InMemoryMemoizingEvaluator
       Iterable<? extends SkyKey> roots, EvaluationContext evaluationContext)
       throws InterruptedException {
     // NOTE: Performance critical code. See bug "Null build performance parity".
-    Version graphVersion;
-    if (!keepEdges) {
-      graphVersion = Version.constant();
-    } else if (lastGraphVersion == null) {
-      graphVersion = IntVersion.of(0);
-    } else {
-      graphVersion = lastGraphVersion.next();
-    }
+    Version graphVersion = getNextGraphVersion();
     setAndCheckEvaluateState(true, roots);
     try {
       // Mark for removal inflight and rewound nodes from the previous evaluation. When the

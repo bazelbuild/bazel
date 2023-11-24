@@ -64,7 +64,6 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -219,7 +218,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         update(ImmutableList.of("@local//:aspect.bzl%MyAspect"), "//test:xxx");
     assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:xxx");
     assertThat(getAspectDescriptions(analysisResult))
-        .containsExactly("@local//:aspect.bzl%MyAspect(//test:xxx)");
+        .containsExactly("@@local//:aspect.bzl%MyAspect(//test:xxx)");
   }
 
   private static Iterable<String> getLabelsToBuild(AnalysisResult analysisResult) {
@@ -2810,7 +2809,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "def _r2_impl(ctx):",
         "  return struct(result = ctx.attr.dep[MyInfo].hidden_attr_label)",
         "r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})",
-        "r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a2])})");
+        "r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a1, a2])})");
     scratch.file(
         "test/BUILD",
         "load(':aspect.bzl', 'r1', 'r2')",
@@ -2823,6 +2822,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "cc_library(",
         "     name = 'zzz',",
         ")");
+    useConfiguration("--separate_aspect_deps");
+
     AnalysisResult analysisResult = update("//test:r2");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     String result = (String) target.get("result");
@@ -6618,31 +6619,56 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         .isEqualTo("aspect_b on target @//test:main_target cannot find prov_b");
   }
 
-  @Ignore("TODO(b/206127051): Fix the crash, rename the test and add a check the error message.")
   @Test
   public void testDependentAspectWithNonExecutableTool_doesNotCrash() throws Exception {
     scratch.file("test/BUILD", "sh_binary(name='bin', srcs=['bin.sh'])", "sh_library(name='lib')");
     scratch.file(
         "test/defs.bzl",
-        "AInfo = provider(fields={})",
-        "def _aspect_a(target, ctx): return AInfo()",
+        "AInfo = provider()",
+        "BInfo = provider()",
+        "def _aspect_a(target, ctx):",
+        "  return [AInfo(value=str(ctx.attr._attr.label))]",
         "aspect_a = aspect(",
         "  implementation = _aspect_a,",
         "  provides=[AInfo],",
         "  attrs = {'_attr':" + " attr.label(default=':lib')},",
         ")",
         "def _aspect_b(target, ctx):",
-        "  print(str(ctx.executable._attr))",
-        "  return []",
+        "  return [BInfo(value=str(ctx.executable._attr.path.split('/')[-1]))]",
         "aspect_b = aspect(",
         "  implementation = _aspect_b,",
         "  required_aspect_providers = [AInfo],",
         "  attrs = {'_attr': attr.label(default=':bin', executable=True, cfg='exec')},",
         ")");
     scratch.file("test/bin.sh").setExecutable(true);
+    useConfiguration("--separate_aspect_deps");
 
-    // TODO(b/206127051): This currently crashes with an IllegalStateException.
-    update(ImmutableList.of("test/defs.bzl%aspect_a", "test/defs.bzl%aspect_b"), "//test:bin");
+    AnalysisResult result =
+        update(ImmutableList.of("test/defs.bzl%aspect_a", "test/defs.bzl%aspect_b"), "//test:bin");
+
+    ConfiguredAspect aspectB =
+        result.getAspectsMap().entrySet().stream()
+            .filter(a -> a.getKey().getAspectName().endsWith("aspect_b"))
+            .map(Map.Entry::getValue)
+            .findFirst()
+            .orElse(null);
+    assertThat(aspectB).isNotNull();
+
+    StarlarkProvider.Key provB =
+        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "BInfo");
+    assertThat(((StructImpl) aspectB.get(provB)).getValue("value")).isEqualTo("bin");
+
+    ConfiguredAspect aspectA =
+        result.getAspectsMap().entrySet().stream()
+            .filter(a -> a.getKey().getAspectName().endsWith("aspect_a"))
+            .map(Map.Entry::getValue)
+            .findFirst()
+            .orElse(null);
+    assertThat(aspectA).isNotNull();
+
+    StarlarkProvider.Key provA =
+        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "AInfo");
+    assertThat(((StructImpl) aspectA.get(provA)).getValue("value")).isEqualTo("@//test:lib");
   }
 
   @Test

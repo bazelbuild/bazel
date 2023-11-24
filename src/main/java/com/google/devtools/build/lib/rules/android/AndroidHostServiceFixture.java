@@ -48,7 +48,7 @@ public class AndroidHostServiceFixture implements RuleConfiguredTargetFactory {
     NestedSet<Artifact> filesToBuild =
         NestedSetBuilder.<Artifact>stableOrder()
             .addTransitive(supportApks)
-            .addTransitive(executable.getFilesToRun())
+            .add(executable.getExecutable())
             .build();
     Runfiles runfiles =
         new Runfiles.Builder(ruleContext.getWorkspaceName())

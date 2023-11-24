@@ -99,10 +99,12 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
   @Override
   public void invalidateObject(WorkerKey key, Worker obj) throws InterruptedException {
     try {
+      boolean wasPendingEviction = obj.getStatus().isPendingEviction();
       super.invalidateObject(key, obj);
-      if (obj.isDoomed()) {
+      if (wasPendingEviction && obj.getStatus().isKilled()) {
         if (eventBus != null) {
-          eventBus.post(new WorkerEvictedEvent(key.hashCode(), key.getMnemonic()));
+          eventBus.post(
+              new WorkerEvictedEvent(obj.getWorkerId(), key.hashCode(), key.getMnemonic()));
         }
         updateShrunkBy(key, obj.getWorkerId());
       }
@@ -114,10 +116,11 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
 
   @Override
   public void returnObject(WorkerKey key, Worker obj) {
+    boolean wasPendingEviction = obj.getStatus().isPendingEviction();
     super.returnObject(key, obj);
-    if (obj.isDoomed()) {
+    if (wasPendingEviction && obj.getStatus().isKilled()) {
       if (eventBus != null) {
-        eventBus.post(new WorkerEvictedEvent(key.hashCode(), key.getMnemonic()));
+        eventBus.post(new WorkerEvictedEvent(obj.getWorkerId(), key.hashCode(), key.getMnemonic()));
       }
       updateShrunkBy(key, obj.getWorkerId());
     }

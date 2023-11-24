@@ -39,8 +39,8 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
       help = "Additional options to pass to the J2ObjC tool.")
   public List<String> translationFlags;
 
-  /*
-   *@deprecated Use J2ObjC tree shaker instead.
+  /**
+   * @deprecated Use J2ObjC tree shaker instead.
    */
   @Deprecated
   @Option(
@@ -93,12 +93,4 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
           "If enabled, direct usage of the native j2objc_library rules is disabled. Please use the"
               + " Starlark rule instead.")
   public boolean j2objcLibraryMigration;
-
-  @Override
-  public FragmentOptions getExec() {
-    J2ObjcCommandLineOptions exec = (J2ObjcCommandLineOptions) super.getExec();
-    exec.translationFlags = this.translationFlags;
-    exec.j2objcLibraryMigration = j2objcLibraryMigration;
-    return exec;
-  }
 }

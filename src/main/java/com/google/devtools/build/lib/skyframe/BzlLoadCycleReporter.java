@@ -139,7 +139,7 @@ public class BzlLoadCycleReporter implements CyclesReporter.SingleCycleReporter 
       Function<Object, String> printer =
           input -> {
             if (input instanceof RepositoryDirectoryValue.Key) {
-              return ((RepositoryDirectoryValue.Key) input).argument().getNameWithAt();
+              return ((RepositoryDirectoryValue.Key) input).argument().toString();
             } else {
               throw new UnsupportedOperationException();
             }
@@ -172,7 +172,7 @@ public class BzlLoadCycleReporter implements CyclesReporter.SingleCycleReporter 
         if (repo instanceof RepositoryDirectoryValue.Key) {
           message
               .append(" - ")
-              .append(((RepositoryDirectoryValue.Key) repo).argument().getNameWithAt())
+              .append(((RepositoryDirectoryValue.Key) repo).argument())
               .append("\n");
         }
       }
@@ -180,7 +180,7 @@ public class BzlLoadCycleReporter implements CyclesReporter.SingleCycleReporter 
       if (missingRepo instanceof RepositoryDirectoryValue.Key) {
         message
             .append("This could either mean you have to add the '")
-            .append(((RepositoryDirectoryValue.Key) missingRepo).argument().getNameWithAt())
+            .append(((RepositoryDirectoryValue.Key) missingRepo).argument())
             .append("' repository with a statement like `http_archive` in your WORKSPACE file")
             .append(" (note that transitive dependencies are not added automatically), or move")
             .append(" an existing definition earlier in your WORKSPACE file.");

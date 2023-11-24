@@ -66,14 +66,33 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * This is a basic implementation and incomplete implementation of an action file system that's been
- * tuned to what internal (non-spawn) actions in Bazel currently use.
+ * An action filesystem suitable for use when building with remote caching or execution.
  *
- * <p>The implementation mostly delegates to the local file system except for the case where an
- * action input is a remotely stored action output. Most notably {@link
- * #getInputStream(PathFragment)} and {@link #createSymbolicLink(PathFragment, PathFragment)}.
+ * <p>It acts as a union filesystem over three different sources:
  *
- * <p>This implementation only supports creating local action outputs.
+ * <ul>
+ *   <li>The action input map, providing read-only in-memory access to the metadata (but not the
+ *       contents) of the action's declared inputs.
+ *   <li>The remote output tree, an in-memory filesystem providing read/write access to the metadata
+ *       (but not the contents) of remotely stored files injected during action execution.
+ *   <li>The local filesystem, providing read/write access to the metadata and contents of files
+ *       residing on disk, including the inputs and outputs of local spawns.
+ * </ul>
+ *
+ * <p>Generally speaking, file operations consult the underlying sources in that order and operate
+ * on the first result found, although some (e.g. readdir) collate information from all sources. The
+ * contents of remotely stored files are transparently downloaded when an operation requires them.
+ *
+ * <p>Special care must be taken with operations that follow symlinks, as the symlink and its target
+ * path may reside on different sources, with an arbitrary number of indirections in between. This
+ * is required because some actions (notably SymlinkAction) may materialize an output as a symlink
+ * to an input. Most operations call resolveSymbolicLinks upfront (which is able to canonicalize
+ * paths taking every source into account) and only then delegate to the underlying sources.
+ *
+ * <p>The implementation assumes that an action never modifies its input files, but may otherwise
+ * modify any path in the output tree, including modifications that undo previous ones (e.g.,
+ * writing to a path and then moving it elsewhere). No effort is made to detect irreconcilable
+ * differences between sources (e.g., distinct files of the same name in two different sources).
  */
 public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
   private final PathFragment execRoot;
@@ -349,16 +368,22 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   protected byte[] getFastDigest(PathFragment path) throws IOException {
-    var stat = statInMemory(path, FollowMode.FOLLOW_ALL);
-    if (stat instanceof FileStatusWithDigest) {
-      return ((FileStatusWithDigest) stat).getDigest();
+    path = resolveSymbolicLinks(path).asFragment();
+    // The parent path has already been canonicalized by resolveSymbolicLinks, so FOLLOW_NONE is
+    // effectively the same as FOLLOW_PARENT, but more efficient.
+    var status = statInMemory(path, FollowMode.FOLLOW_NONE);
+    if (status instanceof FileStatusWithDigest) {
+      return ((FileStatusWithDigest) status).getDigest();
     }
     return localFs.getPath(path).getFastDigest();
   }
 
   @Override
   protected byte[] getDigest(PathFragment path) throws IOException {
-    var status = statInMemory(path, FollowMode.FOLLOW_ALL);
+    path = resolveSymbolicLinks(path).asFragment();
+    // The parent path has already been canonicalized by resolveSymbolicLinks, so FOLLOW_NONE is
+    // effectively the same as FOLLOW_PARENT, but more efficient.
+    var status = statInMemory(path, FollowMode.FOLLOW_NONE);
     if (status instanceof FileStatusWithDigest) {
       return ((FileStatusWithDigest) status).getDigest();
     }
@@ -566,6 +591,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
     if (status != null) {
       return status;
     }
+
     // The path has already been canonicalized above.
     return localFs.getPath(path).stat(Symlinks.NOFOLLOW);
   }

@@ -36,6 +36,8 @@ source ${CURRENT_DIR}/remote_helpers.sh \
 function set_up() {
   add_to_bazelrc "build --spawn_strategy=sandboxed"
   add_to_bazelrc "build --genrule_strategy=sandboxed"
+  # Allow the network socket to be seen in the sandbox.
+  add_to_bazelrc "build --sandbox_add_mount_pair=/tmp"
 
   sed -i.bak '/sandbox_tmpfs_path/d' $TEST_TMPDIR/bazelrc
 }

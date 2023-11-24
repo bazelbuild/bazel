@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -36,6 +35,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.io.FileSymlinkException;
 import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionException;
 import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFunction;
+import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -44,7 +44,7 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.FileType;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFileFactory;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -75,7 +75,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
   private static final byte[] MISSING_FINGERPRINT =
       new BigInteger(1, "NonexistentFileStateValue".getBytes(UTF_8)).toByteArray();
 
-  @SerializationConstant @AutoCodec.VisibleForSerialization
+  @SerializationConstant @VisibleForSerialization
   static final HasDigest NON_EXISTENT_HAS_DIGEST = () -> MISSING_FINGERPRINT;
 
   private static final FileInfo NON_EXISTENT_FILE_INFO =
@@ -106,6 +106,9 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
 
       /** A file/directory visited was part of a symlink cycle or infinite expansion. */
       SYMLINK_CYCLE_OR_INFINITE_EXPANSION,
+
+      /** The filesystem told us inconsistent information. */
+      INCONSISTENT_FILESYSTEM,
     }
 
     private final RecursiveFilesystemTraversalException.Type type;
@@ -170,7 +173,11 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       if (!rootInfo.type.exists()) {
         // May be a dangling symlink or a non-existent file. Handle gracefully.
         if (rootInfo.type.isSymlink()) {
-          return resultForDanglingSymlink(traversal.root().asRootedPath(), rootInfo);
+          return RecursiveFilesystemTraversalValue.of(
+              ResolvedFileFactory.danglingSymlink(
+                  traversal.root().asRootedPath(),
+                  rootInfo.unresolvedSymlinkTarget,
+                  rootInfo.metadata));
         } else {
           return RecursiveFilesystemTraversalValue.EMPTY;
         }
@@ -248,6 +255,9 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       // trying to get a package lookup value may have failed due to a symlink cycle.
       RecursiveFilesystemTraversalException.Type exceptionType =
           RecursiveFilesystemTraversalException.Type.FILE_OPERATION_FAILURE;
+      if (e instanceof InconsistentFilesystemException) {
+        exceptionType = RecursiveFilesystemTraversalException.Type.INCONSISTENT_FILESYSTEM;
+      }
       if (e instanceof FileSymlinkException) {
         exceptionType =
             RecursiveFilesystemTraversalException.Type.SYMLINK_CYCLE_OR_INFINITE_EXPANSION;
@@ -570,27 +580,19 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
   }
 
   /**
-   * Creates result for a dangling symlink.
-   *
-   * @param linkName path to the symbolic link
-   * @param info the {@link FileInfo} associated with the link file
-   */
-  private static RecursiveFilesystemTraversalValue resultForDanglingSymlink(
-      RootedPath linkName, FileInfo info) {
-    checkState(info.type.isSymlink() && !info.type.exists(), "{%s} {%s}", linkName, info.type);
-    return RecursiveFilesystemTraversalValue.of(
-        ResolvedFileFactory.danglingSymlink(linkName, info.unresolvedSymlinkTarget, info.metadata));
-  }
-
-  /**
    * Creates results for a file or for a symlink that points to one.
    *
    * <p>A symlink may be direct (points to a file) or transitive (points at a direct or transitive
    * symlink).
    */
-  private static RecursiveFilesystemTraversalValue resultForFileRoot(
-      RootedPath path, FileInfo info) {
-    checkState(info.type.isFile() && info.type.exists(), "{%s} {%s}", path, info.type);
+  private static RecursiveFilesystemTraversalValue resultForFileRoot(RootedPath path, FileInfo info)
+      throws InconsistentFilesystemException {
+    if (!info.type.isFile() || !info.type.exists()) {
+      throw new InconsistentFilesystemException(
+          String.format(
+              "We were previously told %s was an existing file but it's actually %s", path, info));
+    }
+
     if (info.type.isSymlink()) {
       return RecursiveFilesystemTraversalValue.of(
           ResolvedFileFactory.symlinkToFile(

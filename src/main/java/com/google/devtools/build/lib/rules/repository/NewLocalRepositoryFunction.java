@@ -21,7 +21,9 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.ResolvedEvent;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -160,7 +162,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     }
 
     fileHandler.finishFile(rule, outputDirectory, markerData);
-    env.getListener().post(resolve(rule, directories));
+    env.getListener().post(resolve(rule));
 
     return RepositoryDirectoryValue.builder()
         .setPath(outputDirectory)
@@ -173,7 +175,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     return NewLocalRepositoryRule.class;
   }
 
-  private static ResolvedEvent resolve(Rule rule, BlazeDirectories directories) {
+  private static ResolvedEvent resolve(Rule rule) {
     String name = rule.getName();
     Object pathObj = rule.getAttr("path");
     ImmutableMap.Builder<String, Object> origAttr =
@@ -186,22 +188,10 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
             .append(", path = ")
             .append(Starlark.repr(pathObj));
 
-    Object buildFileObj = rule.getAttr("build_file");
-    if ((buildFileObj instanceof String) && !((String) buildFileObj).isEmpty()) {
-      // Build files might refer to an embedded file (as they to for "local_jdk"), so we have to
-      // describe the argument in a portable way.
-      origAttr.put("build_file", buildFileObj);
-      String buildFileArg;
-      PathFragment pathFragment = PathFragment.create((String) buildFileObj);
-      PathFragment embeddedDir = directories.getEmbeddedBinariesRoot().asFragment();
-      if (pathFragment.isAbsolute() && pathFragment.startsWith(embeddedDir)) {
-        buildFileArg =
-            "__embedded_dir__ + \"/\" + "
-                + Starlark.repr(pathFragment.relativeTo(embeddedDir).toString());
-      } else {
-        buildFileArg = Starlark.repr(buildFileObj.toString());
-      }
-      repr.append(", build_file = ").append(buildFileArg);
+    Label buildFile = (Label) rule.getAttr("build_file", BuildType.NODEP_LABEL);
+    if (buildFile != null) {
+      origAttr.put("build_file", buildFile);
+      repr.append(", build_file = ").append(Starlark.repr(buildFile));
     } else {
       Object buildFileContentObj = rule.getAttr("build_file_content");
       if (buildFileContentObj != null) {

@@ -147,4 +147,13 @@ public interface JavaConfigurationApi extends StarlarkValue {
               + " optimizer into. Note that if split_bytecode_optimization_pass is set, this will"
               + " only change behavior if it is > 2.")
   int bytecodeOptimizationPassActions();
+
+  @StarlarkMethod(
+      name = "enforce_proguard_file_extension",
+      structField = true,
+      doc =
+          "Returns whether ProGuard configuration files outside of third_party/ are required to use"
+              + " a *.pgcfg extension.",
+      documented = false)
+  boolean enforceProguardFileExtension();
 }

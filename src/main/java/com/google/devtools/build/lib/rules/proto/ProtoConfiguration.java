@@ -160,25 +160,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
         help = "Sets the suffixes of source files that a cc_proto_library creates.",
         converter = Converters.CommaSeparatedOptionSetConverter.class)
     public List<String> ccProtoLibrarySourceSuffixes;
-
-    @Override
-    public FragmentOptions getExec() {
-      Options exec = (Options) super.getExec();
-      exec.protoCompiler = protoCompiler;
-      exec.protocOpts = protocOpts;
-      exec.experimentalProtoDescriptorSetsIncludeSourceInfo =
-          experimentalProtoDescriptorSetsIncludeSourceInfo;
-      exec.experimentalProtoExtraActions = experimentalProtoExtraActions;
-      exec.protoToolchainForJava = protoToolchainForJava;
-      exec.protoToolchainForJ2objc = protoToolchainForJ2objc;
-      exec.protoToolchainForJavaLite = protoToolchainForJavaLite;
-      exec.protoToolchainForCc = protoToolchainForCc;
-      exec.strictProtoDeps = strictProtoDeps;
-      exec.strictPublicImports = strictPublicImports;
-      exec.ccProtoLibraryHeaderSuffixes = ccProtoLibraryHeaderSuffixes;
-      exec.ccProtoLibrarySourceSuffixes = ccProtoLibrarySourceSuffixes;
-      return exec;
-    }
   }
 
   private final ImmutableList<String> protocOpts;

@@ -70,7 +70,8 @@ final class WorkspaceFactoryTestHelper {
                 RootedPath.toRootedPath(root, workspaceFilePath),
                 "",
                 RepositoryMapping.ALWAYS_FALLBACK,
-                StarlarkSemantics.DEFAULT)
+                StarlarkSemantics.DEFAULT,
+                PackageOverheadEstimator.NOOP_ESTIMATOR)
             .setLoads(ImmutableList.of());
     WorkspaceFactory factory =
         new WorkspaceFactory(

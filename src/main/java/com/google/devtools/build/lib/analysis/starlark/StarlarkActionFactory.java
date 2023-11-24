@@ -67,7 +67,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
@@ -273,7 +273,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     registerAction(action);
   }
 
-  @SerializationConstant @AutoCodec.VisibleForSerialization
+  @SerializationConstant @VisibleForSerialization
   static final GeneratedMessage.GeneratedExtension<ExtraActionInfo, SpawnInfo> SPAWN_INFO =
       SpawnInfo.spawnInfo;
 
@@ -899,7 +899,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     @Override
     public ResourceSet buildResourceSet(OS os, int inputsSize) throws ExecException {
       try (Mutability mu = Mutability.create("resource_set_builder_function")) {
-        StarlarkThread thread = new StarlarkThread(mu, semantics);
+        StarlarkThread thread = new StarlarkThread(mu, semantics, "resource_set callback");
         StarlarkInt inputInt = StarlarkInt.of(inputsSize);
         Object response =
             Starlark.call(

@@ -302,7 +302,7 @@ public final class OutputPathMnemonicComputer {
     // TODO(blaze-configurability-team): As a mild performance update, getFirst already includes
     //   details of the corresponding option. Could incorporate this instead of hashChosenOptions
     //   regenerating the OptionDefinitions and values.
-    BuildOptions.OptionsDiff diff = BuildOptions.diff(toOptions, baselineOptions);
+    OptionsDiff diff = OptionsDiff.diff(toOptions, baselineOptions);
     // Note: getFirst only excludes options trimmed between baselineOptions to toOptions and this is
     //   considered OK as a given Rule should not be being built with options of different
     //   trimmings. See longform note in {@link ConfiguredTargetKey} for details.

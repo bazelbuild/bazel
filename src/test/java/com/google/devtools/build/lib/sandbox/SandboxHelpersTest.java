@@ -293,7 +293,19 @@ public class SandboxHelpersTest {
     // outputDir only exists partially
     execRootPath.getRelative(outputDir).getParentDirectory().createDirectoryAndParents();
     execRootPath.getRelative("justSomeDir/thatIsDoomed").createDirectoryAndParents();
-    SandboxHelpers.cleanExisting(rootDir, inputs, inputsToCreate, dirsToCreate, execRootPath);
+    // `thiswillbeafile/output` simulates a directory that was in the stashed dir but whose same
+    // path is used later for a regular file.
+    scratch.dir("/execRoot/thiswillbeafile/output");
+    scratch.file("/execRoot/thiswillbeafile/output/file1");
+    dirsToCreate.add(PathFragment.create("thiswillbeafile"));
+    PathFragment input4 = PathFragment.create("thiswillbeafile/output");
+    SandboxInputs inputs2 =
+        new SandboxInputs(
+            ImmutableMap.of(input1, inputTxt, input2, inputTxt, input3, inputTxt, input4, inputTxt),
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            ImmutableMap.of());
+    SandboxHelpers.cleanExisting(rootDir, inputs2, inputsToCreate, dirsToCreate, execRootPath);
     assertThat(dirsToCreate).containsExactly(inputDir2, inputDir3, outputDir);
     assertThat(execRootPath.getRelative("existing/directory/with").exists()).isTrue();
     assertThat(execRootPath.getRelative("partial").exists()).isTrue();

@@ -265,8 +265,6 @@ public class TestCommand implements BlazeCommand {
     }
     String productName = runtime.getProductName();
     BuildRequestOptions requestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
-    // requestOptions.printWorkspaceInOutputPathsIfNeeded is antithetical with
-    // summaryOptions.printRelativeTestLogPaths, so we completely ignore it.
     PathPrettyPrinter pathPrettyPrinter =
         OutputDirectoryLinksUtils.getPathPrettyPrinter(
             runtime.getRuleClassProvider().getSymlinkDefinitions(),

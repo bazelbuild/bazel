@@ -85,7 +85,6 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
   private final TransitiveInfoCollection moduleMap;
   private final Artifact moduleMapArtifact;
   private final Artifact zipper;
-  private final Artifact defaultZipper;
   private final String purposePrefix;
   private final String runtimeSolibDirBase;
   private final LicensesProvider licensesProvider;
@@ -175,7 +174,6 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     this.moduleMap = ruleContext.getPrerequisite("module_map");
     this.moduleMapArtifact = ruleContext.getPrerequisiteArtifact("module_map");
     this.zipper = ruleContext.getPrerequisiteArtifact(":zipper");
-    this.defaultZipper = ruleContext.getPrerequisiteArtifact(":default_zipper");
     this.purposePrefix = Actions.escapeLabel(ruleContext.getLabel()) + "_";
     this.runtimeSolibDirBase = "_solib_" + "_" + Actions.escapeLabel(ruleContext.getLabel());
     this.staticRuntimeLib = ruleContext.getPrerequisite("static_runtime_lib");
@@ -454,14 +452,8 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     return xfdoProfileProvider;
   }
 
-  /* Get the FDO-specific zipper. */
   public Artifact getZipper() {
     return zipper;
-  }
-
-  /* Get the non FDO-specific zipper. */
-  public Artifact getDefaultZipper() {
-    return defaultZipper;
   }
 
   public NestedSet<Artifact> getFullInputsForLink() {

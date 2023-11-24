@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -769,10 +770,12 @@ public class CppLinkActionBuilder {
     Preconditions.checkArgument(actionConstructionContext instanceof RuleContext);
     try {
       ccToolchainVariables =
-          toolchain.getBuildVariables(
+          CcToolchainProvider.getBuildVars(
+              toolchain,
               ((RuleContext) actionConstructionContext).getStarlarkThread(),
+              cppConfiguration,
               configuration.getOptions(),
-              cppConfiguration);
+              configuration.getOptions().get(CoreOptions.class).cpu);
     } catch (EvalException e) {
       throw new RuleErrorException(e.getMessage());
     }

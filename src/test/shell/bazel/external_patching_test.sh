@@ -291,7 +291,7 @@ EOF
 
   bazel build @ext//... &> $TEST_log 2>&1 && fail "Expected to fail"
   expect_log "Error downloading \\[.*/remote.patch\\] to"
-  expect_log "but wanted 61a6f762aaf60652cbf332879b8dcc2cfd81be2129a061da957d039eae77f0b0"
+  expect_log "but wanted sha256-Yab3Yqr2BlLL8zKHm43MLP2BviEpoGHalX0Dnq538LA="
 }
 
 test_remote_patches_with_same_base_name() {

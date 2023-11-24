@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -67,12 +67,13 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
   private static final ForkJoinPool VISITOR_POOL =
       NamedForkJoinPool.newNamedPool(
           "tree-artifact-visitor", Runtime.getRuntime().availableProcessors());
+
   /**
    * Comparator based on exec path which works on {@link ActionInput} as opposed to {@link
    * com.google.devtools.build.lib.actions.Artifact}. This way, we can use an {@link ActionInput} to
    * search {@link #childData}.
    */
-  @SerializationConstant @AutoCodec.VisibleForSerialization
+  @SerializationConstant @VisibleForSerialization
   static final Comparator<ActionInput> EXEC_PATH_COMPARATOR =
       (input1, input2) -> input1.getExecPath().compareTo(input2.getExecPath());
 
@@ -181,15 +182,15 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
 
   @SuppressWarnings("WeakerAccess") // Serialization constant.
   @SerializationConstant
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   static final TreeArtifactValue EMPTY =
       new TreeArtifactValue(
           MetadataDigestUtils.fromMetadata(ImmutableMap.of()),
           EMPTY_MAP,
           0L,
-          /*archivedRepresentation=*/ null,
-          /*materializationExecPath=*/ null,
-          /*entirelyRemote=*/ false);
+          /* archivedRepresentation= */ null,
+          /* materializationExecPath= */ null,
+          /* entirelyRemote= */ false);
 
   private final byte[] digest;
   private final ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> childData;

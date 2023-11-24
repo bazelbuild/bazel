@@ -47,6 +47,7 @@ import java.io.PrintStream;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.Map;
@@ -171,6 +172,7 @@ public class CompactPersistentActionCache implements ActionCache {
   private final PersistentMap<Integer, byte[]> map;
   private final ImmutableMap<MissReason, AtomicInteger> misses;
   private final AtomicInteger hits = new AtomicInteger();
+  private Duration loadTime;
 
   private CompactPersistentActionCache(
       PersistentStringIndexer indexer,
@@ -184,8 +186,14 @@ public class CompactPersistentActionCache implements ActionCache {
   public static CompactPersistentActionCache create(
       Path cacheRoot, Clock clock, EventHandler reporterForInitializationErrors)
       throws IOException {
-    return create(
-        cacheRoot, clock, reporterForInitializationErrors, /*alreadyFoundCorruption=*/ false);
+    Instant before = clock.now();
+    CompactPersistentActionCache compactPersistentActionCache =
+        create(
+            cacheRoot, clock, reporterForInitializationErrors, /* alreadyFoundCorruption= */ false);
+    Instant after = clock.now();
+    compactPersistentActionCache.loadTime = Duration.between(before, after);
+
+    return compactPersistentActionCache;
   }
 
   private static CompactPersistentActionCache create(
@@ -758,5 +766,15 @@ public class CompactPersistentActionCache implements ActionCache {
     for (Map.Entry<MissReason, AtomicInteger> entry : misses.entrySet()) {
       entry.getValue().set(0);
     }
+  }
+
+  @Override
+  @Nullable
+  public Duration getLoadTime() {
+    Duration ret = loadTime;
+    // As a side effect, reset the load time, so it is only reported for the actual invocation that
+    // loaded the action cache.
+    loadTime = null;
+    return ret;
   }
 }

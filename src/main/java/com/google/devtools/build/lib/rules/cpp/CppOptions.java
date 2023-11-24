@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -26,7 +25,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.StripMode;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -1104,76 +1102,6 @@ public class CppOptions extends FragmentOptions {
       return newOptions;
     }
     return this;
-  }
-
-  @Override
-  public FragmentOptions getExec() {
-    CppOptions exec = (CppOptions) getDefault();
-
-    exec.crosstoolTop = hostCrosstoolTop;
-    exec.cppCompiler = hostCppCompiler;
-
-    // hostLibcTop doesn't default to the target's libcTop.
-    // Only an explicit command-line option will change it.
-    // The default is whatever the host's crosstool (which might have been specified
-    // by --host_crosstool_top, or --crosstool_top as a fallback) says it should be.
-    exec.libcTopLabel = hostLibcTopLabel;
-    // TODO(b/129045294): Remove once toolchain-transitions are implemented.
-    exec.targetLibcTopLabel = targetLibcTopLabel;
-
-    // -g0 is the default, but allowMultiple options cannot have default values so we just pass
-    // -g0 first and let the user options override it.
-    ImmutableList.Builder<String> coptListBuilder = ImmutableList.builder();
-    ImmutableList.Builder<String> cxxoptListBuilder = ImmutableList.builder();
-    // Don't add -g0 if the host platform is Windows.
-    // Note that host platform is not necessarily the platform bazel is running on (foundry)
-    if (OS.getCurrent() != OS.WINDOWS) {
-      coptListBuilder.add("-g0");
-      cxxoptListBuilder.add("-g0");
-    }
-    exec.experimentalLinkStaticLibrariesOnce = experimentalLinkStaticLibrariesOnce;
-    exec.experimentalCcImplementationDeps = experimentalCcImplementationDeps;
-
-    exec.coptList = coptListBuilder.addAll(hostCoptList).build();
-    exec.cxxoptList = cxxoptListBuilder.addAll(hostCxxoptList).build();
-    exec.conlyoptList = ImmutableList.copyOf(hostConlyoptList);
-    exec.perFileCopts = ImmutableList.copyOf(hostPerFileCoptsList);
-    exec.linkoptList = ImmutableList.copyOf(hostLinkoptList);
-
-    exec.useStartEndLib = useStartEndLib;
-    exec.stripBinaries = StripMode.ALWAYS;
-    exec.inmemoryDotdFiles = inmemoryDotdFiles;
-
-    exec.disableLegacyCcProvider = disableLegacyCcProvider;
-    exec.enableCcToolchainResolution = enableCcToolchainResolution;
-    exec.removeLegacyWholeArchive = removeLegacyWholeArchive;
-    exec.dontEnableHostNonhost = dontEnableHostNonhost;
-    exec.requireCtxInConfigureFeatures = requireCtxInConfigureFeatures;
-    exec.useStandaloneLtoIndexingCommandLines = useStandaloneLtoIndexingCommandLines;
-    exec.useSpecificToolFiles = useSpecificToolFiles;
-    exec.disableNoCopts = disableNoCopts;
-    exec.validateTopLevelHeaderInclusions = validateTopLevelHeaderInclusions;
-    exec.strictSystemIncludes = strictSystemIncludes;
-    exec.useArgsParamsFile = useArgsParamsFile;
-    exec.experimentalIncludeScanning = experimentalIncludeScanning;
-    exec.enableCcTestFeature = enableCcTestFeature;
-    exec.useCppCompileHeaderMnemonic = useCppCompileHeaderMnemonic;
-
-    // Save host options for further use.
-    exec.hostCoptList = hostCoptList;
-    exec.hostConlyoptList = hostConlyoptList;
-    exec.hostCppCompiler = hostCppCompiler;
-    exec.hostCrosstoolTop = hostCrosstoolTop;
-    exec.hostCxxoptList = hostCxxoptList;
-    exec.hostPerFileCoptsList = hostPerFileCoptsList;
-    exec.hostLibcTopLabel = hostLibcTopLabel;
-    exec.hostLinkoptList = hostLinkoptList;
-
-    exec.experimentalStarlarkCcImport = experimentalStarlarkCcImport;
-
-    exec.macosSetInstallName = macosSetInstallName;
-
-    return exec;
   }
 
   /** Returns true if targets under this configuration should apply FDO. */

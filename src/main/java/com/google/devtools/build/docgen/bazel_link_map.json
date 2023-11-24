@@ -24,6 +24,6 @@
   },
   "sourceUrlRoot": "https://github.com/bazelbuild/bazel/blob/master/",
   "labelRewrites": {
-    "@_builtins//:": "//src/main/starlark/builtins_bzl:"
+    "@@_builtins//:": "//src/main/starlark/builtins_bzl:"
   }
 }

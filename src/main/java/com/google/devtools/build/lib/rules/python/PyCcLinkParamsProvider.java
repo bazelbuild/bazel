@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.python;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
@@ -27,7 +28,8 @@ import net.starlark.java.eval.EvalException;
 @VisibleForTesting
 @Immutable
 public final class PyCcLinkParamsProvider {
-  public static final Provider PROVIDER = new Provider();
+  private static final BuiltinProvider BUILTIN_PROVIDER = new BuiltinProvider();
+  private static final RulesPythonProvider RULES_PYTHON_PROVIDER = new RulesPythonProvider();
 
   private final CcInfo ccInfo;
 
@@ -35,20 +37,27 @@ public final class PyCcLinkParamsProvider {
     this.ccInfo = info.getValue("cc_info", CcInfo.class);
   }
 
-  public Provider getProvider() {
-    return PROVIDER;
+  public static PyCcLinkParamsProvider fromTarget(ConfiguredTarget target)
+      throws RuleErrorException {
+    PyCcLinkParamsProvider provider = target.get(RULES_PYTHON_PROVIDER);
+    if (provider != null) {
+      return provider;
+    }
+    provider = target.get(BUILTIN_PROVIDER);
+    if (provider != null) {
+      return provider;
+    }
+    throw new IllegalStateException(
+        String.format("Unable to find PyCcLinkParamsProvider provider in %s", target));
   }
 
   public CcInfo getCcInfo() {
     return ccInfo;
   }
 
-  /** Provider class for {@link PyCcLinkParamsProvider} objects. */
-  public static class Provider extends StarlarkProviderWrapper<PyCcLinkParamsProvider> {
-    private Provider() {
-      super(
-          Label.parseCanonicalUnchecked("@_builtins//:common/python/providers.bzl"),
-          "PyCcLinkParamsProvider");
+  private static class BaseProvider extends StarlarkProviderWrapper<PyCcLinkParamsProvider> {
+    private BaseProvider(String bzlLabel) {
+      super(Label.parseCanonicalUnchecked(bzlLabel), "PyCcLinkParamsProvider");
     }
 
     @Override
@@ -58,6 +67,20 @@ public final class PyCcLinkParamsProvider {
       } catch (EvalException e) {
         throw new RuleErrorException(e.getMessageWithStack());
       }
+    }
+  }
+
+  /** Provider class for builtin PyWrapCcLinkParamsProvider. */
+  public static class BuiltinProvider extends BaseProvider {
+    private BuiltinProvider() {
+      super("@_builtins//:common/python/providers.bzl");
+    }
+  }
+
+  /** Provider class for rules_python PyWrapCcLinkParamsProvider. */
+  public static class RulesPythonProvider extends BaseProvider {
+    private RulesPythonProvider() {
+      super("//third_party/bazel_rules/rules_python/python/private/common:providers.bzl");
     }
   }
 }

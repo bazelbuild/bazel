@@ -32,22 +32,23 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import com.google.testing.junit.testparameterinjector.TestParameters;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link ConfigSetting}.
- */
-@RunWith(JUnit4.class)
+/** Tests for {@link ConfigSetting}. */
+@RunWith(TestParameterInjector.class)
 public class ConfigSettingTest extends BuildViewTestCase {
 
   /** Extra options for this test. */
@@ -106,6 +107,15 @@ public class ConfigSettingTest extends BuildViewTestCase {
               /*visibleWithinToolsPackage=*/ false,
               /*errorMessage=*/ "For very important reasons."));
     }
+
+    @Option(
+        name = "allow_multiple_option",
+        defaultValue = "null",
+        converter = CommaSeparatedOptionListConverter.class,
+        allowMultiple = true,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP})
+    public List<String> allowMultipleOption;
   }
 
   /** Test fragment. */
@@ -516,39 +526,32 @@ public class ConfigSettingTest extends BuildViewTestCase {
    * single entry ["a,b"], while "--extra_platforms=a,b" produces ["a", "b"].
    */
   @Test
-  public void multiValueListMultipleExpectedValues() throws Exception {
+  @TestParameters({
+    "{flags: [''], matchExpected: false}", // No flag set
+    "{flags: ['--allow_multiple_option', 'one'], matchExpected: false}",
+    "{flags: ['--allow_multiple_option', 'two'], matchExpected: false}",
+    "{flags: ['--allow_multiple_option', 'one', '--allow_multiple_option', 'two'], "
+        + "matchExpected: true}",
+    "{flags: ['--allow_multiple_option', 'two', '--allow_multiple_option', 'one'], "
+        + "matchExpected: true}",
+    "{flags: ['--allow_multiple_option', 'one,two'], matchExpected: true}",
+    "{flags: ['--allow_multiple_option', 'two,one'], matchExpected: true}",
+    "{flags: ['--allow_multiple_option', 'ten', '--allow_multiple_option', 'two', "
+        + "'--allow_multiple_option', 'three', '--allow_multiple_option', 'one'], "
+        + "matchExpected: true}"
+  })
+  public void multiValueListMultipleExpectedValues(List<String> flags, boolean matchExpected)
+      throws Exception {
     scratch.file(
         "test/BUILD",
         "config_setting(",
         "    name = 'match',",
         "    values = {",
-        "        'extra_toolchains': 'one,two',", // This produces ["one", "two"]
+        "        'allow_multiple_option': 'one,two',", // This produces ["one", "two"]
         "    })");
 
-    useConfiguration("");
-    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
-    useConfiguration("--extra_toolchains", "one");
-    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
-    useConfiguration("--extra_toolchains", "two");
-    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isFalse();
-    useConfiguration("--extra_toolchains", "one", "--extra_toolchains", "two");
-    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
-    useConfiguration("--extra_toolchains", "two", "--extra_toolchains", "one");
-    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
-    useConfiguration("--extra_toolchains", "one,two");
-    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
-    useConfiguration("--extra_toolchains", "two,one");
-    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
-    useConfiguration(
-        "--extra_toolchains",
-        "ten",
-        "--extra_toolchains",
-        "two",
-        "--extra_toolchains",
-        "three",
-        "--extra_toolchains",
-        "one");
-    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isTrue();
+    useConfiguration(flags.toArray(new String[flags.size()]));
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isEqualTo(matchExpected);
   }
 
   /**

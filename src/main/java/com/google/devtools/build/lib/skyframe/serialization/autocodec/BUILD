@@ -57,10 +57,16 @@ java_plugin(
 )
 
 java_library(
+    name = "serialization-processing-exception",
+    srcs = ["SerializationProcessingException.java"],
+    deps = ["//third_party:error_prone_annotations"],
+)
+
+java_library(
     name = "serialization-processor-util",
     srcs = ["SerializationProcessorUtil.java"],
     deps = [
-        "//third_party:error_prone_annotations",
+        ":serialization-processing-exception",
         "//third_party:guava",
         "//third_party/java/javapoet",
     ],
@@ -72,6 +78,7 @@ java_library(
     deps = [
         ":registered-singleton",
         ":serialization-constant-annotation",
+        ":serialization-processing-exception",
         ":serialization-processor-util",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:codec-scanning-constants",
         "//third_party:auto_service",
@@ -106,6 +113,7 @@ java_library(
     ],
     deps = [
         ":autocodec-annotation",
+        ":serialization-processing-exception",
         ":serialization-processor-util",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
@@ -130,6 +138,7 @@ pkg_tar(
         ":registered-singleton",
         ":serialization-constant-annotation",
         ":serialization-constant-processor",
+        ":serialization-processing-exception",
         ":serialization-processor-util",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",

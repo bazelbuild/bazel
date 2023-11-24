@@ -30,13 +30,13 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
@@ -139,81 +139,8 @@ public final class CcCommon implements StarlarkValue {
 
   private final RuleContext ruleContext;
 
-  private final CcToolchainProvider ccToolchain;
-  private final FdoContext fdoContext;
-
-  public CcCommon(RuleContext ruleContext) throws RuleErrorException {
-    this(
-        ruleContext,
-        Preconditions.checkNotNull(
-            CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext)));
-  }
-
-  public CcCommon(RuleContext ruleContext, CcToolchainProvider ccToolchain) {
+  public CcCommon(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
-    this.fdoContext = ccToolchain.getFdoContext();
-    this.ccToolchain = ccToolchain;
-  }
-
-  /**
-   * Returns a list of ({@link Artifact}, {@link Label}) pairs. Each pair represents an input source
-   * file and the label of the rule that generates it (or the label of the source file itself if it
-   * is an input file).
-   */
-  List<Pair<Artifact, Label>> getPrivateHeaders() {
-    Map<Artifact, Label> map = Maps.newLinkedHashMap();
-    Iterable<? extends TransitiveInfoCollection> providers =
-        ruleContext.getPrerequisitesIf("srcs", FileProvider.class);
-    for (TransitiveInfoCollection provider : providers) {
-      for (Artifact artifact :
-          provider.getProvider(FileProvider.class).getFilesToBuild().toList()) {
-        // TODO(bazel-team): We currently do not produce an error for duplicate headers and other
-        // non-source artifacts with different labels, as that would require cleaning up the code
-        // base without significant benefit; we should eventually make this consistent one way or
-        // the other.
-        if (CppFileTypes.CPP_HEADER.matches(artifact.getExecPath())) {
-          map.put(artifact, provider.getLabel());
-        }
-      }
-    }
-    return mapToListOfPairs(map);
-  }
-
-  /**
-   * Returns a list of ({@link Artifact}, {@link Label}) pairs. Each pair represents an input source
-   * file and the label of the rule that generates it (or the label of the source file itself if it
-   * is an input file).
-   */
-  List<Pair<Artifact, Label>> getSources() {
-    Map<Artifact, Label> map = Maps.newLinkedHashMap();
-    Iterable<? extends TransitiveInfoCollection> providers =
-        ruleContext.getPrerequisitesIf("srcs", FileProvider.class);
-    for (TransitiveInfoCollection provider : providers) {
-      for (Artifact artifact :
-          provider.getProvider(FileProvider.class).getFilesToBuild().toList()) {
-        if (!CppFileTypes.CPP_HEADER.matches(artifact.getExecPath())) {
-          Label oldLabel = map.put(artifact, provider.getLabel());
-          if (SourceCategory.CC_AND_OBJC.getSourceTypes().matches(artifact.getExecPathString())
-              && oldLabel != null
-              && !oldLabel.equals(provider.getLabel())) {
-            ruleContext.attributeError(
-                "srcs",
-                String.format(
-                    "Artifact '%s' is duplicated (through '%s' and '%s')",
-                    artifact.getExecPathString(), oldLabel, provider.getLabel()));
-          }
-        }
-      }
-    }
-    return mapToListOfPairs(map);
-  }
-
-  private List<Pair<Artifact, Label>> mapToListOfPairs(Map<Artifact, Label> map) {
-    ImmutableList.Builder<Pair<Artifact, Label>> result = ImmutableList.builder();
-    for (Map.Entry<Artifact, Label> entry : map.entrySet()) {
-      result.add(Pair.of(entry.getKey(), entry.getValue()));
-    }
-    return result.build();
   }
 
   /**
@@ -260,16 +187,6 @@ public final class CcCommon implements StarlarkValue {
    */
   public List<Pair<Artifact, Label>> getHeaders() {
     return getHeaders(ruleContext);
-  }
-
-  /** Returns the C++ toolchain provider. */
-  public CcToolchainProvider getToolchain() {
-    return ccToolchain;
-  }
-
-  /** Returns the C++ FDO optimization support provider. */
-  public FdoContext getFdoContext() {
-    return fdoContext;
   }
 
   public static void reportInvalidOptions(
@@ -764,10 +681,12 @@ public final class CcCommon implements StarlarkValue {
     if (featureConfiguration.actionIsConfigured(CppActionNames.CC_FLAGS_MAKE_VARIABLE)) {
       try {
         CcToolchainVariables buildVariables =
-            toolchainProvider.getBuildVariables(
+            CcToolchainProvider.getBuildVars(
+                toolchainProvider,
                 ruleContext.getStarlarkThread(),
+                cppConfiguration,
                 ruleContext.getConfiguration().getOptions(),
-                cppConfiguration);
+                ruleContext.getConfiguration().getOptions().get(CoreOptions.class).cpu);
       return CppHelper.getCommandLine(
           ruleContext, featureConfiguration, buildVariables, CppActionNames.CC_FLAGS_MAKE_VARIABLE);
 
@@ -785,7 +704,7 @@ public final class CcCommon implements StarlarkValue {
 
     RuleClass ruleClass = rule.getRuleClassObject();
     Label label = ruleClass.getRuleDefinitionEnvironmentLabel();
-    if (label.getRepository().getNameWithAt().equals("@_builtins")) {
+    if (label.getRepository().getName().equals("_builtins")) {
       // always permit builtins
       return true;
     }

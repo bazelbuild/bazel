@@ -14,17 +14,16 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
-import com.google.devtools.build.lib.analysis.config.transitions.ComparingTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
@@ -70,20 +69,11 @@ public class ExecutionTransitionFactory
   /**
    * Guarantees we don't duplicate instances of the same transition.
    *
-   * <p>Bazel already does a lot of the work for us: there's one global native exec transition
-   * instance in the code base: {@link NativeExecTransition#INSTANCE}. Bazel's Starlark logic also
-   * maintains a distinct instance for each Starlark transition.
-   *
-   * <p>While those make this cache seem unnecessary, it still serves two purposes:
-   *
-   * <ol>
-   *   <li>This file creates its own transitions that wrap the original transitions. We have to make
-   *       sure those transitions don't duplicate. TODO(b/292619013): once we remove the native
-   *       transition this probably isn't necessary: remove this rationale
-   *   <li>The exec transition uniquely takes an extra parameter: the execution platform label. This
-   *       is provided by toolchain resolution - the transition can't read it from input build
-   *       options. So we need to cache on {@code label, originalTransition} pairs.
-   * </ol>
+   * <p>Bazel's Starlark logic also maintains a distinct instance for each Starlark transition.
+   * While that makes this cache seem unnecessary, it still has value. The exec transition uniquely
+   * takes an extra parameter: the execution platform label. This is provided by toolchain
+   * resolution - the transition can't read it from input build options. So we need to cache on
+   * {@code label, originalTransition} pairs.
    */
   private static final Cache<Pair<Label, Integer>, PatchTransition> transitionInstanceCache =
       Caffeine.newBuilder().weakValues().build();
@@ -103,40 +93,18 @@ public class ExecutionTransitionFactory
             .executionPlatform(dataWithTargetAttributes.executionPlatform())
             .build();
 
-    // Always get the native transition.
-    PatchTransition nativeTransition =
-        transitionInstanceCache.get(
-            Pair.of(
-                data.executionPlatform(), System.identityHashCode(NativeExecTransition.INSTANCE)),
-            (p) ->
-                new ExecTransitionFinalizer(
-                    data.executionPlatform(), NativeExecTransition.INSTANCE));
-
     @SuppressWarnings("unchecked")
     TransitionFactory<AttributeTransitionData> starlarkExecTransitionProvider =
-        (TransitionFactory<AttributeTransitionData>) data.analysisData();
-    if (starlarkExecTransitionProvider == null) {
-      return nativeTransition;
-    }
+        (TransitionFactory<AttributeTransitionData>)
+            Verify.verifyNotNull(
+                data.analysisData(), "expected a Starlark exec transition definition");
 
     return transitionInstanceCache.get(
         // A Starlark transition keeps the same instance unless we modify its .bzl file.
         Pair.of(data.executionPlatform(), starlarkExecTransitionProvider.hashCode()),
-        (p) -> {
-          PatchTransition starlarkTransition =
-              new ExecTransitionFinalizer(
-                  data.executionPlatform(), starlarkExecTransitionProvider.create(data));
-
-          // We don't yet know if --experimental_exec_config_diff is set because this method
-          // doesn't have access to BuildOptions. Universally create a ComparingTransition and
-          // let that figure out if it should run both transitions or just the Starlark one.
-          return new ComparingTransition(
-              /* activeTransition= */ starlarkTransition,
-              /* activeTransitionDesc= */ "starlark",
-              /* altTransition= */ nativeTransition,
-              /* altTransitionDesc= */ "native",
-              /* runBoth= */ b -> b.get(CoreOptions.class).execConfigDiff);
-        });
+        (p) ->
+            new ExecTransitionFinalizer(
+                data.executionPlatform(), starlarkExecTransitionProvider.create(data)));
   }
 
   private final String execGroup;
@@ -162,9 +130,8 @@ public class ExecutionTransitionFactory
   /**
    * Complete exec transition.
    *
-   * <p>Takes as input the execution platform and the "main" transition used for this build: either
-   * a native or Starlark transition. Calls the main transitino, the runs finalizer logic that's
-   * common to both transition modes.
+   * <p>Takes as input the execution platform and the main transition. Calls the main transition,
+   * then runs finalizer logic that has to be handled natively.
    */
   private static class ExecTransitionFinalizer implements PatchTransition {
     private static final ImmutableSet<Class<? extends FragmentOptions>> FRAGMENTS =
@@ -225,7 +192,8 @@ public class ExecutionTransitionFactory
       // (we could instead call transitionImpl() directly, trusting StarlarkTransitionCache to
       // control when that's called). But it's simpler to universally call it here and causes no
       // harm. And once we remove the native transition we can eliminate this cache outright.
-      // TODO(b/292619013): remove this cache when we remove the native exec transition.
+      // TODO(b/301644122): remove this cache when we remove the native exec transition. We'll do
+      // this as a distinct change just in case it causes performance problems.
       return nativeApplicationCache.applyTransition(
           options,
           // The execution platform impacts the output's --platform_suffix and --platforms flags.
@@ -305,28 +273,6 @@ public class ExecutionTransitionFactory
       coreOptions.executionInfoModifier =
           options.underlying().get(CoreOptions.class).executionInfoModifier;
       return result;
-    }
-  }
-
-  /** Logic unique to the native exec transition. */
-  private static class NativeExecTransition implements PatchTransition {
-    private static final NativeExecTransition INSTANCE = new NativeExecTransition();
-
-    private static final ImmutableSet<Class<? extends FragmentOptions>> FRAGMENTS =
-        ImmutableSet.of(CoreOptions.class, PlatformOptions.class);
-
-    @Override
-    public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
-      // Start by converting to exec options.
-      BuildOptionsView execOptions =
-          new BuildOptionsView(options.underlying().createExecOptions(), FRAGMENTS);
-
-      CoreOptions coreOptions = checkNotNull(execOptions.get(CoreOptions.class));
-      coreOptions.isExec = true;
-      // Disable extra actions
-      coreOptions.actionListeners = ImmutableList.of();
-
-      return execOptions.underlying();
     }
   }
 }

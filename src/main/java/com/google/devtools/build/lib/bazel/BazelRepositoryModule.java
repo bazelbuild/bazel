@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.LocalPathOverride;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionRepoMappingEntriesFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
@@ -290,7 +291,10 @@ public class BazelRepositoryModule extends BlazeModule {
         .addSkyFunction(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
         .addSkyFunction(SkyFunctions.SINGLE_EXTENSION_EVAL, singleExtensionEvalFunction)
         .addSkyFunction(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())
-        .addSkyFunction(SkyFunctions.REPO_SPEC, new RepoSpecFunction(registryFactory));
+        .addSkyFunction(SkyFunctions.REPO_SPEC, new RepoSpecFunction(registryFactory))
+        .addSkyFunction(
+            SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
+            new ModuleExtensionRepoMappingEntriesFunction());
     filesystem = runtime.getFileSystem();
 
     credentialModule = Preconditions.checkNotNull(runtime.getBlazeModule(CredentialModule.class));
@@ -345,7 +349,6 @@ public class BazelRepositoryModule extends BlazeModule {
       if (repoOptions.repositoryDownloaderRetries >= 0) {
         downloadManager.setRetries(repoOptions.repositoryDownloaderRetries);
       }
-      downloadManager.setUrlsAsDefaultCanonicalId(repoOptions.urlsAsDefaultCanonicalId);
 
       repositoryCache.setHardlink(repoOptions.useHardlinks);
       if (repoOptions.experimentalScaleTimeouts > 0.0) {
@@ -411,7 +414,9 @@ public class BazelRepositoryModule extends BlazeModule {
         throw new AbruptExitException(
             detailedExitCode(
                 String.format(
-                    "Failed to parse downloader config at %s: %s", e.getLocation(), e.getMessage()),
+                    "Failed to parse downloader config%s: %s",
+                    e.getLocation() != null ? String.format(" at %s", e.getLocation()) : "",
+                    e.getMessage()),
                 Code.BAD_DOWNLOADER_CONFIG));
       }
 

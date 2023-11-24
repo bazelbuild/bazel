@@ -548,12 +548,18 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   private BuildLanguageOptions parseBuildLanguageOptions(String... options) throws Exception {
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
-    if (!analysisMock.isThisBazel()) {
-      parser.parse("--experimental_google_legacy_api"); // For starlark java_binary;
-    }
-    parser.parse("--enable_bzlmod");
+    parser.parse(getDefaultBuildLanguageOptions());
     parser.parse(options);
     return parser.getOptions(BuildLanguageOptions.class);
+  }
+
+  protected List<String> getDefaultBuildLanguageOptions() throws Exception {
+    ImmutableList.Builder<String> ans = ImmutableList.builder();
+    if (!analysisMock.isThisBazel()) {
+      ans.add("--experimental_google_legacy_api"); // For starlark java_binary;
+    }
+    ans.add("--enable_bzlmod");
+    return ans.build();
   }
 
   /** Used by skyframe-only tests. */

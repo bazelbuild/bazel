@@ -29,8 +29,17 @@ public final class CommonOptions {
   // FragmentOptions and propagate them to this configuration. Those flags should also be
   // ineligible outputs for other transitions because they're not meant for rule logic.  That
   // would guarantee consistency of flags like --check_visibility while still preventing forking.
-  public static final BuildOptions EMPTY_OPTIONS =
-      BuildOptions.builder().addFragmentOptions(Options.getDefaults(CoreOptions.class)).build();
+  public static final BuildOptions EMPTY_OPTIONS = createEmptyOptions();
+
+  private static BuildOptions createEmptyOptions() {
+    BuildOptions options =
+        BuildOptions.builder().addFragmentOptions(Options.getDefaults(CoreOptions.class)).build();
+    // Disable the exec transition. Since this config is empty it shouldn't trigger any exec
+    // transitions. More important, the default value this would otherwise propagate may not exist
+    // in the repo (if the repo remaps with a repo-wide bazelrc).
+    options.get(CoreOptions.class).starlarkExecConfig = null;
+    return options;
+  }
 
   private CommonOptions() {}
 }

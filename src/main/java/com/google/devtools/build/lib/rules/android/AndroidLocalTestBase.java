@@ -338,7 +338,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         .setAttributes(attributes)
         .addRuntimeJars(javaCommon.getJavaCompilationArtifacts().getRuntimeJars())
         .setIncludeBuildData(true)
-        .setRunfilesMiddleman(runfilesSupport.getRunfilesMiddleman())
         .setCompression(COMPRESSED)
         .setLauncher(launcher)
         .setOneVersionEnforcementLevel(
@@ -402,7 +401,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       FilesToRunProvider singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
       coverageEnvironment.add(
           new Pair<>("SINGLE_JAR_TOOL", singleJar.getExecutable().getExecPathString()));
-      coverageSupportFiles.addTransitive(singleJar.getFilesToRun());
+      coverageSupportFiles.add(singleJar.getExecutable());
     }
 
     javaCommon.addTransitiveInfoProviders(

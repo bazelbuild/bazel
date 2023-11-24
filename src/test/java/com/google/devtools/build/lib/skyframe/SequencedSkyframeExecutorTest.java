@@ -116,6 +116,7 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTarge
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -1232,7 +1233,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   /** Dummy action that creates a tree output. */
   // AutoCodec because the superclass has a WrappedRunnable inside it.
   @AutoCodec
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   static class TreeArtifactAction extends TestAction {
     @SuppressWarnings("unused") // Only needed for serialization.
     private final SpecialArtifact output;
@@ -1448,11 +1449,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     @Override
     public NestedSet<Artifact> getMandatoryInputs() {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-
-    @Override
-    public boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action) {
-      return this != action;
     }
 
     @Override

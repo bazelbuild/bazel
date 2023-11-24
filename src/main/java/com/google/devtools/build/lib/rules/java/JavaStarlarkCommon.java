@@ -57,7 +57,6 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.eval.StarlarkValue;
 
 /** A module that contains Starlark utilities for Java support. */
 public class JavaStarlarkCommon
@@ -256,40 +255,6 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  // TODO(b/78512644): migrate callers to passing explicit javacopts or using custom toolchains, and
-  // delete
-  public StarlarkValue getDefaultJavacOpts(Info javaToolchainUnchecked, boolean asDepset)
-      throws EvalException, RuleErrorException {
-    JavaToolchainProvider javaToolchain =
-        JavaToolchainProvider.PROVIDER.wrap(javaToolchainUnchecked);
-    // We don't have a rule context if the default_javac_opts.java_toolchain parameter is set
-    if (asDepset) {
-      return Depset.of(String.class, javaToolchain.getJavacOptions(/* ruleContext= */ null));
-    } else {
-      return StarlarkList.immutableCopyOf(
-          javaToolchain.getJavacOptionsAsList(/* ruleContext= */ null));
-    }
-  }
-
-  @Override
-  public ProviderApi getJavaToolchainProvider() {
-    // method exists solely for documentation
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public Provider getJavaRuntimeProvider() {
-    // method exists purely for documentation
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public ProviderApi getBootClassPathInfo() {
-    // method exists solely for documentation
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
   public String getTargetKind(Object target, StarlarkThread thread) throws EvalException {
     checkPrivateAccess(thread);
     if (target instanceof MergedConfiguredTarget) {
@@ -306,19 +271,6 @@ public class JavaStarlarkCommon
 
   protected static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
     BuiltinRestriction.failIfCalledOutsideAllowlist(thread, PRIVATE_STARLARKIFACTION_ALLOWLIST);
-  }
-
-  @Override
-  public Sequence<Artifact> getBuildInfo(
-      StarlarkRuleContext starlarkRuleContext, boolean isStampingEnabled, StarlarkThread thread)
-      throws EvalException, InterruptedException {
-    checkPrivateAccess(thread);
-    RuleContext ruleContext = starlarkRuleContext.getRuleContext();
-    return StarlarkList.immutableCopyOf(
-        ruleContext
-            .getAnalysisEnvironment()
-            .getBuildInfo(
-                isStampingEnabled, JavaBuildInfoFactory.KEY, ruleContext.getConfiguration()));
   }
 
   @Override
@@ -408,6 +360,15 @@ public class JavaStarlarkCommon
     return thread
         .getSemantics()
         .getBool(BuildLanguageOptions.INCOMPATIBLE_DEPSET_FOR_JAVA_OUTPUT_SOURCE_JARS);
+  }
+
+  @Override
+  public boolean isJavaInfoMergeRuntimeModuleFlagsEnabled(StarlarkThread thread)
+      throws EvalException {
+    checkPrivateAccess(thread);
+    return thread
+        .getSemantics()
+        .getBool(BuildLanguageOptions.INCOMPATIBLE_JAVA_INFO_MERGE_RUNTIME_MODULE_FLAGS);
   }
 
   @Override

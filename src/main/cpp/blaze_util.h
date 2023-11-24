@@ -46,15 +46,6 @@ bool GetNullaryOption(const char *arg, const char *key);
 
 // Searches for 'key' in 'args' using GetUnaryOption. Arguments found after '--'
 // are omitted from the search.
-// When 'warn_if_dupe' is true, the method checks if 'key' is specified more
-// than once and prints a warning if so.
-// Returns the value of the 'key' flag iff it occurs in args.
-// Returns nullptr otherwise.
-const char* SearchUnaryOption(const std::vector<std::string>& args,
-                              const char* key, bool warn_if_dupe);
-
-// Searches for 'key' in 'args' using GetUnaryOption. Arguments found after '--'
-// are omitted from the search.
 // If 'ignore_after_value' is not nullptr, all values matching the 'key'
 // following 'ignore_after_value' will be ignored. Returns the values of the
 // 'key' flag iff it occurs in args. Returns empty vector otherwise.

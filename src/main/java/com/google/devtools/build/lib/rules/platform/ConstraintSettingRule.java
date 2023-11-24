@@ -40,7 +40,7 @@ public class ConstraintSettingRule implements RuleDefinition {
         .exemptFromConstraintChecking("this rule helps *define* a constraint")
         .useToolchainResolution(ToolchainResolutionMode.DISABLED)
         .removeAttribute(":action_listener")
-        .removeAttribute("applicable_licenses")
+        .removeAttribute(RuleClass.APPLICABLE_METADATA_ATTR)
         .override(
             attr("tags", Type.STRING_LIST)
                 // No need to show up in ":all", etc. target patterns.

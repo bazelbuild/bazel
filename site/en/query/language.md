@@ -1237,7 +1237,7 @@ protocol buffer but in
 
 Similar to `--output streamed_proto`, prints a stream of
 [`Target`](https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/build.proto)
-protocol buffers but in [ndjson](http://ndjson.org/) format.
+protocol buffers but in [ndjson](https://github.com/ndjson/ndjson-spec) format.
 
 ### Print the label of each target, in rank order {:#print-target-label-rank-order}
 

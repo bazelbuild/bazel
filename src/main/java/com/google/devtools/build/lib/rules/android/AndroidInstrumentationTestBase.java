@@ -94,7 +94,6 @@ public class AndroidInstrumentationTestBase implements RuleConfiguredTargetFacto
                 RunfilesProvider.DEFAULT_RUNFILES,
                 ruleContext.getConfiguration().alwaysIncludeFilesToBuildInData())
             .addTransitiveArtifacts(AndroidCommon.getSupportApks(ruleContext))
-            .addTransitiveArtifacts(getAdb(ruleContext).getFilesToRun())
             .merge(getAapt(ruleContext).getRunfilesSupport())
             .addArtifacts(getDataDeps(ruleContext))
             .build();

@@ -192,6 +192,7 @@ import com.google.devtools.build.lib.skyframe.config.BuildConfigurationFunction;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingFunction;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingValue;
+import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsFunction;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsCycleReporter;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsFunction;
@@ -359,7 +360,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private final AtomicReference<ActionExecutionStatusReporter> statusReporterRef =
       new AtomicReference<>();
   protected final SkyframeActionExecutor skyframeActionExecutor;
-  private ActionExecutionFunction actionExecutionFunction;
+  private ActionRewindStrategy actionRewindStrategy;
   private BuildDriverFunction buildDriverFunction;
   private GlobFunction globFunction;
   SkyframeProgressReceiver progressReceiver;
@@ -444,6 +445,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @Nullable private final SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder;
   @Nullable private final WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver;
   private Set<String> previousClientEnvironment = ImmutableSet.of();
+
+  // Contain the paths in the .bazelignore file.
+  private ImmutableSet<Path> ignoredPaths = ImmutableSet.of();
 
   Duration sourceDiffCheckingDuration = Duration.ofSeconds(-1L);
 
@@ -709,10 +713,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         new BuildInfoCollectionFunction(actionKeyContext, artifactFactory));
     map.put(SkyFunctions.BUILD_INFO, new WorkspaceStatusFunction(this::makeWorkspaceStatusAction));
     map.put(SkyFunctions.COVERAGE_REPORT, new CoverageReportFunction(actionKeyContext));
-    ActionExecutionFunction actionExecutionFunction =
-        new ActionExecutionFunction(skyframeActionExecutor, directories, tsgm::get, bugReporter);
-    map.put(SkyFunctions.ACTION_EXECUTION, actionExecutionFunction);
-    this.actionExecutionFunction = actionExecutionFunction;
+    this.actionRewindStrategy = new ActionRewindStrategy();
+    map.put(SkyFunctions.ACTION_EXECUTION, newActionExecutionFunction());
     map.put(
         SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL,
         new RecursiveFilesystemTraversalFunction(syscallCache));
@@ -764,6 +766,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected SkyFunction newDirectoryListingStateFunction() {
     return new DirectoryListingStateFunction(externalFilesHelper, syscallCache);
+  }
+
+  protected SkyFunction newActionExecutionFunction() {
+    return new ActionExecutionFunction(
+        actionRewindStrategy, skyframeActionExecutor, directories, tsgm::get, bugReporter);
   }
 
   protected SkyFunction newCollectPackagesUnderDirectoryFunction(BlazeDirectories directories) {
@@ -1296,6 +1303,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   public AtomicReference<PathPackageLocator> getPackageLocator() {
     return pkgLocator;
+  }
+
+  public ImmutableSet<Path> getIgnoredPaths() {
+    return ignoredPaths;
   }
 
   protected Differencer.Diff getDiff(
@@ -2007,20 +2018,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                 if (packageValue != null) { // Null for errors e.g. "no such package"
                   Optional<Root> sourceRoot = packageValue.getPackage().getSourceRoot();
                   if (sourceRoot.isPresent()) {
-                    roots.put(
-                        (PackageIdentifier) key,
-                        maybeTransformSourceRootForExecrootSymlinkCreation(sourceRoot.get()));
+                    roots.put((PackageIdentifier) key, sourceRoot.get());
                   }
                 }
               }
             });
     return ImmutableMap.copyOf(roots);
-  }
-
-  /** Returns a possibly transformed source root of a package for execroot symlink creation. */
-  @ForOverride
-  protected Root maybeTransformSourceRootForExecrootSymlinkCreation(Root sourceRoot) {
-    return sourceRoot;
   }
 
   public void clearSyscallCache() {
@@ -2072,7 +2075,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     setExecutionProgressReceiver(null);
 
     skyframeActionExecutor.executionOver();
-    actionExecutionFunction.complete(eventHandler);
+    actionRewindStrategy.reset(eventHandler);
   }
 
   /**
@@ -3077,8 +3080,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         Profiler.instance().profile("SkyframeExecutor.collectAccumulatedAlvs")) {
       ImmutableMap<ActionLookupKey, SkyValue> batchOfActionLookupValues =
           progressReceiver.getBatchedActionLookupValuesForConflictChecking();
-      return ActionLookupValuesCollectionResult.create(
-          batchOfActionLookupValues.values(), batchOfActionLookupValues.keySet());
+      return ActionLookupValuesCollectionResult.create(batchOfActionLookupValues.values());
     }
   }
 
@@ -3149,7 +3151,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         // Ignored package prefixes are specified relative to the workspace root
         // by definition of .bazelignore. So, we only use ignored paths when the
         // package root is equal to the workspace path.
-        ImmutableSet<Path> ignoredPaths = ImmutableSet.of();
         if (workspacePath != null && workspacePath.equals(pathEntry.asPath())) {
           ignoredPaths =
               ignoredPackagePrefixesValue.getPatterns().stream()

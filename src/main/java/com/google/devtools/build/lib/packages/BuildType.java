@@ -18,8 +18,10 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.License.DistributionType;
@@ -163,8 +165,8 @@ public final class BuildType {
    *
    * <p>The caller is responsible for casting the returned value appropriately.
    */
-  public static <T> Object selectableConvert(
-      Type<T> type, Object x, Object what, LabelConverter context) throws ConversionException {
+  static <T> Object selectableConvert(Type<T> type, Object x, Object what, LabelConverter context)
+      throws ConversionException {
     if (x instanceof com.google.devtools.build.lib.packages.SelectorList) {
       return new SelectorList<>(
           ((com.google.devtools.build.lib.packages.SelectorList) x).getElements(),
@@ -173,6 +175,146 @@ public final class BuildType {
           type);
     } else {
       return type.convert(x, what, context);
+    }
+  }
+
+  /**
+   * Converts the build-language-typed {@code buildLangValue} to a native value via {@link
+   * BuildType#selectableConvert}. Canonicalizes the value's order if it is a {@link List} type and
+   * {@code attr.isOrderIndependent()} returns {@code true}.
+   *
+   * <p>Throws {@link ConversionException} if the conversion fails, or if {@code buildLangValue} is
+   * a selector expression but {@code attr.isConfigurable()} is {@code false}.
+   */
+  public static Object convertFromBuildLangType(
+      String ruleClass,
+      Attribute attr,
+      Object buildLangValue,
+      LabelConverter labelConverter,
+      Interner<ImmutableList<?>> listInterner)
+      throws ConversionException {
+    Object converted =
+        BuildType.selectableConvert(
+            attr.getType(),
+            buildLangValue,
+            new AttributeConversionContext(attr.getName(), ruleClass),
+            labelConverter);
+
+    if ((converted instanceof SelectorList<?>) && !attr.isConfigurable()) {
+      throw new ConversionException(
+          String.format("attribute \"%s\" is not configurable", attr.getName()));
+    }
+
+    if (converted instanceof List<?>) {
+      if (attr.isOrderIndependent()) {
+        @SuppressWarnings("unchecked")
+        List<? extends Comparable<?>> list = (List<? extends Comparable<?>>) converted;
+        converted = Ordering.natural().sortedCopy(list);
+      }
+      // It's common for multiple rule instances in the same package to have the same value for some
+      // attributes. As a concrete example, consider a package having several 'java_test' instances,
+      // each with the same exact 'tags' attribute value.
+      converted = listInterner.intern(ImmutableList.copyOf((List<?>) converted));
+    }
+
+    return converted;
+  }
+
+  /** Copies a Starlark SelectorList converting label strings to Label objects. */
+  private static <T> Object copyAndLiftSelectorList(
+      Type<T> type,
+      com.google.devtools.build.lib.packages.SelectorList x,
+      Object what,
+      LabelConverter context)
+      throws ConversionException {
+    List<Object> elements = x.getElements();
+    try {
+      if (elements.size() > 1 && type.concat(ImmutableList.of()) == null) {
+        throw new ConversionException(
+            String.format("type '%s' doesn't support select concatenation", type));
+      }
+
+      ImmutableList.Builder<Object> builder = ImmutableList.builder();
+      for (Object elem : elements) {
+        ImmutableMap.Builder<Label, Object> newMap = ImmutableMap.builder();
+        if (elem instanceof SelectorValue) {
+          for (var entry : ((SelectorValue) elem).getDictionary().entrySet()) {
+            Label key = LABEL.convert(entry.getKey(), what, context);
+            newMap.put(
+                key,
+                entry.getValue() == Starlark.NONE
+                    ? Starlark.NONE
+                    : type.copyAndLiftStarlarkValue(
+                        entry.getValue(), new SelectBranchMessage(what, key), context));
+          }
+          builder.add(
+              new SelectorValue(
+                  newMap.buildKeepingLast(), ((SelectorValue) elem).getNoMatchError()));
+        } else {
+          Object directValue = type.copyAndLiftStarlarkValue(elem, what, context);
+          builder.add(directValue);
+        }
+      }
+      return com.google.devtools.build.lib.packages.SelectorList.of(builder.build());
+    } catch (EvalException e) {
+      throw new ConversionException(e.getMessage());
+    }
+  }
+
+  /**
+   * Copies a Starlark value to immutable ones and converts label strings to Label objects.
+   *
+   * <p>All Starlark values are also type checked.
+   *
+   * <p>In comparison to {@link #convertFromBuildLangType} unordered attributes are not
+   * canonicalized or interned.
+   *
+   * <p>Use the function before passing the values to initializers.
+   *
+   * @throws ConversionException if the {@code starlarkValue} doesn't match the type of attr or if
+   *     {@code starlarkValue} is a selector expression but {@code attr.isConfigurable()} is {@code
+   *     false}.
+   */
+  public static Object copyAndLiftStarlarkValue(
+      String ruleClass, Attribute attr, Object starlarkValue, LabelConverter labelConverter)
+      throws ConversionException {
+    if (starlarkValue instanceof com.google.devtools.build.lib.packages.SelectorList) {
+      if (!attr.isConfigurable()) {
+        throw new ConversionException(
+            String.format("attribute \"%s\" is not configurable", attr.getName()));
+      }
+      return copyAndLiftSelectorList(
+          attr.getType(),
+          (com.google.devtools.build.lib.packages.SelectorList) starlarkValue,
+          new AttributeConversionContext(attr.getName(), ruleClass),
+          labelConverter);
+    } else {
+      return attr.getType()
+          .copyAndLiftStarlarkValue(
+              starlarkValue,
+              new AttributeConversionContext(attr.getName(), ruleClass),
+              labelConverter);
+    }
+  }
+
+  /**
+   * Provides a {@link #toString()} description of the attribute being converted for {@link
+   * BuildType#selectableConvert}. This is preferred over a raw string to avoid uselessly
+   * constructing strings which are never used. A separate class instead of inline to avoid
+   * accidental memory leaks.
+   */
+  private static class AttributeConversionContext {
+    private final String attrName;
+    private final String ruleClass;
+
+    AttributeConversionContext(String attrName, String ruleClass) {
+      this.attrName = attrName;
+      this.ruleClass = ruleClass;
+    }
+
+    @Override
+    public String toString() {
+      return "attribute '" + attrName + "' in '" + ruleClass + "' rule";
     }
   }
 
@@ -309,6 +451,12 @@ public final class BuildType {
       } catch (LicenseParsingException e) {
         throw new ConversionException(e.getMessage());
       }
+    }
+
+    @Override
+    public Object copyAndLiftStarlarkValue(
+        Object x, Object what, @Nullable LabelConverter labelConverter) throws ConversionException {
+      return STRING_LIST.copyAndLiftStarlarkValue(x, what, labelConverter);
     }
 
     @Override

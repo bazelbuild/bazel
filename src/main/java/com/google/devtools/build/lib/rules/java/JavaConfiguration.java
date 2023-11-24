@@ -356,6 +356,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   }
 
   /** Returns whether ProGuard configuration files are required to use a *.pgcfg extension. */
+  @Override
   public boolean enforceProguardFileExtension() {
     return enforceProguardFileExtension;
   }

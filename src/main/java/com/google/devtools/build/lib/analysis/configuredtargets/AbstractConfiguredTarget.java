@@ -80,6 +80,14 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
           OutputGroupInfo.STARLARK_NAME,
           ACTIONS_FIELD_NAME);
 
+  private static final ImmutableSet<String> DEFAULT_PROVIDER_FIELDS =
+      ImmutableSet.of(
+          DEFAULT_RUNFILES_FIELD,
+          DATA_RUNFILES_FIELD,
+          FILES_FIELD,
+          FilesToRunProvider.STARLARK_NAME,
+          OutputGroupInfo.STARLARK_NAME);
+
   AbstractConfiguredTarget(ActionLookupKey actionLookupKey) {
     this(actionLookupKey, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
@@ -130,6 +138,14 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
               + "deprecated and will be removed soon. It may be temporarily re-enabled by setting "
               + "--incompatible_disable_target_provider_fields=false. See "
               + "https://github.com/bazelbuild/bazel/issues/9014 for details.");
+    } else if (semantics.getBool(
+            BuildLanguageOptions.INCOMPATIBLE_DISABLE_TARGET_DEFAULT_PROVIDER_FIELDS)
+        && DEFAULT_PROVIDER_FIELDS.contains(name)) {
+      throw Starlark.errorf(
+          "Accessing the default provider in this manner is deprecated and will be removed soon. "
+              + "It may be temporarily re-enabled by setting "
+              + "--incompatible_disable_target_default_provider_fields=false. See "
+              + "https://github.com/bazelbuild/bazel/issues/20183 for details.");
     }
     return getValue(name);
   }

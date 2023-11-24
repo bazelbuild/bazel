@@ -18,6 +18,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Splitter;
+import com.google.devtools.build.lib.util.HeapOffsetHelper;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.OutputStream;
@@ -90,13 +91,16 @@ public final class MemoryProfiler {
               nextPhase, bean, (duration) -> Thread.sleep(duration.toMillis()));
       String name = currentPhase.description;
       MemoryUsage memoryUsage = memoryUsages.getHeap();
+      var usedMemory = memoryUsage.getUsed();
+      // TODO(b/311665999) Remove the subtraction of FillerArray once we figure out an alternative.
+      if (nextPhase == ProfilePhase.FINISH) {
+        usedMemory -= HeapOffsetHelper.getSizeOfFillerArrayOnHeap();
+        heapUsedMemoryAtFinish = usedMemory;
+      }
       memoryProfile.println(name + ":heap:init:" + memoryUsage.getInit());
-      memoryProfile.println(name + ":heap:used:" + memoryUsage.getUsed());
+      memoryProfile.println(name + ":heap:used:" + usedMemory);
       memoryProfile.println(name + ":heap:commited:" + memoryUsage.getCommitted());
       memoryProfile.println(name + ":heap:max:" + memoryUsage.getMax());
-      if (nextPhase == ProfilePhase.FINISH) {
-        heapUsedMemoryAtFinish = memoryUsage.getUsed();
-      }
 
       memoryUsage = memoryUsages.getNonHeap();
       memoryProfile.println(name + ":non-heap:init:" + memoryUsage.getInit());

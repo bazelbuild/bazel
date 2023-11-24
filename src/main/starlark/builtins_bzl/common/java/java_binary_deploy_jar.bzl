@@ -25,6 +25,17 @@ load(":common/java/java_semantics.bzl", "semantics")
 
 InstrumentedFilesInfo = _builtins.toplevel.InstrumentedFilesInfo
 
+def _stamping_enabled(ctx, stamp):
+    if ctx.configuration.is_tool_configuration():
+        stamp = 0
+    return (stamp == 1) or (stamp == -1 and ctx.configuration.stamp_binaries())
+
+def get_build_info(ctx, stamp):
+    if _stamping_enabled(ctx, stamp):
+        return ctx.attr._build_info_translator[OutputGroupInfo].non_redacted_build_info_files.to_list()
+    else:
+        return ctx.attr._build_info_translator[OutputGroupInfo].redacted_build_info_files.to_list()
+
 def create_deploy_archives(
         ctx,
         java_attrs,

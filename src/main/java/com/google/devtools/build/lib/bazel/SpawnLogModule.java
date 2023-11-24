@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.devtools.build.lib.bazel.execlog.StableSort;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
@@ -24,104 +26,120 @@ import com.google.devtools.build.lib.exec.SpawnLogContext;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
+import com.google.devtools.build.lib.util.io.MessageOutputStream;
 import com.google.devtools.build.lib.util.io.MessageOutputStreamWrapper.BinaryOutputStreamWrapper;
 import com.google.devtools.build.lib.util.io.MessageOutputStreamWrapper.JsonOutputStreamWrapper;
-import com.google.devtools.build.lib.util.io.MessageOutputStreamWrapper.MessageOutputStreamCollection;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import javax.annotation.Nullable;
 
-/**
- * Module providing on-demand spawn logging.
- */
+/** Module providing on-demand spawn logging. */
 public final class SpawnLogModule extends BlazeModule {
-  /**
-   * SpawnLogContext will log to a temporary file as the execution is being performed. rawOutput is
-   * the path to that temporary file.
-   */
-  private SpawnLogContext spawnLogContext;
+  @Nullable private SpawnLogContext spawnLogContext;
 
-  private Path rawOutput;
+  /** Output path for the raw output stream. */
+  @Nullable private Path rawOutputPath;
+
+  /** Output stream to write directly into during execution. */
+  @Nullable private MessageOutputStream<SpawnExec> rawOutputStream;
 
   /**
-   * After the execution is done, the temporary file contents will be sorted and logged as the user
-   * requested, to binary and/or json files. We will open the streams at the beginning of the
-   * command so that any errors (e.g., unwritable location) will be surfaced before the execution
-   * begins.
+   * Output stream to convert the raw output into after the execution is done.
+   *
+   * <p>We open the stream at the beginning of the command so that any errors (e.g., unwritable
+   * location) are surfaced before execution begins.
    */
-  private MessageOutputStreamCollection outputStreams;
+  @Nullable private MessageOutputStream<SpawnExec> convertedOutputStream;
 
   private CommandEnvironment env;
 
   private void clear() {
     spawnLogContext = null;
-    outputStreams = new MessageOutputStreamCollection();
-    rawOutput = null;
+    rawOutputPath = null;
+    rawOutputStream = null;
+    convertedOutputStream = null;
     env = null;
   }
 
   private void initOutputs(CommandEnvironment env) throws IOException {
     clear();
-    this.env = env;
 
     ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
-    if (executionOptions == null) {
+    if (executionOptions == null
+        || (executionOptions.executionLogBinaryFile == null
+            && executionOptions.executionLogJsonFile == null)) {
+      // No logging requested.
       return;
     }
-    FileSystem fileSystem = env.getRuntime().getFileSystem();
-    Path workingDirectory = env.getWorkingDirectory();
 
     if (executionOptions.executionLogBinaryFile != null
-        && !executionOptions.executionLogBinaryFile.isEmpty()) {
-      outputStreams.addStream(
-          new BinaryOutputStreamWrapper(
+        && executionOptions.executionLogJsonFile != null) {
+      String message =
+          "Must specify at most one of --execution_log_json_file and --execution_log_binary_file";
+      env.getBlazeModuleEnvironment()
+          .exit(
+              new AbruptExitException(
+                  DetailedExitCode.of(
+                      FailureDetail.newBuilder()
+                          .setMessage(message)
+                          .setExecutionOptions(
+                              FailureDetails.ExecutionOptions.newBuilder()
+                                  .setCode(
+                                      FailureDetails.ExecutionOptions.Code
+                                          .MULTIPLE_EXECUTION_LOG_FORMATS))
+                          .build())));
+      return;
+    }
+
+    this.env = env;
+
+    Path workingDirectory = env.getWorkingDirectory();
+    Path outputBase = env.getOutputBase();
+
+    // Set up the raw output stream.
+    // This stream performs the writes in a separate thread to avoid blocking execution.
+    // If the unsorted binary format was requested, use the respective output path to avoid a
+    // pointless conversion at the end. Otherwise, use a temporary path.
+    if (executionOptions.executionLogBinaryFile != null && !executionOptions.executionLogSort) {
+      rawOutputPath = workingDirectory.getRelative(executionOptions.executionLogBinaryFile);
+    } else {
+      rawOutputPath = outputBase.getRelative("execution.log");
+    }
+    rawOutputStream = new AsynchronousFileOutputStream<>(rawOutputPath);
+
+    // Set up the binary output stream, if distinct from the raw output stream.
+    if (executionOptions.executionLogBinaryFile != null && executionOptions.executionLogSort) {
+      convertedOutputStream =
+          new BinaryOutputStreamWrapper<>(
               workingDirectory
                   .getRelative(executionOptions.executionLogBinaryFile)
-                  .getOutputStream()));
+                  .getOutputStream());
     }
 
-    if (executionOptions.executionLogJsonFile != null
-        && !executionOptions.executionLogJsonFile.isEmpty()) {
-      outputStreams.addStream(
-          new JsonOutputStreamWrapper(
+    // Set up the text output stream.
+    if (executionOptions.executionLogJsonFile != null) {
+      convertedOutputStream =
+          new JsonOutputStreamWrapper<>(
               workingDirectory
                   .getRelative(executionOptions.executionLogJsonFile)
-                  .getOutputStream()));
-    }
-
-    AsynchronousFileOutputStream outStream = null;
-    if (executionOptions.executionLogFile != null && !executionOptions.executionLogFile.isEmpty()) {
-      rawOutput = workingDirectory.getRelative(executionOptions.executionLogFile);
-      outStream =
-          new AsynchronousFileOutputStream(
-              workingDirectory.getRelative(executionOptions.executionLogFile));
-    } else if (!outputStreams.isEmpty()) {
-      // Execution log requested but raw log file not specified
-      File file = File.createTempFile("exec", ".log");
-      rawOutput = fileSystem.getPath(file.getAbsolutePath());
-      outStream = new AsynchronousFileOutputStream(rawOutput);
-    }
-
-    if (outStream == null) {
-      // No logging needed
-      clear();
-      return;
+                  .getOutputStream());
     }
 
     spawnLogContext =
         new SpawnLogContext(
-            env.getExecRoot(),
-            outStream,
+            env.getExecRoot().asFragment(),
+            rawOutputStream,
             env.getOptions().getOptions(ExecutionOptions.class),
             env.getOptions().getOptions(RemoteOptions.class),
+            env.getRuntime().getFileSystem().getDigestFunction(),
             env.getXattrProvider());
   }
 
@@ -157,37 +175,50 @@ public final class SpawnLogModule extends BlazeModule {
 
   @Override
   public void afterCommand() throws AbruptExitException {
+    if (spawnLogContext == null) {
+      // No logging requested.
+      return;
+    }
+
+    checkNotNull(rawOutputPath);
+
     boolean done = false;
-    if (spawnLogContext != null) {
-      try {
-        spawnLogContext.close();
-        if (!outputStreams.isEmpty()) {
-          InputStream in = rawOutput.getInputStream();
-          if (spawnLogContext.shouldSort()) {
-            StableSort.stableSort(in, outputStreams);
-          } else {
-            while (in.available() > 0) {
-              SpawnExec ex = SpawnExec.parseDelimitedFrom(in);
-              outputStreams.write(ex);
-            }
+    try {
+      spawnLogContext.close();
+      if (convertedOutputStream != null) {
+        InputStream in = rawOutputPath.getInputStream();
+        if (spawnLogContext.shouldSort()) {
+          StableSort.stableSort(in, convertedOutputStream);
+        } else {
+          while (in.available() > 0) {
+            SpawnExec ex = SpawnExec.parseDelimitedFrom(in);
+            convertedOutputStream.write(ex);
           }
-          outputStreams.close();
         }
-        done = true;
-      } catch (IOException e) {
-        String message = e.getMessage() == null ? "Error writing execution log" : e.getMessage();
-        throw new AbruptExitException(
-            createDetailedExitCode(message, Code.EXECUTION_LOG_WRITE_FAILURE), e);
-      } finally {
-        if (!done && !outputStreams.isEmpty()) {
+        convertedOutputStream.close();
+      }
+      done = true;
+    } catch (IOException e) {
+      String message = e.getMessage() == null ? "Error writing execution log" : e.getMessage();
+      throw new AbruptExitException(
+          createDetailedExitCode(message, Code.EXECUTION_LOG_WRITE_FAILURE), e);
+    } finally {
+      if (convertedOutputStream != null) {
+        if (!done) {
           env.getReporter()
               .handle(
                   Event.warn(
                       "Execution log might not have been populated. Raw execution log is at "
-                          + rawOutput));
+                          + rawOutputPath));
+        } else {
+          try {
+            rawOutputPath.delete();
+          } catch (IOException e) {
+            // Intentionally ignored.
+          }
         }
-        clear();
       }
+      clear();
     }
   }
 

@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.RunfilesApi;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -88,7 +88,7 @@ public final class Runfiles implements RunfilesApi {
     }
   }
 
-  @SerializationConstant @AutoCodec.VisibleForSerialization
+  @SerializationConstant @VisibleForSerialization
   static final EmptyFilesSupplier DUMMY_EMPTY_FILES_SUPPLIER = new DummyEmptyFilesSupplier();
 
   // It is important to declare this *after* the DUMMY_SYMLINK_EXPANDER to avoid NPEs
@@ -148,10 +148,10 @@ public final class Runfiles implements RunfilesApi {
   private final NestedSet<SymlinkEntry> rootSymlinks;
 
   /**
-   * A set of middlemen artifacts. {@link RuleConfiguredTargetBuilder} adds these to the {@link
-   * FilesToRunProvider} of binaries that include this runfiles tree in their runfiles.
+   * A nested set of all artifacts that this Runfiles entry contains symlinks to, including those at
+   * their non-canonical locations which are in {@code symlinks} and {@code rootSymlinks}.
    */
-  private final NestedSet<Artifact> extraMiddlemen;
+  private NestedSet<Artifact> allArtifacts;
 
   /**
    * Interface used for adding empty files to the runfiles at the last minute. Mainly to support
@@ -198,7 +198,6 @@ public final class Runfiles implements RunfilesApi {
       NestedSet<Artifact> artifacts,
       NestedSet<SymlinkEntry> symlinks,
       NestedSet<SymlinkEntry> rootSymlinks,
-      NestedSet<Artifact> extraMiddlemen,
       EmptyFilesSupplier emptyFilesSupplier,
       ConflictPolicy conflictPolicy,
       boolean legacyExternalRunfiles) {
@@ -206,7 +205,6 @@ public final class Runfiles implements RunfilesApi {
     this.artifacts = Preconditions.checkNotNull(artifacts);
     this.symlinks = Preconditions.checkNotNull(symlinks);
     this.rootSymlinks = Preconditions.checkNotNull(rootSymlinks);
-    this.extraMiddlemen = Preconditions.checkNotNull(extraMiddlemen);
     this.emptyFilesSupplier = Preconditions.checkNotNull(emptyFilesSupplier);
     this.conflictPolicy = conflictPolicy;
     this.legacyExternalRunfiles = legacyExternalRunfiles;
@@ -222,10 +220,6 @@ public final class Runfiles implements RunfilesApi {
    */
   public PathFragment getSuffix() {
     return suffix;
-  }
-
-  public NestedSet<Artifact> getExtraMiddlemen() {
-    return extraMiddlemen;
   }
 
   /** Returns the collection of runfiles as artifacts. */
@@ -519,22 +513,24 @@ public final class Runfiles implements RunfilesApi {
     if (isEmpty()) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
-    NestedSetBuilder<Artifact> allArtifacts = NestedSetBuilder.stableOrder();
-    allArtifacts
-        .addTransitive(artifacts)
-        .addAll(Iterables.transform(symlinks.toList(), SymlinkEntry::getArtifact))
-        .addAll(Iterables.transform(rootSymlinks.toList(), SymlinkEntry::getArtifact));
-    return allArtifacts.build();
+
+    if (allArtifacts == null) {
+      NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
+      builder
+          .addTransitive(artifacts)
+          .addAll(Iterables.transform(symlinks.toList(), SymlinkEntry::getArtifact))
+          .addAll(Iterables.transform(rootSymlinks.toList(), SymlinkEntry::getArtifact));
+      allArtifacts = builder.build();
+    }
+
+    return allArtifacts;
   }
 
   /**
    * Returns if there are no runfiles.
    */
   public boolean isEmpty() {
-    return artifacts.isEmpty()
-        && symlinks.isEmpty()
-        && rootSymlinks.isEmpty()
-        && extraMiddlemen.isEmpty();
+    return artifacts.isEmpty() && symlinks.isEmpty() && rootSymlinks.isEmpty();
   }
 
   /**
@@ -655,7 +651,6 @@ public final class Runfiles implements RunfilesApi {
     private final NestedSetBuilder<SymlinkEntry> symlinksBuilder = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<SymlinkEntry> rootSymlinksBuilder =
         NestedSetBuilder.stableOrder();
-    private final NestedSetBuilder<Artifact> extraMiddlemenBuilder = NestedSetBuilder.stableOrder();
     private EmptyFilesSupplier emptyFilesSupplier = DUMMY_EMPTY_FILES_SUPPLIER;
 
     /** Build the Runfiles object with this policy */
@@ -712,7 +707,6 @@ public final class Runfiles implements RunfilesApi {
           artifactsBuilder.build(),
           symlinksBuilder.build(),
           rootSymlinksBuilder.build(),
-          extraMiddlemenBuilder.build(),
           emptyFilesSupplier,
           conflictPolicy,
           legacyExternalRunfiles);
@@ -845,7 +839,6 @@ public final class Runfiles implements RunfilesApi {
       artifactsBuilder.addTransitive(runfiles.getArtifacts());
       symlinksBuilder.addTransitive(runfiles.getSymlinks());
       rootSymlinksBuilder.addTransitive(runfiles.getRootSymlinks());
-      extraMiddlemenBuilder.addTransitive(runfiles.getExtraMiddlemen());
       if (emptyFilesSupplier == DUMMY_EMPTY_FILES_SUPPLIER) {
         emptyFilesSupplier = runfiles.getEmptyFilesProvider();
       } else {
@@ -970,18 +963,6 @@ public final class Runfiles implements RunfilesApi {
       return addTargetExceptFileTargets(target, mapping);
     }
 
-    /**
-     * Add extra middlemen artifacts that should be built by reverse dependency binaries. This
-     * method exists solely to support the unfortunate legacy behavior of some rules; new uses
-     * should not be added.
-     */
-    @CanIgnoreReturnValue
-    public Builder addLegacyExtraMiddleman(Artifact middleman) {
-      Preconditions.checkArgument(middleman.isMiddlemanArtifact(), middleman);
-      extraMiddlemenBuilder.add(middleman);
-      return this;
-    }
-
     private static Iterable<TransitiveInfoCollection> getNonDataDeps(RuleContext ruleContext) {
       return Iterables.concat(
           // TODO(bazel-team): This line shouldn't be here. Removing it requires that no rules have
@@ -1031,7 +1012,6 @@ public final class Runfiles implements RunfilesApi {
     verifyNestedSetDepthLimitHelper(artifacts, "artifacts", limit);
     verifyNestedSetDepthLimitHelper(symlinks, "symlinks", limit);
     verifyNestedSetDepthLimitHelper(rootSymlinks, "root symlinks", limit);
-    verifyNestedSetDepthLimitHelper(extraMiddlemen, "extra middlemen", limit);
     return this;
   }
 

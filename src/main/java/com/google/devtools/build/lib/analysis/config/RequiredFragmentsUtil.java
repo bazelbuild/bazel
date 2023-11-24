@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
@@ -76,6 +77,7 @@ public final class RequiredFragmentsUtil {
    *     out which transitions are attached to the target. {@link TransitionFactory}, which
    *     determines the transitions, may read the target's attributes.
    * @param prerequisites all prerequisites of {@code target}
+   * @param starlarkExecTransition the Starlark transition implementing the exec transition
    * @return {@link RequiredConfigFragmentsProvider} or {@code null} if not enabled
    */
   @Nullable
@@ -84,7 +86,8 @@ public final class RequiredFragmentsUtil {
       BuildConfigurationValue configuration,
       FragmentClassSet universallyRequiredFragments,
       ConfigConditions configConditions,
-      Iterable<ConfiguredTarget> prerequisites) {
+      Iterable<ConfiguredTarget> prerequisites,
+      @Nullable StarlarkAttributeTransitionProvider starlarkExecTransition) {
     IncludeConfigFragmentsEnum mode = getRequiredFragmentsMode(configuration);
     if (mode == IncludeConfigFragmentsEnum.OFF) {
       return null;
@@ -111,7 +114,8 @@ public final class RequiredFragmentsUtil {
         requiredFragments,
         target,
         attributes,
-        configuration.getBuildOptionDetails());
+        configuration.getBuildOptionDetails(),
+        starlarkExecTransition);
 
     // We consider build settings (which are both targets and configuration) to require themselves.
     if (target.isBuildSetting()) {
@@ -133,6 +137,7 @@ public final class RequiredFragmentsUtil {
    * @param configConditions <code>config_settings</code> required by <code>select</code>s on the
    *     associated target. Used for figuring out which transitions are attached to the target.
    * @param prerequisites all prerequisites of {@code aspect}
+   * @param starlarkExecTransition the Starlark transition implementing the exec transition
    * @return {@link RequiredConfigFragmentsProvider} or {@code null} if not enabled
    */
   @Nullable
@@ -143,7 +148,8 @@ public final class RequiredFragmentsUtil {
       BuildConfigurationValue configuration,
       FragmentClassSet universallyRequiredFragments,
       ConfigConditions configConditions,
-      Iterable<ConfiguredTarget> prerequisites) {
+      Iterable<ConfiguredTarget> prerequisites,
+      StarlarkAttributeTransitionProvider starlarkExecTransition) {
     IncludeConfigFragmentsEnum mode = getRequiredFragmentsMode(configuration);
     if (mode == IncludeConfigFragmentsEnum.OFF) {
       return null;
@@ -162,7 +168,8 @@ public final class RequiredFragmentsUtil {
         aspect,
         ConfiguredAttributeMapper.of(
             associatedTarget, configConditions.asProviders(), configuration),
-        configuration.getBuildOptionDetails());
+        configuration.getBuildOptionDetails(),
+        starlarkExecTransition);
     return requiredFragments.build();
   }
 
@@ -226,7 +233,8 @@ public final class RequiredFragmentsUtil {
       RequiredConfigFragmentsProvider.Builder requiredFragments,
       Rule target,
       ConfiguredAttributeMapper attributeMap,
-      BuildOptionDetails optionDetails) {
+      BuildOptionDetails optionDetails,
+      @Nullable StarlarkAttributeTransitionProvider starlarkExecTransition) {
     if (target.getRuleClassObject().getTransitionFactory() != null) {
       target
           .getRuleClassObject()
@@ -238,7 +246,10 @@ public final class RequiredFragmentsUtil {
     // fragments are required and b) it's one less parameter we have to pass to
     // RequiredFragmenstUtil's public interface.
     AttributeTransitionData attributeTransitionData =
-        AttributeTransitionData.builder().attributes(attributeMap).build();
+        AttributeTransitionData.builder()
+            .attributes(attributeMap)
+            .analysisData(starlarkExecTransition)
+            .build();
     for (Attribute attribute : target.getRuleClassObject().getAttributes()) {
       if (attribute.getTransitionFactory() != null) {
         attribute
@@ -259,9 +270,13 @@ public final class RequiredFragmentsUtil {
       RequiredConfigFragmentsProvider.Builder requiredFragments,
       Aspect aspect,
       ConfiguredAttributeMapper attributeMap,
-      BuildOptionDetails optionDetails) {
+      BuildOptionDetails optionDetails,
+      StarlarkAttributeTransitionProvider starlarkExecTransition) {
     AttributeTransitionData attributeTransitionData =
-        AttributeTransitionData.builder().attributes(attributeMap).build();
+        AttributeTransitionData.builder()
+            .attributes(attributeMap)
+            .analysisData(starlarkExecTransition)
+            .build();
     for (Attribute attribute : aspect.getDefinition().getAttributes().values()) {
       if (attribute.getTransitionFactory() != null) {
         attribute

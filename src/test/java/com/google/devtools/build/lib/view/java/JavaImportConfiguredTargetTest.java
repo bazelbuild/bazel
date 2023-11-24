@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaModuleFlagsProviderApi;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import java.util.Arrays;
 import java.util.List;
@@ -218,6 +219,43 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         "java/jarlib2/import.jar",
         "java/jarlib2/exportjar.jar",
         "java/jarlib2/depjar.jar");
+  }
+
+  @Test
+  public void testModuleFlags() throws Exception {
+    scratch.file(
+        "java/jarlib2/BUILD",
+        "java_library(name  = 'lib',",
+        "             srcs = ['Main.java'],",
+        "             deps = [':import-jar'])",
+        "java_import(name  = 'import-jar',",
+        "            jars = ['import.jar'],",
+        "            deps = ['//java/jarlib2:depjar'],",
+        "            exports = ['//java/jarlib2:exportjar'],",
+        ")",
+        "java_import(name  = 'depjar',",
+        "            jars = ['depjar.jar'],",
+        "            add_exports = ['java.base/java.lang'])",
+        "java_import(name  = 'exportjar',",
+        "            jars = ['exportjar.jar'],",
+        "            add_opens = ['java.base/java.util'])");
+
+    ConfiguredTarget importJar = getConfiguredTarget("//java/jarlib2:import-jar");
+    JavaModuleFlagsProviderApi moduleFlagsProvider =
+        JavaInfo.getJavaInfo(importJar).getJavaModuleFlagsInfo();
+    assertThat(moduleFlagsProvider.getAddExports().toList(String.class))
+        .containsExactly("java.base/java.lang");
+    assertThat(moduleFlagsProvider.getAddOpens().toList(String.class))
+        .containsExactly("java.base/java.util");
+
+    // Check that module flags propagate to Java libraries properly.
+    ConfiguredTarget lib = getConfiguredTarget("//java/jarlib2:lib");
+    JavaModuleFlagsProviderApi libModuleFlagsProvider =
+        JavaInfo.getJavaInfo(lib).getJavaModuleFlagsInfo();
+    assertThat(libModuleFlagsProvider.getAddExports().toList(String.class))
+        .containsExactly("java.base/java.lang");
+    assertThat(libModuleFlagsProvider.getAddOpens().toList(String.class))
+        .containsExactly("java.base/java.util");
   }
 
   @Test

@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.downloader.GrpcRemoteDownloader;
 import com.google.devtools.build.lib.remote.http.HttpException;
 import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
+import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -124,7 +125,7 @@ public final class RemoteModule extends BlazeModule {
   private final ListeningScheduledExecutorService retryScheduler =
       MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
 
-  @Nullable private AsynchronousFileOutputStream rpcLogFile;
+  @Nullable private AsynchronousFileOutputStream<LogEntry> rpcLogFile;
   @Nullable private ExecutorService executorService;
   @Nullable private RemoteActionContextProvider actionContextProvider;
   @Nullable private RemoteActionInputFetcher actionInputFetcher;
@@ -396,7 +397,7 @@ public final class RemoteModule extends BlazeModule {
     if (remoteOptions.remoteGrpcLog != null) {
       try {
         rpcLogFile =
-            new AsynchronousFileOutputStream(
+            new AsynchronousFileOutputStream<>(
                 env.getWorkingDirectory().getRelative(remoteOptions.remoteGrpcLog));
       } catch (IOException e) {
         handleInitFailure(env, e, Code.RPC_LOG_FAILURE);
@@ -827,7 +828,7 @@ public final class RemoteModule extends BlazeModule {
     // otherwise we might interfere with asynchronous remote downloads that are in progress.
     RemoteActionContextProvider actionContextProviderRef = actionContextProvider;
     TempPathGenerator tempPathGeneratorRef = tempPathGenerator;
-    AsynchronousFileOutputStream rpcLogFileRef = rpcLogFile;
+    AsynchronousFileOutputStream<LogEntry> rpcLogFileRef = rpcLogFile;
     if (actionContextProviderRef != null || tempPathGeneratorRef != null || rpcLogFileRef != null) {
       blockWaitingModule.submit(
           () -> afterCommandTask(actionContextProviderRef, tempPathGeneratorRef, rpcLogFileRef));
@@ -849,7 +850,7 @@ public final class RemoteModule extends BlazeModule {
   private static void afterCommandTask(
       RemoteActionContextProvider actionContextProvider,
       TempPathGenerator tempPathGenerator,
-      AsynchronousFileOutputStream rpcLogFile)
+      AsynchronousFileOutputStream<LogEntry> rpcLogFile)
       throws AbruptExitException {
     if (actionContextProvider != null) {
       actionContextProvider.afterCommand();

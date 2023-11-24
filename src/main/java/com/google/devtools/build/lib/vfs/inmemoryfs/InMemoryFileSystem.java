@@ -475,7 +475,7 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   public boolean isFilePathCaseSensitive() {
-    return OS.getCurrent() != OS.WINDOWS && OS.getCurrent() != OS.DARWIN;
+    return OS.getCurrent() != OS.WINDOWS;
   }
 
   @Override

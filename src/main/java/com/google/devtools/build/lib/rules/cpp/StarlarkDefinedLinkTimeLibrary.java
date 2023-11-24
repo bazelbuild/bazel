@@ -78,7 +78,7 @@ public class StarlarkDefinedLinkTimeLibrary implements ExtraLinkTimeLibrary, Str
 
     Object response = null;
     try (Mutability mu = Mutability.create("extra_link_time_library_build_libraries_function")) {
-      StarlarkThread thread = new StarlarkThread(mu, semantics);
+      StarlarkThread thread = new StarlarkThread(mu, semantics, "build_library_func callback");
       response =
           Starlark.call(
               thread,

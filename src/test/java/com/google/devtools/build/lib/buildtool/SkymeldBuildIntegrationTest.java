@@ -367,6 +367,36 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void symlinksPlantedExceptProductNamePrefixAndIgnoredPaths() throws Exception {
+    String productName = getRuntime().getProductName();
+    Path execroot = directories.getExecRoot(directories.getWorkspace().getBaseName());
+    writeMyRuleBzl();
+    Path fooDir =
+        write(
+                "foo/BUILD",
+                "load('//foo:my_rule.bzl', 'my_rule')",
+                "my_rule(name = 'foo', srcs = ['foo.in'])")
+            .getParentDirectory();
+    write("foo/foo.in");
+    Path unusedDir = write("unused/dummy").getParentDirectory();
+    write(".bazelignore", "ignored");
+    write("ignored/dummy");
+    write(productName + "-dir/dummy");
+
+    // Before the build: no symlink.
+    assertThat(execroot.getRelative("foo").exists()).isFalse();
+
+    buildTarget("//foo:foo");
+
+    // After the build: symlinks to the source directory, even unused packages, except for those
+    // in the .bazelignore file and those with the bazel- prefix.
+    assertThat(execroot.getRelative("foo").resolveSymbolicLinks()).isEqualTo(fooDir);
+    assertThat(execroot.getRelative("unused").resolveSymbolicLinks()).isEqualTo(unusedDir);
+    assertThat(execroot.getRelative("ignored").exists()).isFalse();
+    assertThat(execroot.getRelative(productName + "-dir").exists()).isFalse();
+  }
+
+  @Test
   public void symlinksReplantedEachBuild() throws Exception {
     Path execroot = directories.getExecRoot(directories.getWorkspace().getBaseName());
     writeMyRuleBzl();

@@ -172,20 +172,6 @@ public class PlatformOptions extends FragmentOptions {
   public List<Map.Entry<RegexFilter, List<Label>>> targetFilterToAdditionalExecConstraints;
 
   @Override
-  public PlatformOptions getExec() {
-    PlatformOptions exec = (PlatformOptions) getDefault();
-    exec.platforms =
-        this.hostPlatform == null ? ImmutableList.of() : ImmutableList.of(this.hostPlatform);
-    exec.hostPlatform = this.hostPlatform;
-    exec.platformMappings = this.platformMappings;
-    exec.extraExecutionPlatforms = this.extraExecutionPlatforms;
-    exec.extraToolchains = this.extraToolchains;
-    exec.toolchainResolutionDebug = this.toolchainResolutionDebug;
-    exec.useToolchainResolutionForJavaRules = this.useToolchainResolutionForJavaRules;
-    return exec;
-  }
-
-  @Override
   public PlatformOptions getNormalized() {
     PlatformOptions result = (PlatformOptions) clone();
     result.extraToolchains = dedupeOnly(result.extraToolchains);

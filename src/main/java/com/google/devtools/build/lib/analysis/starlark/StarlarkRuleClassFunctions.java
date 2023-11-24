@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.RUN_UNDER;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.TIMEOUT_DEFAULT;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.getTestRuntimeLabelList;
@@ -44,16 +45,15 @@ import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
-import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionType;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule.Descriptor;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -83,7 +83,6 @@ import com.google.devtools.build.lib.packages.RuleFactory;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.RuleFunction;
-import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.packages.StarlarkCallbackHelper;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
@@ -100,6 +99,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -173,6 +173,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           allowlistEntry("", "initializer_testing"),
           allowlistEntry("", "extend_rule_testing"),
           allowlistEntry("", "subrule_testing"));
+
+  public static final ImmutableSet<AllowlistEntry> ALLOWLIST_RULE_EXTENSION_API_EXPERIMENTAL =
+      ImmutableSet.of(allowlistEntry("", "initializer_testing/builtins"));
 
   /** Parent rule class for test Starlark rules. */
   public static RuleClass getTestBaseRule(RuleDefinitionEnvironment env) {
@@ -329,13 +332,17 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Object execGroups,
       Object initializer,
       Object parentUnchecked,
+      Object extendableUnchecked,
       Sequence<?> subrules,
       StarlarkThread thread)
       throws EvalException {
     // Ensure we're initializing a .bzl file, which also means we have a RuleDefinitionEnvironment.
     BzlInitThreadContext bazelContext = BzlInitThreadContext.fromOrFail(thread, "rule()");
 
-    if (initializer != Starlark.NONE || parentUnchecked != Starlark.NONE || !subrules.isEmpty()) {
+    if (initializer != Starlark.NONE
+        || parentUnchecked != Starlark.NONE
+        || !subrules.isEmpty()
+        || extendableUnchecked != Starlark.NONE) {
       if (!thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_RULE_EXTENSION_API)) {
         BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_RULE_EXTENSION_API);
       }
@@ -374,10 +381,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       failIf(testUnchecked != Starlark.UNBOUND, "Omit test parameter when extending rules.");
       // TODO b/300201845 - add cfg support
       failIf(cfg != Starlark.NONE, "cfg is not supported in extended rules yet.");
-      // TODO b/300201845 - add initializers
-      failIf(initializer != Starlark.NONE, "initializers are not supported in extended rules yet.");
-      // TODO b/300201845 - add subrules support
-      failIf(!subrules.isEmpty(), "subrules are not supported in extended rules yet.");
       failIf(
           implicitOutputs != Starlark.NONE,
           "implicit_outputs is not supported when extending rules (deprecated).");
@@ -409,6 +412,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         thread.getSemantics(),
         // rule() parameters
         parent,
+        extendableUnchecked,
         implementation,
         initializer == Starlark.NONE ? null : (StarlarkFunction) initializer,
         test,
@@ -450,6 +454,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       StarlarkSemantics starlarkSemantics,
       // Parameters that come from rule().
       @Nullable RuleClass parent,
+      @Nullable Object extendableUnchecked,
       StarlarkFunction implementation,
       @Nullable StarlarkFunction initializer,
       boolean test,
@@ -474,15 +479,60 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     test |= Boolean.TRUE.equals(analysisTest);
 
     RuleClassType type = test ? RuleClassType.TEST : RuleClassType.NORMAL;
-    if (parent == null) {
-      parent =
+
+    final RuleClass.Builder builder;
+    if (parent != null) {
+      // We'll set the name later, pass the empty string for now.
+      builder = new RuleClass.Builder("", type, true, parent);
+    } else {
+      // We'll set the name later, pass the empty string for now.
+      RuleClass baseParent =
           test
               ? getTestBaseRule(ruleDefinitionEnvironment)
               : (executable ? binaryBaseRule : baseRule);
+      builder = new RuleClass.Builder("", type, true, baseParent);
     }
 
-    // We'll set the name later, pass the empty string for now.
-    RuleClass.Builder builder = new RuleClass.Builder("", type, true, parent);
+    builder.initializer(initializer, labelConverter);
+
+    builder.setDefaultExtendableAllowlist(
+        ruleDefinitionEnvironment.getToolsLabel("//tools/allowlists/extend_rule_allowlist"));
+    if (extendableUnchecked instanceof Boolean) {
+      builder.setExtendable((Boolean) extendableUnchecked);
+    } else if (extendableUnchecked instanceof String) {
+      try {
+        builder.setExtendableByAllowlist(labelConverter.convert((String) extendableUnchecked));
+      } catch (LabelSyntaxException e) {
+        throw Starlark.errorf(
+            "Unable to parse label '%s': %s", extendableUnchecked, e.getMessage());
+      }
+    } else if (extendableUnchecked instanceof Label) {
+      builder.setExtendableByAllowlist((Label) extendableUnchecked);
+    } else {
+      failIf(
+          !(extendableUnchecked == Starlark.NONE || extendableUnchecked == null),
+          "parameter 'extendable': expected bool, str or Label, but got '%s'",
+          Starlark.type(extendableUnchecked));
+    }
+
+    // Verify the child against parent's allowlist
+    if (parent != null
+        && parent.getExtendableAllowlist() != null
+        && !bzlFile.getRepository().getName().equals("_builtins")) {
+      builder.addAllowlistChecker(EXTEND_RULE_ALLOWLIST_CHECKER);
+      Attribute.Builder<Label> allowlistAttr =
+          attr("$allowlist_extend_rule", LABEL)
+              .cfg(ExecutionTransitionFactory.createFactory())
+              .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class))
+              .value(parent.getExtendableAllowlist());
+      if (builder.contains("$allowlist_extend_rule")) {
+        // the allowlist already exist if this is the second extension of the rule
+        // in this case we need to override the allowlist with the one in the direct parent
+        builder.override(allowlistAttr);
+      } else {
+        builder.add(allowlistAttr);
+      }
+    }
 
     if (executable || test) {
       builder.setExecutableStarlark();
@@ -597,31 +647,17 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     }
     if (!cfg.equals(Starlark.NONE)) {
       if (cfg instanceof StarlarkDefinedConfigTransition) {
+        // defined in Starlark via, cfg = transition
         StarlarkDefinedConfigTransition starlarkDefinedConfigTransition =
             (StarlarkDefinedConfigTransition) cfg;
         builder.cfg(new StarlarkRuleTransitionProvider(starlarkDefinedConfigTransition));
         hasStarlarkDefinedTransition = true;
-      } else if (cfg instanceof PatchTransition) {
-        builder.cfg((PatchTransition) cfg);
       } else if (cfg instanceof StarlarkExposedRuleTransitionFactory) {
+        // only used for native Android transitions (platforms and feature flags)
         StarlarkExposedRuleTransitionFactory transition =
             (StarlarkExposedRuleTransitionFactory) cfg;
         builder.cfg(transition);
         transition.addToStarlarkRule(ruleDefinitionEnvironment, builder);
-      } else if (cfg instanceof TransitionFactory) {
-        // This may be redundant with StarlarkExposedRuleTransitionFactory infra
-        TransitionFactory<? extends TransitionFactory.Data> transitionFactory =
-            (TransitionFactory<? extends TransitionFactory.Data>) cfg;
-        if (transitionFactory.transitionType().isCompatibleWith(TransitionType.RULE)) {
-          @SuppressWarnings("unchecked") // Actually checked due to above isCompatibleWith call.
-          TransitionFactory<RuleTransitionData> ruleTransitionFactory =
-              (TransitionFactory<RuleTransitionData>) transitionFactory;
-          builder.cfg(ruleTransitionFactory);
-        } else {
-          throw Starlark.errorf(
-              "`cfg` must be set to a transition appropriate for a rule, not an attribute-specific"
-                  + " transition.");
-        }
       } else {
         throw Starlark.errorf(
             "`cfg` must be set to a transition object initialized by the transition() function.");
@@ -652,7 +688,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       hasFunctionTransitionAllowlist = true;
     }
     if (hasStarlarkDefinedTransition) {
-      if (!bzlFile.getRepository().getNameWithAt().equals("@_builtins")) {
+      if (!bzlFile.getRepository().getName().equals("_builtins")) {
         if (!hasFunctionTransitionAllowlist) {
           // add the allowlist automatically
           builder.add(
@@ -693,7 +729,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
     return new StarlarkRuleFunction(
         builder,
-        initializer,
         loc,
         Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString));
   }
@@ -914,6 +949,16 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         ImmutableSet.copyOf(subrules));
   }
 
+  private static ImmutableSet<String> getLegacyAnyTypeAttrs(RuleClass ruleClass) {
+    Attribute attr = ruleClass.getAttributeByNameMaybe("$legacy_any_type_attrs");
+    if (attr == null
+        || attr.getType() != STRING_LIST
+        || !(attr.getDefaultValueUnchecked() instanceof List<?>)) {
+      return ImmutableSet.of();
+    }
+    return ImmutableSet.copyOf(STRING_LIST.cast(attr.getDefaultValueUnchecked()));
+  }
+
   /**
    * The implementation for the magic function "rule" that creates Starlark rule classes.
    *
@@ -923,7 +968,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     private RuleClass.Builder builder;
 
     private RuleClass ruleClass;
-    @Nullable private final StarlarkFunction initializer;
     private final Location definitionLocation;
     @Nullable private final String documentation;
     private Label starlarkLabel;
@@ -934,11 +978,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     // rich query output mode that includes values from loaded .bzl files.)
     public StarlarkRuleFunction(
         RuleClass.Builder builder,
-        @Nullable StarlarkFunction initializer,
         Location definitionLocation,
         Optional<String> documentation) {
       this.builder = builder;
-      this.initializer = initializer;
       this.definitionLocation = definitionLocation;
       this.documentation = documentation.orElse(null);
     }
@@ -972,8 +1014,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         throw new EvalException("Unexpected positional arguments");
       }
       try {
-        BazelStarlarkContext.from(thread).checkLoadingPhase(getName());
-      } catch (IllegalStateException unused) {
+        BazelStarlarkContext.checkLoadingPhase(thread, getName());
+      } catch (EvalException unused) {
         throw new EvalException(
             "A rule can only be instantiated in a BUILD file, or a macro "
                 + "invoked from a BUILD file");
@@ -981,51 +1023,109 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       if (ruleClass == null) {
         throw new EvalException("Invalid rule class hasn't been exported by a bzl file");
       }
+      PackageContext pkgContext = thread.getThreadLocal(PackageContext.class);
+      if (pkgContext == null) {
+        throw new EvalException(
+            "Cannot instantiate a rule when loading a .bzl file. "
+                + "Rules may be instantiated only in a BUILD thread.");
+      }
 
       validateRulePropagatedAspects(ruleClass);
 
-      if (initializer != null) {
-        // TODO: b/298561048 - lift parameters to more accurate type - for example strings to Labels
-        // You might feel tempted to inspect the signature of the initializer function. The
-        // temptation might come from handling default values, making them work for better for the
-        // users.
-        // The less magic the better. Do not give in those temptations!
-        Dict.Builder<String, Object> initializerKwargs = Dict.builder();
-        for (var attr : ruleClass.getAttributes()) {
-          if (attr.isPublic() && attr.starlarkDefined()) {
-            if (kwargs.containsKey(attr.getName())) {
-              initializerKwargs.put(attr.getName(), kwargs.get(attr.getName()));
+      ImmutableSet<String> legacyAnyTypeAttrs = getLegacyAnyTypeAttrs(ruleClass);
+
+      // Remove {@link BazelStarlarkContext} to prevent calls to load and analysis time functions.
+      // Mutating values in initializers is mostly not a problem, because the attribute values are
+      // copied before calling the initializers (<-TODO) and before they are set on the target.
+      // Exception is a legacy case allowing arbitrary type of parameter values. In that case the
+      // values may be mutated by the initializer, but they are still copied when set on the target.
+      BazelStarlarkContext bazelStarlarkContext = BazelStarlarkContext.fromOrFail(thread);
+      try {
+        thread.setThreadLocal(BazelStarlarkContext.class, null);
+        thread.setUncheckedExceptionContext(() -> "an initializer");
+
+        // We call all the initializers of the rule and its ancestor rules, proceeding from child to
+        // ancestor, so each initializer can transform the attributes it knows about in turn.
+        for (RuleClass currentRuleClass = ruleClass;
+            currentRuleClass != null;
+            currentRuleClass = currentRuleClass.getStarlarkParent()) {
+          if (currentRuleClass.getInitializer() == null) {
+            continue;
+          }
+
+          // You might feel tempted to inspect the signature of the initializer function. The
+          // temptation might come from handling default values, making them work for better for the
+          // users.
+          // The less magic the better. Do not give in those temptations!
+          Dict.Builder<String, Object> initializerKwargs = Dict.builder();
+          for (var attr : currentRuleClass.getAttributes()) {
+            if (attr.isPublic() && attr.starlarkDefined()) {
+              if (kwargs.containsKey(attr.getName())) {
+                Object value = kwargs.get(attr.getName());
+                if (value == Starlark.NONE) {
+                  continue;
+                }
+                Object reifiedValue =
+                    legacyAnyTypeAttrs.contains(attr.getName())
+                        ? value
+                        : BuildType.copyAndLiftStarlarkValue(
+                            currentRuleClass.getName(),
+                            attr,
+                            value,
+                            pkgContext.getBuilder().getLabelConverter());
+                initializerKwargs.put(attr.getName(), reifiedValue);
+              }
             }
           }
-        }
-        Object ret =
-            Starlark.call(
-                thread, initializer, Tuple.of(), initializerKwargs.build(thread.mutability()));
-        Dict<String, Object> newKwargs =
-            ret == Starlark.NONE
-                ? Dict.empty()
-                : Dict.cast(ret, String.class, Object.class, "rule's initializer return value");
+          Object ret =
+              Starlark.call(
+                  thread,
+                  currentRuleClass.getInitializer(),
+                  Tuple.of(),
+                  initializerKwargs.build(thread.mutability()));
+          Dict<String, Object> newKwargs =
+              ret == Starlark.NONE
+                  ? Dict.empty()
+                  : Dict.cast(ret, String.class, Object.class, "rule's initializer return value");
 
-        for (var arg : newKwargs.keySet()) {
-          Attribute attr = ruleClass.getAttributeByNameMaybe(arg);
-          if (attr != null && !(attr.isPublic() && attr.starlarkDefined())) {
-            throw Starlark.errorf(
-                "Initializer can only set public, Starlark defined attributes, not '%s'", arg);
+          for (var arg : newKwargs.keySet()) {
+            checkAttributeName(arg);
+            if (arg.startsWith("_")) {
+              // allow setting private attributes from initializers in builtins
+              Label definitionLabel = ruleClass.getRuleDefinitionEnvironmentLabel();
+              BuiltinRestriction.failIfLabelOutsideAllowlist(
+                  definitionLabel,
+                  RepositoryMapping.ALWAYS_FALLBACK,
+                  ALLOWLIST_RULE_EXTENSION_API_EXPERIMENTAL);
+            }
+            String nativeName = arg.startsWith("_") ? "$" + arg.substring(1) : arg;
+            Attribute attr = currentRuleClass.getAttributeByNameMaybe(nativeName);
+            if (attr != null && !attr.starlarkDefined()) {
+              throw Starlark.errorf(
+                  "Initializer can only set Starlark defined attributes, not '%s'", arg);
+            }
+            Object value = newKwargs.get(arg);
+            Object reifiedValue =
+                attr == null
+                        || value == Starlark.NONE
+                        || legacyAnyTypeAttrs.contains(attr.getName())
+                    ? value
+                    : BuildType.copyAndLiftStarlarkValue(
+                        currentRuleClass.getName(),
+                        attr,
+                        value,
+                        // Reify to the location of the initializer definition
+                        currentRuleClass.getLabelConverterForInitializer());
+            kwargs.putEntry(nativeName, reifiedValue);
           }
         }
-
-        kwargs.putEntries(newKwargs);
+      } finally {
+        bazelStarlarkContext.storeInThread(thread);
       }
 
       BuildLangTypedAttributeValuesMap attributeValues =
           new BuildLangTypedAttributeValuesMap(kwargs);
       try {
-        PackageContext pkgContext = thread.getThreadLocal(PackageContext.class);
-        if (pkgContext == null) {
-          throw new EvalException(
-              "Cannot instantiate a rule when loading a .bzl file. "
-                  + "Rules may be instantiated only in a BUILD thread.");
-        }
         RuleFactory.createAndAddRule(
             pkgContext.getBuilder(),
             ruleClass,
@@ -1065,7 +1165,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       // exploit dependency resolution for "free"
       ImmutableList<Pair<String, Descriptor>> subruleAttributes;
       try {
-        subruleAttributes = StarlarkSubrule.discoverAttributes(builder.getSubrules());
+        var parentSubrules = builder.getParentSubrules();
+        ImmutableList<StarlarkSubruleApi> subrulesNotInParents =
+            builder.getSubrules().stream()
+                .filter(subrule -> !parentSubrules.contains(subrule))
+                .collect(toImmutableList());
+        subruleAttributes = StarlarkSubrule.discoverAttributes(subrulesNotInParents);
       } catch (EvalException e) {
         errorf(handler, "%s", e.getMessage());
         return;
@@ -1139,6 +1244,14 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           .setLocationCheck(AllowlistChecker.LocationCheck.INSTANCE_OR_DEFINITION)
           .build();
 
+  @SerializationConstant
+  static final AllowlistChecker EXTEND_RULE_ALLOWLIST_CHECKER =
+      AllowlistChecker.builder()
+          .setAllowlistAttr("extend_rule")
+          .setErrorMessage("Non-allowlisted attempt to extend a rule.")
+          .setLocationCheck(AllowlistChecker.LocationCheck.DEFINITION)
+          .build();
+
   @Override
   public Label label(Object input, StarlarkThread thread) throws EvalException {
     if (input instanceof Label) {
@@ -1178,6 +1291,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       StarlarkFunction implementation,
       Dict<?, ?> attrsUnchecked,
       Sequence<?> toolchainsUnchecked,
+      Sequence<?> fragmentsUnchecked,
+      Sequence<?> subrulesUnchecked,
       StarlarkThread thread)
       throws EvalException {
     if (!thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_RULE_EXTENSION_API)) {
@@ -1185,6 +1300,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     }
     ImmutableMap<String, Descriptor> attrs =
         ImmutableMap.copyOf(Dict.cast(attrsUnchecked, String.class, Descriptor.class, "attrs"));
+    ImmutableList<String> fragments =
+        Sequence.noneableCast(fragmentsUnchecked, String.class, "fragments").getImmutableList();
     for (Entry<String, Descriptor> attr : attrs.entrySet()) {
       String attrName = attr.getKey();
       Descriptor descriptor = attr.getValue();
@@ -1218,7 +1335,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     if (toolchains.size() > 1) {
       throw Starlark.errorf("subrules may require at most 1 toolchain, got: %s", toolchains);
     }
-    return new StarlarkSubrule(implementation, attrs, toolchains);
+    return new StarlarkSubrule(
+        implementation,
+        attrs,
+        toolchains,
+        ImmutableSet.copyOf(fragments),
+        ImmutableSet.copyOf(Sequence.cast(subrulesUnchecked, StarlarkSubrule.class, "subrules")));
   }
 
   private static ImmutableSet<ToolchainTypeRequirement> parseToolchainTypes(

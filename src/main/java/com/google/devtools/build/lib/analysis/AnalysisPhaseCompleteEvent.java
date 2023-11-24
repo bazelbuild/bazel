@@ -40,55 +40,12 @@ public class AnalysisPhaseCompleteEvent {
       long timeInMs,
       PackageManagerStatistics pkgManagerStats,
       boolean analysisCacheDropped) {
-    this(
-        topLevelTargets,
-        targetsConfigured,
-        actionsConstructed,
-        timeInMs,
-        pkgManagerStats,
-        analysisCacheDropped,
-        /*skymeldEnabled=*/ false);
-  }
-
-  private AnalysisPhaseCompleteEvent(
-      Collection<? extends ConfiguredTarget> topLevelTargets,
-      TotalAndConfiguredTargetOnlyMetric targetsConfigured,
-      TotalAndConfiguredTargetOnlyMetric actionsConstructed,
-      long timeInMs,
-      PackageManagerStatistics pkgManagerStats,
-      boolean analysisCacheDropped,
-      boolean skymeldEnabled) {
     this.timeInMs = timeInMs;
     this.topLevelTargets = ImmutableList.copyOf(topLevelTargets);
     this.targetsConfigured = checkNotNull(targetsConfigured);
     this.pkgManagerStats = pkgManagerStats;
     this.actionsConstructed = checkNotNull(actionsConstructed);
     this.analysisCacheDropped = analysisCacheDropped;
-  }
-
-  /**
-   * A factory method for the AnalysisPhaseCompleteEvent that originates from Skymeld.
-   *
-   * <p>This marks the end of the analysis-related work within the build. Contrary to the
-   * traditional build where there is a distinct separation between the loading/analysis and
-   * execution phases, overlapping is possible with Skymeld. We are likely already deep into action
-   * execution when this event is posted.
-   */
-  public static AnalysisPhaseCompleteEvent fromSkymeld(
-      Collection<? extends ConfiguredTarget> topLevelTargets,
-      TotalAndConfiguredTargetOnlyMetric targetsConfigured,
-      TotalAndConfiguredTargetOnlyMetric actionsConstructed,
-      long timeInMs,
-      PackageManagerStatistics pkgManagerStats,
-      boolean analysisCacheDropped) {
-    return new AnalysisPhaseCompleteEvent(
-        topLevelTargets,
-        targetsConfigured,
-        actionsConstructed,
-        timeInMs,
-        pkgManagerStats,
-        analysisCacheDropped,
-        /*skymeldEnabled=*/ true);
   }
 
   /**

@@ -74,9 +74,6 @@ import javax.annotation.Nullable;
 /**
  * Provides information about the workspace (e.g. source control context, current machine, current
  * user, etc).
- *
- * <p>Note that the <code>equals()</code> method is necessary so that Skyframe knows when to
- * invalidate the node representing the workspace status action.
  */
 public class BazelWorkspaceStatusModule extends BlazeModule {
   static class BazelWorkspaceStatusAction extends WorkspaceStatusAction {

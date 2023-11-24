@@ -15,6 +15,7 @@ filegroup(
 filegroup(
     name = "http_src",
     srcs = [
+        "cache.bzl",
         "http.bzl",
         "utils.bzl",
     ],

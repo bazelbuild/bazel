@@ -403,6 +403,13 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
             "/proguard/a/legacy_a_pre_dexing.map");
     MoreAsserts.assertContainsSublist(
         dexerArgs, "--pg-map", proguardMapInput.getExecPath().getPathString());
+
+    List<String> shardArgs =
+        getGeneratingSpawnActionArgs(
+            ActionsTestUtil.getFirstArtifactEndingWith(
+                actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)), "_dx/a/shard1.zip"));
+    assertThat(shardArgs).contains("--intermediate");
+    assertThat(shardArgs).doesNotContain("--dex");
   }
 
   @Test
@@ -433,6 +440,13 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
     List<String> dexerArgs = dexer.getArguments();
     assertThat(dexerArgs).doesNotContain("--main-dex-list");
     MoreAsserts.assertContainsSublist(dexerArgs, "--min-api", "21");
+
+    List<String> shardArgs =
+        getGeneratingSpawnActionArgs(
+            ActionsTestUtil.getFirstArtifactEndingWith(
+                actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)), "_dx/a/shard1.zip"));
+    assertThat(shardArgs).contains("--intermediate");
+    assertThat(shardArgs).doesNotContain("--dex");
   }
 
   @Test

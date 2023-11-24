@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
-import com.google.devtools.build.lib.rules.java.JavaBuildInfoFactory;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
@@ -80,10 +79,10 @@ public class BazelJavaSemantics implements JavaSemantics {
   private static final String BAZEL_TEST_RUNNER_MAIN_CLASS =
       "com.google.testing.junit.runner.BazelTestRunner";
 
-  private BazelJavaSemantics() {
-  }
+  private BazelJavaSemantics() {}
 
-  private static final String JAVA_TOOLCHAIN_TYPE = "@bazel_tools//tools/jdk:toolchain_type";
+  private static final String JAVA_TOOLCHAIN_TYPE =
+      Label.parseCanonicalUnchecked("@bazel_tools//tools/jdk:toolchain_type").toString();
   private static final Label JAVA_RUNITME_TOOLCHAIN_TYPE =
       Label.parseCanonicalUnchecked("@bazel_tools//tools/jdk:runtime_toolchain_type");
 
@@ -99,12 +98,6 @@ public class BazelJavaSemantics implements JavaSemantics {
 
   @Override
   public void checkRule(RuleContext ruleContext, JavaCommon javaCommon) {
-  }
-
-  @Override
-  public ImmutableList<Artifact> getBuildInfo(RuleContext ruleContext, int stamp)
-      throws RuleErrorException, InterruptedException {
-    return ruleContext.getBuildInfo(JavaBuildInfoFactory.KEY);
   }
 
   @Override

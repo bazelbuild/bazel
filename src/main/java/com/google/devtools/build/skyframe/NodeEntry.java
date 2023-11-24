@@ -56,8 +56,14 @@ public interface NodeEntry {
     ALREADY_EVALUATING
   }
 
-  /** Return code for {@link #getDirtyState}. */
-  enum DirtyState {
+  /** Represents the various states in a node's lifecycle. */
+  enum LifecycleState {
+    /**
+     * The entry has never started evaluating. The next call to {@link #addReverseDepAndCheckIfDone}
+     * will put the entry into the {@link #NEEDS_REBUILDING} state and return {@link
+     * DependencyState#NEEDS_SCHEDULING}.
+     */
+    NOT_YET_EVALUATING,
     /**
      * The node's dependencies need to be checked to see if it needs to be rebuilt. The dependencies
      * must be obtained through calls to {@link #getNextDirtyDirectDeps} and checked.
@@ -81,6 +87,8 @@ public interface NodeEntry {
     NEEDS_REBUILDING,
     /** A rebuilding is in progress. */
     REBUILDING,
+    /** The node {@link #isDone}. */
+    DONE,
   }
 
   /** Ways that a node may be dirtied. */
@@ -127,10 +135,7 @@ public interface NodeEntry {
   @ThreadSafe
   boolean isDone();
 
-  /**
-   * Returns true if the entry is new or marked as dirty. This includes the case where its deps are
-   * still being checked for up-to-dateness.
-   */
+  /** Inverse of {@link #isDone}. */
   @ThreadSafe
   boolean isDirty();
 
@@ -383,11 +388,12 @@ public interface NodeEntry {
    * dirtied and checks its dep on child. child signals parent with version v2. That should not in
    * and of itself trigger a rebuild, since parent has already rebuilt with child at v2.
    *
-   * @param childVersion If this entry {@link #isDirty()} and the last version at which this entry
-   *     was evaluated did not include the changes at version {@code childVersion} (for instance, if
+   * @param childVersion If this entry {@link #isDirty} and the last version at which this entry was
+   *     evaluated did not include the changes at version {@code childVersion} (for instance, if
    *     {@code childVersion} is after the last version at which this entry was evaluated), then
    *     this entry records that one of its children has changed since it was last evaluated. Thus,
-   *     the next call to {@link #getDirtyState()} will return {@link DirtyState#NEEDS_REBUILDING}.
+   *     the next call to {@link #getLifecycleState} will return {@link
+   *     LifecycleState#NEEDS_REBUILDING}.
    * @param childForDebugging for use in debugging (can be used to identify specific children that
    *     invalidate this node)
    */
@@ -426,8 +432,9 @@ public interface NodeEntry {
   }
 
   /**
-   * Called on a dirty node during {@linkplain DirtyState#CHECK_DEPENDENCIES dependency checking} to
-   * force the node to be re-evaluated, even if none of its dependencies are known to have changed.
+   * Called on a dirty node during {@linkplain LifecycleState#CHECK_DEPENDENCIES dependency
+   * checking} to force the node to be re-evaluated, even if none of its dependencies are known to
+   * have changed.
    *
    * <p>Used when a caller has reason to believe that re-evaluating may yield a new result, such as
    * when the prior evaluation encountered a transient error.
@@ -453,20 +460,21 @@ public interface NodeEntry {
   }
 
   /**
-   * Gets the current state of checking this dirty entry to see if it must be re-evaluated. Must be
-   * called each time evaluation of a dirty entry starts to find the proper action to perform next,
-   * as enumerated by {@link NodeEntry.DirtyState}.
+   * Returns the state of this entry as enumerated by {@link LifecycleState}.
+   *
+   * <p>This method may be called at any time. Returns {@link LifecycleState#DONE} iff the node
+   * {@link #isDone}.
    */
   @ThreadSafe
-  NodeEntry.DirtyState getDirtyState();
+  LifecycleState getLifecycleState();
 
   /**
-   * Should only be called if the entry is dirty. During the examination to see if the entry must be
-   * re-evaluated, this method returns the next group of children to be checked. Callers should have
-   * already called {@link #getDirtyState} and received a return value of {@link
-   * DirtyState#CHECK_DEPENDENCIES} before calling this method -- any other return value from {@link
-   * #getDirtyState} means that this method must not be called, since whether or not the node needs
-   * to be rebuilt is already known.
+   * Should only be called if the entry is in the {@link LifecycleState#CHECK_DEPENDENCIES} state.
+   * During the examination to see if the entry must be re-evaluated, this method returns the next
+   * group of children to be checked. Callers should have already called {@link #getLifecycleState}
+   * and received a return value of {@link LifecycleState#CHECK_DEPENDENCIES} before calling this
+   * method -- any other return value from {@link #getLifecycleState} means that this method must
+   * not be called, since whether or not the node needs to be rebuilt is already known.
    *
    * <p>Deps are returned in groups. The deps in each group were requested in parallel by the {@code
    * SkyFunction} last build, meaning independently of the values of any other deps in this group
@@ -525,8 +533,8 @@ public interface NodeEntry {
 
   /**
    * Notifies a node that it is about to be rebuilt. This method can only be called if the node
-   * {@link DirtyState#NEEDS_REBUILDING}. After this call, this node is ready to be rebuilt (it will
-   * be in {@link DirtyState#REBUILDING}).
+   * {@link LifecycleState#NEEDS_REBUILDING}. After this call, this node is ready to be rebuilt (it
+   * will be in {@link LifecycleState#REBUILDING}).
    */
   void markRebuilding();
 
@@ -558,7 +566,7 @@ public interface NodeEntry {
    * requested during the restarted evaluation of this node. If the graph keeps dependency edges,
    * however, the temporary direct deps must be accounted for in {@link #getResetDirectDeps}.
    *
-   * <p>Called on a {@link DirtyState#REBUILDING} node when one of the following scenarios is
+   * <p>Called on a {@link LifecycleState#REBUILDING} node when one of the following scenarios is
    * observed:
    *
    * <ol>
@@ -587,8 +595,8 @@ public interface NodeEntry {
    * this node since it was last done, returns the set of temporary direct deps that were registered
    * prior to the restart. Otherwise, returns an empty set.
    *
-   * <p>Called on a {@link DirtyState#REBUILDING} node when it is about to finish evaluating. Used
-   * to determine which of its {@linkplain #getTemporaryDirectDeps temporary direct deps} have
+   * <p>Called on a {@link LifecycleState#REBUILDING} node when it is about to finish evaluating.
+   * Used to determine which of its {@linkplain #getTemporaryDirectDeps temporary direct deps} have
    * already registered a corresponding reverse dep, in order to avoid creating duplicate rdep
    * edges.
    *

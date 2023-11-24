@@ -603,30 +603,6 @@ public class RunfilesTest extends FoundationTestCase {
   }
 
   @Test
-  public void testOnlyExtraMiddlemenNotConsideredEmpty() {
-    ArtifactRoot root =
-        ArtifactRoot.asDerivedRoot(
-            scratch.resolve("execroot"), RootType.Middleman, PathFragment.create("out"));
-    Artifact mm = ActionsTestUtil.createArtifact(root, "a-middleman");
-    Runfiles runfiles = new Runfiles.Builder("TESTING").addLegacyExtraMiddleman(mm).build();
-    assertThat(runfiles.isEmpty()).isFalse();
-  }
-
-  @Test
-  public void testMergingExtraMiddlemen() {
-    ArtifactRoot root =
-        ArtifactRoot.asDerivedRoot(
-            scratch.resolve("execroot"), RootType.Middleman, PathFragment.create("out"));
-    Artifact mm1 = ActionsTestUtil.createArtifact(root, "middleman-1");
-    Artifact mm2 = ActionsTestUtil.createArtifact(root, "middleman-2");
-    Runfiles runfiles1 = new Runfiles.Builder("TESTING").addLegacyExtraMiddleman(mm1).build();
-    Runfiles runfiles2 = new Runfiles.Builder("TESTING").addLegacyExtraMiddleman(mm2).build();
-    Runfiles runfilesMerged =
-        new Runfiles.Builder("TESTING").merge(runfiles1).merge(runfiles2).build();
-    assertThat(runfilesMerged.getExtraMiddlemen().toList()).containsExactly(mm1, mm2);
-  }
-
-  @Test
   public void testGetEmptyFilenames() {
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     Artifact artifact = ActionsTestUtil.createArtifact(root, "my-artifact");

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.worker;
 import com.google.common.base.Throwables;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
 import java.io.IOException;
@@ -49,9 +48,6 @@ public class WorkerPoolImpl implements WorkerPool {
 
   /** Map of multiplex worker pools, one per mnemonic. */
   private final ImmutableMap<String, SimpleWorkerPool> multiplexPools;
-
-  /** Set of worker ids which are going to be destroyed after they are returned to the pool */
-  private ImmutableSet<Integer> doomedWorkers = ImmutableSet.of();
 
   public WorkerPoolImpl(WorkerPoolConfig workerPoolConfig) {
     this.workerPoolConfig = workerPoolConfig;
@@ -165,17 +161,11 @@ public class WorkerPoolImpl implements WorkerPool {
 
   @Override
   public void returnObject(WorkerKey key, Worker obj) {
-    if (doomedWorkers.contains(obj.getWorkerId())) {
-      obj.setDoomed(true);
-    }
     getPool(key).returnObject(key, obj);
   }
 
   @Override
   public void invalidateObject(WorkerKey key, Worker obj) throws InterruptedException {
-    if (doomedWorkers.contains(obj.getWorkerId())) {
-      obj.setDoomed(true);
-    }
     try {
       getPool(key).invalidateObject(key, obj);
     } catch (Throwable t) {
@@ -184,15 +174,9 @@ public class WorkerPoolImpl implements WorkerPool {
     }
   }
 
+  /** Reset all shrunk subtrahend of all worker pools. */
   @Override
-  public synchronized void setDoomedWorkers(ImmutableSet<Integer> workerIds) {
-    this.doomedWorkers = workerIds;
-  }
-
-  /** Clear set of doomed workers. Also reset all shrunk subtrahend of all worker pools. */
-  @Override
-  public synchronized void clearDoomedWorkers() {
-    this.doomedWorkers = ImmutableSet.of();
+  public synchronized void reset() {
     for (Entry<String, SimpleWorkerPool> entry : workerPools.entrySet()) {
       logger.atInfo().log(
           "clearing shrunk by values for %s worker pool",
@@ -205,10 +189,6 @@ public class WorkerPoolImpl implements WorkerPool {
           entry.getKey().isEmpty() ? "shared" : entry.getKey());
       entry.getValue().clearShrunkBy();
     }
-  }
-
-  ImmutableSet<Integer> getDoomedWorkers() {
-    return doomedWorkers;
   }
 
   @Override

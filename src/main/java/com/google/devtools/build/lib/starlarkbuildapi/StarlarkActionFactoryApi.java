@@ -528,14 +528,15 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             named = true,
             positional = false,
             doc =
-                "<p>Toolchain type of the executable or tools used in this action. The parameter"
-                    + " must be set, so that, the action executes on the correct execution"
-                    + " platform. </p><p>It's a no-op right now, but we recommend to set it when a"
-                    + " toolchain is used, because it will be required in the future Bazel"
-                    + " releases.</p><p>Note that the rule which creates this action needs to"
-                    + " define this toolchain inside its 'rule()' function.</p><p>When `toolchain`"
-                    + " and `exec_group` parameters are both set, `exec_group` will be used. An"
-                    + " error is raised in case the `exec_group` doesn't specify the same."),
+                "<p>Toolchain type of the executable or tools used in this action.</p><p>If"
+                    + " executable and tools are not coming from a toolchain, set this parameter to"
+                    + " `None`.</p><p>If executable and tools are coming from a toolchain,"
+                    + " toolchain type must be set so that the action executes on the correct"
+                    + " execution platform.</p><p>Note that the rule which creates this action"
+                    + " needs to define this toolchain inside its 'rule()' function.</p><p>When"
+                    + " `toolchain` and `exec_group` parameters are both set, `exec_group` will be"
+                    + " used. An error is raised in case the `exec_group` doesn't specify the same"
+                    + " toolchain.</p>"),
       })
   void run(
       Sequence<?> outputs,
@@ -781,14 +782,14 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             named = true,
             positional = false,
             doc =
-                "<p>Toolchain type of the executable or tools used in this action. The parameter"
-                    + " must be set, so that, the action executes on the correct execution"
-                    + " platform. </p><p>It's a no-op right now, but we recommend to set it when a"
-                    + " toolchain is used, because it will be required in the future Bazel"
-                    + " releases.</p><p>Note that the rule which creates this action needs to"
-                    + " define this toolchain inside its 'rule()' function.</p><p>When `toolchain`"
-                    + " and `exec_group` parameters are both set, `exec_group` will be used. An"
-                    + " error is raised in case the `exec_group` doesn't specify the same."
+                "<p>Toolchain type of the executable or tools used in this action.</p><p>If"
+                    + " executable and tools are not coming from a toolchain, set this parameter to"
+                    + " `None`.</p><p>If executable and tools are coming from a toolchain,"
+                    + " toolchain type must be set so that the action executes on the correct"
+                    + " execution platform.</p><p>Note that the rule which creates this action"
+                    + " needs to define this toolchain inside its 'rule()' function.</p><p>When"
+                    + " `toolchain` and `exec_group` parameters are both set, `exec_group` will be"
+                    + " used. An error is raised in case the `exec_group` doesn't specify the same"
                     + " toolchain.</p>"),
       })
   void runShell(

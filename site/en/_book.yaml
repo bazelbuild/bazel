@@ -9,6 +9,8 @@ upper_tabs:
       contents:
       - title: Bazel overview
         path: /about/intro
+      - title: Why Bazel?
+        path: /about/why
       - title: Bazel vision
         path: /about/vision
       - title: Roadmap
@@ -47,8 +49,6 @@ upper_tabs:
         path: /install/os-x
       - title: Windows
         path: /install/windows
-      - title: Fedora/CentOS
-        path: /install/redhat
       - title: Ubuntu
         path: /install/ubuntu
       - title: openSUSE
@@ -97,6 +97,8 @@ upper_tabs:
       contents:
       - title: Release model
         path: /release/
+      - title: Rolling releases
+        path: /release/rolling
       - title: Backward compatibility
         path: /release/backward-compatibility
       - title: Rule compatibility
@@ -282,6 +284,8 @@ upper_tabs:
         path: /extending/toolchains
       - title: Execution groups
         path: /extending/exec-groups
+      - title: Automatic execution groups
+        path: /extending/auto-exec-groups
     - name: Writing rules
       contents:
       - title: Creating a rule
@@ -386,5 +390,7 @@ upper_tabs:
     - links:
       - label: "Nightly"
         path: /
+      - label: Rolling releases
+        path: /release/rolling
       - label: "More…"
         path: /versions/

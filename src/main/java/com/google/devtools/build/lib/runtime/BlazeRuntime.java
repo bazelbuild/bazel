@@ -100,7 +100,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
+import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.devtools.common.options.CommandNameCache;
 import com.google.devtools.common.options.InvocationPolicyParser;
 import com.google.devtools.common.options.OptionDefinition;
@@ -378,8 +378,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                       + " will be omitted in merged actions."));
         }
         Profiler profiler = Profiler.instance();
-        WorkerMetricsCollector workerMetricsCollector = WorkerMetricsCollector.instance();
-        workerMetricsCollector.setClock(clock);
+        WorkerProcessMetricsCollector workerProcessMetricsCollector =
+            WorkerProcessMetricsCollector.instance();
+        workerProcessMetricsCollector.setClock(clock);
         profiler.start(
             profiledTasks,
             out,
@@ -399,7 +400,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             options.collectPressureStallIndicators,
             options.collectResourceEstimation,
             env.getLocalResourceManager(),
-            WorkerMetricsCollector.instance(),
+            WorkerProcessMetricsCollector.instance(),
             bugReporter);
         // Instead of logEvent() we're calling the low level function to pass the timings we took in
         // the launcher. We're setting the INIT phase marker so that it follows immediately the
@@ -754,6 +755,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    * Main method for the Blaze server startup. Note: This method logs exceptions to remote servers.
    * Do not add this to a unittest.
    */
+  @SuppressWarnings("SystemExitOutsideMain")
   public static void main(Iterable<Class<? extends BlazeModule>> moduleClasses, String[] args) {
     setupUncaughtHandlerAtStartup(args);
     List<BlazeModule> modules = createModules(moduleClasses);
@@ -958,7 +960,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               "batch client",
               runtime.clock.currentTimeMillis(),
               Optional.of(startupOptionsFromCommandLine.build()),
-              /*commandExtensions=*/ ImmutableList.of());
+              /* commandExtensions= */ ImmutableList.of(),
+              /* commandExtensionReporter= */ (ext) -> {});
       if (result.getExecRequest() == null) {
         // Simple case: we are given an exit code
         return result.getExitCode().getNumericExitCode();

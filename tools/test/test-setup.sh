@@ -427,8 +427,9 @@ if [[ -n "$TEST_UNDECLARED_OUTPUTS_ZIP" ]] && cd "$TEST_UNDECLARED_OUTPUTS_DIR";
     # Otherwise echo printed the top-level files and directories.
     # Pass files to zip with *, so paths with spaces aren't broken up.
     # Remove original files after zipping them.
-    zip -qrm "$TEST_UNDECLARED_OUTPUTS_ZIP" -- * 2>/dev/null || \
-        echo >&2 "Could not create \"$TEST_UNDECLARED_OUTPUTS_ZIP\": zip not found or failed"
+    if ! zip_output="$(zip -qrm "$TEST_UNDECLARED_OUTPUTS_ZIP" -- * 2>&1)"; then
+        echo >&2 "Could not create \"$TEST_UNDECLARED_OUTPUTS_ZIP\": $zip_output"
+    fi
   fi
 fi
 

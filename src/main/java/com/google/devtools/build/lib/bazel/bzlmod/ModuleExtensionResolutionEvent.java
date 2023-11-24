@@ -14,30 +14,53 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 
 /**
  * After evaluating any module extension this event is sent from {@link SingleExtensionEvalFunction}
  * holding the extension id and the resolution data LockFileModuleExtension. It will be received in
- * {@link BazelLockFileModule} to be used to update the lockfile content
+ * {@link BazelLockFileModule} to be used to update the lockfile content.
+ *
+ * <p>Instances of this class are retained in Skyframe nodes and subject to frequent {@link
+ * java.util.Set}-based deduplication. As such, it <b>must</b> have a cheap implementation of {@link
+ * #hashCode()} and {@link #equals(Object)}. It currently uses reference equality since the logic
+ * that creates instances of this class already ensures that there is only one instance per
+ * extension id.
  */
-@AutoValue
-public abstract class ModuleExtensionResolutionEvent implements Postable {
+public final class ModuleExtensionResolutionEvent implements Postable {
+
+  private final ModuleExtensionId extensionId;
+  private final ModuleExtensionEvalFactors extensionFactors;
+  private final LockFileModuleExtension moduleExtension;
+
+  private ModuleExtensionResolutionEvent(
+      ModuleExtensionId extensionId,
+      ModuleExtensionEvalFactors extensionFactors,
+      LockFileModuleExtension moduleExtension) {
+    this.extensionId = extensionId;
+    this.extensionFactors = extensionFactors;
+    this.moduleExtension = moduleExtension;
+  }
 
   public static ModuleExtensionResolutionEvent create(
       ModuleExtensionId extensionId,
       ModuleExtensionEvalFactors extensionFactors,
       LockFileModuleExtension lockfileModuleExtension) {
-    return new AutoValue_ModuleExtensionResolutionEvent(
+    return new ModuleExtensionResolutionEvent(
         extensionId, extensionFactors, lockfileModuleExtension);
   }
 
-  public abstract ModuleExtensionId getExtensionId();
+  public ModuleExtensionId getExtensionId() {
+    return extensionId;
+  }
 
-  public abstract ModuleExtensionEvalFactors getExtensionFactors();
+  public ModuleExtensionEvalFactors getExtensionFactors() {
+    return extensionFactors;
+  }
 
-  public abstract LockFileModuleExtension getModuleExtension();
+  public LockFileModuleExtension getModuleExtension() {
+    return moduleExtension;
+  }
 
   @Override
   public boolean storeForReplay() {

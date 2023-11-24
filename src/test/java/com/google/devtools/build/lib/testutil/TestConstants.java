@@ -123,9 +123,13 @@ public class TestConstants {
   /** The output file path prefix for tool file dependencies. */
   public static final String TOOLS_REPOSITORY_PATH_PREFIX = "external/bazel_tools/";
 
-  public static final String RULES_CC_REPOSITORY_SCRATCH = "rules_cc_workspace/";
   /** The directory in which rules_cc repo resides in execroot. */
   public static final String RULES_CC_REPOSITORY_EXECROOT = "external/" + RulesCcRepoName.CANONICAL_REPO_NAME + "/";
+  /* Prefix for loads from rules_cc */
+  public static final String RULES_CC = "@rules_cc//cc";
+
+  /** The repo/package rules_python is rooted at. If empty, builtin rules are used. */
+  public static final String RULES_PYTHON_PACKAGE_ROOT = "";
 
   public static final ImmutableList<String> DOCS_RULES_PATHS = ImmutableList.of(
       "src/main/java/com/google/devtools/build/lib/rules");
@@ -133,6 +137,9 @@ public class TestConstants {
   // Constants used to determine how genrule pulls in the setup script.
   public static final String GENRULE_SETUP = "@bazel_tools//tools/genrule:genrule-setup.sh";
   public static final String GENRULE_SETUP_PATH = "genrule-setup.sh";
+
+  public static final String STARLARK_EXEC_TRANSITION =
+      "@_builtins//:common/builtin_exec_platforms.bzl%bazel_exec_transition";
 
   /**
    * Flags that must be set for Bazel to work properly, if the default values are unusable for some
@@ -176,10 +183,10 @@ public class TestConstants {
       "@bazel_tools//tools/jdk:proguard_whitelister";
 
   /** The java toolchain type. */
-  public static final String JAVA_TOOLCHAIN_TYPE = "@bazel_tools//tools/jdk:toolchain_type";
+  public static final String JAVA_TOOLCHAIN_TYPE = "@@bazel_tools//tools/jdk:toolchain_type";
 
   /** The cpp toolchain type. */
-  public static final String CPP_TOOLCHAIN_TYPE = "@bazel_tools//tools/cpp:toolchain_type";
+  public static final String CPP_TOOLCHAIN_TYPE = "@@bazel_tools//tools/cpp:toolchain_type";
 
   /** A choice of test execution mode, only varies internally. */
   public enum InternalTestExecutionMode {

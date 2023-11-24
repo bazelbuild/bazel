@@ -80,8 +80,7 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
 
   @Override
   protected String getIdentifyingStringForLogging() {
-    return String.format(
-        "module extension %s in %s", extensionId.getExtensionName(), extensionId.getBzlFileLabel());
+    return ModuleExtensionEvaluationProgress.moduleExtensionEvaluationContextString(extensionId);
   }
 
   @Override

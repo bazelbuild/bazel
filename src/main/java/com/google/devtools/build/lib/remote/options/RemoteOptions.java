@@ -653,7 +653,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
 
   @Option(
       name = "experimental_remote_discard_merkle_trees",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =

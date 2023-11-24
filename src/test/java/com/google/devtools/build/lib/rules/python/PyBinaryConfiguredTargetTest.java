@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
@@ -34,7 +35,9 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
 
   @Test
   public void filesToBuild() throws Exception {
-    scratch.file("pkg/BUILD",
+    scratch.file(
+        "pkg/BUILD",
+        getPyLoad("py_binary"),
         "py_binary(",
         "    name = 'foo',",
         "    srcs = ['foo.py'])");
@@ -50,10 +53,14 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
   public void srcsIsMandatory() throws Exception {
     // This case is somewhat dominated by the test that the default main must be in srcs, but the
     // error message is different here.
-    checkError("pkg", "foo",
+    checkError(
+        "pkg",
+        "foo",
         // error:
         "missing value for mandatory attribute 'srcs'",
         // build file:
+        getPyLoad("py_binary"),
+        getPyLoad("py_library"),
         "py_binary(",
         "    name = 'foo',",
         "    deps = [':bar'])",
@@ -64,10 +71,13 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
 
   @Test
   public void defaultMainMustBeInSrcs() throws Exception {
-    checkError("pkg", "app",
+    checkError(
+        "pkg",
+        "app",
         // error:
         "corresponding default 'app.py' does not appear",
         // build file:
+        getPyLoad("py_binary"),
         "py_binary(",
         "    name = 'app',",
         "    srcs = ['foo.py', 'bar.py'])");
@@ -75,7 +85,9 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
 
   @Test
   public void explicitMain() throws Exception {
-    scratch.file("pkg/BUILD",
+    scratch.file(
+        "pkg/BUILD",
+        getPyLoad("py_binary"),
         "py_binary(",
         "    name = 'foo',",
         "    main = 'foo.py',",
@@ -85,10 +97,13 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
 
   @Test
   public void explicitMainMustBeInSrcs() throws Exception {
-    checkError("pkg", "foo",
+    checkError(
+        "pkg",
+        "foo",
         // error:
         "could not find 'foo.py'",
         // build file:
+        getPyLoad("py_binary"),
         "py_binary(",
         "    name = 'foo',",
         "    main = 'foo.py',",
@@ -97,7 +112,9 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
 
   @Test
   public void defaultMainCannotBeAmbiguous() throws Exception {
-    scratch.file("pkg1/BUILD",
+    scratch.file(
+        "pkg1/BUILD",
+        getPyLoad("py_binary"),
         "py_binary(",
         "    name = 'foo',",
         "    srcs = ['bar.py'])");
@@ -107,6 +124,7 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
         // error:
         Pattern.compile(".*bar.py.*matches multiple.*"),
         // build file:
+        getPyLoad("py_binary"),
         "py_binary(",
         "    name = 'bar',",
         "    srcs = ['bar.py', '//pkg1:bar.py'])");
@@ -114,7 +132,9 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
 
   @Test
   public void explicitMainCannotBeAmbiguous() throws Exception {
-    scratch.file("pkg1/BUILD",
+    scratch.file(
+        "pkg1/BUILD",
+        getPyLoad("py_binary"),
         "py_binary(",
         "    name = 'foo',",
         "    srcs = ['bar.py'])");
@@ -124,6 +144,7 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
         // error:
         Pattern.compile(".*bar.py.*matches multiple.*"),
         // build file:
+        getPyLoad("py_binary"),
         "py_binary(",
         "    name = 'foo',",
         "    main = 'bar.py',",
@@ -132,10 +153,13 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
 
   @Test
   public void nameCannotEndInPy() throws Exception {
-    checkError("pkg", "foo.py",
+    checkError(
+        "pkg",
+        "foo.py",
         // error:
         "name must not end in '.py'",
         // build file:
+        getPyLoad("py_binary"),
         "py_binary(",
         "    name = 'foo.py',",
         "    srcs = ['bar.py'])");
@@ -143,7 +167,9 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
 
   @Test
   public void defaultMainCanBeGenerated() throws Exception {
-    scratch.file("pkg/BUILD",
+    scratch.file(
+        "pkg/BUILD",
+        getPyLoad("py_binary"),
         "genrule(",
         "    name = 'gen_py',",
         "    cmd = 'touch $(location foo.py)',",
@@ -157,7 +183,9 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
   @Test
   public void defaultMainCanHaveMultiplePathSegments() throws Exception {
     // Regression test for crash caused by use of getChild on a multi-segment rule name.
-    scratch.file("pkg/BUILD",
+    scratch.file(
+        "pkg/BUILD",
+        getPyLoad("py_binary"),
         "py_binary(",
         "    name = 'foo/bar',",
         "    srcs = ['foo/bar.py'])");

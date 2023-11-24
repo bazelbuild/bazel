@@ -30,13 +30,13 @@ load(
 )
 load(
     ":common/python/py_library.bzl",
-    "LIBRARY_ATTRS",
+    "create_library_attrs",
     "create_py_library_rule",
     bazel_py_library_impl = "py_library_impl",
 )
 
 _BAZEL_LIBRARY_ATTRS = union_attrs(
-    LIBRARY_ATTRS,
+    create_library_attrs(),
     IMPORTS_ATTRS,
 )
 

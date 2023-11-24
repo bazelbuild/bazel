@@ -207,8 +207,7 @@ public class XcodeConfigInfo extends NativeInfo
       case TVOS:
         return tvosMinimumOsVersion;
       case VISIONOS:
-        // TODO: Replace with CppOptions.minimumOsVersion
-        return DottedVersion.fromStringUnchecked("1.0");
+        return visionosMinimumOsVersion;
       case WATCHOS:
         return watchosMinimumOsVersion;
       case MACOS:

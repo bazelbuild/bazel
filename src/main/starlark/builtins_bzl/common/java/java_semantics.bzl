@@ -19,9 +19,6 @@ Java Semantics
 def _postprocess(ctx, base_info):
     return base_info.java_info
 
-def _check_proto_registry_collision(ctx):
-    pass
-
 def _find_java_toolchain(ctx):
     return ctx.toolchains["@bazel_tools//tools/jdk:toolchain_type"].java
 
@@ -39,6 +36,9 @@ def _get_default_resource_path(path, segment_extractor):
 
 def _compatible_javac_options(*_args):
     return depset()
+
+def _check_java_info_opens_exports():
+    pass
 
 semantics = struct(
     JAVA_TOOLCHAIN_LABEL = "@bazel_tools//tools/jdk:current_java_toolchain",
@@ -65,9 +65,8 @@ semantics = struct(
     ],
     ALLOWED_RULES_IN_DEPS_WITH_WARNING = [],
     LINT_PROGRESS_MESSAGE = "Running Android Lint for: %{label}",
-    check_proto_registry_collision = _check_proto_registry_collision,
     JAVA_STUB_TEMPLATE_LABEL = "@bazel_tools//tools/jdk:java_stub_template.txt",
-    BUILD_INFO_TRANSLATOR_LABEL = None,
+    BUILD_INFO_TRANSLATOR_LABEL = "@bazel_tools//tools/build_defs/build_info:java_build_info",
     JAVA_TEST_RUNNER_LABEL = "@bazel_tools//tools/jdk:TestRunner",
     IS_BAZEL = True,
     get_default_resource_path = _get_default_resource_path,
@@ -76,4 +75,5 @@ semantics = struct(
     JAVA_PROTO_TOOLCHAIN = "@rules_java//java/proto:toolchain_type",
     JAVA_LITE_PROTO_TOOLCHAIN = "@rules_java//java/proto:lite_toolchain_type",
     PROGUARD_ALLOWLISTER_LABEL = "@bazel_tools//tools/jdk:proguard_whitelister",
+    check_java_info_opens_exports = _check_java_info_opens_exports,
 )

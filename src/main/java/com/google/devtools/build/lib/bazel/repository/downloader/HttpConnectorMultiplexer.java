@@ -108,7 +108,7 @@ final class HttpConnectorMultiplexer {
     baseHeaders.putAll(REQUEST_HEADERS);
     
     Function<URL, ImmutableMap<String, List<String>>> headerFunction =
-        getHeaderFunction(baseHeaders.buildKeepingLast(), credentials);
+        getHeaderFunction(baseHeaders.buildKeepingLast(), credentials, eventHandler);
     URLConnection connection = connector.connect(url, headerFunction);
     return httpStreamFactory.create(
         connection,
@@ -130,7 +130,7 @@ final class HttpConnectorMultiplexer {
 
   @VisibleForTesting
   static Function<URL, ImmutableMap<String, List<String>>> getHeaderFunction(
-      Map<String, List<String>> baseHeaders, Credentials credentials) {
+      Map<String, List<String>> baseHeaders, Credentials credentials, EventHandler eventHandler) {
     Preconditions.checkNotNull(baseHeaders);
     Preconditions.checkNotNull(credentials);
 
@@ -142,6 +142,8 @@ final class HttpConnectorMultiplexer {
         // If we can't convert the URL to a URI (because it is syntactically malformed), or fetching
         // credentials fails for any other reason, still try to do the connection, not adding
         // authentication information as we cannot look it up.
+        eventHandler.handle(
+            Event.warn("Error retrieving auth headers, continuing without: " + e.getMessage()));
       }
       return ImmutableMap.copyOf(headers);
     };

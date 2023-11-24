@@ -1,4 +1,4 @@
-load("//:distdir_deps.bzl", "gen_workspace_stanza")
+load("//:workspace_deps.bzl", "gen_workspace_stanza")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -877,6 +877,8 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    # Bazel test requires sandboxing
+    tags = ["no_windows"],
 )
 
 sh_library(

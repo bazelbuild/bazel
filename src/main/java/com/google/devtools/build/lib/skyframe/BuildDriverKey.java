@@ -26,7 +26,6 @@ import java.util.Objects;
 public final class BuildDriverKey implements SkyKey {
   private final ActionLookupKey actionLookupKey;
   private final TopLevelArtifactContext topLevelArtifactContext;
-  private final boolean strictActionConflictCheck;
   private final boolean explicitlyRequested;
   private final boolean skipIncompatibleExplicitTargets;
   private final boolean isTopLevelAspectDriver;
@@ -36,14 +35,12 @@ public final class BuildDriverKey implements SkyKey {
   private BuildDriverKey(
       ActionLookupKey actionLookupKey,
       TopLevelArtifactContext topLevelArtifactContext,
-      boolean strictActionConflictCheck,
       boolean explicitlyRequested,
       boolean skipIncompatibleExplicitTargets,
       boolean extraActionTopLevelOnly,
       boolean isTopLevelAspectDriver) {
     this.actionLookupKey = actionLookupKey;
     this.topLevelArtifactContext = topLevelArtifactContext;
-    this.strictActionConflictCheck = strictActionConflictCheck;
     this.explicitlyRequested = explicitlyRequested;
     this.skipIncompatibleExplicitTargets = skipIncompatibleExplicitTargets;
     this.isTopLevelAspectDriver = isTopLevelAspectDriver;
@@ -53,14 +50,12 @@ public final class BuildDriverKey implements SkyKey {
   public static BuildDriverKey ofTopLevelAspect(
       ActionLookupKey actionLookupKey,
       TopLevelArtifactContext topLevelArtifactContext,
-      boolean strictActionConflictCheck,
       boolean explicitlyRequested,
       boolean skipIncompatibleExplicitTargets,
       boolean extraActionTopLevelOnly) {
     return new BuildDriverKey(
         actionLookupKey,
         topLevelArtifactContext,
-        strictActionConflictCheck,
         explicitlyRequested,
         skipIncompatibleExplicitTargets,
         extraActionTopLevelOnly,
@@ -70,14 +65,12 @@ public final class BuildDriverKey implements SkyKey {
   public static BuildDriverKey ofConfiguredTarget(
       ActionLookupKey actionLookupKey,
       TopLevelArtifactContext topLevelArtifactContext,
-      boolean strictActionConflictCheck,
       boolean explicitlyRequested,
       boolean skipIncompatibleExplicitTargets,
       boolean extraActionTopLevelOnly) {
     return new BuildDriverKey(
         actionLookupKey,
         topLevelArtifactContext,
-        strictActionConflictCheck,
         explicitlyRequested,
         skipIncompatibleExplicitTargets,
         extraActionTopLevelOnly,
@@ -90,10 +83,6 @@ public final class BuildDriverKey implements SkyKey {
 
   public ActionLookupKey getActionLookupKey() {
     return actionLookupKey;
-  }
-
-  public boolean strictActionConflictCheck() {
-    return strictActionConflictCheck;
   }
 
   public boolean isExplicitlyRequested() {
@@ -123,7 +112,6 @@ public final class BuildDriverKey implements SkyKey {
       BuildDriverKey otherBuildDriverKey = (BuildDriverKey) other;
       return actionLookupKey.equals(otherBuildDriverKey.actionLookupKey)
           && topLevelArtifactContext.equals(otherBuildDriverKey.topLevelArtifactContext)
-          && strictActionConflictCheck == otherBuildDriverKey.strictActionConflictCheck
           && explicitlyRequested == otherBuildDriverKey.explicitlyRequested;
     }
     return false;
@@ -131,11 +119,7 @@ public final class BuildDriverKey implements SkyKey {
 
   @Override
   public int hashCode() {
-    return Objects.hash(
-        actionLookupKey,
-        topLevelArtifactContext,
-        strictActionConflictCheck,
-        explicitlyRequested);
+    return Objects.hash(actionLookupKey, topLevelArtifactContext, explicitlyRequested);
   }
 
   @Override

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -26,9 +27,11 @@ import org.junit.Test;
 public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
 
   private final String ruleName;
+  protected final String bzlLoad;
 
   protected PyBaseConfiguredTargetTestBase(String ruleName) {
     this.ruleName = ruleName;
+    bzlLoad = getPyLoad(ruleName);
   }
 
   @Before
@@ -49,6 +52,7 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
         // error:
         Pattern.compile(".*invalid value.*srcs_version.*"),
         // build file:
+        bzlLoad,
         ruleName + "(",
         "    name = 'foo',",
         "    srcs_version = 'doesnotexist',",
@@ -59,6 +63,7 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
   public void goodSrcsVersionValue() throws Exception {
     scratch.file(
         "pkg/BUILD",
+        bzlLoad,
         ruleName + "(",
         "    name = 'foo',",
         "    srcs_version = 'PY3',",
@@ -71,6 +76,7 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
   public void versionIs3IfUnspecified() throws Exception {
     scratch.file(
         "pkg/BUILD", //
+        bzlLoad,
         ruleName + "(",
         "    name = 'foo',",
         "    srcs = ['foo.py'])");
@@ -81,17 +87,19 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
   public void producesProvider() throws Exception {
     scratch.file(
         "pkg/BUILD", //
+        bzlLoad,
         ruleName + "(",
         "    name = 'foo',",
         "    srcs = ['foo.py'])");
     ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
-    assertThat(target.get(PyInfo.PROVIDER)).isNotNull();
+    assertThat(PyInfo.fromTarget(target)).isNotNull();
   }
 
   @Test
   public void consumesProvider() throws Exception {
     scratch.file(
         "pkg/rules.bzl",
+        getPyLoad("PyInfo"),
         "def _myrule_impl(ctx):",
         "    return [PyInfo(transitive_sources=depset([]))]",
         "myrule = rule(",
@@ -99,6 +107,7 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
         ")");
     scratch.file(
         "pkg/BUILD",
+        bzlLoad,
         "load(':rules.bzl', 'myrule')",
         "myrule(",
         "    name = 'dep',",
@@ -128,6 +137,7 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
         // error:
         "'//pkg:dep' does not have mandatory providers",
         // build file:
+        bzlLoad,
         "load(':rules.bzl', 'myrule')",
         "myrule(",
         "    name = 'dep',",
@@ -143,17 +153,24 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
   public void dataSetsUsesSharedLibrary() throws Exception {
     scratch.file(
         "pkg/BUILD",
+        bzlLoad,
         ruleName + "(",
         "    name = 'foo',",
         "    srcs = ['foo.py'],",
         "    data = ['lib.so']",
         ")");
     ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
-    assertThat(target.get(PyInfo.PROVIDER).getUsesSharedLibraries()).isTrue();
+    assertThat(PyInfo.fromTarget(target).getUsesSharedLibraries()).isTrue();
   }
 
   @Test
   public void disallowNativeRulesWorks() throws Exception {
+    // Skip this for Google builds, otherwise it fails because the Google version of the builtin
+    // rules have additional dependencies that use rules_python providers, which the builtin rules
+    // can't accept.
+    if (!analysisMock.isThisBazel()) {
+      return;
+    }
     reporter.removeHandler(failFastHandler); // expect errors
     scratch.file(
         "pkg/BUILD", //
@@ -169,6 +186,12 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
 
   @Test
   public void nativeRulesAllowlistWorks() throws Exception {
+    // Skip this for Google builds, otherwise it fails because the Google version of the builtin
+    // rules have additional dependencies that use rules_python providers, which the builtin rules
+    // can't accept.
+    if (!analysisMock.isThisBazel()) {
+      return;
+    }
     scratch.file(
         "pkg/BUILD",
         ruleName + "(",

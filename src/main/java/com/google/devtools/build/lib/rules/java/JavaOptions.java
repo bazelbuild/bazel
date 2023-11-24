@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
@@ -559,7 +558,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_multi_release_deploy_jars",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -591,70 +590,4 @@ public class JavaOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Enable experimental jspecify integration.")
   public boolean experimentalEnableJspecify;
-
-  @Override
-  public FragmentOptions getExec() {
-    // Note validation actions don't run in exec config, so no need copying flags related to that.
-    // TODO(b/171078539): revisit if relevant validations are run in exec config
-    JavaOptions exec = (JavaOptions) getDefault();
-
-    if (hostJvmOpts == null || hostJvmOpts.isEmpty()) {
-      exec.jvmOpts = ImmutableList.of("-XX:ErrorFile=/dev/stderr");
-    } else {
-      exec.jvmOpts = hostJvmOpts;
-    }
-
-    exec.javacOpts = hostJavacOpts;
-
-    exec.javaLauncher = hostJavaLauncher;
-
-    // Java builds often contain complicated code generators for which
-    // incremental build performance is important.
-    exec.useIjars = useIjars;
-    exec.headerCompilation = headerCompilation;
-
-    exec.javaDeps = javaDeps;
-    exec.javaClasspath = javaClasspath;
-    exec.inmemoryJdepsFiles = inmemoryJdepsFiles;
-
-    exec.strictJavaDeps = strictJavaDeps;
-    exec.fixDepsTool = fixDepsTool;
-
-    exec.enforceOneVersion = enforceOneVersion;
-    exec.importDepsCheckingLevel = importDepsCheckingLevel;
-    // java_test targets can be used as a exec tool, Ex: as a validating tool on a genrule.
-    exec.enforceOneVersionOnJavaTests = enforceOneVersionOnJavaTests;
-    exec.allowRuntimeDepsOnNeverLink = allowRuntimeDepsOnNeverLink;
-    exec.addTestSupportToCompileTimeDeps = addTestSupportToCompileTimeDeps;
-
-    exec.jplPropagateCcLinkParamsStore = jplPropagateCcLinkParamsStore;
-
-    exec.disallowResourceJars = disallowResourceJars;
-
-    exec.javaRuntimeVersion = hostJavaRuntimeVersion;
-    exec.javaLanguageVersion = hostJavaLanguageVersion;
-
-    exec.bytecodeOptimizers = bytecodeOptimizers;
-    exec.splitBytecodeOptimizationPass = splitBytecodeOptimizationPass;
-    exec.bytecodeOptimizationPassActions = bytecodeOptimizationPassActions;
-
-    exec.enforceProguardFileExtension = enforceProguardFileExtension;
-    exec.proguard = proguard;
-
-    // Save host options for further use.
-    exec.hostJavacOpts = hostJavacOpts;
-    exec.hostJavaLauncher = hostJavaLauncher;
-    exec.hostJavaRuntimeVersion = hostJavaRuntimeVersion;
-    exec.hostJavaLanguageVersion = hostJavaLanguageVersion;
-
-    exec.experimentalTurbineAnnotationProcessing = experimentalTurbineAnnotationProcessing;
-
-    exec.multiReleaseDeployJars = multiReleaseDeployJars;
-
-    exec.disallowJavaImportExports = disallowJavaImportExports;
-
-    exec.disallowJavaImportEmptyJars = disallowJavaImportEmptyJars;
-
-    return exec;
-  }
 }

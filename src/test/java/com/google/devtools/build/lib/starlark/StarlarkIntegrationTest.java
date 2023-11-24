@@ -17,6 +17,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SUFFIX;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -224,7 +225,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testMacroHasGeneratorAttributes() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_binary");
     scratch.file(
         "test/starlark/extension.bzl",
         "def _impl(ctx):",
@@ -243,9 +243,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "  native_macro_rule = 'native_macro')",
         "macro_rule(name = 'macro_target')",
         "no_macro_rule(name = 'no_macro_target')",
-        "native_macro_rule(name = 'native_macro_target')",
-        "cc_binary(name = 'cc_target', deps = ['cc_dep'])",
-        "cc_library(name = 'cc_dep')");
+        "native_macro_rule(name = 'native_macro_target')");
 
     Rule withMacro = getRuleForTarget("macro_target");
     assertThat(withMacro.getAttr("generator_name")).isEqualTo("macro_target");
@@ -262,12 +260,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     assertThat(nativeMacro.getAttr("generator_name")).isEqualTo("native_macro_target");
     assertThat(nativeMacro.getAttr("generator_function")).isEqualTo("native_macro");
     assertThat(nativeMacro.getAttr("generator_location")).isEqualTo("test/starlark/BUILD:5:18");
-
-    // Starlark version of cc_binary is created by a wrapper macro.
-    Rule ccTarget = getRuleForTarget("cc_target");
-    assertThat(ccTarget.getAttr("generator_name")).isEqualTo("cc_target");
-    assertThat(ccTarget.getAttr("generator_function")).isEqualTo("cc_binary");
-    assertThat(ccTarget.getAttr("generator_location")).isEqualTo("test/starlark/BUILD:6:10");
   }
 
   @Test
@@ -797,6 +789,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
     scratch.file(
         "test/starlark/BUILD",
+        getPyLoad("py_binary"),
         "load('//test/starlark:extension.bzl', 'custom_rule')",
         "",
         "custom_rule(name = 'cr')",
@@ -1058,6 +1051,44 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
             "dict_dep.cc");
   }
 
+  /**
+   * Define a noop exec transition outside builtins to not interfere with tests that change the
+   * builtins root.
+   */
+  @Before
+  public void createNoopExecTransition() throws Exception {
+    mockToolsConfig.create(
+        "minimal_buildenv/platforms/BUILD", //
+        "platform(name = 'default_host')");
+    // No-op exec transition:
+    scratch.overwriteFile("pkg2/BUILD", "");
+    scratch.file(
+        "pkg2/dummy_exec_platforms.bzl",
+        "def _transition_impl(settings, attr):",
+        "  return {",
+        "      '//command_line_option:is exec configuration': True,",
+        "      '//command_line_option:platforms': [],",
+        // Need to propagate so we don't parse unparseable default @local_config_platform. Remember
+        // the exec transition starts from defaults.
+        "      '//command_line_option:host_platform':"
+            + " settings['//command_line_option:host_platform'],",
+        "      '//command_line_option:experimental_exec_config':"
+            + " settings['//command_line_option:experimental_exec_config'],",
+        "  }",
+        "noop_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = [",
+        "      '//command_line_option:host_platform',",
+        "      '//command_line_option:experimental_exec_config',",
+        "  ],",
+        "  outputs = [",
+        "      '//command_line_option:is exec configuration',",
+        "      '//command_line_option:platforms',",
+        "      '//command_line_option:experimental_exec_config',",
+        "      '//command_line_option:host_platform',",
+        "])");
+  }
+
   @Test
   public void testInstrumentedFilesInfo_coverageSupportFiles_depset() throws Exception {
     // Only builtins can pass coverage_support_files to coverage_common.instrumented_files_info.
@@ -1085,7 +1116,9 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "exported_to_java = {}");
     scratch.file("test/starlark/BUILD", "extra_action(name = 'foo')");
 
-    useConfiguration("--collect_code_coverage");
+    useConfiguration(
+        "--experimental_exec_config=//pkg2:dummy_exec_platforms.bzl%noop_transition",
+        "--collect_code_coverage");
 
     assertThat(
             ActionsTestUtil.baseArtifactNames(
@@ -1140,7 +1173,9 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "extra_action(name = 'foo', tool = ':tool')");
     scratch.file("test/starlark/bin.sh", "");
 
-    useConfiguration("--collect_code_coverage");
+    useConfiguration(
+        "--experimental_exec_config=//pkg2:dummy_exec_platforms.bzl%noop_transition",
+        "--host_platform=//minimal_buildenv/platforms:default_host", "--collect_code_coverage");
 
     assertThat(
             ActionsTestUtil.baseArtifactNames(

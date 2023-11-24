@@ -47,11 +47,13 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.InvocationPolicyParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import io.grpc.Context;
 import io.grpc.Server;
@@ -195,6 +197,35 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
 
     public void onCompleted() {
       observer.onCompleted();
+    }
+  }
+
+  /** Command extension reporter that packs the protobuf into a RunResponse and sends it. */
+  private static class RpcCommandExtensionReporter implements CommandExtensionReporter {
+
+    // Store commandId and responseCookie as ByteStrings to avoid String -> UTF8 bytes conversion
+    // for each serialized chunk of output.
+    private final ByteString commandIdBytes;
+    private final ByteString responseCookieBytes;
+
+    private final BlockingStreamObserver<RunResponse> observer;
+
+    RpcCommandExtensionReporter(
+        String commandId, String responseCookie, BlockingStreamObserver<RunResponse> observer) {
+      this.commandIdBytes = ByteString.copyFromUtf8(commandId);
+      this.responseCookieBytes = ByteString.copyFromUtf8(responseCookie);
+      this.observer = observer;
+    }
+
+    @Override
+    public synchronized void report(Any commandExtension) {
+      observer.onNext(
+          RunResponse.newBuilder()
+              .setCookieBytes(responseCookieBytes)
+              .setCommandIdBytes(commandIdBytes)
+              .setStandardOutput(ByteString.EMPTY)
+              .addCommandExtensions(commandExtension)
+              .build());
     }
   }
 
@@ -555,7 +586,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
                 request.getClientDescription(),
                 clock.currentTimeMillis(),
                 Optional.of(startupOptions.build()),
-                request.getCommandExtensionsList());
+                request.getCommandExtensionsList(),
+                new RpcCommandExtensionReporter(command.getId(), responseCookie, observer));
       } catch (OptionsParsingException e) {
         rpcOutErr.printErrLn(e.getMessage());
         result =

@@ -94,7 +94,18 @@ exported_toplevels = {"_builtins_dummy": "alternate value"}
 exported_rules = {}
 exported_to_java = {}
 EOF
-
+  # Override the default exec transition (which is in builtins) to avoid
+  # interfering with builtins injection.
+  mkdir exec
+  cat > exec/BUILD <<'EOF'
+EOF
+  cat > exec/dummy_exec_platforms.bzl <<'EOF'
+noop = transition(
+    implementation = lambda settings, attr: { '//command_line_option:is exec configuration': True },
+    inputs = [],
+    outputs = ['//command_line_option:is exec configuration']
+)
+EOF
 
   # With injection disabled.
   #
@@ -106,12 +117,14 @@ EOF
   # install base, instead of being virtually empty.)
   bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path= \
+      --experimental_exec_config=//exec:dummy_exec_platforms.bzl%noop \
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: original value"
 
   # Using the builtins root that's bundled with bazel.
   bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path=%bundled% \
+      --experimental_exec_config=//exec:dummy_exec_platforms.bzl%noop \
       &>"$TEST_log" || fail "bazel build failed"
   # "overridden value" comes from the exports.bzl in production Bazel.
   expect_log "dummy :: overridden value"
@@ -120,6 +133,7 @@ EOF
   # running Bazel in its own source tree.
   bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path=%workspace% \
+      --experimental_exec_config=//exec:dummy_exec_platforms.bzl%noop \
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: workspace value"
 
@@ -127,6 +141,7 @@ EOF
   # workspace, though this one is.)
   bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path=alternate \
+      --experimental_exec_config=//exec:dummy_exec_platforms.bzl%noop \
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: alternate value"
 
@@ -138,6 +153,7 @@ exported_to_java = {}
 EOF
   bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path=alternate \
+      --experimental_exec_config=//exec:dummy_exec_platforms.bzl%noop \
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: second alternate value"
 

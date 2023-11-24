@@ -17,8 +17,8 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
+import com.google.devtools.build.skyframe.NodeEntry.LifecycleState;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -38,12 +38,14 @@ public abstract class DirtyBuildingState {
   private static final int NOT_EVALUATING_SENTINEL = -1;
 
   /**
-   * The state of a dirty node. A node is marked dirty in the DirtyBuildingState constructor, and
-   * goes into either the state {@link DirtyState#CHECK_DEPENDENCIES} or {@link
-   * DirtyState#NEEDS_REBUILDING}, depending on whether the caller specified that the node was
-   * itself changed or not. Never null.
+   * The state of a dirty node.
+   *
+   * <p>Initialized to either {@link LifecycleState#CHECK_DEPENDENCIES} or {@link
+   * LifecycleState#NEEDS_REBUILDING} depending on the {@link DirtyType} (see {@link
+   * #initialState}). May take on any {@link LifecycleState} value except {@link
+   * LifecycleState#NOT_YET_EVALUATING} and {@link LifecycleState#DONE}.
    */
-  private DirtyState dirtyState;
+  private LifecycleState state;
 
   /**
    * The number of dependencies that are known to be done in a {@link NodeEntry}.
@@ -78,8 +80,8 @@ public abstract class DirtyBuildingState {
   // all of them complete. Therefore, we only need a single bit to track this fact. If the mere
   // existence of this field turns out to be a significant memory burden, we could change the
   // implementation by moving to a single-bit approach, and then store that bit as part of the
-  // dirtyState field, e.g., by adding a REBUILDING_WAITING_FOR_EXTERNAL_DEPS enum value, as this
-  // can only happen during evaluation.
+  // state field, e.g., by adding a REBUILDING_WAITING_FOR_EXTERNAL_DEPS enum value, as this can
+  // only happen during evaluation.
   private int externalDeps;
 
   /**
@@ -118,16 +120,16 @@ public abstract class DirtyBuildingState {
   protected int dirtyDirectDepIndex = 0;
 
   protected DirtyBuildingState(DirtyType dirtyType) {
-    dirtyState = initialDirtyState(dirtyType);
+    state = initialState(dirtyType);
   }
 
-  private static DirtyState initialDirtyState(DirtyType dirtyType) {
+  private static LifecycleState initialState(DirtyType dirtyType) {
     switch (dirtyType) {
       case DIRTY:
-        return DirtyState.CHECK_DEPENDENCIES;
+        return LifecycleState.CHECK_DEPENDENCIES;
       case CHANGE:
       case REWIND:
-        return DirtyState.NEEDS_REBUILDING;
+        return LifecycleState.NEEDS_REBUILDING;
     }
     throw new AssertionError(dirtyType);
   }
@@ -136,16 +138,16 @@ public abstract class DirtyBuildingState {
   protected abstract boolean isIncremental();
 
   final void markChanged() {
-    checkState(dirtyState == DirtyState.CHECK_DEPENDENCIES, this);
+    checkState(state == LifecycleState.CHECK_DEPENDENCIES, this);
     checkState(dirtyDirectDepIndex == 0, "Unexpected evaluation: %s", this);
-    dirtyState = DirtyState.NEEDS_REBUILDING;
+    state = LifecycleState.NEEDS_REBUILDING;
   }
 
   final void forceRebuild(int numTemporaryDirectDeps) {
-    checkState(dirtyState == DirtyState.CHECK_DEPENDENCIES, this);
+    checkState(state == LifecycleState.CHECK_DEPENDENCIES, this);
     checkState(numTemporaryDirectDeps + externalDeps == signaledDeps, this);
     checkState(getNumOfGroupsInLastBuildDirectDeps() == dirtyDirectDepIndex, this);
-    dirtyState = DirtyState.REBUILDING;
+    state = LifecycleState.REBUILDING;
   }
 
   final boolean isEvaluating() {
@@ -153,12 +155,12 @@ public abstract class DirtyBuildingState {
   }
 
   final boolean isChanged() {
-    return dirtyState == DirtyState.NEEDS_REBUILDING || dirtyState == DirtyState.REBUILDING;
+    return state == LifecycleState.NEEDS_REBUILDING || state == LifecycleState.REBUILDING;
   }
 
   private void checkFinishedBuildingWhenAboutToSetValue() {
     checkState(
-        dirtyState == DirtyState.VERIFIED_CLEAN || dirtyState == DirtyState.REBUILDING,
+        state == LifecycleState.VERIFIED_CLEAN || state == LifecycleState.REBUILDING,
         "not done building %s",
         this);
   }
@@ -166,10 +168,10 @@ public abstract class DirtyBuildingState {
   /**
    * Signals that a child is done.
    *
-   * <p>If this node is not yet known to need rebuilding, sets {@link #dirtyState} to {@link
-   * DirtyState#NEEDS_REBUILDING} if the child has changed, and {@link DirtyState#VERIFIED_CLEAN} if
-   * the child has not changed and this was the last child to be checked (as determined by {@code
-   * isReady} and comparing {@link #dirtyDirectDepIndex} and {@link
+   * <p>If this node is not yet known to need rebuilding, sets {@link #state} to {@link
+   * LifecycleState#NEEDS_REBUILDING} if the child has changed, and {@link
+   * LifecycleState#VERIFIED_CLEAN} if the child has not changed and this was the last child to be
+   * checked (as determined by {@code isReady} and comparing {@link #dirtyDirectDepIndex} and {@link
    * DirtyBuildingState#getNumOfGroupsInLastBuildDirectDeps()}.
    */
   final void signalDep(
@@ -186,13 +188,13 @@ public abstract class DirtyBuildingState {
     // childVersion > version.lastEvaluated() means the child has changed since the last evaluation.
     boolean childChanged = !childVersion.atMost(version.lastEvaluated());
     if (childChanged) {
-      dirtyState = DirtyState.NEEDS_REBUILDING;
-    } else if (dirtyState == DirtyState.CHECK_DEPENDENCIES
+      state = LifecycleState.NEEDS_REBUILDING;
+    } else if (state == LifecycleState.CHECK_DEPENDENCIES
         && isReady(entry.getNumTemporaryDirectDeps())
         && getNumOfGroupsInLastBuildDirectDeps() == dirtyDirectDepIndex) {
       // No other dep already marked this as NEEDS_REBUILDING, no deps outstanding, and this was the
       // last block of deps to be checked.
-      dirtyState = DirtyState.VERIFIED_CLEAN;
+      state = LifecycleState.VERIFIED_CLEAN;
     }
   }
 
@@ -228,9 +230,9 @@ public abstract class DirtyBuildingState {
     return getNumOfGroupsInLastBuildDirectDeps() == 0;
   }
 
-  /** Returns the {@link DirtyState} as documented by {@link NodeEntry#getDirtyState}. */
-  final DirtyState getDirtyState() {
-    return dirtyState;
+  /** Returns the {@link LifecycleState} as documented by {@link NodeEntry#getLifecycleState}. */
+  final LifecycleState getLifecycleState() {
+    return state;
   }
 
   /**
@@ -239,7 +241,7 @@ public abstract class DirtyBuildingState {
    * <p>See {@link NodeEntry#getNextDirtyDirectDeps}.
    */
   final List<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
-    checkState(dirtyState == DirtyState.CHECK_DEPENDENCIES, this);
+    checkState(state == LifecycleState.CHECK_DEPENDENCIES, this);
     checkState(dirtyDirectDepIndex < getNumOfGroupsInLastBuildDirectDeps(), this);
     return getLastBuildDirectDeps().getDepGroup(dirtyDirectDepIndex++);
   }
@@ -269,8 +271,8 @@ public abstract class DirtyBuildingState {
   }
 
   protected void markRebuilding() {
-    checkState(dirtyState == DirtyState.NEEDS_REBUILDING, this);
-    dirtyState = DirtyState.REBUILDING;
+    checkState(state == LifecycleState.NEEDS_REBUILDING, this);
+    state = LifecycleState.REBUILDING;
   }
 
   final void startEvaluating() {
@@ -290,7 +292,7 @@ public abstract class DirtyBuildingState {
 
   protected MoreObjects.ToStringHelper getStringHelper() {
     return MoreObjects.toStringHelper(this)
-        .add("dirtyState", dirtyState)
+        .add("state", state)
         .add("signaledDeps", signaledDeps)
         .add("externalDeps", externalDeps)
         .add("dirtyDirectDepIndex", dirtyDirectDepIndex);

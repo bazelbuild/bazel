@@ -175,11 +175,13 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     }
 
     // Run that extension!
+    env.getListener().post(ModuleExtensionEvaluationProgress.ongoing(extensionId, "starting"));
     RunModuleExtensionResult moduleExtensionResult =
         extension.run(env, usagesValue, starlarkSemantics, extensionId);
     if (moduleExtensionResult == null) {
       return null;
     }
+    env.getListener().post(ModuleExtensionEvaluationProgress.finished(extensionId));
     ImmutableMap<String, RepoSpec> generatedRepoSpecs =
         moduleExtensionResult.getGeneratedRepoSpecs();
     Optional<ModuleExtensionMetadata> moduleExtensionMetadata =
@@ -284,7 +286,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       throw new SingleExtensionEvalFunctionException(
           ExternalDepsException.withMessage(
               Code.BAD_MODULE,
-              "Lock file is no longer up-to-date because: %s. "
+              "MODULE.bazel.lock is no longer up-to-date because: %s. "
                   + "Please run `bazel mod deps --lockfile_mode=update` to update your lockfile.",
               String.join(", ", extDiff)),
           Transience.PERSISTENT);

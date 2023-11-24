@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
+import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker;
 import com.google.devtools.build.lib.analysis.producers.TargetAndConfigurationProducer;
@@ -398,7 +399,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     } catch (ActionConflictException e) {
       e.reportTo(env.getListener());
       throw new ConfiguredValueCreationException(ctgValue.getTarget(), e.getMessage());
-    } catch (InvalidExecGroupException e) {
+    } catch (InvalidExecGroupException | StarlarkExecTransitionLoadingException e) {
       throw new ConfiguredValueCreationException(ctgValue.getTarget(), e.getMessage());
     } catch (AnalysisFailurePropagationException e) {
       throw new ConfiguredValueCreationException(

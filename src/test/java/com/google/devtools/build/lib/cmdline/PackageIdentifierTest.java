@@ -57,7 +57,7 @@ public class PackageIdentifierTest {
     PackageIdentifier local = PackageIdentifier.create("", PathFragment.create("bar/baz"));
     assertThat(local.toString()).isEqualTo("bar/baz");
     PackageIdentifier external = PackageIdentifier.create("foo", PathFragment.create("bar/baz"));
-    assertThat(external.toString()).isEqualTo("@foo//bar/baz");
+    assertThat(external.toString()).isEqualTo("@@foo//bar/baz");
   }
 
   @Test
@@ -106,7 +106,7 @@ public class PackageIdentifierTest {
                     RepositoryName.create("foo").toNonVisible(RepositoryName.create("bar")),
                     PathFragment.create("baz"))
                 .getUnambiguousCanonicalForm())
-        .isEqualTo("@@[unknown repo 'foo' requested from @bar]//baz");
+        .isEqualTo("@@[unknown repo 'foo' requested from @@bar]//baz");
   }
 
   @Test

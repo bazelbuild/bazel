@@ -83,7 +83,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.exec.Protos.CacheSalt;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
@@ -97,6 +96,7 @@ import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRem
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.salt.CacheSalt;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
@@ -2186,6 +2186,7 @@ public class RemoteExecutionServiceTest {
             .build();
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     remoteOptions.markToolInputs = true;
+    remoteOptions.remoteDiscardMerkleTrees = false;
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
 
     // Check that worker files are properly marked in the merkle tree.
@@ -2277,6 +2278,7 @@ public class RemoteExecutionServiceTest {
                                         .setSource("some/path")
                                         .setTarget("another/dir"))))
                 .build());
+    remoteOptions.remoteDiscardMerkleTrees = false;
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
 
     RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
@@ -2332,6 +2334,7 @@ public class RemoteExecutionServiceTest {
             .setPathMapper(pathMapper)
             .build();
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    remoteOptions.remoteDiscardMerkleTrees = false;
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
 
     // Check that inputs and outputs of the remote action are mapped correctly.

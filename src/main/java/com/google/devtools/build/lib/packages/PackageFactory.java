@@ -49,7 +49,6 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Semaphore;
 import javax.annotation.Nullable;
@@ -229,7 +228,12 @@ public final class PackageFactory {
       RepositoryMapping mainRepoMapping,
       StarlarkSemantics starlarkSemantics) {
     return Package.newExternalPackageBuilder(
-        packageSettings, workspacePath, workspaceName, mainRepoMapping, starlarkSemantics);
+        packageSettings,
+        workspacePath,
+        workspaceName,
+        mainRepoMapping,
+        starlarkSemantics,
+        packageOverheadEstimator);
   }
 
   // This function is public only for the benefit of skyframe.PackageFunction,
@@ -254,7 +258,8 @@ public final class PackageFactory {
         starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
         repositoryMapping,
         mainRepositoryMapping,
-        cpuBoundSemaphore);
+        cpuBoundSemaphore,
+        packageOverheadEstimator);
   }
 
   /** Returns a new {@link NonSkyframeGlobber}. */
@@ -336,9 +341,8 @@ public final class PackageFactory {
       long loadTimeNanos,
       ExtendedEventHandler eventHandler)
       throws InvalidPackageException {
-    OptionalLong packageOverhead = packageOverheadEstimator.estimatePackageOverhead(pkg);
 
-    packageValidator.validate(pkg, packageOverhead, eventHandler);
+    packageValidator.validate(pkg, eventHandler);
 
     // Enforce limit on number of compute steps in BUILD file (b/151622307).
     long maxSteps = starlarkSemantics.get(BuildLanguageOptions.MAX_COMPUTATION_STEPS);
@@ -361,8 +365,7 @@ public final class PackageFactory {
                   .build()));
     }
 
-    packageLoadingListener.onLoadingCompleteAndSuccessful(
-        pkg, starlarkSemantics, loadTimeNanos, packageOverhead);
+    packageLoadingListener.onLoadingCompleteAndSuccessful(pkg, starlarkSemantics, loadTimeNanos);
   }
 
   /**

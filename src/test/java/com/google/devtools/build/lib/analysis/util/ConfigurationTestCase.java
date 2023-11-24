@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -128,11 +129,13 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
             .setSyscallCache(SyscallCache.NO_CACHE)
             .build();
     SkyframeExecutorTestHelper.process(skyframeExecutor);
+    BuildOptions defaultBuildOptions =
+        BuildOptions.getDefaultBuildOptionsForFragments(buildOptionClasses).clone();
+    defaultBuildOptions.get(CoreOptions.class).starlarkExecConfig =
+        TestConstants.STARLARK_EXEC_TRANSITION;
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
-            PrecomputedValue.injected(
-                PrecomputedValue.BASELINE_CONFIGURATION,
-                BuildOptions.getDefaultBuildOptionsForFragments(buildOptionClasses)),
+            PrecomputedValue.injected(PrecomputedValue.BASELINE_CONFIGURATION, defaultBuildOptions),
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
             PrecomputedValue.injected(

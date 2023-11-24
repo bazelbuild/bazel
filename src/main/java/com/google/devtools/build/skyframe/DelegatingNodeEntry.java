@@ -94,8 +94,8 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public DirtyState getDirtyState() {
-    return getDelegate().getDirtyState();
+  public LifecycleState getLifecycleState() {
+    return getDelegate().getLifecycleState();
   }
 
   @Override

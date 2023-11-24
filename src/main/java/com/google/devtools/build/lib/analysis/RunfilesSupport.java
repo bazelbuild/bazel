@@ -537,8 +537,8 @@ public final class RunfilesSupport implements RunfilesSupplier {
   }
 
   @Override
-  public NestedSet<Artifact> getArtifacts() {
-    return runfiles.getArtifacts();
+  public NestedSet<Artifact> getAllArtifacts() {
+    return runfiles.getAllArtifacts();
   }
 
   @Override

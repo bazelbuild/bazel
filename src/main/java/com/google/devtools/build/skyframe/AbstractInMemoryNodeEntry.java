@@ -110,8 +110,8 @@ abstract class AbstractInMemoryNodeEntry<D extends DirtyBuildingState>
   }
 
   @Override
-  public synchronized boolean isDirty() {
-    return !isDone() && dirtyBuildingState != null;
+  public final boolean isDirty() {
+    return !isDone();
   }
 
   @Override
@@ -145,9 +145,14 @@ abstract class AbstractInMemoryNodeEntry<D extends DirtyBuildingState>
   }
 
   @Override
-  public final synchronized DirtyState getDirtyState() {
-    checkNotNull(dirtyBuildingState, this);
-    return dirtyBuildingState.getDirtyState();
+  public final synchronized LifecycleState getLifecycleState() {
+    if (isDone()) {
+      return LifecycleState.DONE;
+    } else if (dirtyBuildingState == null) {
+      return LifecycleState.NOT_YET_EVALUATING;
+    } else {
+      return dirtyBuildingState.getLifecycleState();
+    }
   }
 
   @Override
@@ -164,8 +169,7 @@ abstract class AbstractInMemoryNodeEntry<D extends DirtyBuildingState>
     checkNotNull(dirtyBuildingState, this);
     checkState(dirtyBuildingState.isEvaluating(), "Not evaluating for remaining dirty? %s", this);
     if (isDirty()) {
-      DirtyState dirtyState = dirtyBuildingState.getDirtyState();
-      checkState(dirtyState == DirtyState.REBUILDING, this);
+      checkState(dirtyBuildingState.getLifecycleState() == LifecycleState.REBUILDING, this);
       return dirtyBuildingState.getAllRemainingDirtyDirectDeps(/* preservePosition= */ true);
     } else {
       return ImmutableSet.of();

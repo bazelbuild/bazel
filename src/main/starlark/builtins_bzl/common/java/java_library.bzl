@@ -19,6 +19,7 @@ Definition of java_library rule.
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/java/android_lint.bzl", "android_lint_subrule")
 load(":common/java/basic_java_library.bzl", "BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS", "basic_java_library", "construct_defaultinfo")
+load(":common/java/boot_class_path_info.bzl", "BootClassPathInfo")
 load(":common/java/java_info.bzl", "JavaInfo", "JavaPluginInfo")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/rule_util.bzl", "merge_attrs")
@@ -36,7 +37,8 @@ def bazel_java_library_rule(
         neverlink = False,
         proguard_specs = [],
         add_exports = [],
-        add_opens = []):
+        add_opens = [],
+        bootclasspath = None):
     """Implements java_library.
 
     Use this call when you need to produce a fully fledged java_library from
@@ -57,6 +59,7 @@ def bazel_java_library_rule(
       proguard_specs: (list[File]) Files to be used as Proguard specification.
       add_exports: (list[str]) Allow this library to access the given <module>/<package>.
       add_opens: (list[str]) Allow this library to reflectively access the given <module>/<package>.
+      bootclasspath: (Target) The JDK APIs to compile this library against.
     Returns:
       (dict[str, provider]) A list containing DefaultInfo, JavaInfo,
         InstrumentedFilesInfo, OutputGroupsInfo, ProguardSpecProvider providers.
@@ -80,6 +83,7 @@ def bazel_java_library_rule(
         proguard_specs = proguard_specs,
         add_exports = add_exports,
         add_opens = add_opens,
+        bootclasspath = bootclasspath,
     )
 
     target["DefaultInfo"] = construct_defaultinfo(
@@ -109,6 +113,7 @@ def _proxy(ctx):
         ctx.files.proguard_specs,
         ctx.attr.add_exports,
         ctx.attr.add_opens,
+        ctx.attr.bootclasspath,
     ).values()
 
 JAVA_LIBRARY_IMPLICIT_ATTRS = BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS
@@ -156,6 +161,10 @@ JAVA_LIBRARY_ATTRS = merge_attrs(
             providers = [JavaPluginInfo],
             cfg = "exec",
         ),
+        "bootclasspath": attr.label(
+            providers = [BootClassPathInfo],
+            flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
+        ),
         "javacopts": attr.string_list(),
         "neverlink": attr.bool(),
         "resource_strip_prefix": attr.string(),
@@ -167,27 +176,15 @@ JAVA_LIBRARY_ATTRS = merge_attrs(
     },
 )
 
-def _make_java_library_rule(extra_attrs = {}):
-    return rule(
-        _proxy,
-        attrs = merge_attrs(
-            JAVA_LIBRARY_ATTRS,
-            extra_attrs,
-        ),
-        provides = [JavaInfo],
-        outputs = {
-            "classjar": "lib%{name}.jar",
-            "sourcejar": "lib%{name}-src.jar",
-        },
-        fragments = ["java", "cpp"],
-        toolchains = [semantics.JAVA_TOOLCHAIN],
-        subrules = [android_lint_subrule],
-    )
-
-java_library = _make_java_library_rule()
-
-# for experimental_java_library_export_do_not_use
-def make_sharded_java_library(default_shard_size):
-    return _make_java_library_rule({
-        "experimental_javac_shard_size": attr.int(default = default_shard_size),
-    })
+java_library = rule(
+    _proxy,
+    attrs = JAVA_LIBRARY_ATTRS,
+    provides = [JavaInfo],
+    outputs = {
+        "classjar": "lib%{name}.jar",
+        "sourcejar": "lib%{name}-src.jar",
+    },
+    fragments = ["java", "cpp"],
+    toolchains = [semantics.JAVA_TOOLCHAIN],
+    subrules = [android_lint_subrule],
+)

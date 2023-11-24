@@ -50,8 +50,10 @@ class BazelExternalRepositoryTest(test_base.TestBase):
   def setUp(self):
     test_base.TestBase.setUp(self)
     for f in [
-        'six-1.10.0.tar.gz', 'archive_with_symlink.zip',
-        'archive_with_symlink.tar.gz'
+        'six-1.10.0.tar.gz',
+        'archive_with_symlink.zip',
+        'archive_with_symlink.tar.gz',
+        'sparse_archive.tar',
     ]:
       self.CopyFile(self.Rlocation('io_bazel/src/test/py/bazel/testdata/'
                                    'bazel_external_repository_test/' + f), f)
@@ -162,6 +164,63 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         '@archive_with_symlink//:file-A',
     ])
 
+  def testNewHttpTarWithSparseFile(self):
+    # Test extraction of tar archives containing sparse files.
+    # The archive under test was produced using GNU tar on Linux:
+    #   truncate -s 1M sparse_file
+    #   tar -c --sparse --format posix -f sparse_archive.tar sparse_file
+
+    ip, port = self._http_server.server_address
+    rule_definition = [
+        'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")',
+        'http_archive(',
+        '    name = "sparse_archive",',
+        '    urls = ["http://%s:%s/sparse_archive.tar"],' % (ip, port),
+        '    build_file = "@//:sparse_archive.BUILD",',
+        '    sha256 = ',
+        (
+            '  "a1a2b2ce4acd51a8cc1ab80adce6f134ac73e885219911a960a42000e312bb65",'
+            ')'
+        ),
+    ]
+    rule_definition.extend(self.GetDefaultRepoRules())
+    self.ScratchFile('WORKSPACE', rule_definition)
+    self.ScratchFile(
+        'sparse_archive.BUILD',
+        [
+            'exports_files(["sparse_file"])',
+        ],
+    )
+    self.ScratchFile(
+        'test.py',
+        [
+            'import sys',
+            'from tools.python.runfiles import runfiles',
+            'path = runfiles.Create().Rlocation(sys.argv[1])',
+            'if open(path, "rb").read() != b"\\0"*1024*1024:',
+            '  sys.exit(1)',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'py_test(',
+            '    name = "test",',
+            '    srcs = ["test.py"],',
+            (
+                '    args = ["$(rlocationpath @sparse_archive//:sparse_file)"],'
+                '    data = ['
+            ),
+            '        "@sparse_archive//:sparse_file",',
+            '        "@bazel_tools//tools/python/runfiles",',
+            '    ],)',
+        ],
+    )
+    self.RunBazel([
+        'test',
+        '//:test',
+    ])
+
   def _CreatePyWritingStarlarkRule(self, print_string):
     self.ScratchFile('repo/foo.bzl', [
         'def _impl(ctx):',
@@ -231,8 +290,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         allow_failure=True,
     )
     self.AssertExitCode(exit_code, 1, stderr)
-    self.assertIn('\'@other_repo//pkg/ignore\' is a subpackage',
-                  ''.join(stderr))
+    self.assertIn("'@@other_repo//pkg/ignore' is a subpackage", ''.join(stderr))
 
     self.RunBazel(
         args=[
@@ -269,8 +327,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         allow_failure=True,
     )
     self.AssertExitCode(exit_code, 1, stderr)
-    self.assertIn('\'@other_repo//pkg/ignore\' is a subpackage',
-                  ''.join(stderr))
+    self.assertIn("'@@other_repo//pkg/ignore' is a subpackage", ''.join(stderr))
 
     self.ScratchFile('other_repo/.bazelignore', [
         'pkg/ignore',
@@ -288,8 +345,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         args=['build', '//:all_files'], cwd=work_dir, allow_failure=True
     )
     self.AssertExitCode(exit_code, 1, stderr)
-    self.assertIn('no such package \'@other_repo//pkg/ignore\'',
-                  ''.join(stderr))
+    self.assertIn("no such package '@@other_repo//pkg/ignore'", ''.join(stderr))
 
   def testUniverseScopeWithBazelIgnoreInExternalRepo(self):
     self.ScratchFile('other_repo/WORKSPACE')

@@ -260,37 +260,6 @@ public final class ActionInputMapTest {
   }
 
   @Test
-  public void putTreeArtifact_nestedTree_returnsOuterEntriesForOverlappingFiles(
-      @TestParameter PutOrder putOrder) {
-    SpecialArtifact tree = createTreeArtifact("tree");
-    TreeFileArtifact onlyOuterTreeFile = TreeFileArtifact.createTreeOutput(tree, "file1");
-    FileArtifactValue onlyOuterTreeFileMetadata = TestMetadata.create(1);
-    TreeFileArtifact treeFile = TreeFileArtifact.createTreeOutput(tree, "dir/file2");
-    FileArtifactValue treeFileMetadata = TestMetadata.create(2);
-    TreeArtifactValue treeValue =
-        TreeArtifactValue.newBuilder(tree)
-            .putChild(treeFile, treeFileMetadata)
-            .putChild(onlyOuterTreeFile, onlyOuterTreeFileMetadata)
-            .build();
-    SpecialArtifact nestedTree = createTreeArtifact("tree/dir");
-    TreeFileArtifact nestedTreeFile = TreeFileArtifact.createTreeOutput(nestedTree, "file2");
-    FileArtifactValue nestedTreeFileMetadata = TestMetadata.create(2); // Same as treeFileMetadata.
-    TreeArtifactValue nestedTreeValue =
-        TreeArtifactValue.newBuilder(nestedTree)
-            .putChild(nestedTreeFile, nestedTreeFileMetadata)
-            .build();
-
-    putOrder.runPuts(
-        () -> map.putTreeArtifact(tree, treeValue, /*depOwner=*/ null),
-        () -> map.putTreeArtifact(nestedTree, nestedTreeValue, /*depOwner=*/ null));
-
-    assertContainsTree(tree, treeValue);
-    assertContainsTree(nestedTree, nestedTreeValue);
-    assertContainsFile(treeFile, treeFileMetadata);
-    assertContainsFile(onlyOuterTreeFile, onlyOuterTreeFileMetadata);
-  }
-
-  @Test
   public void putTreeArtifact_omittedTree_addsEntryWithNoChildren() {
     SpecialArtifact tree = createTreeArtifact("tree");
 

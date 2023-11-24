@@ -303,18 +303,6 @@ public class TestConfiguration extends Fragment {
                 + "If false, a test runner that does not support sharding will lead to all tests "
                 + "running in each shard.")
     public boolean checkShardingSupport;
-
-    @Override
-    public FragmentOptions getExec() {
-      // Options here are either:
-      // 1. Applicable only for the test actions, which are relevant only for the top-level targets
-      //    before exec transitions can apply.
-      // 2. Supposed to be build-universal and thus non-transitionable anyways
-      //    (e.g. trim_test_configuration)
-      // And thus the options should just be copied and not reset by the exec transition (as
-      // resetting them has incremental performance drawbacks when these options change).
-      return clone();
-    }
   }
 
   private final TestOptions options;

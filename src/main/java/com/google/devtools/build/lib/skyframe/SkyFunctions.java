@@ -157,6 +157,9 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("BAZEL_FETCH_ALL");
   public static final SkyFunctionName REPO_SPEC = SkyFunctionName.createNonHermetic("REPO_SPEC");
 
+  public static final SkyFunctionName MODULE_EXTENSION_REPO_MAPPING_ENTRIES =
+      SkyFunctionName.createHermetic("MODULE_EXTENSION_REPO_MAPPING_ENTRIES");
+
   public static Predicate<SkyKey> isSkyFunction(SkyFunctionName functionName) {
     return key -> key.functionName().equals(functionName);
   }

@@ -1097,42 +1097,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
             "If set to true, the AndroidPlatformsTransition will also update `affected by Starlark"
                 + " transition` with changed options to avoid potential action conflicts.")
     public boolean androidPlatformsTransitionsUpdateAffected;
-
-    @Override
-    public FragmentOptions getExec() {
-      Options exec = (Options) super.getExec();
-      exec.hwasan = false;
-      exec.androidCrosstoolTop = androidCrosstoolTop;
-      exec.sdk = sdk;
-      exec.fatApkCpus = ImmutableList.of(); // Fat APK archs don't apply to the exec platform..
-      exec.incompatibleUseToolchainResolution = incompatibleUseToolchainResolution;
-      exec.androidPlatformsTransitionsUpdateAffected = androidPlatformsTransitionsUpdateAffected;
-
-      exec.desugarJava8 = desugarJava8;
-      exec.desugarJava8Libs = desugarJava8Libs;
-      exec.checkDesugarDeps = checkDesugarDeps;
-      exec.incrementalDexing = incrementalDexing;
-      exec.incrementalDexingShardsAfterProguard = incrementalDexingShardsAfterProguard;
-      exec.incrementalDexingUseDexSharder = incrementalDexingUseDexSharder;
-      exec.incrementalDexingAfterProguardByDefault = incrementalDexingAfterProguardByDefault;
-      exec.assumeMinSdkVersion = assumeMinSdkVersion;
-      exec.nonIncrementalPerTargetDexopts = nonIncrementalPerTargetDexopts;
-      exec.dexoptsSupportedInIncrementalDexing = dexoptsSupportedInIncrementalDexing;
-      exec.dexoptsSupportedInDexMerger = dexoptsSupportedInDexMerger;
-      exec.dexoptsSupportedInDexSharder = dexoptsSupportedInDexSharder;
-      exec.manifestMerger = manifestMerger;
-      exec.manifestMergerOrder = manifestMergerOrder;
-      exec.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
-          oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
-      exec.persistentAarExtractor = persistentAarExtractor;
-      exec.persistentBusyboxTools = persistentBusyboxTools;
-      exec.persistentMultiplexBusyboxTools = persistentMultiplexBusyboxTools;
-      exec.disableNativeAndroidRules = disableNativeAndroidRules;
-
-      // Unless the build was started from an Android device, exec means MAIN.
-      exec.configurationDistinguisher = ConfigurationDistinguisher.MAIN;
-      return exec;
-    }
   }
 
   private final Label sdk;
@@ -1521,6 +1485,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     return disableInstrumentationManifestMerging;
   }
 
+  @Override
   public boolean getJavaResourcesFromOptimizedJar() {
     return getJavaResourcesFromOptimizedJar;
   }

@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.DebugEvent;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.DebugRequest;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.ServerSocket;
 import java.net.Socket;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -46,14 +46,13 @@ class MockDebugClient {
   private Future<?> readTask;
 
   /** Connects to the debug server, and starts listening for events. */
-  void connect(ServerSocket serverSocket, Duration timeout) {
+  void connect(InetAddress addr, int port, Duration timeout) {
     long startTimeMillis = System.currentTimeMillis();
     IOException exception = null;
     while (System.currentTimeMillis() - startTimeMillis < timeout.toMillis()) {
       try {
         clientSocket = new Socket();
-        clientSocket.connect(
-            new InetSocketAddress(serverSocket.getInetAddress(), serverSocket.getLocalPort()), 100);
+        clientSocket.connect(new InetSocketAddress(addr, port), 100);
         readTask =
             readTaskExecutor.submit(
                 () -> {

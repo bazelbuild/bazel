@@ -390,7 +390,7 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
       Preconditions.checkNotNull(parentEntry, "%s %s", errorKey, parent);
       SkyFunction skyFunction = evaluatorContext.getSkyFunctions().get(parent.functionName());
       if (parentEntry.isDirty()) {
-        switch (parentEntry.getDirtyState()) {
+        switch (parentEntry.getLifecycleState()) {
           case CHECK_DEPENDENCIES:
             // If this value's child was bubbled up to, it did not signal this value, and so we must
             // manually make it ready to build.

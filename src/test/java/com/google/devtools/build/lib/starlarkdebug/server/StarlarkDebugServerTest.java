@@ -20,6 +20,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
+import com.google.devtools.build.lib.starlarkdebug.server.StarlarkDebugServer.DebugCallback;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Breakpoint;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.ContinueExecutionRequest;
@@ -41,7 +42,6 @@ import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.V
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
-import java.net.SocketException;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
@@ -97,15 +97,7 @@ public class StarlarkDebugServerTest {
   }
 
   private static ServerSocket getServerSocket() throws IOException {
-    // For reasons only Apple knows, you cannot bind to IPv4-localhost when you run in a sandbox
-    // that only allows loopback traffic, but binding to IPv6-localhost works fine. This would
-    // however break on systems that don't support IPv6. So what we'll do is to try to bind to IPv6
-    // and if that fails, try again with IPv4.
-    try {
-      return new ServerSocket(0, 1, InetAddress.getByName("[::1]"));
-    } catch (SocketException e) {
-      return new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"));
-    }
+    return new ServerSocket(0, 1, InetAddress.getLoopbackAddress());
   }
 
   @Before
@@ -115,9 +107,10 @@ public class StarlarkDebugServerTest {
         executor.submit(
             () ->
                 StarlarkDebugServer.createAndWaitForConnection(
-                    events.reporter(), serverSocket, false));
+                    events.reporter(), serverSocket, false, DebugCallback.noop()));
     client = new MockDebugClient();
-    client.connect(serverSocket, Duration.ofSeconds(10));
+    client.connect(
+        serverSocket.getInetAddress(), serverSocket.getLocalPort(), Duration.ofSeconds(10));
 
     server = future.get(10, TimeUnit.SECONDS);
     assertThat(server).isNotNull();

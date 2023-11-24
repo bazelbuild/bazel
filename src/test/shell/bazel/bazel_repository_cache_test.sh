@@ -124,6 +124,7 @@ EOF
     zip -0 -ry "$repo2_zip" WORKSPACE fox >& $TEST_log
     repo2_name=$(basename "$repo2_zip")
     sha256=$(sha256sum "$repo2_zip" | cut -f 1 -d ' ')
+    integrity="sha256-$(cat "$repo2_zip" | openssl dgst -sha256 -binary | openssl base64 -A)"
   fi
   serve_file "$repo2_zip"
 
@@ -221,6 +222,9 @@ function test_fetch_value_with_existing_cache_and_no_network() {
   cache_entry="$repo_cache_dir/content_addressable/sha256/$sha256"
   mkdir -p "$cache_entry"
   cp "$repo2_zip" "$cache_entry/file" # Artifacts are named uniformly as "file" in the cache
+  http_archive_url="http://localhost:$nc_port/bleh"
+  canonical_id_hash=$(printf "$http_archive_url" | sha256sum | cut -f 1 -d ' ')
+  touch "$cache_entry/id-$canonical_id_hash"
 
   # Fetch without a server
   shutdown_server
@@ -271,10 +275,11 @@ EOF
   # to do without checksum. But we can safely do so, as the loopback device
   # is reasonably safe against man-in-the-middle attacks.
   bazel fetch --repository_cache="$repo_cache_dir" \
+        --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0 \
         //zoo:breeding-program >& $TEST_log \
     || fail "expected fetch to succeed"
 
-  expect_log "${sha256}"
+  expect_log "${integrity}"
 
   # Shutdown the server; so fetching again won't work
   shutdown_server
@@ -283,6 +288,7 @@ EOF
 
   # As we don't have a predicted cache, we expect fetching to fail now.
   bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
+        --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0 \
     && fail "expected failure" || :
 
   # However, if we add the hash, the value is taken from cache
@@ -298,6 +304,7 @@ http_archive(
 )
 EOF
   bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
+        --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0 \
     || fail "expected fetch to succeed"
 }
 
@@ -465,15 +472,19 @@ EOF
   expect_log "Error downloading"
 }
 
-function test_break_url() {
+function test_http_archive_no_default_canonical_id() {
   setup_repository
 
-  bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
+  bazel fetch --repository_cache="$repo_cache_dir" \
+    --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0 \
+    //zoo:breeding-program >& $TEST_log \
     || echo "Expected fetch to succeed"
 
   shutdown_server
 
-  bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
+  bazel fetch --repository_cache="$repo_cache_dir" \
+    --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0 \
+    //zoo:breeding-program >& $TEST_log \
     || echo "Expected fetch to succeed"
 
   # Break url in WORKSPACE
@@ -489,24 +500,27 @@ http_archive(
 )
 EOF
 
-  # By default, cache entry will still match by sha256, even if url is changed.
-  bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
+  # Without the default canonical id, cache entry will still match by sha256, even if url is
+  # changed.
+  bazel fetch --repository_cache="$repo_cache_dir" \
+    --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0 \
+    //zoo:breeding-program >& $TEST_log \
     || echo "Expected fetch to succeed"
 }
 
-function test_repository_cache_urls_as_default_canonical_id() {
+
+function test_http_archive_urls_as_default_canonical_id() {
+  # TODO: Remove when the integration test setup itself no longer relies on this.
+  add_to_bazelrc "common --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=1"
+
   setup_repository
 
-  bazel fetch --repository_cache="$repo_cache_dir" \
-        --repository_cache_urls_as_default_canonical_id \
-        //zoo:breeding-program >& $TEST_log \
+  bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
     || echo "Expected fetch to succeed"
 
   shutdown_server
 
-  bazel fetch --repository_cache="$repo_cache_dir" \
-        --repository_cache_urls_as_default_canonical_id \
-        //zoo:breeding-program >& $TEST_log \
+  bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
     || echo "Expected fetch to succeed"
 
   # Break url in WORKSPACE
@@ -523,45 +537,8 @@ http_archive(
 EOF
 
   # As repository cache key should depend on urls, we expect fetching to fail now.
-  bazel fetch --repository_cache="$repo_cache_dir" \
-        --repository_cache_urls_as_default_canonical_id \
-        //zoo:breeding-program >& $TEST_log \
+  bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
     && fail "expected failure" || :
-}
-
-function test_repository_legacy_default_canonical_id() {
-  setup_repository
-
-  bazel fetch --repository_cache="$repo_cache_dir" \
-        --norepository_cache_urls_as_default_canonical_id \
-        //zoo:breeding-program >& $TEST_log \
-    || echo "Expected fetch to succeed"
-
-  shutdown_server
-
-  bazel fetch --repository_cache="$repo_cache_dir" \
-        --norepository_cache_urls_as_default_canonical_id \
-        //zoo:breeding-program >& $TEST_log \
-    || echo "Expected fetch to succeed"
-
-  # Break url in WORKSPACE
-  rm WORKSPACE
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-http_archive(
-    name = 'endangered',
-    url = 'http://localhost:$nc_port/bleh.broken',
-    sha256 = '$sha256',
-    type = 'zip',
-)
-EOF
-
-  # As repository cache key should depend on urls, we expect fetching to fail now.
-  bazel fetch --repository_cache="$repo_cache_dir" \
-        --norepository_cache_urls_as_default_canonical_id \
-        //zoo:breeding-program >& $TEST_log \
-    || echo "Expected fetch to succeed"
 }
 
 run_suite "repository cache tests"

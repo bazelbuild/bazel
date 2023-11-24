@@ -230,7 +230,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         /* ccCompilationContext= */ ccCompilationContext,
         /* supportsParamFiles= */ attributes.isSupportsParamFiles(),
         /* supportsHeaderParsing= */ attributes.isSupportsHeaderParsing(),
-        /* buildOptions */ ruleContext.getRuleContext().getConfiguration().getOptions(),
         /* buildVariables= */ (CcToolchainVariables) vars,
         /* builtinIncludeFiles= */ Sequence.cast(
                 builtinIncludeFiles, Artifact.class, "builtin_include_files")
@@ -414,12 +413,8 @@ public class CcStarlarkInternal implements StarlarkValue {
       parameters = {
         @Param(name = "ctx", positional = false, named = true),
       })
-  public CcCommon createCommon(StarlarkRuleContext starlarkRuleContext) throws EvalException {
-    try {
-      return new CcCommon(starlarkRuleContext.getRuleContext());
-    } catch (RuleErrorException e) {
-      throw new EvalException(e);
-    }
+  public CcCommon createCommon(StarlarkRuleContext starlarkRuleContext) {
+    return new CcCommon(starlarkRuleContext.getRuleContext());
   }
 
   @StarlarkMethod(name = "launcher_provider", documented = false, structField = true)

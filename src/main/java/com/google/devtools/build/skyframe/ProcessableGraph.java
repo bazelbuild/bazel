@@ -17,7 +17,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.supplier.MemoizingInterruptibleSupplier;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Collection;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /**
@@ -77,9 +77,14 @@ public interface ProcessableGraph extends QueryableGraph {
    * have not been recomputed since the last computation of {@code parent}. When determining if
    * {@code parent} needs to be re-evaluated, this may be used to avoid unnecessary graph accesses.
    *
-   * <p>Returns deps that may have new values since the node of {@code parent} was last computed,
-   * and therefore which may force re-evaluation of the node of {@code parent}.
+   * <p>If this graph partakes in the optional optimization, returns deps that may have new values
+   * since the node of {@code parent} was last computed, and therefore which may force re-evaluation
+   * of the node of {@code parent}. Otherwise, returns {@link DepsReport#NO_INFORMATION}.
+   *
+   * @param parent the key in {@link NodeEntry.LifecycleState#CHECK_DEPENDENCIES}
+   * @param deps the {@linkplain NodeEntry#getNextDirtyDirectDeps next dirty dep group} of {@code
+   *     parent}; only called when all previous dep groups were clean, so it is known that {@code
+   *     deps} are still dependencies of {@code parent} on the incremental build
    */
-  DepsReport analyzeDepsDoneness(SkyKey parent, Collection<SkyKey> deps)
-      throws InterruptedException;
+  DepsReport analyzeDepsDoneness(SkyKey parent, List<SkyKey> deps) throws InterruptedException;
 }

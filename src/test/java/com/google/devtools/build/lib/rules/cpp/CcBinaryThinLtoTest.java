@@ -450,8 +450,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     Artifact dwpFile = getFileConfiguredTarget(pkg.getLabel() + ".dwp").getArtifact();
     PathFragment rootPrefix = dwpRootPrefix(dwpFile);
     RuleContext ruleContext = getRuleContext(pkg);
-    CcToolchainProvider toolchain =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+    CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     validateDwp(
         ruleContext,
         dwpFile,
@@ -501,8 +500,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     Artifact dwpFile = getFileConfiguredTarget(pkg.getLabel() + ".dwp").getArtifact();
     PathFragment rootPrefix = dwpRootPrefix(dwpFile);
     RuleContext ruleContext = getRuleContext(pkg);
-    CcToolchainProvider toolchain =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+    CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     validateDwp(
         ruleContext,
         dwpFile,
@@ -558,8 +556,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     Artifact dwpFile = getFileConfiguredTarget(pkg.getLabel() + ".dwp").getArtifact();
     PathFragment rootPrefix = dwpRootPrefix(dwpFile);
     RuleContext ruleContext = getRuleContext(pkg);
-    CcToolchainProvider toolchain =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+    CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     validateDwp(
         ruleContext,
         dwpFile,

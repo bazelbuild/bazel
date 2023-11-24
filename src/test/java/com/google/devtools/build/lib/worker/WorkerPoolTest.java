@@ -19,10 +19,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -30,7 +28,9 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.worker.WorkerPoolImpl.WorkerPoolConfig;
+import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import java.util.Map.Entry;
+import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.junit.Before;
 import org.junit.Rule;
@@ -68,7 +68,21 @@ public class WorkerPoolTest {
                         fileSystem.getPath("/logDir"))))
         .when(factoryMock)
         .makeObject(any());
-    when(factoryMock.validateObject(any(), any())).thenReturn(true);
+    doAnswer(
+            args -> {
+              PooledObject<Worker> obj = args.getArgument(1);
+              return obj.getObject().getStatus().isValid();
+            })
+        .when(factoryMock)
+        .validateObject(any(), any());
+    doAnswer(
+            args -> {
+              PooledObject<Worker> obj = args.getArgument(1);
+              obj.getObject().destroy();
+              return null;
+            })
+        .when(factoryMock)
+        .destroyObject(any(), any());
   }
 
   @Test
@@ -164,15 +178,15 @@ public class WorkerPoolTest {
     Worker worker1 = workerPool.borrowObject(workerKey);
     Worker worker2 = workerPool.borrowObject(workerKey);
 
-    workerPool.setDoomedWorkers(ImmutableSet.of(worker1.getWorkerId()));
+    worker1.getStatus().maybeUpdateStatus(Status.PENDING_KILL_DUE_TO_MEMORY_PRESSURE);
 
-    assertThat(worker1.isDoomed()).isFalse();
-    assertThat(worker2.isDoomed()).isFalse();
+    assertThat(worker1.getStatus().isKilled()).isFalse();
+    assertThat(worker2.getStatus().isKilled()).isFalse();
 
     workerPool.returnObject(workerKey, worker1);
 
-    assertThat(worker1.isDoomed()).isTrue();
-    assertThat(worker2.isDoomed()).isFalse();
+    assertThat(worker1.getStatus().isKilled()).isTrue();
+    assertThat(worker2.getStatus().isKilled()).isFalse();
   }
 
   private static ImmutableList<Entry<String, Integer>> entryList() {
@@ -183,5 +197,4 @@ public class WorkerPoolTest {
       String key1, int value1, String key2, int value2) {
     return ImmutableList.of(Maps.immutableEntry(key1, value1), Maps.immutableEntry(key2, value2));
   }
-
 }

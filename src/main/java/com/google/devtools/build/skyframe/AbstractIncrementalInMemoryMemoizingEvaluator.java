@@ -61,7 +61,7 @@ public abstract class AbstractIncrementalInMemoryMemoizingEvaluator
    * Whether to store edges in the graph. Can be false to save memory, in which case incremental
    * builds are not possible, and all evaluations will be at {@link Version#constant}.
    */
-  final boolean keepEdges;
+  protected final boolean keepEdges;
 
   // Values that the caller explicitly specified are assumed to be changed -- they will be
   // re-evaluated even if none of their children are changed.
@@ -194,5 +194,15 @@ public abstract class AbstractIncrementalInMemoryMemoizingEvaluator
         getInMemoryGraph(), valuesToDirty, progressReceiver, invalidatorState);
     // Ditto.
     valuesToDirty = new LinkedHashSet<>();
+  }
+
+  protected final Version getNextGraphVersion() {
+    if (!keepEdges) {
+      return Version.constant();
+    } else if (lastGraphVersion == null) {
+      return IntVersion.of(0);
+    } else {
+      return lastGraphVersion.next();
+    }
   }
 }

@@ -17,6 +17,9 @@ exports_files(
         "non_volatile_file.h.template",
         "volatile_file.h.template",
         "redacted_file.h.template",
+        "non_volatile_file.properties.template",
+        "volatile_file.properties.template",
+        "redacted_file.properties.template",
     ],
     visibility = [
         "@bazel_tools//tools/build_defs/build_info:__pkg__",

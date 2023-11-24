@@ -264,18 +264,6 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
     return JavaHelper.tokenizeJavaOptions(getCompatibleJavacOptions(key));
   }
 
-  /** Returns the list of default options for the java compiler. */
-  public NestedSet<String> getJavacOptions(RuleContext ruleContext) throws RuleErrorException {
-    NestedSetBuilder<String> result = NestedSetBuilder.naiveLinkOrder();
-    result.addTransitive(javacOptions());
-    if (ruleContext != null) {
-      // TODO(b/78512644): require ruleContext to be non-null after java_common.default_javac_opts
-      // is turned down
-      result.addTransitive(ruleContext.getFragment(JavaConfiguration.class).getDefaultJavacFlags());
-    }
-    return result.build();
-  }
-
   private NestedSet<String> javacOptions() throws RuleErrorException {
     return getUnderlyingNestedSet("_javacopts", String.class);
   }

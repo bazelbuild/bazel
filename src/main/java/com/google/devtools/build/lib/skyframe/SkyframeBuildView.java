@@ -62,11 +62,13 @@ import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.OptionsDiff;
+import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader;
+import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationException;
 import com.google.devtools.build.lib.analysis.test.CoverageActionFinishedEvent;
 import com.google.devtools.build.lib.analysis.test.CoverageArtifactsKnownEvent;
@@ -216,7 +218,7 @@ public final class SkyframeBuildView {
     }
 
     OptionsDiff diff =
-        BuildOptions.diff(this.configuration.getOptions(), configuration.getOptions());
+        OptionsDiff.diff(this.configuration.getOptions(), configuration.getOptions());
 
     ImmutableSet<OptionDefinition> nativeCacheInvalidatingDifferences =
         getNativeCacheInvalidatingDifferences(configuration, diff);
@@ -360,7 +362,6 @@ public final class SkyframeBuildView {
       BugReporter bugReporter,
       boolean keepGoing,
       QuiescingExecutors executors,
-      boolean strictConflictChecks,
       boolean checkForActionConflicts)
       throws InterruptedException, ViewCreationFailedException {
     enableAnalysis(true);
@@ -398,7 +399,6 @@ public final class SkyframeBuildView {
             ArtifactConflictFinder.findAndStoreArtifactConflicts(
                 analysisTraversalResult.getActionLookupValueShards(),
                 analysisTraversalResult.getActionCount(),
-                strictConflictChecks,
                 actionKeyContext);
         BuildGraphMetrics buildGraphMetrics =
             analysisTraversalResult
@@ -572,7 +572,6 @@ public final class SkyframeBuildView {
       CoverageReportActionsWrapperSupplier coverageReportActionsWrapperSupplier,
       boolean keepGoing,
       boolean skipIncompatibleExplicitTargets,
-      boolean strictConflictCheck,
       boolean checkForActionConflicts,
       boolean extraActionTopLevelOnly,
       QuiescingExecutors executors,
@@ -612,7 +611,6 @@ public final class SkyframeBuildView {
                     BuildDriverKey.ofConfiguredTarget(
                         ctKey,
                         topLevelArtifactContext,
-                        strictConflictCheck,
                         /* explicitlyRequested= */ explicitTargetPatterns.contains(
                             ctKey.getLabel()),
                         skipIncompatibleExplicitTargets,
@@ -626,7 +624,6 @@ public final class SkyframeBuildView {
                     BuildDriverKey.ofTopLevelAspect(
                         k,
                         topLevelArtifactContext,
-                        strictConflictCheck,
                         /* explicitlyRequested= */ explicitTargetPatterns.contains(k.getLabel()),
                         skipIncompatibleExplicitTargets,
                         extraActionTopLevelOnly))
@@ -878,7 +875,7 @@ public final class SkyframeBuildView {
     enableAnalysis(false);
 
     eventBus.post(
-        AnalysisPhaseCompleteEvent.fromSkymeld(
+        new AnalysisPhaseCompleteEvent(
             buildResultListener.getAnalyzedTargets(),
             getEvaluatedCounts(),
             getEvaluatedActionCounts(),
@@ -1295,13 +1292,25 @@ public final class SkyframeBuildView {
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       @Nullable NestedSet<Package> transitivePackages,
       ExecGroupCollection.Builder execGroupCollectionBuilder)
-      throws InterruptedException, ActionConflictException, InvalidExecGroupException,
-          AnalysisFailurePropagationException {
+      throws InterruptedException,
+          ActionConflictException,
+          InvalidExecGroupException,
+          AnalysisFailurePropagationException,
+          StarlarkExecTransitionLoadingException {
     Preconditions.checkState(
         enableAnalysis, "Already in execution phase %s %s", target, configuration);
     Preconditions.checkNotNull(analysisEnvironment);
     Preconditions.checkNotNull(target);
     Preconditions.checkNotNull(prerequisiteMap);
+
+    Optional<StarlarkAttributeTransitionProvider> starlarkExecTransition =
+        StarlarkExecTransitionLoader.loadStarlarkExecTransition(
+            configuration == null ? null : configuration.getOptions(),
+            (bzlKey) -> (BzlLoadValue) analysisEnvironment.getSkyframeEnv().getValue(bzlKey));
+    if (starlarkExecTransition == null) {
+      return null;
+    }
+
     return factory.createConfiguredTarget(
         analysisEnvironment,
         artifactFactory,
@@ -1312,7 +1321,8 @@ public final class SkyframeBuildView {
         configConditions,
         toolchainContexts,
         transitivePackages,
-        execGroupCollectionBuilder);
+        execGroupCollectionBuilder,
+        starlarkExecTransition.orElse(null));
   }
 
   /**

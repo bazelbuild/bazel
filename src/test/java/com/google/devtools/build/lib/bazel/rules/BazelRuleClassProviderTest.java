@@ -29,6 +29,8 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider.StrictActionEnvOptions;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -44,11 +46,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests consistency of {@link BazelRuleClassProvider}.
- */
+/** Tests consistency of {@link BazelRuleClassProvider}. */
 @RunWith(JUnit4.class)
-public class BazelRuleClassProviderTest {
+public class BazelRuleClassProviderTest extends BuildViewTestCase {
 
   private static void checkConfigConsistency(ConfiguredRuleClassProvider provider) {
     // Check that every fragment required by a rule is present.
@@ -199,11 +199,18 @@ public class BazelRuleClassProviderTest {
   }
 
   @Test
-  public void optionsAlsoApplyToHost() {
-    StrictActionEnvOptions o = Options.getDefaults(
-        StrictActionEnvOptions.class);
-    o.useStrictActionEnv = true;
-    StrictActionEnvOptions h = o.getExec();
+  public void optionsAlsoApplyToHost() throws Exception {
+    BuildOptions options = targetConfig.getOptions().clone();
+    if (!options.contains(StrictActionEnvOptions.class)) {
+      // This Bazel build doesn't include StrictActionEnvOptions. Nothing to test.
+      return;
+    }
+    options.get(StrictActionEnvOptions.class).useStrictActionEnv = true;
+
+    StrictActionEnvOptions h =
+        AnalysisTestUtil.execOptions(options, skyframeExecutor, reporter)
+            .get(StrictActionEnvOptions.class);
+
     assertThat(h.useStrictActionEnv).isTrue();
   }
 

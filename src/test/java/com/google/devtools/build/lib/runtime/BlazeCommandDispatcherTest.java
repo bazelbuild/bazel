@@ -477,8 +477,9 @@ public final class BlazeCommandDispatcherTest {
                     LockingMode.WAIT,
                     "test client",
                     runtime.getClock().currentTimeMillis(),
-                    /*startupOptionsTaggedWithBazelRc=*/ Optional.empty(),
-                    /*commandExtensions=*/ ImmutableList.of()));
+                    /* startupOptionsTaggedWithBazelRc= */ Optional.empty(),
+                    /* commandExtensions= */ ImmutableList.of(),
+                    /* commandExtensionReporter= */ (ext) -> {}));
 
     try {
       blockCommandThread.start();

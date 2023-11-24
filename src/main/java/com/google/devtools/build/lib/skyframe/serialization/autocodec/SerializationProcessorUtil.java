@@ -15,8 +15,6 @@
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
 import com.google.common.collect.ImmutableList;
-import com.google.errorprone.annotations.FormatMethod;
-import com.google.errorprone.annotations.FormatString;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.TypeSpec;
 import java.io.IOException;
@@ -50,13 +48,13 @@ class SerializationProcessorUtil {
 
   static JavaFile writeGeneratedClassToFile(
       Element element, TypeSpec builtClass, ProcessingEnvironment env)
-      throws SerializationProcessingFailedException {
+      throws SerializationProcessingException {
     String packageName = env.getElementUtils().getPackageOf(element).getQualifiedName().toString();
     JavaFile file = JavaFile.builder(packageName, builtClass).build();
     try {
       file.writeTo(env.getFiler());
     } catch (IOException e) {
-      throw new SerializationProcessingFailedException(
+      throw new SerializationProcessingException(
           element, "Failed to generate output file: %s", e.getMessage());
     }
     return file;
@@ -79,21 +77,5 @@ class SerializationProcessorUtil {
 
   static boolean isVariableOrWildcardType(TypeMirror type) {
     return type instanceof TypeVariable || type instanceof WildcardType;
-  }
-
-  /** Indicates {@link AutoCodec}/{@link SerializationConstant} annotation processing failure. */
-  static final class SerializationProcessingFailedException extends Exception {
-    private final Element element;
-
-    @FormatMethod
-    SerializationProcessingFailedException(
-        Element element, @FormatString String fmt, Object... args) {
-      super(String.format(fmt, args));
-      this.element = element;
-    }
-
-    Element getElement() {
-      return element;
-    }
   }
 }

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.util.io.CommandExtensionReporter.NO_OP_COMMAND_EXTENSION_REPORTER;
 import static org.mockito.Mockito.verify;
 
 import com.google.common.collect.ImmutableList;
@@ -106,11 +107,12 @@ public class BlazeRuntimeTest {
             options,
             SyscallCache.NO_CACHE,
             QuiescingExecutorsImpl.forTesting(),
-            ImmutableList.of(),
-            0L,
-            0L,
-            ImmutableList.of(),
-            shutdownMessage::set);
+            /* warnings= */ ImmutableList.of(),
+            /* waitTimeInMs= */ 0L,
+            /* commandStartTime= */ 0L,
+            /* commandExtensions= */ ImmutableList.of(),
+            shutdownMessage::set,
+            NO_OP_COMMAND_EXTENSION_REPORTER);
     runtime.beforeCommand(env, options.getOptions(CommonCommandOptions.class));
     DetailedExitCode oom =
         DetailedExitCode.of(
@@ -156,11 +158,12 @@ public class BlazeRuntimeTest {
             OptionsParser.builder().optionsClasses(COMMAND_ENV_REQUIRED_OPTIONS).build(),
             SyscallCache.NO_CACHE,
             QuiescingExecutorsImpl.forTesting(),
-            ImmutableList.of(),
-            0L,
-            0L,
-            ImmutableList.of(),
-            s -> {});
+            /* warnings= */ ImmutableList.of(),
+            /* waitTimeInMs= */ 0L,
+            /* commandStartTime= */ 0L,
+            /* commandExtensions= */ ImmutableList.of(),
+            /* shutdownReasonConsumer= */ s -> {},
+            NO_OP_COMMAND_EXTENSION_REPORTER);
     Any anyFoo = Any.pack(StringValue.of("foo"));
     Any anyBar = Any.pack(BytesValue.of(ByteString.copyFromUtf8("bar")));
     env.addResponseExtensions(ImmutableList.of(anyFoo, anyBar));

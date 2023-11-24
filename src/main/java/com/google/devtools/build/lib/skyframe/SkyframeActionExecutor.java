@@ -312,7 +312,10 @@ public final class SkyframeActionExecutor {
     freeDiscoveredInputsAfterExecution =
         !trackIncrementalState && options.getOptions(CoreOptions.class).actionListeners.isEmpty();
 
-    this.cacheHitSemaphore = new Semaphore(ResourceUsage.getAvailableProcessors());
+    this.cacheHitSemaphore =
+        options.getOptions(CoreOptions.class).throttleActionCacheCheck
+            ? new Semaphore(ResourceUsage.getAvailableProcessors())
+            : null;
 
     this.actionExecutionSemaphore =
         buildRequestOptions.useSemaphoreForJobs ? new Semaphore(buildRequestOptions.jobs) : null;
@@ -417,14 +420,19 @@ public final class SkyframeActionExecutor {
     return buildActionMap.get(new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
   }
 
+  /** Determines whether the given action was rewound during the current build. */
+  public boolean wasRewound(Action action) {
+    return rewoundActions.contains(new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
+  }
+
   /**
    * Determines whether the action should have its progress events emitted.
    *
-   * <p>Returns {@code false} for completed and rewound actions, indicating that their progress
-   * events should be suppressed.
+   * <p>Returns {@code false} for rewound actions, indicating that their progress events should be
+   * suppressed.
    */
   boolean shouldEmitProgressEvents(Action action) {
-    return !rewoundActions.contains(new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
+    return !wasRewound(action);
   }
 
   /**

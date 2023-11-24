@@ -1,4 +1,4 @@
-// Copyright 2016 The Bazel Authors. All rights reserved.
+// Copyright 2023 The Bazel Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,14 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.rules.proto;
+package com.google.testing.coverage;
 
-import com.google.common.annotations.VisibleForTesting;
+public class TestClass {
 
-/** Constructs actions to run the protocol compiler to generate sources from .proto files. */
-public class ProtoCompileActionBuilder {
-
-  @VisibleForTesting
-  public static final String STRICT_DEPS_FLAG_TEMPLATE =
-      "--direct_dependencies_violation_msg=" + ProtoConstants.STRICT_PROTO_DEPS_VIOLATION_MESSAGE;
+  public static void main(String[] args) {
+    System.out.println("Coverage run success!");
+  }
 }

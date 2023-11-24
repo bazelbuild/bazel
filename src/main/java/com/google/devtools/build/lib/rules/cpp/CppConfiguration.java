@@ -305,17 +305,11 @@ public final class CppConfiguration extends Fragment
   @Nullable
   @StarlarkConfigurationField(name = "zipper", doc = "The zipper label for FDO.")
   public Label getFdoZipper() {
-    if (getFdoOptimizeLabel() != null || getFdoProfileLabel() != null || getFdoPath() != null) {
+    if (getFdoOptimizeLabel() != null
+        || getFdoProfileLabel() != null
+        || getFdoPath() != null
+        || getMemProfProfileLabel() != null) {
       return Label.parseCanonicalUnchecked(BAZEL_TOOLS_REPO + "//tools/zip:unzip_fdo");
-    }
-    return null;
-  }
-
-  @Nullable
-  @StarlarkConfigurationField(name = "default_zipper", doc = "The default zipper label for FDO.")
-  public Label getDefaultFdoZipper() {
-    if (getMemProfProfileLabel() != null) {
-      return Label.parseCanonicalUnchecked(BAZEL_TOOLS_REPO + "//tools/zip:zipper");
     }
     return null;
   }

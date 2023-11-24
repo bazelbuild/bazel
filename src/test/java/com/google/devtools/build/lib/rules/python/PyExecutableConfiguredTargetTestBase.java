@@ -129,11 +129,12 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
     useConfiguration("--incompatible_use_python_toolchains=true");
     scratch.file(
         "pkg/BUILD", //
+        bzlLoad,
         ruleName + "(",
         "    name = 'foo',",
         "    srcs = [':foo.py'],",
         ")");
-    assertThat(getConfiguredTarget("//pkg:foo").get(PyRuntimeInfo.PROVIDER)).isNotNull();
+    assertThat(PyRuntimeInfo.fromTarget(getConfiguredTarget("//pkg:foo"))).isNotNull();
   }
 
   @Test
@@ -157,19 +158,26 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
         "invalid value in 'python_version' attribute: "
             + "has to be one of 'PY2' or 'PY3' instead of 'PY2AND3'",
         // build file:
+        bzlLoad,
         ruleDeclWithPyVersionAttr("foo", "PY2AND3"));
   }
 
   @Test
   public void versionAttr_GoodValue() throws Exception {
-    scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY3"));
+    scratch.file(
+        "pkg/BUILD", //
+        bzlLoad,
+        ruleDeclWithPyVersionAttr("foo", "PY3"));
     getOkPyTarget("//pkg:foo");
     assertNoEvents();
   }
 
   @Test
   public void versionAttrWorks_WhenSameAsDefaultValue() throws Exception {
-    scratch.file("pkg/BUILD", ruleDeclWithPyVersionAttr("foo", "PY3"));
+    scratch.file(
+        "pkg/BUILD", //
+        bzlLoad,
+        ruleDeclWithPyVersionAttr("foo", "PY3"));
 
     assertPythonVersionIs("//pkg:foo", PythonVersion.PY3);
   }
@@ -181,6 +189,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
         "exports_files(['foo.py', 'bar.py'])");
     scratch.file(
         "pkg-with-hyphens/BUILD",
+        bzlLoad,
         ruleName + "(",
         "    name = 'foo',",
         "    main = '//pkg:foo.py',",
@@ -192,6 +201,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
   public void targetInPackageWithHyphensOkIfOnlyExplicitMainHasHyphens() throws Exception {
     scratch.file(
         "pkg-with-hyphens/BUILD",
+        bzlLoad,
         ruleName + "(",
         "    name = 'foo',",
         "    main = 'foo.py',",
@@ -203,6 +213,7 @@ public abstract class PyExecutableConfiguredTargetTestBase extends PyBaseConfigu
   public void targetInPackageWithHyphensOkIfOnlyImplicitMainHasHyphens() throws Exception {
     scratch.file(
         "pkg-with-hyphens/BUILD", //
+        bzlLoad,
         ruleName + "(",
         "    name = 'foo',",
         "    srcs = ['foo.py'])");

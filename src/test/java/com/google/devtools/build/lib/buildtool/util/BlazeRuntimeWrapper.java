@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.buildtool.util;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.util.io.CommandExtensionReporter.NO_OP_COMMAND_EXTENSION_REPORTER;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -76,7 +77,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
-import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
+import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
@@ -212,10 +213,11 @@ public class BlazeRuntimeWrapper {
                 commandAnnotation,
                 optionsParser,
                 workspaceSetupWarnings,
-                0L,
-                0L,
+                /* waitTimeInMs= */ 0L,
+                /* commandStartTime= */ 0L,
                 extensions.stream().map(Any::pack).collect(toImmutableList()),
-                this.crashMessages::add);
+                this.crashMessages::add,
+                NO_OP_COMMAND_EXTENSION_REPORTER);
     return env;
   }
 
@@ -347,7 +349,7 @@ public class BlazeRuntimeWrapper {
               /* collectPressureStallIndicators= */ false,
               /* collectResourceEstimation= */ false,
               ResourceManager.instance(),
-              WorkerMetricsCollector.instance(),
+              WorkerProcessMetricsCollector.instance(),
               runtime.getBugReporter());
 
       StoredEventHandler storedEventHandler = new StoredEventHandler();
@@ -419,6 +421,10 @@ public class BlazeRuntimeWrapper {
                     AttributeTransitionData.builder()
                         .attributes(FakeAttributeMapper.empty())
                         .executionPlatform(Label.parseCanonicalUnchecked("//platform:exec"))
+                        .analysisData(
+                            getSkyframeExecutor()
+                                .getStarlarkExecTransitionForTesting(
+                                    targetOptions, events.reporter()))
                         .build())
                 .apply(
                     new BuildOptionsView(targetOptions, targetOptions.getFragmentClasses()),

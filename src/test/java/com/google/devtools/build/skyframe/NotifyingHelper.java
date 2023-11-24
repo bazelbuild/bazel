@@ -21,7 +21,6 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.errorprone.annotations.ForOverride;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -35,7 +34,7 @@ import javax.annotation.Nullable;
  */
 public class NotifyingHelper {
   public static MemoizingEvaluator.GraphTransformerForTesting makeNotifyingTransformer(
-      final Listener listener) {
+      Listener listener) {
     return new MemoizingEvaluator.GraphTransformerForTesting() {
       @Override
       public InMemoryGraph transform(InMemoryGraph graph) {
@@ -123,8 +122,16 @@ public class NotifyingHelper {
           delegate.getBatchMap(requestor, reason, keys), notifyingHelper::wrapEntry);
     }
 
+    @Nullable
     @Override
-    public DepsReport analyzeDepsDoneness(SkyKey parent, Collection<SkyKey> deps)
+    public ImmutableSet<SkyKey> prefetchDeps(
+        SkyKey requestor, Set<SkyKey> oldDeps, GroupedDeps previouslyRequestedDeps)
+        throws InterruptedException {
+      return delegate.prefetchDeps(requestor, oldDeps, previouslyRequestedDeps);
+    }
+
+    @Override
+    public DepsReport analyzeDepsDoneness(SkyKey parent, List<SkyKey> deps)
         throws InterruptedException {
       return delegate.analyzeDepsDoneness(parent, deps);
     }
@@ -148,7 +155,7 @@ public class NotifyingHelper {
     MARK_DIRTY,
     MARK_CLEAN,
     IS_CHANGED,
-    GET_DIRTY_STATE,
+    GET_LIFECYCLE_STATE,
     GET_VALUE_WITH_METADATA,
     IS_DIRTY,
     IS_READY,
@@ -202,7 +209,7 @@ public class NotifyingHelper {
     private final SkyKey myKey;
     private final NodeEntry delegate;
 
-    protected NotifyingNodeEntry(SkyKey key, NodeEntry delegate) {
+    NotifyingNodeEntry(SkyKey key, NodeEntry delegate) {
       myKey = key;
       this.delegate = delegate;
     }
@@ -297,11 +304,11 @@ public class NotifyingHelper {
     }
 
     @Override
-    public DirtyState getDirtyState() {
-      graphListener.accept(myKey, EventType.GET_DIRTY_STATE, Order.BEFORE, this);
-      DirtyState dirtyState = super.getDirtyState();
-      graphListener.accept(myKey, EventType.GET_DIRTY_STATE, Order.AFTER, dirtyState);
-      return dirtyState;
+    public LifecycleState getLifecycleState() {
+      graphListener.accept(myKey, EventType.GET_LIFECYCLE_STATE, Order.BEFORE, this);
+      LifecycleState lifecycleState = super.getLifecycleState();
+      graphListener.accept(myKey, EventType.GET_LIFECYCLE_STATE, Order.AFTER, lifecycleState);
+      return lifecycleState;
     }
 
     @Override

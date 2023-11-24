@@ -28,6 +28,7 @@ import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.ArrayList;
@@ -93,6 +94,7 @@ public abstract class GraphTest {
       }
     };
 
+    @CanIgnoreReturnValue
     public abstract NodeBatch get(
         ProcessableGraph graph,
         @Nullable SkyKey requestor,

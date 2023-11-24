@@ -40,8 +40,8 @@ import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.NodeState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
-import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
+import com.google.devtools.build.skyframe.NodeEntry.LifecycleState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunction.Reset;
@@ -143,7 +143,7 @@ abstract class AbstractParallelEvaluator {
    * If the entry is dirty and not already rebuilding, puts it in a state so that it can rebuild.
    */
   static void maybeMarkRebuilding(NodeEntry entry) {
-    if (entry.isDirty() && entry.getDirtyState() != DirtyState.REBUILDING) {
+    if (entry.isDirty() && entry.getLifecycleState() != LifecycleState.REBUILDING) {
       entry.markRebuilding();
     }
   }
@@ -229,7 +229,7 @@ abstract class AbstractParallelEvaluator {
     }
 
     private DirtyOutcome maybeHandleDirtyNode(NodeEntry nodeEntry) throws InterruptedException {
-      while (nodeEntry.getDirtyState().equals(DirtyState.CHECK_DEPENDENCIES)) {
+      while (nodeEntry.getLifecycleState() == LifecycleState.CHECK_DEPENDENCIES) {
         // Evaluating a dirty node for the first time, and checking its children to see if any
         // of them have changed. Note that there must be dirty children for this to happen.
 
@@ -341,7 +341,7 @@ abstract class AbstractParallelEvaluator {
         // enqueueing and dequeueing), and we also save wall time since the node gets processed
         // now rather than at some point in the future.
       }
-      switch (nodeEntry.getDirtyState()) {
+      switch (nodeEntry.getLifecycleState()) {
         case VERIFIED_CLEAN:
           // No child has a changed value. This node can be marked done and its parents signaled
           // without any re-evaluation.

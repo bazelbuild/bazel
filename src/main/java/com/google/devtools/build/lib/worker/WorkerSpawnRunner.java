@@ -97,7 +97,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
   private final WorkerOptions workerOptions;
   private final WorkerParser workerParser;
   private final AtomicInteger requestIdCounter = new AtomicInteger(1);
-  private final WorkerMetricsCollector metricsCollector;
+  private final WorkerProcessMetricsCollector metricsCollector;
 
   public WorkerSpawnRunner(
       SandboxHelpers helpers,
@@ -110,7 +110,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       ResourceManager resourceManager,
       RunfilesTreeUpdater runfilesTreeUpdater,
       WorkerOptions workerOptions,
-      WorkerMetricsCollector workerMetricsCollector,
+      WorkerProcessMetricsCollector workerProcessMetricsCollector,
       Clock clock) {
     this.helpers = helpers;
     this.execRoot = execRoot;
@@ -121,7 +121,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     this.workerParser = new WorkerParser(execRoot, workerOptions, localEnvProvider, binTools);
     this.workerOptions = workerOptions;
     this.resourceManager.setWorkerPool(workers);
-    this.metricsCollector = workerMetricsCollector;
+    this.metricsCollector = workerProcessMetricsCollector;
     this.metricsCollector.setClock(clock);
   }
 
@@ -213,8 +213,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
     int exitCode = response.getExitCode();
     SpawnResult.Builder builder =
-        new SpawnResult.Builder()
-            .setRunnerName(getName())
+        getSpawnResultBuilder(context)
             .setExitCode(exitCode)
             .setStatus(exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT)
             .setStartTime(startTime)
@@ -473,7 +472,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       Worker worker = (workerOwner == null) ? null : workerOwner.getWorker();
       if (handle != null && worker != null) {
         try {
-          handle.invalidateAndClose();
+          handle.invalidateAndClose(e);
           if (!hasOutputFileLock && worker.getExitValue().isPresent()) {
             // If the worker has died, we take the lock to a) fail earlier and b) have a chance
             // to let the other dynamic execution branch take over if the error can be ignored.
@@ -545,7 +544,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
     }
 
     Stopwatch executionStopwatch = Stopwatch.createStarted();
-    try {
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.WORKER_SETUP, "sending request")) {
       worker.putRequest(request);
     } catch (IOException e) {
       restoreInterrupt(e);
@@ -601,6 +601,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
     this.metricsCollector.registerWorker(
         worker.getWorkerId(),
         worker.getProcessId(),
+        worker.getStatus(),
         workerKey.getMnemonic(),
         workerKey.isMultiplex(),
         workerKey.isSandboxed(),
@@ -639,7 +640,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
                 // be a dangling response that we don't want to keep trying to read, so we destroy
                 // the worker.
                 try {
-                  resourceHandle.invalidateAndClose();
+                  resourceHandle.invalidateAndClose(e1);
 
                   w = null;
 

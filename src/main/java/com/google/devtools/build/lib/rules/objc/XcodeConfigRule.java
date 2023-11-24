@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 
 /**
  * Rule definition for {@code xcode_config} rule.
@@ -35,10 +36,16 @@ public class XcodeConfigRule implements RuleDefinition {
   static final String REMOTE_VERSIONS_ATTR_NAME = "remote_versions";
   static final String LOCAL_VERSIONS_ATTR_NAME = "local_versions";
 
+  private final Class<? extends XcodeConfig> xcodeConfigFactory;
+
+  public XcodeConfigRule(Class<? extends XcodeConfig> xcodeConfigFactory) {
+    this.xcodeConfigFactory = xcodeConfigFactory;
+  }
+
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
-        .requiresConfigurationFragments(AppleConfiguration.class)
+        .requiresConfigurationFragments(AppleConfiguration.class, CppConfiguration.class)
         .exemptFromConstraintChecking(
             "this rule refines configuration variables and does not build actual content")
         /* <!-- #BLAZE_RULE(xcode_config).ATTRIBUTE(default) -->
@@ -93,7 +100,7 @@ public class XcodeConfigRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("xcode_config")
         .ancestors(BaseRuleClasses.NativeBuildRule.class)
-        .factoryClass(XcodeConfig.class)
+        .factoryClass(xcodeConfigFactory)
         .build();
   }
 }

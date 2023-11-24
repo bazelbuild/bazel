@@ -55,7 +55,8 @@ public final class StableSort {
    * <p>We assume that in the InputStream, at most one SpawnExec declares a given file as its
    * output. We assume that there are no cyclic dependencies.
    */
-  public static void stableSort(InputStream in, MessageOutputStream out) throws IOException {
+  public static void stableSort(InputStream in, MessageOutputStream<SpawnExec> out)
+      throws IOException {
     try (SilentCloseable c = Profiler.instance().profile("stableSort")) {
       ImmutableList<SpawnExec> inputs;
       try (SilentCloseable c2 = Profiler.instance().profile("stableSort/read")) {
@@ -65,7 +66,7 @@ public final class StableSort {
     }
   }
 
-  private static void stableSort(List<SpawnExec> inputs, MessageOutputStream out)
+  private static void stableSort(List<SpawnExec> inputs, MessageOutputStream<SpawnExec> out)
       throws IOException {
     // A map from each output to a SpawnExec that produced it
     Multimap<String, SpawnExec> outputProducer =
@@ -111,7 +112,6 @@ public final class StableSort {
                   stripped.addAllEnvironmentVariables(o.getEnvironmentVariablesList());
                   stripped.setPlatform(o.getPlatform());
                   stripped.addAllInputs(o.getInputsList());
-                  stripped.setProgressMessage(o.getProgressMessage());
                   stripped.setMnemonic(o.getMnemonic());
 
                   return "2_" + stripped.build();

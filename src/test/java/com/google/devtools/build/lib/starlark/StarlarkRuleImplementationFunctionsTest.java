@@ -2777,7 +2777,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     Action action =
         getGeneratingAction(r.getProvider(FileProvider.class).getFilesToBuild().getSingleton());
-    assertThat(ActionsTestUtil.baseArtifactNames(action.getRunfilesSupplier().getArtifacts()))
+    assertThat(ActionsTestUtil.baseArtifactNames(action.getRunfilesSupplier().getAllArtifacts()))
         .containsAtLeast("tool", "tool.sh", "data");
   }
 
@@ -2806,7 +2806,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     Action action =
         getGeneratingAction(r.getProvider(FileProvider.class).getFilesToBuild().getSingleton());
-    assertThat(ActionsTestUtil.baseArtifactNames(action.getRunfilesSupplier().getArtifacts()))
+    assertThat(ActionsTestUtil.baseArtifactNames(action.getRunfilesSupplier().getAllArtifacts()))
         .containsAtLeast("tool", "tool.sh", "data");
   }
 

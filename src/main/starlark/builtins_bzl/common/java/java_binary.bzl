@@ -18,6 +18,7 @@ load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 load(":common/java/basic_java_library.bzl", "BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS", "basic_java_library", "collect_deps")
+load(":common/java/boot_class_path_info.bzl", "BootClassPathInfo")
 load(":common/java/java_common.bzl", "java_common")
 load(
     ":common/java/java_common_internal_for_builtins.bzl",
@@ -25,7 +26,7 @@ load(
     "get_runtime_classpath_for_archive",
 )
 load(":common/java/java_helper.bzl", "helper")
-load(":common/java/java_info.bzl", "JavaInfo", "JavaPluginInfo", "to_java_binary_info")
+load(":common/java/java_info.bzl", "JavaCompilationInfo", "JavaInfo", "JavaPluginInfo", "to_java_binary_info")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/paths.bzl", "paths")
 load(":common/proto/proto_info.bzl", "ProtoInfo")
@@ -125,8 +126,10 @@ def basic_java_binary(
         coverage_config = coverage_config,
         add_exports = ctx.attr.add_exports,
         add_opens = ctx.attr.add_opens,
+        bootclasspath = ctx.attr.bootclasspath,
     )
     java_info = target["JavaInfo"]
+    compilation_info = java_info.compilation_info
     runtime_classpath = depset(
         order = "preorder",
         transitive = [
@@ -148,6 +151,13 @@ def basic_java_binary(
                     source_jar = extension_registry_provider.src_jar,
                 ),
             ],
+        )
+        compilation_info = JavaCompilationInfo(
+            compilation_classpath = compilation_info.compilation_classpath,
+            runtime_classpath = runtime_classpath,
+            boot_classpath = compilation_info.boot_classpath,
+            javac_options = compilation_info.javac_options,
+            javac_options_list = compilation_info.javac_options_list,
         )
 
     java_attrs = _collect_attrs(ctx, runtime_classpath, classpath_resources)
@@ -264,7 +274,7 @@ def basic_java_binary(
 
     _filter_validation_output_group(ctx, output_groups)
 
-    java_binary_info = to_java_binary_info(java_info)
+    java_binary_info = to_java_binary_info(java_info, compilation_info)
 
     default_info = struct(
         files = files,
@@ -445,6 +455,7 @@ def _filter_validation_output_group(ctx, output_group):
                attr_name not in [
                    "deploy_env",
                    "applicable_licenses",
+                   "package_metadata",
                    "plugins",
                    "translations",
                    # special ignored attributes
@@ -522,6 +533,10 @@ BASIC_JAVA_BINARY_ATTRIBUTES = merge_attrs(
         "launcher": attr.label(
             allow_files = False,
             # TODO(b/295221112): add back CcLauncherInfo
+        ),
+        "bootclasspath": attr.label(
+            providers = [BootClassPathInfo],
+            flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
         ),
         "neverlink": attr.bool(),
         "javacopts": attr.string_list(),

@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.AspectContext;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -145,7 +146,9 @@ public class TestAspects {
         continue;
       }
       Iterable<AspectInfo> prerequisites =
-          ruleContext.getPrerequisites(attributeName, AspectInfo.class);
+          ruleContext
+              .getRulePrerequisitesCollection()
+              .getPrerequisites(attributeName, AspectInfo.class);
       for (AspectInfo prerequisite : prerequisites) {
         result.addTransitive(prerequisite.getData());
       }
@@ -205,8 +208,10 @@ public class TestAspects {
     @Override
     public ConfiguredTarget create(RuleContext ruleContext)
         throws InterruptedException, RuleErrorException, ActionConflictException {
-      TransitiveInfoCollection fooAttribute = ruleContext.getPrerequisite("foo");
-      TransitiveInfoCollection barAttribute = ruleContext.getPrerequisite("bar");
+      TransitiveInfoCollection fooAttribute =
+          ruleContext.getRulePrerequisitesCollection().getPrerequisite("foo");
+      TransitiveInfoCollection barAttribute =
+          ruleContext.getRulePrerequisitesCollection().getPrerequisite("bar");
 
       NestedSetBuilder<String> infoBuilder = NestedSetBuilder.<String>stableOrder();
 
@@ -389,7 +394,10 @@ public class TestAspects {
         AspectParameters parameters,
         RepositoryName toolsRepository)
         throws ActionConflictException, InterruptedException {
-      TransitiveInfoCollection dep = ruleContext.getPrerequisite("$dep");
+      TransitiveInfoCollection dep =
+          ((AspectContext) ruleContext)
+              .getMainAspectPrerequisitesCollection()
+              .getPrerequisite("$dep");
       if (dep == null) {
         ruleContext.attributeError("$dep", "$dep attribute not resolved");
         return ConfiguredAspect.builder(ruleContext).build();
@@ -641,7 +649,10 @@ public class TestAspects {
         information.append(" data " + Iterables.getFirst(parameters.getAttribute("baz"), null));
         information.append(" ");
       }
-      List<? extends TransitiveInfoCollection> deps = ruleContext.getPrerequisites("$dep");
+      List<? extends TransitiveInfoCollection> deps =
+          ((AspectContext) ruleContext)
+              .getMainAspectPrerequisitesCollection()
+              .getPrerequisites("$dep");
       information.append("$dep:[");
       for (TransitiveInfoCollection dep : deps) {
         information.append(" ");

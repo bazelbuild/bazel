@@ -1,6 +1,5 @@
 # Description:
-#   Package group restricting access to starlark-defined transitions, allowing
-#   for careful rollout as it is an experimental feature.
+#   Package group restricting access to starlark-defined transitions
 
 filegroup(
     name = "srcs",

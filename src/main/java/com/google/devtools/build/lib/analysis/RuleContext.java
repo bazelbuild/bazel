@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -119,9 +120,9 @@ import net.starlark.java.syntax.Location;
  *
  * <p>@see com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory
  *
- * <p>The class is intended to be sub-classed by {@link AspectOnRuleContext}, in order to share the
- * code. However, it's not intended for sub-classing beyond that, and the constructor is
- * intentionally package private to enforce that.
+ * <p>The class is intended to be sub-classed by {@link AspectContext}, in order to share the code.
+ * However, it's not intended for sub-classing beyond that, and the constructor is intentionally
+ * package private to enforce that.
  */
 public class RuleContext extends TargetContext
     implements ActionConstructionContext, ActionRegistry, RuleErrorConsumer, AutoCloseable {
@@ -146,7 +147,14 @@ public class RuleContext extends TargetContext
       new Attribute.Builder<>(TOOLCHAIN_ATTR_NAME, BuildType.LABEL_LIST).build();
 
   private final Rule rule;
+
+  /**
+   * If this {@code RuleContext} is for rule evaluation, this holds the attribute-based
+   * prerequisites of the rule and if it is for aspect evaluation, it will contain the merged
+   * prerequisites of the rule and the base aspects (rule attributes take precedence).
+   */
   private final PrerequisitesCollection prerequisitesCollection;
+
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
   private final AttributeMap attributes;
   private final FeatureSet features;
@@ -185,14 +193,11 @@ public class RuleContext extends TargetContext
    */
   @Nullable private StarlarkRuleContext starlarkRuleContext;
 
-  /**
-   * The constructor is intentionally package private to be only used by {@link
-   * AspectOnRuleContext}.
-   */
+  /** The constructor is intentionally package private to be only used by {@link AspectContext}. */
   RuleContext(
       Builder builder,
       AttributeMap attributes,
-      ImmutableListMultimap<DependencyKind, ConfiguredTargetAndData> targetMap,
+      PrerequisitesCollection prerequisitesCollection,
       ExecGroupCollection execGroupCollection) {
     super(
         builder.env,
@@ -215,15 +220,32 @@ public class RuleContext extends TargetContext
     this.transitivePackagesForRunfileRepoMappingManifest =
         builder.transitivePackagesForRunfileRepoMappingManifest;
     this.starlarkThread = createStarlarkThread(builder.mutability); // uses above state
+    this.prerequisitesCollection = prerequisitesCollection;
+  }
 
-    this.prerequisitesCollection =
-        PrerequisitesCollection.create(
-            attributes,
-            targetMap,
-            builder.aspects,
-            this.reporter,
-            this.rule,
-            this.ruleClassNameForLogging);
+  static RuleContext create(
+      Builder builder,
+      AttributeMap ruleAttributes,
+      ImmutableListMultimap<DependencyKind, ConfiguredTargetAndData> targetsMap,
+      ExecGroupCollection execGroupCollection) {
+
+    ImmutableSortedKeyListMultimap.Builder<String, ConfiguredTargetAndData> attrNameToTargets =
+        ImmutableSortedKeyListMultimap.builder();
+    for (Map.Entry<DependencyKind, Collection<ConfiguredTargetAndData>> entry :
+        targetsMap.asMap().entrySet()) {
+      attrNameToTargets.putAll(entry.getKey().getAttribute().getName(), entry.getValue());
+    }
+
+    return new RuleContext(
+        builder,
+        ruleAttributes,
+        new PrerequisitesCollection(
+            attrNameToTargets.build(),
+            ruleAttributes,
+            builder.getErrorConsumer(),
+            builder.getRule(),
+            builder.getRuleClassNameForLogging()),
+        execGroupCollection);
   }
 
   private FeatureSet computeFeatures() {
@@ -248,6 +270,28 @@ public class RuleContext extends TargetContext
     return getAnalysisEnvironment()
         .getStarlarkSemantics()
         .getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION);
+  }
+
+  /**
+   * If this {@code RuleContext} is for rule evaluation, returns the attribute-based prerequisites
+   * of the rule and if it is for aspect evaluation, it returns the merged prerequisites of the rule
+   * and the base aspects (rule attributes take precedence).
+   */
+  public PrerequisitesCollection getRulePrerequisitesCollection() {
+    return prerequisitesCollection;
+  }
+
+  /**
+   * Prerequisites lookup methods in {@code RuleContext} such as {@link
+   * RuleContext#getExecutablePrerequisite} use this method to find the {@code
+   * PrerquisitesCollection} owning an attribute with the given name.
+   *
+   * <p>For aspect evaluation, {@link AspectContext} overrides this to select the correct owning
+   * {@code PrerequisitesCollection} for the given {@code attributeName} whether it is owned by the
+   * main aspect or the underlying rule and base aspects.
+   */
+  PrerequisitesCollection getOwningPrerequisitesCollection(String attributeName) {
+    return prerequisitesCollection;
   }
 
   public RepositoryName getRepository() {
@@ -372,7 +416,8 @@ public class RuleContext extends TargetContext
 
   /** Returns the {@link ConfiguredTargetAndData} the given attribute. */
   public List<ConfiguredTargetAndData> getPrerequisiteConfiguredTargets(String attributeName) {
-    return prerequisitesCollection.getPrerequisiteConfiguredTargets(attributeName);
+    return getOwningPrerequisitesCollection(attributeName)
+        .getPrerequisiteConfiguredTargets(attributeName);
   }
 
   /**
@@ -812,7 +857,7 @@ public class RuleContext extends TargetContext
    */
   public Map<Optional<String>, List<ConfiguredTargetAndData>> getSplitPrerequisites(
       String attributeName) {
-    return prerequisitesCollection.getSplitPrerequisites(attributeName);
+    return getOwningPrerequisitesCollection(attributeName).getSplitPrerequisites(attributeName);
   }
 
   /**
@@ -822,7 +867,7 @@ public class RuleContext extends TargetContext
   @Nullable
   public <C extends TransitiveInfoProvider> C getPrerequisite(
       String attributeName, Class<C> provider) {
-    return prerequisitesCollection.getPrerequisite(attributeName, provider);
+    return getOwningPrerequisitesCollection(attributeName).getPrerequisite(attributeName, provider);
   }
 
   /**
@@ -831,7 +876,7 @@ public class RuleContext extends TargetContext
    */
   @Nullable
   public TransitiveInfoCollection getPrerequisite(String attributeName) {
-    return prerequisitesCollection.getPrerequisite(attributeName);
+    return getOwningPrerequisitesCollection(attributeName).getPrerequisite(attributeName);
   }
 
   /**
@@ -842,13 +887,14 @@ public class RuleContext extends TargetContext
   @Nullable
   public <T extends Info> T getPrerequisite(
       String attributeName, BuiltinProvider<T> builtinProvider) {
-    return prerequisitesCollection.getPrerequisite(attributeName, builtinProvider);
+    return getOwningPrerequisitesCollection(attributeName)
+        .getPrerequisite(attributeName, builtinProvider);
   }
 
   @Nullable
   public <T> T getPrerequisite(String attributeName, StarlarkProviderWrapper<T> key)
       throws RuleErrorException {
-    return prerequisitesCollection.getPrerequisite(attributeName, key);
+    return getOwningPrerequisitesCollection(attributeName).getPrerequisite(attributeName, key);
   }
 
   /**
@@ -859,7 +905,8 @@ public class RuleContext extends TargetContext
   public <C extends Info>
       ImmutableListMultimap<BuildConfigurationValue, C> getPrerequisitesByConfiguration(
           String attributeName, BuiltinProvider<C> provider) {
-    return prerequisitesCollection.getPrerequisitesByConfiguration(attributeName, provider);
+    return getOwningPrerequisitesCollection(attributeName)
+        .getPrerequisitesByConfiguration(attributeName, provider);
   }
 
   /**
@@ -867,7 +914,7 @@ public class RuleContext extends TargetContext
    * specified attribute.
    */
   public List<? extends TransitiveInfoCollection> getPrerequisites(String attributeName) {
-    return prerequisitesCollection.getPrerequisites(attributeName);
+    return getOwningPrerequisitesCollection(attributeName).getPrerequisites(attributeName);
   }
 
   /**
@@ -876,7 +923,8 @@ public class RuleContext extends TargetContext
    */
   public <C extends TransitiveInfoProvider> List<C> getPrerequisites(
       String attributeName, Class<C> classType) {
-    return prerequisitesCollection.getPrerequisites(attributeName, classType);
+    return getOwningPrerequisitesCollection(attributeName)
+        .getPrerequisites(attributeName, classType);
   }
 
   /**
@@ -885,7 +933,8 @@ public class RuleContext extends TargetContext
    */
   public <T> ImmutableList<T> getPrerequisites(
       String attributeName, StarlarkProviderWrapper<T> starlarkKey) throws RuleErrorException {
-    return prerequisitesCollection.getPrerequisites(attributeName, starlarkKey);
+    return getOwningPrerequisitesCollection(attributeName)
+        .getPrerequisites(attributeName, starlarkKey);
   }
 
   /**
@@ -894,7 +943,8 @@ public class RuleContext extends TargetContext
    */
   public <T extends Info> List<T> getPrerequisites(
       String attributeName, BuiltinProvider<T> starlarkKey) {
-    return prerequisitesCollection.getPrerequisites(attributeName, starlarkKey);
+    return getOwningPrerequisitesCollection(attributeName)
+        .getPrerequisites(attributeName, starlarkKey);
   }
 
   /**
@@ -904,7 +954,8 @@ public class RuleContext extends TargetContext
   public <C extends TransitiveInfoProvider>
       Iterable<? extends TransitiveInfoCollection> getPrerequisitesIf(
           String attributeName, Class<C> classType) {
-    return prerequisitesCollection.getPrerequisitesIf(attributeName, classType);
+    return getOwningPrerequisitesCollection(attributeName)
+        .getPrerequisitesIf(attributeName, classType);
   }
 
   /**
@@ -913,7 +964,8 @@ public class RuleContext extends TargetContext
    */
   public <C extends Info> Iterable<? extends TransitiveInfoCollection> getPrerequisitesIf(
       String attributeName, BuiltinProvider<C> classType) {
-    return prerequisitesCollection.getPrerequisitesIf(attributeName, classType);
+    return getOwningPrerequisitesCollection(attributeName)
+        .getPrerequisitesIf(attributeName, classType);
   }
 
   /**
@@ -925,7 +977,7 @@ public class RuleContext extends TargetContext
    */
   @Nullable
   public FilesToRunProvider getExecutablePrerequisite(String attributeName) {
-    return prerequisitesCollection.getExecutablePrerequisite(attributeName);
+    return getOwningPrerequisitesCollection(attributeName).getExecutablePrerequisite(attributeName);
   }
 
   public void initConfigurationMakeVariableContext(
@@ -1541,9 +1593,9 @@ public class RuleContext extends TargetContext
       ExecGroupCollection execGroupCollection =
           createExecGroupCollection(execGroupCollectionBuilder, ruleAttributes);
       if (aspects.isEmpty()) {
-        return new RuleContext(this, ruleAttributes, targetMap, execGroupCollection);
+        return RuleContext.create(this, ruleAttributes, targetMap, execGroupCollection);
       } else {
-        return new AspectOnRuleContext(this, ruleAttributes, targetMap, execGroupCollection);
+        return AspectContext.create(this, ruleAttributes, targetMap, execGroupCollection);
       }
     }
 
@@ -1844,7 +1896,7 @@ public class RuleContext extends TargetContext
     /**
      * Returns a rule class name suitable for log messages, including an aspect name if applicable.
      */
-    private String getRuleClassNameForLogging() {
+    String getRuleClassNameForLogging() {
       if (aspects.isEmpty()) {
         return target.getAssociatedRule().getRuleClass();
       }
@@ -1853,6 +1905,14 @@ public class RuleContext extends TargetContext
               .join(aspects.stream().map(Aspect::getDescriptor).collect(Collectors.toList()))
           + " aspect on "
           + target.getAssociatedRule().getRuleClass();
+    }
+
+    RuleErrorConsumer getErrorConsumer() {
+      return reporter;
+    }
+
+    boolean separateAspectDeps() {
+      return env.getStarlarkSemantics().getBool(BuildLanguageOptions.SEPARATE_ASPECT_DEPS);
     }
 
     public BuildConfigurationValue getConfiguration() {

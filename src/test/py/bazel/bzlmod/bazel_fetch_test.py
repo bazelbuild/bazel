@@ -62,6 +62,10 @@ class BazelFetchTest(test_base.TestBase):
     self.ScratchFile('tools_mock/MODULE.bazel', ['module(name="bazel_tools")'])
     self.ScratchFile('tools_mock/tools/build_defs/repo/BUILD')
     self.CopyFile(
+        self.Rlocation('io_bazel/tools/build_defs/repo/cache.bzl'),
+        'tools_mock/tools/build_defs/repo/cache.bzl',
+    )
+    self.CopyFile(
         self.Rlocation('io_bazel/tools/build_defs/repo/http.bzl'),
         'tools_mock/tools/build_defs/repo/http.bzl',
     )
@@ -214,7 +218,7 @@ class BazelFetchTest(test_base.TestBase):
     )
     self.AssertExitCode(exit_code, 8, stderr)
     self.assertIn(
-        "ERROR: Fetching repos failed with errors: Repository '@nono' is not "
+        "ERROR: Fetching repos failed with errors: Repository '@@nono' is not "
         "defined; No repository visible as '@nana' from main repository",
         stderr,
     )

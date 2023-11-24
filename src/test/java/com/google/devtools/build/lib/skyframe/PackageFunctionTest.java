@@ -21,8 +21,8 @@ import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -100,6 +100,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
@@ -222,13 +223,13 @@ public class PackageFunctionTest extends BuildViewTestCase {
             inv -> {
               Package pkg = inv.getArgument(0, Package.class);
               if (pkg.getName().equals("pkg")) {
-                inv.getArgument(2, ExtendedEventHandler.class).handle(Event.warn("warning event"));
+                inv.getArgument(1, ExtendedEventHandler.class).handle(Event.warn("warning event"));
                 throw new InvalidPackageException(pkg.getPackageIdentifier(), "no good");
               }
               return null;
             })
         .when(mockPackageValidator)
-        .validate(any(Package.class), any(OptionalLong.class), any(ExtendedEventHandler.class));
+        .validate(any(Package.class), any(ExtendedEventHandler.class));
 
     invalidatePackages();
 
@@ -244,6 +245,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     when(mockPackageOverheadEstimator.estimatePackageOverhead(any(Package.class)))
         .thenReturn(OptionalLong.of(42));
+    ArgumentCaptor<Package> packageCaptor = ArgumentCaptor.forClass(Package.class);
 
     invalidatePackages();
 
@@ -253,8 +255,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
         /* keepGoing= */ false,
         reporter);
 
-    verify(mockPackageValidator)
-        .validate(any(Package.class), eq(OptionalLong.of(42)), any(ExtendedEventHandler.class));
+    verify(mockPackageValidator, times(2))
+        .validate(packageCaptor.capture(), any(ExtendedEventHandler.class));
+    List<Package> packages = packageCaptor.getAllValues();
+    assertThat(packages.get(0).getPackageOverhead()).isEmpty(); // Workspace pkg
+    assertThat(packages.get(1).getPackageOverhead()).isEqualTo(OptionalLong.of(42));
   }
 
   @Test
@@ -274,7 +279,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
               return null;
             })
         .when(mockPackageValidator)
-        .validate(any(Package.class), any(OptionalLong.class), any(ExtendedEventHandler.class));
+        .validate(any(Package.class), any(ExtendedEventHandler.class));
 
     SkyKey skyKey = PackageIdentifier.createInMainRepo("pkg");
     EvaluationResult<PackageValue> result1 =

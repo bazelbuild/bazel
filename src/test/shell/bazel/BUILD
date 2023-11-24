@@ -1,4 +1,4 @@
-load("//:distdir_deps.bzl", "gen_workspace_stanza")
+load("//:workspace_deps.bzl", "gen_workspace_stanza")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -1304,6 +1304,20 @@ sh_test(
         "requires-network",
     ],
     deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_test(
+    name = "path_mapping_test",
+    srcs = ["path_mapping_test.sh"],
+    data = [
+        ":test-deps",
+        "//src/tools/remote:worker",
+    ],
+    tags = ["no_windows"],
+    deps = [
+        "//src/test/shell/bazel/remote:remote_utils",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 sh_test(

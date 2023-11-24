@@ -381,12 +381,26 @@ public final class BuildLanguageOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
+          "If set to true, disable the ability to utilize the default provider via field "
+              + "syntax. Use provider-key syntax instead. For example, instead of using "
+              + "`ctx.attr.dep.files` to access `files`, utilize `ctx.attr.dep[DefaultInfo].files "
+              + "See "
+              + "https://github.com/bazelbuild/bazel/issues/9014 for details.")
+  public boolean incompatibleDisableTargetProviderFields;
+
+  @Option(
+      name = "incompatible_disable_target_default_provider_fields",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
           "If set to true, disable the ability to access providers on 'target' objects via field "
               + "syntax. Use provider-key syntax instead. For example, instead of using "
               + "`ctx.attr.dep.my_info` to access `my_info` from inside a rule implementation "
               + "function, use `ctx.attr.dep[MyInfo]`. See "
               + "https://github.com/bazelbuild/bazel/issues/9014 for details.")
-  public boolean incompatibleDisableTargetProviderFields;
+  public boolean incompatibleDisableTargetDefaultProviderFields;
 
   @Option(
       name = "incompatible_disallow_empty_glob",
@@ -574,6 +588,17 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean incompatibleJavaCommonParameters;
 
   @Option(
+      name = "incompatible_java_info_merge_runtime_module_flags",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If set to true, the JavaInfo constructor will merge add_exports and "
+              + "add_opens of runtime_deps in addition to deps and exports.")
+  public boolean incompatibleJavaInfoMergeRuntimeModuleFlags;
+
+  @Option(
       name = "max_computation_steps",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -690,6 +715,20 @@ public final class BuildLanguageOptions extends OptionsBase {
       help = "Enable experimental rule extension API and subrule APIs")
   public boolean experimentalRuleExtensionApi;
 
+  @Option(
+      name = "separate_aspect_deps",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "If enabled, the dependencies of the main aspect in an aspect path will be"
+              + " separated from those of the target and the base aspects. ctx.attr.{attr_name}"
+              + " will always get the attribute value from the main aspect and"
+              + " ctx.rule.attr.{attr_name} will get the value from the rule if it has an attribute"
+              + " with that name or from the base aspects attributes (first one in"
+              + " the aspects path wins).")
+  public boolean separateAspectDeps;
+
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -743,6 +782,9 @@ public final class BuildLanguageOptions extends OptionsBase {
                 INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX,
                 incompatibleFixPackageGroupReporootSyntax)
             .setBool(INCOMPATIBLE_JAVA_COMMON_PARAMETERS, incompatibleJavaCommonParameters)
+            .setBool(
+                INCOMPATIBLE_JAVA_INFO_MERGE_RUNTIME_MODULE_FLAGS,
+                incompatibleJavaInfoMergeRuntimeModuleFlags)
             .setBool(INCOMPATIBLE_NO_ATTR_LICENSE, incompatibleNoAttrLicense)
             .setBool(INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT, incompatibleNoImplicitFileExport)
             .setBool(INCOMPATIBLE_NO_PACKAGE_DISTRIBS, incompatibleNoPackageDistribs)
@@ -791,7 +833,11 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_DISABLE_NON_EXECUTABLE_JAVA_BINARY,
                 incompatibleDisableNonExecutableJavaBinary)
+            .setBool(
+                INCOMPATIBLE_DISABLE_TARGET_DEFAULT_PROVIDER_FIELDS,
+                incompatibleDisableTargetDefaultProviderFields)
             .setBool(EXPERIMENTAL_RULE_EXTENSION_API, experimentalRuleExtensionApi)
+            .setBool(SEPARATE_ASPECT_DEPS, separateAspectDeps)
             .build();
     return INTERNER.intern(semantics);
   }
@@ -849,6 +895,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "+incompatible_do_not_split_linking_cmdline";
   public static final String INCOMPATIBLE_JAVA_COMMON_PARAMETERS =
       "+incompatible_java_common_parameters";
+  public static final String INCOMPATIBLE_JAVA_INFO_MERGE_RUNTIME_MODULE_FLAGS =
+      "-incompatible_java_info_merge_runtime_module_flags";
   public static final String INCOMPATIBLE_NO_ATTR_LICENSE = "+incompatible_no_attr_license";
   public static final String INCOMPATIBLE_NO_PACKAGE_DISTRIBS = "-incompatible_no_package_distribs";
   public static final String INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT =
@@ -883,7 +931,10 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-incompatible_enable_proto_toolchain_resolution";
   public static final String INCOMPATIBLE_DISABLE_NON_EXECUTABLE_JAVA_BINARY =
       "-incompatible_disable_non_executable_java_binary";
+  public static final String INCOMPATIBLE_DISABLE_TARGET_DEFAULT_PROVIDER_FIELDS =
+      "-incompatible_disable_target_default_provider_fields";
   public static final String EXPERIMENTAL_RULE_EXTENSION_API = "-experimental_rule_extension_api";
+  public static final String SEPARATE_ASPECT_DEPS = "-separate_aspect_deps";
 
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =

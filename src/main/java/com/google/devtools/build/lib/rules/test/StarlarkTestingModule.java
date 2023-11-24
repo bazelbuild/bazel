@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.starlarkbuildapi.test.TestingModuleApi;
+import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.regex.Pattern;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -90,13 +91,31 @@ public class StarlarkTestingModule implements TestingModuleApi {
 
     LabelConverter labelConverter = LabelConverter.forBzlEvaluatingThread(thread);
 
-    // TODO(b/291752414): The digest of the rule class is incorrect. It is usually based on the
-    // transitive digest of the .bzl being initialized. But since we're in a BUILD-evaluating
-    // thread, we should use the transitive digest of the BUILD file. This is not currently
-    // computed, but could be added to PackageFunction. In the meantime, we use a dummy empty digest
-    // for all analysis_test-generated rule classes.
+    // Each call to analysis_test defines a rule class (the code right below this comment here) and
+    // then instantiates a *single* target of that rule class (the code at the end of this method).
+    //
+    // For normal Starlark-defined rule classes we're supposed to pass in the label of the bzl file
+    // being initialized at the time the rule class is defined, as well as the transitive digest of
+    // that bzl and all bzls it loads (for purposes of being sensitive to e.g. changes to the rule
+    // class's implementation function). For analysis_test this is currently infeasible because
+    // there is no such bzl file (since we're in a BUILD-evaluating thread) and we don't currently
+    // track the transitive digest of BUILD files and the bzls they load.
+    //
+    // In acknowledge of this infeasibility, we used to use a constant digest for all calls to
+    // analysis_test. This caused issues due to how the digest is used as part of the cache key of
+    // deserialized rule classes. To address that, we now use the combo of the package name and the
+    // target name (this works since we don't currently try to deserialize the same rule class
+    // produced at different source versions). See http://b/291752414#comment6.
+    //
+    // The digest is also used for purposes to detecting changes to a rule class across source
+    // versions; see blaze_query.Rule.skylark_environment_hash_code. So we're still incorrect there.
+    // See http://b/291752414#comment9 and http://b/291752414#comment10.
+    // TODO(b/291752414): Fix.
     Label dummyBzlFile = Label.createUnvalidated(PackageIdentifier.EMPTY_PACKAGE_ID, "dummy_label");
-    byte[] dummyDigest = new byte[0];
+    Fingerprint fingerprint = new Fingerprint();
+    fingerprint.addString(pkgContext.getLabel().getPackageName());
+    fingerprint.addString(name);
+    byte[] transitiveDigestToUse = fingerprint.digestAndReset();
 
     StarlarkRuleFunction starlarkRuleFunction =
         StarlarkRuleClassFunctions.createRule(
@@ -105,11 +124,12 @@ public class StarlarkTestingModule implements TestingModuleApi {
             thread.getCallerLocation(),
             callStack,
             dummyBzlFile,
-            dummyDigest,
+            transitiveDigestToUse,
             labelConverter,
             thread.getSemantics(),
             // rule() parameters.
             /* parent= */ null,
+            /* extendableUnchecked= */ false,
             implementation,
             /* initializer= */ null,
             /* test= */ true,

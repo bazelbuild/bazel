@@ -67,6 +67,8 @@ public class IncrementalPackageRoots implements PackageRoots {
   private final Path execroot;
   private final Root singleSourceRoot;
   private final String prefix;
+
+  private final ImmutableSet<Path> ignoredPaths;
   private final boolean useSiblingRepositoryLayout;
 
   private final boolean allowExternalRepositories;
@@ -80,12 +82,14 @@ public class IncrementalPackageRoots implements PackageRoots {
       Root singleSourceRoot,
       EventBus eventBus,
       String prefix,
+      ImmutableSet<Path> ignoredPaths,
       boolean useSiblingRepositoryLayout,
       boolean allowExternalRepositories) {
     this.threadSafeExternalRepoPackageRootsMap = Maps.newConcurrentMap();
     this.execroot = execroot;
     this.singleSourceRoot = singleSourceRoot;
     this.prefix = prefix;
+    this.ignoredPaths = ignoredPaths;
     this.eventBus = eventBus;
     this.useSiblingRepositoryLayout = useSiblingRepositoryLayout;
     this.allowExternalRepositories = allowExternalRepositories;
@@ -96,6 +100,7 @@ public class IncrementalPackageRoots implements PackageRoots {
       Root singleSourceRoot,
       EventBus eventBus,
       String prefix,
+      ImmutableSet<Path> ignoredPaths,
       boolean useSiblingRepositoryLayout,
       boolean allowExternalRepositories) {
     IncrementalPackageRoots incrementalPackageRoots =
@@ -104,6 +109,7 @@ public class IncrementalPackageRoots implements PackageRoots {
             singleSourceRoot,
             eventBus,
             prefix,
+            ignoredPaths,
             useSiblingRepositoryLayout,
             allowExternalRepositories);
     eventBus.register(incrementalPackageRoots);
@@ -140,7 +146,11 @@ public class IncrementalPackageRoots implements PackageRoots {
     try {
       maybeConflictingBaseNamesLowercase =
           SymlinkForest.eagerlyPlantSymlinkForestSinglePackagePath(
-              execroot, singleSourceRoot.asPath(), prefix, useSiblingRepositoryLayout);
+              execroot,
+              singleSourceRoot.asPath(),
+              prefix,
+              ignoredPaths,
+              useSiblingRepositoryLayout);
     } catch (IOException e) {
       throwAbruptExitException(e);
     }
@@ -212,18 +222,18 @@ public class IncrementalPackageRoots implements PackageRoots {
           String originalBaseName = pkgId.getTopLevelDir();
           String baseNameLowercase = Ascii.toLowerCase(originalBaseName);
 
-          if (originalBaseName.isEmpty()
-              || !maybeConflictingBaseNamesLowercase.contains(baseNameLowercase)
-              || !SymlinkForest.symlinkShouldBePlanted(
-                  prefix, useSiblingRepositoryLayout, originalBaseName)) {
-            // We should have already eagerly planted a symlink for this, or there's nothing to do.
-            continue;
-          }
-
           // As Skymeld only supports single package path at the moment, we only seek to symlink to
           // the top-level dir i.e. what's directly under the source root.
           Path link = execroot.getRelative(originalBaseName);
           Path target = singleSourceRoot.getRelative(originalBaseName);
+
+          if (originalBaseName.isEmpty()
+              || !maybeConflictingBaseNamesLowercase.contains(baseNameLowercase)
+              || !SymlinkForest.symlinkShouldBePlanted(
+                  prefix, ignoredPaths, useSiblingRepositoryLayout, originalBaseName, target)) {
+            // We should have already eagerly planted a symlink for this, or there's nothing to do.
+            continue;
+          }
 
           if (lazilyPlantedSymlinksLocalRef.add(link)) {
             try {

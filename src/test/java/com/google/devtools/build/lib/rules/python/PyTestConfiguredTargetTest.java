@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
@@ -46,6 +47,7 @@ public class PyTestConfiguredTargetTest extends PyExecutableConfiguredTargetTest
     useConfiguration("--cpu=darwin_x86_64", "--platforms=//mockplatforms:macos");
     scratch.file(
         "pkg/BUILD", //
+        getPyLoad("py_test"),
         "py_test(",
         "    name = 'foo',",
         "    srcs = ['foo.py'],",
@@ -60,6 +62,7 @@ public class PyTestConfiguredTargetTest extends PyExecutableConfiguredTargetTest
   public void nonMacDoesNotRequireDarwinForExecution() throws Exception {
     scratch.file(
         "pkg/BUILD", //
+        getPyLoad("py_test"),
         "py_test(",
         "    name = 'foo',",
         "    srcs = ['foo.py'],",

@@ -19,7 +19,7 @@
 #include <cinttypes>  // For size_t on Windows
 
 // GCC-specific features
-#if (defined(COMPILER_GCC3) || defined(__APPLE__)) && !defined(SWIG)
+#if defined(__GNUC__) && !defined(SWIG)
 
 //
 // Tell the compiler to do printf format string checking if the

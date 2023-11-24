@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import java.io.IOException;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.junit.After;
@@ -125,7 +126,7 @@ public class WorkerFactoryTest {
 
     assertThat(workerFactory.validateObject(workerKey, new DefaultPooledObject<>(worker))).isTrue();
 
-    worker.setDoomed(true);
+    worker.getStatus().maybeUpdateStatus(Status.KILLED_DUE_TO_MEMORY_PRESSURE);
 
     assertThat(workerFactory.validateObject(workerKey, new DefaultPooledObject<>(worker)))
         .isFalse();

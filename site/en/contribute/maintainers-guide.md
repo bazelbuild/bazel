@@ -173,7 +173,7 @@ issues.
 *   [`team-Android`](https://github.com/bazelbuild/bazel/labels/team-Android){: .external}: Issues for Android team
     *   Contact: [ahumesky](https://github.com/ahumesky){: .external}
 *   [`team-Bazel`](https://github.com/bazelbuild/bazel/labels/team-Bazel){: .external}: General Bazel product/strategy issues
-    * Contact: [sventiffe](https://github.com/sventiffe){: .external}
+    * Contact: [meisterT](https://github.com/meisterT){: .external}
 *   [`team-CLI`](https://github.com/bazelbuild/bazel/labels/team-CLI){: .external}: Console UI
     * Contact: [meisterT](https://github.com/meisterT){: .external}
 *   [`team-Configurability`](https://github.com/bazelbuild/bazel/labels/team-Configurability){: .external}: Issues for Configurability team. Includes: Core build configuration and transition system. Does *not* include: Changes to new or existing flags
@@ -181,7 +181,6 @@ issues.
 *   [`team-Core`](https://github.com/bazelbuild/bazel/labels/team-Core){: .external}: Skyframe, bazel query, BEP, options parsing, bazelrc
     * Contact: [haxorz](https://github.com/haxorz){: .external}
 *   [`team-Documentation`](https://github.com/bazelbuild/bazel/labels/team-Documentation){: .external}: Issues for Documentation team
-    * Contact: [philomathing](https://github.com/philomathing){: .external}
 *   [`team-ExternalDeps`](https://github.com/bazelbuild/bazel/labels/team-ExternalDeps){: .external}: External dependency handling, Bzlmod, remote repositories, WORKSPACE file
     * Contact: [meteorcloudy](https://github.com/meteorcloudy){: .external}
 *   [`team-Loading-API`](https://github.com/bazelbuild/bazel/labels/team-Loading-API){: .external}: BUILD file and macro processing: labels, package(), visibility, glob
@@ -197,7 +196,7 @@ issues.
 *   [`team-Rules-API`](https://github.com/bazelbuild/bazel/labels/team-Rules-API){: .external}: API for writing rules/aspects: providers, runfiles, actions, artifacts
     * Contact: [comius](https://github.com/comius){: .external}
 *   [`team-Rules-CPP`](https://github.com/bazelbuild/bazel/labels/team-Rules-CPP){: .external} / [`team-Rules-ObjC`](https://github.com/bazelbuild/bazel/labels/team-Rules-ObjC){: .external}: Issues for C++/Objective-C rules, including native Apple rule logic
-    * Contact: [oquenchil](https://github.com/oquenchil){: .external}
+    * Contact: [buildbreaker2021](https://github.com/buildbreaker2021){: .external}
 *   [`team-Rules-Java`](https://github.com/bazelbuild/bazel/labels/team-Rules-Java){: .external}: Issues for Java rules
     * Contact: [hvadehra](https://github.com/hvadehra){: .external}
 *   [`team-Rules-Python`](https://github.com/bazelbuild/bazel/labels/team-Rules-Python){: .external}: Issues for the native Python rules

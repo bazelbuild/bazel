@@ -55,7 +55,7 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
    * See https://j2objc.org/reference/j2objc.html for flag documentation.
    */
   private static final ImmutableList<String> J2OBJC_DEFAULT_TRANSLATION_FLAGS =
-      ImmutableList.of("-g");
+      ImmutableList.of("-g:relative"); // Java source debugging with WORKSPACE-relative paths.
 
   /** The j2objc flag to generate ARC-compatible code. */
   private static final String J2OBJC_USE_ARC_FLAG = "-use-arc";

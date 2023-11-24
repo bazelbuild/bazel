@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -169,7 +168,11 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     // Override BuildViewTestCase's behavior of setting all sorts of extra options that don't exist
     // on our minimal rule class provider.
     // We do need the host platform. Set it to something trivial.
-    return ImmutableList.of("--host_platform=//minimal_buildenv/platforms:default_host");
+    return ImmutableList.of(
+        "--host_platform=//minimal_buildenv/platforms:default_host",
+        // Since this file tests builtins injection, replace the standard exec transition (which is
+        // in builtins) with a no-op to avoid interference.
+        "--experimental_exec_config=//pkg2:dummy_exec_platforms.bzl%noop_transition");
   }
 
   @Override
@@ -192,6 +195,15 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     mockToolsConfig.create(
         "minimal_buildenv/platforms/BUILD", //
         "platform(name = 'default_host')");
+    // No-op exec transition:
+    scratch.overwriteFile("pkg2/BUILD", "");
+    scratch.file(
+        "pkg2/dummy_exec_platforms.bzl",
+        "noop_transition = transition(",
+        "  implementation = lambda settings, attr: { '//command_line_option:is exec configuration':"
+            + " True },",
+        "  inputs = [],",
+        "  outputs = ['//command_line_option:is exec configuration'])");
   }
 
   @Override
@@ -221,6 +233,20 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
   @Before
   public void setUp() throws Exception {
     setBuildLanguageOptionsWithBuiltinsStaging();
+  }
+
+  @Override
+  protected List<String> getDefaultBuildLanguageOptions() throws Exception {
+    ImmutableList.Builder<String> builder = ImmutableList.builder();
+    builder.addAll(super.getDefaultBuildLanguageOptions());
+    // This is important for test initialization. BuildViewTestCase calls initializeSkyframeExecutor
+    // which creates the top-level build configuration. That loads the Starlark exec transition from
+    // a .bzl file (see --experimental_exec_config above). Without this, BzlLoadFunction tries to
+    // resolve the builtins path and exports.bzl, which fails.
+    //
+    // Most tests override this by calling setBuildLanguageOptionsWithBuiltinsStaging()
+    builder.add("--experimental_builtins_bzl_path=");
+    return builder.build();
   }
 
   private void setBuildLanguageOptionsWithBuiltinsStaging(String... options) throws Exception {
@@ -382,7 +408,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     writePkgBzl("load('@@_builtins//:exports.bzl', 'exported_toplevels')");
 
     buildAndAssertFailure();
-    assertContainsEvent("The repository '@_builtins' could not be resolved");
+    assertContainsEvent("The repository '@@_builtins' could not be resolved");
   }
 
   @Test

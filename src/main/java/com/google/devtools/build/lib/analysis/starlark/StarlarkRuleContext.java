@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.AliasProvider;
+import com.google.devtools.build.lib.analysis.AspectContext;
 import com.google.devtools.build.lib.analysis.BashCommandConstructor;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
@@ -51,6 +52,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.StarlarkActionContext;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkSubrule.SubruleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -191,8 +193,9 @@ public final class StarlarkRuleContext
    */
   private int resolveCommandScriptCounter = 0;
 
-  // for temporarily freezing mutability, such as while evaluating a subrule
-  private boolean lockedForSubruleEvaluation = false;
+  // for temporarily freezing mutability, while evaluating a subrule this is set to the
+  // corresponding subrule context, or is null otherwise
+  @Nullable private SubruleContext lockedForSubruleEvaluation = null;
 
   /**
    * Creates a new StarlarkRuleContext wrapping ruleContext.
@@ -269,7 +272,8 @@ public final class StarlarkRuleContext
       this.outputsObject = outputs;
 
       // Populate ctx.attr.
-      StarlarkAttributesCollection.Builder builder = StarlarkAttributesCollection.builder(this);
+      StarlarkAttributesCollection.Builder builder =
+          StarlarkAttributesCollection.builder(this, ruleContext.getRulePrerequisitesCollection());
       for (Attribute attribute : attributes) {
         Object value = ruleContext.attributes().get(attribute.getName(), attribute.getType());
         builder.addAttribute(attribute, value);
@@ -284,7 +288,8 @@ public final class StarlarkRuleContext
           ruleContext.getMainAspect().getDefinition().getAttributes().values();
 
       StarlarkAttributesCollection.Builder aspectBuilder =
-          StarlarkAttributesCollection.builder(this);
+          StarlarkAttributesCollection.builder(
+              this, ((AspectContext) ruleContext).getMainAspectPrerequisitesCollection());
       for (Attribute attribute : attributes) {
         Object defaultValue = attribute.getDefaultValue(null);
         if (defaultValue instanceof ComputedDefault) {
@@ -295,7 +300,8 @@ public final class StarlarkRuleContext
       this.attributesCollection = aspectBuilder.build();
 
       this.splitAttributes = null;
-      StarlarkAttributesCollection.Builder ruleBuilder = StarlarkAttributesCollection.builder(this);
+      StarlarkAttributesCollection.Builder ruleBuilder =
+          StarlarkAttributesCollection.builder(this, ruleContext.getRulePrerequisitesCollection());
 
       for (Attribute attribute : rule.getAttributes()) {
         Object value = ruleContext.attributes().get(attribute.getName(), attribute.getType());
@@ -324,12 +330,20 @@ public final class StarlarkRuleContext
     if (isForAspect()) {
       return getRuleContext().getMainAspect().getDefinition().getSubrules();
     } else {
-      return getRuleContext().getRule().getRuleClassObject().getSubrules();
+      return getRuleClassUnderEvaluation().getSubrules();
     }
   }
 
-  void setLockedForSubrule(boolean isLocked) {
-    this.lockedForSubruleEvaluation = isLocked;
+  public RuleClass getRuleClassUnderEvaluation() {
+    return ruleClassUnderEvaluation;
+  }
+
+  void setLockedForSubrule(@Nullable SubruleContext lockedBy) {
+    this.lockedForSubruleEvaluation = lockedBy;
+  }
+
+  SubruleContext getLockedForSubrule() {
+    return lockedForSubruleEvaluation;
   }
 
   /**
@@ -455,7 +469,7 @@ public final class StarlarkRuleContext
    */
   public void close() {
     // Check super was called
-    if (ruleClassUnderEvaluation.getStarlarkParent() != null && !superCalled) {
+    if (ruleClassUnderEvaluation.getStarlarkParent() != null && !superCalled && !isForAspect()) {
       ruleContext.ruleError("'super' was not called.");
     }
 
@@ -556,7 +570,7 @@ public final class StarlarkRuleContext
 
   @Override
   public boolean isImmutable() {
-    return ruleContext == null || lockedForSubruleEvaluation;
+    return ruleContext == null || lockedForSubruleEvaluation != null;
   }
 
   @Override
@@ -585,7 +599,7 @@ public final class StarlarkRuleContext
       BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_RULE_EXTENSION_API);
     }
     checkMutable("super()");
-    if (aspectDescriptor != null) {
+    if (isForAspect()) {
       throw Starlark.errorf("Can't use 'super' call in an aspect.");
     }
     if (ruleClassUnderEvaluation.getStarlarkParent() == null) {

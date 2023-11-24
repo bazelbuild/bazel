@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -31,6 +32,7 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
   private void defineUserlibRule() throws Exception {
     scratch.file(
         "pkg/rules.bzl",
+        getPyLoad("PyInfo"),
         "def _userlib_impl(ctx):",
         "    dep_infos = [dep[PyInfo] for dep in ctx.attr.deps]",
         "    transitive_sources = depset(",
@@ -75,6 +77,7 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
     defineUserlibRule();
     scratch.file(
         "pkg/BUILD",
+        getPyLoad("py_library"),
         "load(':rules.bzl', 'userlib')",
         "userlib(",
         "    name = 'loweruserlib',",
@@ -98,7 +101,7 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
         ")");
     ConfiguredTarget target = getConfiguredTarget("//pkg:upperuserlib");
 
-    PyInfo info = target.get(PyInfo.PROVIDER);
+    PyInfo info = PyInfo.fromTarget(target);
     assertThat(info.getTransitiveSourcesSet().toList())
         .containsExactly(
             getSourceArtifact("pkg/loweruserlib.py"),
@@ -115,6 +118,7 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
   public void runtimeSandwich() throws Exception {
     scratch.file(
         "pkg/rules.bzl",
+        getPyLoad("PyRuntimeInfo"),
         "def _userruntime_impl(ctx):",
         "    info = ctx.attr.runtime[PyRuntimeInfo]",
         "    return [PyRuntimeInfo(",
@@ -134,10 +138,9 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "pkg/BUILD",
-        "load('"
-            + TestConstants.TOOLS_REPOSITORY
-            + "//tools/python:toolchain.bzl', "
-            + "'py_runtime_pair')",
+        getPyLoad("py_binary"),
+        getPyLoad("py_runtime"),
+        getPyLoad("py_runtime_pair"),
         "load(':rules.bzl', 'userruntime')",
         "py_runtime(",
         "    name = 'pyruntime',",

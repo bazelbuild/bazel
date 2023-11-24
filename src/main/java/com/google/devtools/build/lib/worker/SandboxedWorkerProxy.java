@@ -100,6 +100,7 @@ public class SandboxedWorkerProxy extends WorkerProxy {
 
   @Override
   public void finishExecution(Path execRoot, SandboxOutputs outputs) throws IOException {
+    super.finishExecution(execRoot, outputs);
     SandboxHelpers.moveOutputs(outputs, sandboxDir, execRoot);
   }
 

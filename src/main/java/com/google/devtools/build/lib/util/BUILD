@@ -225,6 +225,7 @@ java_library(
     ],
     deps = [
         ":string",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/vfs:ospathpolicy",
@@ -343,6 +344,14 @@ java_library(
     name = "hash_codes",
     srcs = ["HashCodes.java"],
     deps = ["//third_party:jsr305"],
+)
+
+java_library(
+    name = "heap_offset_helper",
+    srcs = ["HeapOffsetHelper.java"],
+    deps = [
+        "//third_party:flogger",
+    ],
 )
 
 java_library(

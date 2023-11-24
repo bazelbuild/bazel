@@ -16,15 +16,13 @@ package com.google.devtools.build.lib.util.io;
 import com.google.protobuf.Message;
 import java.io.IOException;
 
-/**
- * A variation of OutputStream for protobuf messages.
- */
-public interface MessageOutputStream {
+/** A variation of OutputStream for protobuf messages. */
+public interface MessageOutputStream<T extends Message> {
   /**
    * Writes a delimited protocol buffer message in the same format as {@link
    * MessageLite#writeDelimitedTo(java.io.OutputStream)}.
    */
-  void write(Message m) throws IOException;
+  void write(T m) throws IOException;
 
   /** Closes the underlying stream, following writes will fail. */
   void close() throws IOException;

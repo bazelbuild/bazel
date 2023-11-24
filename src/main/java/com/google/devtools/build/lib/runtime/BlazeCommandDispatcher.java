@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.util.io.DelegatingOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
@@ -68,6 +69,7 @@ import com.google.devtools.common.options.OpaqueOptionsData;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.TriState;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.Any;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
@@ -145,6 +147,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
   }
 
   @Override
+  @CanIgnoreReturnValue
   public BlazeCommandResult exec(
       InvocationPolicy invocationPolicy,
       List<String> args,
@@ -153,7 +156,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       String clientDescription,
       long firstContactTimeMillis,
       Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
-      List<Any> commandExtensions)
+      List<Any> commandExtensions,
+      CommandExtensionReporter commandExtensionReporter)
       throws InterruptedException {
     Preconditions.checkNotNull(clientDescription);
     if (args.isEmpty()) { // Default to help command if no arguments specified.
@@ -252,7 +256,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                   startupOptionsTaggedWithBazelRc,
                   commandExtensions,
                   attemptedCommandIds,
-                  lastResult);
+                  lastResult,
+                  commandExtensionReporter);
           break;
         } catch (RemoteCacheEvictedException e) {
           attemptedCommandIds.add(e.getCommandId());
@@ -279,8 +284,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
   }
 
   /**
-   * For testing ONLY. Same as {@link #exec(InvocationPolicy, List, OutErr, LockingMode, String,
-   * long, Optional, List)} but automatically uses the current time.
+   * For testing ONLY. Same as {@link CommandDispatcher#exec(InvocationPolicy, List, OutErr,
+   * LockingMode, String, long, Optional, List, CommandExtensionReporter)} but automatically uses
+   * the current time.
    */
   @VisibleForTesting
   public BlazeCommandResult exec(List<String> args, String clientDescription, OutErr originalOutErr)
@@ -292,8 +298,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         LockingMode.ERROR_OUT,
         clientDescription,
         runtime.getClock().currentTimeMillis(),
-        /*startupOptionsTaggedWithBazelRc=*/ Optional.empty(),
-        /*commandExtensions=*/ ImmutableList.of());
+        /* startupOptionsTaggedWithBazelRc= */ Optional.empty(),
+        /* commandExtensions= */ ImmutableList.of(),
+        /* commandExtensionReporter= */ (ext) -> {});
   }
 
   private BlazeCommandResult execExclusively(
@@ -307,7 +314,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
       List<Any> commandExtensions,
       Set<UUID> attemptedCommandIds,
-      @Nullable BlazeCommandResult lastResult)
+      @Nullable BlazeCommandResult lastResult,
+      CommandExtensionReporter commandExtensionReporter)
       throws RemoteCacheEvictedException {
     // Record the start time for the profiler. Do not put anything before this!
     long execStartTimeNanos = runtime.getClock().nanoTime();
@@ -334,7 +342,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             waitTimeInMs,
             firstContactTime,
             commandExtensions,
-            this::setShutdownReason);
+            this::setShutdownReason,
+            commandExtensionReporter);
 
     if (!attemptedCommandIds.isEmpty()) {
       if (attemptedCommandIds.contains(env.getCommandId())) {

@@ -129,11 +129,6 @@ cc_toolchain_attrs_exec = {
         allow_single_file = True,
         cfg = "exec",
     ),
-    "_default_zipper": attr.label(
-        default = configuration_field(fragment = "cpp", name = "default_zipper"),
-        allow_single_file = True,
-        cfg = "exec",
-    ),
     "_target_libc_top": attr.label(
         default = configuration_field(fragment = "cpp", name = "target_libc_top_DO_NOT_USE_ONLY_FOR_CC_TOOLCHAIN"),
         cfg = "target",

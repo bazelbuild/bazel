@@ -121,7 +121,6 @@ public final class RuleConfiguredTargetBuilder {
     NestedSetBuilder<Artifact> runfilesMiddlemenBuilder = NestedSetBuilder.stableOrder();
     if (runfilesSupport != null) {
       runfilesMiddlemenBuilder.add(runfilesSupport.getRunfilesMiddleman());
-      runfilesMiddlemenBuilder.addTransitive(runfilesSupport.getRunfiles().getExtraMiddlemen());
     }
     NestedSet<Artifact> runfilesMiddlemen = runfilesMiddlemenBuilder.build();
     FilesToRunProvider filesToRunProvider =
@@ -338,17 +337,13 @@ public final class RuleConfiguredTargetBuilder {
    *
    * <p>This is done within {@link RuleConfiguredTargetBuilder} so that every rule always and
    * automatically propagates the validation action output group.
-   *
-   * <p>Note that in addition to {@link LabelClass#DEPENDENCY}, there is also {@link
-   * LabelClass#FILESET_ENTRY}, however the fileset implementation takes care of propagating the
-   * validation action output group itself.
    */
   private void propagateTransitiveValidationOutputGroups() {
     if (outputGroupBuilders.containsKey(OutputGroupInfo.VALIDATION_TRANSITIVE)) {
       Label rdeLabel =
           ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironmentLabel();
       // only allow native and builtins to override transitive validation propagation
-      if (rdeLabel != null && !"@_builtins".equals(rdeLabel.getRepository().getNameWithAt())) {
+      if (rdeLabel != null && !rdeLabel.getRepository().getName().equals("_builtins")) {
         ruleContext.ruleError(rdeLabel + " cannot access the _transitive_validation private API");
         return;
       }

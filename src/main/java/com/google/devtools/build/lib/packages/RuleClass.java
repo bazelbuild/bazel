@@ -33,11 +33,8 @@ import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -51,8 +48,8 @@ import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.Missin
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.AttributeValues;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
 import com.google.devtools.build.lib.util.HashCodes;
@@ -60,7 +57,6 @@ import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.FormatMethod;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -79,6 +75,7 @@ import javax.annotation.concurrent.Immutable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.spelling.SpellChecker;
 
@@ -159,10 +156,11 @@ public class RuleClass implements RuleClassData {
 
   public static final PathFragment THIRD_PARTY_PREFIX = PathFragment.create("third_party");
   public static final PathFragment EXPERIMENTAL_PREFIX = PathFragment.create("experimental");
-  /*
-   * The attribute that declares the set of license labels which apply to this target.
-   */
-  public static final String APPLICABLE_LICENSES_ATTR = "applicable_licenses";
+
+  /** The attribute that declares the set of metadata labels which apply to this target. */
+  public static final String APPLICABLE_METADATA_ATTR = "package_metadata";
+
+  public static final String APPLICABLE_METADATA_ATTR_ALT = "applicable_licenses";
 
   /**
    * A constraint for the package name of the Rule instances.
@@ -752,6 +750,14 @@ public class RuleClass implements RuleClassData {
     private ImmutableList<StarlarkThread.CallStackEntry> callstack = ImmutableList.of();
     private final RuleClassType type;
     @Nullable private RuleClass starlarkParent = null;
+    @Nullable private StarlarkFunction initializer = null;
+    @Nullable private LabelConverter labelConverterForInitializer = null;
+
+    // The extendable may take 3 value, null means that the default allowlist should be use when
+    // rule is extendable in practice.
+    @Nullable private Boolean extendable = null;
+    @Nullable private Label extendableAllowlist = null;
+    @Nullable private Label defaultExtendableAllowlist = null;
     private final boolean starlark;
     private boolean starlarkTestable = false;
     private boolean documented;
@@ -764,7 +770,7 @@ public class RuleClass implements RuleClassData {
         ImmutableList.builder();
     private boolean ignoreLicenses = false;
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
-    private TransitionFactory<RuleTransitionData> transitionFactory;
+    @Nullable private TransitionFactory<RuleTransitionData> transitionFactory;
     private ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory = null;
     private PredicateWithMessage<Rule> validityPredicate = PredicatesWithMessage.alwaysTrue();
     private final AdvertisedProviderSet.Builder advertisedProviders =
@@ -820,7 +826,7 @@ public class RuleClass implements RuleClassData {
       if (parents.length == 1
           && parents[0].isStarlark()
           && parents[0].getRuleClassType() != RuleClassType.ABSTRACT) {
-        // the condition removes {@link StarlarkRuleClasssFunctions.baseRule} and binaryBaseRule,
+        // the condition removes {@link StarlarkRuleClassFunctions.baseRule} and binaryBaseRule,
         // which are marked as Starlark (because of Stardoc) && abstract at the same time
         starlarkParent = parents[0];
         Preconditions.checkArgument(starlarkParent.isExtendable());
@@ -929,14 +935,24 @@ public class RuleClass implements RuleClassData {
         this.useToolchainResolution(ToolchainResolutionMode.DISABLED);
       }
 
-      boolean extendable =
-          starlark
-              && (type == RuleClassType.NORMAL || type == RuleClassType.TEST)
-              && implicitOutputsFunction == ImplicitOutputsFunction.NONE
-              && outputsToBindir
-              && !starlarkTestable
-              && !isAnalysisTest
-              && buildSetting == null;
+      if (starlark
+          && (type == RuleClassType.NORMAL || type == RuleClassType.TEST)
+          && implicitOutputsFunction == ImplicitOutputsFunction.NONE
+          && outputsToBindir
+          && !starlarkTestable
+          && !isAnalysisTest
+          && buildSetting == null) {
+        if (extendable == null) { // The rule can be extended, use fallback
+          extendable = true;
+          extendableAllowlist = defaultExtendableAllowlist;
+        }
+      } else {
+        // This kind of rule can't be extended
+        if (Boolean.TRUE.equals(extendable) || extendableAllowlist != null) {
+          throw new IllegalArgumentException("The rule cannot be extended");
+        }
+        extendable = false;
+      }
 
       return new RuleClass(
           name,
@@ -944,8 +960,11 @@ public class RuleClass implements RuleClassData {
           key,
           type,
           starlarkParent,
+          initializer,
+          labelConverterForInitializer,
           starlark,
           extendable,
+          extendableAllowlist,
           starlarkTestable,
           documented,
           outputsToBindir,
@@ -1020,6 +1039,33 @@ public class RuleClass implements RuleClassData {
           "Concrete Starlark rule classes can't have null labels: %s %s",
           ruleDefinitionEnvironmentLabel,
           type);
+    }
+
+    @CanIgnoreReturnValue
+    public Builder initializer(
+        StarlarkFunction initializer, LabelConverter labelConverterForInitializer) {
+      this.initializer = initializer;
+      this.labelConverterForInitializer = labelConverterForInitializer;
+      return this;
+    }
+
+    public void setExtendableByAllowlist(Label extendableAllowlist) {
+      this.extendable = true;
+      this.extendableAllowlist = extendableAllowlist;
+    }
+
+    /** Set the rule extendable or not, without an allowlist. */
+    public void setExtendable(boolean extendable) {
+      this.extendable = extendable;
+      this.extendableAllowlist = null;
+    }
+
+    /**
+     * Sets the default allowlist, which is used as a fallback, when user doesn't set extendable or
+     * extendable by allowlist
+     */
+    public void setDefaultExtendableAllowlist(Label extendableAllowlist) {
+      this.defaultExtendableAllowlist = extendableAllowlist;
     }
 
     /**
@@ -1124,25 +1170,7 @@ public class RuleClass implements RuleClassData {
     }
 
     /**
-     * Applies the given transition to all incoming edges for this rule class.
-     *
-     * <p>This cannot be a {@link SplitTransition} because that requires coordination with the
-     * rule's parent: use {@link Attribute.Builder#cfg(TransitionFactory)} on the parent to declare
-     * splits.
-     *
-     * <p>If you need the transition to depend on the rule it's being applied to, use {@link
-     * #cfg(TransitionFactory)}.
-     */
-    public Builder cfg(PatchTransition transition) {
-      // Make sure this is cast to Serializable to avoid autocodec serialization errors.
-      return cfg((TransitionFactory<RuleTransitionData> & Serializable) unused -> transition);
-    }
-
-    /**
      * Applies the given transition factory to all incoming edges for this rule class.
-     *
-     * <p>Unlike {@link #cfg(PatchTransition)}, the factory can examine the rule when deciding what
-     * transition to use.
      */
     @CanIgnoreReturnValue
     public Builder cfg(TransitionFactory<RuleTransitionData> transitionFactory) {
@@ -1344,6 +1372,16 @@ public class RuleClass implements RuleClassData {
 
     public ImmutableList<? extends StarlarkSubruleApi> getSubrules() {
       return subrules;
+    }
+
+    public ImmutableSet<? extends StarlarkSubruleApi> getParentSubrules() {
+      ImmutableSet.Builder<StarlarkSubruleApi> builder = ImmutableSet.builder();
+      RuleClass currentParent = starlarkParent;
+      while (currentParent != null) {
+        builder.addAll(starlarkParent.getSubrules());
+        currentParent = currentParent.starlarkParent;
+      }
+      return builder.build();
     }
 
     @CanIgnoreReturnValue
@@ -1635,8 +1673,11 @@ public class RuleClass implements RuleClassData {
 
   private final RuleClassType type;
   @Nullable private final RuleClass starlarkParent;
+  @Nullable private final StarlarkFunction initializer;
+  @Nullable private final LabelConverter labelConverterForInitializer;
   private final boolean isStarlark;
   private final boolean extendable;
+  @Nullable private final Label extendableAllowlist;
   private final boolean starlarkTestable;
   private final boolean documented;
   private final boolean outputsToBindir;
@@ -1673,7 +1714,7 @@ public class RuleClass implements RuleClassData {
    * A factory which will produce a configuration transition that should be applied on any edge of
    * the configured target graph that leads into a target of this rule class.
    */
-  private final TransitionFactory<RuleTransitionData> transitionFactory;
+  @Nullable private final TransitionFactory<RuleTransitionData> transitionFactory;
 
   /** The factory that creates configured targets from this rule. */
   private final ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory;
@@ -1770,8 +1811,11 @@ public class RuleClass implements RuleClassData {
       String key,
       RuleClassType type,
       RuleClass starlarkParent,
+      @Nullable StarlarkFunction initializer,
+      @Nullable LabelConverter labelConverterForInitializer,
       boolean isStarlark,
       boolean extendable,
+      @Nullable Label extendableAllowlist,
       boolean starlarkTestable,
       boolean documented,
       boolean outputsToBindir,
@@ -1782,7 +1826,7 @@ public class RuleClass implements RuleClassData {
       ImmutableList<AllowlistChecker> allowlistCheckers,
       boolean ignoreLicenses,
       ImplicitOutputsFunction implicitOutputsFunction,
-      TransitionFactory<RuleTransitionData> transitionFactory,
+      @Nullable TransitionFactory<RuleTransitionData> transitionFactory,
       ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory,
       PredicateWithMessage<Rule> validityPredicate,
       AdvertisedProviderSet advertisedProviders,
@@ -1807,8 +1851,11 @@ public class RuleClass implements RuleClassData {
     this.key = key;
     this.type = type;
     this.starlarkParent = starlarkParent;
+    this.initializer = initializer;
+    this.labelConverterForInitializer = labelConverterForInitializer;
     this.isStarlark = isStarlark;
     this.extendable = extendable;
+    this.extendableAllowlist = extendableAllowlist;
     this.targetKind = name + Rule.targetKindSuffix();
     this.starlarkTestable = starlarkTestable;
     this.documented = documented;
@@ -1888,6 +1935,7 @@ public class RuleClass implements RuleClassData {
     return implicitOutputsFunction;
   }
 
+  @Nullable
   public TransitionFactory<RuleTransitionData> getTransitionFactory() {
     return transitionFactory;
   }
@@ -1904,6 +1952,16 @@ public class RuleClass implements RuleClassData {
 
   public RuleClass getStarlarkParent() {
     return this.starlarkParent;
+  }
+
+  @Nullable
+  public StarlarkFunction getInitializer() {
+    return initializer;
+  }
+
+  @Nullable
+  public LabelConverter getLabelConverterForInitializer() {
+    return labelConverterForInitializer;
   }
 
   /**
@@ -2147,6 +2205,12 @@ public class RuleClass implements RuleClassData {
         continue;
       }
 
+      // If the user sets "applicable_liceneses", change it to the correct name.
+      // TODO(aiuto): In the time frame of Bazel 9, remove this alternate spelling.
+      if (attributeName.equals(APPLICABLE_METADATA_ATTR_ALT)) {
+        attributeName = APPLICABLE_METADATA_ATTR;
+      }
+
       // Check that the attribute's name belongs to a valid attribute for this rule class.
       Integer attrIndex = getAttributeIndex(attributeName);
       if (attrIndex == null) {
@@ -2183,7 +2247,8 @@ public class RuleClass implements RuleClassData {
       if (attributeValues.valuesAreBuildLanguageTyped()) {
         try {
           nativeAttributeValue =
-              convertFromBuildLangType(rule, attr, attributeValue, labelConverter, listInterner);
+              BuildType.convertFromBuildLangType(
+                  rule.getRuleClass(), attr, attributeValue, labelConverter, listInterner);
         } catch (ConversionException e) {
           rule.reportError(String.format("%s: %s", rule.getLabel(), e.getMessage()), eventHandler);
           continue;
@@ -2254,30 +2319,29 @@ public class RuleClass implements RuleClassData {
       } else if (attr.isLateBound()) {
         rule.setAttributeValue(attr, attr.getLateBoundDefault(), /*explicit=*/ false);
 
-      } else if (attr.getName().equals(APPLICABLE_LICENSES_ATTR)
+      } else if (attr.getName().equals(APPLICABLE_METADATA_ATTR)
           && attr.getType() == BuildType.LABEL_LIST) {
-        // The check here is preventing against a corner case where the license() rule can get
-        // itself as an applicable_license. This breaks the graph because there is now a self-edge.
+        // The check here is preventing against a corner case where the license()/package_info()
+        // rule can get itself as applicable_metadata. This breaks the graph because there is now a
+        // self-edge.
         //
         // There are two ways that I can see to resolve this. The first, what is shown here, simply
-        // prunes the attribute if the source is a new-style license rule, based on what's been
-        // provided publicly. This does create a tight coupling to the implementation, but this is
-        // unavoidable since licenses are no longer a first-class type but we want first class
+        // prunes the attribute if the source is a new-style license/metadata rule, based on what's
+        // been provided publicly. This does create a tight coupling to the implementation, but this
+        // is unavoidable since licenses are no longer a first-class type but we want first class
         // behavior in Bazel core.
         //
         // A different approach that would not depend on the implementation of the rule could filter
-        // the list of default_applicable_licenses and not include the license rule if it matches
+        // the list of default_applicable_metadata and not include the metadata rule if it matches
         // the name of the current rule. This obviously fixes the self-assignment rule, but the
         // resulting graph is semantically strange. The interpretation of the graph would be that
-        // the license rule is subject to the licenses of the *other* default licenses, but not
-        // itself. That looks very odd, and it's not semantically accurate. A license rule transmits
-        // no license obligation, so the correct semantics would be to have no
-        // default_applicable_licenses applied. This begs the question, if the self-edge is
-        // detected, why not simply drop all the default_applicable_licenses attributes and avoid
-        // this oddness? That would work and fix the self-edge problem, but for nodes that don't
-        // have the self-edge problem, they would get all default_applicable_licenses and now the
-        // graph is inconsistent in that some license() rules have applicable_licenses while others
-        // do not.
+        // the metadata rule is subject to the metadata of the *other* default metadata, but not
+        // itself. That looks very odd, and it's not semantically accurate.
+        // As an alternate, if the self-edge is detected, why not simply drop all the
+        // default_applicable_metadata attributes and avoid this oddness? That would work and
+        // fix the self-edge problem, but for nodes that don't have the self-edge problem, they
+        // would get all default_applicable_metadata and now the graph is inconsistent in that some
+        // license() rules have applicable_metadata while others do not.
         if (rule.getRuleClassObject().isPackageMetadataRule()) {
           rule.setAttributeValue(attr, ImmutableList.of(), /* explicit= */ false);
         }
@@ -2419,69 +2483,6 @@ public class RuleClass implements RuleClassData {
                 "In rule '%s', timeout '%s' is not a valid timeout.", rule.getName(), timeout),
             eventHandler);
       }
-    }
-  }
-
-  /**
-   * Converts the build-language-typed {@code buildLangValue} to a native value via {@link
-   * BuildType#selectableConvert}. Canonicalizes the value's order if it is a {@link List} type and
-   * {@code attr.isOrderIndependent()} returns {@code true}.
-   *
-   * <p>Throws {@link ConversionException} if the conversion fails, or if {@code buildLangValue} is
-   * a selector expression but {@code attr.isConfigurable()} is {@code false}.
-   */
-  private static Object convertFromBuildLangType(
-      Rule rule,
-      Attribute attr,
-      Object buildLangValue,
-      LabelConverter labelConverter,
-      Interner<ImmutableList<?>> listInterner)
-      throws ConversionException {
-    Object converted =
-        BuildType.selectableConvert(
-            attr.getType(),
-            buildLangValue,
-            new AttributeConversionContext(attr.getName(), rule.getRuleClass()),
-            labelConverter);
-
-    if ((converted instanceof SelectorList<?>) && !attr.isConfigurable()) {
-      throw new ConversionException(
-          String.format("attribute \"%s\" is not configurable", attr.getName()));
-    }
-
-    if (converted instanceof List<?>) {
-      if (attr.isOrderIndependent()) {
-        @SuppressWarnings("unchecked")
-        List<? extends Comparable<?>> list = (List<? extends Comparable<?>>) converted;
-        converted = Ordering.natural().sortedCopy(list);
-      }
-      // It's common for multiple rule instances in the same package to have the same value for some
-      // attributes. As a concrete example, consider a package having several 'java_test' instances,
-      // each with the same exact 'tags' attribute value.
-      converted = listInterner.intern(ImmutableList.copyOf((List<?>) converted));
-    }
-
-    return converted;
-  }
-
-  /**
-   * Provides a {@link #toString()} description of the attribute being converted for
-   * {@link BuildType#selectableConvert}. This is preferred over a raw string to avoid uselessly
-   * constructing strings which are never used. A separate class instead of inline to avoid
-   * accidental memory leaks.
-   */
-  private static class AttributeConversionContext {
-    private final String attrName;
-    private final String ruleClass;
-
-    AttributeConversionContext(String attrName, String ruleClass) {
-      this.attrName = attrName;
-      this.ruleClass = ruleClass;
-    }
-
-    @Override
-    public String toString() {
-      return "attribute '" + attrName + "' in '" + ruleClass + "' rule";
     }
   }
 
@@ -2649,6 +2650,11 @@ public class RuleClass implements RuleClassData {
     return extendable;
   }
 
+  @Nullable
+  public Label getExtendableAllowlist() {
+    return extendableAllowlist;
+  }
+
   /** Returns true if this RuleClass is Starlark-defined and is subject to analysis-time tests. */
   public boolean isStarlarkTestable() {
     return starlarkTestable;
@@ -2718,13 +2724,13 @@ public class RuleClass implements RuleClassData {
    *
    * <p>The intended use is to detect if this rule is of a type which would be used in <code>
    * default_package_metadata</code>, so that we don't apply it to an instanced of itself when
-   * <code>applicable_licenses</code> is left unset. Doing so causes a self-referential loop. To
+   * <code>applicable_metadata</code> is left unset. Doing so causes a self-referential loop. To
    * prevent that, we are overly cautious at this time, treating all rules from <code>@rules_license
    * </code> as potential metadata rules.
    *
    * <p>Most users will only use declarations from <code>@rules_license</code>. If they which to
    * create organization local rules, they must be careful to avoid loops by explicitly setting
-   * <code>applicable_licenses</code> on each of the metadata targets they define, so that default
+   * <code>applicable_metadata</code> on each of the metadata targets they define, so that default
    * processing is not an issue.
    */
   public boolean isPackageMetadataRule() {

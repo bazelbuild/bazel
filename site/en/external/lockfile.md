@@ -119,11 +119,33 @@ explanations for each section:
   },
   "moduleExtensions": {
     "//:extension.bzl%lockfile_ext": {
-      "transitiveDigest": "oWDzxG/aLnyY6Ubrfy....+Jp6maQvEPxn0pBM=",
-      "generatedRepoSpecs": {
-        "hello": {
-          "bzlFile": "@@//:extension.bzl",
-          ...
+      "general": {
+        "transitiveDigest": "oWDzxG/aLnyY6Ubrfy....+Jp6maQvEPxn0pBM=",
+        "generatedRepoSpecs": {
+          "hello": {
+            "bzlFile": "@@//:extension.bzl",
+            ...
+          }
+        }
+      }
+    },
+    "//:extension.bzl%lockfile_ext2": {
+      "os:macos": {
+        "transitiveDigest": "oWDzxG/aLnyY6Ubrfy....+Jp6maQvEPxn0pBM=",
+        "generatedRepoSpecs": {
+          "hello": {
+            "bzlFile": "@@//:extension.bzl",
+            ...
+          }
+        }
+      },
+      "os:linux": {
+        "transitiveDigest": "eWDzxG/aLsyY3Ubrto....+Jp4maQvEPxn0pLK=",
+        "generatedRepoSpecs": {
+          "hello": {
+            "bzlFile": "@@//:extension.bzl",
+            ...
+          }
         }
       }
     }
@@ -160,9 +182,14 @@ that are no longer utilized. In other words, if an extension is not being used
 anymore across the dependency graph, it is removed from the `moduleExtensions`
 map.
 
-Each entry in this map corresponds to a used extension and is identified by its
-containing file and name. The corresponding value for each entry contains the
-relevant information associated with that extension:
+If an extension is independent of the operating system or architecture type,
+this section features only a single "general" entry. Otherwise, multiple
+entries are included, named after the OS, architecture, or both, with each
+corresponding to the result of evaluating the extension on those specifics.
+
+Each entry in the extension map corresponds to a used extension and is
+identified by its containing file and name. The corresponding value for each
+entry contains the relevant information associated with that extension:
 
 1.  The `transitiveDigest` the digest of the extension implementation and its
     transitive .bzl files.

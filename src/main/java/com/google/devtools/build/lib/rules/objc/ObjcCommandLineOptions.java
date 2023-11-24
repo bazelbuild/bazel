@@ -151,14 +151,4 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "No-op. Kept here for backwards compatibility.")
   public boolean incompatibleDisableNativeAppleBinaryRule;
-
-  @Override
-  public FragmentOptions getExec() {
-    ObjcCommandLineOptions exec = (ObjcCommandLineOptions) getDefault();
-    exec.incompatibleAvoidHardcodedObjcCompilationFlags =
-        incompatibleAvoidHardcodedObjcCompilationFlags;
-    exec.incompatibleDisallowSdkFrameworksAttributes = incompatibleDisallowSdkFrameworksAttributes;
-    exec.incompatibleObjcAlwayslinkByDefault = incompatibleObjcAlwayslinkByDefault;
-    return exec;
-  }
 }

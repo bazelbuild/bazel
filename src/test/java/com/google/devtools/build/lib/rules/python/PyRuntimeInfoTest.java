@@ -68,7 +68,7 @@ public class PyRuntimeInfoTest extends BuildViewTestCase {
   }
 
   private PyRuntimeInfo getPyRuntimeInfo() throws Exception {
-    return getConfiguredTarget("//:subject").get(PyRuntimeInfo.PROVIDER);
+    return PyRuntimeInfo.fromTarget(getConfiguredTarget("//:subject"));
   }
 
   private void assertContainsError(String pattern) throws Exception {

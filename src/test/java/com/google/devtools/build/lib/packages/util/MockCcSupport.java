@@ -278,7 +278,7 @@ public abstract class MockCcSupport {
             "cc/private/rules_impl/BUILD")) {
       try {
         config.create(
-            TestConstants.RULES_CC_REPOSITORY_SCRATCH + path,
+            "third_party/bazel_rules/rules_cc/" + path,
             ResourceLoader.readFromResources(TestConstants.RULES_CC_REPOSITORY_EXECROOT + path));
       } catch (Exception e) {
         throw new RuntimeException("Couldn't read rules_cc file from " + path, e);

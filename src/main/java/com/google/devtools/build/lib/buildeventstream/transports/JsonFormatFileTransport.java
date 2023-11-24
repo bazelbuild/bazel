@@ -16,13 +16,19 @@ package com.google.devtools.build.lib.buildeventstream.transports;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions.BesUploadMode;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
+import com.google.gson.GsonBuilder;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
+import com.google.protobuf.util.JsonFormat.Printer;
+import com.google.protobuf.util.JsonFormat.TypeRegistry;
 import java.io.BufferedOutputStream;
 
 /**
@@ -30,12 +36,23 @@ import java.io.BufferedOutputStream;
  * representation of the events to a file.
  */
 public final class JsonFormatFileTransport extends FileTransport {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
+  private static final String UNKNOWN_ANY_TYPE_ERROR_EVENT =
+      new GsonBuilder().create().toJson(new UnknownAnyProtoError());
+
+  private final Printer jsonPrinter;
+
   public JsonFormatFileTransport(
       BufferedOutputStream outputStream,
       BuildEventProtocolOptions options,
       BuildEventArtifactUploader uploader,
-      ArtifactGroupNamer namer) {
-    super(outputStream, options, uploader, namer);
+      ArtifactGroupNamer namer,
+      TypeRegistry typeRegistry,
+      BesUploadMode besUploadMode) {
+    super(outputStream, options, uploader, namer, besUploadMode);
+    jsonPrinter =
+        JsonFormat.printer().usingTypeRegistry(typeRegistry).omittingInsignificantWhitespace();
   }
 
   @Override
@@ -47,14 +64,24 @@ public final class JsonFormatFileTransport extends FileTransport {
   protected byte[] serializeEvent(BuildEventStreamProtos.BuildEvent buildEvent) {
     String protoJsonRepresentation;
     try {
-      protoJsonRepresentation =
-          JsonFormat.printer().omittingInsignificantWhitespace().print(buildEvent) + "\n";
+      protoJsonRepresentation = jsonPrinter.print(buildEvent);
     } catch (InvalidProtocolBufferException e) {
       // We don't expect any unknown Any fields in our protocol buffer. Nevertheless, handle
       // the exception gracefully and, at least, return valid JSON with an id field.
-      protoJsonRepresentation =
-          "{\"id\" : \"unknown\", \"exception\" : \"InvalidProtocolBufferException\"}\n";
+      logger.atWarning().withCause(e).log(
+          "Failed to serialize to JSON due to Any type resolution failure: %s", buildEvent);
+      protoJsonRepresentation = UNKNOWN_ANY_TYPE_ERROR_EVENT;
     }
-    return protoJsonRepresentation.getBytes(UTF_8);
+    return (protoJsonRepresentation + "\n").getBytes(UTF_8);
+  }
+
+  /** Error produced when serializing an {@code Any} protobuf whose contained type is unknown. */
+  @VisibleForTesting
+  static class UnknownAnyProtoError {
+    @SuppressWarnings({"FieldCanBeStatic", "unused"}) // Used by Gson formatting; cannot be static
+    private final String id = "unknown";
+
+    @SuppressWarnings({"FieldCanBeStatic", "unused"}) // Used by Gson formatting; cannot be static
+    private final String exception = "InvalidProtocolBufferException";
   }
 }

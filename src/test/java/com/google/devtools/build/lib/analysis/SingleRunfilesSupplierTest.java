@@ -61,7 +61,7 @@ public final class SingleRunfilesSupplierTest {
             RunfileSymlinksMode.SKIP,
             /* buildRunfileLinks= */ false);
 
-    assertThat(underTest.getArtifacts().toList()).containsExactlyElementsIn(artifacts);
+    assertThat(underTest.getAllArtifacts().toList()).containsExactlyElementsIn(artifacts);
   }
 
   @Test
@@ -108,7 +108,7 @@ public final class SingleRunfilesSupplierTest {
     assertThat(overridden.getRunfilesDirs()).containsExactly(newDir);
     assertThat(overridden.getMappings())
         .containsExactly(newDir, Iterables.getOnlyElement(original.getMappings().values()));
-    assertThat(overridden.getArtifacts()).isEqualTo(original.getArtifacts());
+    assertThat(overridden.getAllArtifacts()).isEqualTo(original.getAllArtifacts());
     assertThat(overridden.getManifests()).isEqualTo(original.getManifests());
   }
 

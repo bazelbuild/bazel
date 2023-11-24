@@ -493,7 +493,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
 
     // Install a validator.
     this.validator =
-        (pkg2, packageOverhead, eventHandler) -> {
+        (pkg2, eventHandler) -> {
           if (pkg2.getName().equals("x")) {
             eventHandler.handle(Event.warn("warning event"));
             throw new InvalidPackageException(pkg2.getPackageIdentifier(), "nope");

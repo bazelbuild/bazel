@@ -31,6 +31,7 @@ import java.util.Set;
 class WorkerProxy extends Worker {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   protected final WorkerMultiplexer workerMultiplexer;
+
   /** The execution root of the worker. This is the CWD of the worker process. */
   protected final Path workDir;
 
@@ -40,7 +41,8 @@ class WorkerProxy extends Worker {
       Path logFile,
       WorkerMultiplexer workerMultiplexer,
       Path workDir) {
-    super(workerKey, workerId, logFile);
+    // Worker proxies of the same multiplexer share a WorkerProcessStatus.
+    super(workerKey, workerId, logFile, workerMultiplexer.getStatus());
     this.workDir = workDir;
     this.workerMultiplexer = workerMultiplexer;
   }
@@ -83,9 +85,6 @@ class WorkerProxy extends Worker {
   WorkResponse getResponse(int requestId) throws InterruptedException, IOException {
     return workerMultiplexer.getResponse(requestId);
   }
-
-  @Override
-  public void finishExecution(Path execRoot, SandboxOutputs outputs) throws IOException {}
 
   @Override
   boolean diedUnexpectedly() {

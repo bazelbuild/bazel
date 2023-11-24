@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.util.io.CommandExtensionReporter.NO_OP_COMMAND_EXTENSION_REPORTER;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -165,7 +166,14 @@ public final class RemoteModuleTest {
     BlazeWorkspace workspace = runtime.initWorkspace(directories, BinTools.empty(directories));
     Command command = BuildCommand.class.getAnnotation(Command.class);
     return workspace.initCommand(
-        command, options, new ArrayList<>(), 0, 0, ImmutableList.of(), s -> {});
+        command,
+        options,
+        /* warnings= */ new ArrayList<>(),
+        /* waitTimeInMs= */ 0,
+        /* commandStartTime= */ 0,
+        /* commandExtensions= */ ImmutableList.of(),
+        /* shutdownReasonConsumer= */ s -> {},
+        NO_OP_COMMAND_EXTENSION_REPORTER);
   }
 
   static class CapabilitiesImpl extends CapabilitiesImplBase {
