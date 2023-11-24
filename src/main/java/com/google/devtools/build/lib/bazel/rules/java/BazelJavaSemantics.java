@@ -71,9 +71,6 @@ public class BazelJavaSemantics implements JavaSemantics {
       Template.forResource(BazelJavaSemantics.class, "java_stub_template.txt");
   private static final String CLASSPATH_PLACEHOLDER = "%classpath%";
 
-  private static final String BAZEL_TEST_RUNNER_MAIN_CLASS =
-      "com.google.testing.junit.runner.BazelTestRunner";
-
   private BazelJavaSemantics() {}
 
   private static final String JAVA_TOOLCHAIN_TYPE =
@@ -92,17 +89,8 @@ public class BazelJavaSemantics implements JavaSemantics {
   }
 
   @Override
-  public void checkRule(RuleContext ruleContext, JavaCommon javaCommon) {
-  }
-
-  @Override
   public void checkForProtoLibraryAndJavaProtoLibraryOnSameProto(
       RuleContext ruleContext, JavaCommon javaCommon) {}
-
-  @Override
-  public String getTestRunnerMainClass() {
-    return BAZEL_TEST_RUNNER_MAIN_CLASS;
-  }
 
   @Override
   public ImmutableList<Artifact> collectResources(RuleContext ruleContext) {

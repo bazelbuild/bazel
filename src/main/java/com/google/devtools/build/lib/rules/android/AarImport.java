@@ -161,7 +161,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
             /* compileDeps = */ targets,
             /* runtimeDeps = */ targets,
             /* bothDeps = */ targets);
-    javaSemantics.checkRule(ruleContext, common);
+    androidSemantics.checkRule(ruleContext, common);
 
     JavaConfiguration javaConfig = ruleContext.getFragment(JavaConfiguration.class);
     JavaCompilationArtifacts.Builder javaCompilationArtifactsBuilder =

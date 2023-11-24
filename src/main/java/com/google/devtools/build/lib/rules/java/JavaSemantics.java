@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 
 import com.google.common.collect.ImmutableList;
@@ -28,7 +27,6 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -81,42 +79,9 @@ public interface JavaSemantics {
           JavaConfiguration.class,
           (rule, attributes, javaConfig) -> ImmutableList.copyOf(javaConfig.getPlugins()));
 
-  /** Implementation for the :proguard attribute. */
-  @SerializationConstant
-  LabelLateBoundDefault<JavaConfiguration> PROGUARD =
-      LabelLateBoundDefault.fromTargetConfiguration(
-          JavaConfiguration.class,
-          null,
-          (rule, attributes, javaConfig) -> javaConfig.getProguardBinary());
-
-  @SerializationConstant
-  LabelLateBoundDefault<JavaConfiguration> BYTECODE_OPTIMIZER =
-      LabelLateBoundDefault.fromTargetConfiguration(
-          JavaConfiguration.class,
-          null,
-          (rule, attributes, javaConfig) -> {
-            // Use a modicum of smarts to avoid implicit dependencies where we don't need them.
-            boolean hasProguardSpecs =
-                attributes.has("proguard_specs")
-                    && !attributes.get("proguard_specs", LABEL_LIST).isEmpty();
-            JavaConfiguration.NamedLabel optimizer = javaConfig.getBytecodeOptimizer();
-            if ((!hasProguardSpecs && !javaConfig.runLocalJavaOptimizations())
-                || !optimizer.label().isPresent()) {
-              return null;
-            }
-            return optimizer.label().get();
-          });
-
   String JACOCO_METADATA_PLACEHOLDER = "%set_jacoco_metadata%";
   String JACOCO_MAIN_CLASS_PLACEHOLDER = "%set_jacoco_main_class%";
   String JACOCO_JAVA_RUNFILES_ROOT_PLACEHOLDER = "%set_jacoco_java_runfiles_root%";
-
-  /**
-   * Verifies if the rule contains any errors.
-   *
-   * <p>Errors should be signaled through {@link RuleContext}.
-   */
-  void checkRule(RuleContext ruleContext, JavaCommon javaCommon) throws RuleErrorException;
 
   /**
    * Verifies there are no conflicts in protos.
@@ -131,8 +96,6 @@ public interface JavaSemantics {
    * attribute)
    */
   ImmutableList<Artifact> collectResources(RuleContext ruleContext) throws RuleErrorException;
-
-  String getTestRunnerMainClass();
 
   /**
    * Constructs the command line to call SingleJar to join all artifacts from {@code classpath}

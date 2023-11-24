@@ -310,7 +310,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             resourceApk.asDataBindingContext(),
             /* isLibrary */ false,
             shouldCompileJavaSrcs);
-    javaSemantics.checkRule(ruleContext, javaCommon);
+    androidSemantics.checkRule(ruleContext, javaCommon);
     javaSemantics.checkForProtoLibraryAndJavaProtoLibraryOnSameProto(ruleContext, javaCommon);
 
     AndroidCommon androidCommon = new AndroidCommon(javaCommon, /* asNeverLink= */ true);

@@ -188,7 +188,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
             resourceApk.asDataBindingContext(),
             /* isLibrary */ true,
             /* shouldCompileJavaSrcs */ true);
-    javaSemantics.checkRule(ruleContext, javaCommon);
+    androidSemantics.checkRule(ruleContext, javaCommon);
     AndroidCommon androidCommon = new AndroidCommon(javaCommon);
 
     // As android_library makes use of the Java rule compilation pipeline, we collect all

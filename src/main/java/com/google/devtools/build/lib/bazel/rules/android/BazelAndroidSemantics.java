@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidDataContext;
 import com.google.devtools.build.lib.rules.android.AndroidSemantics;
 import com.google.devtools.build.lib.rules.android.ProguardHelper.ProguardOutput;
+import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 
 /**
@@ -45,6 +46,8 @@ public class BazelAndroidSemantics implements AndroidSemantics {
                   "src/tools/android/java/com/google/devtools/build/android/incrementaldeployment"))
           .add(PackageIdentifier.createUnchecked("bazel_tools", "tools/android"))
           .build();
+  private static final String BAZEL_TEST_RUNNER_MAIN_CLASS =
+      "com.google.testing.junit.runner.BazelTestRunner";
 
   private BazelAndroidSemantics() {}
 
@@ -181,5 +184,13 @@ public class BazelAndroidSemantics implements AndroidSemantics {
   public Artifact getObfuscatedConstantStringMap(RuleContext ruleContext)
       throws InterruptedException {
     return null;
+  }
+
+  @Override
+  public void checkRule(RuleContext ruleContext, JavaCommon javaCommon) {}
+
+  @Override
+  public String getTestRunnerMainClass() {
+    return BAZEL_TEST_RUNNER_MAIN_CLASS;
   }
 }

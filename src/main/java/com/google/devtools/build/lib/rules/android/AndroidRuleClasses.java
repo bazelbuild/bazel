@@ -814,7 +814,7 @@ public final class AndroidRuleClasses {
           .add(
               attr(":bytecode_optimizer", LABEL)
                   .cfg(ExecutionTransitionFactory.createFactory())
-                  .value(JavaSemantics.BYTECODE_OPTIMIZER))
+                  .value(AndroidSemantics.BYTECODE_OPTIMIZER))
           // We need the C++ toolchain for every sub-configuration to get the correct linker.
           .add(
               attr("$cc_toolchain_split", LABEL)

@@ -117,7 +117,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
             resourceApk.asDataBindingContext(),
             /* isLibrary */ false,
             /* shouldCompileJavaSrcs */ true);
-    javaSemantics.checkRule(ruleContext, javaCommon);
+    androidSemantics.checkRule(ruleContext, javaCommon);
 
     // Use the regular Java javacopts, plus any extra needed for databinding. Enforcing
     // android-compatible Java (-source 7 -target 7 and no TWR) is unnecessary for robolectric tests
@@ -223,7 +223,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       executable = ruleContext.createOutputArtifact();
     }
 
-    String mainClass = javaSemantics.getTestRunnerMainClass();
+    String mainClass = androidSemantics.getTestRunnerMainClass();
     String originalMainClass = mainClass;
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
       mainClass =
