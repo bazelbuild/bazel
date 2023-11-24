@@ -280,9 +280,9 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             new IOException("Unsupported protocol: " + url.getProtocol()), Transience.PERSISTENT);
       }
       if (!checksumGiven) {
-        //if (!Ascii.equalsIgnoreCase("http", url.getProtocol())) {
+        if (!Ascii.equalsIgnoreCase("http", url.getProtocol())) {
           urls.add(url);
-        // }
+        }
       } else {
         urls.add(url);
       }
