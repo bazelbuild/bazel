@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
 import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
@@ -77,6 +78,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Future;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -363,6 +366,114 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     return StarlarkInfo.create(StructProvider.STRUCT, out.buildOrThrow(), Location.BUILTIN);
   }
 
+  private static class PendingDownload {
+    private final boolean executable;
+    private final boolean allowFail;
+    private final StarlarkPath outputPath;
+    private final Optional<Checksum> checksum;
+    private final RepositoryFunctionException checksumValidation;
+    private final Future<Path> future;
+    private PendingDownload(boolean executable, boolean allowFail,
+        StarlarkPath outputPath, Optional<Checksum> checksum,
+        RepositoryFunctionException checksumValidation, Future<Path> future) {
+      this.executable = executable;
+      this.allowFail = allowFail;
+      this.outputPath = outputPath;
+      this.checksum = checksum;
+      this.checksumValidation = checksumValidation;
+      this.future = future;
+    }
+  }
+
+  private PendingDownload startDownload(
+      Object url,
+      Object output,
+      String sha256,
+      Boolean executable,
+      Boolean allowFail,
+      String canonicalId,
+      Dict<?, ?> authUnchecked, // <String, Dict> expected
+      String integrity,
+      StarlarkThread thread)
+      throws RepositoryFunctionException, EvalException, InterruptedException {
+    ImmutableMap<URI, Map<String, List<String>>> authHeaders =
+        getAuthHeaders(getAuthContents(authUnchecked, "auth"));
+
+    ImmutableList<URL> urls =
+        getUrls(
+            url,
+            /*ensureNonEmpty=*/ !allowFail,
+            /*checksumGiven=*/ !Strings.isNullOrEmpty(sha256) || !Strings.isNullOrEmpty(integrity));
+    Optional<Checksum> checksum;
+    RepositoryFunctionException checksumValidation = null;
+    try {
+      checksum = validateChecksum(sha256, integrity, urls);
+    } catch (RepositoryFunctionException e) {
+      checksum = Optional.<Checksum>empty();
+      checksumValidation = e;
+    }
+
+    StarlarkPath outputPath = getPath("download()", output);
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newDownloadEvent(
+            urls,
+            output.toString(),
+            sha256,
+            integrity,
+            executable,
+            getIdentifyingStringForLogging(),
+            thread.getCallerLocation());
+    env.getListener().post(w);
+
+    try {
+      checkInOutputDirectory("write", outputPath);
+      makeDirectories(outputPath.getPath());
+    } catch (IOException e) {
+      return new PendingDownload(executable, allowFail, outputPath, checksum, checksumValidation,
+          Futures.immediateFailedFuture(e));
+    }
+    Future<Path> downloadFuture =
+        downloadManager.startDownload(
+            urls,
+            authHeaders,
+            checksum,
+            canonicalId,
+            Optional.<String>empty(),
+            outputPath.getPath(),
+            env.getListener(),
+            envVariables,
+            getIdentifyingStringForLogging());
+    return new PendingDownload(executable, allowFail, outputPath, checksum,
+        checksumValidation, downloadFuture);
+  }
+
+  private StructImpl completeDownload(PendingDownload pendingDownload)
+      throws RepositoryFunctionException, InterruptedException {
+    Path downloadedPath;
+    try (SilentCloseable c =
+        Profiler.instance().profile("fetching: " + getIdentifyingStringForLogging())) {
+      downloadedPath = downloadManager.finalizeDownload(pendingDownload.future);
+      if (pendingDownload.executable) {
+        pendingDownload.outputPath.getPath().setExecutable(true);
+      }
+    } catch (IOException e) {
+      if (pendingDownload.allowFail) {
+        return StarlarkInfo.create(
+            StructProvider.STRUCT, ImmutableMap.of("success", false), Location.BUILTIN);
+      } else {
+        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+      }
+    } catch (InvalidPathException e) {
+      throw new RepositoryFunctionException(
+          Starlark.errorf("Could not create output path %s: %s", pendingDownload.outputPath, e.getMessage()),
+          Transience.PERSISTENT);
+    }
+    if (pendingDownload.checksumValidation != null) {
+      throw pendingDownload.checksumValidation;
+    }
+
+    return calculateDownloadResult(pendingDownload.checksum, downloadedPath);
+  }
   @StarlarkMethod(
       name = "download",
       doc =
@@ -378,6 +489,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
               @ParamType(type = String.class),
               @ParamType(type = Iterable.class, generic1 = String.class),
             },
+            defaultValue = "None",
             named = true,
             doc = "List of mirror URLs referencing the same file."),
         @Param(
@@ -390,6 +502,14 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             defaultValue = "''",
             named = true,
             doc = "path to the output file, relative to the repository directory."),
+        @Param(
+            name = "requests",
+            allowedTypes = {
+                @ParamType(type = Iterable.class, generic1 = Dict.class),
+            },
+            defaultValue = "None",
+            named = true,
+            doc = "List of requests to make."),
         @Param(
             name = "sha256",
             defaultValue = "''",
@@ -439,6 +559,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   public StructImpl download(
       Object url,
       Object output,
+      Object requests,
       String sha256,
       Boolean executable,
       Boolean allowFail,
@@ -447,70 +568,9 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       String integrity,
       StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    ImmutableMap<URI, Map<String, List<String>>> authHeaders =
-        getAuthHeaders(getAuthContents(authUnchecked, "auth"));
-
-    ImmutableList<URL> urls =
-        getUrls(
-            url,
-            /*ensureNonEmpty=*/ !allowFail,
-            /*checksumGiven=*/ !Strings.isNullOrEmpty(sha256) || !Strings.isNullOrEmpty(integrity));
-    Optional<Checksum> checksum;
-    RepositoryFunctionException checksumValidation = null;
-    try {
-      checksum = validateChecksum(sha256, integrity, urls);
-    } catch (RepositoryFunctionException e) {
-      checksum = Optional.<Checksum>empty();
-      checksumValidation = e;
-    }
-
-    StarlarkPath outputPath = getPath("download()", output);
-    WorkspaceRuleEvent w =
-        WorkspaceRuleEvent.newDownloadEvent(
-            urls,
-            output.toString(),
-            sha256,
-            integrity,
-            executable,
-            getIdentifyingStringForLogging(),
-            thread.getCallerLocation());
-    env.getListener().post(w);
-    Path downloadedPath;
-    try (SilentCloseable c =
-        Profiler.instance().profile("fetching: " + getIdentifyingStringForLogging())) {
-      checkInOutputDirectory("write", outputPath);
-      makeDirectories(outputPath.getPath());
-      downloadedPath =
-          downloadManager.download(
-              urls,
-              authHeaders,
-              checksum,
-              canonicalId,
-              Optional.<String>empty(),
-              outputPath.getPath(),
-              env.getListener(),
-              envVariables,
-              getIdentifyingStringForLogging());
-      if (executable) {
-        outputPath.getPath().setExecutable(true);
-      }
-    } catch (IOException e) {
-      if (allowFail) {
-        return StarlarkInfo.create(
-            StructProvider.STRUCT, ImmutableMap.of("success", false), Location.BUILTIN);
-      } else {
-        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-      }
-    } catch (InvalidPathException e) {
-      throw new RepositoryFunctionException(
-          Starlark.errorf("Could not create output path %s: %s", outputPath, e.getMessage()),
-          Transience.PERSISTENT);
-    }
-    if (checksumValidation != null) {
-      throw checksumValidation;
-    }
-
-    return calculateDownloadResult(checksum, downloadedPath);
+    PendingDownload download = startDownload(
+        url, output, sha256, executable, allowFail, canonicalId, authUnchecked, integrity, thread);
+    return completeDownload(download);
   }
 
   @StarlarkMethod(
