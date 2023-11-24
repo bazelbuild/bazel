@@ -193,7 +193,7 @@ public class SpawnLogContext implements ActionContext {
     builder.setMnemonic(spawn.getMnemonic());
 
     if (spawn.getTargetLabel() != null) {
-      builder.setTargetLabel(spawn.getTargetLabel());
+      builder.setTargetLabel(spawn.getTargetLabel().toString());
     }
 
     SpawnMetrics metrics = result.getMetrics();
