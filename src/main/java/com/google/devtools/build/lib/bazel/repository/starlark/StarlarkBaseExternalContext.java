@@ -727,7 +727,11 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     } catch (IOException e) {
       throw new RepositoryFunctionException(
           new IOException(
-              "Couldn't delete temporary directory (" + downloadDirectory.getPathString() + ")", e),
+              "Couldn't delete temporary directory ("
+                  + downloadDirectory.getPathString()
+                  + "): "
+                  + e.getMessage(),
+              e),
           Transience.TRANSIENT);
     }
     return downloadResult;
