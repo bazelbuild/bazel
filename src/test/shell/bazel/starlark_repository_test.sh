@@ -2408,4 +2408,167 @@ EOF
     || fail "Expected build to succeed"
 }
 
+
+function test_cred_helper_overrides_starlark_headers() {
+  if "$is_windows"; then
+    # Skip on Windows: credential helper is a Python script.
+    return
+  fi
+
+  setup_credential_helper
+
+  echo "test" > test.txt 
+  sha256="$(sha256sum test.txt | head -c 64)"
+  serve_file_header_dump test.txt credhelper_headers.json
+
+  cat > WORKSPACE <<EOF
+load('//:test.bzl', 'repo')
+repo(name = "foo")
+EOF
+
+  touch BUILD.bazel
+
+  cat > test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.file("BUILD")
+  repository_ctx.download(
+    url = "http://127.0.0.1:$nc_port/test.txt",
+    output = "test.txt",
+    sha256 = "$sha256",
+    headers = {
+      "Authorization": ["should be overidden"],
+      "X-Custom-Token": ["foo"]
+    }
+  )
+
+repo = repository_rule(implementation=_impl, attrs = {})
+EOF
+
+ 
+  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" @foo//:all || fail "expected bazel to succeed"
+
+  headers="${TEST_TMPDIR}/credhelper_headers.json"
+  assert_contains '"Authorization": "Bearer TOKEN"' "$headers"
+  assert_contains '"X-Custom-Token": "foo"' "$headers"
+  assert_not_contains "should be overidden" "$headers"
+}
+
+function test_netrc_overrides_starlark_headers() {
+  echo "test" > test.txt 
+  sha256="$(sha256sum test.txt | head -c 64)"
+  serve_file_header_dump test.txt netrc_headers.json
+
+  cat > WORKSPACE <<EOF
+load('//:test.bzl', 'repo')
+repo(
+  name = "foo",
+  netrc = "@//:.netrc"
+)
+EOF
+
+  touch BUILD.bazel
+
+  cat > .netrc <<EOF
+machine 127.0.0.1
+login foo
+password bar
+EOF
+
+  cat > test.bzl <<EOF
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "read_netrc", "use_netrc")
+
+def _impl(repository_ctx):
+  url = "http://127.0.0.1:$nc_port/test.txt"
+  netrc = read_netrc(repository_ctx, repository_ctx.attr.netrc)
+  auth = use_netrc(netrc, [url], {})
+  repository_ctx.file("BUILD")
+  repository_ctx.download(
+    url = url,
+    output = "test.txt",
+    sha256 = "$sha256",
+    headers = {
+      "Authorization": ["should be overidden"],
+      "X-Custom-Token": ["foo"]
+    },
+    auth = auth
+  )
+
+repo = repository_rule(implementation=_impl, attrs = {"netrc": attr.label()})
+EOF
+
+  
+  bazel build --noenable_bzlmod @foo//:all || fail "expected bazel to succeed"
+
+  headers="${TEST_TMPDIR}/netrc_headers.json"
+  assert_contains '"Authorization": "Basic Zm9vOmJhcg=="' "$headers"
+  assert_contains '"X-Custom-Token": "foo"' "$headers"
+  assert_not_contains "should be overidden" "$headers"
+}
+
+
+function test_starlark_headers_should_override_default_headers() {
+  echo "test" > test.txt 
+  sha256="$(sha256sum test.txt | head -c 64)"
+  serve_file_header_dump test.txt default_headers.json
+
+  cat > WORKSPACE <<EOF
+load('//:test.bzl', 'repo')
+repo(name = "foo")
+EOF
+
+  touch BUILD.bazel
+
+  cat > test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.file("BUILD")
+  repository_ctx.download(
+    url = "http://127.0.0.1:$nc_port/test.txt",
+    output = "test.txt",
+    sha256 = "$sha256",
+    headers = {
+      "Accept": ["application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json"],
+    }
+  )
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:all || fail "expected bazel to succeed"
+
+  headers="${TEST_TMPDIR}/default_headers.json"
+  assert_contains '"Accept": "application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json"' "$headers"
+  assert_not_contains '"Accept": "text/html, image/gif, image/jpeg, */*"' "$headers"
+}
+
+function test_invalid_starlark_headers() {
+  echo "test" > test.txt 
+  sha256="$(sha256sum test.txt | head -c 64)"
+  serve_file_header_dump test.txt invalidheaders.json
+
+  cat > WORKSPACE <<EOF
+load('//:test.bzl', 'repo')
+repo(name = "foo")
+EOF
+
+  touch BUILD.bazel
+
+  cat > test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.file("BUILD")
+  repository_ctx.download(
+    url = "http://127.0.0.1:$nc_port/test.txt",
+    output = "test.txt",
+    sha256 = "$sha256",
+    headers = {
+      "Accept": 1,
+    }
+  )
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:all >& $TEST_log && fail "expected bazel to fail"
+  expect_log "Error in download: got dict<string, int> for 'headers', want dict<string, sequence>"
+}
+
 run_suite "local repository tests"

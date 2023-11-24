@@ -228,11 +228,11 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   throws EvalException {
     // Dict.cast returns Dict<String, raw Dict>.
     @SuppressWarnings({"unchecked", "rawtypes"})
-    Dict<String, List> headersUnchecked = (Dict) Dict.cast(x, String.class, List.class, what);
+    Dict<String, Sequence> headersUnchecked = (Dict) Dict.cast(x, String.class, Sequence.class, what);
     ImmutableMap.Builder<String, List<String>> headers = new ImmutableMap.Builder<>();
 
-    for (Map.Entry<String, List> headerEntry : headersUnchecked.entrySet()) {
-      List<String> headerValue = (List<String>) headerEntry.getValue().stream().map(r -> r.toString()).collect(Collectors.toList());
+    for (Map.Entry<String, Sequence> headerEntry : headersUnchecked.entrySet()) {
+      List<String> headerValue = Sequence.cast(headerEntry.getValue(), String.class, "header values").getImmutableList();
       headers.put(headerEntry.getKey(), headerValue);
     }
     return headers.buildOrThrow();
@@ -280,9 +280,9 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             new IOException("Unsupported protocol: " + url.getProtocol()), Transience.PERSISTENT);
       }
       if (!checksumGiven) {
-        if (!Ascii.equalsIgnoreCase("http", url.getProtocol())) {
+        //if (!Ascii.equalsIgnoreCase("http", url.getProtocol())) {
           urls.add(url);
-        }
+        // }
       } else {
         urls.add(url);
       }
