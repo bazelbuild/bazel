@@ -1,4 +1,6 @@
 load("//:workspace_deps.bzl", "gen_workspace_stanza")
+load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -216,6 +218,12 @@ sh_test(
     }),
 )
 
+write_file(
+    name = "gen_rules_java_repo_name",
+    out = "RULES_JAVA_REPO_NAME",
+    content = [get_canonical_repo_name("@rules_java")],
+)
+
 sh_test(
     name = "bazel_java17_test",
     srcs = ["bazel_java17_test.sh"],
@@ -225,6 +233,7 @@ sh_test(
         "src/java_tools_prebuilt.zip",
     ],
     data = [
+        ":gen_rules_java_repo_name",
         ":test-deps",
         "//src:java_tools_prebuilt_zip",
         "//src:java_tools_zip",
@@ -244,6 +253,7 @@ sh_test(
         "released",
     ],
     data = [
+        ":gen_rules_java_repo_name",
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
@@ -270,6 +280,7 @@ JAVA_VERSIONS_COVERAGE = ("11", "17")
             java_version,
         ],
         data = [
+            ":gen_rules_java_repo_name",
             ":test-deps",
             "//src:java_tools_prebuilt_zip",
             "//src:java_tools_zip",
@@ -296,6 +307,7 @@ JAVA_VERSIONS_COVERAGE = ("11", "17")
             java_version,
         ],
         data = [
+            ":gen_rules_java_repo_name",
             ":test-deps",
             "@bazel_tools//tools/bash/runfiles",
         ],
@@ -481,6 +493,7 @@ sh_test(
         "released",
     ],
     data = [
+        ":gen_rules_java_repo_name",
         ":test-deps",
     ],
     tags = [
@@ -504,6 +517,7 @@ sh_test(
             java_version,
         ],
         data = [
+            ":gen_rules_java_repo_name",
             ":test-deps",
         ],
         tags = [
@@ -529,6 +543,7 @@ sh_test(
             java_version,
         ],
         data = [
+            ":gen_rules_java_repo_name",
             ":test-deps",
             "//src:java_tools_prebuilt_zip",
             "//src:java_tools_zip",
