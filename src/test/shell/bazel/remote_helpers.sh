@@ -179,7 +179,7 @@ function serve_timeout() {
   cd -
 }
 
-# Serves a HTTP 200 Ok response with headers dumped into the body
+# Serves a HTTP 200 Ok response with headers dumped into the file
 function serve_file_header_dump() {
   file_name=served_file.$$
   cat $1 > "${TEST_TMPDIR}/$file_name"

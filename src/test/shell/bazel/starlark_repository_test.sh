@@ -2417,22 +2417,18 @@ function test_cred_helper_overrides_starlark_headers() {
 
   setup_credential_helper
 
-  echo "test" > test.txt 
-  sha256="$(sha256sum test.txt | head -c 64)"
-  serve_file_header_dump test.txt credhelper_headers.json
+  filename="cred_helper_starlark.txt"
+  echo $filename > $filename
+  sha256="$(sha256sum $filename | head -c 64)"
+  serve_file_header_dump $filename credhelper_headers.json
 
-  cat > WORKSPACE <<EOF
-load('//:test.bzl', 'repo')
-repo(name = "foo")
-EOF
-
-  touch BUILD.bazel
+  setup_starlark_repository
 
   cat > test.bzl <<EOF
 def _impl(repository_ctx):
   repository_ctx.file("BUILD")
   repository_ctx.download(
-    url = "http://127.0.0.1:$nc_port/test.txt",
+    url = "http://127.0.0.1:$nc_port/$filename",
     output = "test.txt",
     sha256 = "$sha256",
     headers = {
@@ -2441,7 +2437,7 @@ def _impl(repository_ctx):
     }
   )
 
-repo = repository_rule(implementation=_impl, attrs = {})
+repo = repository_rule(implementation=_impl)
 EOF
 
  
@@ -2454,19 +2450,12 @@ EOF
 }
 
 function test_netrc_overrides_starlark_headers() {
-  echo "test" > test.txt 
-  sha256="$(sha256sum test.txt | head -c 64)"
-  serve_file_header_dump test.txt netrc_headers.json
+  filename="netrc_headers.txt"
+  echo $filename > $filename
+  sha256="$(sha256sum $filename | head -c 64)"
+  serve_file_header_dump $filename netrc_headers.json
 
-  cat > WORKSPACE <<EOF
-load('//:test.bzl', 'repo')
-repo(
-  name = "foo",
-  netrc = "@//:.netrc"
-)
-EOF
-
-  touch BUILD.bazel
+  setup_starlark_repository
 
   cat > .netrc <<EOF
 machine 127.0.0.1
@@ -2478,13 +2467,13 @@ EOF
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "read_netrc", "use_netrc")
 
 def _impl(repository_ctx):
-  url = "http://127.0.0.1:$nc_port/test.txt"
+  url = "http://127.0.0.1:$nc_port/$filename"
   netrc = read_netrc(repository_ctx, repository_ctx.attr.netrc)
   auth = use_netrc(netrc, [url], {})
   repository_ctx.file("BUILD")
   repository_ctx.download(
     url = url,
-    output = "test.txt",
+    output = "$filename",
     sha256 = "$sha256",
     headers = {
       "Authorization": ["should be overidden"],
@@ -2493,11 +2482,11 @@ def _impl(repository_ctx):
     auth = auth
   )
 
-repo = repository_rule(implementation=_impl, attrs = {"netrc": attr.label()})
+repo = repository_rule(implementation=_impl, attrs = {"netrc": attr.label(default = ":.netrc")})
 EOF
 
   
-  bazel build --noenable_bzlmod @foo//:all || fail "expected bazel to succeed"
+  bazel build @foo//:all || fail "expected bazel to succeed"
 
   headers="${TEST_TMPDIR}/netrc_headers.json"
   assert_contains '"Authorization": "Basic Zm9vOmJhcg=="' "$headers"
@@ -2507,28 +2496,26 @@ EOF
 
 
 function test_starlark_headers_should_override_default_headers() {
-  echo "test" > test.txt 
-  sha256="$(sha256sum test.txt | head -c 64)"
-  serve_file_header_dump test.txt default_headers.json
 
-  cat > WORKSPACE <<EOF
-load('//:test.bzl', 'repo')
-repo(name = "foo")
-EOF
+  filename="default_headers.txt"
+  echo $filename > $filename
+  sha256="$(sha256sum $filename | head -c 64)"
+  serve_file_header_dump $filename default_headers.json
 
-  touch BUILD.bazel
+  setup_starlark_repository
 
   cat > test.bzl <<EOF
 def _impl(repository_ctx):
   repository_ctx.file("BUILD")
   repository_ctx.download(
-    url = "http://127.0.0.1:$nc_port/test.txt",
-    output = "test.txt",
+    url = "http://127.0.0.1:$nc_port/$filename",
+    output = "$filename",
     sha256 = "$sha256",
     headers = {
       "Accept": ["application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json"],
     }
   )
+  print("here")
 
 repo = repository_rule(implementation=_impl)
 EOF
@@ -2541,23 +2528,20 @@ EOF
 }
 
 function test_invalid_starlark_headers() {
-  echo "test" > test.txt 
-  sha256="$(sha256sum test.txt | head -c 64)"
-  serve_file_header_dump test.txt invalidheaders.json
 
-  cat > WORKSPACE <<EOF
-load('//:test.bzl', 'repo')
-repo(name = "foo")
-EOF
+  filename="invalid_headers.txt"
+  echo $filename > $filename
+  sha256="$(sha256sum $filename | head -c 64)"
+  serve_file_header_dump $filename invalid_headers.json
 
-  touch BUILD.bazel
+  setup_starlark_repository
 
   cat > test.bzl <<EOF
 def _impl(repository_ctx):
   repository_ctx.file("BUILD")
   repository_ctx.download(
-    url = "http://127.0.0.1:$nc_port/test.txt",
-    output = "test.txt",
+    url = "http://127.0.0.1:$nc_port/$filename",
+    output = "$filename",
     sha256 = "$sha256",
     headers = {
       "Accept": 1,
@@ -2567,7 +2551,7 @@ def _impl(repository_ctx):
 repo = repository_rule(implementation=_impl)
 EOF
 
-  bazel build @foo//:all >& $TEST_log && fail "expected bazel to fail"
+  bazel build @foo//:all >& $TEST_log && fail "expected bazel to fail" || :
   expect_log "Error in download: got dict<string, int> for 'headers', want dict<string, sequence>"
 }
 
