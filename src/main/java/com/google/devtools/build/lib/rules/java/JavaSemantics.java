@@ -267,15 +267,6 @@ public interface JavaSemantics {
       ClasspathType type);
 
   /**
-   * Enables coverage support for the java target - adds instrumented jar to the classpath and
-   * modifies main class.
-   *
-   * @return new main class
-   */
-  String addCoverageSupport(JavaCompilationHelper helper, Artifact executable)
-      throws InterruptedException, RuleErrorException;
-
-  /**
    * Add a source artifact to a {@link JavaTargetAttributes.Builder}. It is called when a source
    * artifact is processed but is not matched by default patterns in the {@link
    * JavaTargetAttributes.Builder#addSourceArtifacts(Iterable)} method. The semantics can then

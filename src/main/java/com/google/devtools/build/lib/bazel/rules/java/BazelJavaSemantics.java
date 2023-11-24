@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
-import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
@@ -74,8 +73,6 @@ public class BazelJavaSemantics implements JavaSemantics {
       Template.forResource(BazelJavaSemantics.class, "java_stub_template.txt");
   private static final String CLASSPATH_PLACEHOLDER = "%classpath%";
 
-  private static final String JACOCO_COVERAGE_RUNNER_MAIN_CLASS =
-      "com.google.testing.coverage.JacocoCoverageRunner";
   private static final String BAZEL_TEST_RUNNER_MAIN_CLASS =
       "com.google.testing.junit.runner.BazelTestRunner";
 
@@ -374,18 +371,6 @@ public class BazelJavaSemantics implements JavaSemantics {
   public ImmutableList<String> getCompatibleJavacOptions(
       RuleContext ruleContext, JavaToolchainProvider toolchain) {
     return ImmutableList.of();
-  }
-
-  @Override
-  public String addCoverageSupport(JavaCompilationHelper helper, Artifact executable)
-      throws RuleErrorException {
-    // This method can be called only for *_binary/*_test targets.
-    Preconditions.checkNotNull(executable);
-    helper.addCoverageSupport();
-
-    // We do not add the instrumented jar to the runtime classpath, but provide it in the shell
-    // script via an environment variable.
-    return JACOCO_COVERAGE_RUNNER_MAIN_CLASS;
   }
 
   @Override
