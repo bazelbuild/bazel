@@ -229,8 +229,8 @@ sh_test(
     srcs = ["bazel_java17_test.sh"],
     args = [
         # java_tools zip to test
-        "src/java_tools.zip",
-        "src/java_tools_prebuilt.zip",
+        "$(rlocationpath //src:java_tools_zip)",
+        "$(rlocationpath //src:java_tools_prebuilt_zip)",
     ],
     data = [
         ":gen_rules_java_repo_name",
@@ -272,8 +272,8 @@ JAVA_VERSIONS_COVERAGE = ("11", "17")
         srcs = ["bazel_java_test.sh"],
         args = [
             # java_tools zips to test
-            "src/java_tools.zip",
-            "src/java_tools_prebuilt.zip",
+            "$(rlocationpath //src:java_tools_zip)",
+            "$(rlocationpath //src:java_tools_prebuilt_zip)",
             # --java_language_version value
             java_version,
             # --java_runtime_version value
@@ -299,8 +299,8 @@ JAVA_VERSIONS_COVERAGE = ("11", "17")
         srcs = ["bazel_java_test.sh"],
         args = [
             # java_tools zips to test
-            "$(LOCAL_JAVA_TOOLS_ZIP_URL)",
-            "$(LOCAL_JAVA_TOOLS_PREBUILT_ZIP_URL)",
+            "$(LOCAL_JAVA_TOOLS_ZIP_PATH)",
+            "$(LOCAL_JAVA_TOOLS_PREBUILT_ZIP_PATH)",
             # --java_language_version value
             java_version,
             # --java_runtime_version value
@@ -535,10 +535,10 @@ sh_test(
         srcs = ["bazel_coverage_java_test.sh"],
         args = [
             # java_tools zips to test
-            "src/java_tools.zip",
-            "src/java_tools_prebuilt.zip",
-            # coverage output generator to test
-            "tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator/coverage",
+            "$(rlocationpath //src:java_tools_zip)",
+            "$(rlocationpath //src:java_tools_prebuilt_zip)",
+            # WORKSPACE file of the coverage output generator repo to test
+            "$(rlocationpath //tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_empty_workspace)",
             # --java_runtime_version value
             java_version,
         ],
@@ -547,6 +547,7 @@ sh_test(
             ":test-deps",
             "//src:java_tools_prebuilt_zip",
             "//src:java_tools_zip",
+            "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_empty_workspace",
             "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo",
         ],
         tags = ["no_windows"],

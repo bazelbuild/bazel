@@ -59,7 +59,7 @@ JAVA_TOOLS_REPO_PREFIX="${RULES_JAVA_REPO_NAME}~toolchains~"
 
 JAVA_TOOLS_ZIP="$1"; shift
 if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
-  JAVA_TOOLS_ZIP_FILE="$(rlocation "io_bazel/${JAVA_TOOLS_ZIP}")"
+  JAVA_TOOLS_ZIP_FILE="$(rlocation "${JAVA_TOOLS_ZIP}")"
   JAVA_TOOLS_DIR="$TEST_TMPDIR/_java_tools"
   unzip -q "${JAVA_TOOLS_ZIP_FILE}" -d "$JAVA_TOOLS_DIR"
   touch "$JAVA_TOOLS_DIR/WORKSPACE"
@@ -68,7 +68,7 @@ fi
 
 JAVA_TOOLS_PREBUILT_ZIP="$1"; shift
 if [[ "${JAVA_TOOLS_PREBUILT_ZIP}" != "released" ]]; then
-  JAVA_TOOLS_PREBUILT_ZIP_FILE="$(rlocation "io_bazel/${JAVA_TOOLS_PREBUILT_ZIP}")"
+  JAVA_TOOLS_PREBUILT_ZIP_FILE="$(rlocation "${JAVA_TOOLS_PREBUILT_ZIP}")"
   JAVA_TOOLS_PREBUILT_DIR="$TEST_TMPDIR/_java_tools_prebuilt"
   unzip -q "${JAVA_TOOLS_PREBUILT_ZIP_FILE}" -d "$JAVA_TOOLS_PREBUILT_DIR"
   touch "$JAVA_TOOLS_PREBUILT_DIR/WORKSPACE"
