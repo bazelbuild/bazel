@@ -2178,6 +2178,27 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
+  public void aliasedStarlarkFlag() throws Exception {
+    scratch.file(
+        "test/flagdef.bzl",
+        "def _impl(ctx):",
+        "    return []",
+        "my_flag = rule(",
+        "    implementation = _impl,",
+        "    build_setting = config.string(flag = True))");
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:flagdef.bzl', 'my_flag')",
+        "my_flag(name = 'flag', build_setting_default = 'default')",
+        "alias(name = 'alias', actual = ':flag')",
+        "config_setting(name = 'alias_setting', flag_values = {':alias': 'specified'})");
+
+    useConfiguration(ImmutableMap.of("//test:flag", "specified"));
+    assertThat(getConfigMatchingProviderResultAsBoolean("//test:alias_setting")).isTrue();
+  }
+
+  @Test
   public void simpleStarlarkFlag() throws Exception {
     scratch.file(
         "test/flagdef.bzl",
