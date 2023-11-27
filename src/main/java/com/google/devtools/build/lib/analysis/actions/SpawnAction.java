@@ -382,11 +382,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     // definition and the output of an action shouldn't change whether something is considered a
     // tool or not.
     fp.addPaths(runfilesSupplier.getRunfilesDirs());
-    ImmutableList<Artifact> runfilesManifests = runfilesSupplier.getManifests();
-    fp.addInt(runfilesManifests.size());
-    for (Artifact runfilesManifest : runfilesManifests) {
-      fp.addPath(runfilesManifest.getExecPath());
-    }
     env.addTo(fp);
     fp.addStringMap(getExecutionInfo());
     PathMappers.addToFingerprint(getMnemonic(), getExecutionInfo(), outputPathsMode, fp);
@@ -526,9 +521,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           parent,
           parent.resourceSetOrBuilder);
       NestedSetBuilder<ActionInput> inputsBuilder = NestedSetBuilder.stableOrder();
-      ImmutableList<Artifact> manifests = getRunfilesSupplier().getManifests();
       for (Artifact input : inputs.toList()) {
-        if (!input.isFileset() && !manifests.contains(input)) {
+        if (!input.isFileset()) {
           inputsBuilder.add(input);
         }
       }

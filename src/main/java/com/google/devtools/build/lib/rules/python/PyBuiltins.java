@@ -149,7 +149,6 @@ public abstract class PyBuiltins implements StarlarkValue {
     return new SingleRunfilesSupplier(
         PathFragment.create(runfilesStr),
         runfiles,
-        /* manifest= */ null,
         /* repoMappingManifest= */ null,
         ruleContext.getConfiguration().getRunfileSymlinksMode(),
         ruleContext.getConfiguration().buildRunfileLinks());

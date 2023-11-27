@@ -99,15 +99,6 @@ public final class CompositeRunfilesSupplier implements RunfilesSupplier {
   }
 
   @Override
-  public ImmutableList<Artifact> getManifests() {
-    ImmutableList.Builder<Artifact> result = ImmutableList.builder();
-    for (RunfilesSupplier supplier : suppliers) {
-      result.addAll(supplier.getManifests());
-    }
-    return result.build();
-  }
-
-  @Override
   @Nullable
   public RunfileSymlinksMode getRunfileSymlinksMode(PathFragment runfilesDir) {
     for (RunfilesSupplier supplier : suppliers) {

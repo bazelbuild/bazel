@@ -545,7 +545,6 @@ public final class AnalysisTestUtil {
     return new SingleRunfilesSupplier(
         runfilesDir,
         runfiles,
-        /* manifest= */ null,
         /* repoMappingManifest= */ null,
         RunfileSymlinksMode.SKIP,
         /* buildRunfileLinks= */ false);

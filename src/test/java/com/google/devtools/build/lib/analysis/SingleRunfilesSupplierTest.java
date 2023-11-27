@@ -56,7 +56,6 @@ public final class SingleRunfilesSupplierTest {
         new SingleRunfilesSupplier(
             PathFragment.create("notimportant"),
             mkRunfiles(artifacts),
-            /* manifest= */ null,
             /* repoMappingManifest= */ null,
             RunfileSymlinksMode.SKIP,
             /* buildRunfileLinks= */ false);
@@ -65,39 +64,11 @@ public final class SingleRunfilesSupplierTest {
   }
 
   @Test
-  public void testGetManifestsWhenNone() {
-    RunfilesSupplier underTest =
-        new SingleRunfilesSupplier(
-            PathFragment.create("ignored"),
-            Runfiles.EMPTY,
-            /* manifest= */ null,
-            /* repoMappingManifest= */ null,
-            RunfileSymlinksMode.SKIP,
-            /* buildRunfileLinks= */ false);
-    assertThat(underTest.getManifests()).isEmpty();
-  }
-
-  @Test
-  public void testGetManifestsWhenSupplied() {
-    Artifact manifest = ActionsTestUtil.createArtifact(rootDir, "manifest");
-    RunfilesSupplier underTest =
-        new SingleRunfilesSupplier(
-            PathFragment.create("ignored"),
-            Runfiles.EMPTY,
-            manifest,
-            /* repoMappingManifest= */ null,
-            RunfileSymlinksMode.SKIP,
-            /* buildRunfileLinks= */ false);
-    assertThat(underTest.getManifests()).containsExactly(manifest);
-  }
-
-  @Test
   public void withOverriddenRunfilesDir() {
     SingleRunfilesSupplier original =
         new SingleRunfilesSupplier(
             PathFragment.create("old"),
             Runfiles.EMPTY,
-            ActionsTestUtil.createArtifact(rootDir, "manifest"),
             /* repoMappingManifest= */ null,
             RunfileSymlinksMode.SKIP,
             /* buildRunfileLinks= */ false);
@@ -109,7 +80,6 @@ public final class SingleRunfilesSupplierTest {
     assertThat(overridden.getMappings())
         .containsExactly(newDir, Iterables.getOnlyElement(original.getMappings().values()));
     assertThat(overridden.getAllArtifacts()).isEqualTo(original.getAllArtifacts());
-    assertThat(overridden.getManifests()).isEqualTo(original.getManifests());
   }
 
   @Test
@@ -119,7 +89,6 @@ public final class SingleRunfilesSupplierTest {
         new SingleRunfilesSupplier(
             dir,
             Runfiles.EMPTY,
-            ActionsTestUtil.createArtifact(rootDir, "manifest"),
             /* repoMappingManifest= */ null,
             RunfileSymlinksMode.SKIP,
             /* buildRunfileLinks= */ false);
