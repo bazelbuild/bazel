@@ -49,7 +49,7 @@ class ThreadMetadata implements TraceData {
   }
 
   private static boolean isGCThread(String threadName) {
-    return threadName.equals("Service Thread");
+    return threadName.equals("Notification Thread");
   }
 
   private static String getReadableName(String threadName) {
