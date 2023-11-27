@@ -14,16 +14,20 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -45,9 +49,13 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Set;
+import java.util.SortedMap;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /** Spawn runner that uses Darwin (macOS) sandboxing to execute a process. */
@@ -201,7 +209,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   @Override
   protected SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, ForbiddenActionInputException, InterruptedException {
+      throws IOException, ForbiddenActionInputException, InterruptedException, ExecException {
     // Each invocation of "exec" gets its own sandbox base.
     // Note that the value returned by context.getId() is only unique inside one given SpawnRunner,
     // so we have to prefix our name to turn it into a globally unique value.
@@ -258,7 +266,9 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         allowNetwork
             || Spawns.requiresNetwork(spawn, getSandboxOptions().defaultSandboxAllowNetwork);
 
-      return new SymlinkedSandboxedSpawn(
+    final SortedMap<Path, Path> bindMounts = createAdditionalSymbolicLinks(sandboxExecRoot);
+
+    return new SymlinkedSandboxedSpawn(
           sandboxPath,
           sandboxExecRoot,
           commandLine,
@@ -278,9 +288,50 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
               writableDirs,
               getInaccessiblePaths(),
               allowNetworkForThisSpawn,
-              statisticsPath);
+              statisticsPath,
+              bindMounts.values());
         }
       };
+  }
+
+  private SortedMap<Path, Path> createAdditionalSymbolicLinks(Path sandboxExecRoot)
+      throws UserExecException, IOException, InterruptedException {
+    final SortedMap<Path, Path> bindMounts = Maps.newTreeMap();
+
+    final List<Entry<String, String>> sandboxAdditionalMounts =
+        getSandboxOptions().sandboxAdditionalMounts.stream()
+            .map(
+                entry ->
+                    Maps.immutableEntry(
+                        entry.getKey(),
+                        sandboxExecRoot.getRelative(entry.getValue()).getPathString()))
+            .collect(Collectors.toList());
+
+    SandboxHelpers.mountAdditionalPaths(sandboxAdditionalMounts, sandboxExecRoot, bindMounts);
+    DarwinSandboxUtil.validateBindMounts(sandboxExecRoot, bindMounts);
+    createSymbolicLinksForBindMounts(sandboxExecRoot, bindMounts);
+
+    return bindMounts;
+  }
+
+  private void createSymbolicLinksForBindMounts(Path sandboxExecRootBase, SortedMap<Path, Path> bindMounts)
+      throws IOException, InterruptedException {
+    final List<Path> targetsInSandbox = bindMounts.keySet().stream()
+        .filter(target -> target.startsWith(sandboxExecRootBase))
+        .collect(Collectors.toList());
+    final Set<PathFragment> parentDirectories =
+        targetsInSandbox.stream()
+            .map(target -> checkNotNull(target.getParentDirectory()).asFragment())
+            .collect(Collectors.toSet());
+
+    SandboxHelpers.createDirectories(parentDirectories, sandboxExecRootBase, /* strict= */ false);
+
+    for (Path target : targetsInSandbox) {
+      final Path source = bindMounts.get(target);
+      if (target.startsWith(sandboxExecRootBase)) {
+        target.createSymbolicLink(source);
+      }
+    }
   }
 
   private void writeConfig(
@@ -288,7 +339,8 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       Set<Path> writableDirs,
       Set<Path> inaccessiblePaths,
       boolean allowNetwork,
-      @Nullable Path statisticsPath)
+      @Nullable Path statisticsPath,
+      Collection<Path> additionalWritablePath)
       throws IOException {
     try (PrintWriter out =
         new PrintWriter(
@@ -316,6 +368,13 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       }
       if (statisticsPath != null) {
         out.println("    (literal \"" + statisticsPath.getPathString() + "\")");
+      }
+      for (Path path: additionalWritablePath) {
+        if (path.isDirectory()) {
+          out.println("    (subpath \"" + path.resolveSymbolicLinks().getPathString() + "\")");
+        } else {
+          out.println("    (literal \"" + path.resolveSymbolicLinks().getPathString() + "\")");
+        }
       }
       out.println(")");
 

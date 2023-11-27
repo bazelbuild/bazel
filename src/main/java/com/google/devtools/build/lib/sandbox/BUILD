@@ -249,6 +249,7 @@ java_library(
     ],
     deps = [
         ":abstract_sandbox_spawn_runner",
+        ":darwin_sandbox_util",
         ":sandbox_helpers",
         ":sandboxed_spawns",
         "//src/main/java/com/google/devtools/build/lib:runtime",
@@ -264,6 +265,18 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "darwin_sandbox_util",
+    srcs = ["DarwinSandboxUtil.java"],
+    deps = [
+        ":sandbox_helpers",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
     ],
 )
 
