@@ -614,9 +614,11 @@ public class RunCommand implements BlazeCommand {
       }
 
       try {
-        cmdLine.addAll(TestStrategy.getArgs(testAction));
+        ImmutableList<String> testArgs = TestStrategy.getArgs(testAction);
+        cmdLine.addAll(testArgs);
         cmdLine.addAll(argsFromResidue);
         prettyCmdLine.addAll(cmdLine);
+        redactedCmdLine.addAll(testArgs);
       } catch (ExecException e) {
         throw new RunCommandException(
             reportAndCreateFailureResult(
