@@ -20,7 +20,6 @@ import com.google.protobuf.util.JsonFormat;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 
 /** Creates a MessageOutputStream from an OutputStream. */
 public class MessageOutputStreamWrapper {
@@ -63,45 +62,6 @@ public class MessageOutputStreamWrapper {
     @Override
     public void close() throws IOException {
       stream.close();
-    }
-  }
-
-  /** Outputs the messages in JSON text format */
-  public static class MessageOutputStreamCollection implements MessageOutputStream {
-    private final ArrayList<MessageOutputStream> streams = new ArrayList<>();
-
-    public boolean isEmpty() {
-      return streams.isEmpty();
-    }
-
-    public void addStream(MessageOutputStream m) {
-      streams.add(m);
-    }
-
-    @Override
-    public void write(Message m) throws IOException {
-      for (MessageOutputStream stream : streams) {
-        stream.write(m);
-      }
-    }
-
-    @Override
-    public void close() throws IOException {
-      IOException firstException = null;
-      for (MessageOutputStream stream : streams) {
-        try {
-          stream.close();
-        } catch (IOException e) {
-          if (firstException == null) {
-            firstException = e;
-          } else {
-            firstException.addSuppressed(e);
-          }
-        }
-      }
-      if (firstException != null) {
-        throw firstException;
-      }
     }
   }
 }
