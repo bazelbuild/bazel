@@ -237,11 +237,6 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     // definition and the output of an action shouldn't change whether something is considered a
     // tool or not.
     fp.addPaths(getRunfilesSupplier().getRunfilesDirs());
-    ImmutableList<Artifact> runfilesManifests = getRunfilesSupplier().getManifests();
-    fp.addInt(runfilesManifests.size());
-    for (Artifact runfilesManifest : runfilesManifests) {
-      fp.addPath(runfilesManifest.getExecPath());
-    }
     getEnvironment().addTo(fp);
     fp.addStringMap(executionInfo);
     PathMappers.addToFingerprint(

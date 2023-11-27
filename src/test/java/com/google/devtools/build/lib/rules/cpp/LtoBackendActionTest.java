@@ -173,7 +173,6 @@ public class LtoBackendActionTest extends BuildViewTestCase {
     EXECUTABLE,
     IMPORTS_INFO,
     MNEMONIC,
-    RUNFILES_SUPPLIER,
     INPUT,
     FIXED_ENVIRONMENT
   }
@@ -211,25 +210,13 @@ public class LtoBackendActionTest extends BuildViewTestCase {
 
             builder.setMnemonic(attributesToFlip.contains(KeyAttributes.MNEMONIC) ? "a" : "b");
 
-            if (attributesToFlip.contains(KeyAttributes.RUNFILES_SUPPLIER)) {
-              builder.addRunfilesSupplier(
-                  new SingleRunfilesSupplier(
-                      PathFragment.create("a"),
-                      Runfiles.EMPTY,
-                      artifactA,
-                      /* repoMappingManifest= */ null,
-                      RunfileSymlinksMode.SKIP,
-                      /* buildRunfileLinks= */ false));
-            } else {
-              builder.addRunfilesSupplier(
-                  new SingleRunfilesSupplier(
-                      PathFragment.create("a"),
-                      Runfiles.EMPTY,
-                      artifactB,
-                      /* repoMappingManifest= */ null,
-                      RunfileSymlinksMode.SKIP,
-                      /* buildRunfileLinks= */ false));
-            }
+            builder.addRunfilesSupplier(
+                new SingleRunfilesSupplier(
+                    PathFragment.create("a"),
+                    Runfiles.EMPTY,
+                    /* repoMappingManifest= */ null,
+                    RunfileSymlinksMode.SKIP,
+                    /* buildRunfileLinks= */ false));
 
             if (attributesToFlip.contains(KeyAttributes.INPUT)) {
               builder.addInput(artifactA);

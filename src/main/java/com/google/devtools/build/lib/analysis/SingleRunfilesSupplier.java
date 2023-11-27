@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -38,15 +37,14 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
   private final PathFragment runfilesDir;
   private final Runfiles runfiles;
   private final Supplier<Map<PathFragment, Artifact>> runfilesInputs;
-  @Nullable private final Artifact manifest;
   @Nullable private final Artifact repoMappingManifest;
   private final RunfileSymlinksMode runfileSymlinksMode;
   private final boolean buildRunfileLinks;
 
   /**
-   * Same as {@link SingleRunfilesSupplier#SingleRunfilesSupplier(PathFragment, Runfiles, Artifact,
-   * Artifact, boolean, boolean)}, except adds caching for {@linkplain Runfiles#getRunfilesInputs
-   * runfiles inputs}.
+   * Same as {@link SingleRunfilesSupplier#SingleRunfilesSupplier(PathFragment, Runfiles, boolean,
+   * Artifact, RunfileSymlinksMode, boolean)}, except adds caching for {@linkplain
+   * Runfiles#getRunfilesInputs runfiles inputs}.
    *
    * <p>The runfiles inputs are computed lazily and softly cached. Caching is shared across
    * instances created via {@link #withOverriddenRunfilesDir}.
@@ -61,7 +59,6 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
         runfilesDir,
         runfiles,
         /* runfilesCachingEnabled= */ true,
-        /* manifest= */ null,
         repoMappingManifest,
         runfileSymlinksMode,
         buildRunfileLinks);
@@ -72,9 +69,6 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
    *
    * @param runfilesDir the desired runfiles directory. Should be relative.
    * @param runfiles the runfiles for runilesDir.
-   * @param manifest runfiles' associated runfiles manifest artifact, if present. Important: this
-   *     parameter will be used to filter the resulting spawn's inputs to not poison downstream
-   *     caches.
    * @param runfileSymlinksMode how to create runfile symlinks
    * @param buildRunfileLinks whether runfile symlinks should be created during the build
    */
@@ -82,7 +76,6 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
   public SingleRunfilesSupplier(
       PathFragment runfilesDir,
       Runfiles runfiles,
-      @Nullable Artifact manifest,
       @Nullable Artifact repoMappingManifest,
       RunfileSymlinksMode runfileSymlinksMode,
       boolean buildRunfileLinks) {
@@ -90,7 +83,6 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
         runfilesDir,
         runfiles,
         /* runfilesCachingEnabled= */ false,
-        manifest,
         repoMappingManifest,
         runfileSymlinksMode,
         buildRunfileLinks);
@@ -100,7 +92,6 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
       PathFragment runfilesDir,
       Runfiles runfiles,
       boolean runfilesCachingEnabled,
-      @Nullable Artifact manifest,
       @Nullable Artifact repoMappingManifest,
       RunfileSymlinksMode runfileSymlinksMode,
       boolean buildRunfileLinks) {
@@ -112,7 +103,6 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
             : () ->
                 runfiles.getRunfilesInputs(
                     /* eventHandler= */ null, /* location= */ null, repoMappingManifest),
-        manifest,
         repoMappingManifest,
         runfileSymlinksMode,
         buildRunfileLinks);
@@ -122,7 +112,6 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
       PathFragment runfilesDir,
       Runfiles runfiles,
       Supplier<Map<PathFragment, Artifact>> runfilesInputs,
-      @Nullable Artifact manifest,
       @Nullable Artifact repoMappingManifest,
       RunfileSymlinksMode runfileSymlinksMode,
       boolean buildRunfileLinks) {
@@ -130,7 +119,6 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
     this.runfilesDir = checkNotNull(runfilesDir);
     this.runfiles = checkNotNull(runfiles);
     this.runfilesInputs = checkNotNull(runfilesInputs);
-    this.manifest = manifest;
     this.repoMappingManifest = repoMappingManifest;
     this.runfileSymlinksMode = runfileSymlinksMode;
     this.buildRunfileLinks = buildRunfileLinks;
@@ -149,11 +137,6 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
   @Override
   public ImmutableMap<PathFragment, Map<PathFragment, Artifact>> getMappings() {
     return ImmutableMap.of(runfilesDir, runfilesInputs.get());
-  }
-
-  @Override
-  public ImmutableList<Artifact> getManifests() {
-    return manifest != null ? ImmutableList.of(manifest) : ImmutableList.of();
   }
 
   @Override
@@ -178,7 +161,6 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
             newRunfilesDir,
             runfiles,
             runfilesInputs,
-            manifest,
             repoMappingManifest,
             runfileSymlinksMode,
             buildRunfileLinks);
