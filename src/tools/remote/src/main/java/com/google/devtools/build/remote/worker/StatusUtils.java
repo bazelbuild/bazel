@@ -19,6 +19,7 @@ import com.google.protobuf.Any;
 import com.google.rpc.BadRequest;
 import com.google.rpc.BadRequest.FieldViolation;
 import com.google.rpc.Code;
+import com.google.rpc.PreconditionFailure;
 import com.google.rpc.Status;
 import io.grpc.StatusException;
 import io.grpc.protobuf.StatusProto;
@@ -83,6 +84,25 @@ final class StatusUtils {
     return Status.newBuilder()
         .setCode(Code.FAILED_PRECONDITION.getNumber())
         .setMessage(e.getMessage())
+        .build();
+  }
+
+  static StatusException missingBlobError(Digest digest) {
+    return StatusProto.toStatusException(missingBlobStatus(digest));
+  }
+
+  static com.google.rpc.Status missingBlobStatus(Digest digest) {
+    return Status.newBuilder()
+        .setCode(Code.FAILED_PRECONDITION.getNumber())
+        .setMessage("Missing Blob: " + digest)
+        .addDetails(
+            Any.pack(
+                PreconditionFailure.newBuilder()
+                    .addViolations(
+                        PreconditionFailure.Violation.newBuilder()
+                            .setType("MISSING")
+                            .setSubject("blobs/" + digest.getHash() + "/" + digest.getSizeBytes()))
+                    .build()))
         .build();
   }
 }
