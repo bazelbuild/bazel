@@ -415,16 +415,13 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
     return localFs.getPath(path).getDigest();
   }
 
-  // -------------------- File Permissions --------------------
-  // Remote files are always readable, writable and executable since we can't control their
-  // permissions.
-
   @Override
   protected boolean isReadable(PathFragment path) throws IOException {
     path = resolveSymbolicLinks(path).asFragment();
     try {
       return localFs.getPath(path).isReadable();
     } catch (FileNotFoundException e) {
+      // Remote files are always readable since we can't control their permissions.
       return true;
     }
   }
@@ -435,6 +432,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
     try {
       return localFs.getPath(path).isWritable();
     } catch (FileNotFoundException e) {
+      // Remote files are always writable since we can't control their permissions.
       return true;
     }
   }
@@ -445,6 +443,7 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
     try {
       return localFs.getPath(path).isExecutable();
     } catch (FileNotFoundException e) {
+      // Remote files are always executable since we can't control their permissions.
       return true;
     }
   }
@@ -488,8 +487,6 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
       // Intentionally ignored.
     }
   }
-
-  // -------------------- Symlinks --------------------
 
   @Override
   protected PathFragment readSymbolicLink(PathFragment path) throws IOException {
@@ -552,8 +549,6 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
     var stat = statUnchecked(path, FollowMode.FOLLOW_NONE, StatSources.ALL);
     return stat.isSymbolicLink() ? readSymbolicLink(path) : null;
   }
-
-  // -------------------- Implementations based on stat() --------------------
 
   @Override
   protected long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
@@ -886,15 +881,6 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
     }
     return new Dirent(entry.getName(), direntFromStat(st));
   }
-
-  /*
-   * -------------------- TODO(buchgr): Not yet implemented --------------------
-   *
-   * The below methods have not (yet) been properly implemented due to time constraints mostly and
-   * with little risk as they currently don't seem to be used by internal actions in Bazel. However,
-   * before making the --experimental_remote_download_outputs flag non-experimental we should make
-   * sure to fully implement this file system.
-   */
 
   @Override
   protected void createFSDependentHardLink(PathFragment linkPath, PathFragment originalPath)
