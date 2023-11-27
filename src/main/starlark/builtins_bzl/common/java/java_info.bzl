@@ -566,7 +566,7 @@ def _javainfo_init_base(
         native_headers_jar = native_headers_jar,
         manifest_proto = manifest_proto,
         jdeps = jdeps,
-        source_jars = depset(source_jars) if _java_common_internal._incompatible_depset_for_java_output_source_jars() else source_jars,
+        source_jars = depset(source_jars),
         source_jar = source_jar,  # deprecated
     )]
     result = {
