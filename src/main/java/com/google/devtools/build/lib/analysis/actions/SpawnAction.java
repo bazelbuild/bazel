@@ -520,14 +520,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           parent.getRunfilesSupplier(),
           parent,
           parent.resourceSetOrBuilder);
-      NestedSetBuilder<ActionInput> inputsBuilder = NestedSetBuilder.stableOrder();
-      for (Artifact input : inputs.toList()) {
-        if (!input.isFileset()) {
-          inputsBuilder.add(input);
-        }
-      }
-      inputsBuilder.addAll(additionalInputs);
-      this.inputs = inputsBuilder.build();
+      this.inputs = getNonFilesetInputs(inputs).addAll(additionalInputs).build();
       this.filesetMappings = filesetMappings;
       this.pathMapper = pathMapper;
 
@@ -540,6 +533,27 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         effectiveEnvironment = parent.getEffectiveEnvironment(env);
       }
       this.reportOutputs = reportOutputs;
+    }
+
+    /** Returns a {@link NestedSetBuilder} containing only the non-fileset inputs. */
+    private static NestedSetBuilder<ActionInput> getNonFilesetInputs(NestedSet<Artifact> inputs) {
+      NestedSetBuilder<ActionInput> builder = NestedSetBuilder.stableOrder();
+      // TODO(tjgq): Investigate whether we can avoid flattening when filesetMappings is empty.
+      // This requires auditing getSpawnForExtraAction(), which doesn't appear to propagate the
+      // filesetMappings from the shadowed action.
+      boolean hasFilesets = false;
+      for (Artifact input : inputs.toList()) {
+        if (!input.isFileset()) {
+          builder.add(input);
+        } else {
+          hasFilesets = true;
+        }
+      }
+      // If possible, keep the original nested set. This aids callers that exploit the nested set
+      // structure to perform optimizations (see SpawnInputExpander#walkInputs and its callers).
+      return hasFilesets
+          ? builder
+          : NestedSetBuilder.<ActionInput>stableOrder().addTransitive(inputs);
     }
 
     @Override
