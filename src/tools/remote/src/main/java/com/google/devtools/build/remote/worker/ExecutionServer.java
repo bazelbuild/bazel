@@ -265,7 +265,7 @@ final class ExecutionServer extends ExecutionImplBase {
               ExtensionRegistry.getEmptyRegistry());
       cache.downloadTree(context, action.getInputRootDigest(), execRoot);
     } catch (CacheNotFoundException e) {
-      throw StatusUtils.notFoundError(e.getMissingDigest());
+      throw StatusUtils.missingBlobError(e.getMissingDigest());
     }
 
     Path workingDirectory = execRoot.getRelative(command.getWorkingDirectory());

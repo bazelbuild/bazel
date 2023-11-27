@@ -130,7 +130,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   }
 
   /** Returns {@code true} if Bazel knows that the file is stored on a remote system. */
-  private static boolean isRemoteFile(Path file) {
+  private static boolean isRemoteFile(Path file) throws IOException {
     return file.getFileSystem() instanceof RemoteActionFileSystem
         && ((RemoteActionFileSystem) file.getFileSystem()).isRemote(file);
   }
