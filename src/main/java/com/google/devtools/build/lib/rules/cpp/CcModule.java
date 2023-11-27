@@ -2972,18 +2972,6 @@ public abstract class CcModule
   }
 
   @StarlarkMethod(
-      name = "get_build_info",
-      documented = false,
-      parameters = {@Param(name = "ctx")},
-      useStarlarkThread = true)
-  public Sequence<Artifact> getBuildInfo(StarlarkRuleContext ruleContext, StarlarkThread thread)
-      throws EvalException, InterruptedException {
-    isCalledFromStarlarkCcCommon(thread);
-    return StarlarkList.immutableCopyOf(
-        ruleContext.getRuleContext().getBuildInfo(CppBuildInfo.KEY));
-  }
-
-  @StarlarkMethod(
       name = "create_extra_link_time_library",
       documented = false,
       doc =

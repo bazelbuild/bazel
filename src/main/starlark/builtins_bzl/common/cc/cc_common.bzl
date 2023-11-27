@@ -653,10 +653,6 @@ def _get_tool_requirement_for_action(*, feature_configuration, action_name):
     cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return cc_common_internal.get_tool_requirement_for_action(feature_configuration = feature_configuration, action_name = action_name)
 
-def _get_build_info(ctx):
-    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    return cc_common_internal.get_build_info(ctx)
-
 def _create_extra_link_time_library(*, build_library_func, **kwargs):
     cc_common_internal.check_private_api(allowlist = _BUILTINS)
     return cc_common_internal.create_extra_link_time_library(build_library_func = build_library_func, **kwargs)
@@ -912,7 +908,6 @@ cc_common = struct(
     create_debug_context = _create_debug_context,
     merge_debug_context = _merge_debug_context,
     get_tool_requirement_for_action = _get_tool_requirement_for_action,
-    get_build_info = _get_build_info,
     create_extra_link_time_library = _create_extra_link_time_library,
     register_linkstamp_compile_action = _register_linkstamp_compile_action,
     compile = _compile,
