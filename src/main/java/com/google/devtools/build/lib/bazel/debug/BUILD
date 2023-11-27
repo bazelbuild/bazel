@@ -51,6 +51,7 @@ java_library(
     deps = [
         ":debugging-options",
         ":workspace-rule-event",
+        ":workspace_log_java_proto",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",

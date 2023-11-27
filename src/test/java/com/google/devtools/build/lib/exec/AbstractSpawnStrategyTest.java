@@ -107,7 +107,7 @@ public class AbstractSpawnStrategyTest {
   private ArtifactRoot outputDir;
   @Mock private SpawnRunner spawnRunner;
   @Mock private ActionExecutionContext actionExecutionContext;
-  @Mock private MessageOutputStream messageOutput;
+  @Mock private MessageOutputStream<SpawnExec> messageOutput;
   private StoredEventHandler eventHandler;
   private final ManualClock clock = new ManualClock();
 
@@ -580,7 +580,7 @@ public class AbstractSpawnStrategyTest {
             new TestedSpawnStrategy(execRoot, spawnRunner)
                 .exec(SIMPLE_SPAWN, actionExecutionContext));
 
-    verify(messageOutput).write(argThat((m) -> ((SpawnExec) m).hasMetrics()));
+    verify(messageOutput).write(argThat(SpawnExec::hasMetrics));
   }
 
   @Test
