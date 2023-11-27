@@ -1890,7 +1890,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testImplementationDepsCompilationContextIsNotPropagated() throws Exception {
-    useConfiguration("--experimental_cc_implementation_deps");
     scratch.file(
         "foo/BUILD",
         "cc_binary(",
@@ -1954,7 +1953,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testImplementationDepsLinkingContextIsPropagated() throws Exception {
-    useConfiguration("--experimental_cc_implementation_deps");
     scratch.file(
         "foo/BUILD",
         "cc_binary(",
@@ -2003,7 +2001,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testImplementationDepsDebugContextIsPropagated() throws Exception {
     useConfiguration(
-        "--experimental_cc_implementation_deps",
         "--fission=yes",
         "--features=per_object_debug_info");
     scratch.file(
@@ -2059,7 +2056,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testImplementationDepsRunfilesArePropagated() throws Exception {
-    useConfiguration("--experimental_cc_implementation_deps");
     scratch.file(
         "foo/BUILD",
         "cc_binary(",
@@ -2097,7 +2093,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testImplementationDepsConfigurationHostSucceeds() throws Exception {
-    useConfiguration("--experimental_cc_implementation_deps");
     scratch.file(
         "foo/BUILD",
         "cc_library(",
