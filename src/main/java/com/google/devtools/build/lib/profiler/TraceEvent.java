@@ -39,6 +39,7 @@ public abstract class TraceEvent {
       @Nullable String type,
       @Nullable Duration timestamp,
       @Nullable Duration duration,
+      long processId,
       long threadId,
       @Nullable ImmutableMap<String, Object> args,
       @Nullable String primaryOutputPath,
@@ -50,6 +51,7 @@ public abstract class TraceEvent {
         type,
         timestamp,
         duration,
+        processId,
         threadId,
         args,
         primaryOutputPath,
@@ -71,6 +73,8 @@ public abstract class TraceEvent {
   @Nullable
   public abstract Duration duration();
 
+  public abstract long processId();
+
   public abstract long threadId();
 
   @Nullable
@@ -91,6 +95,7 @@ public abstract class TraceEvent {
     String name = null;
     Duration timestamp = null;
     Duration duration = null;
+    long processId = -1;
     long threadId = -1;
     String primaryOutputPath = null;
     String targetLabel = null;
@@ -117,6 +122,9 @@ public abstract class TraceEvent {
         case "dur":
           duration = Duration.ofNanos(reader.nextLong() * 1000);
           break;
+        case "pid":
+          processId = reader.nextLong();
+          break;
         case "tid":
           threadId = reader.nextLong();
           break;
@@ -141,6 +149,7 @@ public abstract class TraceEvent {
         type,
         timestamp,
         duration,
+        processId,
         threadId,
         args,
         primaryOutputPath,
