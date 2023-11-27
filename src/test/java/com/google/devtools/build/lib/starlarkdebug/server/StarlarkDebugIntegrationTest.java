@@ -41,10 +41,10 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.time.Duration;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -136,7 +136,7 @@ public class StarlarkDebugIntegrationTest extends BuildIntegrationTestCase {
         buildTarget(StarlarkDebugIntegrationTest::createClientAndStartDebugging, "//foo");
     assertThat(result).isNotNull();
 
-    Set<String> deletedFiles = new HashSet<>();
+    Set<String> deletedFiles = ConcurrentHashMap.newKeySet();
     injectListenerAtStartOfNextBuild(
         (key, type, order, context) -> {
           if (Objects.equals(key.functionName(), FileValue.FILE)
