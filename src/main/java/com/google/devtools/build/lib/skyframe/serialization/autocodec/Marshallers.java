@@ -11,10 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
-import static com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationProcessorUtil.isVariableOrWildcardType;
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.getErasure;
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.getTypeMirror;
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.isVariableOrWildcardType;
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.matchesType;
 
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
@@ -63,12 +65,12 @@ class Marshallers {
     if (context.isDeclaredType() && !context.getDeclaredType().getTypeArguments().isEmpty()) {
       for (TypeMirror paramTypeMirror : context.getDeclaredType().getTypeArguments()) {
         if (isVariableOrWildcardType(paramTypeMirror)) {
-          contextTypeName = TypeName.get(env.getTypeUtils().erasure(context.getDeclaredType()));
+          contextTypeName = getErasure(context.getDeclaredType(), env);
         }
       }
       // If we're just a generic or wildcard, get the erasure and use that.
     } else if (isVariableOrWildcardType(context.getTypeMirror())) {
-      contextTypeName = TypeName.get(env.getTypeUtils().erasure(context.getTypeMirror()));
+      contextTypeName = getErasure(context.getTypeMirror(), env);
     }
     if (needsNullHandling) {
       context.builder.addStatement("$T $L = null", contextTypeName, context.name);
@@ -321,7 +323,7 @@ class Marshallers {
       new Marshaller() {
         @Override
         public boolean matches(DeclaredType type) {
-          return matchesType(type, CharSequence.class);
+          return matchesType(type, CharSequence.class, env);
         }
 
         @Override
@@ -399,20 +401,11 @@ class Marshallers {
           supplierMarshaller,
           contextMarshaller);
 
-  /** True when {@code type} has the same type as {@code clazz}. */
-  private boolean matchesType(TypeMirror type, Class<?> clazz) {
-    return env.getTypeUtils().isSameType(type, getType(clazz));
-  }
-
   /** True when erasure of {@code type} matches erasure of {@code clazz}. */
   private boolean matchesErased(TypeMirror type, Class<?> clazz) {
     return env.getTypeUtils()
-        .isSameType(env.getTypeUtils().erasure(type), env.getTypeUtils().erasure(getType(clazz)));
+        .isSameType(
+            env.getTypeUtils().erasure(type),
+            env.getTypeUtils().erasure(getTypeMirror(clazz, env)));
   }
-
-  /** Returns the TypeMirror corresponding to {@code clazz}. */
-  private TypeMirror getType(Class<?> clazz) {
-    return AutoCodecUtil.getType(clazz, env);
-  }
-
 }

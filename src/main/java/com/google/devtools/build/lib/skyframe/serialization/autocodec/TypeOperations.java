@@ -11,11 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
 import com.google.common.collect.ImmutableList;
 import com.squareup.javapoet.JavaFile;
+import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.io.IOException;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -26,10 +26,17 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.TypeVariable;
 import javax.lang.model.type.WildcardType;
 
-class SerializationProcessorUtil {
-  private SerializationProcessorUtil() {}
+/** Common {@link TypeMirror} and {@link Element} operations. */
+final class TypeOperations {
+  static TypeMirror getTypeMirror(Class<?> clazz, ProcessingEnvironment env) {
+    return env.getElementUtils().getTypeElement(clazz.getCanonicalName()).asType();
+  }
 
-  // Sanitizes the type parameter. If it's a TypeVariable or WildcardType this will get the erasure.
+  /**
+   * Sanitizes the type parameter.
+   *
+   * <p>If it's a {@link TypeVariable} or {@link WildcardType} returns the erasure.
+   */
   static TypeMirror sanitizeTypeParameter(TypeMirror type, ProcessingEnvironment env) {
     if (isVariableOrWildcardType(type)) {
       return env.getTypeUtils().erasure(type);
@@ -61,21 +68,37 @@ class SerializationProcessorUtil {
   }
 
   /**
-   * Returns a class name generated from the given {@code element}.
+   * Generates a name from the given {@code element} and {@code suffix}.
    *
-   * <p>For {@code Foo.Bar} this is {@code Foo_Bar_suffix}.
+   * <p>For a class {@code Foo.Bar} this is {@code Foo_Bar_suffix}. For a variable {@code
+   * Foo.Bar.baz}, this is {@code Foo_Bar_baz_suffix}.
    */
   static String getGeneratedName(Element element, String suffix) {
-    ImmutableList.Builder<String> classNamesBuilder = new ImmutableList.Builder<>();
-    classNamesBuilder.add(suffix);
+    ImmutableList.Builder<String> nameComponents = new ImmutableList.Builder<>();
+    nameComponents.add(suffix);
     do {
-      classNamesBuilder.add(element.getSimpleName().toString());
+      nameComponents.add(element.getSimpleName().toString());
       element = element.getEnclosingElement();
     } while (element instanceof TypeElement);
-    return String.join("_", classNamesBuilder.build().reverse());
+    return String.join("_", nameComponents.build().reverse());
   }
 
   static boolean isVariableOrWildcardType(TypeMirror type) {
     return type instanceof TypeVariable || type instanceof WildcardType;
   }
+
+  /** True when {@code type} has the same type as {@code clazz}. */
+  static boolean matchesType(TypeMirror type, Class<?> clazz, ProcessingEnvironment env) {
+    return env.getTypeUtils().isSameType(type, getTypeMirror(clazz, env));
+  }
+
+  static TypeName getErasure(TypeMirror type, ProcessingEnvironment env) {
+    return TypeName.get(env.getTypeUtils().erasure(type));
+  }
+
+  static TypeName getErasure(TypeElement type, ProcessingEnvironment env) {
+    return getErasure(type.asType(), env);
+  }
+
+  private TypeOperations() {}
 }

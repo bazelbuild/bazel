@@ -14,15 +14,16 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
-import static com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationProcessorUtil.getGeneratedName;
-import static com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationProcessorUtil.sanitizeTypeParameter;
-import static com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationProcessorUtil.writeGeneratedClassToFile;
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.getGeneratedName;
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.sanitizeTypeParameter;
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.writeGeneratedClassToFile;
 
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.CodecScanningConstants;
 import com.squareup.javapoet.FieldSpec;
+import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.TypeSpec;
 import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
@@ -60,8 +61,9 @@ public class SerializationConstantProcessor extends AbstractProcessor {
 
   private void processInternal(RoundEnvironment roundEnv) throws SerializationProcessingException {
     for (Element element : roundEnv.getElementsAnnotatedWith(SerializationConstant.class)) {
-      writeGeneratedClassToFile(
-          element, buildRegisteredSingletonClass((VariableElement) element, env), env);
+      JavaFile unused =
+          writeGeneratedClassToFile(
+              element, buildRegisteredSingletonClass((VariableElement) element, env), env);
     }
   }
 
