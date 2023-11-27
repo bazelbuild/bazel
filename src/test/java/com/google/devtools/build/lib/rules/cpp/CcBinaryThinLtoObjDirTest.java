@@ -527,7 +527,13 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
       List<String> expectedInputs)
       throws Exception {
     SpawnAction dwpAction = (SpawnAction) getGeneratingAction(dwpFile);
-    String dwpToolPath = toolchain.getToolPathFragment(Tool.DWP, ruleContext).getPathString();
+    String dwpToolPath =
+        CcToolchainProvider.getToolPathString(
+            toolchain.getToolPaths(),
+            Tool.DWP,
+            toolchain.getCcToolchainLabel(),
+            toolchain.getToolchainIdentifier(),
+            ruleContext);
     assertThat(dwpAction.getMnemonic()).isEqualTo("CcGenerateDwp");
     assertThat(dwpToolPath).isEqualTo(dwpAction.getCommandFilename());
     List<String> commandArgs = dwpAction.getArguments();

@@ -286,7 +286,14 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
               featureConfiguration.getToolPathForAction(CppActionNames.LTO_BACKEND));
       builder.setExecutable(compiler);
     } else {
-      PathFragment compiler = ccToolchain.getToolPathFragment(Tool.GCC, ruleErrorConsumer);
+      PathFragment compiler =
+          PathFragment.create(
+              CcToolchainProvider.getToolPathString(
+                  ccToolchain.getToolPaths(),
+                  Tool.GCC,
+                  ccToolchain.getCcToolchainLabel(),
+                  ccToolchain.getToolchainIdentifier(),
+                  ruleErrorConsumer));
       builder.setExecutable(compiler);
     }
   }

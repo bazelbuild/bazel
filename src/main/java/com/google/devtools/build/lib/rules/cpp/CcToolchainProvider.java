@@ -102,7 +102,7 @@ public final class CcToolchainProvider extends NativeInfo
   @Nullable private final PathFragment sysroot;
   private final PathFragment targetSysroot;
   private final boolean isToolConfiguration;
-  private final ImmutableMap<String, PathFragment> toolPaths;
+  private final ImmutableMap<String, String> toolPaths;
   private final CcToolchainFeatures toolchainFeatures;
   private final String toolchainIdentifier;
   private final String compiler;
@@ -177,7 +177,7 @@ public final class CcToolchainProvider extends NativeInfo
       FdoContext fdoContext,
       boolean isToolConfiguration,
       LicensesProvider licensesProvider,
-      ImmutableMap<String, PathFragment> toolPaths,
+      ImmutableMap<String, String> toolPaths,
       String toolchainIdentifier,
       String compiler,
       String abiGlibcVersion,
@@ -331,24 +331,26 @@ public final class CcToolchainProvider extends NativeInfo
     return featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS);
   }
 
-  public void addGlobalMakeVariables(ImmutableMap.Builder<String, String> globalMakeEnvBuilder) {
+  public void addGlobalMakeVariables(
+      ImmutableMap<String, String> toolPaths,
+      ImmutableMap.Builder<String, String> globalMakeEnvBuilder) {
     ImmutableMap.Builder<String, String> result = ImmutableMap.builder();
 
     // hardcoded CC->gcc setting for unit tests
-    result.put("CC", getToolPathStringOrNull(Tool.GCC));
+    result.put("CC", getToolPathStringOrNull(toolPaths, Tool.GCC));
 
     // Make variables provided by crosstool/gcc compiler suite.
-    result.put("AR", getToolPathStringOrNull(Tool.AR));
-    result.put("NM", getToolPathStringOrNull(Tool.NM));
-    result.put("LD", getToolPathStringOrNull(Tool.LD));
-    String objcopyTool = getToolPathStringOrNull(Tool.OBJCOPY);
+    result.put("AR", getToolPathStringOrNull(toolPaths, Tool.AR));
+    result.put("NM", getToolPathStringOrNull(toolPaths, Tool.NM));
+    result.put("LD", getToolPathStringOrNull(toolPaths, Tool.LD));
+    String objcopyTool = getToolPathStringOrNull(toolPaths, Tool.OBJCOPY);
     if (objcopyTool != null) {
       // objcopy is optional in Crosstool
       result.put("OBJCOPY", objcopyTool);
     }
-    result.put("STRIP", getToolPathStringOrNull(Tool.STRIP));
+    result.put("STRIP", getToolPathStringOrNull(toolPaths, Tool.STRIP));
 
-    String gcovtool = getToolPathStringOrNull(Tool.GCOVTOOL);
+    String gcovtool = getToolPathStringOrNull(toolPaths, Tool.GCOVTOOL);
     if (gcovtool != null) {
       // gcov-tool is optional in Crosstool
       result.put("GCOVTOOL", gcovtool);
@@ -385,50 +387,44 @@ public final class CcToolchainProvider extends NativeInfo
   }
 
   /**
-   * Returns the path fragment that is either absolute or relative to the execution root that can be
+   * Returns the path String that is either absolute or relative to the execution root that can be
    * used to execute the given tool.
    *
    * @throws RuleErrorException when the tool is not specified by the toolchain.
    */
-  public PathFragment getToolPathFragment(
-      CppConfiguration.Tool tool, RuleErrorConsumer ruleErrorConsumer) throws RuleErrorException {
-    PathFragment toolPathFragment = getToolPathFragmentOrNull(tool);
-    if (toolPathFragment == null) {
+  public static String getToolPathString(
+      ImmutableMap<String, String> toolPaths,
+      CppConfiguration.Tool tool,
+      Label ccToolchainLabel,
+      String toolchainIdentifier,
+      RuleErrorConsumer ruleErrorConsumer)
+      throws RuleErrorException {
+    String toolPath = getToolPathStringOrNull(toolPaths, tool);
+    if (toolPath == null) {
       throw ruleErrorConsumer.throwWithRuleError(
           String.format(
               "cc_toolchain '%s' with identifier '%s' doesn't define a tool path for '%s'",
-              getCcToolchainLabel(), getToolchainIdentifier(), tool.getNamePart()));
+              ccToolchainLabel, toolchainIdentifier, tool.getNamePart()));
     }
-    return toolPathFragment;
+    return toolPath;
   }
 
   /**
-   * Returns the path fragment that is either absolute or relative to the execution root that can be
+   * Returns the path string that is either absolute or relative to the execution root that can be
    * used to execute the given tool.
    */
-  @Nullable
-  public String getToolPathStringOrNull(Tool tool) {
-    PathFragment toolPathFragment = getToolPathFragmentOrNull(tool);
-    return toolPathFragment == null ? null : toolPathFragment.getPathString();
-  }
-
-  @Nullable
-  @Override
-  public String getToolPathStringOrNoneForStarlark(String toolString, StarlarkThread thread)
-      throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    Tool tool = Tool.valueOf(toolString);
-    PathFragment toolPathFragment = getToolPathFragmentOrNull(tool);
-    return toolPathFragment == null ? null : toolPathFragment.getPathString();
-  }
-
-  /**
-   * Returns the path fragment that is either absolute or relative to the execution root that can be
-   * used to execute the given tool.
-   */
-  @Nullable
-  public PathFragment getToolPathFragmentOrNull(CppConfiguration.Tool tool) {
+  public static String getToolPathStringOrNull(ImmutableMap<String, String> toolPaths, Tool tool) {
     return toolPaths.get(tool.getNamePart());
+  }
+
+  public ImmutableMap<String, String> getToolPaths() {
+    return toolPaths;
+  }
+
+  @Override
+  public Dict<String, String> getToolPathsForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Dict.immutableCopyOf(getToolPaths());
   }
 
   @Override

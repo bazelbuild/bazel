@@ -1042,7 +1042,12 @@ public class CppLinkActionBuilder {
         configuration.getActionEnvironment(),
         toolchainEnv,
         ImmutableMap.copyOf(executionInfo),
-        toolchain.getToolPathFragment(Tool.LD, ruleErrorConsumer),
+        CcToolchainProvider.getToolPathString(
+            toolchain.getToolPaths(),
+            Tool.LD,
+            toolchain.getCcToolchainLabel(),
+            toolchain.getToolchainIdentifier(),
+            ruleErrorConsumer),
         toolchain.getTargetCpu());
   }
 

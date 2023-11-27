@@ -170,9 +170,12 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
 
     assertThat(
-            toolchainProvider
-                .getToolPathFragment(CppConfiguration.Tool.CPP, ruleContext)
-                .toString())
+            CcToolchainProvider.getToolPathString(
+                toolchainProvider.getToolPaths(),
+                CppConfiguration.Tool.CPP,
+                toolchainProvider.getCcToolchainLabel(),
+                toolchainProvider.getToolchainIdentifier(),
+                ruleContext))
         .isEqualTo("toolchain/some/cpp");
   }
 
@@ -226,7 +229,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     CcToolchainProvider ccToolchainProvider =
         getConfiguredTarget("//a:a").get(CcToolchainProvider.PROVIDER);
     ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-    ccToolchainProvider.addGlobalMakeVariables(builder);
+    ccToolchainProvider.addGlobalMakeVariables(ccToolchainProvider.getToolPaths(), builder);
     assertThat(builder.build().get("GCOVTOOL")).isNull();
   }
 
@@ -277,7 +280,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     CcToolchainProvider ccToolchainProvider =
         getConfiguredTarget("//a:a").get(CcToolchainProvider.PROVIDER);
     ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-    ccToolchainProvider.addGlobalMakeVariables(builder);
+    ccToolchainProvider.addGlobalMakeVariables(ccToolchainProvider.getToolPaths(), builder);
     assertThat(builder.build().get("GCOVTOOL")).isNotNull();
   }
 

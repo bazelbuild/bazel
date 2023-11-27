@@ -181,15 +181,8 @@ public interface CcToolchainProviderApi<
   @StarlarkMethod(name = "objcopy_files", documented = false, useStarlarkThread = true)
   Depset getObjcopyFilesForStarlark(StarlarkThread thread) throws EvalException;
 
-  @StarlarkMethod(
-      name = "tool_path",
-      documented = false,
-      useStarlarkThread = true,
-      allowReturnNones = true,
-      parameters = {@Param(name = "tool", positional = false, named = true)})
-  @Nullable
-  String getToolPathStringOrNoneForStarlark(String tool, StarlarkThread thread)
-      throws EvalException;
+  @StarlarkMethod(name = "tool_paths", documented = false, useStarlarkThread = true)
+  Dict<String, String> getToolPathsForStarlark(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(name = "solib_dir", documented = false, useStarlarkThread = true)
   String getSolibDirectoryForStarlark(StarlarkThread thread) throws EvalException;

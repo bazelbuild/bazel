@@ -559,9 +559,21 @@ public class CcToolchainTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//a:a");
     RuleContext ruleContext = getRuleContext(target);
     CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
-    assertThat(toolchainProvider.getToolPathFragment(Tool.AR, ruleContext).toString())
+    assertThat(
+            CcToolchainProvider.getToolPathString(
+                toolchainProvider.getToolPaths(),
+                Tool.AR,
+                toolchainProvider.getCcToolchainLabel(),
+                toolchainProvider.getToolchainIdentifier(),
+                ruleContext))
         .isEqualTo("/absolute/path");
-    assertThat(toolchainProvider.getToolPathFragment(Tool.CPP, ruleContext).toString())
+    assertThat(
+            CcToolchainProvider.getToolPathString(
+                toolchainProvider.getToolPaths(),
+                Tool.CPP,
+                toolchainProvider.getCcToolchainLabel(),
+                toolchainProvider.getToolchainIdentifier(),
+                ruleContext))
         .isEqualTo("a/relative/path");
   }
 

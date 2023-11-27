@@ -663,20 +663,23 @@ def _collect_native_cc_libraries(deps, libraries):
     transitive_libraries = [dep[CcInfo].transitive_native_libraries() for dep in deps if CcInfo in dep]
     return CcNativeLibraryInfo(libraries_to_link = depset(direct = libraries, transitive = transitive_libraries))
 
+def _tool_path(cc_toolchain, tool):
+    return cc_toolchain.tool_paths().get(tool, None)
+
 def _get_toolchain_global_make_variables(cc_toolchain):
     result = {
-        "CC": cc_toolchain.tool_path(tool = "GCC"),
-        "AR": cc_toolchain.tool_path(tool = "AR"),
-        "NM": cc_toolchain.tool_path(tool = "NM"),
-        "LD": cc_toolchain.tool_path(tool = "LD"),
-        "STRIP": cc_toolchain.tool_path(tool = "STRIP"),
+        "CC": _tool_path(cc_toolchain, "gcc"),
+        "AR": _tool_path(cc_toolchain, "ar"),
+        "NM": _tool_path(cc_toolchain, "nm"),
+        "LD": _tool_path(cc_toolchain, "ld"),
+        "STRIP": _tool_path(cc_toolchain, "strip"),
         "C_COMPILER": cc_toolchain.compiler,
     }
-    obj_copy_tool = cc_toolchain.tool_path(tool = "OBJCOPY")
+    obj_copy_tool = _tool_path(cc_toolchain, "objcopy")
     if obj_copy_tool != None:
         # objcopy is optional in Crostool.
         result["OBJCOPY"] = obj_copy_tool
-    gcov_tool = cc_toolchain.tool_path(tool = "GCOVTOOL")
+    gcov_tool = _tool_path(cc_toolchain, "gcov-tool")
     if gcov_tool != None:
         # gcovtool is optional in Crostool.
         result["GCOVTOOL"] = gcov_tool
@@ -697,7 +700,6 @@ def _get_toolchain_global_make_variables(cc_toolchain):
         result["ABI"] = abi
 
     result["CROSSTOOLTOP"] = cc_toolchain.get_crosstool_top_path()
-
     return result
 
 def _contains_sysroot(original_cc_flags, feature_config_cc_flags):
@@ -1086,9 +1088,9 @@ def _get_coverage_environment(ctx, cc_config, cc_toolchain):
     if not ctx.configuration.coverage_enabled:
         return {}
     env = {
-        "COVERAGE_GCOV_PATH": cc_toolchain.tool_path(tool = "GCOV"),
-        "LLVM_COV": cc_toolchain.tool_path(tool = "LLVM_COV"),
-        "LLVM_PROFDATA": cc_toolchain.tool_path(tool = "LLVM_PROFDATA"),
+        "COVERAGE_GCOV_PATH": _tool_path(cc_toolchain, "gcov"),
+        "LLVM_COV": _tool_path(cc_toolchain, "llvm-cov"),
+        "LLVM_PROFDATA": _tool_path(cc_toolchain, "llvm-profdata"),
         "GENERATE_LLVM_LCOV": "1" if cc_config.generate_llvm_lcov() else "0",
     }
     for k in list(env.keys()):

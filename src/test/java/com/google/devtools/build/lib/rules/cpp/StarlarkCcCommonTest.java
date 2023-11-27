@@ -6994,7 +6994,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             "toolchain.as_files()",
             "toolchain.ar_files()",
             "toolchain.objcopy_files()",
-            "toolchain.tool_path(tool='ld')",
+            "toolchain.tool_paths()",
             "toolchain.solib_dir()",
             "toolchain.linker_files()",
             "toolchain.coverage_files()",

@@ -245,7 +245,8 @@ public class CcStarlarkInternal implements StarlarkValue {
         /* fdoContext= */ fdoContext,
         /* isToolConfiguration= */ isToolConfiguration,
         /* licensesProvider= */ attributes.getLicensesProvider(),
-        /* toolPaths= */ castDict(toolPathsDict),
+        /* toolPaths= */ ImmutableMap.copyOf(
+            Dict.cast(toolPathsDict, String.class, String.class, "tool_paths")),
         /* toolchainIdentifier= */ toolchainConfigInfo.getToolchainIdentifier(),
         /* compiler= */ toolchainConfigInfo.getCompiler(),
         /* abiGlibcVersion= */ toolchainConfigInfo.getAbiLibcVersion(),
