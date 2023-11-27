@@ -45,6 +45,13 @@ native_image(
             "-H:+StaticExecutableWithDynamicLibC",
         ],
         "//conditions:default": [],
+    }) + select({
+        "@platforms//cpu:x86_64": [
+            # Graal's default settings result in executables that aren't sufficiently compatible for
+            # general use in Bazel.
+            "-march=x86-64-v2",
+        ],
+        "//conditions:default": [],
     }),
     main_class = _TURBINE_MAIN_CLASS,
     # This provides libz.a on Linux instead of the host system.
