@@ -77,38 +77,4 @@ public class SwiftConfigurationTest extends BuildViewTestCase {
 
     assertThat(copts).containsAtLeast("foo", "bar");
   }
-
-  @Test
-  public void testHostSwiftcopt() throws Exception {
-    scratch.file("examples/rule/BUILD");
-    scratch.file(
-        "examples/rule/apple_rules.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def swift_binary_impl(ctx):",
-        "   copts = ctx.fragments.swift.copts()",
-        "   return MyInfo(",
-        "      copts=copts,",
-        "   )",
-        "swift_binary = rule(",
-        "   implementation = swift_binary_impl,",
-        "   fragments = ['swift']",
-        ")");
-
-    scratch.file(
-        "examples/swift_starlark/BUILD",
-        "load('//examples/rule:apple_rules.bzl', 'swift_binary')",
-        "swift_binary(",
-        "   name='my_target',",
-        ")");
-
-    useConfiguration("--swiftcopt=foo", "--host_swiftcopt=bar", "--host_swiftcopt=baz");
-    ConfiguredTarget target =
-        getConfiguredTarget("//examples/swift_starlark:my_target", getExecConfiguration());
-
-    @SuppressWarnings("unchecked")
-    List<String> copts = (List<String>) getMyInfoFromTarget(target).getValue("copts");
-
-    assertThat(copts).doesNotContain("foo");
-    assertThat(copts).containsAtLeast("bar", "baz");
-  }
 }

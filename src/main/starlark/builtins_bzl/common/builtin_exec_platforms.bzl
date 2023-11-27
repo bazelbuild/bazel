@@ -414,19 +414,6 @@ _add_fragment(
     ],
 )
 
-_add_fragment(
-    name = "SwiftCommandLineOptions",
-    propagate = [
-        "//command_line_option:host_swiftcopt",
-    ],
-    outputs = [
-        "//command_line_option:swiftcopt",
-    ],
-    func = lambda settings: {
-        "//command_line_option:swiftcopt": settings["//command_line_option:host_swiftcopt"],
-    },
-)
-
 # TestConfiguration$TestOptions: handled in native code. See b/295936652.
 
 def _get_inputs_and_outputs(fragments):
