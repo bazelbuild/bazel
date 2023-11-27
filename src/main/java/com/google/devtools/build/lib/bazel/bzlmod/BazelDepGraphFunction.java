@@ -128,15 +128,18 @@ public class BazelDepGraphFunction implements SkyFunction {
         calculateUniqueNameForUsedExtensionId(extensionUsagesById);
 
     if (lockfileMode.equals(LockfileMode.UPDATE)) {
-      BazelLockFileValue updateLockfile =
+      BazelLockFileValue resolutionOnlyLockfile =
           BazelLockFileValue.builder()
               .setModuleFileHash(root.getModuleFileHash())
               .setFlags(flags)
               .setLocalOverrideHashes(localOverrideHashes)
               .setModuleDepGraph(depGraph)
               .build();
+      Preconditions.checkNotNull(lockfile);
       env.getListener()
-          .post(BazelModuleResolutionEvent.create(updateLockfile, extensionUsagesById));
+          .post(
+              BazelModuleResolutionEvent.create(
+                  lockfile, resolutionOnlyLockfile, extensionUsagesById));
     }
 
     return BazelDepGraphValue.create(

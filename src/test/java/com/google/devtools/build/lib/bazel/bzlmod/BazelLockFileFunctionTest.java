@@ -183,11 +183,8 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
                         if (localOverrideHashes == null) {
                           return null;
                         }
-                        RootedPath lockfilePath =
-                            RootedPath.toRootedPath(
-                                Root.fromPath(rootDirectory), LabelConstants.MODULE_LOCKFILE_NAME);
                         BazelLockFileModule.updateLockfile(
-                            lockfilePath,
+                            rootDirectory,
                             BazelLockFileValue.builder()
                                 .setModuleFileHash(key.moduleHash())
                                 .setFlags(flags)
@@ -546,6 +543,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
   abstract static class UpdateLockFileKey implements SkyKey {
 
     abstract String moduleHash();
+
     abstract ImmutableMap<ModuleKey, Module> depGraph();
 
     abstract ImmutableMap<String, ModuleOverride> overrides();

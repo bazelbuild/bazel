@@ -29,25 +29,41 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
  */
 public final class BazelModuleResolutionEvent implements Postable {
 
-  private final BazelLockFileValue lockfileValue;
+  private final BazelLockFileValue onDiskLockfileValue;
+  private final BazelLockFileValue resolutionOnlyLockfileValue;
   private final ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>
       extensionUsagesById;
 
   private BazelModuleResolutionEvent(
-      BazelLockFileValue lockfileValue,
+      BazelLockFileValue onDiskLockfileValue,
+      BazelLockFileValue resolutionOnlyLockfileValue,
       ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById) {
-    this.lockfileValue = lockfileValue;
+    this.onDiskLockfileValue = onDiskLockfileValue;
+    this.resolutionOnlyLockfileValue = resolutionOnlyLockfileValue;
     this.extensionUsagesById = extensionUsagesById;
   }
 
   public static BazelModuleResolutionEvent create(
-      BazelLockFileValue lockFileValue,
+      BazelLockFileValue onDiskLockfileValue,
+      BazelLockFileValue resolutionOnlyLockfileValue,
       ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById) {
-    return new BazelModuleResolutionEvent(lockFileValue, extensionUsagesById);
+    return new BazelModuleResolutionEvent(
+        onDiskLockfileValue, resolutionOnlyLockfileValue, extensionUsagesById);
   }
 
-  public BazelLockFileValue getLockfileValue() {
-    return lockfileValue;
+  /**
+   * Returns the contents of the lockfile as it existed on disk before the current build.
+   */
+  public BazelLockFileValue getOnDiskLockfileValue() {
+    return onDiskLockfileValue;
+  }
+
+  /**
+   * Returns the result of Bazel module resolution in the form of a lockfile without any
+   * information about module extension results.
+   */
+  public BazelLockFileValue getResolutionOnlyLockfileValue() {
+    return resolutionOnlyLockfileValue;
   }
 
   public ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>

@@ -69,23 +69,16 @@ public class BazelLockFileModule extends BlazeModule {
       return;
     }
 
-    RootedPath lockfilePath =
-        RootedPath.toRootedPath(Root.fromPath(workspaceRoot), LabelConstants.MODULE_LOCKFILE_NAME);
-
-    BazelLockFileValue oldLockfile;
-    BazelLockFileValue lockfile;
+    BazelLockFileValue oldLockfile = moduleResolutionEvent.getOnDiskLockfileValue();
+    BazelLockFileValue newLockfile;
     try {
-      // Read the existing lockfile (if none exists, will get an empty lockfile value) and get its
-      // module extension usages. This information is needed to determine which extension results
-      // are now stale and need to be removed.
-      oldLockfile = BazelLockFileFunction.getLockfileValue(lockfilePath);
       // Create an updated version of the lockfile, keeping only the extension results from the old
       // lockfile that are still up-to-date and adding the newly resolved extension results.
-      lockfile =
-          moduleResolutionEvent.getLockfileValue().toBuilder()
+      newLockfile =
+          moduleResolutionEvent.getResolutionOnlyLockfileValue().toBuilder()
               .setModuleExtensions(combineModuleExtensions(oldLockfile))
               .build();
-    } catch (IOException | JsonSyntaxException | NullPointerException | ExternalDepsException e) {
+    } catch (ExternalDepsException e) {
       logger.atSevere().withCause(e).log(
           "Failed to read and parse the MODULE.bazel.lock file with error: %s."
               + " Try deleting it and rerun the build.",
@@ -97,8 +90,8 @@ public class BazelLockFileModule extends BlazeModule {
     // optimization: whenever the lockfile is updated, most Skyframe nodes will be marked as dirty
     // on the next build, which breaks commands such as `bazel config` that rely on
     // com.google.devtools.build.skyframe.MemoizingEvaluator#getDoneValues.
-    if (!lockfile.equals(oldLockfile)) {
-      updateLockfile(lockfilePath, lockfile);
+    if (!newLockfile.equals(oldLockfile)) {
+      updateLockfile(workspaceRoot, newLockfile);
     }
     this.moduleResolutionEvent = null;
     this.extensionResolutionEventsMap.clear();
@@ -195,10 +188,12 @@ public class BazelLockFileModule extends BlazeModule {
   /**
    * Updates the data stored in the lockfile (MODULE.bazel.lock)
    *
-   * @param lockfilePath Rooted path to lockfile
+   * @param workspaceRoot Root of the workspace where the lockfile is located
    * @param updatedLockfile The updated lockfile data to save
    */
-  public static void updateLockfile(RootedPath lockfilePath, BazelLockFileValue updatedLockfile) {
+  public static void updateLockfile(Path workspaceRoot, BazelLockFileValue updatedLockfile) {
+    RootedPath lockfilePath =
+        RootedPath.toRootedPath(Root.fromPath(workspaceRoot), LabelConstants.MODULE_LOCKFILE_NAME);
     try {
       FileSystemUtils.writeContent(
           lockfilePath.asPath(),
