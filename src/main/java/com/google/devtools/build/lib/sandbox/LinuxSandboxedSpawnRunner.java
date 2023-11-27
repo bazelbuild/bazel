@@ -197,24 +197,12 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         getSandboxOptions().sandboxAdditionalMounts.stream()
             .anyMatch(e -> e.getKey().equals("/tmp"));
     if (tmpExplicitlyBindMounted) {
-      if (warnedAboutNonHermeticTmp.compareAndSet(false, true)) {
-        reporter.handle(
-            Event.warn(
-                "Falling back to non-hermetic '/tmp' in because a bind mount of '/tmp' is"
-                    + " explicitly requested"));
-      }
-
+      // An explicit mount on /tmp is likely an explicit way to make it non-hermetic.
       return false;
     }
 
     if (getSandboxOptions().sandboxTmpfsPath.contains(SLASH_TMP)) {
-      if (warnedAboutNonHermeticTmp.compareAndSet(false, true)) {
-        reporter.handle(
-            Event.warn(
-                "Both hermetic '/tmp' and an explicit tmpfs mount on '/tmp' is requested, using"
-                    + " tmpfs"));
-      }
-
+      // A tmpfs path under /tmp is as hermetic as "hermetic /tmp".
       return false;
     }
 
@@ -222,7 +210,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         getSandboxOptions().sandboxTmpfsPath.stream()
             .filter(path -> path.startsWith(SLASH_TMP))
             .findFirst();
-    if (!tmpfsPathUnderTmp.isEmpty()) {
+    if (tmpfsPathUnderTmp.isPresent()) {
       if (warnedAboutNonHermeticTmp.compareAndSet(false, true)) {
         reporter.handle(
             Event.warn(
