@@ -67,7 +67,7 @@ public class SpawnLogContext implements ActionContext {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final PathFragment execRoot;
-  private final MessageOutputStream executionLog;
+  private final MessageOutputStream<SpawnExec> executionLog;
   @Nullable private final ExecutionOptions executionOptions;
   @Nullable private final RemoteOptions remoteOptions;
   private final DigestHashFunction digestHashFunction;
@@ -75,7 +75,7 @@ public class SpawnLogContext implements ActionContext {
 
   public SpawnLogContext(
       PathFragment execRoot,
-      MessageOutputStream executionLog,
+      MessageOutputStream<SpawnExec> executionLog,
       @Nullable ExecutionOptions executionOptions,
       @Nullable RemoteOptions remoteOptions,
       DigestHashFunction digestHashFunction,
