@@ -143,6 +143,30 @@ public final class SimpleSpawn implements Spawn {
       ImmutableList<String> arguments,
       ImmutableMap<String, String> environment,
       ImmutableMap<String, String> executionInfo,
+      RunfilesSupplier runfilesSupplier,
+      NestedSet<? extends ActionInput> inputs,
+      Collection<? extends ActionInput> outputs,
+      ResourceSet localResources) {
+    this(
+        owner,
+        arguments,
+        environment,
+        executionInfo,
+        runfilesSupplier,
+        /* filesetMappings= */ ImmutableMap.of(),
+        inputs,
+        /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        outputs,
+        /* mandatoryOutputs= */ null,
+        localResources,
+        /* localResourcesSupplier= */ null);
+  }
+
+  public SimpleSpawn(
+      ActionExecutionMetadata owner,
+      ImmutableList<String> arguments,
+      ImmutableMap<String, String> environment,
+      ImmutableMap<String, String> executionInfo,
       NestedSet<? extends ActionInput> inputs,
       Collection<Artifact> outputs,
       LocalResourcesSupplier localResourcesSupplier) {
