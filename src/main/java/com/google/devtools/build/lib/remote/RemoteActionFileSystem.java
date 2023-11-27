@@ -335,6 +335,8 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
+    path = resolveSymbolicLinks(path).asFragment();
+
     FileNotFoundException remoteException = null;
     try {
       // We can't set mtime for a remote file, set mtime of in-memory file node instead.
