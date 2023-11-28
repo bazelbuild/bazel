@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.IncludeScanning;
+import com.google.devtools.build.lib.skyframe.EphemeralCheckIfOutputConsumed;
 import com.google.devtools.build.lib.skyframe.MutableSupplier;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -272,7 +273,9 @@ public class IncludeScanningModule extends BlazeModule {
 
     @Override
     public void executionPhaseStarting(
-        ActionGraph actionGraph, Supplier<ImmutableSet<Artifact>> topLevelArtifacts)
+        ActionGraph unusedActionGraph,
+        Supplier<ImmutableSet<Artifact>> unusedTopLevelArtifacts,
+        @Nullable EphemeralCheckIfOutputConsumed unusedCheck)
         throws AbruptExitException, InterruptedException {
       IncludeParser.HintsRules hintsRules;
       if (useIncludeHints) {

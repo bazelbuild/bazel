@@ -349,7 +349,7 @@ public class ExecutionTool {
     for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
       try (SilentCloseable c =
           Profiler.instance().profile(executorLifecycleListener + ".executionPhaseStarting")) {
-        executorLifecycleListener.executionPhaseStarting(null, () -> null);
+        executorLifecycleListener.executionPhaseStarting(null, () -> null, null);
       }
     }
     try (SilentCloseable c = Profiler.instance().profile("configureResourceManager")) {
@@ -454,7 +454,8 @@ public class ExecutionTool {
               actionGraph,
               // If this supplier is ever consumed by more than one ActionContextProvider, it can be
               // pulled out of the loop and made a memoizing supplier.
-              () -> TopLevelArtifactHelper.findAllTopLevelArtifacts(analysisResult));
+              () -> TopLevelArtifactHelper.findAllTopLevelArtifacts(analysisResult),
+              /* ephemeralCheckIfOutputConsumed= */ null);
         }
       }
       skyframeExecutor.drainChangedFiles();

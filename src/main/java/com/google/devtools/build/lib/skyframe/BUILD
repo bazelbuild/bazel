@@ -1276,6 +1276,12 @@ java_library(
 )
 
 java_library(
+    name = "ephemeral_check_if_output_consumed",
+    srcs = ["EphemeralCheckIfOutputConsumed.java"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/actions:artifacts"],
+)
+
+java_library(
     name = "exclusive_test_build_driver_value",
     srcs = ["ExclusiveTestBuildDriverValue.java"],
     deps = [
