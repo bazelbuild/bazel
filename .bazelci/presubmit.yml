@@ -45,11 +45,6 @@ tasks:
       - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_cc_head_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_sh_test"
-      # https://github.com/bazelbuild/bazel/issues/18776
-      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test"
-      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
-      - "-//src/test/shell/bazel/android:aapt_integration_test"
-      - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
     include_json_profile:
       - build
       - test
@@ -85,11 +80,6 @@ tasks:
       - "//tools/bash/..."
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/import_deps_checker/..."
-      # https://github.com/bazelbuild/bazel/issues/18776
-      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test"
-      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
-      - "-//src/test/shell/bazel/android:aapt_integration_test"
-      - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
     include_json_profile:
       - build
       - test
@@ -151,11 +141,6 @@ tasks:
       - "//tools/bash/..."
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/import_deps_checker/..."
-      # https://github.com/bazelbuild/bazel/issues/18776
-      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test"
-      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
-      - "-//src/test/shell/bazel/android:aapt_integration_test"
-      - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
     include_json_profile:
       - build
       - test
@@ -204,11 +189,6 @@ tasks:
   #     - "-//src/test/shell/bazel/apple:bazel_apple_test"
   #     # https://github.com/bazelbuild/bazel/issues/17408
   #     - "-//src/test/shell/bazel/apple:bazel_objc_test"
-  #     # https://github.com/bazelbuild/bazel/issues/18776
-  #     - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test"
-  #     - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
-  #     - "-//src/test/shell/bazel/android:aapt_integration_test"
-  #     - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
   #     # https://github.com/bazelbuild/bazel/issues/17410
   #     - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
   #     # https://github.com/bazelbuild/bazel/issues/17411
@@ -259,10 +239,6 @@ tasks:
   #     - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
   #     # MacOS does not have cgroups so it can't support hardened sandbox
   #     - "-//src/test/shell/integration:bazel_hardened_sandboxed_worker_test"
-  #     # https://github.com/bazelbuild/bazel/issues/16521 & https://github.com/bazelbuild/bazel/issues/18776
-  #     - "-//src/test/shell/bazel/android/..."
-  #     - "-//src/tools/android/java/com/google/devtools/build/android/..."
-  #     - "-//src/test/java/com/google/devtools/build/android/dexer:AllTests"
   #     # https://github.com/bazelbuild/bazel/issues/16525
   #     - "-//src/test/java/com/google/devtools/build/lib/buildtool:KeepGoingTest"
   #     - "-//src/test/java/com/google/devtools/build/lib/buildtool:DanglingSymlinkTest"
@@ -460,11 +436,6 @@ tasks:
       # Flaky on rbe_ubuntu2004
       # https://github.com/bazelbuild/continuous-integration/issues/1631
       - "-//src/test/shell/bazel:bazel_sandboxing_networking_test"
-      # https://github.com/bazelbuild/bazel/issues/18776
-      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test"
-      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
-      - "-//src/test/shell/bazel/android:aapt_integration_test"
-      - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
     include_json_profile:
       - build
       - test
