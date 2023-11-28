@@ -85,8 +85,6 @@ public final class CcToolchainProvider extends NativeInfo
   private final Artifact interfaceSoBuilder;
   private final NestedSet<Artifact> dwpFiles;
   private final NestedSet<Artifact> coverageFiles;
-  private final NestedSet<Artifact> libcLink;
-  private final NestedSet<Artifact> targetLibcLink;
   @Nullable private final NestedSet<Artifact> staticRuntimeLinkInputs;
   @Nullable private final NestedSet<Artifact> dynamicRuntimeLinkInputs;
   private final PathFragment dynamicRuntimeSolibDir;
@@ -158,8 +156,6 @@ public final class CcToolchainProvider extends NativeInfo
       Artifact interfaceSoBuilder,
       NestedSet<Artifact> dwpFiles,
       NestedSet<Artifact> coverageFiles,
-      NestedSet<Artifact> libcLink,
-      NestedSet<Artifact> targetLibcLink,
       NestedSet<Artifact> staticRuntimeLinkInputs,
       NestedSet<Artifact> dynamicRuntimeLinkInputs,
       PathFragment dynamicRuntimeSolibDir,
@@ -219,8 +215,6 @@ public final class CcToolchainProvider extends NativeInfo
     this.interfaceSoBuilder = interfaceSoBuilder;
     this.dwpFiles = Preconditions.checkNotNull(dwpFiles);
     this.coverageFiles = Preconditions.checkNotNull(coverageFiles);
-    this.libcLink = Preconditions.checkNotNull(libcLink);
-    this.targetLibcLink = Preconditions.checkNotNull(targetLibcLink);
     this.staticRuntimeLinkInputs = staticRuntimeLinkInputs;
     this.dynamicRuntimeLinkInputs = dynamicRuntimeLinkInputs;
     this.dynamicRuntimeSolibDir = Preconditions.checkNotNull(dynamicRuntimeSolibDir);
@@ -444,7 +438,8 @@ public final class CcToolchainProvider extends NativeInfo
       FeatureConfigurationForStarlark featureConfigurationForStarlark) throws EvalException {
     return Depset.of(
         Artifact.class,
-        getStaticRuntimeLinkInputs(featureConfigurationForStarlark.getFeatureConfiguration()));
+        getStaticRuntimeLinkInputsOrThrowError(
+            staticRuntimeLinkInputs, featureConfigurationForStarlark.getFeatureConfiguration()));
   }
 
   @Override
@@ -452,7 +447,8 @@ public final class CcToolchainProvider extends NativeInfo
       FeatureConfigurationForStarlark featureConfigurationForStarlark) throws EvalException {
     return Depset.of(
         Artifact.class,
-        getDynamicRuntimeLinkInputs(featureConfigurationForStarlark.getFeatureConfiguration()));
+        getDynamicRuntimeLinkInputsOrThrowError(
+            dynamicRuntimeLinkInputs, featureConfigurationForStarlark.getFeatureConfiguration()));
   }
 
   public ImmutableList<PathFragment> getBuiltInIncludeDirectories() {
@@ -494,13 +490,9 @@ public final class CcToolchainProvider extends NativeInfo
 
   /**
    * Returns the files necessary for compilation excluding headers, assuming that included files
-   * will be discovered by input discovery. If the toolchain does not provide this fileset, falls
-   * back to {@link #getCompilerFiles()}.
+   * will be discovered by input discovery.
    */
   public NestedSet<Artifact> getCompilerFilesWithoutIncludes() {
-    if (compilerFilesWithoutIncludes.isEmpty()) {
-      return getCompilerFiles();
-    }
     return compilerFilesWithoutIncludes;
   }
 
@@ -586,14 +578,6 @@ public final class CcToolchainProvider extends NativeInfo
     return Depset.of(Artifact.class, getCoverageFiles());
   }
 
-  public NestedSet<Artifact> getLibcLink(CppConfiguration cppConfiguration) {
-    if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas())) {
-      return libcLink;
-    } else {
-      return targetLibcLink;
-    }
-  }
-
   @Override
   public String getArtifactNameForCategory(
       String category, String outputName, StarlarkThread thread) throws EvalException {
@@ -601,17 +585,23 @@ public final class CcToolchainProvider extends NativeInfo
     return toolchainFeatures.getArtifactNameForCategory(
         ArtifactCategory.valueOf(category), outputName);
   }
+
   /**
    * Returns true if the featureConfiguration includes statically linking the cpp runtimes.
    *
    * @param featureConfiguration the relevant FeatureConfiguration.
    */
-  public boolean shouldStaticallyLinkCppRuntimes(FeatureConfiguration featureConfiguration) {
+  public static boolean shouldStaticallyLinkCppRuntimes(FeatureConfiguration featureConfiguration) {
     return featureConfiguration.isEnabled(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES);
   }
 
+  public NestedSet<Artifact> getStaticRuntimeLinkInputs() {
+    return staticRuntimeLinkInputs;
+  }
+
   /** Returns the static runtime libraries. */
-  public NestedSet<Artifact> getStaticRuntimeLinkInputs(FeatureConfiguration featureConfiguration)
+  public static NestedSet<Artifact> getStaticRuntimeLinkInputsOrThrowError(
+      NestedSet<Artifact> staticRuntimeLinkInputs, FeatureConfiguration featureConfiguration)
       throws EvalException {
     if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
       if (staticRuntimeLinkInputs == null) {
@@ -625,8 +615,13 @@ public final class CcToolchainProvider extends NativeInfo
     }
   }
 
+  public NestedSet<Artifact> getDynamicRuntimeLinkInputs() {
+    return dynamicRuntimeLinkInputs;
+  }
+
   /** Returns the dynamic runtime libraries. */
-  public NestedSet<Artifact> getDynamicRuntimeLinkInputs(FeatureConfiguration featureConfiguration)
+  public static NestedSet<Artifact> getDynamicRuntimeLinkInputsOrThrowError(
+      NestedSet<Artifact> dynamicRuntimeLinkInputs, FeatureConfiguration featureConfiguration)
       throws EvalException {
     if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
       if (dynamicRuntimeLinkInputs == null) {

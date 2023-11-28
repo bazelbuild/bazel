@@ -539,7 +539,10 @@ public class CompilationSupport implements StarlarkValue {
 
     ImmutableList<Artifact> staticRuntimes;
     try {
-      staticRuntimes = toolchain.getStaticRuntimeLinkInputs(featureConfiguration).toList();
+      staticRuntimes =
+          CcToolchainProvider.getStaticRuntimeLinkInputsOrThrowError(
+                  toolchain.getStaticRuntimeLinkInputs(), featureConfiguration)
+              .toList();
     } catch (EvalException e) {
       throw ruleContext.throwWithRuleError(e);
     }

@@ -222,8 +222,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         /* interfaceSoBuilder= */ attributes.getIfsoBuilder(),
         /* dwpFiles= */ attributes.getDwpFiles(),
         /* coverageFiles= */ attributes.getCoverage(),
-        /* libcLink= */ attributes.getLibc(),
-        /* targetLibcLink= */ attributes.getTargetLibc(),
         /* staticRuntimeLinkInputs= */ staticRuntimeLinkInputsSet,
         /* dynamicRuntimeLinkInputs= */ dynamicRuntimeLinkInputsSet,
         /* dynamicRuntimeSolibDir= */ dynamicRuntimeSolibDir,
