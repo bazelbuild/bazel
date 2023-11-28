@@ -50,8 +50,6 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
         .matches(outputDirPrefix);
     assertThat(config.getBinDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(outputDirPrefix + "/bin");
-    assertThat(config.getBuildInfoDirectory(RepositoryName.MAIN).getRoot().toString())
-        .matches(outputDirPrefix + "/include");
     assertThat(config.getTestLogsDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(outputDirPrefix + "/testlogs");
   }

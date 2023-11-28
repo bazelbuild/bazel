@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Options;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -205,13 +204,6 @@ public final class AnalysisTestUtil {
     @Override
     public Artifact getVolatileWorkspaceStatusArtifact() throws InterruptedException {
       return original.getVolatileWorkspaceStatusArtifact();
-    }
-
-    @Override
-    public ImmutableList<Artifact> getBuildInfo(
-        boolean stamp, BuildInfoKey key, BuildConfigurationValue config)
-        throws InterruptedException {
-      return original.getBuildInfo(stamp, key, config);
     }
 
     @Override
@@ -442,12 +434,6 @@ public final class AnalysisTestUtil {
     @Override
     public Artifact getVolatileWorkspaceStatusArtifact() {
       return null;
-    }
-
-    @Override
-    public ImmutableList<Artifact> getBuildInfo(
-        boolean stamp, BuildInfoKey key, BuildConfigurationValue config) {
-      return ImmutableList.of();
     }
 
     @Override

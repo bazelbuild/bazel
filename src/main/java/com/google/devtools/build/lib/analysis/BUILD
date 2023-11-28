@@ -51,8 +51,6 @@ java_library(
         ":build_info_event",
         ":build_setting_provider",
         ":build_view",
-        ":buildinfo/build_info_collection",
-        ":buildinfo/build_info_key",
         ":common_prerequisite_validator",
         ":config/auto_cpu_converter",
         ":config/build_configuration",
@@ -222,7 +220,6 @@ java_library(
         "actions/StrippingPathMapper.java",
         "actions/SymlinkTreeAction.java",
         "actions/SymlinkTreeActionContext.java",
-        "buildinfo/BuildInfoFactory.java",
         "config/DependencyEvaluationException.java",
         "config/FragmentCollection.java",
         "config/RequiredFragmentsUtil.java",
@@ -282,8 +279,6 @@ java_library(
         ":aspect_collection",
         ":blaze_version_info",
         ":build_setting_provider",
-        ":buildinfo/build_info_collection",
-        ":buildinfo/build_info_key",
         ":config/build_configuration",
         ":config/build_option_details",
         ":config/build_options",
@@ -412,7 +407,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:current_rule_tracker",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:build_info_collection_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_value_creation_exception",
@@ -1591,22 +1585,6 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
     ],
-)
-
-# TODO(b/144899336): This should be analysis/buildinfo/BUILD
-java_library(
-    name = "buildinfo/build_info_collection",
-    srcs = ["buildinfo/BuildInfoCollection.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "buildinfo/build_info_key",
-    srcs = ["buildinfo/BuildInfoKey.java"],
 )
 
 # TODO(b/144899336):  This should be analysis/config/BUILD

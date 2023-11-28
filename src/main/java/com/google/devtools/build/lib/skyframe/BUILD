@@ -30,7 +30,6 @@ java_library(
         "AspectCompletor.java",
         "AspectFunction.java",
         "BazelSkyframeExecutorConstants.java",
-        "BuildInfoCollectionFunction.java",
         "BuildTopLevelAspectsDetailsFunction.java",
         "BzlLoadFunction.java",
         "BzlmodRepoRuleFunction.java",
@@ -98,7 +97,6 @@ java_library(
         ":build_driver_function",
         ":build_driver_key",
         ":build_driver_value",
-        ":build_info_collection_value",
         ":build_result_listener",
         ":bzl_compile",
         ":bzl_load_cycle_reporter",
@@ -228,8 +226,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:aspect_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:aspect_configured_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
-        "//src/main/java/com/google/devtools/build/lib/analysis:buildinfo/build_info_collection",
-        "//src/main/java/com/google/devtools/build/lib/analysis:buildinfo/build_info_key",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/config_conditions",
@@ -826,25 +822,6 @@ java_library(
     name = "broken_diff_awareness_exception",
     srcs = ["BrokenDiffAwarenessException.java"],
     deps = ["//third_party:guava"],
-)
-
-java_library(
-    name = "build_info_collection_value",
-    srcs = ["BuildInfoCollectionValue.java"],
-    deps = [
-        ":sky_functions",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
-        "//src/main/java/com/google/devtools/build/lib/analysis:buildinfo/build_info_collection",
-        "//src/main/java/com/google/devtools/build/lib/analysis:buildinfo/build_info_key",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/config",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
 )
 
 java_library(

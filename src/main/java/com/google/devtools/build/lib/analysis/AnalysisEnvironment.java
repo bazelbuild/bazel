@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -153,15 +152,6 @@ public interface AnalysisEnvironment extends ActionRegistry {
    * for the current build request.
    */
   Artifact getVolatileWorkspaceStatusArtifact() throws InterruptedException;
-
-  /**
-   * Returns the Artifacts that contain the workspace status for the current build request.
-   *
-   * @param stamp whether stamping is enabled
-   * @param config the current build configuration.
-   */
-  ImmutableList<Artifact> getBuildInfo(
-      boolean stamp, BuildInfoKey key, BuildConfigurationValue config) throws InterruptedException;
 
   /**
    * Returns the set of orphan Artifacts (i.e. Artifacts without generating action). Should only be

@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.AliasProvider.TargetMode;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -303,11 +302,6 @@ public class RuleContext extends TargetContext
     return getConfiguration().getBinDirectory(getLabel().getRepository());
   }
 
-  @SuppressWarnings("Unused") // Goal is to migrate here.
-  public ArtifactRoot getBuildInfoDirectory() {
-    return getConfiguration().getBuildInfoDirectory(getLabel().getRepository());
-  }
-
   public ArtifactRoot getGenfilesDirectory() {
     return getConfiguration().getGenfilesDirectory(getLabel().getRepository());
   }
@@ -544,12 +538,6 @@ public class RuleContext extends TargetContext
   @Override
   public ActionLookupKey getOwner() {
     return getAnalysisEnvironment().getOwner();
-  }
-
-  public ImmutableList<Artifact> getBuildInfo(BuildInfoKey key) throws InterruptedException {
-    return getAnalysisEnvironment()
-        .getBuildInfo(
-            AnalysisUtils.isStampingEnabled(this, getConfiguration()), key, getConfiguration());
   }
 
   @VisibleForTesting

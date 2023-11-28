@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainAliasRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainConfigInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainSuiteRule;
-import com.google.devtools.build.lib.rules.cpp.CppBuildInfo;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcIncludeScanningRule;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcLinkingRule;
@@ -76,7 +75,6 @@ public class CcRules implements RuleSet {
     builder.addBzlToplevel("CcSharedLibraryInfo", Starlark.NONE);
     builder.addBzlToplevel("CcSharedLibraryHintInfo", Starlark.NONE);
     builder.addBzlToplevel("cc_proto_aspect", Starlark.NONE);
-    builder.addBuildInfoFactory(new CppBuildInfo());
 
     builder.addRuleDefinition(new CcToolchainRule());
     builder.addRuleDefinition(new CcToolchainSuiteRule());

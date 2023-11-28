@@ -218,18 +218,6 @@ java_test(
     ],
 )
 
-java_test(
-    name = "WriteBuildInfoPropertiesActionTest",
-    srcs = ["WriteBuildInfoPropertiesActionTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
 java_library(
     name = "java_compile_action_test_helper",
     testonly = 1,
