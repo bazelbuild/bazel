@@ -58,20 +58,8 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     return builder.build();
   }
 
-  private void writeAllowlistFile() throws Exception {
-    scratch.overwriteFile(
-        "tools/allowlists/function_transition_allowlist/BUILD",
-        "package_group(",
-        "    name = 'function_transition_allowlist',",
-        "    packages = [",
-        "        '//test/...',",
-        "    ],",
-        ")");
-  }
-
   @Test
   public void testBadReturnTypeFromTransition() throws Exception {
-    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _impl(settings, attr):",
@@ -81,16 +69,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'my_transition')",
-        "def _impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })");
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
 
     var collector = new AnalysisRootCauseCollector();
@@ -107,7 +86,6 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
   @Test
   public void testOutputOnlyTransition() throws Exception {
-    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _impl(settings, attr):",
@@ -117,16 +95,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'my_transition')",
-        "def _impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })");
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
 
     useConfiguration("--foo=pre-transition");
@@ -138,7 +107,6 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
   @Test
   public void testInputAndOutputTransition() throws Exception {
-    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _impl(settings, attr):",
@@ -153,17 +121,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'my_transition')",
-        "def _impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })");
-
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
 
     useConfiguration("--foo=pre-transition");
@@ -175,7 +133,6 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
   @Test
   public void testBuildSettingCannotTransition() throws Exception {
-    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _impl(settings, attr):",
@@ -190,12 +147,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         "my_rule = rule(",
         "  implementation = _impl,",
         "  cfg = my_transition,",
-        "  build_setting = config.string(),",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })");
+        "  build_setting = config.string())");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
 
     reporter.removeHandler(failFastHandler);
@@ -206,19 +158,8 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
   @Test
   public void testBadCfgInput() throws Exception {
-    writeAllowlistFile();
     scratch.file(
-        "test/rules.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  cfg = 'my_transition',",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })");
+        "test/rules.bzl", "my_rule = rule(implementation = lambda ctx: [], cfg = 'my_transition')");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
 
     reporter.removeHandler(failFastHandler);
@@ -229,7 +170,6 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
   @Test
   public void testMultipleReturnConfigs() throws Exception {
-    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _impl(settings, attr):",
@@ -242,16 +182,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'my_transition')",
-        "def _impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })");
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
 
     reporter.removeHandler(failFastHandler);
@@ -259,9 +190,9 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     assertContainsEvent(
         "Rule transition only allowed to return a single transitioned configuration.");
   }
+
   @Test
   public void testCanDoBadStuffWithParameterizedTransitionsAndSelects() throws Exception {
-    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _impl(settings, attr):",
@@ -281,9 +212,6 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         "  cfg = my_transition,",
         "  attrs = {",
         "    'my_configurable_attr': attr.bool(default = False),",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
         "  },",
         ")");
     scratch.file(
@@ -312,7 +240,6 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
   @Test
   public void testLabelTypedAttrReturnsLabelNotDep() throws Exception {
-    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _impl(settings, attr):",
@@ -332,9 +259,6 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         "  cfg = my_transition,",
         "  attrs = {",
         "    'dict_attr': attr.label_keyed_string_dict(),",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
         "  },",
         ")",
         "simple_rule = rule(_impl)");
@@ -358,21 +282,10 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
       "cows produce more milk when they listen to soothing music";
 
   private void writeRulesBuildSettingsAndBUILDforBuildSettingTransitionTests() throws Exception {
-    writeAllowlistFile();
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'my_transition')",
-        "def _rule_impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _rule_impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  },",
-        ")");
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
 
     scratch.file(
         "test/build_settings.bzl",
@@ -500,7 +413,6 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
   @Test
   public void testTransitionOnBuildSetting_notABuildSetting() throws Exception {
-    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _transition_impl(settings, attr):",
@@ -513,17 +425,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'my_transition')",
-        "def _rule_impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _rule_impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  },",
-        ")");
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
     scratch.file(
         "test/build_settings.bzl",
         "def _impl(ctx):",
@@ -656,7 +558,6 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
   @Test
   public void testTransitionReadsBuildSetting_notABuildSetting() throws Exception {
-    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _transition_impl(settings, attr):",
@@ -669,17 +570,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'my_transition')",
-        "def _rule_impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _rule_impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  },",
-        ")");
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
     scratch.file(
         "test/build_settings.bzl",
         "def _impl(ctx):",
@@ -926,7 +817,6 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
   @Test
   public void testOneParamTransitionFunctionApiFails() throws Exception {
-    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _impl(settings):",
@@ -936,17 +826,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'my_transition')",
-        "def _impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  },",
-        ")");
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
 
     reporter.removeHandler(failFastHandler);
@@ -956,7 +836,6 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
   @Test
   public void testCannotTransitionOnExperimentalFlag() throws Exception {
-    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _impl(settings, attr):",
@@ -966,17 +845,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'my_transition')",
-        "def _impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  },",
-        ")");
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
 
     reporter.removeHandler(failFastHandler);
@@ -1019,7 +888,6 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
   @Test
   public void testNoNullOptionValues() throws Exception {
-    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _impl(settings, attr):",
@@ -1036,16 +904,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'my_transition')",
-        "def _impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })");
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
 
     useConfiguration("--nullable_option=", "--foo=pre-transition");
@@ -1058,7 +917,6 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
   @Test
   public void testAllowlistOnRuleNotTargets() throws Exception {
     // allowlists //test/...
-    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _impl(settings, attr):",
@@ -1068,16 +926,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'my_transition')",
-        "def _impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })");
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
     scratch.file(
         "neverland/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
     scratch.file("test/BUILD");
@@ -1094,7 +943,6 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
   @Test
   public void testAllowlistOnTargetsStillWorks() throws Exception {
     // allowlists //test/...
-    writeAllowlistFile();
     scratch.file(
         "neverland/transitions.bzl",
         "def _impl(settings, attr):",
@@ -1104,16 +952,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "neverland/rules.bzl",
         "load('//neverland:transitions.bzl', 'my_transition')",
-        "def _impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })");
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
     scratch.file(
         "test/BUILD", "load('//neverland:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
     scratch.file("neverland/BUILD");
@@ -1134,7 +973,6 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         + "}"
   })
   public void noopReturnValues(String returnLine) throws Exception {
-    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _impl(settings, attr):",
@@ -1144,16 +982,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'my_transition')",
-        "def _impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })");
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
     // --trim_test_configuration means only the top-level configuration has TestOptions.
     assertConfigurationsEqual(
@@ -1164,7 +993,6 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
   @Test
   public void composingTransitionReportsAllStarlarkErrors() throws Exception {
-    writeAllowlistFile();
     scratch.file(
         "test/build_settings.bzl",
         "def _impl(ctx):",
@@ -1194,17 +1022,11 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         "rule_with_attr_transition = rule(",
         "  implementation = _impl,",
         "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist'),",
         "    'deps': attr.label_list(cfg = attr_transition),",
         "  })",
         "rule_with_self_transition = rule(",
         "  implementation = _impl,",
-        "  cfg = self_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist'),",
-        "  })");
+        "  cfg = self_transition)");
     scratch.file(
         "test/BUILD",
         "load('//test:rules.bzl', 'rule_with_attr_transition', 'rule_with_self_transition')",
@@ -1227,7 +1049,6 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
   @Test
   public void testTransitionOnDefine() throws Exception {
-    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _impl(settings, attr):",
@@ -1237,16 +1058,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'my_transition')",
-        "def _impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })");
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
 
     reporter.removeHandler(failFastHandler);
@@ -1256,7 +1068,6 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
   @Test
   public void successfulTypeConversionOfNativeListOption() throws Exception {
-    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _impl(settings, attr):",
@@ -1266,16 +1077,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'my_transition')",
-        "def _impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })");
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
     scratch.file(
         "test/BUILD",
         "load('//test:rules.bzl', 'my_rule')",
@@ -1300,25 +1102,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         "  return {'//command_line_option:platforms': [Label('@@//test:my_platform')]}",
         "my_transition = transition(implementation = _tr_impl, inputs = [],",
         "  outputs = ['//command_line_option:platforms'])",
-        "def _impl(ctx):",
-        "  pass",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '@@//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })");
-
-    scratch.overwriteFile(
-        "tools/allowlists/function_transition_allowlist/BUILD",
-        "package_group(",
-        "    name = 'function_transition_allowlist',",
-        "    packages = [",
-        "        '//...',",
-        "    ],",
-        ")");
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
 
     scratch.file(
         "test/BUILD",
@@ -1335,7 +1119,6 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
   // Regression test for b/170729565
   @Test
   public void testSetBooleanNativeOptionWithStarlarkBoolean() throws Exception {
-    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _impl(settings, attr):",
@@ -1345,16 +1128,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'my_transition')",
-        "def _impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })");
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
     useConfiguration("--bool=false");
     ConfiguredTarget ct = getConfiguredTarget("//test");
@@ -1365,7 +1139,6 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
   // Regression test for b/170729565
   @Test
   public void testSetBooleanNativeOptionWithItself() throws Exception {
-    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _impl(settings, attr):",
@@ -1376,16 +1149,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'my_transition')",
-        "def _impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })");
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
     useConfiguration("--bool=false");
     ConfiguredTarget ct = getConfiguredTarget("//test");
@@ -1395,7 +1159,6 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
   @Test
   public void failedTypeConversionOfNativeListOption() throws Exception {
-    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _impl(settings, attr):",
@@ -1405,16 +1168,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'my_transition')",
-        "def _impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })");
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
     scratch.file(
         "test/BUILD",
         "load('//test:rules.bzl', 'my_rule')",
@@ -1428,7 +1182,6 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
   @Test
   public void successfulTypeConversionOfNativeListOptionEmptyList() throws Exception {
-    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _impl(settings, attr):",
@@ -1438,16 +1191,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'my_transition')",
-        "def _impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })");
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
     scratch.file(
         "test/BUILD",
         "load('//test:rules.bzl', 'my_rule')",
@@ -1461,7 +1205,6 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
 
   @Test
   public void failedTypeConversionOfNativeListOptionNone() throws Exception {
-    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _impl(settings, attr):",
@@ -1471,16 +1214,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'my_transition')",
-        "def _impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })");
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
 
     reporter.removeHandler(failFastHandler);
@@ -1494,7 +1228,6 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
   public void starlarkPatchTransitionRequiredFragments() throws Exception {
     // All Starlark rule transitions are patch transitions, while all Starlark attribute transitions
     // are split transitions.
-    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _impl(settings, attr):",
@@ -1504,16 +1237,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'my_transition')",
-        "def _impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })");
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
     scratch.file(
         "test/BUILD",
         "load('//test:rules.bzl', 'my_rule')",
@@ -1543,7 +1267,6 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
    */
   @Test
   public void invalidMnemonicFromDepTransition() throws Exception {
-    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _impl(settings, attr):",
@@ -1553,16 +1276,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'my_transition')",
-        "def _impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })");
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
     scratch.file(
         "test/BUILD",
         "load('//test:rules.bzl', 'my_rule')",
@@ -1584,21 +1298,10 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         "  inputs = [],",
         "  outputs = ['//test:cute-animal-fact']",
         ")");
-    writeAllowlistFile();
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'my_transition')",
-        "def _rule_impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _rule_impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  },",
-        ")");
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
     scratch.file(
         "test/build_settings.bzl",
         "def _impl(ctx):",
@@ -1633,21 +1336,10 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         "  inputs = [],",
         "  outputs = ['//test:cute-animal-fact']",
         ")");
-    writeAllowlistFile();
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'my_transition')",
-        "def _rule_impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _rule_impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  },",
-        ")");
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
     scratch.file(
         "test/build_settings.bzl",
         "def _impl(ctx):",
@@ -1686,21 +1378,10 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         "  inputs = ['//test:multiple_flag'],",
         "  outputs = ['//test:multiple_flag']",
         ")");
-    writeAllowlistFile();
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'my_transition')",
-        "def _rule_impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _rule_impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  },",
-        ")");
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
     scratch.file(
         "test/build_settings.bzl",
         "def _impl(ctx):",
@@ -1743,21 +1424,10 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         "  inputs = [],",
         "  outputs = ['//command_line_option:cpu']",
         ")");
-    writeAllowlistFile();
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'my_transition')",
-        "def _rule_impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _rule_impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  },",
-        ")");
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
 
     useConfiguration("--platforms=//platforms:my_platform");
@@ -1794,21 +1464,10 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         "    '//command_line_option:platforms'",
         "  ]",
         ")");
-    writeAllowlistFile();
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'my_transition')",
-        "def _rule_impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _rule_impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  },",
-        ")");
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
 
     useConfiguration("--platforms=//platforms:my_platform");
@@ -1837,21 +1496,10 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         "    '//command_line_option:foo',",
         "  ]",
         ")");
-    writeAllowlistFile();
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'my_transition')",
-        "def _rule_impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _rule_impl,",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  },",
-        ")");
+        "my_rule = rule(implementation = lambda ctx: [], cfg = my_transition)");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
 
     useConfiguration("--platforms=//platforms:my_platform");
@@ -1885,12 +1533,7 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
         "  cfg = _my_transition,",
         "  attrs = {",
         "    'my_attr': attr.string(),",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  },",
-        ")");
-    writeAllowlistFile();
+        "  })");
 
     scratch.file(
         "test/BUILD",

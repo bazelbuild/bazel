@@ -536,6 +536,13 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create("third_party/bazel_rules/rules_cc/WORKSPACE");
     config.create("third_party/bazel_rules/rules_cc/MODULE.bazel", "module(name='rules_cc')");
 
+    config.create(
+        "embedded_tools/tools/allowlists/function_transition_allowlist/BUILD",
+        "package_group(",
+        "  name = 'function_transition_allowlist',",
+        "  packages = ['public'],",
+        ")");
+
     MockPlatformSupport.setup(config);
     ccSupport().setup(config);
     pySupport().setup(config);
