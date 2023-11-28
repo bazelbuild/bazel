@@ -291,7 +291,10 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
                 function,
                 /*args=*/ ImmutableList.of(starlarkRepositoryContext),
                 /*kwargs=*/ ImmutableMap.of());
+      } finally {
+        starlarkRepositoryContext.ensureNoPendingAsyncWork();
       }
+
       RepositoryResolvedEvent resolved =
           new RepositoryResolvedEvent(
               rule, starlarkRepositoryContext.getAttr(), outputDirectory, result);

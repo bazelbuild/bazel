@@ -70,7 +70,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Paths;
-import java.sql.Struct;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -79,7 +78,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.Executor;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -90,7 +90,6 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
-import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
@@ -111,6 +110,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   protected final StarlarkSemantics starlarkSemantics;
   private final HashMap<Label, String> accumulatedFileDigests = new HashMap<>();
   private final RepositoryRemoteExecutor remoteExecutor;
+  private final List<Future<?>> asyncWork;
 
   protected StarlarkBaseExternalContext(
       Path workingDirectory,
@@ -130,6 +130,30 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     this.processWrapper = processWrapper;
     this.starlarkSemantics = starlarkSemantics;
     this.remoteExecutor = remoteExecutor;
+    this.asyncWork = new ArrayList<Future<?>>();
+  }
+
+  public void ensureNoPendingAsyncWork() {
+    for (Future<?> future : asyncWork) {
+      if (!future.cancel(true)) {
+        // Already done
+        continue;
+      }
+
+      try {
+        future.get();
+      } catch (InterruptedException | ExecutionException | CancellationException e) {
+        // TODO(lberki): Maybe raise an error if there is unwaited work left?
+        // Ignore. The only thing we care about is that there is no async work in progress after
+        // this point. Any error reporting should have been done before.
+      }
+    }
+  }
+
+  // There is no unregister(). We don't have that many futures in each repository and it just
+  // introduces the failure mode of erroneously unregistering async work that's not done.
+  protected void registerAsyncWork(Future<?> future) {
+    asyncWork.add(future);
   }
 
   /** A string that can be used to identify this context object. Used for logging purposes. */
@@ -368,37 +392,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     return StarlarkInfo.create(StructProvider.STRUCT, out.buildOrThrow(), Location.BUILTIN);
   }
 
-  private static class DownloadRequest implements StarlarkValue {
-    private final Object url;
-    private final Object output;
-    private final String sha256;
-    private final Boolean executable;
-    private final Boolean allowFail;
-    private final String canonicalId;
-    private final Dict<?, ?> authUnchecked;  // <String, Dict> expected
-    private final String integrity;
-
-    private DownloadRequest(
-        Object url,
-        Object output,
-        String sha256,
-        Boolean executable,
-        Boolean allowFail,
-        String canonicalId,
-        Dict<?, ?> authUnchecked,
-        String integrity) {
-      this.url = url;
-      this.output = output;
-      this.sha256 = sha256;
-      this.executable = executable;
-      this.allowFail = allowFail;
-      this.canonicalId = canonicalId;
-      this.authUnchecked = authUnchecked;
-      this.integrity = integrity;
-    }
-
-  }
-  private static class PendingDownload {
+  private class PendingDownload implements StarlarkValue {
     private final boolean executable;
     private final boolean allowFail;
     private final StarlarkPath outputPath;
@@ -415,59 +409,15 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       this.checksumValidation = checksumValidation;
       this.future = future;
     }
-  }
 
-  private PendingDownload startDownload(DownloadRequest request, StarlarkThread thread)
-      throws RepositoryFunctionException, EvalException, InterruptedException {
-    ImmutableMap<URI, Map<String, List<String>>> authHeaders =
-        getAuthHeaders(getAuthContents(request.authUnchecked, "auth"));
-
-    ImmutableList<URL> urls =
-        getUrls(
-            request.url,
-            /*ensureNonEmpty=*/ !request.allowFail,
-            /*checksumGiven=*/ !Strings.isNullOrEmpty(request.sha256) || !Strings.isNullOrEmpty(request.integrity));
-    Optional<Checksum> checksum;
-    RepositoryFunctionException checksumValidation = null;
-    try {
-      checksum = validateChecksum(request.sha256, request.integrity, urls);
-    } catch (RepositoryFunctionException e) {
-      checksum = Optional.<Checksum>empty();
-      checksumValidation = e;
+    @StarlarkMethod(
+        name = "wait",
+        parameters = {},
+        doc = "TODO"
+    )
+    public StructImpl waitForCompletion() throws InterruptedException, RepositoryFunctionException {
+      return completeDownload(this);
     }
-
-    StarlarkPath outputPath = getPath("download()", request.output);
-    WorkspaceRuleEvent w =
-        WorkspaceRuleEvent.newDownloadEvent(
-            urls,
-            request.output.toString(),
-            request.sha256,
-            request.integrity,
-            request.executable,
-            getIdentifyingStringForLogging(),
-            thread.getCallerLocation());
-    env.getListener().post(w);
-
-    try {
-      checkInOutputDirectory("write", outputPath);
-      makeDirectories(outputPath.getPath());
-    } catch (IOException e) {
-      return new PendingDownload(request.executable, request.allowFail, outputPath, checksum, checksumValidation,
-          Futures.immediateFailedFuture(e));
-    }
-    Future<Path> downloadFuture =
-        downloadManager.startDownload(
-            urls,
-            authHeaders,
-            checksum,
-            request.canonicalId,
-            Optional.<String>empty(),
-            outputPath.getPath(),
-            env.getListener(),
-            envVariables,
-            getIdentifyingStringForLogging());
-    return new PendingDownload(request.executable, request.allowFail, outputPath, checksum,
-        checksumValidation, downloadFuture);
   }
 
   private StructImpl completeDownload(PendingDownload pendingDownload)
@@ -582,46 +532,66 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       Boolean defer,
       StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    DownloadRequest request = new DownloadRequest(
-        url, output, sha256, executable, allowFail, canonicalId, authUnchecked, integrity);
+    PendingDownload download = null;
+    ImmutableMap<URI, Map<String, List<String>>> authHeaders =
+        getAuthHeaders(getAuthContents(authUnchecked, "auth"));
 
+    ImmutableList<URL> urls =
+        getUrls(
+            url,
+            /*ensureNonEmpty=*/ !allowFail,
+            /*checksumGiven=*/ !Strings.isNullOrEmpty(sha256) || !Strings.isNullOrEmpty(
+                integrity));
+    Optional<Checksum> checksum = null;
+    RepositoryFunctionException checksumValidation = null;
+    try {
+      checksum = validateChecksum(sha256, integrity, urls);
+    } catch (RepositoryFunctionException e) {
+      checksum = Optional.<Checksum>empty();
+      checksumValidation = e;
+    }
+
+    StarlarkPath outputPath = getPath("download()", output);
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newDownloadEvent(
+            urls,
+            output.toString(),
+            sha256,
+            integrity,
+            executable,
+            getIdentifyingStringForLogging(),
+            thread.getCallerLocation());
+    env.getListener().post(w);
+
+    try {
+      checkInOutputDirectory("write", outputPath);
+      makeDirectories(outputPath.getPath());
+    } catch (IOException e) {
+      download = new PendingDownload(executable, allowFail, outputPath, checksum,
+          checksumValidation,
+          Futures.immediateFailedFuture(e));
+    }
+    if (download == null) {
+      Future<Path> downloadFuture =
+          downloadManager.startDownload(
+              urls,
+              authHeaders,
+              checksum,
+              canonicalId,
+              Optional.<String>empty(),
+              outputPath.getPath(),
+              env.getListener(),
+              envVariables,
+              getIdentifyingStringForLogging());
+      registerAsyncWork(downloadFuture);
+      download = new PendingDownload(executable, allowFail, outputPath, checksum,
+          checksumValidation, downloadFuture);
+    }
     if (defer) {
-      return request;
+      return download;
+    } else {
+      return completeDownload(download);
     }
-
-    PendingDownload download = startDownload(request, thread);
-    return completeDownload(download);
-  }
-
-  @StarlarkMethod(
-      name = "download_multiple",
-      useStarlarkThread = true,
-      parameters = {
-          @Param(
-              name = "requests",
-              allowedTypes = { @ParamType(type = Sequence.class, generic1 = Dict.class)},
-              doc = "TODO"
-          )
-      },
-      doc = "TODO"
-  )
-  public Sequence<StructImpl> downloadMultiple(Sequence<?> requestsUnchecked, StarlarkThread thread)
-      throws EvalException, RepositoryFunctionException, InterruptedException {
-    Sequence<DownloadRequest> requests =
-        Sequence.cast(requestsUnchecked, DownloadRequest.class, "requests");
-
-    List<PendingDownload> downloads = new ArrayList<>();
-    for (DownloadRequest request : requests) {
-      PendingDownload download = startDownload(request, thread);
-      downloads.add(download);
-    }
-
-    List<StructImpl> result = new ArrayList<>();
-    for (PendingDownload download : downloads) {
-      result.add(completeDownload(download));
-    }
-
-    return StarlarkList.immutableCopyOf(result);
   }
 
   @StarlarkMethod(
@@ -787,8 +757,8 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       downloadDirectory =
           workingDirectory.getFileSystem().getPath(tempDirectory.toFile().getAbsolutePath());
 
-      downloadedPath =
-          downloadManager.download(
+      Future<Path> pendingDownload =
+          downloadManager.startDownload(
               urls,
               authHeaders,
               checksum,
@@ -798,6 +768,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
               env.getListener(),
               envVariables,
               getIdentifyingStringForLogging());
+      downloadedPath = downloadManager.finalizeDownload(pendingDownload);
     } catch (IOException e) {
       env.getListener().post(w);
       if (allowFail) {

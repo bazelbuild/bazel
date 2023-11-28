@@ -177,7 +177,7 @@ public class DownloadManager {
    * @throws IOException if download was attempted and ended up failing
    * @throws InterruptedException if this thread is being cast into oblivion
    */
-  public Path reallyDownload(
+  private Path reallyDownload(
       List<URL> originalUrls,
       Map<URI, Map<String, List<String>>> authHeaders,
       Optional<Checksum> checksum,
