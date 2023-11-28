@@ -11,38 +11,104 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" Starlark implementation of Bazel's exec transition.
+""" Default implementation of Bazel's exec transition ('cfg = "exec"').
 
 See https://github.com/bazelbuild/bazel/discussions/19213.
 """
-fragments = {}
 
-def _add_fragment(name, propagate = [], inputs = [], outputs = [], func = lambda setting: {}):
-    """Adds the exec transition logic for a configuration fragment.
+# The fragments that make up Bazel's exec transition. The fragment() calls in
+# this file fill out this map.
+bazel_fragments = {}
 
-    This is a Starlark clone of https://github.com/bazelbuild/bazel/blob/9659ea61be5cd614a4002bc0f09acd44e18baa2b/src/main/java/com/google/devtools/build/lib/analysis/config/FragmentOptions.java#L51-L58.
+def fragment(propagate = [], inputs = [], outputs = [], func = lambda setting: {}):
+    """Adds exec transition logic for a group of related flags.
 
     Args:
-      name: The name of this fragment.
       propagate: Flags to propagate as-is from the input configuration.
       inputs: Flags to specially read for custom transit logic.
       outputs: Flags to specially write with custom transition logic.
       func: Custom transition logic for flags we don't auto-propagate.
+
+    Returns:
+      The fragment.
     """
-    fragments[name] = struct(
+    return struct(
         inputs = inputs + propagate,
         outputs = outputs + propagate,
         propagate = propagate,
         custom_logic = func,
     )
 
+def exec_transition(fragments):
+    """Returns the data for creating an exec transition from a set of fragments.
+
+    Ideally this would create and return the transition itself. Instead, callers
+    have to wrap their own transition() call around the data returned here.
+
+    This is because Bazel checks if a transition is the exec transition, and if
+    so applies different implementation logic vs. normal transitions. The check,
+    at https://github.com/bazelbuild/bazel/blob/c8afa82026977e84d1c89f4f0ae3503ef7720a25/src/main/java/com/google/devtools/build/lib/analysis/config/StarlarkDefinedConfigTransition.java#L128-L130,
+    compares the value of `--experimental_exec_config` with the .bzl file that
+    declared the transition.
+
+    If another .bzl file wraps this logic for its own transition, it must
+    declare its own transition() call so that check matches (so Bazel sees the
+    owner of that transition is the other bzl file, not this one).
+
+    Args:
+      fragments: Fragments that make up the transition, as a map from name to
+      data. Data comes from the fragment() function.
+
+    Returns:
+      The data needd to declare an exec transition for those fragments.
+    """
+    inputs_and_outputs = _get_inputs_and_outputs(fragments)
+    return struct(
+        implementation = _exec_transition_impl(fragments),
+        inputs = inputs_and_outputs.inputs,
+        outputs = inputs_and_outputs.outputs,
+    )
+
+def _get_inputs_and_outputs(fragments):
+    """Returns the (inputs, outputs) for a collection of fragments.
+    """
+    inputs = []
+    outputs = ["//command_line_option:experimental_action_listener"]
+    for fragment in fragments.values():
+        inputs.extend(fragment.inputs)
+        outputs.extend(fragment.outputs)
+    return struct(inputs = inputs, outputs = outputs)
+
+def _exec_transition_impl(fragments):
+    """Returns an exec transition impl function from a set of fragments.
+
+    Args:
+      fragments: Fragments that make up the transition, as a map from name to
+      data. Data comes from the fragment() function.
+    """
+
+    # buildifier: disable=unused-variable
+    def _impl(settings, attr):
+        ans = {}
+        for fragment in fragments.values():
+            for option in fragment.propagate:
+                ans[option] = settings[option]
+            ans.update(fragment.custom_logic(settings))
+
+        # Building with --experimental_action_listener fails.
+        # TODO(b/301654253): clarify what to do with this flag.
+        ans["//command_line_option:experimental_action_listener"] = []
+        return ans
+
+    return _impl
+
 ################################ Fragment definitions: #########################
 #
-# These are Starlark copies of Bazel's native FragmentOptions definitions
-# (AndroidConfiguration.java, AppleCommandLineOptions.java, etc.)
+# Fragments encapsulate thematically related flags (like all flags that
+# configure Java rules). Fragments are not a native Bazel concept - they're pure
+# Starlark collections.
 
-_add_fragment(
-    name = "AndroidConfiguration.Options",
+bazel_fragments["AndroidConfiguration.Options"] = fragment(
     propagate = [
         "//command_line_option:android_crosstool_top",
         "//command_line_option:android_sdk",
@@ -82,8 +148,7 @@ _add_fragment(
 
 # AndroidLocalTestConfiguration$Options: no exec configs
 
-_add_fragment(
-    name = "AppleCommandLineOptions",
+bazel_fragments["AppleCommandLineOptions"] = fragment(
     propagate = [
         "//command_line_option:xcode_version_config",
         "//command_line_option:xcode_version",
@@ -109,15 +174,13 @@ _add_fragment(
     },
 )
 
-_add_fragment(
-    name = "BazelConfiguration$Options",
+bazel_fragments["BazelConfigurarion$Options"] = fragment(
     propagate = [
         "//command_line_option:incompatible_check_visibility_for_toolchains",
     ],
 )
 
-_add_fragment(
-    name = "BazelPythonConfiguration$Options",
+bazel_fragments["BazelPythonConfiguration$Options"] = fragment(
     propagate = [
         "//command_line_option:python2_path",
         "//command_line_option:python3_path",
@@ -127,15 +190,13 @@ _add_fragment(
     ],
 )
 
-_add_fragment(
-    name = "BazelRuleClassProvider$StrictActionEnvOptions",
+bazel_fragments["BazelRuleClassProvider$StrictActionEnvOptions"] = fragment(
     propagate = [
         "//command_line_option:incompatible_strict_action_env",
     ],
 )
 
-_add_fragment(
-    name = "ConfigFeatureFlagOptions",
+bazel_fragments["ConfigFeatureFlagOptions"] = fragment(
     propagate = [
         "//command_line_option:all feature flag values are present (internal)",
     ],
@@ -147,7 +208,6 @@ _add_fragment(
     },
 )
 
-# CoreOptions:
 def _core_options(settings):
     ans = {
         "//command_line_option:compilation_mode": settings["//command_line_option:host_compilation_mode"],
@@ -162,8 +222,7 @@ def _core_options(settings):
         ans["//command_line_option:features"] = settings["//command_line_option:features"]
     return ans
 
-_add_fragment(
-    name = "CoreOptions",
+bazel_fragments["CoreOptions"] = fragment(
     propagate = [
         "//command_line_option:experimental_output_directory_naming_scheme",
         "//command_line_option:host_compilation_mode",
@@ -210,8 +269,7 @@ _add_fragment(
 
 # CoverageConfiguration$CoverageOptions:  no getExec()
 
-_add_fragment(
-    name = "CppOptions",
+bazel_fragments["CppOptions"] = fragment(
     propagate = [
         "//command_line_option:host_copt",
         "//command_line_option:host_conlyopt",
@@ -269,8 +327,7 @@ _add_fragment(
 
 # GenQueryConfiguration$GenQueryOptions: no getExec()
 
-_add_fragment(
-    name = "J2ObjcCommandLineOptions",
+bazel_fragments["J2ObjcCommandLineOptions"] = fragment(
     propagate = [
         "//command_line_option:j2objc_translation_flags",
         "//command_line_option:incompatible_j2objc_library_migration",
@@ -289,8 +346,7 @@ def _java_options(settings):
     ans["//command_line_option:java_runtime_version"] = settings["//command_line_option:tool_java_runtime_version"]
     return ans
 
-_add_fragment(
-    name = "JavaOptions",
+bazel_fragments["JavaOptions"] = fragment(
     propagate = [
         "//command_line_option:use_ijars",
         "//command_line_option:java_header_compilation",
@@ -333,8 +389,7 @@ _add_fragment(
     func = _java_options,
 )
 
-_add_fragment(
-    name = "ObjcCommandLineOptions",
+bazel_fragments["ObjcCommandLineOptions"] = fragment(
     propagate = [
         "//command_line_option:incompatible_avoid_hardcoded_objc_compilation_flags",
         "//command_line_option:incompatible_disallow_sdk_frameworks_attributes",
@@ -342,8 +397,7 @@ _add_fragment(
     ],
 )
 
-_add_fragment(
-    name = "PlatformOptions",
+bazel_fragments["PlatformOptions"] = fragment(
     propagate = [
         "//command_line_option:host_platform",
         "//command_line_option:platform_mappings",
@@ -354,8 +408,7 @@ _add_fragment(
     ],
 )
 
-_add_fragment(
-    name = "ProtoConfiguration$Options",
+bazel_fragments["ProtoConfiguration$Options"] = fragment(
     propagate = [
         "//command_line_option:proto_compiler",
         "//command_line_option:protocopt",
@@ -383,8 +436,7 @@ def _python_options(settings):
         "//command_line_option:python_version": host_py_version,
     }
 
-_add_fragment(
-    name = "PythonOptions",
+bazel_fragments["PythonOptions"] = fragment(
     # Could move these toolchain configuring flags to toolchain definitions?
     # And not make them flags. Must each one toggle independently of the others?
     propagate = [
@@ -407,8 +459,7 @@ _add_fragment(
     func = _python_options,
 )
 
-_add_fragment(
-    name = "ShellConfiguration$Options",
+bazel_fragments["ShellConfiguration$Options"] = fragment(
     propagate = [
         "//command_line_option:shell_executable",
     ],
@@ -416,41 +467,10 @@ _add_fragment(
 
 # TestConfiguration$TestOptions: handled in native code. See b/295936652.
 
-def _get_inputs_and_outputs(fragments):
-    """Returns the (inputs, outputs) for a collection of fragments.
-    """
-    inputs = []
-    outputs = ["//command_line_option:experimental_action_listener"]
-    for fragment in fragments.values():
-        inputs.extend(fragment.inputs)
-        outputs.extend(fragment.outputs)
-    return struct(inputs = inputs, outputs = outputs)
-
-def make_transition_impl(fragments):
-    # buildifier: disable=unused-variable
-    def _impl(settings, attr):
-        ans = {}
-        for fragment in fragments.values():
-            for option in fragment.propagate:
-                ans[option] = settings[option]
-            ans.update(fragment.custom_logic(settings))
-
-        # Building with --experimental_action_listener fails.
-        # TODO(b/301654253): clarify what to do with this flag.
-        ans["//command_line_option:experimental_action_listener"] = []
-        return ans
-
-    return _impl
-
-transition = _builtins.toplevel.transition
-
-def make_transition(fragments):
-    inputs_and_outputs = _get_inputs_and_outputs(fragments)
-    return transition(
-        implementation = make_transition_impl(fragments),
-        inputs = inputs_and_outputs.inputs,
-        outputs = inputs_and_outputs.outputs,
-    )
-
-# Production transition implementation.
-bazel_exec_transition = make_transition(fragments)
+# Bazel's exec transition.
+_transition_data = exec_transition(bazel_fragments)
+bazel_exec_transition = _builtins.toplevel.transition(
+    implementation = _transition_data.implementation,
+    inputs = _transition_data.inputs,
+    outputs = _transition_data.outputs,
+)
