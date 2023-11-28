@@ -47,7 +47,6 @@ def android_sh_test(create_test_with_released_tools = True, **kwargs):
         # Test with released android_tools version.
         native.sh_test(
             name = name,
-            args = ["--with_platforms"],
             data = data,
             **kwargs
         )
@@ -56,7 +55,6 @@ def android_sh_test(create_test_with_released_tools = True, **kwargs):
     # as the test itself.
     native.sh_test(
         name = name + "_with_head_android_tools",
-        args = ["--with_platforms"],
         data = data + [
             "//tools/android/runtime_deps:android_tools.tar",
         ],
