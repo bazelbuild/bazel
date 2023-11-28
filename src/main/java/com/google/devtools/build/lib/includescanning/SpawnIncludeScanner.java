@@ -64,7 +64,7 @@ import javax.annotation.Nullable;
 public class SpawnIncludeScanner {
   /** The grep-includes tool is very lightweight, so don't use the default from AbstractAction. */
   private static final ResourceSet LOCAL_RESOURCES =
-      ResourceSet.createWithRamCpu(/*memoryMb=*/ 10, /*cpuUsage=*/ 1);
+      ResourceSet.createWithRamCpu(/* memoryMb= */ 10, /* cpu= */ 1);
 
   private final Path execRoot;
   private OutputService outputService;

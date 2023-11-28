@@ -545,17 +545,16 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
       switch (os) {
         case DARWIN:
           resourceSet =
-              ResourceSet.createWithRamCpu(
-                  /* memoryMb= */ 15 + 0.05 * inputsCount, /* cpuUsage= */ 1);
+              ResourceSet.createWithRamCpu(/* memoryMb= */ 15 + 0.05 * inputsCount, /* cpu= */ 1);
           break;
         case LINUX:
           resourceSet =
               ResourceSet.createWithRamCpu(
-                  /* memoryMb= */ Math.max(50, -100 + 0.1 * inputsCount), /* cpuUsage= */ 1);
+                  /* memoryMb= */ Math.max(50, -100 + 0.1 * inputsCount), /* cpu= */ 1);
           break;
         default:
           resourceSet =
-              ResourceSet.createWithRamCpu(/* memoryMb= */ 1500 + inputsCount, /* cpuUsage= */ 1);
+              ResourceSet.createWithRamCpu(/* memoryMb= */ 1500 + inputsCount, /* cpu= */ 1);
           break;
       }
 

@@ -525,15 +525,15 @@ public final class Converters {
   }
 
   /** A converter for for assignments from a string value to a float value. */
-  public static class StringToFloatAssignmentConverter
-      extends Converter.Contextless<Map.Entry<String, Float>> {
+  public static class StringToDoubleAssignmentConverter
+      extends Converter.Contextless<Map.Entry<String, Double>> {
     private static final AssignmentConverter baseConverter = new AssignmentConverter();
 
     @Override
-    public Map.Entry<String, Float> convert(String input)
+    public Map.Entry<String, Double> convert(String input)
         throws OptionsParsingException, NumberFormatException {
       Map.Entry<String, String> stringEntry = baseConverter.convert(input);
-      return Maps.immutableEntry(stringEntry.getKey(), Float.parseFloat(stringEntry.getValue()));
+      return Maps.immutableEntry(stringEntry.getKey(), Double.parseDouble(stringEntry.getValue()));
     }
 
     @Override
