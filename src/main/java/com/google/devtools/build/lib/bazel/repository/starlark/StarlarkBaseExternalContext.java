@@ -443,7 +443,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
               name = "headers",
               defaultValue = "{}",
               named = true,
-              doc = "An optional dict specifying http headers for some of the URLs."),
+              doc = "An optional dict specifying http headers for all URLs."),
         @Param(
             name = "integrity",
             defaultValue = "''",
@@ -623,7 +623,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
               name = "headers",
               defaultValue = "{}",
               named = true,
-              doc = "An optional dict specifying http headers for some of the URLs."),
+              doc = "An optional dict specifying http headers for all URLs."),
         @Param(
             name = "integrity",
             defaultValue = "''",
