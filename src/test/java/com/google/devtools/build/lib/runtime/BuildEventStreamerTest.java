@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentRegistry;
 import com.google.devtools.build.lib.bugreport.BugReport;
-import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions.BesUploadMode;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -171,11 +170,6 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
     @Override
     public boolean mayBeSlow() {
       return false;
-    }
-
-    @Override
-    public BesUploadMode getBesUploadMode() {
-      return BesUploadMode.WAIT_FOR_UPLOAD_COMPLETE;
     }
 
     @Override

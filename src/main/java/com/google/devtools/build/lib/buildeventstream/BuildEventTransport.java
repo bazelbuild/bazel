@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildeventstream;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions.BesUploadMode;
 import java.time.Duration;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
@@ -24,12 +24,14 @@ import javax.annotation.concurrent.ThreadSafe;
  *
  * <p>All implementations need to be thread-safe. All methods are expected to return quickly.
  *
- * <p>Notice that this interface does not provide any error handling API. A transport may choose to
- * log interesting errors to the command line and/or abort the whole build.
+ * <p>Notice that this interface does not provide any error handling API. A transport may choose
+ * to log interesting errors to the command line and/or abort the whole build.
  */
 @ThreadSafe
 public interface BuildEventTransport {
-  /** The name of this transport as can be displayed to a user. */
+  /**
+   * The name of this transport as can be displayed to a user.
+   */
   String name();
 
   /**
@@ -85,9 +87,7 @@ public interface BuildEventTransport {
    */
   boolean mayBeSlow();
 
-  /** Returns the desired {@link BesUploadMode} for the transport. */
-  BesUploadMode getBesUploadMode();
-
+  @VisibleForTesting
   @Nullable
   BuildEventArtifactUploader getUploader();
 }

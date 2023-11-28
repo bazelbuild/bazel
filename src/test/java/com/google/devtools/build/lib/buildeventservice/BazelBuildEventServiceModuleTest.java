@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.buildeventservice.BazelBuildEventServiceModule.BackendConfig;
-import com.google.devtools.build.lib.buildeventservice.BuildEventServiceModule.BuildEventOutputStreamFactory;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted;
@@ -75,8 +74,6 @@ import com.google.devtools.build.v1.PublishBuildToolEventStreamResponse;
 import com.google.devtools.build.v1.PublishLifecycleEventRequest;
 import com.google.devtools.build.v1.StreamId;
 import com.google.protobuf.Empty;
-import com.google.testing.junit.testparameterinjector.TestParameter;
-import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import io.grpc.ManagedChannel;
 import io.grpc.Metadata;
 import io.grpc.Server;
@@ -87,15 +84,11 @@ import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
-import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.lang.Thread.UncaughtExceptionHandler;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -109,7 +102,6 @@ import java.util.SortedSet;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import org.junit.After;
@@ -119,9 +111,10 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /** Tests for {@link BazelBuildEventServiceModule}. */
-@RunWith(TestParameterInjector.class)
+@RunWith(JUnit4.class)
 public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTestCase {
 
   private static final Duration WAIT_FOR_LAST_INVOCATION_TIMEOUT = Duration.ofSeconds(2);
@@ -136,8 +129,6 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
   private BlazeModule connectivityModule = new NoOpConnectivityModule();
 
   @Rule public TemporaryFolder tmpFolder = new TemporaryFolder();
-
-  @Nullable private BuildEventOutputStreamFactory buildEventOutputStreamFactory;
 
   @Override
   protected BlazeModule getConnectivityModule() {
@@ -176,9 +167,6 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
   private void runBuildWithOptions(String... options) throws Exception {
     addOptions(options);
     besModule = runtimeWrapper.getRuntime().getBlazeModule(BazelBuildEventServiceModule.class);
-    if (buildEventOutputStreamFactory != null) {
-      besModule.setBuildEventOutputStreamFactory(buildEventOutputStreamFactory);
-    }
     runtimeWrapper.newCommand();
     buildTarget();
   }
@@ -452,65 +440,6 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
   public void testAfterCommand_fullyAsync() throws Exception {
     runBuildWithOptions("--bes_backend=inprocess", "--bes_upload_mode=FULLY_ASYNC");
     afterBuildCommand();
-    events.assertNoWarningsOrErrors();
-  }
-
-  enum BuildEventFile {
-    TEXT,
-    JSON,
-    BINARY;
-
-    String getBuildEventFileFlag(String file) {
-      switch (this) {
-        case TEXT:
-          return "--build_event_text_file=" + file;
-        case JSON:
-          return "--build_event_json_file=" + file;
-        case BINARY:
-          return "--build_event_binary_file=" + file;
-      }
-      throw new IllegalStateException();
-    }
-
-    String getBuildEventFileUploadModeFlag(String mode) {
-      switch (this) {
-        case TEXT:
-          return "--build_event_text_file_upload_mode=" + mode;
-        case JSON:
-          return "--build_event_json_file_upload_mode=" + mode;
-        case BINARY:
-          return "--build_event_binary_file_upload_mode=" + mode;
-      }
-      throw new IllegalStateException();
-    }
-  }
-
-  @Test
-  public void testAfterCommand_buildEventFile_waitForUploadComplete(
-      @TestParameter BuildEventFile buildEventFile) throws Exception {
-    AtomicReference<DelayingCloseBufferedOutputStream> outRef = new AtomicReference<>(null);
-    buildEventOutputStreamFactory =
-        (file) -> {
-          var out =
-              new DelayingCloseBufferedOutputStream(
-                  Files.newOutputStream(Paths.get(file)), Duration.ofSeconds(1));
-          outRef.set(out);
-          return out;
-        };
-    buildEventService.setDelayBeforeClosingStream(Duration.ofSeconds(10));
-    var file = tmpFolder.newFile();
-
-    runBuildWithOptions(
-        "--bes_backend=inprocess",
-        "--bes_upload_mode=FULLY_ASYNC",
-        "--bes_timeout=1s",
-        buildEventFile.getBuildEventFileFlag(file.getAbsolutePath()),
-        buildEventFile.getBuildEventFileUploadModeFlag("wait_for_upload_complete"));
-    afterBuildCommand();
-
-    assertThat(outRef.get().isClosed()).isTrue();
-    // Expect Bazel doesn't wait for uploading to bes_backend, otherwise there will be a timeout
-    // error.
     events.assertNoWarningsOrErrors();
   }
 
@@ -1124,28 +1053,6 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     public void onCompleted() {
       responseObserver.onError(
           new StatusRuntimeException(Status.DATA_LOSS.withDescription(errorMessage)));
-    }
-  }
-
-  private static final class DelayingCloseBufferedOutputStream extends BufferedOutputStream {
-    private final Duration delay;
-    private final AtomicBoolean closed = new AtomicBoolean(false);
-
-    DelayingCloseBufferedOutputStream(OutputStream out, Duration delay) {
-      super(out);
-      this.delay = delay;
-      this.out = out;
-    }
-
-    @Override
-    public void close() throws IOException {
-      Uninterruptibles.sleepUninterruptibly(delay);
-      super.close();
-      closed.set(true);
-    }
-
-    public boolean isClosed() {
-      return closed.get();
     }
   }
 }
