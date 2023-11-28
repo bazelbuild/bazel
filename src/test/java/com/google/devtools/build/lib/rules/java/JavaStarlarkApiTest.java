@@ -3567,6 +3567,97 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
+  public void implicitLibCtSym() throws Exception {
+    scratch.file("a/libStatic.a");
+    scratch.file(
+        "a/BUILD",
+        "load(':rule.bzl', 'jrule')",
+        "load('"
+            + TestConstants.TOOLS_REPOSITORY
+            + "//tools/jdk:java_toolchain_alias.bzl', 'java_runtime_alias')",
+        "java_runtime(",
+        "    name='jvm',",
+        "    srcs=[",
+        "        'foo/bar/bin/java',",
+        "        'foo/bar/lib/ct.sym',",
+        "    ],",
+        "    java='foo/bar/bin/java',",
+        ")",
+        "java_runtime_alias(name='alias')",
+        "jrule(name='r')",
+        "toolchain(",
+        "    name = 'java_runtime_toolchain',",
+        "    toolchain = ':jvm',",
+        "    toolchain_type = '"
+            + TestConstants.TOOLS_REPOSITORY
+            + "//tools/jdk:runtime_toolchain_type',",
+        ")");
+    scratch.file(
+        "a/rule.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _impl(ctx):",
+        "  provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]",
+        "  return MyInfo(",
+        "    lib_ct_sym = provider.lib_ct_sym,",
+        "  )",
+        "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
+
+    useConfiguration("--extra_toolchains=//a:all");
+    ConfiguredTarget ct = getConfiguredTarget("//a:r");
+    StructImpl myInfo = getMyInfoFromTarget(ct);
+    @SuppressWarnings("unchecked")
+    Artifact libCtSym = (Artifact) myInfo.getValue("lib_ct_sym");
+    assertThat(libCtSym).isNotNull();
+    assertThat(libCtSym.getExecPathString()).isEqualTo("a/foo/bar/lib/ct.sym");
+  }
+
+  @Test
+  public void explicitLibCtSym() throws Exception {
+    scratch.file("a/libStatic.a");
+    scratch.file(
+        "a/BUILD",
+        "load(':rule.bzl', 'jrule')",
+        "load('"
+            + TestConstants.TOOLS_REPOSITORY
+            + "//tools/jdk:java_toolchain_alias.bzl', 'java_runtime_alias')",
+        "java_runtime(",
+        "    name='jvm',",
+        "    srcs=[",
+        "        'foo/bar/bin/java',",
+        "        'foo/bar/lib/ct.sym',",
+        "    ],",
+        "    java='foo/bar/bin/java',",
+        "    lib_ct_sym='lib/ct.sym',",
+        ")",
+        "java_runtime_alias(name='alias')",
+        "jrule(name='r')",
+        "toolchain(",
+        "    name = 'java_runtime_toolchain',",
+        "    toolchain = ':jvm',",
+        "    toolchain_type = '"
+            + TestConstants.TOOLS_REPOSITORY
+            + "//tools/jdk:runtime_toolchain_type',",
+        ")");
+    scratch.file(
+        "a/rule.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _impl(ctx):",
+        "  provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]",
+        "  return MyInfo(",
+        "    lib_ct_sym = provider.lib_ct_sym,",
+        "  )",
+        "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
+
+    useConfiguration("--extra_toolchains=//a:all");
+    ConfiguredTarget ct = getConfiguredTarget("//a:r");
+    StructImpl myInfo = getMyInfoFromTarget(ct);
+    @SuppressWarnings("unchecked")
+    Artifact libCtSym = (Artifact) myInfo.getValue("lib_ct_sym");
+    assertThat(libCtSym).isNotNull();
+    assertThat(libCtSym.getExecPathString()).isEqualTo("a/lib/ct.sym");
+  }
+
+  @Test
   @TestParameters({
     "{module: java_config, api: use_ijars}",
     "{module: java_config, api: disallow_java_import_exports}",
