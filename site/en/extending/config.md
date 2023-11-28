@@ -396,22 +396,6 @@ build graph.
 
 Important: Transitions have [memory and performance impact](#memory-performance-considerations).
 
-Rules that set them must include a special attribute:
-
-```python
-  "_allowlist_function_transition": attr.label(
-      default = "@bazel_tools//tools/allowlists/function_transition_allowlist"
-  )
-```
-
-By adding transitions you can pretty easily explode the size of
-your build graph. This sets an allowlist on the packages in which you can
-create targets of this rule. The default value in the codeblock above
-allowlists everything. But if you'd like to restrict who is using your rule,
-you can set that attribute to point to your own custom allowlist.
-Contact bazel-discuss@googlegroups.com if you'd like advice or assistance
-understanding how transitions can affect on your build performance.
-
 ### Defining {:#defining}
 
 Transitions define configuration changes between rules. For example, a request
