@@ -3605,8 +3605,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     useConfiguration("--extra_toolchains=//a:all");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
     StructImpl myInfo = getMyInfoFromTarget(ct);
-    @SuppressWarnings("unchecked")
-    Artifact libCtSym = (Artifact) myInfo.getValue("lib_ct_sym");
+    Artifact libCtSym = myInfo.getValue("lib_ct_sym", Artifact.class);
     assertThat(libCtSym).isNotNull();
     assertThat(libCtSym.getExecPathString()).isEqualTo("a/foo/bar/lib/ct.sym");
   }
@@ -3651,8 +3650,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     useConfiguration("--extra_toolchains=//a:all");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
     StructImpl myInfo = getMyInfoFromTarget(ct);
-    @SuppressWarnings("unchecked")
-    Artifact libCtSym = (Artifact) myInfo.getValue("lib_ct_sym");
+    Artifact libCtSym = myInfo.getValue("lib_ct_sym", Artifact.class);
     assertThat(libCtSym).isNotNull();
     assertThat(libCtSym.getExecPathString()).isEqualTo("a/lib/ct.sym");
   }
