@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Doubles;
@@ -35,21 +34,17 @@ import javax.annotation.Nullable;
  */
 @Immutable
 public class ResourceSet implements ResourceSetOrBuilder {
+  public static final String CPU = "cpu";
+  public static final String MEMORY = "memory";
 
   /** For actions that consume negligible resources. */
-  public static final ResourceSet ZERO = new ResourceSet(0.0, 0.0, 0);
-
-  /** The amount of real memory (resident set size). */
-  private final double memoryMb;
-
-  /** The number of CPUs, or fractions thereof. */
-  private final double cpuUsage;
+  public static final ResourceSet ZERO = new ResourceSet(ImmutableMap.of(), 0, null);
 
   /**
    * Map of extra resources (for example: GPUs, embedded boards, ...) mapping name of the resource
    * to a value.
    */
-  private final ImmutableMap<String, Float> extraResourceUsage;
+  private final ImmutableMap<String, Double> resources;
 
   /** The number of local tests. */
   private final int localTestCount;
@@ -58,99 +53,47 @@ public class ResourceSet implements ResourceSetOrBuilder {
   @Nullable private final WorkerKey workerKey;
 
   private ResourceSet(
-      double memoryMb, double cpuUsage, int localTestCount, @Nullable WorkerKey workerKey) {
-    this(memoryMb, cpuUsage, ImmutableMap.of(), localTestCount, workerKey);
-  }
-
-  private ResourceSet(
-      double memoryMb,
-      double cpuUsage,
-      @Nullable ImmutableMap<String, Float> extraResourceUsage,
-      int localTestCount,
-      @Nullable WorkerKey workerKey) {
-    this.memoryMb = memoryMb;
-    this.cpuUsage = cpuUsage;
-    this.extraResourceUsage = extraResourceUsage;
+      ImmutableMap<String, Double> resources, int localTestCount, @Nullable WorkerKey workerKey) {
+    this.resources = resources;
     this.localTestCount = localTestCount;
     this.workerKey = workerKey;
   }
 
-  private ResourceSet(double memoryMb, double cpuUsage, int localTestCount) {
-    this(memoryMb, cpuUsage, localTestCount, /* workerKey= */ null);
+  public static ResourceSet createWithRamCpu(double memoryMb, double cpu) {
+    return create(ImmutableMap.of(MEMORY, memoryMb, CPU, cpu));
   }
 
-  /**
-   * Returns a new ResourceSet with the provided values for memoryMb and cpuUsage, and with 0.0 for
-   * ioUsage and localTestCount. Use this method in action resource definitions when they aren't
-   * local tests.
-   */
-  public static ResourceSet createWithRamCpu(double memoryMb, double cpuUsage) {
-    if (memoryMb == 0 && cpuUsage == 0) {
-      return ZERO;
-    }
-    return new ResourceSet(memoryMb, cpuUsage, 0);
-  }
-
-  /**
-   * Returns a new ResourceSet with the provided value for localTestCount, and 0.0 for memoryMb,
-   * cpuUsage, and ioUsage. Use this method in action resource definitions when they are local tests
-   * that acquire no local resources.
-   */
   public static ResourceSet createWithLocalTestCount(int localTestCount) {
-    return new ResourceSet(0.0, 0.0, localTestCount);
+    return create(ImmutableMap.of(), localTestCount);
   }
 
-  /**
-   * Returns a new ResourceSet with the provided values for memoryMb, cpuUsage, and localTestCount.
-   * Most action resource definitions should use {@link #createWithRamCpu} or {@link
-   * #createWithLocalTestCount(int)}. Use this method primarily when constructing ResourceSets that
-   * represent available resources.
-   */
-  public static ResourceSet create(double memoryMb, double cpuUsage, int localTestCount) {
-    return ResourceSet.createWithWorkerKey(
-        memoryMb, cpuUsage, ImmutableMap.of(), localTestCount, /* workerKey= */ null);
+  public static ResourceSet create(double memoryMb, double cpu, int localTestCount) {
+    return create(ImmutableMap.of(MEMORY, memoryMb, CPU, cpu), localTestCount);
   }
 
-  /**
-   * Returns a new ResourceSet with the provided values for memoryMb, cpuUsage, extraResources, and
-   * localTestCount. Most action resource definitions should use {@link #createWithRamCpu} or {@link
-   * #createWithLocalTestCount(int)}. Use this method primarily when constructing ResourceSets that
-   * represent available resources.
-   */
+  public static ResourceSet create(ImmutableMap<String, Double> resources) {
+    return create(resources, 0);
+  }
+
+  public static ResourceSet create(ImmutableMap<String, Double> resources, int localTestCount) {
+    return create(resources, localTestCount, null);
+  }
+
   public static ResourceSet create(
-      double memoryMb,
-      double cpuUsage,
-      ImmutableMap<String, Float> extraResourceUsage,
-      int localTestCount) {
-    return createWithWorkerKey(
-        memoryMb, cpuUsage, extraResourceUsage, localTestCount, /* workerKey= */ null);
+      ImmutableMap<String, Double> resources, int localTestCount, @Nullable WorkerKey workerKey) {
+    return new ResourceSet(resources, localTestCount, workerKey);
   }
 
-  public static ResourceSet createWithWorkerKey(
-      double memoryMb, double cpuUsage, int localTestCount, WorkerKey workerKey) {
-    return ResourceSet.createWithWorkerKey(
-        memoryMb, cpuUsage, /* extraResourceUsage= */ ImmutableMap.of(), localTestCount, workerKey);
+  public double get(String resource) {
+    return resources.getOrDefault(resource, 0.0);
   }
 
-  public static ResourceSet createWithWorkerKey(
-      double memoryMb,
-      double cpuUsage,
-      ImmutableMap<String, Float> extraResourceUsage,
-      int localTestCount,
-      WorkerKey workerKey) {
-    if (memoryMb == 0
-        && cpuUsage == 0
-        && extraResourceUsage.size() == 0
-        && localTestCount == 0
-        && workerKey == null) {
-      return ZERO;
-    }
-    return new ResourceSet(memoryMb, cpuUsage, extraResourceUsage, localTestCount, workerKey);
-  }
-
-  /** Returns the amount of real memory (resident set size) used in MB. */
   public double getMemoryMb() {
-    return memoryMb;
+    return get(MEMORY);
+  }
+
+  public double getCpuUsage() {
+    return get(CPU);
   }
 
   /**
@@ -162,18 +105,8 @@ public class ResourceSet implements ResourceSetOrBuilder {
     return workerKey;
   }
 
-  /**
-   * Returns the number of CPUs (or fractions thereof) used. For a CPU-bound single-threaded
-   * process, this will be 1.0. For a single-threaded process which spends part of its time waiting
-   * for I/O, this will be somewhere between 0.0 and 1.0. For a multi-threaded or multi-process
-   * application, this may be more than 1.0.
-   */
-  public double getCpuUsage() {
-    return cpuUsage;
-  }
-
-  public ImmutableMap<String, Float> getExtraResourceUsage() {
-    return extraResourceUsage;
+  public ImmutableMap<String, Double> getResources() {
+    return resources;
   }
 
   /** Returns the local test count used. */
@@ -185,12 +118,17 @@ public class ResourceSet implements ResourceSetOrBuilder {
   public String toString() {
     return "Resources: \n"
         + "Memory: "
-        + memoryMb
+        + resources.get(MEMORY)
         + "M\n"
         + "CPU: "
-        + cpuUsage
+        + resources.get(CPU)
         + "\n"
-        + Joiner.on("\n").withKeyValueSeparator(": ").join(extraResourceUsage.entrySet())
+        + resources.entrySet().stream()
+            .filter(e -> !e.getKey().equals(CPU) && !e.getKey().equals(MEMORY))
+            .collect(
+                StringBuilder::new,
+                (a, e) -> a.append(e.getKey()).append(": ").append(e.getValue()).append("\n"),
+                StringBuilder::append)
         + "Local tests: "
         + localTestCount
         + "\n";

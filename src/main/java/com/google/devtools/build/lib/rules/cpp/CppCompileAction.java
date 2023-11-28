@@ -1238,16 +1238,14 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         switch (os) {
           case DARWIN:
           case LINUX:
-            return ResourceSet.createWithRamCpu(
-                /* memoryMb= */ 80 + 0.7 * inputs, /* cpuUsage= */ 1);
+            return ResourceSet.createWithRamCpu(/* memoryMb= */ 80 + 0.7 * inputs, /* cpu= */ 1);
           default:
             return AbstractAction.DEFAULT_RESOURCE_SET;
         }
       case OBJC_COMPILE_MNEMONIC:
         switch (os) {
           case DARWIN:
-            return ResourceSet.createWithRamCpu(
-                /* memoryMb= */ 80 + 0.2 * inputs, /* cpuUsage= */ 1);
+            return ResourceSet.createWithRamCpu(/* memoryMb= */ 80 + 0.2 * inputs, /* cpu= */ 1);
           default:
             return AbstractAction.DEFAULT_RESOURCE_SET;
         }
