@@ -45,6 +45,7 @@ JavaRuntimeInfo, _new_javaruntimeinfo = provider(
                 This should only be used when one needs to access the JDK during the execution
                 of a binary or a test built by Bazel. In particular, when one needs the JDK
                 during an action, java_home should be used instead.""",
+        "lib_ct_sym": "Returns the lib/ct.sym file.",
         "lib_modules": "Returns the lib/modules file.",
         "version": "The Java feature version of the runtime. This is 0 if the version is unknown.",
     },
@@ -74,6 +75,15 @@ def _get_runfiles_java_executable(java_home, label):
 
 def _is_java_binary(path):
     return path.endswith("bin/java") or path.endswith("bin/java.exe")
+
+def _get_lib_ct_sym(srcs, explicit_lib_ct_sym):
+    if explicit_lib_ct_sym:
+        return explicit_lib_ct_sym
+    candidates = [src for src in srcs if src.path.endswith("/lib/ct.sym")]
+    if len(candidates) == 1:
+        return candidates[0]
+    else:
+        return None
 
 def _java_runtime_rule_impl(ctx):
     all_files = []  # [depset[File]]
@@ -105,6 +115,7 @@ def _java_runtime_rule_impl(ctx):
     hermetic_inputs = depset(ctx.files.hermetic_srcs)
     all_files.append(hermetic_inputs)
 
+    lib_ct_sym = _get_lib_ct_sym(ctx.files.srcs, ctx.file.lib_ct_sym)
     lib_modules = ctx.file.lib_modules
     hermetic_static_libs = [dep[CcInfo] for dep in ctx.attr.hermetic_static_libs]
 
@@ -128,6 +139,7 @@ def _java_runtime_rule_impl(ctx):
         java_executable_runfiles_path = java_binary_runfiles_path,
         java_home = java_home,
         java_home_runfiles_path = java_home_runfiles_path,
+        lib_ct_sym = lib_ct_sym,
         lib_modules = lib_modules,
         version = ctx.attr.version,
     )
@@ -152,6 +164,7 @@ java_runtime = rule(
         "hermetic_static_libs": attr.label_list(providers = [CcInfo]),
         "java": attr.label(allow_single_file = True, executable = True, cfg = "target"),
         "java_home": attr.string(),
+        "lib_ct_sym": attr.label(allow_single_file = True),
         "lib_modules": attr.label(allow_single_file = True, executable = True, cfg = "target"),
         "output_licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
         "srcs": attr.label_list(allow_files = True),
