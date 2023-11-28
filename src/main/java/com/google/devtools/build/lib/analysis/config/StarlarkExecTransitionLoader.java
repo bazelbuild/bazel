@@ -18,6 +18,7 @@ import com.google.common.base.Splitter;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import java.util.List;
@@ -46,7 +47,7 @@ public final class StarlarkExecTransitionLoader {
      * Loads the given {@link BzlLoadValue.Key}. Returns null if not all Skyframe deps are ready.
      */
     @Nullable
-    BzlLoadValue getValue(BzlLoadValue.Key key) throws InterruptedException;
+    BzlLoadValue getValue(BzlLoadValue.Key key) throws BzlLoadFailedException, InterruptedException;
   }
 
   /**
@@ -75,14 +76,18 @@ public final class StarlarkExecTransitionLoader {
     }
     TransitionReference parsedRef =
         TransitionReference.create(userRef, "--experimental_exec_config");
-    // TODO(b/301644122): catch and report BzlLoadFailedExceptions. This may required Bazel BUILD
-    // refactoring since BzlLoadFailedException is defined in BzlLoadFunction, which is part of
-    // the ":skyframe_cluster" target, which we can't depend on without dependency cycles.
-    BzlLoadValue bzlValue =
-        bzlFileLoader.getValue(
-            Objects.equals(parsedRef.bzlFile().getRepository(), StarlarkBuiltinsValue.BUILTINS_REPO)
-                ? BzlLoadValue.keyForBuiltins(parsedRef.bzlFile())
-                : BzlLoadValue.keyForBuild(parsedRef.bzlFile()));
+    BzlLoadValue bzlValue;
+    try {
+      bzlValue =
+          bzlFileLoader.getValue(
+              Objects.equals(
+                      parsedRef.bzlFile().getRepository(), StarlarkBuiltinsValue.BUILTINS_REPO)
+                  ? BzlLoadValue.keyForBuiltins(parsedRef.bzlFile())
+                  : BzlLoadValue.keyForBuild(parsedRef.bzlFile()));
+    } catch (BzlLoadFailedException e) {
+      throw new StarlarkExecTransitionLoadingException(
+          "--experimental_exec_config", userRef, e.getMessage());
+    }
     if (bzlValue == null) {
       return null;
     }

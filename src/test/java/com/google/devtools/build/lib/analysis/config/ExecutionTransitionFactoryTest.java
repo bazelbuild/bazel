@@ -196,10 +196,8 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
         + " //pkg:file.bzl%%symbol'}",
     "{cmdLineRef: '//test:defs.bzl%symbol_doesnt_exist', expectedError: 'symbol_doesnt_exist not"
         + " found in //test:defs.bzl'}",
-    // TODO(b/301644122): Enable when we can process BzlLoadFailedException. See similar TODO in
-    // StarlarkExecTransitionLoader.java for details.
-    //   "{cmdLineRef: '//test:file_doesnt_exist.bzl%symbol', expectedError:"
-    //     + " '''//test:file_doesnt_exist.bzl'': no such file'}",
+    "{cmdLineRef: '//test:file_doesnt_exist.bzl%symbol', expectedError:"
+        + " '''//test:file_doesnt_exist.bzl'': no such file'}",
     "{cmdLineRef: '//test:defs.bzl%not_a_transition', expectedError: 'not_a_transition is not a"
         + " Starlark transition.'}"
   })

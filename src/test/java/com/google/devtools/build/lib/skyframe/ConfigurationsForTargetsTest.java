@@ -140,7 +140,8 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
                 targetAndConfiguration.getTarget() == null
                     ? null
                     : targetAndConfiguration.getConfiguration().getOptions(),
-                (bzlKey) -> (BzlLoadValue) env.getValue(bzlKey));
+                (bzlKey) ->
+                    (BzlLoadValue) env.getValueOrThrow(bzlKey, BzlLoadFailedException.class));
         if (starlarkExecTransition == null) {
           return null;
         }

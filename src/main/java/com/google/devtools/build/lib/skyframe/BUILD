@@ -102,6 +102,7 @@ java_library(
         ":build_result_listener",
         ":bzl_compile",
         ":bzl_load_cycle_reporter",
+        ":bzl_load_failed_exception",
         ":bzl_load_value",
         ":bzlmod_repo_cycle_reporter",
         ":cached_bzl_load_value_and_deps",
@@ -2401,6 +2402,17 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "bzl_load_failed_exception",
+    srcs = ["BzlLoadFailedException.java"],
+    deps = [
+        ":sane_analysis_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/protobuf:failure_details_java_proto",
     ],
 )
 
