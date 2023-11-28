@@ -28,8 +28,6 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.rules.android.AarImportTest.WithPlatforms;
-import com.google.devtools.build.lib.rules.android.AarImportTest.WithoutPlatforms;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingV2Provider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
@@ -49,25 +47,10 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.junit.runners.Suite;
-import org.junit.runners.Suite.SuiteClasses;
 
 /** Tests for {@link com.google.devtools.build.lib.rules.android.AarImport}. */
-@RunWith(Suite.class)
-@SuiteClasses({WithoutPlatforms.class, WithPlatforms.class})
-public abstract class AarImportTest extends AndroidBuildViewTestCase {
-  /** Use legacy toolchain resolution. */
-  @RunWith(JUnit4.class)
-  public static class WithoutPlatforms extends AarImportTest {}
-
-  /** Use platform-based toolchain resolution. */
-  @RunWith(JUnit4.class)
-  public static class WithPlatforms extends AarImportTest {
-    @Override
-    protected boolean platformBasedToolchains() {
-      return true;
-    }
-  }
+@RunWith(JUnit4.class)
+public class AarImportTest extends AndroidBuildViewTestCase {
 
   @Before
   public void setup() throws Exception {
@@ -607,9 +590,7 @@ public abstract class AarImportTest extends AndroidBuildViewTestCase {
     checkError(
         "aar",
         "aar",
-        platformBasedToolchains() // Error changes based on the flag used
-            ? "resolved to target //sdk:sdk, but that target does not provide ToolchainInfo"
-            : "No Android SDK found. Use the --android_sdk command line option to specify one.",
+        "resolved to target //sdk:sdk, but that target does not provide ToolchainInfo",
         "aar_import(",
         "    name = 'aar',",
         "    aar = 'a.aar',",

@@ -13,32 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.devtools.build.lib.rules.android.AndroidBinaryMultidexTest.WithPlatforms;
-import com.google.devtools.build.lib.rules.android.AndroidBinaryMultidexTest.WithoutPlatforms;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.junit.runners.Suite;
-import org.junit.runners.Suite.SuiteClasses;
 
 /** Tests the multidex code of {@link com.google.devtools.build.lib.rules.android.AndroidBinary}. */
-@RunWith(Suite.class)
-@SuiteClasses({WithoutPlatforms.class, WithPlatforms.class})
-public abstract class AndroidBinaryMultidexTest extends AndroidMultidexBaseTest {
-  /** Use legacy toolchain resolution. */
-  @RunWith(JUnit4.class)
-  public static class WithoutPlatforms extends AndroidBinaryMultidexTest {}
-
-  /** Use platform-based toolchain resolution. */
-  @RunWith(JUnit4.class)
-  public static class WithPlatforms extends AndroidBinaryMultidexTest {
-    @Override
-    protected boolean platformBasedToolchains() {
-      return true;
-    }
-  }
+@RunWith(JUnit4.class)
+public class AndroidBinaryMultidexTest extends AndroidMultidexBaseTest {
 
   @Before
   public void setup() throws Exception {

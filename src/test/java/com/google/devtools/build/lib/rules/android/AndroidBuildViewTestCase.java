@@ -68,11 +68,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     setBuildLanguageOptions("--experimental_google_legacy_api");
   }
 
-  /** Override this to trigger platform-based Android toolchain resolution. */
-  protected boolean platformBasedToolchains() {
-    return false;
-  }
-
+  // TODO(jcater): Remove this and clean up legacy flags that still remain.
   protected String defaultPlatformFlag() {
     return "";
   }
@@ -80,18 +76,6 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
   @Override
   protected void useConfiguration(ImmutableMap<String, Object> starlarkOptions, String... args)
       throws Exception {
-
-    if (!platformBasedToolchains()) {
-      super.useConfiguration(
-          starlarkOptions,
-          ImmutableList.builder()
-              .add((Object[]) args)
-              .add("--noincompatible_enable_android_toolchain_resolution")
-              .add("--noincompatible_enable_cc_toolchain_resolution")
-              .build()
-              .toArray(new String[0]));
-      return;
-    }
 
     // Platform-based toolchain resolution:
     ImmutableList.Builder<String> fullArgs = ImmutableList.builder();

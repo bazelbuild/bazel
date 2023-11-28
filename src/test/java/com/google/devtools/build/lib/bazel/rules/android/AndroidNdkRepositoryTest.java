@@ -19,8 +19,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryTest.WithPlatforms;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryTest.WithoutPlatforms;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.RepositoryFetchException;
 import com.google.devtools.build.lib.packages.Rule;
@@ -38,25 +36,10 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.junit.runners.Suite;
-import org.junit.runners.Suite.SuiteClasses;
 
 /** Tests for {@link AndroidNdkRepositoryTest}. */
-@RunWith(Suite.class)
-@SuiteClasses({WithoutPlatforms.class, WithPlatforms.class})
+@RunWith(JUnit4.class)
 public class AndroidNdkRepositoryTest extends AndroidBuildViewTestCase {
-  /** Use legacy toolchain resolution. */
-  @RunWith(JUnit4.class)
-  public static class WithoutPlatforms extends AndroidNdkRepositoryTest {}
-
-  /** Use platform-based toolchain resolution. */
-  @RunWith(JUnit4.class)
-  public static class WithPlatforms extends AndroidNdkRepositoryTest {
-    @Override
-    protected boolean platformBasedToolchains() {
-      return true;
-    }
-  }
 
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
