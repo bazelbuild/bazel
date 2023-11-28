@@ -1266,4 +1266,5 @@ cc_helper = struct(
     proto_output_root = _proto_output_root,
     cc_toolchain_build_variables = _cc_toolchain_build_variables,
     package_source_root = _package_source_root,
+    tokenize = _tokenize,
 )
