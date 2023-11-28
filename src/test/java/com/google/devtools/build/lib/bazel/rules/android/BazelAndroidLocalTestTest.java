@@ -14,33 +14,15 @@
 package com.google.devtools.build.lib.bazel.rules.android;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidLocalTestTest.WithoutPlatforms;
 import com.google.devtools.build.lib.rules.android.AndroidLocalTestTest;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.junit.runners.Suite;
-import org.junit.runners.Suite.SuiteClasses;
 
 /** Bazel-only android_local_test tests. */
-@RunWith(Suite.class)
-@SuiteClasses(WithoutPlatforms.class)
-public abstract class BazelAndroidLocalTestTest extends AndroidLocalTestTest {
-  /** Use legacy toolchain resolution. */
-  @RunWith(JUnit4.class)
-  public static class WithoutPlatforms extends BazelAndroidLocalTestTest {}
-
-  // TODO(b/161709111): With platforms, all tests fail with
-  // "no attribute `$android_sdk_toolchain_type`" on AspectAwareAttributeMapper.
-  /** Use platform-based toolchain resolution. */
-  @RunWith(JUnit4.class)
-  public static class WithPlatforms extends BazelAndroidLocalTestTest {
-    @Override
-    protected boolean platformBasedToolchains() {
-      return true;
-    }
-  }
+@RunWith(JUnit4.class)
+public class BazelAndroidLocalTestTest extends AndroidLocalTestTest {
 
   @Before
   @Override

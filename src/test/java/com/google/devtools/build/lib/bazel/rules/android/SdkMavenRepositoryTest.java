@@ -17,8 +17,6 @@ package com.google.devtools.build.lib.bazel.rules.android;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.bazel.rules.android.SdkMavenRepositoryTest.WithPlatforms;
-import com.google.devtools.build.lib.bazel.rules.android.SdkMavenRepositoryTest.WithoutPlatforms;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -31,26 +29,10 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.junit.runners.Suite;
-import org.junit.runners.Suite.SuiteClasses;
 
 /** Tests for {@link SdkMavenRepository}. */
-@RunWith(Suite.class)
-@SuiteClasses({WithoutPlatforms.class, WithPlatforms.class})
+@RunWith(JUnit4.class)
 public class SdkMavenRepositoryTest extends AndroidBuildViewTestCase {
-  /** Use legacy toolchain resolution. */
-  @RunWith(JUnit4.class)
-  public static class WithoutPlatforms extends SdkMavenRepositoryTest {}
-
-  /** Use platform-based toolchain resolution. */
-  @RunWith(JUnit4.class)
-  public static class WithPlatforms extends SdkMavenRepositoryTest {
-    @Override
-    protected boolean platformBasedToolchains() {
-      return true;
-    }
-  }
-
   Path workspaceDir;
   Path repoPath;
   SdkMavenRepository sdkMavenRepository;

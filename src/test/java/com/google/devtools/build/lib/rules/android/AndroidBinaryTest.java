@@ -54,8 +54,6 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
-import com.google.devtools.build.lib.rules.android.AndroidBinaryTest.WithPlatforms;
-import com.google.devtools.build.lib.rules.android.AndroidBinaryTest.WithoutPlatforms;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
 import com.google.devtools.build.lib.rules.android.deployinfo.AndroidDeployInfoOuterClass.AndroidDeployInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
@@ -80,13 +78,10 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.junit.runners.Suite;
-import org.junit.runners.Suite.SuiteClasses;
 
 /** A test for {@link com.google.devtools.build.lib.rules.android.AndroidBinary}. */
-@RunWith(Suite.class)
-@SuiteClasses({WithoutPlatforms.class, WithPlatforms.class})
-public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
+@RunWith(JUnit4.class)
+public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   /** Allow use of --foo as a dummy flag */
   @Override
@@ -97,103 +92,10 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
     return builder.build();
   }
 
-  /** Use legacy toolchain resolution. */
-  @RunWith(JUnit4.class)
-  public static class WithoutPlatforms extends AndroidBinaryTest {
-
-    @Test
-    public void testAndroidSplitTransitionWithInvalidCpu() throws Exception {
-      scratch.file(
-          "test/starlark/my_rule.bzl",
-          "def impl(ctx): ",
-          "  return []",
-          "my_rule = rule(",
-          "  implementation = impl,",
-          "  attrs = {",
-          "    'deps': attr.label_list(cfg = android_common.multi_cpu_configuration),",
-          "    'dep':  attr.label(cfg = android_common.multi_cpu_configuration),",
-          "  })");
-
-      scratch.file(
-          "test/starlark/BUILD",
-          "load('//test/starlark:my_rule.bzl', 'my_rule')",
-          "my_rule(name = 'test', deps = [':main'], dep = ':main')",
-          "cc_binary(name = 'main', srcs = ['main.c'])");
-      BazelMockAndroidSupport.setupNdk(mockToolsConfig);
-
-      // --android_cpu with --android_crosstool_top also triggers the split transition.
-      useConfiguration(
-          "--fat_apk_cpu=doesnotexist", "--android_crosstool_top=//android/crosstool:everything");
-
-      AssertionError noToolchainError =
-          assertThrows(AssertionError.class, () -> getConfiguredTarget("//test/starlark:test"));
-      assertThat(noToolchainError)
-          .hasMessageThat()
-          .contains("does not contain a toolchain for cpu 'doesnotexist'");
-    }
-  }
-
-  /** Use platform-based toolchain resolution. */
-  @RunWith(JUnit4.class)
-  public static class WithPlatforms extends AndroidBinaryTest {
-    @Override
-    protected boolean platformBasedToolchains() {
-      return true;
-    }
-
-    @Override
-    protected String defaultPlatformFlag() {
-      return String.format(
-          "--android_platforms=%sandroid:armeabi-v7a", TestConstants.CONSTRAINTS_PACKAGE_ROOT);
-    }
-
-    @Test
-    public void testFatApk_androidPlatformsFlag() throws Exception {
-      BazelMockAndroidSupport.setupNdk(mockToolsConfig);
-      scratch.file(
-          "java/foo/BUILD",
-          "config_setting(",
-          "    name = 'is_x86',",
-          "    constraint_values = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_32'],",
-          ")",
-          "config_setting(",
-          "    name = 'is_arm',",
-          "    constraint_values = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7'],",
-          ")",
-          "android_library(",
-          "    name = 'lib',",
-          "    srcs = ['MyLibrary.java'])",
-          "cc_library(",
-          "    name = 'arm-native-lib',",
-          "    srcs = ['armnative.so'])",
-          "cc_library(",
-          "    name = 'x86-native-lib',",
-          "    srcs = ['x86native.so'])",
-          "cc_library(",
-          "    name = 'native-lib',",
-          "    deps = select({",
-          "        ':is_x86': [':x86-native-lib'],",
-          "        ':is_arm': [':arm-native-lib'],",
-          "        '//conditions:default': [],",
-          "    }))",
-          "android_binary(",
-          "    name = 'abin',",
-          "    srcs = ['a.java'],",
-          "    proguard_specs = [],",
-          "    deps = ['lib', 'native-lib'],",
-          "    manifest = 'AndroidManifest.xml',",
-          ")");
-      useConfiguration(
-          "--android_platforms=//java/android/platforms:x86,//java/android/platforms:armeabi-v7a",
-          "--dynamic_mode=off");
-      ConfiguredTarget apk = getConfiguredTarget("//java/foo:abin");
-      List<String> args = getGeneratingSpawnActionArgs(getCompressedUnsignedApk(apk));
-      assertContainsSublist(
-          args,
-          ImmutableList.of("--resources", "java/foo/armnative.so:lib/armeabi-v7a/armnative.so"));
-      assertContainsSublist(
-          args, ImmutableList.of("--resources", "java/foo/x86native.so:lib/x86/x86native.so"));
-    }
+  @Override
+  protected String defaultPlatformFlag() {
+    return String.format(
+        "--android_platforms=%sandroid:armeabi-v7a", TestConstants.CONSTRAINTS_PACKAGE_ROOT);
   }
 
   @Before
@@ -245,6 +147,54 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "  --cpu=x86",
         "    //java/android/platforms:x86");
     setBuildLanguageOptions("--experimental_google_legacy_api");
+  }
+
+  @Test
+  public void testFatApk_androidPlatformsFlag() throws Exception {
+    BazelMockAndroidSupport.setupNdk(mockToolsConfig);
+    scratch.file(
+        "java/foo/BUILD",
+        "config_setting(",
+        "    name = 'is_x86',",
+        "    constraint_values = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_32'],",
+        ")",
+        "config_setting(",
+        "    name = 'is_arm',",
+        "    constraint_values = ['" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7'],",
+        ")",
+        "android_library(",
+        "    name = 'lib',",
+        "    srcs = ['MyLibrary.java'])",
+        "cc_library(",
+        "    name = 'arm-native-lib',",
+        "    srcs = ['armnative.so'])",
+        "cc_library(",
+        "    name = 'x86-native-lib',",
+        "    srcs = ['x86native.so'])",
+        "cc_library(",
+        "    name = 'native-lib',",
+        "    deps = select({",
+        "        ':is_x86': [':x86-native-lib'],",
+        "        ':is_arm': [':arm-native-lib'],",
+        "        '//conditions:default': [],",
+        "    }))",
+        "android_binary(",
+        "    name = 'abin',",
+        "    srcs = ['a.java'],",
+        "    proguard_specs = [],",
+        "    deps = ['lib', 'native-lib'],",
+        "    manifest = 'AndroidManifest.xml',",
+        ")");
+    useConfiguration(
+        "--android_platforms=//java/android/platforms:x86,//java/android/platforms:armeabi-v7a",
+        "--dynamic_mode=off");
+    ConfiguredTarget apk = getConfiguredTarget("//java/foo:abin");
+    List<String> args = getGeneratingSpawnActionArgs(getCompressedUnsignedApk(apk));
+    assertContainsSublist(
+        args,
+        ImmutableList.of("--resources", "java/foo/armnative.so:lib/armeabi-v7a/armnative.so"));
+    assertContainsSublist(
+        args, ImmutableList.of("--resources", "java/foo/x86native.so:lib/x86/x86native.so"));
   }
 
   @Test

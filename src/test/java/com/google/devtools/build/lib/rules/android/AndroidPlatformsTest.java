@@ -44,10 +44,6 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class AndroidPlatformsTest extends AndroidBuildViewTestCase {
-  @Override
-  protected boolean platformBasedToolchains() {
-    return true;
-  }
 
   private static final String EXTRA_SDK_TOOLCHAINS_FLAG =
       "--extra_toolchains=//platform_selected_android_sdks/toolchains:all";
