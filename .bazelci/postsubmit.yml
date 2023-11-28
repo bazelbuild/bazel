@@ -47,10 +47,8 @@ tasks:
       # https://github.com/bazelbuild/bazel/issues/18776
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test"
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
-      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_platforms"
       - "-//src/test/shell/bazel/android:aapt_integration_test"
       - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
-      - "-//src/test/shell/bazel/android:aapt_integration_test_with_platforms"
     include_json_profile:
       - build
       - test
@@ -88,10 +86,8 @@ tasks:
       # https://github.com/bazelbuild/bazel/issues/18776
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test"
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
-      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_platforms"
       - "-//src/test/shell/bazel/android:aapt_integration_test"
       - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
-      - "-//src/test/shell/bazel/android:aapt_integration_test_with_platforms"
     include_json_profile:
       - build
       - test
@@ -155,10 +151,8 @@ tasks:
       # https://github.com/bazelbuild/bazel/issues/18776
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test"
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
-      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_platforms"
       - "-//src/test/shell/bazel/android:aapt_integration_test"
       - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
-      - "-//src/test/shell/bazel/android:aapt_integration_test_with_platforms"
     include_json_profile:
       - build
       - test
@@ -209,10 +203,8 @@ tasks:
       # https://github.com/bazelbuild/bazel/issues/18776
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test"
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
-      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_platforms"
       - "-//src/test/shell/bazel/android:aapt_integration_test"
       - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
-      - "-//src/test/shell/bazel/android:aapt_integration_test_with_platforms"
       # https://github.com/bazelbuild/bazel/issues/17410
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
       # https://github.com/bazelbuild/bazel/issues/17411
@@ -407,10 +399,8 @@ tasks:
       # https://github.com/bazelbuild/bazel/issues/18776
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test"
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
-      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_platforms"
       - "-//src/test/shell/bazel/android:aapt_integration_test"
       - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
-      - "-//src/test/shell/bazel/android:aapt_integration_test_with_platforms"
     include_json_profile:
       - build
       - test
