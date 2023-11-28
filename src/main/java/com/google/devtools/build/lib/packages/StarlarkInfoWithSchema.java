@@ -18,6 +18,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -43,8 +44,8 @@ public class StarlarkInfoWithSchema extends StarlarkInfo {
   private final Object[] table;
 
   // `table` elements should already be optimized by caller, see StarlarkProvider#optimizeField
-  private StarlarkInfoWithSchema(
-      StarlarkProvider provider, Object[] table, @Nullable Location loc) {
+  @VisibleForSerialization // private
+  StarlarkInfoWithSchema(StarlarkProvider provider, Object[] table, @Nullable Location loc) {
     super(loc);
     this.provider = provider;
     this.table = table;
@@ -53,6 +54,11 @@ public class StarlarkInfoWithSchema extends StarlarkInfo {
   @Override
   public Provider getProvider() {
     return provider;
+  }
+
+  @VisibleForSerialization // private
+  Object[] getTable() {
+    return table;
   }
 
   /**
