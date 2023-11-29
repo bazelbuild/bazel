@@ -2,8 +2,8 @@
 #   A grab-bag of testing utilities.
 
 load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
-load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -241,7 +241,7 @@ java_library(
         ":TestConstants",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/util/io",
+        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

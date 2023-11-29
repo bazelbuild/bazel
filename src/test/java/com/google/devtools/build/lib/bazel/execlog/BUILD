@@ -18,12 +18,11 @@ java_library(
     srcs = ["StableSortTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/bazel/execlog:stable_sort",
-        "//src/main/java/com/google/devtools/build/lib/util/io",
+        "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
         "//src/main/protobuf:spawn_java_proto",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "//third_party/protobuf:protobuf_java",
     ],
 )
 

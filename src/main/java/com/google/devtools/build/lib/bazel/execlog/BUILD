@@ -16,7 +16,7 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/util/io",
+        "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
         "//src/main/protobuf:spawn_java_proto",
         "//third_party:guava",
     ],
