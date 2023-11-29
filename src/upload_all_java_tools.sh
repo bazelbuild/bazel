@@ -62,6 +62,11 @@ zip_path=${PWD}/bazel-bin/src/java_tools.zip
 bazel build ${RELEASE_BUILD_OPTS} //src:java_tools_prebuilt_zip
 prebuilt_zip_path=${PWD}/bazel-bin/src/java_tools_prebuilt.zip
 
+# copy zips out of bazel-bin so we don't lose them on later bazel invocations
+cp -f ${zip_path} ${prebuilt_zip_path} ./
+zip_path=${PWD}/java_tools.zip
+prebuilt_zip_path=${PWD}/java_tools_prebuilt.zip
+
 if [[ "$platform" == "windows" ]]; then
     zip_path="$(cygpath -m "${zip_path}")"
     prebuilt_zip_path="$(cygpath -m "${prebuilt_zip_path}")"
