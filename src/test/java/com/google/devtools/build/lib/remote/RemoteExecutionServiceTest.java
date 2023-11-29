@@ -2517,11 +2517,6 @@ public class RemoteExecutionServiceTest {
       }
 
       @Override
-      public ImmutableList<Artifact> getManifests() {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
       public RunfileSymlinksMode getRunfileSymlinksMode(PathFragment runfilesDir) {
         throw new UnsupportedOperationException();
       }

@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
@@ -40,9 +39,6 @@ public interface RunfilesSupplier extends StarlarkValue {
 
   /** Returns mappings from runfiles directories to artifact mappings in that directory. */
   ImmutableMap<PathFragment, Map<PathFragment, Artifact>> getMappings();
-
-  /** Returns the runfiles manifest artifacts, if any. */
-  ImmutableList<Artifact> getManifests();
 
   /**
    * Returns the {@link RunfileSymlinksMode} for the given {@code runfilesDir}, or {@code null} if

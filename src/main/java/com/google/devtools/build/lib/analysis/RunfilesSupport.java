@@ -555,18 +555,12 @@ public final class RunfilesSupport implements RunfilesSupplier {
   }
 
   @Override
-  public ImmutableList<Artifact> getManifests() {
-    return ImmutableList.of();
-  }
-
-  @Override
   public RunfilesSupplier withOverriddenRunfilesDir(PathFragment newRunfilesDir) {
     return newRunfilesDir.equals(getRunfilesDirectoryExecPath())
         ? this
         : new SingleRunfilesSupplier(
             newRunfilesDir,
             runfiles,
-            /* manifest= */ null,
             repoMappingManifest,
             runfileSymlinksMode,
             buildRunfileLinks);
