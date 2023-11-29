@@ -99,7 +99,7 @@ public class GoogleChannelConnectionFactory
                   RxFutures.toSingle(
                       () -> getAndVerifyServerCapabilities(channel), directExecutor());
 
-              // Don't issue GetCapabilities calls if the requirement is NONE because some endpoint,
+              // Don't issue GetCapabilities calls if the requirement is NONE because the endpoint,
               // e.g. Remote Asset API, might not implement the API. See #20342.
               if (requirement == ServerCapabilitiesRequirement.NONE) {
                 return Single.just(

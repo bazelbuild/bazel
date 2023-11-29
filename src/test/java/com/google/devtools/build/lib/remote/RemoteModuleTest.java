@@ -224,6 +224,8 @@ public final class RemoteModuleTest {
 
   @Test
   public void testVerifyCapabilities_none() throws Exception {
+    // Test that Bazel doesn't issue GetCapabilities calls if the requirement is NONE.
+    // Regression test for https://github.com/bazelbuild/bazel/issues/20342.
     CapabilitiesImpl executionServerCapabilitiesImpl = new CapabilitiesImpl(EXEC_AND_CACHE_CAPS);
     Server executionServer =
         createFakeServer(EXECUTION_SERVER_NAME, executionServerCapabilitiesImpl);
