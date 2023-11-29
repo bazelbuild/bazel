@@ -75,10 +75,10 @@ class Initializers {
             .addException(SerializationException.class)
             .addException(IOException.class)
             .addParameter(SerializationContext.class, "context")
-            .addParameter(getErasure(encodedType, env), "input")
+            .addParameter(getErasure(encodedType, env), "obj")
             .addParameter(CodedOutputStream.class, "codedOut");
     if (annotation.checkClassExplicitlyAllowed()) {
-      builder.addStatement("context.checkClassExplicitlyAllowed(getEncodedClass(), input)");
+      builder.addStatement("context.checkClassExplicitlyAllowed(getEncodedClass(), obj)");
     }
     List<? extends TypeMirror> explicitlyAllowedClasses;
     try {

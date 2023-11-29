@@ -321,7 +321,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
         }
         TypeKind typeKind = parameter.asType().getKind();
         serializeBuilder.addStatement(
-            "$T unsafe_$L = ($T) $T.unsafe().get$L(input, $L_offset)",
+            "$T unsafe_$L = ($T) $T.unsafe().get$L(obj, $L_offset)",
             sanitizeTypeParameter(parameter.asType(), env),
             parameter.getSimpleName(),
             sanitizeTypeParameter(parameter.asType(), env),
@@ -390,7 +390,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
   }
 
   private static String turnGetterIntoExpression(String getterName) {
-    return "input." + getterName + "()";
+    return "obj." + getterName + "()";
   }
 
   private MethodSpec buildSerializeMethodWithInstantiatorForAutoValue(

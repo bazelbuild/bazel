@@ -107,6 +107,8 @@ java_library(
     name = "autocodec-processor",
     srcs = [
         "AutoCodecProcessor.java",
+        "CodecGenerator.java",
+        "FieldGenerator.java",
         "Initializers.java",
         "Marshallers.java",
         "SerializationCodeGenerator.java",
