@@ -41,7 +41,7 @@ public final class EmittedEventState implements NestedSetVisitor.VisitedState {
   }
 
   @Override
-  public boolean add(Object node) {
+  public boolean needToVisit(Object node) {
     return seenNodes.add(node);
   }
 

@@ -60,7 +60,7 @@ public final class NestedSetVisitor<E> {
   /** Visit every entry in a collection. */
   public void visit(Collection<E> collection) {
     for (E e : collection) {
-      if (visited.add(e)) {
+      if (visited.needToVisit(e)) {
         callback.accept(e);
       }
     }
@@ -68,7 +68,7 @@ public final class NestedSetVisitor<E> {
 
   @SuppressWarnings("unchecked")
   private void visitRaw(Object node) {
-    if (visited.add(node)) {
+    if (visited.needToVisit(node)) {
       if (node instanceof Object[]) {
         for (Object child : (Object[]) node) {
           visitRaw(child);
@@ -83,9 +83,17 @@ public final class NestedSetVisitor<E> {
   public interface VisitedState {
 
     /**
-     * Adds a node to the visited state, returning true if the node was not yet in the visited state
-     * and false if the node was already in the visited state.
+     * Determines whether the given node needs to be visited, recording the visitation attempt if
+     * this {@link VisitedState} deduplicates visitations.
+     *
+     * <p>A return of {@code true} means that:
+     *
+     * <ul>
+     *   <li>If {@code node} is a leaf element: {@link Receiver#accept} will be invoked with {@code
+     *       node}.
+     *   <li>If {@code node} is a non-leaf: visitation will traverse its children.
+     * </ul>
      */
-    boolean add(Object node);
+    boolean needToVisit(Object node);
   }
 }
