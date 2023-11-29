@@ -14,6 +14,7 @@
 
 """Definitions related to the Python toolchain."""
 
+load("@local_config_platform//:constraints.bzl", "HOST_CONSTRAINTS")
 load(":utils.bzl", "expand_pyversion_template")
 
 # TODO: move py_runtime_pair into rules_python (and the rest of @bazel_tools//python)
@@ -242,6 +243,7 @@ def define_autodetecting_toolchain(
         toolchain = ":_autodetecting_py_runtime_pair",
         toolchain_type = ":toolchain_type",
         visibility = ["//visibility:public"],
+        exec_compatible_with = HOST_CONSTRAINTS,
     )
 
     native.toolchain(
@@ -249,4 +251,5 @@ def define_autodetecting_toolchain(
         toolchain = ":_autodetecting_py_runtime_pair_nonstrict",
         toolchain_type = ":toolchain_type",
         visibility = ["//visibility:public"],
+        exec_compatible_with = HOST_CONSTRAINTS,
     )
