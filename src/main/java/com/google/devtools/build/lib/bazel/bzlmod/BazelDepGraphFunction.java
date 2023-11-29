@@ -135,7 +135,6 @@ public class BazelDepGraphFunction implements SkyFunction {
               .setLocalOverrideHashes(localOverrideHashes)
               .setModuleDepGraph(depGraph)
               .build();
-      Preconditions.checkNotNull(lockfile);
       env.getListener()
           .post(
               BazelModuleResolutionEvent.create(
