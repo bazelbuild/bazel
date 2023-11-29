@@ -78,6 +78,22 @@ public final class GlobFunction implements SkyFunction {
       }
     }
 
+    String pattern = glob.getPattern();
+    // Split off the first path component of the pattern.
+    int slashPos = pattern.indexOf('/');
+    String patternHead;
+    String patternTail;
+    if (slashPos == -1) {
+      patternHead = pattern;
+      patternTail = null;
+    } else {
+      // Substrings will share the backing array of the original glob string. That should be fine.
+      patternHead = pattern.substring(0, slashPos);
+      patternTail = pattern.substring(slashPos + 1);
+    }
+
+    boolean globMatchesBareFile = patternTail == null;
+
     // Note that the glob's package is assumed to exist which implies that the package's BUILD file
     // exists which implies that the package's directory exists.
     if (!globSubdir.equals(PathFragment.EMPTY_FRAGMENT)) {
@@ -97,11 +113,11 @@ public final class GlobFunction implements SkyFunction {
         // defines another package, so glob expansion should not descend into
         // that subdir.
         //
-        // For SUBPACKAGES, we encounter this when the pattern is a recursive ** and we are a
-        // terminal package for that pattern. In that case we should include the subDirFragment
-        // PathFragment (relative to the glob's package) in the GlobValue.getMatches,
-        // otherwise for file/dir matching return EMPTY;
-        if (globberOperation == Globber.Operation.SUBPACKAGES) {
+        // For SUBPACKAGES, we should check whether all pattern splits have been matched so that
+        // this is terminal package for that pattern. In that case we should include the
+        // subDirFragment PathFragment (relative to the glob's package) in the GlobValue.getMatches,
+        // otherwise for file/dir matching return EMPTY.
+        if (globberOperation == Globber.Operation.SUBPACKAGES && globMatchesBareFile) {
           return new GlobValue(
               NestedSetBuilder.<PathFragment>stableOrder()
                   .add(subDirFragment.relativeTo(glob.getPackageId().getPackageFragment()))
@@ -115,23 +131,7 @@ public final class GlobFunction implements SkyFunction {
       }
     }
 
-    String pattern = glob.getPattern();
-    // Split off the first path component of the pattern.
-    int slashPos = pattern.indexOf('/');
-    String patternHead;
-    String patternTail;
-    if (slashPos == -1) {
-      patternHead = pattern;
-      patternTail = null;
-    } else {
-      // Substrings will share the backing array of the original glob string. That should be fine.
-      patternHead = pattern.substring(0, slashPos);
-      patternTail = pattern.substring(slashPos + 1);
-    }
-
     NestedSetBuilder<PathFragment> matches = NestedSetBuilder.stableOrder();
-
-    boolean globMatchesBareFile = patternTail == null;
 
     RootedPath dirRootedPath = RootedPath.toRootedPath(glob.getPackageRoot(), dirPathFragment);
     if (containsGlobs(patternHead)) {

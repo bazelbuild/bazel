@@ -899,6 +899,11 @@ public class GlobFunctionTest {
   }
 
   @Test
+  public void subpackages_doubleStarPatternWithNamedChild() throws Exception {
+    assertSubpackageMatches("**/bar");
+  }
+
+  @Test
   public void subpackages_oneLevelDeep() throws Exception {
     makeEmptyPackage("base/sub");
     makeEmptyPackage("base/sub2");
