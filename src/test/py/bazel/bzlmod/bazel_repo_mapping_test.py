@@ -385,10 +385,14 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
             '@test//:test',
             '--test_output=errors',
             '--test_env=RUNFILES_LIB_DEBUG=1',
+            '--extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain',
         ],
     )
     # Run unsandboxed on all platforms.
-    self.RunBazel(['run', '@test//:test'], env_add={'RUNFILES_LIB_DEBUG': '1'})
+    self.RunBazel([
+        'run', '@test//:test',
+        '--extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain',
+    ], env_add={'RUNFILES_LIB_DEBUG': '1'})
 
 
 if __name__ == '__main__':
