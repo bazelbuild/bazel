@@ -94,12 +94,21 @@ public class GoogleChannelConnectionFactory
     return Single.fromCallable(
             () -> channelFactory.newChannel(target, proxy, options, interceptors))
         .flatMap(
-            channel ->
-                RxFutures.toSingle(() -> getAndVerifyServerCapabilities(channel), directExecutor())
-                    .map(
-                        serverCapabilities ->
-                            new ChannelConnectionWithServerCapabilities(
-                                channel, serverCapabilities)));
+            channel -> {
+              var serverCapabilitiesSingle =
+                  RxFutures.toSingle(
+                      () -> getAndVerifyServerCapabilities(channel), directExecutor());
+
+              // Don't issue GetCapabilities calls if the requirement is NONE because some endpoint,
+              // e.g. Remote Asset API, might not implement the API. See #20342.
+              if (requirement == ServerCapabilitiesRequirement.NONE) {
+                return Single.just(
+                    new ChannelConnectionWithServerCapabilities(channel, serverCapabilitiesSingle));
+              }
+
+              return serverCapabilitiesSingle.map(
+                  sc -> new ChannelConnectionWithServerCapabilities(channel, Single.just(sc)));
+            });
   }
 
   private ListenableFuture<ServerCapabilities> getAndVerifyServerCapabilities(

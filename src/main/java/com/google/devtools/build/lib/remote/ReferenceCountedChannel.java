@@ -78,7 +78,7 @@ public class ReferenceCountedChannel implements ReferenceCounted {
     try (var s = Profiler.instance().profile("getServerCapabilities")) {
       return blockingGet(
           withChannelConnection(
-              channelConnection -> Single.just(channelConnection.getServerCapabilities())));
+              ChannelConnectionWithServerCapabilities::getServerCapabilities));
     } catch (ExecutionException e) {
       throw new IOException(e);
     } catch (InterruptedException e) {
