@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -58,6 +59,7 @@ public final class ExtraAction extends SpawnAction {
   private boolean inputsDiscovered = false;
 
   ExtraAction(
+      ActionOwner owner,
       NestedSet<Artifact> extraActionInputs,
       RunfilesSupplier runfilesSupplier,
       Collection<Artifact.DerivedArtifact> outputs,
@@ -69,7 +71,7 @@ public final class ExtraAction extends SpawnAction {
       CharSequence progressMessage,
       String mnemonic) {
     super(
-        shadowedAction.getOwner(),
+        owner,
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         createInputs(
             shadowedAction.getInputs(),

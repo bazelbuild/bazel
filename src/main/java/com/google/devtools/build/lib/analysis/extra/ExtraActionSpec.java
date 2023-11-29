@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.BashCommandConstructor;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -45,7 +46,6 @@ import java.util.Map;
  */
 @Immutable
 public final class ExtraActionSpec implements TransitiveInfoProvider {
-  private final PathFragment shExecutable;
   private final NestedSet<Artifact> resolvedTools;
   private final RunfilesSupplier runfilesSupplier;
   private final ImmutableList<Artifact> resolvedData;
@@ -56,7 +56,6 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
   private final Label label;
 
   public ExtraActionSpec(
-      PathFragment shExecutable,
       NestedSet<Artifact> resolvedTools,
       RunfilesSupplier runfilesSupplier,
       List<Artifact> resolvedData,
@@ -65,7 +64,6 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
       Label label,
       Map<String, String> executionInfo,
       boolean requiresActionOutput) {
-    this.shExecutable = shExecutable;
     this.resolvedTools = resolvedTools;
     this.runfilesSupplier = runfilesSupplier;
     this.resolvedData = ImmutableList.copyOf(resolvedData);
@@ -130,7 +128,11 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
     String actionUniquifier =
         actionToShadow.getPrimaryOutput().getExecPath().getBaseName()
             + "."
-            + actionToShadow.getKey(owningRule.getActionKeyContext(), /*artifactExpander=*/ null);
+            + actionToShadow.getKey(owningRule.getActionKeyContext(), /* artifactExpander= */ null);
+
+    PathFragment shExecutable =
+        ShToolchain.getPathForPlatform(
+            owningRule.getConfiguration(), owningRule.getExecutionPlatform());
     BashCommandConstructor constructor =
         CommandHelper.buildBashCommandConstructor(
             executionInfo, shExecutable, "." + actionUniquifier + ".extra_action_script.sh");
@@ -139,6 +141,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
     String commandMessage = String.format("Executing extra_action %s on %s", label, ownerLabel);
     owningRule.registerAction(
         new ExtraAction(
+            owningRule.getActionOwner(),
             extraActionInputs.build(),
             runfilesSupplier,
             extraActionOutputs,
