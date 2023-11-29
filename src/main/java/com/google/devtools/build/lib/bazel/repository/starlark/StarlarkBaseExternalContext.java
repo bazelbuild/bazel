@@ -35,6 +35,8 @@ import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -97,6 +99,17 @@ import net.starlark.java.syntax.Location;
 
 /** A common base class for Starlark "ctx" objects related to external dependencies. */
 public abstract class StarlarkBaseExternalContext implements StarlarkValue {
+  private final static class AsyncWorkItem {
+    private final Future<?> future;
+    private final String description;
+    private final Location location;
+
+    private AsyncWorkItem(Future<?> future, String description, Location location) {
+      this.future = future;
+      this.description = description;
+      this.location = location;
+    }
+  }
   /** Max. number of command line args added as a profiler description. */
   private static final int MAX_PROFILE_ARGS_LEN = 80;
 
@@ -110,7 +123,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   protected final StarlarkSemantics starlarkSemantics;
   private final HashMap<Label, String> accumulatedFileDigests = new HashMap<>();
   private final RepositoryRemoteExecutor remoteExecutor;
-  private final List<Future<?>> asyncWork;
+  private final List<AsyncWorkItem> asyncWork;
 
   protected StarlarkBaseExternalContext(
       Path workingDirectory,
@@ -130,30 +143,37 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     this.processWrapper = processWrapper;
     this.starlarkSemantics = starlarkSemantics;
     this.remoteExecutor = remoteExecutor;
-    this.asyncWork = new ArrayList<Future<?>>();
+    this.asyncWork = new ArrayList<>();
   }
 
-  public void ensureNoPendingAsyncWork() {
-    for (Future<?> future : asyncWork) {
-      if (!future.cancel(true)) {
+  public boolean ensureNoPendingAsyncWork(EventHandler eventHandler, boolean forSuccessfulFetch) {
+    boolean werePendingItems = false;
+    for (AsyncWorkItem workItem : asyncWork) {
+      if (!workItem.future.cancel(true)) {
         // Already done
         continue;
       }
 
       try {
-        future.get();
+        workItem.future.get();
       } catch (InterruptedException | ExecutionException | CancellationException e) {
-        // TODO(lberki): Maybe raise an error if there is unwaited work left?
+        werePendingItems = true;
+        if (forSuccessfulFetch) {
+          eventHandler.handle(Event.error(workItem.location,
+              "Work pending after repository rule finished execution: " + workItem.description));
+        }
         // Ignore. The only thing we care about is that there is no async work in progress after
         // this point. Any error reporting should have been done before.
       }
     }
+
+    return werePendingItems;
   }
 
   // There is no unregister(). We don't have that many futures in each repository and it just
   // introduces the failure mode of erroneously unregistering async work that's not done.
-  protected void registerAsyncWork(Future<?> future) {
-    asyncWork.add(future);
+  protected void registerAsyncWork(Future<?> future, String description, Location location) {
+    asyncWork.add(new AsyncWorkItem(future, description, location));
   }
 
   /** A string that can be used to identify this context object. Used for logging purposes. */
@@ -583,7 +603,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
               env.getListener(),
               envVariables,
               getIdentifyingStringForLogging());
-      registerAsyncWork(downloadFuture);
+      registerAsyncWork(downloadFuture, "downloading '" + output.toString() + "'", thread.getCallerLocation());
       download = new PendingDownload(executable, allowFail, outputPath, checksum,
           checksumValidation, downloadFuture);
     }
