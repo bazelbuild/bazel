@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions.BesUploadMode;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
@@ -47,8 +48,9 @@ public final class JsonFormatFileTransport extends FileTransport {
       BuildEventProtocolOptions options,
       BuildEventArtifactUploader uploader,
       ArtifactGroupNamer namer,
-      TypeRegistry typeRegistry) {
-    super(outputStream, options, uploader, namer);
+      TypeRegistry typeRegistry,
+      BesUploadMode besUploadMode) {
+    super(outputStream, options, uploader, namer, besUploadMode);
     jsonPrinter =
         JsonFormat.printer().usingTypeRegistry(typeRegistry).omittingInsignificantWhitespace();
   }
