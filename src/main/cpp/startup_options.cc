@@ -92,6 +92,7 @@ StartupOptions::StartupOptions(const string &product_name,
       expand_configs_in_place(true),
       digest_function(),
       idle_server_tasks(true),
+      update_install_base_mtime(true),
       original_startup_options_(std::vector<RcStartupFlag>()),
 #if defined(__APPLE__)
       macos_qos_class(QOS_CLASS_UNSPECIFIED),
@@ -143,6 +144,7 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterNullaryStartupFlag("shutdown_on_low_sys_mem",
                              &shutdown_on_low_sys_mem);
   RegisterNullaryStartupFlagNoRc("ignore_all_rc_files", &ignore_all_rc_files);
+  RegisterNullaryStartupFlag("update_install_base_mtime", &update_install_base_mtime);
   RegisterNullaryStartupFlag("unlimit_coredumps", &unlimit_coredumps);
   RegisterNullaryStartupFlag("watchfs", &watchfs);
   RegisterNullaryStartupFlag("write_command_log", &write_command_log);

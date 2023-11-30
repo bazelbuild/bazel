@@ -49,6 +49,57 @@ function test_client_debug_change_does_not_restart_server() {
   expect_not_log "WARNING.* Running B\\(azel\\|laze\\) server needs to be killed"
 }
 
+# Note: the install base check is elided if the `install` symlink in the output
+# base matches the given install base:
+# https://github.com/bazelbuild/bazel/blob/a3c677dfea2de636a719d50345a5a97af96fae60/src/main/cpp/blaze.cc#L991-L1001
+#
+# To force this check to re-run, we pass a new `output_base` path on every
+# invocation.
+function test_update_install_base_mtime_updates_mtime() {
+  local install_base="$TEST_TMPDIR/install"
+  local args=(
+    --batch --update_install_base_mtime
+    --install_base="${install_base}"
+  )
+
+  bazel "${args[@]}" --output_base="$TEST_TMPDIR/out/a" version >&$TEST_log || fail "'bazel version' failed"
+  local original_mtime=$(stat -c %Y "${install_base}")
+
+  sleep 1
+  bazel "${args[@]}" --output_base="$TEST_TMPDIR/out/b" version >&$TEST_log || fail "'bazel version' failed"
+  local new_mtime=$(stat -c %Y "${install_base}")
+
+  assert_not_equals "$original_mtime" "$new_mtime"
+}
+
+# Really we'd like to test that `bazel --noupdate_install_base_mtime ...` is
+# happy with a read-only install base but unfortunately it's tricky to make an
+# install base that's read-only without `root` (`chattr`, `chown`, `mount`, etc.
+# all need privileges).
+function test_no_update_install_base_mtime_does_not_update_mtime() {
+  local install_base="$TEST_TMPDIR/install"
+  local args=(
+    --batch --noupdate_install_base_mtime
+    --install_base="${install_base}"
+  )
+
+  bazel "${args[@]}" --output_base="$TEST_TMPDIR/out/c" version >&$TEST_log || fail "'bazel version' failed"
+  local original_mtime=$(stat -c %Y "${install_base}")
+
+  sleep 1
+  bazel "${args[@]}" --output_base="$TEST_TMPDIR/out/d" version >&$TEST_log || fail "'bazel version' failed"
+  local new_mtime=$(stat -c %Y "${install_base}")
+
+  assert_equals "$original_mtime" "$new_mtime"
+}
+
+function test_update_install_base_mtime_change_does_not_restart_server() {
+  local server_pid1=$(bazel --update_install_base_mtime info server_pid 2>$TEST_log)
+  local server_pid2=$(bazel --noupdate_install_base_mtime info server_pid 2>$TEST_log)
+  assert_equals "$server_pid1" "$server_pid2"
+  expect_not_log "WARNING.* Running B\\(azel\\|laze\\) server needs to be killed"
+}
+
 function test_server_restart_due_to_startup_options() {
   local server_pid1=$(bazel --write_command_log info server_pid 2>$TEST_log)
   local server_pid2=$(bazel --nowrite_command_log info server_pid 2>$TEST_log)

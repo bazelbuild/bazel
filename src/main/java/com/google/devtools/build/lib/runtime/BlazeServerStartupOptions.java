@@ -92,6 +92,16 @@ public class BlazeServerStartupOptions extends OptionsBase {
       help = "This launcher option is intended for use only by tests.")
   public PathFragment installBase;
 
+  @Option(
+      name = "update_install_base_mtime",
+      defaultValue = "true", // NOTE: only for documentation, value is set and used by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "If set, the client will attempt to update the `mtime` of the `install_base` directory. "
+              + "Changing this option will not cause the server to restart.")
+  public boolean updateInstallBaseMtime;
+
   /*
    * The installation MD5 - a content hash of the blaze binary (includes the Blaze deploy JAR and
    * any other embedded binaries - anything that ends up in the install_base).

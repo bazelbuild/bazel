@@ -104,6 +104,7 @@ TEST_F(BazelStartupOptionsTest, ValidStartupFlags) {
   ExpectValidNullaryOption(options, "ignore_all_rc_files");
   ExpectValidNullaryOption(options, "shutdown_on_low_sys_mem");
   ExpectValidNullaryOption(options, "system_rc");
+  ExpectValidNullaryOption(options, "update_install_base_mtime");
   ExpectValidNullaryOption(options, "watchfs");
   ExpectValidNullaryOption(options, "workspace_rc");
   ExpectValidNullaryOption(options, "write_command_log");

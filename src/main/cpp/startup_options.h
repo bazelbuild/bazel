@@ -146,6 +146,10 @@ class StartupOptions {
   // Installation base for a specific release installation.
   std::string install_base;
 
+  // Whether to attempt to update the mtime of the provided `install_base`
+  // directory.
+  bool update_install_base_mtime;
+
   // The toplevel directory containing Blaze's output.  When Blaze is
   // run by a test, we use TEST_TMPDIR, simplifying the correct
   // hermetic invocation of Blaze from tests.

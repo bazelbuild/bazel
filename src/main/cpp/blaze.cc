@@ -476,6 +476,13 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   } else {
     result.push_back("--client_debug=false");
   }
+  // Same as above; this option is only used by the client and doesn't
+  // necessitate a server restart:
+  if (startup_options.update_install_base_mtime) {
+    result.push_back("--update_install_base_mtime=true");
+  } else {
+    result.push_back("--update_install_base_mtime=false");
+  }
 
   // These flags are passed to the java process only for Blaze reporting
   // purposes; the real interpretation of the jvm flags occurs when we set up
@@ -858,6 +865,7 @@ static bool IsVolatileArg(const string &arg) {
   static const std::set<string> volatile_startup_options = {
       "--option_sources=", "--max_idle_secs=", "--connect_timeout_secs=",
       "--local_startup_timeout_secs=", "--client_debug=", "--preemptible=",
+      "--update_install_base_mtime=",
       // Internally, -XX:HeapDumpPath is set automatically via the user's TMPDIR
       // environment variable. Since that can change based on the shell, we
       // tolerate changes to it. Note that an explicit setting of
@@ -1009,13 +1017,15 @@ static void EnsureCorrectRunningVersion(const StartupOptions &startup_options,
 
     // Update the mtime of the install base so that cleanup tools can
     // find install bases that haven't been used for a long time
-    std::unique_ptr<blaze_util::IFileMtime> mtime(
-        blaze_util::CreateFileMtime());
-    if (!mtime->SetToNow(blaze_util::Path(startup_options.install_base))) {
-      string err = GetLastErrorString();
-      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "failed to set timestamp on '" << startup_options.install_base
-          << "': " << err;
+    if (startup_options.update_install_base_mtime) {
+      std::unique_ptr<blaze_util::IFileMtime> mtime(
+          blaze_util::CreateFileMtime());
+      if (!mtime->SetToNow(blaze_util::Path(startup_options.install_base))) {
+        string err = GetLastErrorString();
+        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+            << "failed to set timestamp on '" << startup_options.install_base
+            << "': " << err;
+      }
     }
   }
 }
