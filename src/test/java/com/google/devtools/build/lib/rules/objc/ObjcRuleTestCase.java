@@ -63,7 +63,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -252,31 +251,23 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
   @Override
   protected void useConfiguration(String... args) throws Exception {
-    ImmutableList<String> extraArgs;
+    ImmutableList<String> newArgs;
     if (platformBasedToolchains()) {
-      extraArgs = MockObjcSupport.requiredObjcPlatformFlags();
+      newArgs = MockObjcSupport.requiredObjcPlatformFlags(args);
     } else {
-      extraArgs = MockObjcSupport.requiredObjcCrosstoolFlags();
+      newArgs = MockObjcSupport.requiredObjcCrosstoolFlags(args);
     }
-    args = Arrays.copyOf(args, args.length + extraArgs.size());
-    for (int i = 0; i < extraArgs.size(); i++) {
-      args[(args.length - extraArgs.size()) + i] = extraArgs.get(i);
-    }
-    super.useConfiguration(args);
+    super.useConfiguration(newArgs.toArray(new String[] {}));
   }
 
   protected void useConfigurationWithCustomXcode(String... args) throws Exception {
-    ImmutableList<String> extraArgs;
+    ImmutableList<String> newArgs;
     if (platformBasedToolchains()) {
-      extraArgs = MockObjcSupport.requiredObjcPlatformFlagsNoXcodeConfig();
+      newArgs = MockObjcSupport.requiredObjcPlatformFlagsNoXcodeConfig(args);
     } else {
-      extraArgs = MockObjcSupport.requiredObjcCrosstoolFlagsNoXcodeConfig();
+      newArgs = MockObjcSupport.requiredObjcCrosstoolFlagsNoXcodeConfig(args);
     }
-    args = Arrays.copyOf(args, args.length + extraArgs.size());
-    for (int i = 0; i < extraArgs.size(); i++) {
-      args[(args.length - extraArgs.size()) + i] = extraArgs.get(i);
-    }
-    super.useConfiguration(args);
+    super.useConfiguration(newArgs.toArray(new String[] {}));
   }
 
   /** Asserts that an action specifies the given requirement. */
@@ -509,6 +500,14 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
     scratch.file(
         "test_starlark/apple_binary_starlark.bzl",
+        "_CPU_TO_PLATFORM = {",
+        "    'darwin_x86_64': '" + MockObjcSupport.DARWIN_X86_64 + "',",
+        "    'ios_x86_64': '" + MockObjcSupport.IOS_X86_64 + "',",
+        "    'ios_arm64': '" + MockObjcSupport.IOS_ARM64 + "',",
+        "    'ios_i386': '" + MockObjcSupport.IOS_I386 + "',", // legacy platform used in tests
+        "    'ios_armv7': '" + MockObjcSupport.IOS_ARMV7 + "',", // legacy platform used in tests
+        "    'watchos_armv7k': '" + MockObjcSupport.WATCHOS_ARMV7K + "',",
+        "}",
         "_apple_platform_transition_inputs = [",
         "    '//command_line_option:apple_crosstool_top',",
         "    '//command_line_option:cpu',",
@@ -527,8 +526,11 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    '//command_line_option:crosstool_top',",
         "    '//command_line_option:fission',",
         "    '//command_line_option:grte_top',",
+        "    '//command_line_option:platforms',",
         "]",
         "def _command_line_options(*, environment_arch = None, platform_type, settings):",
+        "    cpu = ('darwin_' + environment_arch if platform_type == 'macos'",
+        "            else platform_type + '_' +  environment_arch)",
         "    output_dictionary = {",
         "        '//command_line_option:apple configuration distinguisher':",
         "            'applebin_' + platform_type,",
@@ -536,13 +538,12 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "        '//command_line_option:apple_platforms': [],",
         "        '//command_line_option:apple_split_cpu': environment_arch,",
         "        '//command_line_option:compiler': None,",
-        "        '//command_line_option:cpu': ",
-        "            'darwin_' + environment_arch if platform_type == 'macos'",
-        "            else platform_type + '_' +  environment_arch,",
+        "        '//command_line_option:cpu': cpu,",
         "        '//command_line_option:crosstool_top': ",
         "            settings['//command_line_option:apple_crosstool_top'],",
         "        '//command_line_option:fission': [],",
         "        '//command_line_option:grte_top': None,",
+        "        '//command_line_option:platforms': [_CPU_TO_PLATFORM[cpu]],",
         "    }",
         "    return output_dictionary",
         "def _apple_platform_split_transition_impl(settings, attr):",

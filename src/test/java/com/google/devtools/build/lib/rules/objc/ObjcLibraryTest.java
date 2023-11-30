@@ -222,7 +222,11 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testObjcPlusPlusCompile() throws Exception {
-    useConfiguration("--apple_platform_type=ios", "--cpu=ios_i386", "--ios_minimum_os=9.10.11");
+    useConfiguration(
+        "--apple_platform_type=ios",
+        "--cpu=ios_i386",
+        "--ios_minimum_os=9.10.11",
+        "--platforms=" + MockObjcSupport.IOS_I386);
     createLibraryTargetWriter("//objc:lib").setList("srcs", "a.mm").write();
     CommandAction compileAction = compileAction("//objc:lib", "a.o");
     assertThat(compileAction.getArguments())
@@ -473,7 +477,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompilationActions_simulator() throws Exception {
-    useConfiguration("--apple_platform_type=ios", "--cpu=ios_i386");
+    useConfiguration(
+        "--apple_platform_type=ios", "--cpu=ios_i386", "--platforms=" + MockObjcSupport.IOS_I386);
 
     scratch.file("objc/a.m");
     scratch.file("objc/non_arc.m");
@@ -518,7 +523,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompilationActions_device() throws Exception {
-    useConfiguration("--apple_platform_type=ios", "--cpu=ios_armv7");
+    useConfiguration(
+        "--apple_platform_type=ios", "--cpu=ios_armv7", "--platforms=" + MockObjcSupport.IOS_ARMV7);
 
     scratch.file("objc/a.m");
     scratch.file("objc/non_arc.m");
@@ -683,7 +689,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testArchiveAction_simulator() throws Exception {
-    useConfiguration("--apple_platform_type=ios", "--cpu=ios_i386");
+    useConfiguration(
+        "--apple_platform_type=ios", "--cpu=ios_i386", "--platforms=" + MockObjcSupport.IOS_I386);
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "c.h")
@@ -708,7 +715,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testArchiveAction_device() throws Exception {
-    useConfiguration("--apple_platform_type=ios", "--cpu=ios_armv7");
+    useConfiguration(
+        "--apple_platform_type=ios", "--cpu=ios_armv7", "--platforms=" + MockObjcSupport.IOS_ARMV7);
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "c.h")
@@ -1462,7 +1470,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testApplePlatformEnvForCcLibraryDep() throws Exception {
-    useConfiguration("--cpu=ios_i386");
+    useConfiguration("--cpu=ios_i386", "--platforms=" + MockObjcSupport.IOS_I386);
     addAppleBinaryStarlarkRule(scratch);
 
     scratch.file(

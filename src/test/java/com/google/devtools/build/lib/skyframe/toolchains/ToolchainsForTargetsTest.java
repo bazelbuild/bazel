@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
@@ -552,6 +553,14 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
 
   @Test
   public void targetCompatibleWith_matchesExecCompatibleWith() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withToolchainTargetConstraints("@//platforms:local_value_a")
+                .withToolchainExecConstraints()
+                .withCpu("fake"));
     scratch.file(
         "platforms/BUILD",
         "constraint_setting(name = 'local_setting')",

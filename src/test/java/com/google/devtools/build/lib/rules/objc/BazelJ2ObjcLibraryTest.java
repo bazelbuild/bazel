@@ -1262,7 +1262,11 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   @Test
   public void testCompileActionTemplateFromGenJar() throws Exception {
-    useConfiguration("--apple_platform_type=ios", "--cpu=ios_i386", "--ios_minimum_os=1.0");
+    useConfiguration(
+        "--apple_platform_type=ios",
+        "--cpu=ios_i386",
+        "--ios_minimum_os=1.0",
+        "--platforms=" + MockObjcSupport.IOS_I386);
     addSimpleJ2ObjcLibraryWithJavaPlugin();
     Artifact archive = j2objcArchive("//java/com/google/app/test:transpile", "test");
     CommandAction archiveAction = (CommandAction) getGeneratingAction(archive);
