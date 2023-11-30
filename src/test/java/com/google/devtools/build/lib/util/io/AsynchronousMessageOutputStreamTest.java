@@ -38,9 +38,9 @@ import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
-/** Tests {@link AsynchronousFileOutputStream}. */
+/** Tests {@link AsynchronousMessageOutputStream}. */
 @RunWith(JUnit4.class)
-public class AsynchronousFileOutputStreamTest {
+public class AsynchronousMessageOutputStreamTest {
   private final Random random = ThreadLocalRandom.current();
   private static final char[] RAND_CHARS = "abcdefghijklmnopqrstuvwxzy0123456789-".toCharArray();
   private static final int RAND_STRING_LENGTH = 10;
@@ -81,7 +81,7 @@ public class AsynchronousFileOutputStreamTest {
     final String filename = "/logFile";
     FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
     Path logPath = fileSystem.getPath(filename);
-    AsynchronousFileOutputStream<Message> out = new AsynchronousFileOutputStream<>(logPath);
+    AsynchronousMessageOutputStream<Message> out = new AsynchronousMessageOutputStream<>(logPath);
     ArrayList<Message> messages = new ArrayList<>();
     for (int i = 0; i < 100; ++i) {
       messages.add(generateRandomMessage());
@@ -131,8 +131,8 @@ public class AsynchronousFileOutputStreamTest {
         throw new IOException("foo");
       }
     };
-    AsynchronousFileOutputStream<Message> out =
-        new AsynchronousFileOutputStream<>("", failingOutputStream);
+    AsynchronousMessageOutputStream<Message> out =
+        new AsynchronousMessageOutputStream<>("", failingOutputStream);
     out.write(generateRandomMessage());
     IOException expected = assertThrows(IOException.class, () -> out.close());
     assertThat(expected).hasMessageThat().isEqualTo("foo");
@@ -149,8 +149,8 @@ public class AsynchronousFileOutputStreamTest {
         throw new RuntimeException("foo");
       }
     };
-    AsynchronousFileOutputStream<Message> out =
-        new AsynchronousFileOutputStream<>("", failingOutputStream);
+    AsynchronousMessageOutputStream<Message> out =
+        new AsynchronousMessageOutputStream<>("", failingOutputStream);
     out.write(generateRandomMessage());
     RuntimeException expected = assertThrows(RuntimeException.class, () -> out.close());
     assertThat(expected).hasMessageThat().isEqualTo("foo");
@@ -167,8 +167,8 @@ public class AsynchronousFileOutputStreamTest {
       public void close() throws IOException {
       }
     };
-    AsynchronousFileOutputStream<Message> out =
-        new AsynchronousFileOutputStream<>("", failingOutputStream);
+    AsynchronousMessageOutputStream<Message> out =
+        new AsynchronousMessageOutputStream<>("", failingOutputStream);
     out.write(generateRandomMessage());
     out.write(generateRandomMessage());
     IOException expected = assertThrows(IOException.class, () -> out.close());
@@ -186,8 +186,8 @@ public class AsynchronousFileOutputStreamTest {
       public void close() throws IOException {
       }
     };
-    AsynchronousFileOutputStream<Message> out =
-        new AsynchronousFileOutputStream<>("", failingOutputStream);
+    AsynchronousMessageOutputStream<Message> out =
+        new AsynchronousMessageOutputStream<>("", failingOutputStream);
     out.write(generateRandomMessage());
     out.write(generateRandomMessage());
     RuntimeException expected = assertThrows(RuntimeException.class, () -> out.close());
@@ -196,8 +196,8 @@ public class AsynchronousFileOutputStreamTest {
 
   @Test
   public void testWriteAfterCloseThrowsException() throws Exception {
-    AsynchronousFileOutputStream<Message> out =
-        new AsynchronousFileOutputStream<>("", new ByteArrayOutputStream());
+    AsynchronousMessageOutputStream<Message> out =
+        new AsynchronousMessageOutputStream<>("", new ByteArrayOutputStream());
     out.write(generateRandomMessage());
     out.close();
 
