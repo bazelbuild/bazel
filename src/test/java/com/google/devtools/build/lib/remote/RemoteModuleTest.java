@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.remote.circuitbreaker.FailureCircuitBreaker;
+import com.google.devtools.build.lib.remote.downloader.GrpcRemoteDownloader;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
@@ -211,6 +212,42 @@ public final class RemoteModuleTest {
         (target, proxy, options, interceptors) ->
             InProcessChannelBuilder.forName(target).directExecutor().build());
     remoteOptions = Options.getDefaults(RemoteOptions.class);
+  }
+
+  @Test
+  public void testVerifyCapabilities_none() throws Exception {
+    // Test that Bazel doesn't issue GetCapabilities calls if the requirement is NONE.
+    // Regression test for https://github.com/bazelbuild/bazel/issues/20342.
+    CapabilitiesImpl executionServerCapabilitiesImpl = new CapabilitiesImpl(EXEC_AND_CACHE_CAPS);
+    Server executionServer =
+        createFakeServer(EXECUTION_SERVER_NAME, executionServerCapabilitiesImpl);
+    executionServer.start();
+
+    CapabilitiesImpl cacheCapabilitiesImpl = new CapabilitiesImpl(CACHE_ONLY_CAPS);
+    Server cacheServer = createFakeServer(CACHE_SERVER_NAME, cacheCapabilitiesImpl);
+    cacheServer.start();
+
+    try {
+      remoteOptions.remoteExecutor = EXECUTION_SERVER_NAME;
+      remoteOptions.remoteDownloader = CACHE_SERVER_NAME;
+
+      beforeCommand();
+
+      // Wait for the channel to be connected.
+      var downloader = (GrpcRemoteDownloader) remoteModule.getRemoteDownloaderSupplier().get();
+      var unused = downloader.getChannel().withChannelBlocking(ch -> new Object());
+
+      // Remote downloader uses Remote Asset API, and Bazel doesn't have any capability requirement
+      // on the endpoint. Expecting the request count is 0.
+      assertThat(cacheCapabilitiesImpl.getRequestCount()).isEqualTo(0);
+      assertCircuitBreakerInstance();
+    } finally {
+      executionServer.shutdownNow();
+      cacheServer.shutdownNow();
+
+      executionServer.awaitTermination();
+      cacheServer.awaitTermination();
+    }
   }
 
   @Test
