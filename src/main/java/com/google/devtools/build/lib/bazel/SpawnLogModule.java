@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
+import com.google.devtools.build.lib.util.io.AsynchronousMessageOutputStream;
 import com.google.devtools.build.lib.util.io.MessageOutputStream;
 import com.google.devtools.build.lib.util.io.MessageOutputStreamWrapper.BinaryOutputStreamWrapper;
 import com.google.devtools.build.lib.util.io.MessageOutputStreamWrapper.JsonOutputStreamWrapper;
@@ -113,7 +113,7 @@ public final class SpawnLogModule extends BlazeModule {
     } else {
       rawOutputPath = outputBase.getRelative("execution.log");
     }
-    rawOutputStream = new AsynchronousFileOutputStream<>(rawOutputPath);
+    rawOutputStream = new AsynchronousMessageOutputStream<>(rawOutputPath);
 
     // Set up the binary output stream, if distinct from the raw output stream.
     if (executionOptions.executionLogBinaryFile != null && executionOptions.executionLogSort) {

@@ -68,7 +68,7 @@ import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.WaitExecu
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.WriteDetails;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.testutil.ManualClock;
-import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
+import com.google.devtools.build.lib.util.io.AsynchronousMessageOutputStream;
 import com.google.longrunning.Operation;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
@@ -107,12 +107,12 @@ public class LoggingInterceptorTest {
   private ManualClock clock;
 
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();
-  @Mock private AsynchronousFileOutputStream<LogEntry> logStream;
+  @Mock private AsynchronousMessageOutputStream<LogEntry> logStream;
 
   // This returns a logging interceptor where all calls are handled by the given handler.
   @SuppressWarnings({"rawtypes", "unchecked"})
   private LoggingInterceptor getInterceptorWithAlwaysThisHandler(
-      LoggingHandler handler, AsynchronousFileOutputStream<LogEntry> outputFile) {
+      LoggingHandler handler, AsynchronousMessageOutputStream<LogEntry> outputFile) {
     return new LoggingInterceptor(outputFile, clock) {
       @Override
       public <ReqT, RespT> LoggingHandler<ReqT, RespT> selectHandler(
