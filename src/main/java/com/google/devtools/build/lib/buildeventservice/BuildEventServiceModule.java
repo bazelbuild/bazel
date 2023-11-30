@@ -209,6 +209,10 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
         closeFuturesWithTimeoutsMap.entrySet().stream()
             .filter(entry -> !transportFutures.containsKey(entry.getKey()))
             .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+    halfCloseFuturesWithTimeoutsMap =
+        halfCloseFuturesWithTimeoutsMap.entrySet().stream()
+            .filter(entry -> !transportFutures.containsKey(entry.getKey()))
+            .collect(toImmutableMap(Entry::getKey, Entry::getValue));
   }
 
   private static boolean isTimeoutException(ExecutionException e) {
