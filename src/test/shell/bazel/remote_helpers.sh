@@ -180,6 +180,9 @@ function serve_timeout() {
 }
 
 # Serves a HTTP 200 Ok response with headers dumped into the file
+# Args:
+#  $1: required; path to the file
+#  $2: optional; path to the file where headers will be written to. 
 function serve_file_header_dump() {
   file_name=served_file.$$
   cat $1 > "${TEST_TMPDIR}/$file_name"

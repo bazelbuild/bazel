@@ -2495,7 +2495,7 @@ EOF
 }
 
 
-function test_starlark_headers_should_override_default_headers() {
+function test_starlark_headers_override_default_headers() {
 
   filename="default_headers.txt"
   echo $filename > $filename
@@ -2515,7 +2515,6 @@ def _impl(repository_ctx):
       "Accept": ["application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json"],
     }
   )
-  print("here")
 
 repo = repository_rule(implementation=_impl)
 EOF

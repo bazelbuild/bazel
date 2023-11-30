@@ -463,8 +463,8 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       Boolean executable,
       Boolean allowFail,
       String canonicalId,
-      Dict<?, ?> authUnchecked, // <String, List<String>> expected
-      Dict<?, ?> headersUnchecked, // <String, Dict> expected
+      Dict<?, ?> authUnchecked, // <String, Dict> expected 
+      Dict<?, ?> headersUnchecked, // <String, List<String> | String> expected
       String integrity,
       StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
@@ -656,7 +656,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       Boolean allowFail,
       String canonicalId,
       Dict<?, ?> authUnchecked, // <String, Dict> expected
-      Dict<?, ?> headersUnchecked, // <String, Dict> expected
+      Dict<?, ?> headersUnchecked, // <String, List<String> | String> expected
       String integrity,
       Dict<?, ?> renameFiles, // <String, String> expected
       StarlarkThread thread)
