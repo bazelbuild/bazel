@@ -199,4 +199,9 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     }
     return out;
   }
+
+  @VisibleForTesting
+  public ReferenceCountedChannel getChannel() {
+    return channel;
+  }
 }

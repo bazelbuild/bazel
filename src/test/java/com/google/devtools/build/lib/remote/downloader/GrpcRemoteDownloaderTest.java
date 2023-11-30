@@ -145,7 +145,7 @@ public class GrpcRemoteDownloaderTest {
                     InProcessChannelBuilder.forName(fakeServerName).directExecutor().build();
                 return Single.just(
                     new ChannelConnectionWithServerCapabilities(
-                        ch, ServerCapabilities.getDefaultInstance()));
+                        ch, Single.just(ServerCapabilities.getDefaultInstance())));
               }
 
               @Override

@@ -28,15 +28,15 @@ public interface ChannelConnectionWithServerCapabilitiesFactory extends ChannelC
 
   /** A {@link ChannelConnection} that provides {@link ServerCapabilities}. */
   class ChannelConnectionWithServerCapabilities extends ChannelConnection {
-    private final ServerCapabilities serverCapabilities;
+    private final Single<ServerCapabilities> serverCapabilities;
 
     public ChannelConnectionWithServerCapabilities(
-        ManagedChannel channel, ServerCapabilities serverCapabilities) {
+        ManagedChannel channel, Single<ServerCapabilities> serverCapabilities) {
       super(channel);
       this.serverCapabilities = serverCapabilities;
     }
 
-    public ServerCapabilities getServerCapabilities() {
+    public Single<ServerCapabilities> getServerCapabilities() {
       return serverCapabilities;
     }
   }

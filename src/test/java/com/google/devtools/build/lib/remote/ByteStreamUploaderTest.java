@@ -127,7 +127,7 @@ public class ByteStreamUploaderTest {
                 return Single.just(
                     new ChannelConnectionWithServerCapabilities(
                         InProcessChannelBuilder.forName(serverName).build(),
-                        ServerCapabilities.getDefaultInstance()));
+                        Single.just(ServerCapabilities.getDefaultInstance())));
               }
 
               @Override
@@ -1069,7 +1069,7 @@ public class ByteStreamUploaderTest {
                         InProcessChannelBuilder.forName(serverName)
                             .intercept(MetadataUtils.newAttachHeadersInterceptor(metadata))
                             .build(),
-                        ServerCapabilities.getDefaultInstance()));
+                        Single.just(ServerCapabilities.getDefaultInstance())));
               }
 
               @Override
