@@ -341,16 +341,34 @@ public class RemoteSpawnRunner implements SpawnRunner {
         "queue");
     logProfileTask(
         converter,
+        executedActionMetadata.getWorkerStartTimestamp(),
+        executedActionMetadata.getInputFetchStartTimestamp(),
+        REMOTE_SETUP,
+        "pre-fetch");
+    logProfileTask(
+        converter,
         executedActionMetadata.getInputFetchStartTimestamp(),
         executedActionMetadata.getInputFetchCompletedTimestamp(),
         REMOTE_SETUP,
         "fetch");
     logProfileTask(
         converter,
+        executedActionMetadata.getInputFetchCompletedTimestamp(),
+        executedActionMetadata.getExecutionStartTimestamp(),
+        REMOTE_PROCESS_TIME,
+        "pre-execute");
+    logProfileTask(
+        converter,
         executedActionMetadata.getExecutionStartTimestamp(),
         executedActionMetadata.getExecutionCompletedTimestamp(),
         REMOTE_PROCESS_TIME,
         "execute");
+    logProfileTask(
+        converter,
+        executedActionMetadata.getExecutionCompletedTimestamp(),
+        executedActionMetadata.getOutputUploadStartTimestamp(),
+        UPLOAD_TIME,
+        "pre-upload");
     logProfileTask(
         converter,
         executedActionMetadata.getOutputUploadStartTimestamp(),
