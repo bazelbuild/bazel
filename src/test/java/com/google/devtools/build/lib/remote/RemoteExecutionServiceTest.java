@@ -1542,7 +1542,7 @@ public class RemoteExecutionServiceTest {
     IOException error =
         assertThrows(IOException.class, () -> service.downloadOutputs(action, result));
 
-    assertThat(error).hasMessageThat().containsMatch("expected output .+ does not exist.");
+    assertThat(error).hasMessageThat().containsMatch("mandatory output .+ was not created");
   }
 
   @Test
