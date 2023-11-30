@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.TestConstants.TOOLS_REPOSITORY;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -92,5 +93,16 @@ public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
                   .getValue();
       assertThat(jvmFlags).contains("-Djava.security.manager=allow");
     }
+  }
+
+  // regression test for https://github.com/bazelbuild/bazel/issues/20378
+  @Test
+  public void javaTestInvalidTestClassAtRootPackage() throws Exception {
+    scratch.file("BUILD", "java_test(name = 'some_test', srcs = ['SomeTest.java'])");
+
+    AssertionError error =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//:some_test"));
+
+    assertThat(error).hasMessageThat().contains("cannot determine test class");
   }
 }
