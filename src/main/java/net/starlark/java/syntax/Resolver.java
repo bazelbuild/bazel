@@ -340,6 +340,21 @@ public final class Resolver extends NodeVisitor {
     };
   }
 
+  /**
+   * Represents a lexical block.
+   *
+   * <p>Blocks should not be confused with frames. A block generally (but not always) corresponds to
+   * a syntactic element that may introduce variables; the variable is only accessible within the
+   * block (and its descendants, unless shadowed). A frame is the place where the variable's content
+   * will be stored, and is associated with the current enclosing function. Blocks are used to map
+   * an identifier to the proper variable binding, whereas frames are used to ensure each binding
+   * has a distinct slot of memory.
+   *
+   * <p>In particular, comprehension expressions have their own block but share the same underlying
+   * frame as their enclosing function. This means that comprehension-local variables are not
+   * accessible outside the comprehension, yet these variables are still stored alongside the other
+   * local variables of the function.
+   */
   private static class Block {
     @Nullable private final Block parent; // enclosing block, or null for tail of list
     @Nullable Node syntax; // Comprehension, DefStatement/LambdaExpression, StarlarkFile, or null
@@ -591,8 +606,8 @@ public final class Resolver extends NodeVisitor {
     Comprehension.For for0 = (Comprehension.For) clauses.get(0);
     visit(for0.getIterable());
 
-    // A comprehension defines a distinct lexical block
-    // in the same function's frame.
+    // A comprehension defines a distinct lexical block in the same function's frame.
+    // New bindings go in the frame but aren't visible to the parent block.
     pushLocalBlock(node, this.locals.frame, this.locals.freevars);
 
     for (Comprehension.Clause clause : clauses) {
@@ -913,7 +928,8 @@ public final class Resolver extends NodeVisitor {
       // Binding is local to file, function, or comprehension.
       bind = locals.bindings.get(name);
       if (bind == null) {
-        // New local binding: add to enclosing function's frame and bindings map.
+        // New local binding: add to current block's bindings map, current function's frame.
+        // (These are distinct entities in the case where the current block is a comprehension.)
         isNew = true;
         bind = new Binding(Scope.LOCAL, locals.frame.size(), id);
         locals.bindings.put(name, bind);
