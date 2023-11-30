@@ -107,7 +107,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:flogger",
-        "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
