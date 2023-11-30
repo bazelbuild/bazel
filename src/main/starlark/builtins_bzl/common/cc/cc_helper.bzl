@@ -968,6 +968,9 @@ def _is_stamping_enabled_for_aspect(ctx):
     return stamp
 
 def _get_local_defines_for_runfiles_lookup(ctx):
+    if not ctx.label.workspace_name:
+        # Use a fixed string literal to avoid allocating a string for every target in the main repo.
+        return ["BAZEL_CURRENT_REPOSITORY=\"\""]
     return ["BAZEL_CURRENT_REPOSITORY=\"{}\"".format(ctx.label.workspace_name)]
 
 # This should be enough to assume if two labels are equal.
