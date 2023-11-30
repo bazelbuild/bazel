@@ -1278,11 +1278,7 @@ public class RemoteExecutionService {
               && !metadata.directories.containsKey(localPath)
               && !metadata.symlinks.containsKey(localPath)) {
             throw new IOException(
-                "Invalid action cache entry "
-                    + action.getActionKey().getDigest().getHash()
-                    + ": expected output "
-                    + prettyPrint(output)
-                    + " does not exist.");
+                String.format("mandatory output %s was not created", prettyPrint(output)));
           }
         }
       }
