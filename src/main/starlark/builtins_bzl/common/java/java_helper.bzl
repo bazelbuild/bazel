@@ -93,7 +93,7 @@ def _primary_class(ctx):
         for src in ctx.files.srcs:
             if src.basename == main:
                 return _full_classname(_strip_extension(src))
-    return _full_classname(ctx.label.package + "/" + ctx.label.name)
+    return _full_classname(paths.get_relative(ctx.label.package, ctx.label.name))
 
 def _strip_extension(file):
     return file.dirname + "/" + (
