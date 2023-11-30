@@ -33,10 +33,12 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicReference;
 
-/** An output stream supporting asynchronous writes, backed by a file. */
+/**
+ * An output stream supporting asynchronous writes of length-delimited protocol buffer messages,
+ * backed by a file.
+ */
 @ThreadSafety.ThreadSafe
-public class AsynchronousFileOutputStream<T extends Message> extends OutputStream
-    implements MessageOutputStream<T> {
+public class AsynchronousMessageOutputStream<T extends Message> implements MessageOutputStream<T> {
   private static final byte[] POISON_PILL = new byte[1];
 
   private final Thread writerThread;
@@ -48,7 +50,7 @@ public class AsynchronousFileOutputStream<T extends Message> extends OutputStrea
   // To store any exception raised from the writes.
   private final AtomicReference<Throwable> exception = new AtomicReference<>();
 
-  public AsynchronousFileOutputStream(Path path) throws IOException {
+  public AsynchronousMessageOutputStream(Path path) throws IOException {
     this(
         path.toString(),
         new BufferedOutputStream( // Use a buffer of 100 kByte, scientifically chosen at random.
@@ -56,7 +58,7 @@ public class AsynchronousFileOutputStream<T extends Message> extends OutputStrea
   }
 
   @VisibleForTesting
-  AsynchronousFileOutputStream(String name, OutputStream out) {
+  AsynchronousMessageOutputStream(String name, OutputStream out) {
     writerThread =
         new Thread(
             () -> {
@@ -84,16 +86,28 @@ public class AsynchronousFileOutputStream<T extends Message> extends OutputStrea
   }
 
   /**
-   * Writes a delimited protocol buffer message in the same format as {@link
+   * Writes a protocol buffer message in the same format as {@link
    * MessageLite#writeDelimitedTo(java.io.OutputStream)}.
    *
-   * <p>Unfortunately, {@link MessageLite#writeDelimitedTo(java.io.OutputStream)} may result in
-   * multiple calls to write on the underlying stream, so we have to provide this method here
-   * instead of the caller using it directly.
+   * <p>The writes are guaranteed to land in the output file in the same order that they were
+   * called; However, some writes may fail, leaving the file partially corrupted. In case a write
+   * fails, an exception will be propagated in close, but remaining writes will be allowed to
+   * continue.
    */
   @Override
   public void write(T m) {
     Preconditions.checkNotNull(m);
+
+    if (closeFuture.isDone()) {
+      if (exception.get() != null) {
+        // There was a previous write failure. Silently return without doing anything.
+        return;
+      } else {
+        // Attempted to write after closing.
+        throw new IllegalStateException();
+      }
+    }
+
     final int size = m.getSerializedSize();
     ByteArrayOutputStream bos =
         new ByteArrayOutputStream(CodedOutputStream.computeUInt32SizeNoTag(size) + size);
@@ -104,35 +118,8 @@ public class AsynchronousFileOutputStream<T extends Message> extends OutputStrea
       exception.compareAndSet(null, new IllegalStateException(e.toString()));
       return;
     }
-    write(bos.toByteArray());
-  }
 
-  @Override
-  public void write(int b) {
-    throw new UnsupportedOperationException();
-  }
-
-  /**
-   * Writes the byte buffer into the file asynchronously.
-   *
-   * <p>The writes are guaranteed to land in the output file in the same order that they were
-   * called; However, some writes may fail, leaving the file partially corrupted. In case a write
-   * fails, an exception will be propagated in close, but remaining writes will be allowed to
-   * continue.
-   */
-  @Override
-  public void write(byte[] data) {
-    Preconditions.checkNotNull(data);
-    if (closeFuture.isDone()) {
-      if (exception.get() != null) {
-        // There was a write failure. Silently return without doing anything.
-        return;
-      } else {
-        // The file was closed.
-        throw new IllegalStateException();
-      }
-    }
-    Uninterruptibles.putUninterruptibly(queue, data);
+    Uninterruptibles.putUninterruptibly(queue, bos.toByteArray());
   }
 
   /**
@@ -151,15 +138,6 @@ public class AsynchronousFileOutputStream<T extends Message> extends OutputStrea
       Throwables.throwIfInstanceOf(e.getCause(), RuntimeException.class);
       throw new RuntimeException(e.getCause());
     }
-  }
-
-  /**
-   * Flushes the currently ongoing writes into the channel.
-   *
-   * Throws an exception if any of the writes or the close itself have failed.
-   */
-  @Override
-  public void flush() throws IOException {
   }
 
   /**

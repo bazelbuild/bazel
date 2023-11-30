@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Workspaces;
 import com.google.devtools.build.lib.server.FailureDetails.Workspaces.Code;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
+import com.google.devtools.build.lib.util.io.AsynchronousMessageOutputStream;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
@@ -34,7 +34,7 @@ import java.io.IOException;
 /** A module for logging workspace rule events */
 public final class WorkspaceRuleModule extends BlazeModule {
 
-  private AsynchronousFileOutputStream<WorkspaceLogProtos.WorkspaceEvent> outFileStream;
+  private AsynchronousMessageOutputStream<WorkspaceLogProtos.WorkspaceEvent> outFileStream;
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
@@ -51,7 +51,7 @@ public final class WorkspaceRuleModule extends BlazeModule {
     if (logFile != null) {
       try {
         outFileStream =
-            new AsynchronousFileOutputStream<>(env.getWorkingDirectory().getRelative(logFile));
+            new AsynchronousMessageOutputStream<>(env.getWorkingDirectory().getRelative(logFile));
       } catch (IOException e) {
         env.getReporter().handle(Event.error(e.getMessage()));
         env.getBlazeModuleEnvironment()
@@ -69,7 +69,7 @@ public final class WorkspaceRuleModule extends BlazeModule {
   public void afterCommand() throws AbruptExitException {
     if (outFileStream != null) {
       try {
-        // Any AsynchronousFileOutputStream write failures get rethrown here.
+        // Any AsynchronousMessageOutputStream write failures get rethrown here.
         outFileStream.close();
       } catch (IOException e) {
         String message =
