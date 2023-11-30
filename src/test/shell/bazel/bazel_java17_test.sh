@@ -75,7 +75,7 @@ if [[ "${JAVA_TOOLS_PREBUILT_ZIP}" != "released" ]]; then
   add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_linux=${JAVA_TOOLS_PREBUILT_DIR}"
   add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_windows=${JAVA_TOOLS_PREBUILT_DIR}"
   add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_darwin_x86_64=${JAVA_TOOLS_PREBUILT_DIR}"
-  add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_arm64=${JAVA_TOOLS_PREBUILT_DIR}"
+  add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_darwin_arm64=${JAVA_TOOLS_PREBUILT_DIR}"
 fi
 
 # Java source files version shall match --java_language_version_flag version.
