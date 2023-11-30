@@ -1110,7 +1110,10 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
                 "compilation_info",
                 makeStruct(
                     ImmutableMap.of(
-                        "javac_options", StarlarkList.immutableOf("opt1", "opt2"),
+                        "javac_options",
+                            Depset.of(
+                                String.class,
+                                NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, "opt1", "opt2")),
                         "boot_classpath", StarlarkList.immutableOf(createArtifact("cp.jar")))))
             .buildOrThrow();
     StarlarkInfo starlarkInfo = makeStruct(fields);
@@ -1119,7 +1122,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
     assertThat(javaInfo).isNotNull();
     assertThat(javaInfo.getCompilationInfoProvider()).isNotNull();
-    assertThat(javaInfo.getCompilationInfoProvider().getJavacOpts())
+    assertThat(javaInfo.getCompilationInfoProvider().getJavacOptsList())
         .containsExactly("opt1", "opt2");
     assertThat(javaInfo.getCompilationInfoProvider().getBootClasspathList()).hasSize(1);
     assertThat(prettyArtifactNames(javaInfo.getCompilationInfoProvider().getBootClasspathList()))
@@ -1138,13 +1141,16 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
             ImmutableMap.of(
                 "compilation_classpath", Depset.of(Artifact.class, compilationClasspath),
                 "runtime_classpath", Depset.of(Artifact.class, runtimeClasspath),
-                "javac_options", StarlarkList.immutableOf("opt1", "opt2"),
+                "javac_options",
+                    Depset.of(
+                        String.class,
+                        NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, "opt1", "opt2")),
                 "boot_classpath", StarlarkList.immutableOf(bootClasspathArtifact)));
     JavaCompilationInfoProvider nativeCompilationInfo =
         new JavaCompilationInfoProvider.Builder()
             .setCompilationClasspath(compilationClasspath)
             .setRuntimeClasspath(runtimeClasspath)
-            .setJavacOpts(ImmutableList.of("opt1", "opt2"))
+            .setJavacOpts(NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, "opt1", "opt2"))
             .setBootClasspath(
                 NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, bootClasspathArtifact))
             .build();

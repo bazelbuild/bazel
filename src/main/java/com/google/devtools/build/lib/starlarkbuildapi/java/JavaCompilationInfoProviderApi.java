@@ -29,8 +29,13 @@ import net.starlark.java.eval.StarlarkValue;
     doc = "Provides access to compilation information for Java rules.")
 public interface JavaCompilationInfoProviderApi<FileT extends FileApi> extends StarlarkValue {
 
-  @StarlarkMethod(name = "javac_options", structField = true, doc = "Options to java compiler.")
-  ImmutableList<String> getJavacOpts();
+  @StarlarkMethod(
+      name = "javac_options",
+      structField = true,
+      doc =
+          "A depset of options to java compiler. To get the exact list of options passed to javac"
+              + " in the correct order, use the tokenize_javacopts utility in rules_java")
+  Depset getJavacOptsStarlark();
 
   @StarlarkMethod(
       name = "javac_options_list",
@@ -39,9 +44,7 @@ public interface JavaCompilationInfoProviderApi<FileT extends FileApi> extends S
           "A list of options to java compiler. This exists temporarily for migration purposes. "
               + "javac_options will return a depset in the future, and this method will be dropped "
               + "once all usages have been updated to handle depsets.")
-  default ImmutableList<String> getJavacOptsList() {
-    return getJavacOpts();
-  }
+  ImmutableList<String> getJavacOptsList();
 
   @StarlarkMethod(
       name = "runtime_classpath",
