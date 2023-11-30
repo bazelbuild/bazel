@@ -117,7 +117,8 @@ public abstract class GrpcRemoteExecutorTestBase {
                         .setExecutionCapabilities(
                             ExecutionCapabilities.newBuilder().setExecEnabled(true).build())
                         .build();
-                return Single.just(new ChannelConnectionWithServerCapabilities(ch, caps));
+                return Single.just(
+                    new ChannelConnectionWithServerCapabilities(ch, Single.just(caps)));
               }
 
               @Override

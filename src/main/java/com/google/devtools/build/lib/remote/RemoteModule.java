@@ -1132,4 +1132,9 @@ public final class RemoteModule extends BlazeModule {
 
     return credentials;
   }
+
+  @VisibleForTesting
+  MutableSupplier<Downloader> getRemoteDownloaderSupplier() {
+    return remoteDownloaderSupplier;
+  }
 }

@@ -131,7 +131,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
             return Single.just(
                 new ChannelConnectionWithServerCapabilities(
                     InProcessChannelBuilder.forName(serverName).build(),
-                    ServerCapabilities.getDefaultInstance()));
+                    Single.just(ServerCapabilities.getDefaultInstance())));
           }
 
           @Override
