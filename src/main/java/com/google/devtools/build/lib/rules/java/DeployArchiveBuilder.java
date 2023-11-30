@@ -56,7 +56,7 @@ public class DeployArchiveBuilder {
   private static final int SINGLEJAR_MEMORY_MB = 1600;
 
   private static final ResourceSet DEPLOY_ACTION_RESOURCE_SET =
-      ResourceSet.createWithRamCpu(/*memoryMb = */ SINGLEJAR_MEMORY_MB, /*cpuUsage = */ 1);
+      ResourceSet.createWithRamCpu(/* memoryMb= */ SINGLEJAR_MEMORY_MB, /* cpu= */ 1);
 
   private final RuleContext ruleContext;
 

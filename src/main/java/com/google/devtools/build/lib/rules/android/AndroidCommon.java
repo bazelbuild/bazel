@@ -98,7 +98,7 @@ public class AndroidCommon {
 
   private static final int DEX_THREADS = 5;
   private static final ResourceSet DEX_RESOURCE_SET =
-      ResourceSet.createWithRamCpu(/* memoryMb= */ 4096.0, /* cpuUsage= */ DEX_THREADS);
+      ResourceSet.createWithRamCpu(/* memoryMb= */ 4096.0, /* cpu= */ DEX_THREADS);
 
   public static final <T extends Info> Iterable<T> getTransitivePrerequisites(
       RuleContext ruleContext, BuiltinProvider<T> key) {

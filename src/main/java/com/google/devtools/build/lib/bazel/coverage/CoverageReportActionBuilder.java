@@ -96,7 +96,7 @@ import javax.annotation.Nullable;
 public final class CoverageReportActionBuilder {
 
   private static final ResourceSet LOCAL_RESOURCES =
-      ResourceSet.createWithRamCpu(/* memoryMb= */ 750, /* cpuUsage= */ 1);
+      ResourceSet.createWithRamCpu(/* memoryMb= */ 750, /* cpu= */ 1);
 
   private static final ActionOwner ACTION_OWNER = ActionOwner.SYSTEM_ACTION_OWNER;
 
