@@ -967,8 +967,13 @@ def _is_stamping_enabled_for_aspect(ctx):
         stamp = ctx.rule.attr.stamp
     return stamp
 
-def _get_local_defines_for_runfiles_lookup(ctx):
-    return ["BAZEL_CURRENT_REPOSITORY=\"{}\"".format(ctx.label.workspace_name)]
+_RUNFILES_LIBRARY_TARGET = Label("@bazel_tools//tools/cpp/runfiles")
+
+def _get_local_defines_for_runfiles_lookup(ctx, all_deps):
+    for dep in all_deps:
+        if dep.label == _RUNFILES_LIBRARY_TARGET:
+            return ["BAZEL_CURRENT_REPOSITORY=\"{}\"".format(ctx.label.workspace_name)]
+    return []
 
 # This should be enough to assume if two labels are equal.
 def _are_labels_equal(a, b):

@@ -48,6 +48,8 @@
 //         ...
 //
 //      The code above creates a Runfiles object and retrieves a runfile path.
+//      The BAZEL_CURRENT_REPOSITORY macro is available in every target that
+//      depends on the runfiles library.
 //
 //      The Runfiles::Create function uses the runfiles manifest and the
 //      runfiles directory from the RUNFILES_MANIFEST_FILE and RUNFILES_DIR
