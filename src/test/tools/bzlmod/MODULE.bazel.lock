@@ -13,7 +13,7 @@
     "compatibilityMode": "ERROR"
   },
   "localOverrideHashes": {
-    "bazel_tools": "92278b224e98bf5157d5b4d6aa9ea3c0c83e9f0b625d5b53fd04078bb27f9d1e"
+    "bazel_tools": "21ee31bd25965d6f79596d406f7ae79f83fe7e3888dd6bda5645fd1dcd750644"
   },
   "moduleDepGraph": {
     "<root>": {
@@ -941,7 +941,7 @@
       "extensionUsages": [],
       "deps": {
         "bazel_skylib": "bazel_skylib@1.3.0",
-        "rules_java": "rules_java@7.3.0",
+        "rules_java": "rules_java@7.3.1",
         "bazel_tools": "bazel_tools@_",
         "local_config_platform": "local_config_platform@_"
       },
