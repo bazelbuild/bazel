@@ -2134,31 +2134,44 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       @Nullable Artifact postProcessingOutputMap,
       @Nullable Artifact libraryJar,
       @Nullable Artifact startupProfile) {
+    // Use a param file to pass through all flags with paths that might get large. We need
+    // to use our own param file here (rather than the built-in param file handling) as D8
+    // does not understand the blaze format.
+    Artifact paramFile =
+        ruleContext.getDerivedArtifact(
+            ParameterFile.derivePath(
+                classesDex.getOutputDirRelativePath(
+                    ruleContext.getConfiguration().isSiblingRepositoryLayout())),
+            classesDex.getRoot());
+    CustomCommandLine.Builder paramFileCommand =
+        CustomCommandLine.builder().addExecPaths(dexArchives).addExecPath("--output", classesDex);
+    NestedSetBuilder<Artifact> paramFileInputs = NestedSetBuilder.stableOrder();
+    paramFileInputs.addAll(dexArchives);
     SpawnAction.Builder dexAction =
         createSpawnActionBuilder(ruleContext)
             .useDefaultShellEnvironment()
             .setExecutable(ruleContext.getExecutablePrerequisite(":optimizing_dexer"))
             .setMnemonic("OptimizingDex")
             .setProgressMessage("Optimized dexing for %{label}")
+            .addInput(paramFile)
             .addInputs(dexArchives)
             .addOutput(classesDex);
-    CustomCommandLine.Builder commandLine =
-        CustomCommandLine.builder()
-            .addExecPaths(dexArchives)
-            .addExecPath("--output", classesDex)
-            .add("--release")
-            .add("--no-desugaring")
-            .addAll(DexArchiveAspect.mergerDexopts(ruleContext, dexopts));
+    if (libraryJar != null) {
+      paramFileCommand.addExecPath("--lib", libraryJar);
+      dexAction.addInput(libraryJar);
+    }
     if (proguardOutputMap != null) {
       dexAction.addInput(proguardOutputMap);
-      commandLine.addExecPath("--pg-map", proguardOutputMap);
+      paramFileCommand.addExecPath("--pg-map", proguardOutputMap);
     }
-    dexAction.addOutput(postProcessingOutputMap);
-    commandLine.addExecPath("--pg-map-output", postProcessingOutputMap);
+    if (postProcessingOutputMap != null) {
+      dexAction.addOutput(postProcessingOutputMap);
+      paramFileCommand.addExecPath("--pg-map-output", postProcessingOutputMap);
+    }
     boolean nativeMultidex = getMultidexMode(ruleContext) == MultidexMode.NATIVE;
     if (startupProfile != null && nativeMultidex) {
       dexAction.addInput(startupProfile);
-      commandLine.addExecPath("--startup-profile", startupProfile);
+      paramFileCommand.addExecPath("--startup-profile", startupProfile);
     }
     // TODO(b/261110876): Pass min SDK through here based on the value in the merged manifest.
     // The current value is statically defined for the entire depot.
@@ -2168,20 +2181,26 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     int minSdkVersion = getMinSdkVersion(ruleContext);
     int sdk = nativeMultidex ? Math.max(21, minSdkVersion) : minSdkVersion;
     if (sdk != 0) {
-      commandLine.add("--min-api", Integer.toString(sdk));
+      paramFileCommand.add("--min-api", Integer.toString(sdk));
     }
     if (mainDexList != null) {
-      commandLine.addExecPath("--main-dex-list", mainDexList);
+      paramFileCommand.addExecPath("--main-dex-list", mainDexList);
       dexAction.addInput(mainDexList);
     }
-    if (libraryJar != null) {
-      commandLine.addExecPath("--lib", libraryJar);
-      dexAction.addInput(libraryJar);
-    }
-    dexAction.addCommandLine(
-        commandLine.build(),
-        // Classpaths can be long--overflow into @params file if necessary
-        ParamFileInfo.builder(ParameterFile.ParameterFileType.SHELL_QUOTED).build());
+    ruleContext.registerAction(
+        new ParameterFileWriteAction(
+            ruleContext.getActionOwner(),
+            paramFileInputs.build(),
+            paramFile,
+            paramFileCommand.build(),
+            ParameterFile.ParameterFileType.SHELL_QUOTED));
+    CustomCommandLine.Builder commandLine =
+        CustomCommandLine.builder()
+            .add("--release")
+            .add("--no-desugaring")
+            .addPrefixedExecPath("@", paramFile)
+            .addAll(DexArchiveAspect.mergerDexopts(ruleContext, dexopts));
+    dexAction.addCommandLine(commandLine.build());
     ruleContext.registerAction(dexAction.build(ruleContext));
   }
 

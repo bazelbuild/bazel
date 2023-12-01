@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -314,6 +315,14 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    manifest = 'AndroidManifest.xml',",
         "    proguard_specs = ['specs.pgcfg'],",
         "    proguard_generate_mapping = True,",
+        "    multidex = 'legacy')",
+        "android_binary(",
+        "    name = 'b',",
+        "    srcs = ['B.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    proguard_specs = ['specs.pgcfg'],",
+        "    proguard_generate_mapping = False,",
+        "    shrink_resources = 0,",
         "    multidex = 'legacy')");
     scratch.file(
         "tools/fake/BUILD",
@@ -323,9 +332,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     useConfiguration("--optimizing_dexer=//tools/fake:optimizing_dexer");
 
     ConfiguredTarget binary = getConfiguredTarget("//java/a:a");
-    Artifact proguardedJar =
-        ActionsTestUtil.getFirstArtifactEndingWith(
-            actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)), "a_proguard.jar");
     Artifact proguardMap =
         ActionsTestUtil.getFirstArtifactEndingWith(
             actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)), "a_proguard.map");
@@ -333,26 +339,35 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     Artifact dexedZip =
         ActionsTestUtil.getFirstArtifactEndingWith(
             actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)), "/_dx/a/classes.dex.zip");
-    SpawnAction proguard = getGeneratingSpawnAction(proguardedJar);
     SpawnAction dexer = getGeneratingSpawnAction(dexedZip);
     assertThat(dexer).isEqualTo(getGeneratingSpawnAction(proguardMap));
     List<String> dexerArgs = dexer.getArguments();
 
     assertThat(dexerArgs).contains("--release");
     assertThat(dexerArgs).contains("--no-desugaring");
-    MoreAsserts.assertContainsSublist(dexerArgs, "--lib", getAndroidJarPath());
+
+    Artifact paramFile =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)),
+            "/_dx/a/classes.dex.zip-2.params");
+    assertThat(dexerArgs).contains("@" + paramFile.getExecPath().getPathString());
+
+    ParameterFileWriteAction paramFileAction =
+        (ParameterFileWriteAction) getGeneratingAction(paramFile);
+    ImmutableList<String> paramFileArgs = ImmutableList.copyOf(paramFileAction.getArguments());
+    MoreAsserts.assertContainsSublist(paramFileArgs, "--lib", getAndroidJarPath());
     Artifact mainDexList =
         ActionsTestUtil.getFirstArtifactEndingWith(
             actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)),
             "/_dx/a/main_dex_list.txt");
     MoreAsserts.assertContainsSublist(
-        dexerArgs, "--main-dex-list", mainDexList.getExecPath().getPathString());
+        paramFileArgs, "--main-dex-list", mainDexList.getExecPath().getPathString());
     Artifact proguardMapInput =
         ActionsTestUtil.getFirstArtifactEndingWith(
             actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)),
             "/proguard/a/legacy_a_pre_dexing.map");
     MoreAsserts.assertContainsSublist(
-        dexerArgs, "--pg-map", proguardMapInput.getExecPath().getPathString());
+        paramFileArgs, "--pg-map", proguardMapInput.getExecPath().getPathString());
 
     List<String> shardArgs =
         getGeneratingSpawnActionArgs(
@@ -360,6 +375,9 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
                 actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)), "_dx/a/shard1.zip"));
     assertThat(shardArgs).contains("--intermediate");
     assertThat(shardArgs).doesNotContain("--dex");
+
+    // We are only testing that :b builds successfully here as a regression test for b/311406385.
+    ConfiguredTarget unusedBinaryB = getConfiguredTarget("//java/a:b");
   }
 
   @Test
@@ -388,8 +406,20 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
             actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)), "/_dx/a/classes.dex.zip");
     SpawnAction dexer = getGeneratingSpawnAction(dexedZip);
     List<String> dexerArgs = dexer.getArguments();
+
+    Artifact paramFile =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)),
+            "/_dx/a/classes.dex.zip-2.params");
+    assertThat(dexerArgs).contains("@" + paramFile.getExecPath().getPathString());
+
+    ParameterFileWriteAction paramFileAction =
+        (ParameterFileWriteAction) getGeneratingAction(paramFile);
+    ImmutableList<String> paramFileArgs = ImmutableList.copyOf(paramFileAction.getArguments());
+
     assertThat(dexerArgs).doesNotContain("--main-dex-list");
-    MoreAsserts.assertContainsSublist(dexerArgs, "--min-api", "21");
+    assertThat(paramFileArgs).doesNotContain("--main-dex-list");
+    MoreAsserts.assertContainsSublist(paramFileArgs, "--min-api", "21");
 
     List<String> shardArgs =
         getGeneratingSpawnActionArgs(
