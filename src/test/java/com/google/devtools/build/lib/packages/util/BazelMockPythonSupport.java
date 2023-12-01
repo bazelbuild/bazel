@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.packages.util;
 
-import com.google.devtools.build.lib.bazel.rules.python.BazelPythonSemantics;
-import com.google.devtools.build.lib.rules.python.PythonSemantics;
+import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.bazel.rules.python.BazelPyBuiltins;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
 
@@ -85,7 +85,7 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
   }
 
   @Override
-  public PythonSemantics getPythonSemantics() {
-    return new BazelPythonSemantics();
+  public Runfiles.EmptyFilesSupplier getEmptyRunfilesSupplier() {
+    return BazelPyBuiltins.GET_INIT_PY_FILES;
   }
 }
