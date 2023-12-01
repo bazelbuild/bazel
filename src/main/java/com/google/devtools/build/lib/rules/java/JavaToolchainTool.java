@@ -132,4 +132,17 @@ public abstract class JavaToolchainTool {
       inputs.addTransitive(toolchain.getJavaRuntime().javaBaseInputs());
     }
   }
+
+  public JavaToolchainTool withAdditionalJvmFlags(NestedSet<String> additionalJvmFlags) {
+    if (additionalJvmFlags.isEmpty()) {
+      return this;
+    }
+    return create(
+        tool(),
+        data(),
+        NestedSetBuilder.<String>stableOrder()
+            .addTransitive(jvmOpts())
+            .addTransitive(additionalJvmFlags)
+            .build());
+  }
 }

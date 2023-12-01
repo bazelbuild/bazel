@@ -179,6 +179,7 @@ public class JavaStarlarkCommon
       Depset compileTimeClasspath,
       Depset directJars,
       Object bootClassPathUnchecked,
+      Depset javaBuilderJvmFlags,
       Depset compileTimeJavaDeps,
       Depset javacOpts,
       String strictDepsMode,
@@ -249,6 +250,8 @@ public class JavaStarlarkCommon
             JavaToolchainProvider.PROVIDER.wrap(javaToolchain),
             Sequence.cast(additionalInputs, Artifact.class, "additional_inputs")
                 .getImmutableList());
+    compilationHelper.javaBuilderJvmFlags(
+        Depset.cast(javaBuilderJvmFlags, String.class, "javabuilder_jvm_flags"));
     compilationHelper.enableJspecify(enableJSpecify);
     compilationHelper.enableDirectClasspath(enableDirectClasspath);
     compilationHelper.createCompileAction(outputs);

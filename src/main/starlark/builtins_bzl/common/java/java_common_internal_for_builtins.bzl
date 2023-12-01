@@ -46,6 +46,7 @@ def compile(
         annotation_processor_additional_outputs = [],
         strict_deps = "ERROR",
         bootclasspath = None,
+        javabuilder_jvm_flags = None,
         sourcepath = [],
         resources = [],
         add_exports = [],
@@ -89,6 +90,7 @@ def compile(
             'OFF', 'ERROR', 'WARN' and 'DEFAULT'.
         bootclasspath: (BootClassPathInfo) If present, overrides the bootclasspath associated with
             the provided java_toolchain. Optional.
+        javabuilder_jvm_flags: (list[str]) Additional JVM flags to pass to JavaBuilder.
         sourcepath: ([File])
         resources: ([File])
         resource_jars: ([File])
@@ -241,6 +243,7 @@ def compile(
         compilation_classpath,
         direct_jars,
         bootclasspath,
+        depset(javabuilder_jvm_flags),
         compile_time_java_deps,
         all_javac_opts,
         strict_deps,

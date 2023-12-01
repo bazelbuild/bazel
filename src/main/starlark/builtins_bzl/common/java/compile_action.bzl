@@ -57,7 +57,8 @@ def compile_action(
         enable_compile_jar_action = True,
         add_exports = [],
         add_opens = [],
-        bootclasspath = None):
+        bootclasspath = None,
+        javabuilder_jvm_flags = None):
     """
     Creates actions that compile Java sources, produce source jar, and produce header jar and returns JavaInfo.
 
@@ -119,6 +120,7 @@ def compile_action(
       add_exports: (list[str]) Allow this library to access the given <module>/<package>.
       add_opens: (list[str]) Allow this library to reflectively access the given <module>/<package>.
       bootclasspath: (BootClassPathInfo) The set of JDK APIs to compile this library against.
+      javabuilder_jvm_flags: (list[str]) Additional JVM flags to pass to JavaBuilder.
 
     Returns:
       ((JavaInfo, {files_to_build: list[File],
@@ -155,6 +157,7 @@ def compile_action(
         add_exports = add_exports,
         add_opens = add_opens,
         bootclasspath = bootclasspath,
+        javabuilder_jvm_flags = javabuilder_jvm_flags,
     )
 
     compilation_info = struct(
