@@ -65,11 +65,13 @@ import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.CountingArtifactGroupNamer;
 import com.google.devtools.build.lib.runtime.SynchronizedOutputStream;
 import com.google.devtools.build.lib.runtime.TargetSummaryPublisher;
+import com.google.devtools.build.lib.runtime.UiOptions;
 import com.google.devtools.build.lib.server.FailureDetails.BuildProgress;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.io.AnsiTerminal.Color;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -78,6 +80,7 @@ import com.google.protobuf.util.JsonFormat.TypeRegistry;
 import com.google.protobuf.util.Timestamps;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.Duration;
@@ -113,6 +116,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
   private BuildEventProtocolOptions bepOptions;
   private AuthAndTLSOptions authTlsOptions;
   private BuildEventStreamOptions besStreamOptions;
+  private boolean uiUsesColor;
   private boolean isRunsPerTestOverTheLimit;
   private BuildEventArtifactUploaderFactory uploaderFactoryToCleanup;
 
@@ -347,6 +351,8 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
                     (perLabelOptions) ->
                         Integer.parseInt(Iterables.getOnlyElement(perLabelOptions.getOptions()))
                             > RUNS_PER_TEST_LIMIT);
+    this.uiUsesColor =
+        Preconditions.checkNotNull(parsingResult.getOptions(UiOptions.class)).useColor();
 
     ConnectivityStatus status = connectivityProvider.getStatus(CONNECTIVITY_CACHE_KEY);
     String buildEventUploadStrategy =
@@ -670,9 +676,18 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
 
   private void constructAndMaybeReportInvocationIdUrl() {
     if (!getInvocationIdPrefix(commandName).isEmpty()) {
-      reporter.handle(
-          Event.info(
-              "Streaming build results to: " + getInvocationIdPrefix(commandName) + invocationId));
+      StringBuilder msg = new StringBuilder();
+      msg.append("Streaming build results to: ");
+      if (uiUsesColor) {
+        msg.append(new String(Color.BLUE.getEscapeSeq(), StandardCharsets.US_ASCII));
+      }
+      msg.append(getInvocationIdPrefix(commandName));
+      msg.append(invocationId);
+      if (uiUsesColor) {
+        msg.append(new String(Color.DEFAULT.getEscapeSeq(), StandardCharsets.US_ASCII));
+      }
+
+      reporter.handle(Event.info(msg.toString()));
     }
   }
 
