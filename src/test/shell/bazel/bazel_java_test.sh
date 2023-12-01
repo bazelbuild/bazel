@@ -1928,11 +1928,6 @@ EOF
 }
 
 function test_header_compiler_direct_supports_release() {
-  if [[ "${JAVA_TOOLS_PREBUILT_ZIP}" == "released" ]]; then
-    # TODO: Remove after the next java_tools release.
-    return
-  fi
-
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
 java_library(name = "a", srcs = ["A.java"], deps = [":b"])
