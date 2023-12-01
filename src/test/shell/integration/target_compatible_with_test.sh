@@ -773,6 +773,7 @@ EOF
     --show_result=10 \
     --host_platform=@//target_skipping:foo2_bar1_platform \
     --platforms=@//target_skipping:foo2_bar1_platform \
+    --extra_execution_platforms= \
     //target_skipping:generated_test.cc &> "${TEST_log}" && fail "Bazel passed unexpectedly."
   expect_log "ERROR:.* Target //target_skipping:generated_test.cc is incompatible and cannot be built, but was explicitly requested"
 
@@ -787,6 +788,7 @@ EOF
     --show_result=10 \
     --host_platform=@//target_skipping:foo2_bar1_platform \
     --platforms=@//target_skipping:foo2_bar1_platform \
+    --extra_execution_platforms= \
     //target_skipping:generated_test &> "${TEST_log}" && fail "Bazel passed unexpectedly."
   expect_log 'ERROR:.* Target //target_skipping:generated_test is incompatible and cannot be built, but was explicitly requested'
 
@@ -835,6 +837,7 @@ EOF
     --show_result=10 \
     --host_platform=@//target_skipping:foo2_bar1_platform \
     --platforms=@//target_skipping:foo2_bar1_platform \
+    --extra_execution_platforms= \
     //target_skipping:generated_test &> "${TEST_log}" && fail "Bazel passed unexpectedly."
   expect_log 'ERROR:.* Target //target_skipping:generated_test is incompatible and cannot be built, but was explicitly requested'
 
@@ -1254,6 +1257,7 @@ EOF
   # violated.
   bazel build --host_platform=@//target_skipping:foo1_bar2_platform \
     --platforms=@//target_skipping:foo2_bar1_platform \
+    --extra_execution_platforms= \
     //target_skipping:host_tool_message.txt &> "${TEST_log}" \
     || fail "Bazel failed unexpectedly."
   expect_log " ${PRODUCT_NAME}-bin/target_skipping/host_tool_message.txt$"
