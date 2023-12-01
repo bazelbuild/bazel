@@ -280,7 +280,7 @@ alias(
 
 alias(
     name = "fastutil",
-    actual = "@maven//:it_unimi_dsi_fastutil_7_2_1",
+    actual = "@maven//:it_unimi_dsi_fastutil",
 )
 
 alias(
