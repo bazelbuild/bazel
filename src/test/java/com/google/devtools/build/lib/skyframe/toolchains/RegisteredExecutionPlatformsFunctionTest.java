@@ -339,8 +339,13 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
           "platform(name='plat')");
     }
     scratch.overwriteFile(
-        "BUILD", "platform(name='plat')", "platform(name='dev_plat')", "platform(name='wsplat')");
-    rewriteWorkspace("register_execution_platforms('//:wsplat')");
+        "BUILD",
+        "platform(name='plat')",
+        "platform(name='dev_plat')",
+        "platform(name='wsplat')",
+        "platform(name='wsplat2')");
+    rewriteWorkspace(
+        "register_execution_platforms('//:wsplat')", "register_execution_platforms('//:wsplat2')");
 
     SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
     EvaluationResult<RegisteredExecutionPlatformsValue> result =
@@ -354,13 +359,17 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     // WORKSPACE registrations.
     assertExecutionPlatformLabels(result.get(executionPlatformsKey))
         .containsExactly(
+            // Root module platforms
             Label.parseCanonical("//:plat"),
             Label.parseCanonical("//:dev_plat"),
+            // WORKSPACE platforms
+            Label.parseCanonical("//:wsplat"),
+            Label.parseCanonical("//:wsplat2"),
+            // Other modules' toolchains
             Label.parseCanonical("@@bbb~1.0//:plat"),
             Label.parseCanonical("@@ccc~1.1//:plat"),
             Label.parseCanonical("@@eee~1.0//:plat"),
-            Label.parseCanonical("@@ddd~1.1//:plat"),
-            Label.parseCanonical("//:wsplat"))
+            Label.parseCanonical("@@ddd~1.1//:plat"))
         .inOrder();
   }
 

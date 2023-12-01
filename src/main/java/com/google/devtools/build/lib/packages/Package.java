@@ -72,6 +72,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.TreeMap;
@@ -262,7 +263,7 @@ public class Package {
 
   private ImmutableList<TargetPattern> registeredExecutionPlatforms;
   private ImmutableList<TargetPattern> registeredToolchains;
-
+  private OptionalInt firstWorkspaceSuffixRegisteredToolchain;
   private long computationSteps;
 
   // These two fields are mutually exclusive. Which one is set depends on
@@ -425,6 +426,7 @@ public class Package {
     this.failureDetail = builder.getFailureDetail();
     this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
     this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
+    this.firstWorkspaceSuffixRegisteredToolchain = builder.firstWorkspaceSuffixRegisteredToolchain;
     this.repositoryMapping = Preconditions.checkNotNull(builder.repositoryMapping);
     this.mainRepositoryMapping = Preconditions.checkNotNull(builder.mainRepositoryMapping);
     ImmutableMap.Builder<RepositoryName, ImmutableMap<String, RepositoryName>>
@@ -764,6 +766,23 @@ public class Package {
     return registeredToolchains;
   }
 
+  public ImmutableList<TargetPattern> getUserRegisteredToolchains() {
+    return getRegisteredToolchains()
+        .subList(
+            0, firstWorkspaceSuffixRegisteredToolchain.orElse(getRegisteredToolchains().size()));
+  }
+
+  public ImmutableList<TargetPattern> getWorkspaceSuffixRegisteredToolchains() {
+    return getRegisteredToolchains()
+        .subList(
+            firstWorkspaceSuffixRegisteredToolchain.orElse(getRegisteredToolchains().size()),
+            getRegisteredToolchains().size());
+  }
+
+  OptionalInt getFirstWorkspaceSuffixRegisteredToolchain() {
+    return firstWorkspaceSuffixRegisteredToolchain;
+  }
+
   @Override
   public String toString() {
     return "Package("
@@ -982,6 +1001,7 @@ public class Package {
 
     private final List<TargetPattern> registeredExecutionPlatforms = new ArrayList<>();
     private final List<TargetPattern> registeredToolchains = new ArrayList<>();
+    private OptionalInt firstWorkspaceSuffixRegisteredToolchain = OptionalInt.empty();
 
     /**
      * True iff the "package" function has already been called in this package.
@@ -1670,8 +1690,16 @@ public class Package {
       this.registeredExecutionPlatforms.addAll(platforms);
     }
 
-    void addRegisteredToolchains(List<TargetPattern> toolchains) {
+    void addRegisteredToolchains(List<TargetPattern> toolchains, boolean forWorkspaceSuffix) {
+      if (forWorkspaceSuffix && firstWorkspaceSuffixRegisteredToolchain.isEmpty()) {
+        firstWorkspaceSuffixRegisteredToolchain = OptionalInt.of(registeredToolchains.size());
+      }
       this.registeredToolchains.addAll(toolchains);
+    }
+
+    void setFirstWorkspaceSuffixRegisteredToolchain(
+        OptionalInt firstWorkspaceSuffixRegisteredToolchain) {
+      this.firstWorkspaceSuffixRegisteredToolchain = firstWorkspaceSuffixRegisteredToolchain;
     }
 
     @CanIgnoreReturnValue

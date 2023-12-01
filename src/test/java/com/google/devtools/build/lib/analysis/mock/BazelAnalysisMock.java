@@ -462,7 +462,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "def rules_java_dependencies():",
         "    pass",
         "def rules_java_toolchains():",
-        "    pass");
+        "    native.register_toolchains('//java/toolchains/runtime:all')",
+        "    native.register_toolchains('//java/toolchains/javac:all')");
 
     config.create(
         "rules_java_workspace/java/toolchains/runtime/BUILD",

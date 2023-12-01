@@ -82,6 +82,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
@@ -411,13 +412,19 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
-      List<TargetPattern> registeredToolchains =
-          RegisteredToolchainsFunction.getWorkspaceToolchains(env);
-      if (registeredToolchains == null) {
+      List<TargetPattern> userRegisteredToolchains =
+          RegisteredToolchainsFunction.getWorkspaceToolchains(env, /* userRegistered= */ true);
+      if (userRegisteredToolchains == null) {
+        return null;
+      }
+      List<TargetPattern> workspaceSuffixRegisteredToolchains =
+          RegisteredToolchainsFunction.getWorkspaceToolchains(env, /* userRegistered= */ false);
+      if (workspaceSuffixRegisteredToolchains == null) {
         return null;
       }
       return GetRegisteredToolchainsValue.create(
-          registeredToolchains.stream()
+          Stream.concat(
+                  userRegisteredToolchains.stream(), workspaceSuffixRegisteredToolchains.stream())
               .map(TargetPattern::getOriginalPattern)
               .collect(toImmutableList()));
     }

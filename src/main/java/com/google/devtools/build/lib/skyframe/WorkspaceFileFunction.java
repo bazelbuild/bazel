@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.packages.WorkspaceFactoryHelper.DEFAULT_WORKSPACE_SUFFIX_FILE;
 import static com.google.devtools.build.lib.rules.repository.ResolvedFileValue.ATTRIBUTES;
 import static com.google.devtools.build.lib.rules.repository.ResolvedFileValue.NATIVE;
 import static com.google.devtools.build.lib.rules.repository.ResolvedFileValue.REPOSITORIES;
@@ -40,6 +41,7 @@ import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.WorkspaceFactory;
+import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -220,7 +222,7 @@ public class WorkspaceFileFunction implements SkyFunction {
       StarlarkFile file =
           StarlarkFile.parse(
               ParserInput.fromString(
-                  ruleClassProvider.getDefaultWorkspaceSuffix(), "/DEFAULT.WORKSPACE.SUFFIX"),
+                  ruleClassProvider.getDefaultWorkspaceSuffix(), DEFAULT_WORKSPACE_SUFFIX_FILE),
               // The DEFAULT.WORKSPACE.SUFFIX file breaks through the usual privacy mechanism.
               options.toBuilder().allowLoadPrivateSymbols(true).build());
       if (!file.ok()) {
