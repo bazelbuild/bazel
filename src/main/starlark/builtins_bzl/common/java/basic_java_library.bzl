@@ -76,7 +76,8 @@ def basic_java_library(
         proguard_specs = None,
         add_exports = [],
         add_opens = [],
-        bootclasspath = None):
+        bootclasspath = None,
+        javabuilder_jvm_flags = None):
     """
     Creates actions that compile and lint Java sources, sets up coverage and returns JavaInfo, InstrumentedFilesInfo and output groups.
 
@@ -111,6 +112,7 @@ def basic_java_library(
       add_exports: (list[str]) Allow this library to access the given <module>/<package>.
       add_opens: (list[str]) Allow this library to reflectively access the given <module>/<package>.
       bootclasspath: (Target) The JDK APIs to compile this library against.
+      javabuilder_jvm_flags: (list[str]) Additional JVM flags to pass to JavaBuilder.
     Returns:
       (dict[str, Provider],
         {files_to_build: list[File],
@@ -150,6 +152,7 @@ def basic_java_library(
         add_exports = add_exports,
         add_opens = add_opens,
         bootclasspath = bootclasspath[BootClassPathInfo] if bootclasspath else None,
+        javabuilder_jvm_flags = javabuilder_jvm_flags,
     )
     target = {"JavaInfo": java_info}
 

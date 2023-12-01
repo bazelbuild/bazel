@@ -38,7 +38,8 @@ def bazel_java_library_rule(
         proguard_specs = [],
         add_exports = [],
         add_opens = [],
-        bootclasspath = None):
+        bootclasspath = None,
+        javabuilder_jvm_flags = None):
     """Implements java_library.
 
     Use this call when you need to produce a fully fledged java_library from
@@ -60,6 +61,7 @@ def bazel_java_library_rule(
       add_exports: (list[str]) Allow this library to access the given <module>/<package>.
       add_opens: (list[str]) Allow this library to reflectively access the given <module>/<package>.
       bootclasspath: (Target) The JDK APIs to compile this library against.
+      javabuilder_jvm_flags: (list[str]) Additional JVM flags to pass to JavaBuilder.
     Returns:
       (dict[str, provider]) A list containing DefaultInfo, JavaInfo,
         InstrumentedFilesInfo, OutputGroupsInfo, ProguardSpecProvider providers.
@@ -84,6 +86,7 @@ def bazel_java_library_rule(
         add_exports = add_exports,
         add_opens = add_opens,
         bootclasspath = bootclasspath,
+        javabuilder_jvm_flags = javabuilder_jvm_flags,
     )
 
     target["DefaultInfo"] = construct_defaultinfo(
@@ -114,6 +117,7 @@ def _proxy(ctx):
         ctx.attr.add_exports,
         ctx.attr.add_opens,
         ctx.attr.bootclasspath,
+        ctx.attr.javabuilder_jvm_flags,
     ).values()
 
 JAVA_LIBRARY_IMPLICIT_ATTRS = BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS
@@ -165,6 +169,7 @@ JAVA_LIBRARY_ATTRS = merge_attrs(
             providers = [BootClassPathInfo],
             flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
         ),
+        "javabuilder_jvm_flags": attr.string_list(),
         "javacopts": attr.string_list(),
         "neverlink": attr.bool(),
         "resource_strip_prefix": attr.string(),
