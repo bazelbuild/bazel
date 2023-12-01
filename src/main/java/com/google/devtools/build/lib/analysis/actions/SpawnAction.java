@@ -520,7 +520,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           parent.getRunfilesSupplier(),
           parent,
           parent.resourceSetOrBuilder);
-      this.inputs = getNonFilesetInputs(inputs).addAll(additionalInputs).build();
+      NestedSetBuilder<ActionInput> inputsBuilder = NestedSetBuilder.stableOrder();
+      addNonFilesetInputs(inputsBuilder, inputs, filesetMappings);
+      inputsBuilder.addAll(additionalInputs);
+
+      this.inputs = inputsBuilder.build();
       this.filesetMappings = filesetMappings;
       this.pathMapper = pathMapper;
 
@@ -535,25 +539,21 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.reportOutputs = reportOutputs;
     }
 
-    /** Returns a {@link NestedSetBuilder} containing only the non-fileset inputs. */
-    private static NestedSetBuilder<ActionInput> getNonFilesetInputs(NestedSet<Artifact> inputs) {
-      NestedSetBuilder<ActionInput> builder = NestedSetBuilder.stableOrder();
-      // TODO(tjgq): Investigate whether we can avoid flattening when filesetMappings is empty.
-      // This requires auditing getSpawnForExtraAction(), which doesn't appear to propagate the
-      // filesetMappings from the shadowed action.
-      boolean hasFilesets = false;
+    private static void addNonFilesetInputs(
+        NestedSetBuilder<ActionInput> builder,
+        NestedSet<Artifact> inputs,
+        Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings) {
+      if (filesetMappings.isEmpty()) {
+        // Keep the original nested set intact. This aids callers that exploit the nested set
+        // structure to perform optimizations (see SpawnInputExpander#walkInputs and its callers).
+        builder.addTransitive(inputs);
+        return;
+      }
       for (Artifact input : inputs.toList()) {
         if (!input.isFileset()) {
           builder.add(input);
-        } else {
-          hasFilesets = true;
         }
       }
-      // If possible, keep the original nested set. This aids callers that exploit the nested set
-      // structure to perform optimizations (see SpawnInputExpander#walkInputs and its callers).
-      return hasFilesets
-          ? builder
-          : NestedSetBuilder.<ActionInput>stableOrder().addTransitive(inputs);
     }
 
     @Override
