@@ -225,19 +225,29 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   }
 
   private static ImmutableMap<String, List<String>> getHeaderContents(Dict<?, ?> x, String what)
-  throws EvalException {
+      throws EvalException {
     // Dict.cast returns Dict<String, raw Dict>.
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    Dict<String, Sequence> headersUnchecked = (Dict) Dict.cast(x, String.class, Sequence.class, what);
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    Dict<String, Object> headersUnchecked = (Dict) Dict.cast(x, String.class, Object.class, what);
     ImmutableMap.Builder<String, List<String>> headers = new ImmutableMap.Builder<>();
 
-    for (Map.Entry<String, Sequence> headerEntry : headersUnchecked.entrySet()) {
-      List<String> headerValue = Sequence.cast(headerEntry.getValue(), String.class, "header values").getImmutableList();
-      headers.put(headerEntry.getKey(), headerValue);
+    for (Map.Entry<String, Object> entry : headersUnchecked.entrySet()) {
+      List<String> headerValue;
+      Object valueUnchecked = entry.getValue();
+      if (valueUnchecked instanceof Sequence) {
+        headerValue = Sequence.cast(valueUnchecked, String.class, "header values").getImmutableList();
+      } else if (valueUnchecked instanceof String) {
+        headerValue = List.of(valueUnchecked.toString());
+      } else {
+        throw new EvalException(
+            String.format("Trying to build %s, the value in the headers dict"
+                + " must be a string or string sequence.", what));
+      }
+      headers.put(entry.getKey(), headerValue);
     }
     return headers.buildOrThrow();
-}
-
+  }
+  
   private static ImmutableList<String> checkAllUrls(Iterable<?> urlList) throws EvalException {
     ImmutableList.Builder<String> result = ImmutableList.builder();
 

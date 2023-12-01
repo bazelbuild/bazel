@@ -2551,7 +2551,36 @@ repo = repository_rule(implementation=_impl)
 EOF
 
   bazel build @foo//:all >& $TEST_log && fail "expected bazel to fail" || :
-  expect_log "Error in download: got dict<string, int> for 'headers', want dict<string, sequence>"
+  expect_log "Trying to build headers, the value in the headers dict must be a string or string sequence."
+}
+
+function test_string_starlark_headers() {
+
+  filename="string_headers.txt"
+  echo $filename > $filename
+  sha256="$(sha256sum $filename | head -c 64)"
+  serve_file_header_dump $filename string_headers.json
+
+  setup_starlark_repository
+
+  cat > test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.file("BUILD")
+  repository_ctx.download(
+    url = "http://127.0.0.1:$nc_port/$filename",
+    output = "$filename",
+    sha256 = "$sha256",
+    headers = {
+      "Accept": "application/text",
+    }
+  )
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:all || fail "expected bazel to succeed"
+  headers="${TEST_TMPDIR}/string_headers.json"
+  assert_contains '"Accept": "application/text"' "$headers"
 }
 
 run_suite "local repository tests"
