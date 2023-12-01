@@ -713,11 +713,37 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
     // Delete target, re-download it
     getOutputPath("foo").delete();
-
     buildTarget("//:gen");
 
     assertSymlink("foo-link", PathFragment.create("foo"));
     assertValidOutputFile("foo-link", "hello\n");
+  }
+
+  @Test
+  public void downloadTopLevel_treeContainingSymlink() throws Exception {
+    // Disable test on Windows.
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+
+    setDownloadToplevel();
+    write("tree.bzl", "def _impl(ctx):",
+        "  d = ctx.actions.declare_directory(ctx.label.name)",
+        "  ctx.actions.run_shell(",
+        "    outputs = [d],",
+        "    command = 'cd {} && echo hello > file.txt && ln -s file.txt sym.txt'.format(d.path),",
+        "  )",
+        "  return DefaultInfo(files = depset([d]))",
+        "tree = rule(_impl)");
+    write(
+        "BUILD",
+        "load('tree.bzl', 'tree')",
+        "tree(",
+        "  name = 'tree',",
+        ")");
+
+    buildTarget("//:tree");
+
+    assertSymlink("tree/sym.txt", PathFragment.create("file.txt"));
+    assertValidOutputFile("tree/sym.txt", "hello\n");
   }
 
   protected void assertSymlink(String binRelativeLinkPath, PathFragment targetPath)

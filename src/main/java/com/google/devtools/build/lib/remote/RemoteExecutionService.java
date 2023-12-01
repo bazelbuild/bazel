@@ -1100,7 +1100,7 @@ public class RemoteExecutionService {
     ImmutableList.Builder<ListenableFuture<FileMetadata>> downloadsBuilder =
         ImmutableList.builder();
 
-    boolean downloadOutputs = shouldDownloadOutputsFor(result);
+    boolean downloadOutputs = shouldDownloadOutputsFor(result, metadata);
 
     // Download into temporary paths, then move everything at the end.
     // This avoids holding the output lock while downloading, which would prevent the local branch
@@ -1251,19 +1251,31 @@ public class RemoteExecutionService {
     return null;
   }
 
-  private boolean shouldDownloadOutputsFor(RemoteActionResult result) {
+  private boolean shouldDownloadOutputsFor(RemoteActionResult result,
+      ActionResultMetadata metadata) {
     if (remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
       return true;
     }
     // An output materialized as a symlink might point to one of the other outputs.
-    if (!result.getOutputSymlinks().isEmpty() || !result.getOutputFileSymlinks().isEmpty()
-        || !result.getOutputDirectorySymlinks().isEmpty()) {
+    if (resultHasSymlinks(result, metadata)) {
       return true;
     }
     // In case the action failed, download all outputs. It might be helpful for debugging and there
     // is no point in injecting output metadata of a failed action.
     if (result.getExitCode() != 0) {
       return true;
+    }
+    return false;
+  }
+
+  private boolean resultHasSymlinks(RemoteActionResult result, ActionResultMetadata metadata) {
+    if (!metadata.symlinks().isEmpty()) {
+      return true;
+    }
+    for (Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
+      if (!entry.getValue().symlinks().isEmpty()) {
+        return true;
+      }
     }
     return false;
   }
