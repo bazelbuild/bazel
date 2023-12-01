@@ -78,7 +78,7 @@ java_test(
     name = "JavaInfoStarlarkApiTest",
     srcs = ["JavaInfoStarlarkApiTest.java"],
     deps = [
-        ":java_toolchain_test_util",
+        ":java_test_util",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -163,11 +163,9 @@ java_test(
     srcs = ["JavaStarlarkApiTest.java"],
     deps = [
         ":java_compile_action_test_helper",
-        ":java_toolchain_test_util",
+        ":java_test_util",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
-        "//src/main/java/com/google/devtools/build/lib/analysis:actions/template_expansion_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/instrumented_files_info",
@@ -179,7 +177,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:dumper",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/java",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
@@ -231,11 +228,18 @@ java_library(
 )
 
 java_library(
-    name = "java_toolchain_test_util",
+    name = "java_test_util",
     testonly = 1,
-    srcs = ["JavaToolchainTestUtil.java"],
+    srcs = ["JavaTestUtil.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
+        "//src/main/java/com/google/devtools/build/lib/analysis:actions/template_expansion_action",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/net/starlark/java/eval",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
+        "//third_party:guava",
     ],
 )

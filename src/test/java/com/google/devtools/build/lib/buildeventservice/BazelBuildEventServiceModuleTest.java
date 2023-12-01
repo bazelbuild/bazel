@@ -309,6 +309,7 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
   @Test
   public void testBeforeCommandGrpcReportsBesResultsUrl() throws Exception {
     runBuildWithOptions(
+        "--color=no", // disable ANSI color sequences
         "--bes_backend=inprocess",
         "--bes_upload_mode=FULLY_ASYNC",
         "--bes_results_url=http://results-ui/");
@@ -319,6 +320,7 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
   @Test
   public void testAfterCommandGrpcReportsBesResultsUrl() throws Exception {
     runBuildWithOptions(
+        "--color=no", // disable ANSI color sequences
         "--bes_backend=inprocess",
         "--bes_upload_mode=FULLY_ASYNC",
         "--bes_results_url=http://results-ui/");

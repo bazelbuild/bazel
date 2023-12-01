@@ -279,6 +279,11 @@ alias(
 )
 
 alias(
+    name = "fastutil",
+    actual = "@maven//:it_unimi_dsi_fastutil",
+)
+
+alias(
     name = "hungarian_algorithm",
     actual = "@maven//:com_github_kevinstern_software_and_algorithms",
 )

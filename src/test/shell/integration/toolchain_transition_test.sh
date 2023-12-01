@@ -422,6 +422,7 @@ EOF
   bazel build \
     --platforms="//${pkg}/platform:target" \
     --host_platform="//${pkg}/platform:host" \
+    --extra_execution_platforms= \
      "//${pkg}:sample" &> $TEST_log || fail "Build failed"
 
   # Verify contents of sample.log.

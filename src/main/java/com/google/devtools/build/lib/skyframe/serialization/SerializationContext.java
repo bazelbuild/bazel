@@ -278,8 +278,8 @@ public class SerializationContext implements SerializationDependencyProvider {
       return null;
     }
     if (serializer != null) {
-      Integer memoizedIndex = serializer.getMemoizedIndex(object);
-      if (memoizedIndex != null) {
+      int memoizedIndex = serializer.getMemoizedIndex(object);
+      if (memoizedIndex != -1) {
         // Subtract 1 so it will be negative and not collide with null.
         codedOut.writeSInt32NoTag(-memoizedIndex - 1);
         return null;

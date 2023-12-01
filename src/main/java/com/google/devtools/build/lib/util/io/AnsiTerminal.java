@@ -45,6 +45,14 @@ public class AnsiTerminal {
       this.backgroundEscapeSeq =
           backgroundEscapeSeq.replace('^', (char) 27).getBytes(StandardCharsets.US_ASCII);
     }
+
+    public byte[] getEscapeSeq() {
+      return escapeSeq.clone();
+    }
+
+    public byte[] getBackgroundEscapeSeq() {
+      return backgroundEscapeSeq.clone();
+    }
   }
 
   private static final byte[] ESC = {27, (byte) '['};

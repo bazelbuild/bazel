@@ -54,6 +54,7 @@ class BazelModuleTest(test_base.TestBase):
             'build --java_language_version=8',
             'build --tool_java_language_version=8',
             'build --lockfile_mode=update',
+            'build --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain'  # fmt: skip pylint: disable=line-too-long
         ],
     )
     self.ScratchFile('WORKSPACE')

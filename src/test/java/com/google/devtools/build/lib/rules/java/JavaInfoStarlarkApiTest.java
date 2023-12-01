@@ -1319,7 +1319,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
     private void build() throws Exception {
       if (useIJar || stampJar || sourceFiles) {
-        JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+        JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
       }
 
       ImmutableList.Builder<String> lines = ImmutableList.builder();
