@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.remote.util.IntegrationTestUtils;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.starlarkdebug.module.StarlarkDebuggerModule;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Breakpoint;
@@ -62,7 +63,15 @@ import org.junit.runners.JUnit4;
 public class StarlarkDebugIntegrationTest extends BuildIntegrationTestCase {
   private static final AtomicInteger sequenceIds = new AtomicInteger(1);
 
-  private static final int DEBUG_PORT = 7300;
+  private static final int DEBUG_PORT = getRandomPort();
+
+  private static int getRandomPort() {
+    try {
+      return IntegrationTestUtils.pickUnusedRandomPort();
+    } catch (IOException | InterruptedException e) {
+      throw new RuntimeException(e);
+    }
+  }
 
   private final ExecutorService executor = Executors.newFixedThreadPool(1);
   private final Collection<Event> eventCollector = new ConcurrentLinkedQueue<>();
