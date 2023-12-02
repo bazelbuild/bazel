@@ -68,6 +68,7 @@ java_library(
     deps = [
         ":serialization-processing-exception",
         "//third_party:guava",
+        "//third_party:jsr305",
         "//third_party/java/javapoet",
     ],
 )
@@ -110,6 +111,8 @@ java_library(
         "CodecGenerator.java",
         "FieldGenerator.java",
         "Initializers.java",
+        "InterningObjectCodecFieldGenerators.java",
+        "InterningObjectCodecGenerator.java",
         "Marshallers.java",
         "SerializationCodeGenerator.java",
     ],

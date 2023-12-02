@@ -18,10 +18,16 @@ import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.io.IOException;
+import java.util.Set;
+import javax.annotation.Nullable;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.TypeVariable;
 import javax.lang.model.type.WildcardType;
@@ -98,6 +104,32 @@ final class TypeOperations {
 
   static TypeName getErasure(TypeElement type, ProcessingEnvironment env) {
     return getErasure(type.asType(), env);
+  }
+
+  static boolean isSerializableField(VariableElement variable) {
+    Set<Modifier> modifiers = variable.getModifiers();
+    return !modifiers.contains(Modifier.STATIC) && !modifiers.contains(Modifier.TRANSIENT);
+  }
+
+  @Nullable
+  static TypeElement getSuperclass(TypeElement type) {
+    TypeMirror mirror = type.getSuperclass();
+    if (!(mirror instanceof DeclaredType)) {
+      // `type` represents Object or some interface.
+      return null;
+    }
+    // `DeclaredType.asElement` can return a `TypeParameterElement` instance if `mirror` is a
+    // generic type parameter, which isn't possible here.
+    return (TypeElement) ((DeclaredType) mirror).asElement();
+  }
+
+  static TypeMirror resolveBaseArrayComponentType(TypeMirror type) {
+    if (!type.getKind().equals(TypeKind.ARRAY)) {
+      return type;
+    }
+    ArrayType arrayType = (ArrayType) type;
+    TypeMirror componentType = arrayType.getComponentType();
+    return resolveBaseArrayComponentType(componentType);
   }
 
   private TypeOperations() {}

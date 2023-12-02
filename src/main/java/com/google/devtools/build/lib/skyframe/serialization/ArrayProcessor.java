@@ -353,6 +353,16 @@ public abstract class ArrayProcessor {
         }
       };
 
+  /**
+   * Handles possibly nested arrays of {@code Object} or any type derived from {@code Object}.
+   *
+   * <p>This processor observes the nesting level of the array by reflective operations on the
+   * {@code type} parameter passed into its methods. It similarly uses reflective calls to create
+   * nested arrays of appropriate type and nesting level.
+   *
+   * <p>Finally, at the leaf level, it uses the {@code (Ser|Deser)ializationContext} to apply codecs
+   * to the base array components.
+   */
   public static final ArrayProcessor OBJECT_ARRAY_PROCESSOR =
       new ArrayProcessor() {
         // Special case uses `Array.newInstance` to also create leaf-level arrays. Additionally,
