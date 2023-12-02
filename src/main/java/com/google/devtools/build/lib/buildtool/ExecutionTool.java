@@ -993,8 +993,10 @@ public class ExecutionTool {
     ImmutableMap<String, Double> cpuRam =
         ImmutableMap.of(
             ResourceSet.CPU,
+            // Replace with 1.0 * ResourceConverter.HOST_CPUS.get() after flag deprecation
             options.localCpuResources,
             ResourceSet.MEMORY,
+            // Replace with 0.67 * ResourceConverter.HOST_RAM.get() after flag deprecation
             options.localRamResources);
     ImmutableMap<String, Double> resources =
         Stream.concat(
