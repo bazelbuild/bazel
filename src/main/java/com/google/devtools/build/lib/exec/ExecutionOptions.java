@@ -355,7 +355,7 @@ public class ExecutionOptions extends OptionsBase {
               + "based on the available resources and the resources required. "
               + "Tests can declare the amount of resources they need "
               + "by using a tag of the \"resources:<resoucename>:<amount>\" format.",
-      converter = Converters.StringToDoubleAssignmentConverter.class)
+      converter = ResourceConverter.ResourceAssignmentConverter.class)
   public List<Map.Entry<String, Double>> localResources;
 
   @Option(
@@ -578,7 +578,7 @@ public class ExecutionOptions extends OptionsBase {
   }
 
   /** Converter for --local_test_jobs, which takes {@value FLAG_SYNTAX} */
-  public static class LocalTestJobsConverter extends ResourceConverter {
+  public static class LocalTestJobsConverter extends ResourceConverter.IntegerConverter {
     public LocalTestJobsConverter() throws OptionsParsingException {
       super(/* autoSupplier= */ () -> 0, /* minValue= */ 0, /* maxValue= */ Integer.MAX_VALUE);
     }

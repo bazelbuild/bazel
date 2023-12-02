@@ -30,13 +30,9 @@ public class IncludeScanningOptions extends OptionsBase {
    * Converter for scanning parallelism threads: Takes {@value #FLAG_SYNTAX} 0 disables scanning
    * parallelism.
    */
-  public static class ParallelismConverter extends ResourceConverter {
+  public static class ParallelismConverter extends ResourceConverter.IntegerConverter {
     public ParallelismConverter() throws OptionsParsingException {
-      super(
-          /* autoSupplier= */ () ->
-              (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage()),
-          /* minValue= */ 0,
-          /* maxValue= */ Integer.MAX_VALUE);
+      super(HOST_CPUS, 0, Integer.MAX_VALUE);
     }
   }
 

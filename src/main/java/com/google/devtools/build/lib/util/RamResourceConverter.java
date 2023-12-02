@@ -20,14 +20,9 @@ import com.google.devtools.build.lib.actions.LocalHostCapacity;
  * Converter for --local_cpu_resources, which takes an integer greater than or equal to 0, or
  * "HOST_RAM", optionally followed by [-|*]<float>.
  */
-public final class RamResourceConverter extends ResourceConverter {
+public final class RamResourceConverter extends ResourceConverter.IntegerConverter {
   public RamResourceConverter() {
-    super(
-        /* keywords= */ ImmutableMap.of(
-            "HOST_RAM",
-            () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getMemoryMb())),
-        /* minValue= */ 0,
-        /* maxValue= */ Integer.MAX_VALUE);
+    super(ImmutableMap.of("HOST_RAM", HOST_RAM), 0, Integer.MAX_VALUE);
   }
 
   @Override

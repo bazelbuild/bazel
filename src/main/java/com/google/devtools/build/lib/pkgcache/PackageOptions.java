@@ -59,13 +59,9 @@ public class PackageOptions extends OptionsBase {
   }
 
   /** Converter for globbing threads. */
-  public static class ParallelismConverter extends ResourceConverter {
+  public static class ParallelismConverter extends ResourceConverter.IntegerConverter {
     public ParallelismConverter() throws OptionsParsingException {
-      super(
-          /* autoSupplier= */ () ->
-              (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage()),
-          /* minValue= */ 1,
-          /* maxValue= */ Integer.MAX_VALUE);
+      super(HOST_CPUS, 1, Integer.MAX_VALUE);
     }
   }
 

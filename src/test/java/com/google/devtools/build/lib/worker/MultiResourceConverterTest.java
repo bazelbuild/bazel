@@ -33,7 +33,7 @@ public class MultiResourceConverterTest {
   @Before
   public void setUp() {
     multiResourceConverter = new MultiResourceConverter();
-    resourceConverter = new ResourceConverter(() -> null);
+    resourceConverter = new ResourceConverter.IntegerConverter(() -> null, 1, Integer.MAX_VALUE);
   }
 
   @Test

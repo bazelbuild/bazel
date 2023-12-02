@@ -20,14 +20,9 @@ import com.google.devtools.build.lib.actions.LocalHostCapacity;
  * Converter for --local_cpu_resources, which takes an integer greater than or equal to 1, or
  * "HOST_CPUS", optionally followed by [-|*]<float>.
  */
-public final class CpuResourceConverter extends ResourceConverter {
+public final class CpuResourceConverter extends ResourceConverter.IntegerConverter {
   public CpuResourceConverter() {
-    super(
-        ImmutableMap.of(
-            "HOST_CPUS",
-            () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage())),
-        /*minValue=*/ 0,
-        Integer.MAX_VALUE);
+    super(ImmutableMap.of("HOST_CPUS", HOST_CPUS), 0, Integer.MAX_VALUE);
   }
 
   @Override
