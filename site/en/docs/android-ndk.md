@@ -227,6 +227,7 @@ Use the following flags to build according to a C++ standard:
 | C++98        | Default, no flag needed |
 | C++11        | `--cxxopt=-std=c++11`   |
 | C++14        | `--cxxopt=-std=c++14`   |
+| C++17        | `--cxxopt=-std=c++17`   |
 
 For example:
 
