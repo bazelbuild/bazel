@@ -350,12 +350,14 @@ public class ExecutionOptions extends OptionsBase {
       allowMultiple = true,
       help =
           "Set the number of resources available to Bazel. "
-              + "Takes in a string-float pair. Can be used multiple times to specify multiple "
-              + "types of extra resources. Bazel will limit concurrently running actions "
+              + "Takes in an assignment to a float or HOST_RAM/HOST_CPU, optionally "
+              + "followed by [-|*]<float> (eg. memory=HOST_RAM*.5 to use half the available RAM)."
+              + "Can be used multiple times to specify multiple "
+              + "types of resources. Bazel will limit concurrently running actions "
               + "based on the available resources and the resources required. "
               + "Tests can declare the amount of resources they need "
               + "by using a tag of the \"resources:<resoucename>:<amount>\" format.",
-      converter = ResourceConverter.ResourceAssignmentConverter.class)
+      converter = ResourceConverter.AssignmentConverter.class)
   public List<Map.Entry<String, Double>> localResources;
 
   @Option(
