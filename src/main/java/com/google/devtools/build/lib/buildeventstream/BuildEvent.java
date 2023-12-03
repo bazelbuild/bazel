@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Collection;
@@ -58,7 +59,9 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
       LOG,
       PERFORMANCE_LOG;
 
-      /** Returns whether the LocalFile is a declared action output. */
+      /**
+       * Returns whether the LocalFile is a declared action output.
+       */
       public boolean isOutput() {
         return this == OUTPUT
             || this == OUTPUT_FILE
@@ -66,7 +69,22 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
             || this == OUTPUT_SYMLINK;
       }
 
-      public static LocalFileType forArtifact(Artifact artifact) {
+      /**
+       * Returns the {@link LocalFileType} implied by a {@link FileArtifactValue}, or the associated
+       * {@link Artifact} if metadata is not available.
+       */
+      public static LocalFileType forArtifact(Artifact artifact,
+          @Nullable FileArtifactValue metadata) {
+        if (metadata != null) {
+          switch (metadata.getType()) {
+            case DIRECTORY:
+              return LocalFileType.OUTPUT_DIRECTORY;
+            case SYMLINK:
+              return LocalFileType.OUTPUT_SYMLINK;
+            default:
+              return LocalFileType.OUTPUT_FILE;
+          }
+        }
         if (artifact.isDirectory()) {
           return LocalFileType.OUTPUT_DIRECTORY;
         } else if (artifact.isSymlink()) {
