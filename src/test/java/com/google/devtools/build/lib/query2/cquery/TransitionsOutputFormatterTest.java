@@ -205,7 +205,7 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
                 "my_rule",
                 (builder, env) ->
                     builder
-                        .cfg(ruleClassTransition)
+                        .cfg(unused -> ruleClassTransition)
                         .add(
                             attr("patched", LABEL_LIST)
                                 .allowedFileTypes(FileTypeSet.ANY_FILE)

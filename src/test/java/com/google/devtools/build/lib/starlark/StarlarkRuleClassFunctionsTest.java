@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule;
@@ -102,7 +103,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
-
 /** Tests for StarlarkRuleClassFunctions. */
 @RunWith(TestParameterInjector.class)
 public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
@@ -2822,6 +2822,97 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void initializer_legacyAnyType() throws Exception {
+    scratch.file(
+        "initializer_testing/b.bzl",
+        "MyInfo = provider()",
+        "def initializer(tristate = -1):",
+        "  return {'tristate': int(tristate)}",
+        "def impl(ctx): ",
+        "  return [MyInfo(tristate = ctx.attr.tristate)]",
+        "my_rule = rule(impl,",
+        "  initializer = initializer,",
+        "  attrs = {",
+        "    'tristate': attr.int(),",
+        "    '_legacy_any_type_attrs': attr.string_list(default = ['tristate']),",
+        "  })");
+    scratch.file(
+        "initializer_testing/BUILD", //
+        "load(':b.bzl','my_rule')",
+        "my_rule(name = 'my_target', tristate = True)");
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//initializer_testing:my_target");
+    StructImpl info =
+        (StructImpl)
+            myTarget.get(
+                new StarlarkProvider.Key(
+                    Label.parseCanonical("//initializer_testing:b.bzl"), "MyInfo"));
+
+    assertThat((StarlarkInt) info.getValue("tristate")).isEqualTo(StarlarkInt.of(1));
+  }
+
+  @Test
+  public void initializer_wrongType() throws Exception {
+    scratch.file(
+        "initializer_testing/b.bzl",
+        "MyInfo = provider()",
+        "def initializer(srcs = []):",
+        "  return {'srcs': ['a.ml']}",
+        "def impl(ctx): ",
+        "  return [MyInfo(",
+        "    srcs = [s.short_path for s in ctx.files.srcs])]",
+        "my_rule = rule(impl,",
+        "  initializer = initializer,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files = ['ml']),",
+        "  })");
+    scratch.file(
+        "initializer_testing/BUILD", //
+        "load(':b.bzl','my_rule')",
+        "my_rule(name = 'my_target', srcs = 'default_files')");
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//initializer_testing:my_target");
+
+    ev.assertContainsError(
+        "expected value of type 'list(label)' for attribute 'srcs' in 'my_rule' rule, but got"
+            + " \"default_files\" (string)");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void initializer_withSelect() throws Exception {
+    scratch.file(
+        "initializer_testing/b.bzl",
+        "MyInfo = provider()",
+        "def initializer(srcs = []):",
+        "  return {'srcs': srcs + ['b.ml']}",
+        "def impl(ctx): ",
+        "  return [MyInfo(",
+        "    srcs = [s.short_path for s in ctx.files.srcs])]",
+        "my_rule = rule(impl,",
+        "  initializer = initializer,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files = ['ml']),",
+        "  })");
+    scratch.file(
+        "initializer_testing/BUILD", //
+        "load(':b.bzl','my_rule')",
+        "my_rule(name = 'my_target', srcs = select({'//conditions:default': ['a.ml']}))");
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//initializer_testing:my_target");
+    StructImpl info =
+        (StructImpl)
+            myTarget.get(
+                new StarlarkProvider.Key(
+                    Label.parseCanonical("//initializer_testing:b.bzl"), "MyInfo"));
+
+    assertThat((List<String>) info.getValue("srcs"))
+        .containsExactly("initializer_testing/a.ml", "initializer_testing/b.ml");
+  }
+
+  @Test
   public void initializer_passThrough() throws Exception {
     scratch.file(
         "initializer_testing/b.bzl",
@@ -2923,8 +3014,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "def initializer(srcs):",
         "  return {'srcs': srcs}",
         "def impl(ctx): ",
-        "  return [MyInfo(",
-        "    deps = [str(d.label) for d in ctx.attr.deps])]",
+        "  pass",
         "my_rule = rule(impl,",
         "  initializer = initializer,",
         "  attrs = {",
@@ -2934,14 +3024,38 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "initializer_testing/BUILD", //
         "load(':b.bzl','my_rule')",
         "my_rule(name = 'my_target')");
-    // TODO: b/298561048 - Behavior with `srcs=[]` or `srcs=None` is different. Fix that when
-    // lifting parameters types.
 
     reporter.removeHandler(failFastHandler);
     reporter.addHandler(ev.getEventCollector());
     getConfiguredTarget("//initializer_testing:my_target");
 
     // TODO: b/298561048 - Fix error messages to match a rule without initializer
+    ev.assertContainsError("initializer() missing 1 required positional argument: srcs");
+  }
+
+  @Test
+  public void initializer_noneValueIsNotPassed() throws Exception {
+    scratch.file(
+        "initializer_testing/b.bzl",
+        "MyInfo = provider()",
+        "def initializer(srcs):",
+        "  return {'srcs': srcs}",
+        "def impl(ctx): ",
+        "  pass",
+        "my_rule = rule(impl,",
+        "  initializer = initializer,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(),",
+        "  })");
+    scratch.file(
+        "initializer_testing/BUILD", //
+        "load(':b.bzl','my_rule')",
+        "my_rule(name = 'my_target', srcs = None)");
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//initializer_testing:my_target");
+
     ev.assertContainsError("initializer() missing 1 required positional argument: srcs");
   }
 
@@ -3052,7 +3166,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void initializer_settingPrivateAttribute_insideBuiltins() throws Exception {
-    scratch.file("initializer_testing/builtins/BUILD");
+    // Because it's hard to test something that needs to be in builtins,
+    // this is also allowed in a special testing location: {@link
+    // StarlarkRuleClassFunctions.ALLOWLIST_RULE_EXTENSION_API_EXPERIMENTAL}
+    scratch.file("initializer_testing/builtins/BUILD", "filegroup(name='my_tool')");
     scratch.file(
         "initializer_testing/builtins/b.bzl",
         "def initializer(srcs = [], deps = []):",
@@ -3069,7 +3186,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "initializer_testing/BUILD", //
         "load('//initializer_testing/builtins:b.bzl','my_rule')",
-        "filegroup(name='my_tool')",
         "my_rule(name = 'my_target', srcs = ['a.ml'])");
 
     ConfiguredTarget myTarget = getConfiguredTarget("//initializer_testing:my_target");
@@ -3079,7 +3195,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
                 new StarlarkProvider.Key(
                     Label.parseCanonical("//initializer_testing/builtins:b.bzl"), "MyInfo"));
 
-    assertThat(info.getValue("_tool").toString()).isEqualTo("@@//initializer_testing:my_tool");
+    assertThat(info.getValue("_tool").toString())
+        .isEqualTo("@@//initializer_testing/builtins:my_tool");
   }
 
   @Test
@@ -4220,6 +4337,176 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertNoEvents();
     assertThat(rule.getRuleClassObject().getExecGroups().keySet())
         .containsExactly("parent_exec_group", "child_exec_group");
+  }
+
+  private void scratchStarlarkTransition() throws IOException {
+    scratch.overwriteFile(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH
+            + "tools/allowlists/function_transition_allowlist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_allowlist',",
+        "    packages = [",
+        "        'public',",
+        "    ],",
+        ")");
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_flag = rule(implementation = _impl, build_setting = config.string(flag=True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "string_flag(",
+        "  name = 'parent-flag',",
+        "  build_setting_default = 'default-parent'",
+        ")",
+        "string_flag(",
+        "  name = 'parent-child-flag',",
+        "  build_setting_default = 'default-parent-child'",
+        ")",
+        "string_flag(",
+        "  name = 'child-flag',",
+        "  build_setting_default = 'child-default'",
+        ")");
+    scratch.file(
+        "test/transitions.bzl",
+        "def _parent_trans_impl(settings, attr):",
+        "  return {'//test:parent-flag': 'parent-changed',",
+        "          '//test:parent-child-flag': 'parent-child-changed-in-parent'}",
+        "parent_transition = transition(",
+        "  implementation = _parent_trans_impl,",
+        "  inputs = [],",
+        "  outputs = ['//test:parent-flag', '//test:parent-child-flag']",
+        ")",
+        "def _child_trans_impl(settings, attr):",
+        "  return {'//test:child-flag': 'child-changed',",
+        "          '//test:parent-child-flag': 'parent-child-changed-in-child'}",
+        "child_transition = transition(",
+        "  implementation = _child_trans_impl,",
+        "  inputs = [],",
+        "  outputs = ['//test:child-flag', '//test:parent-child-flag']",
+        ")");
+  }
+
+  @Test
+  public void extendRule_cfg_fromParent() throws Exception {
+    scratchStarlarkTransition();
+    scratch.file("extend_rule_testing/parent/BUILD");
+    scratch.file(
+        "extend_rule_testing/parent/parent.bzl",
+        "load('//test:transitions.bzl', 'parent_transition')",
+        "def _impl(ctx):",
+        "  pass",
+        "parent_rule = rule(",
+        "  implementation = _impl,",
+        "  extendable = True,",
+        "  cfg = parent_transition",
+        ")");
+    scratch.file(
+        "extend_rule_testing/child.bzl",
+        "load('//extend_rule_testing/parent:parent.bzl', 'parent_rule')",
+        "def _impl(ctx):",
+        "  ctx.super()",
+        "my_library = rule(",
+        "  implementation = _impl,",
+        "  parent = parent_rule,",
+        ")");
+    scratch.file(
+        "extend_rule_testing/BUILD",
+        "load(':child.bzl', 'my_library')",
+        "my_library(name = 'my_target')");
+
+    BuildConfigurationValue configuration =
+        getConfiguration(getConfiguredTarget("//extend_rule_testing:my_target"));
+
+    var options = configuration.getOptions().getStarlarkOptions();
+    assertThat(options.get(Label.parseCanonicalUnchecked("//test:parent-flag")))
+        .isEqualTo("parent-changed");
+    assertThat(options.get(Label.parseCanonicalUnchecked("//test:parent-child-flag")))
+        .isEqualTo("parent-child-changed-in-parent");
+    assertThat(options.get(Label.parseCanonicalUnchecked("//test:child-flag"))).isNull();
+  }
+
+  @Test
+  public void extendRule_cfg_onChild() throws Exception {
+    scratchStarlarkTransition();
+    scratch.file("extend_rule_testing/parent/BUILD");
+    scratch.file(
+        "extend_rule_testing/parent/parent.bzl",
+        "def _impl(ctx):",
+        "  pass",
+        "parent_rule = rule(",
+        "  implementation = _impl,",
+        "  extendable = True,",
+        ")");
+    scratch.file(
+        "extend_rule_testing/child.bzl",
+        "load('//extend_rule_testing/parent:parent.bzl', 'parent_rule')",
+        "load('//test:transitions.bzl', 'child_transition')",
+        "def _impl(ctx):",
+        "  ctx.super()",
+        "my_library = rule(",
+        "  implementation = _impl,",
+        "  parent = parent_rule,",
+        "  cfg = child_transition",
+        ")");
+    scratch.file(
+        "extend_rule_testing/BUILD",
+        "load(':child.bzl', 'my_library')",
+        "my_library(name = 'my_target')");
+
+    BuildConfigurationValue configuration =
+        getConfiguration(getConfiguredTarget("//extend_rule_testing:my_target"));
+
+    var options = configuration.getOptions().getStarlarkOptions();
+    assertThat(options.get(Label.parseCanonicalUnchecked("//test:parent-flag"))).isNull();
+    assertThat(options.get(Label.parseCanonicalUnchecked("//test:parent-child-flag")))
+        .isEqualTo("parent-child-changed-in-child");
+    assertThat(options.get(Label.parseCanonicalUnchecked("//test:child-flag")))
+        .isEqualTo("child-changed");
+  }
+
+  @Test
+  public void extendRule_cfg_onChildAndFromParent() throws Exception {
+    scratchStarlarkTransition();
+    scratch.file("extend_rule_testing/parent/BUILD");
+    scratch.file(
+        "extend_rule_testing/parent/parent.bzl",
+        "load('//test:transitions.bzl', 'parent_transition')",
+        "def _impl(ctx):",
+        "  pass",
+        "parent_rule = rule(",
+        "  implementation = _impl,",
+        "  extendable = True,",
+        "  cfg = parent_transition",
+        ")");
+    scratch.file(
+        "extend_rule_testing/child.bzl",
+        "load('//extend_rule_testing/parent:parent.bzl', 'parent_rule')",
+        "load('//test:transitions.bzl', 'child_transition')",
+        "def _impl(ctx):",
+        "  ctx.super()",
+        "my_library = rule(",
+        "  implementation = _impl,",
+        "  parent = parent_rule,",
+        "  cfg = child_transition",
+        ")");
+    scratch.file(
+        "extend_rule_testing/BUILD",
+        "load(':child.bzl', 'my_library')",
+        "my_library(name = 'my_target')");
+
+    BuildConfigurationValue configuration =
+        getConfiguration(getConfiguredTarget("//extend_rule_testing:my_target"));
+
+    var options = configuration.getOptions().getStarlarkOptions();
+    assertThat(options.get(Label.parseCanonicalUnchecked("//test:parent-flag")))
+        .isEqualTo("parent-changed");
+    assertThat(options.get(Label.parseCanonicalUnchecked("//test:parent-child-flag")))
+        .isEqualTo("parent-child-changed-in-parent");
+    assertThat(options.get(Label.parseCanonicalUnchecked("//test:child-flag")))
+        .isEqualTo("child-changed");
   }
 
   @Test

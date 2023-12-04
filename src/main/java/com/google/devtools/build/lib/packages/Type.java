@@ -40,6 +40,7 @@ import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkList;
 
 /**
  * Root of Type symbol hierarchy for values in the build language.
@@ -95,12 +96,12 @@ public abstract class Type<T> {
    * <p>x must be directly convertible to this type. This therefore disqualifies "selector
    * expressions" of the form "{ config1: 'value1_of_orig_type', config2: 'value2_of_orig_type; }"
    * (which support configurable attributes). To handle those expressions, see {@link
-   * com.google.devtools.build.lib.packages.BuildType#selectableConvert}.
+   * com.google.devtools.build.lib.packages.BuildType#convertFromBuildLangType}.
    *
    * @param x The Starlark value to convert.
    * @param what An object whose toString method returns a description of the purpose of x.
-   *     Typically it is the name of a function parameter or struct field. The method is called only
-   *     in case of error.
+   *     Typically, it is the name of a function parameter or struct field. The method is called
+   *     only in case of error.
    * @param labelConverter the converter to use to convert label literals to Label objects; must be
    *     non-null if parsing non-canonical label strings is required
    * @throws ConversionException if there was a problem performing the type conversion
@@ -108,6 +109,25 @@ public abstract class Type<T> {
    */
   public abstract T convert(Object x, Object what, @Nullable LabelConverter labelConverter)
       throws ConversionException;
+
+  /**
+   * Copies a Starlark value to an immutable ones and converts label strings to Label objects.
+   *
+   * <p>All Starlark values are also type checked.
+   *
+   * @param x The Starlark value to copy.
+   * @param what An object whose toString method returns a description of the purpose of x.
+   *     Typically, it is the name of a function parameter or struct field. The method is called
+   *     only in case of error.
+   * @param labelConverter the converter to use to convert label literals to Label objects; must be
+   *     non-null if parsing non-canonical label strings is required
+   * @throws ConversionException if the Starlark value doesn't match the type
+   */
+  public Object copyAndLiftStarlarkValue(
+      Object x, Object what, @Nullable LabelConverter labelConverter) throws ConversionException {
+    return convert(x, what, labelConverter);
+  }
+
   // TODO(bazel-team): Check external calls (e.g. in PackageFactory), verify they always want
   // this over selectableConvert.
 
@@ -200,11 +220,6 @@ public abstract class Type<T> {
     GENQUERY_SCOPE_REFERENCE,
     /** Used for types which use labels to declare an output path. */
     OUTPUT,
-    /**
-     * Used for types which contain Fileset entries, which contain labels but do not produce normal
-     * dependencies.
-     */
-    FILESET_ENTRY
   }
 
   /** Returns the class of labels contained by this type, if any. */
@@ -260,9 +275,6 @@ public abstract class Type<T> {
 
   /** The type of a boolean. */
   @SerializationConstant public static final Type<Boolean> BOOLEAN = new BooleanType();
-
-  /** The type of a list of not-yet-typed objects. */
-  @SerializationConstant public static final ObjectListType OBJECT_LIST = new ObjectListType();
 
   /** The type of a list of strings. */
   @SerializationConstant public static final ListType<String> STRING_LIST = ListType.create(STRING);
@@ -592,6 +604,12 @@ public abstract class Type<T> {
     }
 
     @Override
+    public Object copyAndLiftStarlarkValue(
+        Object x, Object what, @Nullable LabelConverter labelConverter) throws ConversionException {
+      return Dict.immutableCopyOf(convert(x, what, labelConverter));
+    }
+
+    @Override
     public Map<KeyT, ValueT> concat(Iterable<Map<KeyT, ValueT>> iterable) {
       Dict.Builder<KeyT, ValueT> output = new Dict.Builder<>();
       for (Map<KeyT, ValueT> map : iterable) {
@@ -697,12 +715,17 @@ public abstract class Type<T> {
                   + what
                   + " in "
                   + labelConverter;
-          LoggingUtil.logToRemote(Level.WARNING, message,
-              new ConversionException(message));
+          LoggingUtil.logToRemote(Level.WARNING, message, new ConversionException(message));
         }
         ++index;
       }
       return result;
+    }
+
+    @Override
+    public Object copyAndLiftStarlarkValue(
+        Object x, Object what, @Nullable LabelConverter labelConverter) throws ConversionException {
+      return StarlarkList.immutableCopyOf(convert(x, what, labelConverter));
     }
 
     @Override

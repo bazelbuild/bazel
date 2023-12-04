@@ -338,10 +338,6 @@ public final class RuleConfiguredTargetBuilder {
    *
    * <p>This is done within {@link RuleConfiguredTargetBuilder} so that every rule always and
    * automatically propagates the validation action output group.
-   *
-   * <p>Note that in addition to {@link LabelClass#DEPENDENCY}, there is also {@link
-   * LabelClass#FILESET_ENTRY}, however the fileset implementation takes care of propagating the
-   * validation action output group itself.
    */
   private void propagateTransitiveValidationOutputGroups() {
     if (outputGroupBuilders.containsKey(OutputGroupInfo.VALIDATION_TRANSITIVE)) {

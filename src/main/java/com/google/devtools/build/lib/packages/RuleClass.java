@@ -33,11 +33,8 @@ import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -60,7 +57,6 @@ import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.FormatMethod;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -754,6 +750,8 @@ public class RuleClass implements RuleClassData {
     private final RuleClassType type;
     @Nullable private RuleClass starlarkParent = null;
     @Nullable private StarlarkFunction initializer = null;
+    @Nullable private LabelConverter labelConverterForInitializer = null;
+
     // The extendable may take 3 value, null means that the default allowlist should be use when
     // rule is extendable in practice.
     @Nullable private Boolean extendable = null;
@@ -771,7 +769,7 @@ public class RuleClass implements RuleClassData {
         ImmutableList.builder();
     private boolean ignoreLicenses = false;
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
-    private TransitionFactory<RuleTransitionData> transitionFactory;
+    @Nullable private TransitionFactory<RuleTransitionData> transitionFactory;
     private ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory = null;
     private PredicateWithMessage<Rule> validityPredicate = PredicatesWithMessage.alwaysTrue();
     private final AdvertisedProviderSet.Builder advertisedProviders =
@@ -962,6 +960,7 @@ public class RuleClass implements RuleClassData {
           type,
           starlarkParent,
           initializer,
+          labelConverterForInitializer,
           starlark,
           extendable,
           extendableAllowlist,
@@ -1042,8 +1041,10 @@ public class RuleClass implements RuleClassData {
     }
 
     @CanIgnoreReturnValue
-    public Builder initializer(StarlarkFunction initializer) {
+    public Builder initializer(
+        StarlarkFunction initializer, LabelConverter labelConverterForInitializer) {
       this.initializer = initializer;
+      this.labelConverterForInitializer = labelConverterForInitializer;
       return this;
     }
 
@@ -1168,25 +1169,7 @@ public class RuleClass implements RuleClassData {
     }
 
     /**
-     * Applies the given transition to all incoming edges for this rule class.
-     *
-     * <p>This cannot be a {@link SplitTransition} because that requires coordination with the
-     * rule's parent: use {@link Attribute.Builder#cfg(TransitionFactory)} on the parent to declare
-     * splits.
-     *
-     * <p>If you need the transition to depend on the rule it's being applied to, use {@link
-     * #cfg(TransitionFactory)}.
-     */
-    public Builder cfg(PatchTransition transition) {
-      // Make sure this is cast to Serializable to avoid autocodec serialization errors.
-      return cfg((TransitionFactory<RuleTransitionData> & Serializable) unused -> transition);
-    }
-
-    /**
      * Applies the given transition factory to all incoming edges for this rule class.
-     *
-     * <p>Unlike {@link #cfg(PatchTransition)}, the factory can examine the rule when deciding what
-     * transition to use.
      */
     @CanIgnoreReturnValue
     public Builder cfg(TransitionFactory<RuleTransitionData> transitionFactory) {
@@ -1388,6 +1371,16 @@ public class RuleClass implements RuleClassData {
 
     public ImmutableList<? extends StarlarkSubruleApi> getSubrules() {
       return subrules;
+    }
+
+    public ImmutableSet<? extends StarlarkSubruleApi> getParentSubrules() {
+      ImmutableSet.Builder<StarlarkSubruleApi> builder = ImmutableSet.builder();
+      RuleClass currentParent = starlarkParent;
+      while (currentParent != null) {
+        builder.addAll(starlarkParent.getSubrules());
+        currentParent = currentParent.starlarkParent;
+      }
+      return builder.build();
     }
 
     @CanIgnoreReturnValue
@@ -1680,6 +1673,7 @@ public class RuleClass implements RuleClassData {
   private final RuleClassType type;
   @Nullable private final RuleClass starlarkParent;
   @Nullable private final StarlarkFunction initializer;
+  @Nullable private final LabelConverter labelConverterForInitializer;
   private final boolean isStarlark;
   private final boolean extendable;
   @Nullable private final Label extendableAllowlist;
@@ -1719,7 +1713,7 @@ public class RuleClass implements RuleClassData {
    * A factory which will produce a configuration transition that should be applied on any edge of
    * the configured target graph that leads into a target of this rule class.
    */
-  private final TransitionFactory<RuleTransitionData> transitionFactory;
+  @Nullable private final TransitionFactory<RuleTransitionData> transitionFactory;
 
   /** The factory that creates configured targets from this rule. */
   private final ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory;
@@ -1817,6 +1811,7 @@ public class RuleClass implements RuleClassData {
       RuleClassType type,
       RuleClass starlarkParent,
       @Nullable StarlarkFunction initializer,
+      @Nullable LabelConverter labelConverterForInitializer,
       boolean isStarlark,
       boolean extendable,
       @Nullable Label extendableAllowlist,
@@ -1830,7 +1825,7 @@ public class RuleClass implements RuleClassData {
       ImmutableList<AllowlistChecker> allowlistCheckers,
       boolean ignoreLicenses,
       ImplicitOutputsFunction implicitOutputsFunction,
-      TransitionFactory<RuleTransitionData> transitionFactory,
+      @Nullable TransitionFactory<RuleTransitionData> transitionFactory,
       ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory,
       PredicateWithMessage<Rule> validityPredicate,
       AdvertisedProviderSet advertisedProviders,
@@ -1856,6 +1851,7 @@ public class RuleClass implements RuleClassData {
     this.type = type;
     this.starlarkParent = starlarkParent;
     this.initializer = initializer;
+    this.labelConverterForInitializer = labelConverterForInitializer;
     this.isStarlark = isStarlark;
     this.extendable = extendable;
     this.extendableAllowlist = extendableAllowlist;
@@ -1938,6 +1934,7 @@ public class RuleClass implements RuleClassData {
     return implicitOutputsFunction;
   }
 
+  @Nullable
   public TransitionFactory<RuleTransitionData> getTransitionFactory() {
     return transitionFactory;
   }
@@ -1959,6 +1956,11 @@ public class RuleClass implements RuleClassData {
   @Nullable
   public StarlarkFunction getInitializer() {
     return initializer;
+  }
+
+  @Nullable
+  public LabelConverter getLabelConverterForInitializer() {
+    return labelConverterForInitializer;
   }
 
   /**
@@ -2238,7 +2240,8 @@ public class RuleClass implements RuleClassData {
       if (attributeValues.valuesAreBuildLanguageTyped()) {
         try {
           nativeAttributeValue =
-              convertFromBuildLangType(rule, attr, attributeValue, labelConverter, listInterner);
+              BuildType.convertFromBuildLangType(
+                  rule.getRuleClass(), attr, attributeValue, labelConverter, listInterner);
         } catch (ConversionException e) {
           rule.reportError(String.format("%s: %s", rule.getLabel(), e.getMessage()), eventHandler);
           continue;
@@ -2474,69 +2477,6 @@ public class RuleClass implements RuleClassData {
                 "In rule '%s', timeout '%s' is not a valid timeout.", rule.getName(), timeout),
             eventHandler);
       }
-    }
-  }
-
-  /**
-   * Converts the build-language-typed {@code buildLangValue} to a native value via {@link
-   * BuildType#selectableConvert}. Canonicalizes the value's order if it is a {@link List} type and
-   * {@code attr.isOrderIndependent()} returns {@code true}.
-   *
-   * <p>Throws {@link ConversionException} if the conversion fails, or if {@code buildLangValue} is
-   * a selector expression but {@code attr.isConfigurable()} is {@code false}.
-   */
-  private static Object convertFromBuildLangType(
-      Rule rule,
-      Attribute attr,
-      Object buildLangValue,
-      LabelConverter labelConverter,
-      Interner<ImmutableList<?>> listInterner)
-      throws ConversionException {
-    Object converted =
-        BuildType.selectableConvert(
-            attr.getType(),
-            buildLangValue,
-            new AttributeConversionContext(attr.getName(), rule.getRuleClass()),
-            labelConverter);
-
-    if ((converted instanceof SelectorList<?>) && !attr.isConfigurable()) {
-      throw new ConversionException(
-          String.format("attribute \"%s\" is not configurable", attr.getName()));
-    }
-
-    if (converted instanceof List<?>) {
-      if (attr.isOrderIndependent()) {
-        @SuppressWarnings("unchecked")
-        List<? extends Comparable<?>> list = (List<? extends Comparable<?>>) converted;
-        converted = Ordering.natural().sortedCopy(list);
-      }
-      // It's common for multiple rule instances in the same package to have the same value for some
-      // attributes. As a concrete example, consider a package having several 'java_test' instances,
-      // each with the same exact 'tags' attribute value.
-      converted = listInterner.intern(ImmutableList.copyOf((List<?>) converted));
-    }
-
-    return converted;
-  }
-
-  /**
-   * Provides a {@link #toString()} description of the attribute being converted for
-   * {@link BuildType#selectableConvert}. This is preferred over a raw string to avoid uselessly
-   * constructing strings which are never used. A separate class instead of inline to avoid
-   * accidental memory leaks.
-   */
-  private static class AttributeConversionContext {
-    private final String attrName;
-    private final String ruleClass;
-
-    AttributeConversionContext(String attrName, String ruleClass) {
-      this.attrName = attrName;
-      this.ruleClass = ruleClass;
-    }
-
-    @Override
-    public String toString() {
-      return "attribute '" + attrName + "' in '" + ruleClass + "' rule";
     }
   }
 

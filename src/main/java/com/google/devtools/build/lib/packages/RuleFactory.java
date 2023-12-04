@@ -109,8 +109,8 @@ public class RuleFactory {
    * @param attributeValues a {@link BuildLangTypedAttributeValuesMap} mapping attribute names to
    *     attribute values of build-language type. Each attribute must be defined for this class of
    *     rule, and have a build-language-typed value which can be converted to the appropriate
-   *     native type of the attribute (i.e. via {@link BuildType#selectableConvert}). There must be
-   *     a map entry for each non-optional attribute of this class of rule.
+   *     native type of the attribute (i.e. via {@link BuildType#convertFromBuildLangType}). There
+   *     must be a map entry for each non-optional attribute of this class of rule.
    * @param eventHandler a eventHandler on which errors and warnings are reported during rule
    *     creation
    * @param callstack the stack of active calls in the Starlark thread
@@ -159,7 +159,8 @@ public class RuleFactory {
     /**
      * Returns {@code true} if all the map's values are "build-language typed", i.e., resulting from
      * the evaluation of an expression in the build language. Returns {@code false} if all the map's
-     * values are "natively typed", i.e. of a type returned by {@link BuildType#selectableConvert}.
+     * values are "natively typed", i.e. of a type returned by {@link
+     * BuildType#convertFromBuildLangType}.
      */
     boolean valuesAreBuildLanguageTyped();
 
