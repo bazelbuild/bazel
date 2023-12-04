@@ -421,15 +421,16 @@ fi
 
 # Zip up undeclared outputs.
 if [[ -n "$TEST_UNDECLARED_OUTPUTS_ZIP" ]] && cd "$TEST_UNDECLARED_OUTPUTS_DIR"; then
-  shopt -s dotglob
-  if [[ "$(echo *)" != "*" ]]; then
-    # If * found nothing, echo printed the literal *.
-    # Otherwise echo printed the top-level files and directories.
-    # Pass files to zip with *, so paths with spaces aren't broken up.
-    # Remove original files after zipping them.
-    if ! zip_output="$(zip -qrm "$TEST_UNDECLARED_OUTPUTS_ZIP" -- * 2>&1)"; then
+  shopt -s dotglob nullglob
+  # Capture the contents of TEST_UNDECLARED_OUTPUTS_DIR prior to creating the output.zip
+  UNDECLARED_OUTPUTS=(*)
+  if [[ "${#UNDECLARED_OUTPUTS[@]}" != 0 ]]; then
+    if ! zip_output="$(zip -qr "$TEST_UNDECLARED_OUTPUTS_ZIP" -- "${UNDECLARED_OUTPUTS[@]}")" ; then
         echo >&2 "Could not create \"$TEST_UNDECLARED_OUTPUTS_ZIP\": $zip_output"
     fi
+    # Use 'rm' instead of 'zip -m' so that we don't follow symlinks when deleting the
+    # contents.
+    rm -r "${UNDECLARED_OUTPUTS[@]}"
   fi
 fi
 
