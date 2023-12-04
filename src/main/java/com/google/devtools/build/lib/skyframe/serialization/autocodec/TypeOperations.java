@@ -98,12 +98,26 @@ final class TypeOperations {
     return env.getTypeUtils().isSameType(type, getTypeMirror(clazz, env));
   }
 
+  /**
+   * Returns the erased type.
+   *
+   * <p>This is {@link TypeName} rather than {@link TypeMirror} because it is more compatible with
+   * Javapoet's API methods.
+   */
   static TypeName getErasure(TypeMirror type, ProcessingEnvironment env) {
-    return TypeName.get(env.getTypeUtils().erasure(type));
+    return TypeName.get(getErasureAsMirror(type, env));
   }
 
   static TypeName getErasure(TypeElement type, ProcessingEnvironment env) {
     return getErasure(type.asType(), env);
+  }
+
+  static TypeMirror getErasureAsMirror(TypeElement type, ProcessingEnvironment env) {
+    return getErasureAsMirror(type.asType(), env);
+  }
+
+  static TypeMirror getErasureAsMirror(TypeMirror type, ProcessingEnvironment env) {
+    return env.getTypeUtils().erasure(type);
   }
 
   static boolean isSerializableField(VariableElement variable) {

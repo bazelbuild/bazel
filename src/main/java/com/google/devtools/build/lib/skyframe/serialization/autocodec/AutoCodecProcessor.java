@@ -11,13 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
 import static com.google.common.base.Ascii.toLowerCase;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodecProcessor.InstantiatorKind.CONSTRUCTOR;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodecProcessor.InstantiatorKind.FACTORY_METHOD;
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodecProcessor.InstantiatorKind.INTERNER;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.getErasure;
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.getErasureAsMirror;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.sanitizeTypeParameter;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.writeGeneratedClassToFile;
 
@@ -27,6 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Interner;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Marshaller;
 import com.google.devtools.build.lib.unsafe.UnsafeProvider;
 import com.squareup.javapoet.ClassName;
@@ -117,6 +119,9 @@ public class AutoCodecProcessor extends AbstractProcessor {
         case FACTORY_METHOD:
           codecClass = defineClassWithInstantiator(encodedType, instantiator.method(), annotation);
           break;
+        case INTERNER:
+          codecClass = defineClassWithInterner(encodedType, instantiator.method(), annotation);
+          break;
         default:
           throw new IllegalStateException(
               String.format("Unknown instantiator kind: %s\n", instantiator));
@@ -158,9 +163,16 @@ public class AutoCodecProcessor extends AbstractProcessor {
     return codecClassBuilder.build();
   }
 
+  private TypeSpec defineClassWithInterner(
+      TypeElement encodedType, ExecutableElement interner, AutoCodec annotation)
+      throws SerializationProcessingException {
+    return new InterningObjectCodecGenerator(env).defineCodec(encodedType, annotation, interner);
+  }
+
   enum InstantiatorKind {
     CONSTRUCTOR,
     FACTORY_METHOD,
+    INTERNER
   }
 
   @AutoValue
@@ -178,8 +190,8 @@ public class AutoCodecProcessor extends AbstractProcessor {
    * Determines the {@link ResolvedInstantiator} by scanning the constructors and methods for
    * annotations.
    *
-   * <p>If there are no {@link Instantiator} annotation, falls back to checking for a unique
-   * constructor or throws otherwise.
+   * <p>Identifies the {@link Instantiator} or {@link Interner} annotations, throwing an exception
+   * if there are multiple. Falls back to checking for a unique constructor or throws otherwise.
    */
   private ResolvedInstantiator determineInstantiator(TypeElement encodedType)
       throws SerializationProcessingException {
@@ -208,13 +220,26 @@ public class AutoCodecProcessor extends AbstractProcessor {
         if (markedMethod != null) {
           throw new SerializationProcessingException(
               encodedType,
-              "%s has multiple Instantiator annotations: %s %s.",
+              "%s has multiple Instantiator or Interner annotations: %s %s.",
               encodedType.getQualifiedName(),
               markedMethod.getSimpleName(),
               method.getSimpleName());
         }
         markedMethod = method;
         instantiatorKind = FACTORY_METHOD;
+      }
+      if (hasInternerAnnotation(method)) {
+        verifyInterner(encodedType, method);
+        if (markedMethod != null) {
+          throw new SerializationProcessingException(
+              encodedType,
+              "%s has multiple Instantiator or Interner annotations: %s %s.",
+              encodedType.getQualifiedName(),
+              markedMethod.getSimpleName(),
+              method.getSimpleName());
+        }
+        markedMethod = method;
+        instantiatorKind = INTERNER;
       }
     }
 
@@ -226,7 +251,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
     if (constructors.size() > 1) {
       throw new SerializationProcessingException(
           encodedType,
-          "%s has multiple constructors but no Instantiator annotation.",
+          "%s has multiple constructors but no Instantiator or Interner annotation.",
           encodedType.getQualifiedName());
     }
     // In Java, every class has at least one constructor, so this never fails.
@@ -235,6 +260,10 @@ public class AutoCodecProcessor extends AbstractProcessor {
 
   private static boolean hasInstantiatorAnnotation(ExecutableElement elt) {
     return elt.getAnnotation(Instantiator.class) != null;
+  }
+
+  private static boolean hasInternerAnnotation(ExecutableElement elt) {
+    return elt.getAnnotation(Interner.class) != null;
   }
 
   private enum Relation {
@@ -297,6 +326,46 @@ public class AutoCodecProcessor extends AbstractProcessor {
           elt.getSimpleName(),
           elt.getReturnType(),
           encodedType.asType());
+    }
+  }
+
+  private void verifyInterner(TypeElement encodedType, ExecutableElement method)
+      throws SerializationProcessingException {
+    if (!method.getModifiers().contains(Modifier.STATIC)) {
+      throw new SerializationProcessingException(
+          encodedType, "%s is tagged @Interner, but it's not static.", method.getSimpleName());
+    }
+    List<? extends VariableElement> parameters = method.getParameters();
+    if (parameters.size() != 1) {
+      throw new SerializationProcessingException(
+          encodedType,
+          "%s is tagged @Interner, but it has %d parameters instead of 1.",
+          method.getSimpleName(),
+          parameters.size());
+    }
+    TypeMirror subjectType = getErasureAsMirror(encodedType, env);
+
+    // The method should be able to accept a value of encodedType;
+    TypeMirror parameterType = getErasureAsMirror(parameters.get(0).asType(), env);
+    if (!env.getTypeUtils().isAssignable(subjectType, parameterType)) {
+      throw new SerializationProcessingException(
+          encodedType,
+          "%s is tagged @Interner, but cannot accept a value of type %s because it is not"
+              + " assignable to %s.",
+          method.getSimpleName(),
+          encodedType,
+          parameterType);
+    }
+
+    // The method should return a value that can be assigned to encodedType.
+    TypeMirror returnType = getErasureAsMirror(method.getReturnType(), env);
+    if (!env.getTypeUtils().isAssignable(returnType, subjectType)) {
+      throw new SerializationProcessingException(
+          encodedType,
+          "%s is tagged @Interner, but its return type %s cannot be assigned to type %s.",
+          method.getSimpleName(),
+          method.getReturnType(),
+          encodedType);
     }
   }
 

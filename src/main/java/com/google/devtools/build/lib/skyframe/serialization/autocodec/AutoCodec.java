@@ -63,6 +63,15 @@ public @interface AutoCodec {
   @interface Instantiator {}
 
   /**
+   * Marks a static method to use for interning.
+   *
+   * <p>The method must accept an instance of the enclosing {@code AutoCodec} tagged class and
+   * return an instance of the tagged class.
+   */
+  @Target({ElementType.METHOD})
+  @interface Interner {}
+
+  /**
    * Checks whether or not this class is allowed to be serialized. See {@link
    * com.google.devtools.build.lib.skyframe.serialization.SerializationContext#checkClassExplicitlyAllowed}.
    */
