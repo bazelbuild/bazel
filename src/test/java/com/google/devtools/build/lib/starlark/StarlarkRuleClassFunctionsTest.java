@@ -4340,17 +4340,15 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   private void scratchStarlarkTransition() throws IOException {
-    if (!TestConstants.PRODUCT_NAME.equals("bazel")) {
-      scratch.overwriteFile(
-          TestConstants.TOOLS_REPOSITORY_SCRATCH
-              + "tools/allowlists/function_transition_allowlist/BUILD",
-          "package_group(",
-          "    name = 'function_transition_allowlist',",
-          "    packages = [",
-          "        '//extend_rule_testing/...',",
-          "    ],",
-          ")");
-    }
+    scratch.overwriteFile(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH
+            + "tools/allowlists/function_transition_allowlist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_allowlist',",
+        "    packages = [",
+        "        'public',",
+        "    ],",
+        ")");
     scratch.file(
         "test/build_settings.bzl",
         "def _impl(ctx):",
