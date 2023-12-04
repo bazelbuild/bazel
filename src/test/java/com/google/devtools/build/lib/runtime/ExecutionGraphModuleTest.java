@@ -429,6 +429,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
                         .setDurationMillis(200)
                         .setOtherMillis(200))
                 .setRunner("remote")
+                .setRuleClass("dummy-target-kind")
                 .build());
   }
 
@@ -459,6 +460,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
                         .setStartTimestampMillis(100)
                         .setDurationMillis(200)
                         .setOtherMillis(200))
+                .setRuleClass("dummy-target-kind")
                 .setRunner("remote")
                 .build(),
             executionGraphNodeBuilderForAction(action)
@@ -466,6 +468,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
                 .setMetrics(
                     ExecutionGraph.Metrics.newBuilder()
                         .setStartTimestampMillis(nanosToMillis.toEpochMillis(0)))
+                .setRuleClass("dummy-kind")
                 .build());
   }
 
@@ -695,6 +698,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         .setDescription("action 'progress message'")
         .setTargetLabel("//dummy:label")
         .setMnemonic("Mnemonic")
+        .setRuleClass("dummy-target-kind")
         // This comes from SpawnResult.Builder, which defaults to an empty string.
         .setRunnerSubtype("");
   }
