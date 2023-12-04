@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ExternalDepsException;
 import com.google.devtools.build.lib.bazel.bzlmod.Module;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -95,19 +96,37 @@ public class RegisteredToolchainsFunction implements SkyFunction {
           new InvalidToolchainLabelException(e), Transience.PERSISTENT);
     }
 
-    // Get registered toolchains from bzlmod.
-    ImmutableList<TargetPattern> bzlmodToolchains = getBzlmodToolchains(starlarkSemantics, env);
-    if (bzlmodToolchains == null) {
+    // Get registered toolchains from the root Bazel module.
+    ImmutableList<TargetPattern> bzlmodRootModuleToolchains =
+        getBzlmodToolchains(starlarkSemantics, env, /* forRootModule= */ true);
+    if (bzlmodRootModuleToolchains == null) {
       return null;
     }
-    targetPatternBuilder.addAll(TargetPatternUtil.toSigned(bzlmodToolchains));
+    targetPatternBuilder.addAll(TargetPatternUtil.toSigned(bzlmodRootModuleToolchains));
 
-    // Get the registered toolchains from the WORKSPACE.
-    ImmutableList<TargetPattern> workspaceToolchains = getWorkspaceToolchains(env);
-    if (workspaceToolchains == null) {
+    // Get the toolchains from the user-supplied WORKSPACE file.
+    ImmutableList<TargetPattern> userRegisteredWorkspaceToolchains =
+        getWorkspaceToolchains(env, /* userRegistered= */ true);
+    if (userRegisteredWorkspaceToolchains == null) {
       return null;
     }
-    targetPatternBuilder.addAll(TargetPatternUtil.toSigned(workspaceToolchains));
+    targetPatternBuilder.addAll(TargetPatternUtil.toSigned(userRegisteredWorkspaceToolchains));
+
+    // Get registered toolchains from non-root Bazel modules.
+    ImmutableList<TargetPattern> bzlmodNonRootModuleToolchains =
+        getBzlmodToolchains(starlarkSemantics, env, /* forRootModule= */ false);
+    if (bzlmodNonRootModuleToolchains == null) {
+      return null;
+    }
+    targetPatternBuilder.addAll(TargetPatternUtil.toSigned(bzlmodNonRootModuleToolchains));
+
+    // Get the toolchains from the Bazel-supplied WORKSPACE suffix.
+    ImmutableList<TargetPattern> workspaceSuffixToolchains =
+        getWorkspaceToolchains(env, /* userRegistered= */ false);
+    if (workspaceSuffixToolchains == null) {
+      return null;
+    }
+    targetPatternBuilder.addAll(TargetPatternUtil.toSigned(workspaceSuffixToolchains));
 
     // Expand target patterns.
     ImmutableList<Label> toolchainLabels;
@@ -140,8 +159,8 @@ public class RegisteredToolchainsFunction implements SkyFunction {
    */
   @Nullable
   @VisibleForTesting
-  public static ImmutableList<TargetPattern> getWorkspaceToolchains(Environment env)
-      throws InterruptedException {
+  public static ImmutableList<TargetPattern> getWorkspaceToolchains(
+      Environment env, boolean userRegistered) throws InterruptedException {
     PackageValue externalPackageValue =
         (PackageValue) env.getValue(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
     if (externalPackageValue == null) {
@@ -149,12 +168,16 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     }
 
     Package externalPackage = externalPackageValue.getPackage();
-    return externalPackage.getRegisteredToolchains();
+    if (userRegistered) {
+      return externalPackage.getUserRegisteredToolchains();
+    } else {
+      return externalPackage.getWorkspaceSuffixRegisteredToolchains();
+    }
   }
 
   @Nullable
   private static ImmutableList<TargetPattern> getBzlmodToolchains(
-      StarlarkSemantics semantics, Environment env)
+      StarlarkSemantics semantics, Environment env, boolean forRootModule)
       throws InterruptedException, RegisteredToolchainsFunctionException {
     if (!semantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
       return ImmutableList.of();
@@ -166,6 +189,9 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     }
     ImmutableList.Builder<TargetPattern> toolchains = ImmutableList.builder();
     for (Module module : bazelDepGraphValue.getDepGraph().values()) {
+      if (forRootModule != module.getKey().equals(ModuleKey.ROOT)) {
+        continue;
+      }
       TargetPattern.Parser parser =
           new TargetPattern.Parser(
               PathFragment.EMPTY_FRAGMENT,

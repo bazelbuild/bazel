@@ -185,7 +185,10 @@ public class WorkspaceFactory {
       builder.setFailureDetailOverride(aPackage.getFailureDetail());
     }
     builder.addRegisteredExecutionPlatforms(aPackage.getRegisteredExecutionPlatforms());
-    builder.addRegisteredToolchains(aPackage.getRegisteredToolchains());
+    builder.addRegisteredToolchains(
+        aPackage.getRegisteredToolchains(), /* forWorkspaceSuffix= */ false);
+    builder.setFirstWorkspaceSuffixRegisteredToolchain(
+        aPackage.getFirstWorkspaceSuffixRegisteredToolchain());
     builder.addRepositoryMappings(aPackage);
     for (Rule rule : aPackage.getTargets(Rule.class)) {
       try {

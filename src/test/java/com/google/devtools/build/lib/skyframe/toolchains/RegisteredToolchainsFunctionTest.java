@@ -20,15 +20,18 @@ import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -36,6 +39,17 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link RegisteredToolchainsFunction} and {@link RegisteredToolchainsValue}. */
 @RunWith(JUnit4.class)
 public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
+
+  @Override
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
+    // testRegisteredToolchains_bzlmod uses the WORKSPACE suffixes.
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    builder.clearWorkspaceFileSuffixForTesting();
+    builder.addWorkspaceFileSuffix(
+        "register_toolchains('//toolchain:suffix_toolchain_1', '//toolchain:suffix_toolchain_2')");
+    return builder.build();
+  }
 
   @Test
   public void testRegisteredToolchains() throws Exception {
@@ -423,8 +437,24 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         "load('@toolchain_def//:toolchain_def.bzl', 'declare_toolchain')",
         "declare_toolchain(name='dev_tool')",
         "declare_toolchain(name='tool')",
-        "declare_toolchain(name='wstool')");
-    rewriteWorkspace("register_toolchains('//:wstool')");
+        "declare_toolchain(name='wstool')",
+        "declare_toolchain(name='wstool2')");
+    scratch.overwriteFile(
+        "WORKSPACE",
+        Stream.concat(
+                analysisMock.getWorkspaceContents(mockToolsConfig).stream()
+                    // The register_toolchains calls usually live in the WORKSPACE suffixes.
+                    // BazelAnalysisMock moves the mock registrations to the actual WORKSPACE file
+                    // as most Java tests don't run with the suffixes. This test class does, so we
+                    // skip over the "unnatural" registrations.
+                    .filter(line -> !line.startsWith("register_toolchains(")),
+                // Register a toolchain explicitly that is also registered in the WORKSPACE suffix.
+                Stream.of(
+                    "register_toolchains('//:wstool')",
+                    "register_toolchains('//toolchain:suffix_toolchain_2')",
+                    "register_toolchains('//:wstool2')"))
+            .toArray(String[]::new));
+    invalidatePackages();
 
     SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey);
     EvaluationResult<RegisteredToolchainsValue> result =
@@ -438,13 +468,20 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     // registrations.
     assertToolchainLabels(result.get(toolchainsKey))
         .containsAtLeast(
+            // Root module toolchains
             Label.parseCanonical("//:tool_impl"),
             Label.parseCanonical("//:dev_tool_impl"),
+            // WORKSPACE toolchains
+            Label.parseCanonical("//:wstool_impl"),
+            Label.parseCanonical("//toolchain:suffix_toolchain_2_impl"),
+            Label.parseCanonical("//:wstool2_impl"),
+            // Other modules' toolchains
             Label.parseCanonical("@@bbb~1.0//:tool_impl"),
             Label.parseCanonical("@@ccc~1.1//:tool_impl"),
             Label.parseCanonical("@@eee~1.0//:tool_impl"),
             Label.parseCanonical("@@ddd~1.1//:tool_impl"),
-            Label.parseCanonical("//:wstool_impl"))
+            // WORKSPACE suffix toolchains
+            Label.parseCanonical("//toolchain:suffix_toolchain_1_impl"))
         .inOrder();
   }
 

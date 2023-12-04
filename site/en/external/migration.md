@@ -453,6 +453,19 @@ toolchain.
     register_toolchains("@local_config_sh//:local_sh_toolchain")
     ```
 
+The toolchains and execution platforms registered in `WORKSPACE`,
+`WORKSPACE.bzlmod` and each Bazel module's `MODULE.bazel` file follow this
+order of precedence during toolchain selection (from highest to lowest):
+
+1. toolchains and execution platforms registered in the root module's
+   `MODULE.bazel` file.
+2. toolchains and execution platforms registered in the `WORKSPACE` or
+   `WORKSPACE.bzlmod` file.
+3. toolchains and execution platforms registered by modules that are
+   (transitive) dependencies of the root module.
+4. when not using `WORKSPACE.bzlmod`: toolchains registered in the `WORKSPACE`
+   [suffix](/external/migration#builtin-default-deps).
+
 [register_execution_platforms]: /rules/lib/globals/module#register_execution_platforms
 
 ### Introduce local repositories {:#introduce-local-deps}
