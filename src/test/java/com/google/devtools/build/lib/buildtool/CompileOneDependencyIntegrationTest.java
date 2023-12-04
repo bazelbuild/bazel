@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsEvent;
 import static org.junit.Assert.assertThrows;
 
@@ -39,7 +40,10 @@ public class CompileOneDependencyIntegrationTest extends BuildIntegrationTestCas
     addOptions("--compile_one_dependency");
     // Make build super minimal.
     addOptions("--nobuild_runfile_links");
-    write("package/BUILD", "py_binary(name='foo', srcs=['foo.py'])");
+    write(
+        "package/BUILD", //
+        getPyLoad("py_binary"),
+        "py_binary(name='foo', srcs=['foo.py'])");
     write("package/foo.py");
     buildTarget("package/foo.py");
 
@@ -54,15 +58,17 @@ public class CompileOneDependencyIntegrationTest extends BuildIntegrationTestCas
   public void testBadPackage() throws Exception {
     addOptions("--compile_one_dependency", "--keep_going");
 
-    write("package/BUILD",
-          "cc_binary(name='foo', srcs=['foo.cc'], malloc = '//base:system_malloc')",
-          "invalidbuildsyntax");
-    write("package/foo.cc",
-          "#include <stdio.h>",
-          "int main() {",
-          "  printf(\"Hello, world!\\n\");",
-          "  return 0;",
-          "}");
+    write(
+        "package/BUILD",
+        "cc_binary(name='foo', srcs=['foo.cc'], malloc = '//base:system_malloc')",
+        "invalidbuildsyntax");
+    write(
+        "package/foo.cc",
+        "#include <stdio.h>",
+        "int main() {",
+        "  printf(\"Hello, world!\\n\");",
+        "  return 0;",
+        "}");
     BuildFailedException e =
         assertThrows(BuildFailedException.class, () -> buildTarget("package/foo.cc"));
     assertThat(e)
