@@ -698,12 +698,13 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
-  public void downloadOutputs_relativeSymlinkInDirectory_success() throws Exception {
+  public void downloadOutputs_symlinksInDirectory_success() throws Exception {
     Tree tree =
         Tree.newBuilder()
             .setRoot(
                 Directory.newBuilder()
-                    .addSymlinks(SymlinkNode.newBuilder().setName("link").setTarget("../foo")))
+                    .addSymlinks(SymlinkNode.newBuilder().setName("rel").setTarget("foo"))
+                    .addSymlinks(SymlinkNode.newBuilder().setName("abs").setTarget("/bar")))
             .build();
     Digest treeDigest = cache.addContents(remoteActionExecutionContext, tree.toByteArray());
     ActionResult.Builder builder = ActionResult.newBuilder();
@@ -712,7 +713,6 @@ public class RemoteExecutionServiceTest {
         RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
     Spawn spawn = newSpawnFromResult(result);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-    remoteOptions.incompatibleRemoteDisallowSymlinkInTreeArtifact = false;
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
     RemoteAction action = service.buildRemoteAction(spawn, context);
     createOutputDirectories(spawn);
@@ -722,9 +722,12 @@ public class RemoteExecutionServiceTest {
     // Doesn't check for dangling links, hence download succeeds.
     service.downloadOutputs(action, result);
 
-    Path path = execRoot.getRelative("outputs/dir/link");
-    assertThat(path.isSymbolicLink()).isTrue();
-    assertThat(path.readSymbolicLink()).isEqualTo(PathFragment.create("../foo"));
+    Path relPath = execRoot.getRelative("outputs/dir/rel");
+    assertThat(relPath.isSymbolicLink()).isTrue();
+    assertThat(relPath.readSymbolicLink()).isEqualTo(PathFragment.create("foo"));
+    Path absPath = execRoot.getRelative("outputs/dir/abs");
+    assertThat(absPath.isSymbolicLink()).isTrue();
+    assertThat(absPath.readSymbolicLink()).isEqualTo(PathFragment.create("/bar"));
     assertThat(context.isLockOutputFilesCalled()).isTrue();
   }
 
@@ -768,37 +771,6 @@ public class RemoteExecutionServiceTest {
 
     Path path = execRoot.getRelative("outputs/foo");
     assertThat(path.readSymbolicLink()).isEqualTo(PathFragment.create("/abs/link"));
-    assertThat(context.isLockOutputFilesCalled()).isTrue();
-  }
-
-  @Test
-  public void downloadOutputs_absoluteSymlinkInDirectory_error() throws Exception {
-    Tree tree =
-        Tree.newBuilder()
-            .setRoot(
-                Directory.newBuilder()
-                    .addSymlinks(SymlinkNode.newBuilder().setName("link").setTarget("/foo")))
-            .build();
-    Digest treeDigest = cache.addContents(remoteActionExecutionContext, tree.toByteArray());
-    ActionResult.Builder builder = ActionResult.newBuilder();
-    builder.addOutputDirectoriesBuilder().setPath("outputs/dir").setTreeDigest(treeDigest);
-    RemoteActionResult result =
-        RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
-    Spawn spawn = newSpawnFromResult(result);
-    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-    RemoteExecutionService service = newRemoteExecutionService();
-    RemoteAction action = service.buildRemoteAction(spawn, context);
-    createOutputDirectories(spawn);
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
-        .thenReturn(true);
-
-    IOException expected =
-        assertThrows(IOException.class, () -> service.downloadOutputs(action, result));
-
-    assertThat(expected.getSuppressed()).isEmpty();
-    assertThat(expected)
-        .hasMessageThat()
-        .isEqualTo("Unsupported symlink 'link' inside tree artifact 'outputs/dir'");
     assertThat(context.isLockOutputFilesCalled()).isTrue();
   }
 
