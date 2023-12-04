@@ -424,17 +424,6 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public boolean incompatibleRemoteDanglingSymlinks;
 
   @Option(
-      name = "incompatible_remote_disallow_symlink_in_tree_artifact",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, a remotely executed action cannot produce a tree artifact containing a"
-              + " relative symlink. Absolute symlinks are never allowed irrespective of this flag.")
-  public boolean incompatibleRemoteDisallowSymlinkInTreeArtifact;
-
-  @Option(
       name = "remote_cache_compression",
       oldName = "experimental_remote_cache_compression",
       defaultValue = "false",
