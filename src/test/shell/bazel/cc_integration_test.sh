@@ -1519,19 +1519,26 @@ cc_library(
   name = "library",
   srcs = ["library.cpp"],
   hdrs = ["library.h"],
+  implementation_deps = ["@bazel_tools//tools/cpp/runfiles"],
   visibility = ["//visibility:public"],
 )
 
 cc_binary(
   name = "binary",
   srcs = ["binary.cpp"],
-  deps = [":library"],
+  deps = [
+    ":library",
+    "@bazel_tools//tools/cpp/runfiles",
+  ],
 )
 
 cc_test(
   name = "test",
   srcs = ["test.cpp"],
-  deps = [":library"],
+  deps = [
+    ":library",
+    "@bazel_tools//tools/cpp/runfiles",
+  ],
 )
 EOF
 
@@ -1573,13 +1580,19 @@ EOF
 cc_binary(
   name = "binary",
   srcs = ["binary.cpp"],
-  deps = ["@//pkg:library"],
+  deps = [
+    "@//pkg:library",
+    "@bazel_tools//tools/cpp/runfiles",
+  ],
 )
 
 cc_test(
   name = "test",
   srcs = ["test.cpp"],
-  deps = ["@//pkg:library"],
+  deps = [
+    "@//pkg:library",
+    "@bazel_tools//tools/cpp/runfiles",
+  ],
 )
 EOF
 
