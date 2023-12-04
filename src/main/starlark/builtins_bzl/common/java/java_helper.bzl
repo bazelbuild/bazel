@@ -20,6 +20,7 @@ load(":common/java/java_semantics.bzl", "semantics")
 load(":common/paths.bzl", "paths")
 
 testing = _builtins.toplevel.testing
+_java_common_internal = _builtins.internal.java_common_internal_do_not_use
 
 def _collect_all_targets_as_deps(ctx, classpath_type = "all"):
     deps = []
@@ -402,13 +403,8 @@ def _tokenize_javacopts(ctx = None, opts = []):
             for token in ctx.tokenize(opt)
         ]
     else:
-        # slow, but pure Starlark implementation
-        result = []
-        for opt in opts:
-            tokens = []
-            cc_helper.tokenize(tokens, opt)
-            result.extend(tokens)
-        return result
+        # TODO: optimize and use the pure Starlark implementation in cc_helper
+        return _java_common_internal.tokenize_javacopts(opts)
 
 def _detokenize_javacopts(opts):
     """Detokenizes a list of options to a depset.

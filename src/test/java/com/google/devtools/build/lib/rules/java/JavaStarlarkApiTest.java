@@ -3700,6 +3700,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     "{api: _check_java_toolchain_is_declared_on_rule}",
     "{api: wrap_java_info}",
     "{api: intern_javac_opts}",
+    "{api: tokenize_javacopts}",
   })
   public void testJavaCommonPrivateApis_areNotVisibleToPublicStarlark(String api) throws Exception {
     // validate that this api is present on the module, so this test fails when the API is deleted
