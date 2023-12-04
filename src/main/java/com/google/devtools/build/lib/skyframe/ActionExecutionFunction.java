@@ -152,17 +152,22 @@ public final class ActionExecutionFunction implements SkyFunction {
   private final Supplier<TimestampGranularityMonitor> tsgm;
   private final BugReporter bugReporter;
 
+  // TODO(b/314282963): Remove this after the rollout.
+  private final Supplier<Boolean> clearNestedSetAfterActionExecution;
+
   public ActionExecutionFunction(
       ActionRewindStrategy actionRewindStrategy,
       SkyframeActionExecutor skyframeActionExecutor,
       BlazeDirectories directories,
       Supplier<TimestampGranularityMonitor> tsgm,
-      BugReporter bugReporter) {
+      BugReporter bugReporter,
+      Supplier<Boolean> clearNestedSetAfterActionExecution) {
     this.actionRewindStrategy = checkNotNull(actionRewindStrategy);
     this.skyframeActionExecutor = checkNotNull(skyframeActionExecutor);
     this.directories = checkNotNull(directories);
     this.tsgm = checkNotNull(tsgm);
     this.bugReporter = checkNotNull(bugReporter);
+    this.clearNestedSetAfterActionExecution = clearNestedSetAfterActionExecution;
   }
 
   @Override
@@ -365,6 +370,11 @@ public final class ActionExecutionFunction implements SkyFunction {
       return null;
     }
 
+    // We're done with the action. Clear the memo fields of the NestedSets to save some memory.
+    if (clearNestedSetAfterActionExecution.get()) {
+      action.getInputs().clearMemo();
+      allInputs.clearMemo();
+    }
     return result;
   }
 
