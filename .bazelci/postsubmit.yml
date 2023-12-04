@@ -52,6 +52,22 @@ tasks:
     include_json_profile:
       - build
       - test
+  fedora39:
+    shell_commands:
+      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
+        android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
+      - rm -f WORKSPACE.bzlmod.bak
+      - rm -rf $HOME/bazeltest
+      - mkdir $HOME/bazeltest
+    build_flags:
+      - "--config=ci-linux"
+    build_targets:
+      - "//src:bazel"
+      - "//src:bazel_jdk_minimal"
+      - "//src/main/java/..."
+    include_json_profile:
+      - build
+      - test
   ubuntu2204:
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
