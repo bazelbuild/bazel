@@ -36,6 +36,13 @@ import net.starlark.java.eval.StarlarkThread;
 /** A helper for the {@link WorkspaceFactory} to create repository rules */
 public final class WorkspaceFactoryHelper {
 
+  public static final String DEFAULT_WORKSPACE_SUFFIX_FILE = "/DEFAULT.WORKSPACE.SUFFIX";
+
+  public static boolean originatesInWorkspaceSuffix(
+      ImmutableList<StarlarkThread.CallStackEntry> callstack) {
+    return callstack.get(0).location.file().equals(DEFAULT_WORKSPACE_SUFFIX_FILE);
+  }
+
   @CanIgnoreReturnValue
   public static Rule createAndAddRepositoryRule(
       Package.Builder pkg,
@@ -70,7 +77,7 @@ public final class WorkspaceFactoryHelper {
         throw new LabelSyntaxException(e.getMessage());
       }
     }
-    pkg.addRegisteredToolchains(toolchains.build());
+    pkg.addRegisteredToolchains(toolchains.build(), originatesInWorkspaceSuffix(callstack));
     return rule;
   }
 
