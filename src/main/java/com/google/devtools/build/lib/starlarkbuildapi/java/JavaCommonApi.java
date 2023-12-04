@@ -751,4 +751,10 @@ public interface JavaCommonApi<
   Sequence<?> expandJavaOpts(
       StarlarkRuleContextT ctx, String attr, boolean tokenize, boolean execPaths)
       throws EvalException, InterruptedException;
+
+  @StarlarkMethod(
+      name = "tokenize_javacopts",
+      documented = false,
+      parameters = {@Param(name = "opts")})
+  Sequence<?> tokenizeJavacOpts(Sequence<?> opts) throws EvalException, InterruptedException;
 }

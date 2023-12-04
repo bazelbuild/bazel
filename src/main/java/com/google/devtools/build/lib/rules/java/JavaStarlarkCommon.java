@@ -472,6 +472,12 @@ public class JavaStarlarkCommon
     }
   }
 
+  @Override
+  public Sequence<?> tokenizeJavacOpts(Sequence<?> opts) throws EvalException {
+    return StarlarkList.immutableCopyOf(
+        JavaHelper.tokenizeJavaOptions(Sequence.noneableCast(opts, String.class, "opts")));
+  }
+
   static boolean isInstanceOfProvider(Object obj, Provider provider) {
     if (obj instanceof NativeInfo) {
       return ((NativeInfo) obj).getProvider().getKey().equals(provider.getKey());
