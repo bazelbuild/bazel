@@ -18,14 +18,14 @@ import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.joining;
 
 import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
+import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.util.OS;
 import java.util.Objects;
-import net.starlark.java.eval.EvalException;
 
 public class JavaTestUtil {
 
@@ -74,9 +74,10 @@ public class JavaTestUtil {
         ")");
   }
 
-  public static String getJvmFlagsForJavaBinaryExecutable(Action action)
-      throws CommandLineExpansionException, InterruptedException, EvalException {
-    if (OS.getCurrent() == OS.WINDOWS) {
+  public static String getJvmFlagsForJavaBinaryExecutable(Action action) throws Exception {
+    boolean targetsWindows =
+        action.getExecutionPlatform().constraints().hasConstraintValue(getWindowsConstraintValue());
+    if (targetsWindows) {
       return ((SpawnAction) action)
           .getArguments().stream()
               .filter(a -> a.startsWith("jvm_flags="))
@@ -89,5 +90,12 @@ public class JavaTestUtil {
               .collect(onlyElement())
               .getValue();
     }
+  }
+
+  private static ConstraintValueInfo getWindowsConstraintValue() throws Exception {
+    String osConstraintsPackage = TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os";
+    return ConstraintValueInfo.create(
+        ConstraintSettingInfo.create(Label.create(osConstraintsPackage, "os")),
+        Label.create(osConstraintsPackage, "windows"));
   }
 }

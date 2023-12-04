@@ -17,6 +17,8 @@ Definition of java_runtime rule and JavaRuntimeInfo provider.
 """
 
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/semantics.bzl", cc_semantics = "semantics")
+load(":common/java/java_helper.bzl", "helper")
 load(":common/paths.bzl", "paths")
 
 platform_common = _builtins.toplevel.platform_common
@@ -61,17 +63,16 @@ def _default_java_home(label):
     else:
         return paths.get_relative(label.workspace_root, label.package)
 
-def _get_bin_java():
-    #TODO: b/304990922 - use platforms instead of checking host
-    is_windows = _java_common_internal.current_os_name == "windows"
+def _get_bin_java(ctx):
+    is_windows = helper.is_target_platform_windows(ctx)
     return "bin/java.exe" if is_windows else "bin/java"
 
-def _get_runfiles_java_executable(java_home, label):
+def _get_runfiles_java_executable(ctx, java_home, label):
     if paths.is_absolute(java_home) or _is_main_repo(label):
-        return paths.get_relative(java_home, _get_bin_java())
+        return paths.get_relative(java_home, _get_bin_java(ctx))
     else:
         repo_runfiles_path = "" if _is_main_repo(label) else paths.get_relative("..", label.workspace_name)
-        return paths.get_relative(repo_runfiles_path, _get_bin_java())
+        return paths.get_relative(repo_runfiles_path, _get_bin_java(ctx))
 
 def _is_java_binary(path):
     return path.endswith("bin/java") or path.endswith("bin/java.exe")
@@ -96,8 +97,8 @@ def _java_runtime_rule_impl(ctx):
             fail("'java_home' with an absolute path requires 'srcs' to be empty.")
         java_home = paths.get_relative(java_home, java_home_attr)
 
-    java_binary_exec_path = paths.get_relative(java_home, _get_bin_java())
-    java_binary_runfiles_path = _get_runfiles_java_executable(java_home, ctx.label)
+    java_binary_exec_path = paths.get_relative(java_home, _get_bin_java(ctx))
+    java_binary_runfiles_path = _get_runfiles_java_executable(ctx, java_home, ctx.label)
 
     java = ctx.file.java
     if java:
@@ -169,6 +170,9 @@ java_runtime = rule(
         "output_licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
         "srcs": attr.label_list(allow_files = True),
         "version": attr.int(),
+        "_windows_constraints": attr.label_list(
+            default = ["@" + paths.join(cc_semantics.get_platforms_root(), "os:windows")],
+        ),
     },
     fragments = ["java"],
     provides = [

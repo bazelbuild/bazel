@@ -722,9 +722,6 @@ public interface JavaCommonApi<
       documented = false)
   boolean incompatibleDisableNonExecutableJavaBinary(StarlarkThread thread);
 
-  @StarlarkMethod(name = "current_os_name", structField = true, documented = false)
-  String getCurrentOsName();
-
   @StarlarkMethod(
       name = "expand_java_opts",
       documented = false,

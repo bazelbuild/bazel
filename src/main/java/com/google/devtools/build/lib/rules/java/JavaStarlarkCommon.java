@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
-import com.google.devtools.build.lib.util.OS;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -385,11 +384,6 @@ public class JavaStarlarkCommon
     return thread
         .getSemantics()
         .getBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_NON_EXECUTABLE_JAVA_BINARY);
-  }
-
-  @Override
-  public String getCurrentOsName() {
-    return OS.getCurrent().getCanonicalName();
   }
 
   @Override

@@ -173,7 +173,7 @@ def _get_executable(ctx):
     if not ctx.attr.create_executable:
         return None
     executable_name = ctx.label.name
-    if helper.is_windows(ctx):
+    if helper.is_target_platform_windows(ctx):
         executable_name = executable_name + ".exe"
 
     return ctx.actions.declare_file(executable_name)
@@ -195,14 +195,14 @@ def _create_stub(ctx, java_attrs, launcher, executable, jvm_flags, main_class, c
         ],
     )
 
-    if helper.is_windows(ctx):
+    if helper.is_target_platform_windows(ctx):
         jvm_flags_for_launcher = []
         for flag in jvm_flags:
             jvm_flags_for_launcher.extend(ctx.tokenize(flag))
         return _create_windows_exe_launcher(ctx, java_executable, classpath, main_class, jvm_flags_for_launcher, runfiles_enabled, executable)
 
     if runfiles_enabled:
-        prefix = "" if helper.is_absolute_path(ctx, java_executable) else "${JAVA_RUNFILES}/"
+        prefix = "" if helper.is_absolute_target_platform_path(ctx, java_executable) else "${JAVA_RUNFILES}/"
         java_bin = "JAVABIN=${JAVABIN:-" + prefix + java_executable + "}"
     else:
         java_bin = "JAVABIN=${JAVABIN:-$(rlocation " + java_executable + ")}"
@@ -224,7 +224,7 @@ def _create_stub(ctx, java_attrs, launcher, executable, jvm_flags, main_class, c
             "%runfiles_manifest_only%": "" if runfiles_enabled else "1",
             "%workspace_prefix%": workspace_prefix,
             "%javabin%": java_bin,
-            "%needs_runfiles%": "0" if helper.is_absolute_path(ctx, java_runtime_toolchain.java_executable_exec_path) else "1",
+            "%needs_runfiles%": "0" if helper.is_absolute_target_platform_path(ctx, java_runtime_toolchain.java_executable_exec_path) else "1",
             "%set_jacoco_metadata%": "",
             "%set_jacoco_main_class%": "export JACOCO_MAIN_CLASS=" + coverage_main_class if coverage_enabled else "",
             "%set_jacoco_java_runfiles_root%": "export JACOCO_JAVA_RUNFILES_ROOT=${JAVA_RUNFILES}/" + workspace_prefix if coverage_enabled else "",
