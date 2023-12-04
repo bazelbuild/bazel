@@ -35,7 +35,11 @@ load(
     "filter_to_py_srcs",
     "union_attrs",
 )
-load(":common/python/providers.bzl", "PyCcLinkParamsProvider")
+load(
+    ":common/python/providers.bzl",
+    "PyCcLinkParamsProvider",
+    "PyInfo"
+)
 
 _py_builtins = _builtins.internal.py_builtins
 
@@ -106,6 +110,7 @@ def create_py_library_rule(*, attrs = {}, **kwargs):
         attrs = create_library_attrs() | attrs,
         # TODO(b/253818097): fragments=py is only necessary so that
         # RequiredConfigFragmentsTest passes
+        provides = [PyInfo],
         fragments = ["py"],
         **kwargs
     )
