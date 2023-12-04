@@ -75,14 +75,14 @@ class NamedArtifactGroup implements BuildEvent {
     for (Object elem : set.getLeaves()) {
       ExpandedArtifact expandedArtifact = (ExpandedArtifact) elem;
       if (expandedArtifact.relPath == null) {
-        FileArtifactValue fileMetadata =
+        FileArtifactValue metadata =
             completionContext.getFileArtifactValue(expandedArtifact.artifact);
         artifacts.add(
             new LocalFile(
                 completionContext.pathResolver().toPath(expandedArtifact.artifact),
-                getOutputType(fileMetadata),
-                fileMetadata == null ? null : expandedArtifact.artifact,
-                fileMetadata));
+                LocalFileType.forArtifact(expandedArtifact.artifact, metadata),
+                metadata == null ? null : expandedArtifact.artifact,
+                metadata));
       } else {
         // TODO(b/199940216): Can fileset metadata be properly handled here?
         artifacts.add(
@@ -94,20 +94,6 @@ class NamedArtifactGroup implements BuildEvent {
       }
     }
     return artifacts.build();
-  }
-
-  private static LocalFileType getOutputType(@Nullable FileArtifactValue fileMetadata) {
-    if (fileMetadata == null) {
-      return LocalFileType.OUTPUT;
-    }
-    switch (fileMetadata.getType()) {
-      case DIRECTORY:
-        return LocalFileType.OUTPUT_DIRECTORY;
-      case SYMLINK:
-        return LocalFileType.OUTPUT_SYMLINK;
-      default:
-        return LocalFileType.OUTPUT_FILE;
-    }
   }
 
   @Override

@@ -73,10 +73,9 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
             artifactsToBuild.getAllArtifactsByOutputGroup(),
             /* announceTargetSummary= */ false);
 
-    assertThat(event.referencedLocalFiles()).hasSize(1);
-    LocalFile localFile = event.referencedLocalFiles().get(0);
-    assertThat(localFile.path).isEqualTo(artifact.getPath());
-    assertThat(localFile.type).isEqualTo(LocalFileType.OUTPUT_FILE);
+    assertThat(event.referencedLocalFiles())
+        .containsExactly(
+            new LocalFile(artifact.getPath(), LocalFileType.OUTPUT_FILE, artifact, metadata));
   }
 
   @Test
@@ -97,11 +96,9 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
             artifactsToBuild.getAllArtifactsByOutputGroup(),
             /* announceTargetSummary= */ false);
 
-    assertThat(event.referencedLocalFiles()).hasSize(1);
-    LocalFile localFile = event.referencedLocalFiles().get(0);
-    assertThat(localFile.path).isEqualTo(artifact.getPath());
-    // TODO(tjgq): This should be reported as a directory.
-    assertThat(localFile.type).isEqualTo(LocalFileType.OUTPUT_FILE);
+    assertThat(event.referencedLocalFiles())
+        .containsExactly(
+            new LocalFile(artifact.getPath(), LocalFileType.OUTPUT_DIRECTORY, artifact, metadata));
   }
 
   @Test
@@ -110,10 +107,7 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
         "defs.bzl",
         "def _impl(ctx):",
         "  d = ctx.actions.declare_directory(ctx.label.name)",
-        "  ctx.actions.run_shell(",
-        "    outputs = [d],",
-        "    command = 'touch %s/file.txt' % d.path,",
-        "  )",
+        "  ctx.actions.run_shell(outputs = [d], command = 'does not matter')",
         "  return DefaultInfo(files = depset([d]))",
         "dir = rule(_impl)");
     scratch.file(
@@ -123,16 +117,23 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
         "filegroup(name = 'files', srcs = ['dir'])");
     ConfiguredTargetAndData ctAndData = getCtAndData("//:files");
     ArtifactsToBuild artifactsToBuild = getArtifactsToBuild(ctAndData);
-    SpecialArtifact artifact =
+    SpecialArtifact tree =
         (SpecialArtifact) Iterables.getOnlyElement(artifactsToBuild.getAllArtifacts().toList());
+    TreeFileArtifact fileChild =
+        TreeFileArtifact.createTreeOutput(tree, PathFragment.create("dir/file.txt"));
+    FileArtifactValue fileMetadata =
+        FileArtifactValue.createForNormalFile(new byte[] {1, 2, 3}, null, 10);
+    // A TreeFileArtifact can be a directory, when materialized by a symlink.
+    // See https://github.com/bazelbuild/bazel/issues/20418.
+    TreeFileArtifact dirChild = TreeFileArtifact.createTreeOutput(tree, PathFragment.create("sym"));
+    FileArtifactValue dirMetadata = FileArtifactValue.createForDirectoryWithMtime(123456789);
     TreeArtifactValue metadata =
-        TreeArtifactValue.newBuilder(artifact)
-            .putChild(
-                TreeFileArtifact.createTreeOutput(artifact, PathFragment.create("file")),
-                FileArtifactValue.createForNormalFile(new byte[] {1, 2, 3}, null, 10))
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(fileChild, fileMetadata)
+            .putChild(dirChild, dirMetadata)
             .build();
     CompletionContext completionContext =
-        getCompletionContext(ImmutableMap.of(), ImmutableMap.of(artifact, metadata));
+        getCompletionContext(ImmutableMap.of(), ImmutableMap.of(tree, metadata));
 
     TargetCompleteEvent event =
         TargetCompleteEvent.successfulBuild(
@@ -141,11 +142,11 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
             artifactsToBuild.getAllArtifactsByOutputGroup(),
             /* announceTargetSummary= */ false);
 
-    assertThat(event.referencedLocalFiles()).hasSize(1);
-    LocalFile localFile = event.referencedLocalFiles().get(0);
-    assertThat(localFile.path)
-        .isEqualTo(Iterables.getOnlyElement(metadata.getChildren()).getPath());
-    assertThat(localFile.type).isEqualTo(LocalFileType.OUTPUT_FILE);
+    assertThat(event.referencedLocalFiles())
+        .containsExactly(
+            new LocalFile(fileChild.getPath(), LocalFileType.OUTPUT_FILE, fileChild, fileMetadata),
+            new LocalFile(
+                dirChild.getPath(), LocalFileType.OUTPUT_DIRECTORY, dirChild, dirMetadata));
   }
 
   @Test
@@ -154,10 +155,7 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
         "defs.bzl",
         "def _impl(ctx):",
         "  s = ctx.actions.declare_symlink(ctx.label.name)",
-        "  ctx.actions.symlink(",
-        "    output = s,",
-        "    target_path = '/some/path',",
-        "  )",
+        "  ctx.actions.symlink(output = s, target_path = 'does not matter')",
         "  return DefaultInfo(files = depset([s]))",
         "sym = rule(_impl)");
     scratch.file(
@@ -181,10 +179,9 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
             artifactsToBuild.getAllArtifactsByOutputGroup(),
             /* announceTargetSummary= */ false);
 
-    assertThat(event.referencedLocalFiles()).hasSize(1);
-    LocalFile localFile = event.referencedLocalFiles().get(0);
-    assertThat(localFile.path).isEqualTo(artifact.getPath());
-    assertThat(localFile.type).isEqualTo(LocalFileType.OUTPUT_SYMLINK);
+    assertThat(event.referencedLocalFiles())
+        .containsExactly(
+            new LocalFile(artifact.getPath(), LocalFileType.OUTPUT_SYMLINK, artifact, metadata));
   }
 
   /** Regression test for b/165671166. */
