@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.Module;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -104,20 +105,30 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
       }
     }
 
-    // Get registered execution platforms from bzlmod.
-    ImmutableList<TargetPattern> bzlmodExecutionPlatforms =
-        getBzlmodExecutionPlatforms(starlarkSemantics, env);
-    if (bzlmodExecutionPlatforms == null) {
+    // Get registered execution platforms from the root Bazel module.
+    ImmutableList<TargetPattern> bzlmodRootModuleExecutionPlatforms =
+        getBzlmodExecutionPlatforms(starlarkSemantics, env, /* forRootModule= */ true);
+    if (bzlmodRootModuleExecutionPlatforms == null) {
       return null;
     }
-    targetPatternBuilder.addAll(TargetPatternUtil.toSigned(bzlmodExecutionPlatforms));
+    targetPatternBuilder.addAll(TargetPatternUtil.toSigned(bzlmodRootModuleExecutionPlatforms));
 
     // Get the registered execution platforms from the WORKSPACE.
+    // The WORKSPACE suffixes don't register any execution platforms, so we can register all
+    // platforms in WORKSPACE before those in non-root Bazel modules.
     ImmutableList<TargetPattern> workspaceExecutionPlatforms = getWorkspaceExecutionPlatforms(env);
     if (workspaceExecutionPlatforms == null) {
       return null;
     }
     targetPatternBuilder.addAll(TargetPatternUtil.toSigned(workspaceExecutionPlatforms));
+
+    // Get registered execution platforms from the non-root Bazel modules.
+    ImmutableList<TargetPattern> bzlmodNonRootModuleExecutionPlatforms =
+        getBzlmodExecutionPlatforms(starlarkSemantics, env, /* forRootModule= */ false);
+    if (bzlmodNonRootModuleExecutionPlatforms == null) {
+      return null;
+    }
+    targetPatternBuilder.addAll(TargetPatternUtil.toSigned(bzlmodNonRootModuleExecutionPlatforms));
 
     // Expand target patterns.
     ImmutableList<Label> platformLabels;
@@ -164,7 +175,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
 
   @Nullable
   private static ImmutableList<TargetPattern> getBzlmodExecutionPlatforms(
-      StarlarkSemantics semantics, Environment env)
+      StarlarkSemantics semantics, Environment env, boolean forRootModule)
       throws InterruptedException, RegisteredExecutionPlatformsFunctionException {
     if (!semantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
       return ImmutableList.of();
@@ -176,6 +187,9 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     }
     ImmutableList.Builder<TargetPattern> executionPlatforms = ImmutableList.builder();
     for (Module module : bazelDepGraphValue.getDepGraph().values()) {
+      if (forRootModule != module.getKey().equals(ModuleKey.ROOT)) {
+        continue;
+      }
       TargetPattern.Parser parser =
           new TargetPattern.Parser(
               PathFragment.EMPTY_FRAGMENT,
