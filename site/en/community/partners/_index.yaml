@@ -67,10 +67,10 @@ landing_page:
         path: https://www.engflow.com/product/demo
         classname: button
     # Item 5
-    - image_path: /community/images/gradle-enterprise-gradient-secondary.png
+    - image_path: /community/images/develocity.png
       heading: Gradle Inc.
       description: >
-        Gradle Enterprise is a multi-build-system platform for improving developer productivity and happiness. It does this by providing a comprehensive and end-to-end solution for build & test observability, acceleration, and failure analytics, and currently supports the Bazel, Apache Maven, Gradle, and SBT build systems. Specifically, Gradle Enterprise for Bazel supports Build Cache to speed up build and test feedback cycles; Build Scan® that is like an X-ray for your build to make troubleshooting more efficient; and Failure Analytics to improve toolchain reliability.
+        Develocity is a multi-build-system platform for improving developer productivity and happiness. It does this by providing a comprehensive and end-to-end solution for build & test observability, acceleration, and failure analytics, and currently supports the Bazel, Apache Maven, Gradle, and SBT build systems. Specifically, Develocity for Bazel supports Build Cache to speed up build and test feedback cycles; Build Scan® that is like an X-ray for your build to make troubleshooting more efficient; and Failure Analytics to improve toolchain reliability.
       buttons:
       - label: Learn more
         path: https://gradle.com/gradle-enterprise-solutions/bazel-build-system/
