@@ -683,6 +683,17 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                     AndroidRuleClasses.JAVA_RESOURCES_JAR), // symlink
                 "Symlinking Android shuffled java resources jar"));
       }
+      if (androidDexInfo.getRexOutputPackageMap() != null) {
+        // Symlink to the Android rex output package map created by this android_binary's
+        // android_binary_internal
+        // target to satisfy its implicit output of android_binary.
+        ruleContext.registerAction(
+            SymlinkAction.toArtifact(
+                ruleContext.getActionOwner(),
+                androidDexInfo.getRexOutputPackageMap(), // target
+                ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.REX_OUTPUT_PACKAGE_MAP),
+                "Symlinking Android rex output package map"));
+      }
     } else {
       dexingOutput =
           dex(
