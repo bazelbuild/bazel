@@ -173,7 +173,7 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
       localFiles.add(
           new LocalFile(
               primaryOutput,
-              LocalFileType.forArtifact(outputArtifact),
+              LocalFileType.forArtifact(outputArtifact, primaryOutputMetadata),
               outputArtifact,
               primaryOutputMetadata));
     }

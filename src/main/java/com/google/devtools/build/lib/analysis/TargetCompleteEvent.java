@@ -406,12 +406,13 @@ public final class TargetCompleteEvent
             new ArtifactReceiver() {
               @Override
               public void accept(Artifact artifact) {
+                FileArtifactValue metadata = completionContext.getFileArtifactValue(artifact);
                 builder.add(
                     new LocalFile(
                         completionContext.pathResolver().toPath(artifact),
-                        LocalFileType.forArtifact(artifact),
+                        LocalFileType.forArtifact(artifact, metadata),
                         artifact,
-                        completionContext.getFileArtifactValue(artifact)));
+                        metadata));
               }
 
               @Override
