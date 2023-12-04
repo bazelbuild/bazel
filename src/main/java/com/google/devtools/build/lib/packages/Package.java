@@ -1001,6 +1001,15 @@ public class Package {
 
     private final List<TargetPattern> registeredExecutionPlatforms = new ArrayList<>();
     private final List<TargetPattern> registeredToolchains = new ArrayList<>();
+
+    /**
+     * Tracks the index within {@link #registeredToolchains} of the first toolchain registered from
+     * the WORKSPACE suffixes rather than the WORKSPACE file (if any).
+     *
+     * <p>This is needed to distinguish between these toolchains during resolution: toolchains
+     * registered in WORKSPACE have precedence over those defined in non-root Bazel modules,
+     * which in turn have precedence over those from the WORKSPACE suffixes.</p>
+     */
     private OptionalInt firstWorkspaceSuffixRegisteredToolchain = OptionalInt.empty();
 
     /**
