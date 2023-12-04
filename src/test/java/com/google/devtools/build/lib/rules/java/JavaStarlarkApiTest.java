@@ -24,12 +24,14 @@ import static java.util.Arrays.stream;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.ObjectArrays;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -47,6 +49,8 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
+import com.google.testing.junit.testparameterinjector.TestParameters.TestParametersValues;
+import com.google.testing.junit.testparameterinjector.TestParameters.TestParametersValuesProvider;
 import java.util.Iterator;
 import java.util.List;
 import net.starlark.java.annot.StarlarkMethod;
@@ -59,11 +63,44 @@ import org.junit.runner.RunWith;
 /** Tests Starlark API for Java rules. */
 @RunWith(TestParameterInjector.class)
 public class JavaStarlarkApiTest extends BuildViewTestCase {
+
+  private static final String PLATFORMS_PACKAGE_PATH = "my/java/platforms";
+
+  private final String targetPlatform;
+  private final String targetOs;
+  private final String targetCpu;
+
+  @TestParameters(valuesProvider = PlatformsParametersProvider.class)
+  public JavaStarlarkApiTest(String platform, String os, String cpu) {
+    this.targetPlatform = platform;
+    this.targetOs = os;
+    this.targetCpu = cpu;
+  }
+
+  @Before
+  public void setupTargetPlatform() throws Exception {
+    JavaTestUtil.setupPlatform(
+        getAnalysisMock(),
+        mockToolsConfig,
+        scratch,
+        PLATFORMS_PACKAGE_PATH,
+        targetPlatform,
+        targetOs,
+        targetCpu);
+  }
+
   @Before
   public void setupMyInfo() throws Exception {
     scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
 
     scratch.file("myinfo/BUILD");
+  }
+
+  @Override
+  protected void useConfiguration(String... args) throws Exception {
+    super.useConfiguration(
+        ObjectArrays.concat(
+            args, "--platforms=//" + PLATFORMS_PACKAGE_PATH + ":" + targetPlatform));
   }
 
   private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
@@ -1995,7 +2032,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     // Check that the directory name is on the java.library.path
     assertThat(
             JavaTestUtil.getJvmFlagsForJavaBinaryExecutable(
-                getGeneratingAction(getExecutable(testTarget))))
+                getRuleContext(testTarget), getGeneratingAction(getExecutable(testTarget))))
         .containsMatch("-Djava.library.path=\\$\\{JAVA_RUNFILES\\}/.*/foo");
   }
 
@@ -2025,7 +2062,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     // Check that the directory name is on the java.library.path
     assertThat(
             JavaTestUtil.getJvmFlagsForJavaBinaryExecutable(
-                getGeneratingAction(getExecutable(testTarget))))
+                getRuleContext(testTarget), getGeneratingAction(getExecutable(testTarget))))
         .containsMatch("-Djava.library.path=\\$\\{JAVA_RUNFILES\\}/.*/foo");
   }
 
@@ -3761,5 +3798,39 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     String type = JavaStarlarkCommon.printableType(JavaInfo.EMPTY);
 
     assertThat(type).isEqualTo("JavaInfo");
+  }
+
+  private static class PlatformsParametersProvider implements TestParametersValuesProvider {
+
+    @Override
+    public List<TestParametersValues> provideValues() {
+      ImmutableList.Builder<TestParametersValues> parameters = ImmutableList.builder();
+      parameters
+          .add(
+              TestParametersValues.builder()
+                  .name("linux")
+                  .addParameter("platform", "linux-x86_64")
+                  .addParameter("os", "linux")
+                  .addParameter("cpu", "x86_64")
+                  .build())
+          .add(
+              TestParametersValues.builder()
+                  .name("darwin")
+                  .addParameter("platform", "darwin-x86_64")
+                  .addParameter("os", "macos")
+                  .addParameter("cpu", "x86_64")
+                  .build());
+      // building for windows is only supported in Bazel
+      if (AnalysisMock.get().isThisBazel()) {
+        parameters.add(
+            TestParametersValues.builder()
+                .name("windows")
+                .addParameter("platform", "windows-x86_64")
+                .addParameter("os", "windows")
+                .addParameter("cpu", "x86_64")
+                .build());
+      }
+      return parameters.build();
+    }
   }
 }

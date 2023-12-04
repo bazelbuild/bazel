@@ -19,16 +19,63 @@ import static com.google.devtools.build.lib.testutil.TestConstants.TOOLS_REPOSIT
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ObjectArrays;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.java.JavaTestUtil;
+import java.util.Arrays;
+import java.util.List;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 /** Tests of bazel java rules. */
-@RunWith(JUnit4.class)
+@RunWith(Parameterized.class)
 public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
+
+  // we use a custom package to avoid overwriting the default
+  private static final String PLATFORMS_PACKAGE_PATH = "my/java/platforms";
+
+  @Parameter(0)
+  public String targetPlatform;
+
+  @Parameter(1)
+  public String targetOs;
+
+  @Parameter(2)
+  public String targetCpu;
+
+  @Parameters
+  public static List<Object[]> platformParameters() {
+    return Arrays.asList(
+        new Object[][] {
+          {"linux-default", "linux", "x86_64"},
+          {"windows-default", "windows", "x86_64"},
+          {"darwin-x86", "macos", "x86_64"},
+        });
+  }
+
+  @Override
+  protected void useConfiguration(String... args) throws Exception {
+    super.useConfiguration(
+        ObjectArrays.concat(
+            args, "--platforms=//" + PLATFORMS_PACKAGE_PATH + ":" + targetPlatform));
+  }
+
+  @Before
+  public void setup() throws Exception {
+    JavaTestUtil.setupPlatform(
+        getAnalysisMock(),
+        mockToolsConfig,
+        scratch,
+        PLATFORMS_PACKAGE_PATH,
+        targetPlatform,
+        targetOs,
+        targetCpu);
+  }
 
   @Test
   public void testResourceStripPrefix() throws Exception {
@@ -72,7 +119,8 @@ public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
     useConfiguration("--extra_toolchains=//a:java_runtime_toolchain");
     var ct = getConfiguredTarget("//a:test");
     String jvmFlags =
-        JavaTestUtil.getJvmFlagsForJavaBinaryExecutable(getGeneratingAction(getExecutable(ct)));
+        JavaTestUtil.getJvmFlagsForJavaBinaryExecutable(
+            getRuleContext(ct), getGeneratingAction(getExecutable(ct)));
     assertThat(jvmFlags).contains("-Djava.security.manager=allow");
   }
 

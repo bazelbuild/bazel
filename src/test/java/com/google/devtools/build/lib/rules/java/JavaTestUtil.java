@@ -18,11 +18,14 @@ import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.joining;
 
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.util.Objects;
@@ -74,10 +77,30 @@ public class JavaTestUtil {
         ")");
   }
 
-  public static String getJvmFlagsForJavaBinaryExecutable(Action action) throws Exception {
-    boolean targetsWindows =
-        action.getExecutionPlatform().constraints().hasConstraintValue(getWindowsConstraintValue());
-    if (targetsWindows) {
+  public static void setupPlatform(
+      AnalysisMock analysisMock,
+      MockToolsConfig mockToolsConfig,
+      Scratch scratch,
+      String packagePath,
+      String platform,
+      String os,
+      String cpu)
+      throws Exception {
+    scratch.file(
+        packagePath + "/BUILD",
+        "platform(",
+        "  name = '" + platform + "',",
+        "  constraint_values = [",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:" + os + "',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:" + cpu + "',",
+        "  ]",
+        ")");
+    analysisMock.ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, cpu);
+  }
+
+  public static String getJvmFlagsForJavaBinaryExecutable(RuleContext ruleContext, Action action)
+      throws Exception {
+    if (ruleContext.targetPlatformHasConstraint(getWindowsConstraintValue())) {
       return ((SpawnAction) action)
           .getArguments().stream()
               .filter(a -> a.startsWith("jvm_flags="))
