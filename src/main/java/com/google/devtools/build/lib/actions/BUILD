@@ -427,9 +427,7 @@ java_library(
     name = "localhost_capacity",
     srcs = [
         "LocalHostCapacity.java",
-        "LocalHostResourceFallback.java",
-        "LocalHostResourceManagerDarwin.java",
-        "LocalHostResourceManagerLinux.java",
+        "LocalHostResource.java",
         "ResourceSet.java",
         "ResourceSetOrBuilder.java",
     ],

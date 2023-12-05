@@ -39,21 +39,7 @@ public final class LocalHostCapacity {
   }
 
   private static ResourceSet getNewLocalHostCapacity() {
-    ResourceSet localResources = null;
-    switch (currentOS) {
-      case DARWIN:
-        localResources = LocalHostResourceManagerDarwin.getLocalHostResources();
-        break;
-      case LINUX:
-        localResources = LocalHostResourceManagerLinux.getLocalHostResources();
-        break;
-      default:
-        break;
-    }
-    if (localResources == null) {
-      localResources = LocalHostResourceFallback.getLocalHostResources();
-    }
-
+    ResourceSet localResources = LocalHostResource.get();
     logger.atInfo().log(
         "Determined local resources: RAM=%dMB, CPU=%.1f",
         (int) localResources.getMemoryMb(), localResources.getCpuUsage());
