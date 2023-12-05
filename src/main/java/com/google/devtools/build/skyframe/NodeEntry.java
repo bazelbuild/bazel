@@ -290,8 +290,14 @@ public interface NodeEntry {
   @Nullable
   SkyValue getValueMaybeWithMetadata() throws InterruptedException;
 
-  /** Returns the value, even if dirty or changed. Returns null otherwise. */
+  /**
+   * Returns the last known value of this node, even if it was {@linkplain #markDirty marked dirty}.
+   *
+   * <p>Unlike {@link #getValue}, this method may be called at any point in the node's lifecycle.
+   * Returns {@code null} if this node was never built or has no value because it is in error.
+   */
   @ThreadSafe
+  @Nullable
   SkyValue toValue() throws InterruptedException;
 
   /**

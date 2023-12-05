@@ -88,29 +88,6 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
     return true;
   }
 
-  @Nullable
-  @Override
-  public SkyValue toValue() {
-    SkyValue lastBuildValue = value;
-    if (lastBuildValue == null) {
-      synchronized (this) {
-        if (value != null) {
-          lastBuildValue = value;
-        } else if (dirtyBuildingState != null) {
-          try {
-            lastBuildValue = dirtyBuildingState.getLastBuildValue();
-          } catch (InterruptedException e) {
-            throw new IllegalStateException("Interruption unexpected: " + this, e);
-          }
-        } else {
-          return null; // An evaluation was never started.
-        }
-      }
-    }
-
-    return lastBuildValue != null ? ValueWithMetadata.justValue(lastBuildValue) : null;
-  }
-
   @Override
   public Iterable<SkyKey> getDirectDeps() {
     return GroupedDeps.compressedToIterable(getCompressedDirectDepsForDoneEntry());

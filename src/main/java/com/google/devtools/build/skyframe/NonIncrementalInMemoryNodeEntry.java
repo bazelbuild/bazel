@@ -65,12 +65,6 @@ public class NonIncrementalInMemoryNodeEntry
   }
 
   @Override
-  @Nullable
-  public final SkyValue toValue() {
-    return ValueWithMetadata.justValue(value);
-  }
-
-  @Override
   @CanIgnoreReturnValue
   public final DependencyState addReverseDepAndCheckIfDone(@Nullable SkyKey reverseDep) {
     // Fast path check before locking. If this node is already done, there is nothing to do since we
@@ -121,7 +115,11 @@ public class NonIncrementalInMemoryNodeEntry
   @Override
   public final synchronized void resetEvaluationFromScratch() {
     checkState(!hasUnsignaledDeps(), this);
-    var newBuildingState = new NonIncrementalBuildingState();
+    SkyValue rewoundValue = dirtyBuildingState.getLastBuildValue();
+    var newBuildingState =
+        rewoundValue == null
+            ? new NonIncrementalBuildingState()
+            : new RewoundNonIncrementalBuildingState(rewoundValue);
     newBuildingState.reverseDeps = dirtyBuildingState.reverseDeps;
     newBuildingState.markRebuilding();
     newBuildingState.startEvaluating();
@@ -149,7 +147,7 @@ public class NonIncrementalInMemoryNodeEntry
     if (!isDone()) {
       return null; // Tolerate concurrent requests to rewind.
     }
-    dirtyBuildingState = new NonIncrementalBuildingState();
+    dirtyBuildingState = new RewoundNonIncrementalBuildingState(value);
     value = null;
     return MarkedDirtyResult.forRewinding();
   }
@@ -241,33 +239,33 @@ public class NonIncrementalInMemoryNodeEntry
    * in {@link NonIncrementalInMemoryNodeEntry} since they are not needed after the node is done.
    * This way we don't pay the memory cost of the fields for a done node.
    */
-  static final class NonIncrementalBuildingState extends InitialBuildingState {
+  static class NonIncrementalBuildingState extends InitialBuildingState {
     @Nullable private GroupedDeps directDeps = null;
     @Nullable private List<SkyKey> reverseDeps = null;
 
     private NonIncrementalBuildingState() {}
 
-    GroupedDeps getTemporaryDirectDeps(NonIncrementalInMemoryNodeEntry entry) {
+    final GroupedDeps getTemporaryDirectDeps(NonIncrementalInMemoryNodeEntry entry) {
       if (directDeps == null) {
         directDeps = entry.newGroupedDeps();
       }
       return directDeps;
     }
 
-    void addReverseDep(SkyKey reverseDep) {
+    final void addReverseDep(SkyKey reverseDep) {
       if (reverseDeps == null) {
         reverseDeps = new ArrayList<>();
       }
       reverseDeps.add(reverseDep);
     }
 
-    void removeReverseDep(SkyKey reverseDep) {
+    final void removeReverseDep(SkyKey reverseDep) {
       // Reverse dep removal on a non-incremental node is rare (only for cycles), so we can live
       // with inefficiently calling remove on an ArrayList.
       checkState(reverseDeps.remove(reverseDep), "Reverse dep not present: %s", reverseDep);
     }
 
-    ImmutableSet<SkyKey> getReverseDeps(NonIncrementalInMemoryNodeEntry entry) {
+    final ImmutableSet<SkyKey> getReverseDeps(NonIncrementalInMemoryNodeEntry entry) {
       if (reverseDeps == null) {
         return ImmutableSet.of();
       }
@@ -279,6 +277,30 @@ public class NonIncrementalInMemoryNodeEntry
     @Override
     protected MoreObjects.ToStringHelper getStringHelper() {
       return super.getStringHelper().add("directDeps", directDeps).add("reverseDeps", reverseDeps);
+    }
+  }
+
+  /**
+   * State for a non-incremental node that was previously {@linkplain #isDone done} but was
+   * {@linkplain com.google.devtools.build.skyframe.NodeEntry.DirtyType#REWIND rewound}. Stores the
+   * previously built value for the sole purpose of servicing {@link #toValue}.
+   */
+  private static final class RewoundNonIncrementalBuildingState
+      extends NonIncrementalBuildingState {
+    private final SkyValue rewoundValue;
+
+    RewoundNonIncrementalBuildingState(SkyValue rewoundValue) {
+      this.rewoundValue = rewoundValue;
+    }
+
+    @Override
+    public SkyValue getLastBuildValue() {
+      return rewoundValue;
+    }
+
+    @Override
+    protected MoreObjects.ToStringHelper getStringHelper() {
+      return super.getStringHelper().add("rewoundValue", rewoundValue);
     }
   }
 }
