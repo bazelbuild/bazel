@@ -855,7 +855,7 @@ public final class AndroidRuleClasses {
           <p>If this attribute is set, this <code>android_binary</code> will be treated as a test
           application for instrumentation tests. An <code>android_instrumentation_test</code>
           target can then specify this target in its
-           <a href="${link android_instrumentation_test.test_app}">test_app</a> attribute.
+           <code>test_app</code> attribute.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr("instruments", LABEL)

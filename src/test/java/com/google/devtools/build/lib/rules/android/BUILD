@@ -257,27 +257,6 @@ java_test(
 )
 
 java_test(
-    name = "AndroidInstrumentationTestTest",
-    srcs = ["AndroidInstrumentationTestTest.java"],
-    tags = ["no_windows"],
-    deps = [
-        ":AndroidBuildViewTestCase",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/analysis:actions/template_expansion_action",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
-        "//src/main/java/com/google/devtools/build/lib/rules/android",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
-        "//src/test/java/com/google/devtools/build/lib/actions/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
     name = "AndroidLibraryTest",
     srcs = ["AndroidLibraryTest.java"],
     shard_count = 5,
