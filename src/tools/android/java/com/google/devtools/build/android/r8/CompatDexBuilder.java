@@ -33,6 +33,7 @@ import com.android.tools.r8.origin.PathOrigin;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.Weigher;
@@ -190,7 +191,8 @@ public class CompatDexBuilder {
     }
   }
 
-  private int processRequest(
+  @VisibleForTesting
+  int processRequest(
       @Nullable Cache<DexingKeyR8, DexingEntryR8> dexCache,
       DiagnosticsHandler diagnosticsHandler,
       List<String> args,
