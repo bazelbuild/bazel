@@ -5,6 +5,7 @@ load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolcha
 load("@rules_license//rules:license.bzl", "license")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 load("@rules_python//python:defs.bzl", "py_binary")
+load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup")
 
@@ -301,4 +302,13 @@ default_java_toolchain(
     bootclasspath = ["@bazel_tools//tools/jdk:platformclasspath"],
     source_version = "11",
     target_version = "11",
+)
+
+# Compile the pip requirements file to be used in MODULE.bazel.
+# If this changes, regenerate requirements_lock.txt:
+# $ bazel run //:requirements.update
+compile_pip_requirements(
+    name = "requirements",
+    requirements_in = "requirements.in",
+    requirements_txt = "requirements_lock.txt",
 )

@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "639286174975707913dc79fad893b9e88a05f017fbc89d85ef7fcc1df062baf9",
+  "moduleFileHash": "8e42d3b6f2d6672114c594f86e6996b5c8a00253725f3969f9832fd0719613a8",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -428,7 +428,7 @@
               "attributeValues": {
                 "hub_name": "bazel_pip_dev_deps",
                 "python_version": "3.8",
-                "requirements_lock": "//:requirements.txt"
+                "requirements_lock": "//:requirements_lock.txt"
               },
               "devDependency": false,
               "location": {
@@ -2251,7 +2251,7 @@
         "bzlTransitiveDigest": "jRtP5osY4OoM27yZDy++l0G15nhPHicA27B589vWc7Q=",
         "accumulatedFileDigests": {
           "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "cd1b6e477c28420dedbc9eb36de4ba497f4af6be18c32042feddd270e35bb717",
-          "@@//:MODULE.bazel": "639286174975707913dc79fad893b9e88a05f017fbc89d85ef7fcc1df062baf9"
+          "@@//:MODULE.bazel": "8e42d3b6f2d6672114c594f86e6996b5c8a00253725f3969f9832fd0719613a8"
         },
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -8135,7 +8135,7 @@
       "os:linux,arch:amd64": {
         "bzlTransitiveDigest": "jhQW/LxWUWs4h1dCQbUobvdwEx2mY59eqNQIo+/qKYA=",
         "accumulatedFileDigests": {
-          "@@//:requirements.txt": "ff12967a755bb8e9b4c92524f6471a99e14c30474a3d428547c55745ec8f23a0"
+          "@@//:requirements_lock.txt": "51af9b2dc207564e74bdab02afd288cf664db612e5aaf23586cefc3df8f53d83"
         },
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -8158,7 +8158,7 @@
             "ruleClassName": "whl_library",
             "attributes": {
               "name": "rules_python~0.27.0~pip~bazel_pip_dev_deps_38_bazel_runfiles",
-              "requirement": "bazel-runfiles==0.24.0",
+              "requirement": "bazel-runfiles==0.24.0     --hash=sha256:5ff2fd30d0839f2df0ad2a0889e340ebb9989158b244bfdaee7f03a5f5014b71",
               "repo": "bazel_pip_dev_deps_38",
               "repo_prefix": "bazel_pip_dev_deps_38_",
               "whl_patches": {},
