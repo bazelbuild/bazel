@@ -72,6 +72,8 @@ public class AutoCpuConverter extends Converter.Contextless<String> {
               return "mips64";
             case RISCV64:
               return "riscv64";
+            case LOONGARCH64:
+              return "loongarch64";
             default:
               return "unknown";
           }

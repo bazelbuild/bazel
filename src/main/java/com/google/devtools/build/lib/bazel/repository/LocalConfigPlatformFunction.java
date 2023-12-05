@@ -122,6 +122,8 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
         return "@platforms//cpu:mips64";
       case RISCV64:
         return "@platforms//cpu:riscv64";
+      case LOONGARCH64:
+        return "@platforms//cpu:loongarch64";
       default:
         // Unknown, so skip it.
         return null;
