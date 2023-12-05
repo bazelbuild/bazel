@@ -516,43 +516,55 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
    * potentially more expensive operations.
    */
   // TODO(wyv): somehow migrate this to the base context too.
-  public void enforceLabelAttributes() throws EvalException, InterruptedException {
+  public void enforceLabelAttributes() throws EvalException, InterruptedException, NeedsSkyframeRestartException {
     // TODO: If a labels fails to resolve to an existing regular file, we do not add a dependency on
     //  that fact - if the file is created later or changes its type, it will not trigger a rerun of
     //  the repository function.
     StructImpl attr = getAttr();
+    // Batch restarts as they are expensive
+    boolean needsRestart = false;
     for (String name : attr.getFieldNames()) {
       Object value = attr.getValue(name);
       if (value instanceof Label) {
-        dependOnLabelIgnoringErrors((Label) value);
+        if (dependOnLabelIgnoringErrors((Label) value)) {
+          needsRestart = true;
+        }
       }
       if (value instanceof Sequence) {
         for (Object entry : (Sequence) value) {
           if (entry instanceof Label) {
-            dependOnLabelIgnoringErrors((Label) entry);
+            if (dependOnLabelIgnoringErrors((Label) entry)) {
+              needsRestart = true;
+            }
           }
         }
       }
       if (value instanceof Dict) {
         for (Object entry : ((Dict) value).keySet()) {
           if (entry instanceof Label) {
-            dependOnLabelIgnoringErrors((Label) entry);
+            if (dependOnLabelIgnoringErrors((Label) entry)) {
+              needsRestart = true;
+            }
           }
         }
       }
     }
+
+    if (needsRestart) {
+      throw new NeedsSkyframeRestartException();
+    }
   }
 
-  private void dependOnLabelIgnoringErrors(Label label)
-      throws InterruptedException, NeedsSkyframeRestartException {
+  private boolean dependOnLabelIgnoringErrors(Label label) throws InterruptedException {
     try {
       getPathFromLabel(label);
     } catch (NeedsSkyframeRestartException e) {
-      throw e;
+      return true;
     } catch (EvalException e) {
       // EvalExceptions indicate labels not referring to existing files. This is fine,
       // as long as they are never resolved to files in the execution of the rule; we allow
       // non-strict rules.
     }
+    return false;
   }
 }
