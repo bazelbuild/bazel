@@ -295,6 +295,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       } else if (trans instanceof ExecutionTransitionFactory) {
         builder.cfg((ExecutionTransitionFactory) trans);
       } else if (trans instanceof SplitTransition) {
+        // TODO(jcater): remove TransitionFactories usage.
         builder.cfg(TransitionFactories.of((SplitTransition) trans));
       } else if (trans instanceof TransitionFactory) {
         @SuppressWarnings("unchecked")

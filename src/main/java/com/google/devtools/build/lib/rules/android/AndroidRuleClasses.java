@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
-import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -213,11 +212,7 @@ public final class AndroidRuleClasses {
         androidSdk,
         (rule, attributes, configuration) -> configuration.getSdk());
   }
-
-  @SerializationConstant
-  public static final AndroidSplitTransition ANDROID_SPLIT_TRANSITION =
-      new AndroidSplitTransition();
-
+  
   @SerializationConstant
   static final LabelLateBoundDefault<AndroidConfiguration> LEGACY_MAIN_DEX_LIST_GENERATOR =
       LabelLateBoundDefault.fromTargetConfiguration(
@@ -517,7 +512,7 @@ public final class AndroidRuleClasses {
           .override(
               builder
                   .copy("deps")
-                  .cfg(TransitionFactories.of(ANDROID_SPLIT_TRANSITION))
+                  .cfg(AndroidSplitTransition.FACTORY)
                   .allowedRuleClasses(ALLOWED_DEPENDENCIES)
                   .allowedFileTypes()
                   .mandatoryProviders(CONTAINS_CC_INFO_PARAMS)
@@ -818,7 +813,7 @@ public final class AndroidRuleClasses {
           // We need the C++ toolchain for every sub-configuration to get the correct linker.
           .add(
               attr("$cc_toolchain_split", LABEL)
-                  .cfg(TransitionFactories.of(ANDROID_SPLIT_TRANSITION))
+                  .cfg(AndroidSplitTransition.FACTORY)
                   .value(env.getToolsLabel("//tools/cpp:current_cc_toolchain")))
           /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(manifest_values) -->
           A dictionary of values to be overridden in the manifest.
