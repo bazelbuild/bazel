@@ -424,6 +424,8 @@ def read_user_netrc(ctx):
 def get_auth(ctx, urls):
     """Utility function to obtain the correct auth dict for a list of urls from .netrc file.
 
+    Support optional netrc and auth_patterns attributes if available.
+
     Args:
       ctx: The repository context of the repository rule calling this utility
         function.
@@ -432,10 +434,13 @@ def get_auth(ctx, urls):
     Returns:
       the auth dict which can be passed to repository_ctx.download
     """
-    if ctx.attr.netrc:
+    if hasattr(ctx.attr, 'netrc') and ctx.attr.netrc:
         netrc = read_netrc(ctx, ctx.attr.netrc)
     elif "NETRC" in ctx.os.environ:
         netrc = read_netrc(ctx, ctx.os.environ["NETRC"])
     else:
         netrc = read_user_netrc(ctx)
-    return use_netrc(netrc, urls, ctx.attr.auth_patterns)
+    auth_patterns = {}
+    if hasattr(ctx.attr, 'auth_patterns') and ctx.attr.auth_patterns:
+        auth_patterns = ctx.attr.auth_patterns
+    return use_netrc(netrc, urls, auth_patterns)
