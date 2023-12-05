@@ -1820,6 +1820,7 @@ java_library(
     deps = [
         ":analysis_cluster",
         ":config/build_options",
+        ":config/common_options",
         ":config/core_options",
         ":config/starlark_defined_config_transition",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
