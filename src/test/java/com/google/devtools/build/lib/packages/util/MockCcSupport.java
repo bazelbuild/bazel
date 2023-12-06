@@ -446,10 +446,8 @@ public abstract class MockCcSupport {
         "cc_runtimes_toolchain = rule(",
         "    implementation = _cc_runtimes_toolchain_impl,",
         "    attrs = {",
-        "        'runtimes': attr.label_list(cfg = _include_runtimes_transition),",
-        "        '_allowlist_function_transition': attr.label(",
-        "            default = Label('//tools/allowlists/function_transition_allowlist'))}",
-        ")");
+        "        'runtimes': attr.label_list(cfg = _include_runtimes_transition)",
+        "    })");
 
     scratch.file(
         "runtimes/BUILD",

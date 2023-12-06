@@ -256,9 +256,6 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
         "    implementation = _rule_impl,",
         "    cfg = _my_transition,",
         "    attrs = {",
-        "        '_allowlist_function_transition': attr.label(",
-        "            default = '//tools/allowlists/function_transition_allowlist',",
-        "        ),",
         "        '_flag1': attr.label(default=':my_flag1'),",
         "        '_flag2': attr.label(default=':my_flag2'),",
         "        '_flag3': attr.label(default=':my_flag3'),",
@@ -314,9 +311,6 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
         "    implementation = _rule_impl,",
         "    cfg = _my_transition,",
         "    attrs = {",
-        "        '_allowlist_function_transition': attr.label(",
-        "            default = '//tools/allowlists/function_transition_allowlist',",
-        "        ),",
         "        '_flag1': attr.label(default=':my_flag1'),",
         "        '_flag2': attr.label(default=':my_flag2'),",
         "    }",
@@ -358,11 +352,7 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
         "state = rule(",
         "  implementation = _impl,",
         "  cfg = formation_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })");
+        ")");
     scratch.file(
         "test/BUILD",
         "load('//test:defs.bzl', 'state', 'string_flag')",

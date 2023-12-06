@@ -63,11 +63,7 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
         "state = rule(",
         "  implementation = _impl,",
         "  cfg = formation_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })");
+        ")");
     scratch.file(
         "test/BUILD",
         "load('//test:defs.bzl', 'state', 'string_flag')",
@@ -103,11 +99,7 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
         "state = rule(",
         "  implementation = _impl,",
         "  cfg = formation_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })");
+        ")");
     scratch.file(
         "test/BUILD",
         "load('//test:defs.bzl', 'state', 'string_flag')",
@@ -150,11 +142,7 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
         "state = rule(",
         "  implementation = _impl,",
         "  cfg = formation_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })");
+        ")");
     scratch.file(
         "test/BUILD",
         "load('//test:defs.bzl', 'state', 'string_flag')",
@@ -191,11 +179,7 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
         "eater = rule(",
         "  implementation = _impl,",
         "  cfg = eating_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  })");
+        ")");
   }
 
   @Test

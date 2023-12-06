@@ -2597,8 +2597,6 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "foo = rule(",
         "  implementation = _foo_impl,",
         "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist'),",
         "    '_attr': attr.label(",
         "        cfg = foo_transition,",
         "        default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})");

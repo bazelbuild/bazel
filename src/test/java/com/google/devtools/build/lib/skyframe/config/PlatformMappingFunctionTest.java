@@ -337,9 +337,6 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
         "  implementation = lambda ctx: [],",
         "  attrs = {",
         "    'dep':  attr.label(cfg = my_transition),",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
         "  }",
         ")");
     scratch.file("test/starlark/BUILD");

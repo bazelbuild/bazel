@@ -61,7 +61,6 @@ rule_with_transition = rule(
     implementation = _rule_with_transition_impl,
     attrs = {
         "dep": attr.label(cfg = my_transition),
-        "_allowlist_function_transition": attr.label(default = "@bazel_tools//tools/allowlists/function_transition_allowlist"),
     }
 )
 EOF
@@ -189,7 +188,6 @@ rule_with_transition = rule(
     implementation = _rule_with_transition_impl,
     attrs = {
         "dep" : attr.label(cfg = my_transition),
-        "_allowlist_function_transition": attr.label(default = "@//tools/allowlists/function_transition_allowlist"),
     }
 )
 EOF

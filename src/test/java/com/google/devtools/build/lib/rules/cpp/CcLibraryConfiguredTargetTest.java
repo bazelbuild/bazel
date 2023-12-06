@@ -1671,9 +1671,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "            allow_single_file = True,",
         "            cfg = cpu_transition,",
         "        ),",
-        "        '_allowlist_function_transition': attr.label(",
-        "            default = '//tools/allowlists/function_transition_allowlist',",
-        "        ),",
         "    },",
         ")");
     scratch.overwriteFile(
@@ -1739,9 +1736,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "apply_custom_transition = rule(",
         "    implementation = _apply_custom_transition_impl,",
         "    attrs = {",
-        "        '_allowlist_function_transition': attr.label(",
-        "            default = '//tools/allowlists/function_transition_allowlist',",
-        "        ),",
         "        'deps': attr.label_list(cfg = custom_transition),",
         "    },",
         ")");

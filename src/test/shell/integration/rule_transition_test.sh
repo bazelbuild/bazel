@@ -78,9 +78,6 @@ transition_attached = rule(
         "apply_transition": attr.bool(default = False),
         "deps": attr.label_list(),
         "_transition_output_flag": attr.label(default = "//%s:transition_output_flag" % example_package),
-        "_allowlist_function_transition": attr.label(
-            default = "//tools/allowlists/function_transition_allowlist:function_transition_allowlist",
-        ),
     },
 )
 
@@ -227,9 +224,6 @@ transition_attached = rule(
         "apply_transition": attr.bool(default = False),
         "deps": attr.label_list(),
         "_transition_output_flag": attr.label(default = "//%s:transition_output_flag" % example_package),
-        "_allowlist_function_transition": attr.label(
-            default = "//tools/allowlists/function_transition_allowlist:function_transition_allowlist",
-        ),
     },
 )
 EOF
@@ -305,9 +299,6 @@ transition_attached = rule(
     cfg = example_transition,
     attrs = {
         "cpu_name": attr.string(),
-        "_allowlist_function_transition": attr.label(
-            default = "//tools/allowlists/function_transition_allowlist:function_transition_allowlist",
-        ),
     },
 )
 EOF
@@ -376,9 +367,6 @@ transition_attached = rule(
     cfg = example_transition,
     attrs = {
         "cpu_name": attr.string(),
-        "_allowlist_function_transition": attr.label(
-            default = "//tools/allowlists/function_transition_allowlist:function_transition_allowlist",
-        ),
     },
 )
 EOF

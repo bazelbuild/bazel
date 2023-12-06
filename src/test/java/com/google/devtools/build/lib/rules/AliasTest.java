@@ -289,9 +289,6 @@ public class AliasTest extends BuildViewTestCase {
         "  attrs = {",
         "    'deps': attr.label_list(cfg = my_transition),",
         "    'dep':  attr.label(cfg = my_transition),",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
         "  })");
 
     scratch.file(

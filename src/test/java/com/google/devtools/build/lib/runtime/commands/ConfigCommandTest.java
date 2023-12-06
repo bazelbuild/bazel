@@ -88,10 +88,6 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
         "rule_with_transition = rule(",
         "  implementation = _simple_rule_impl,",
         "  cfg = _sometransition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist'),",
-        "  },",
         ")");
     write(
         "test/BUILD",
