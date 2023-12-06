@@ -11,6 +11,7 @@ load(
     "nocode_cc_lib",
     "wrapped_cc_lib",
     "exports_test",
+    "pdb_test",
 )
 load("@rules_testing//lib:analysis_test.bzl", "analysis_test")
 load("@rules_python//python:py_test.bzl", "py_test")
@@ -119,7 +120,10 @@ cc_shared_library(
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:diff_pkg_so",
         "private_lib_so",
     ],
-    features = ["windows_export_all_symbols"],
+    features = [
+      "windows_export_all_symbols",
+      "generate_pdb_file",
+    ],
     exports_filter = [
         ":indirect_dep2",
     ],
@@ -518,4 +522,9 @@ exports_test(
        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:should_not_be_linked_cc_lib",
        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:a_suffix",
     ],
+)
+
+pdb_test(
+    name = "pdb_test",
+    target = ":foo_so",
 )
