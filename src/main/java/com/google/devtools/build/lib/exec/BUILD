@@ -260,15 +260,19 @@ java_library(
 
 java_library(
     name = "spawn_log_context",
-    srcs = ["SpawnLogContext.java"],
+    srcs = [
+        "ExpandedSpawnLogContext.java",
+        "SpawnLogContext.java",
+    ],
     deps = [
-        ":execution_options",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:platform_utils",
+        "//src/main/java/com/google/devtools/build/lib/bazel/execlog:stable_sort",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
