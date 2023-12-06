@@ -2228,7 +2228,7 @@
   "moduleExtensions": {
     "//:extensions.bzl%bazel_android_deps": {
       "general": {
-        "bzlTransitiveDigest": "M+Kibq9YWa30UXl7Q/DpGa9VieL10yxIRmxnwkEJJsY=",
+        "bzlTransitiveDigest": "GePZH6z20Bg8DBJJz2KRAeVWAUspcD8Fl2sAoNAktTg=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2247,7 +2247,7 @@
     },
     "//:extensions.bzl%bazel_build_deps": {
       "general": {
-        "bzlTransitiveDigest": "M+Kibq9YWa30UXl7Q/DpGa9VieL10yxIRmxnwkEJJsY=",
+        "bzlTransitiveDigest": "GePZH6z20Bg8DBJJz2KRAeVWAUspcD8Fl2sAoNAktTg=",
         "accumulatedFileDigests": {
           "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "2a2190cbc3ea403b5928329a0b23a071950f093b37514d6ef7f8a6ede6a3b9df",
           "@@//:MODULE.bazel": "181678df5c28839fced02f5f546f99ae5a99c21eb263975d3244e17497b7064f"
