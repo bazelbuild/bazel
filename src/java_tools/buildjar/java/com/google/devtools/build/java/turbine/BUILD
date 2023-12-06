@@ -39,6 +39,13 @@ native_image(
         "--no-fallback",
         # More verbose errors in case of compilation failures.
         "-H:+ReportExceptionStackTraces",
+        # A benchmark on Bazel itself shows a ~15% improvement in combined compile and header
+        # compile action time on an incremental build triggered by a signature change to Label with
+        # this option. 256m provides a noticeably smaller improvement, higher values do not provide
+        # further improvement and would go over the local resource estimate in
+        # com.google.devtools.build.lib.rules.java.JavaCompileAction.LOCAL_RESOURCES.
+        # See :turbine_benchmark for the benchmark script used.
+        "-R:MinHeapSize=512m",
     ] + select({
         "@platforms//os:linux": [
             # Statically link zlib but not glibc.
@@ -57,6 +64,15 @@ native_image(
     # This provides libz.a on Linux instead of the host system.
     static_zlib = "//third_party/zlib",
     deps = [":turbine_deps"],
+)
+
+# Run with -c opt.
+sh_binary(
+    name = "turbine_benchmark",
+    srcs = ["turbine_benchmark.sh"],
+    args = ["$(rlocationpath turbine_direct_graal)"],
+    data = [":turbine_direct_graal"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
 filegroup(
