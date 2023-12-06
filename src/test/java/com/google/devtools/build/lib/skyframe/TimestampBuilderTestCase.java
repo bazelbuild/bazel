@@ -112,6 +112,7 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.EventFilter;
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -236,6 +237,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     skyframeActionExecutor.configure(
         cache, ActionInputPrefetcher.NONE, DiscoveredModulesPruner.DEFAULT);
 
+    AtomicReference<MemoizingEvaluator> evaluatorRef = new AtomicReference<>();
     InMemoryMemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
@@ -252,6 +254,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                     new ActionExecutionFunction(
                         new ActionRewindStrategy(),
                         skyframeActionExecutor,
+                        evaluatorRef::get,
                         directories,
                         () -> tsgm,
                         BugReporter.defaultInstance(),
@@ -294,7 +297,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                 .put(
                     SkyFunctions.ACTION_TEMPLATE_EXPANSION,
                     new DelegatingActionTemplateExpansionFunction())
-                .put(SkyFunctions.ARTIFACT_NESTED_SET, ArtifactNestedSetFunction.createInstance())
+                .put(SkyFunctions.ARTIFACT_NESTED_SET, new ArtifactNestedSetFunction())
                 .buildOrThrow(),
             differencer,
             evaluationProgressReceiver,
@@ -303,6 +306,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             new EmittedEventState(),
             /* keepEdges= */ true,
             /* usePooledInterning= */ true);
+    evaluatorRef.set(evaluator);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.ACTION_ENV.set(differencer, ImmutableMap.of());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
