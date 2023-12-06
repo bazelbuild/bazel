@@ -128,7 +128,7 @@ public final class CppConfigurationStarlarkTest extends BuildViewTestCase {
     e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:save"));
     assertThat(e).hasMessageThat().contains("cannot use private API");
     e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:fission"));
-    assertBlockedFeature(e, "fission_active_for_current_compilation_mode");
+    assertThat(e).hasMessageThat().contains("cannot use private API");
   }
 
   private void writeRuleReturning(String returns) throws IOException {

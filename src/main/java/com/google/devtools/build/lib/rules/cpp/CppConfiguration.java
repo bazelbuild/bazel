@@ -876,7 +876,7 @@ public final class CppConfiguration extends Fragment
   @Override
   public boolean fissionActiveForCurrentCompilationModeStarlark(StarlarkThread thread)
       throws EvalException {
-    checkInExpandedApiAllowlist(thread, "fission_active_for_current_compilation_mode");
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return fissionIsActiveForCurrentCompilationMode();
   }
 
