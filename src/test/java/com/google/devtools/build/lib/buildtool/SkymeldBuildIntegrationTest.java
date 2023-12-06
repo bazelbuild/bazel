@@ -302,6 +302,30 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     events.assertContainsError("rule '//foo:missing' does not exist");
   }
 
+  // Regression test for https://github.com/bazelbuild/bazel/issues/20443
+  @Test
+  public void testKeepGoingWarningContainsDetails() throws Exception {
+    addOptions("--keep_going");
+    write(
+        "foo/BUILD",
+        "constraint_setting(name = 'incompatible_setting')",
+        "constraint_value(",
+        "    name = 'incompatible',",
+        "    constraint_setting = ':incompatible_setting',",
+        "    visibility = ['//visibility:public']",
+        ")",
+        "cc_library(",
+        "    name = 'foo',",
+        "    srcs = ['foo.cc'],",
+        "    target_compatible_with = ['//foo:incompatible']",
+        ")");
+    assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
+    events.assertContainsWarning(
+        "errors encountered while analyzing target '//foo:foo', it will not be built.");
+    // The details.
+    events.assertContainsWarning("Dependency chain:");
+  }
+
   @Test
   public void analysisAndExecutionFailure_keepGoing_bothReported() throws Exception {
     addOptions("--keep_going");
