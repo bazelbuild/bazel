@@ -231,6 +231,7 @@ public abstract class FileWriteAction extends AbstractFileWriteAction
 
   private static final class CompressedFileWriteAction extends FileWriteAction {
     private static final String GUID = "5bfba914-2251-11ee-be56-0242ac120002";
+    private static final int GZIP_BYTES_BUFFER = 8192;
 
     private final byte[] compressedBytes;
     private final int uncompressedSize;
@@ -252,7 +253,7 @@ public abstract class FileWriteAction extends AbstractFileWriteAction
       // Presize on the small end to avoid over-allocating memory.
       ByteArrayOutputStream byteStream = new ByteArrayOutputStream(dataToCompress.length / 100);
 
-      try (GZIPOutputStream zipStream = new GZIPOutputStream(byteStream)) {
+      try (GZIPOutputStream zipStream = new GZIPOutputStream(byteStream, GZIP_BYTES_BUFFER)) {
         zipStream.write(dataToCompress);
       } catch (IOException e) {
         // This should be impossible since we're writing to a byte array.
@@ -268,7 +269,7 @@ public abstract class FileWriteAction extends AbstractFileWriteAction
     public String getFileContents() {
       byte[] uncompressedBytes = new byte[uncompressedSize];
       try (GZIPInputStream zipStream =
-          new GZIPInputStream(new ByteArrayInputStream(compressedBytes))) {
+          new GZIPInputStream(new ByteArrayInputStream(compressedBytes), GZIP_BYTES_BUFFER)) {
         int read;
         int totalRead = 0;
         while (totalRead < uncompressedSize
@@ -293,7 +294,7 @@ public abstract class FileWriteAction extends AbstractFileWriteAction
     public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
       return out -> {
         try (GZIPInputStream gzipIn =
-            new GZIPInputStream(new ByteArrayInputStream(compressedBytes))) {
+            new GZIPInputStream(new ByteArrayInputStream(compressedBytes), GZIP_BYTES_BUFFER)) {
           ByteStreams.copy(gzipIn, out);
         }
       };
