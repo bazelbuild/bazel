@@ -15,7 +15,6 @@
 package com.google.devtools.build.zip;
 
 import com.google.devtools.build.zip.ZipFileEntry.Compression;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.zip.Inflater;
@@ -24,6 +23,7 @@ import java.util.zip.ZipException;
 
 /** An input stream for reading the file data of a ZIP file entry. */
 class ZipEntryInputStream extends InputStream {
+  private static final int INFLATER_BUFFER_BYTES = 8192;
   private InputStream stream;
   private long rem;
 
@@ -61,7 +61,7 @@ class ZipEntryInputStream extends InputStream {
       rem = zipEntry.getSize();
     }
     if (!raw && zipEntry.getMethod() == Compression.DEFLATED) {
-      stream = new InflaterInputStream(stream, new Inflater(true));
+      stream = new InflaterInputStream(stream, new Inflater(true), INFLATER_BUFFER_BYTES);
     }
   }
 
