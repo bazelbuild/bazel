@@ -381,7 +381,6 @@ public abstract class MockCcSupport {
             "objc_import",
             "objc_library",
             "cc_toolchain",
-            "cc_toolchain_suite",
             "fdo_profile",
             "fdo_prefetch_hints",
             "cc_proto_library");
