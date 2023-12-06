@@ -48,7 +48,7 @@ function test_size_less_than_450MB() {
   bazel info
   ib=$(bazel info install_base)
   size=$(du -s "$ib" | cut -d\	 -f1)
-  maxsize=$((1024*370))
+  maxsize=$((1024*450))
   if [ $size -gt $maxsize ]; then
     echo "$ib was too big:" 1>&2
     du -a "$ib" 1>&2
