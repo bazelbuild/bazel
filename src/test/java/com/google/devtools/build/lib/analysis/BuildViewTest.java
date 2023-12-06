@@ -1066,9 +1066,9 @@ public class BuildViewTest extends BuildViewTestBase {
     assertContainsEvent("in cc_library rule //cycle:foo: cycle in dependency graph:");
     assertContainsEvent("in cc_library rule //cycle:bas: cycle in dependency graph:");
     assertContainsEvent(
-        "errors encountered while analyzing target '//cycle:foo': it will not be built");
+        "errors encountered while analyzing target '//cycle:foo', it will not be built");
     assertContainsEvent(
-        "errors encountered while analyzing target '//cycle:bat': it will not be built");
+        "errors encountered while analyzing target '//cycle:bat', it will not be built");
     // With interleaved loading and analysis, we can no longer distinguish loading-phase cycles
     // and analysis-phase cycles. This was previously reported as a loading-phase cycle, as it
     // happens with any configuration (cycle is hard-coded in the BUILD files). Also see the
