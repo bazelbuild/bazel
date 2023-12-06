@@ -343,10 +343,18 @@ public class BuildRequestOptions extends OptionsBase {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EXECUTION},
-      help =
-          "Whether to use action rewinding to recover from lost inputs. Ignored unless"
-              + " prerequisites for rewinding are met (no incrementality, no action cache).")
+      help = "Whether to use action rewinding to recover from lost inputs.")
   public boolean rewindLostInputs;
+
+  @Option(
+      name = "track_lost_discovered_inputs",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Whether to track lost discovered inputs and proactively request them after rewinding."
+              + " This option is a rollout mechanism for removing this behavior, see b/315059768.")
+  public boolean trackLostDiscoveredInputs;
 
   @Option(
       name = "incompatible_skip_genfiles_symlink",

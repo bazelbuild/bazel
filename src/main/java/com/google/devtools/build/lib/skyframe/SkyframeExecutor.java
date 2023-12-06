@@ -450,6 +450,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private ImmutableSet<Path> ignoredPaths = ImmutableSet.of();
 
   Duration sourceDiffCheckingDuration = Duration.ofSeconds(-1L);
+  private boolean clearNestedSetAfterActionExecution = false;
 
   final class PathResolverFactoryImpl implements PathResolverFactory {
     @Override
@@ -593,7 +594,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         SkyFunctions.STARLARK_BUILTINS,
         new StarlarkBuiltinsFunction(ruleClassProvider.getBazelStarlarkEnvironment()));
     map.put(SkyFunctions.BZL_LOAD, newBzlLoadFunction(ruleClassProvider));
-    GlobFunction globFunction = new GlobFunction();
+    GlobFunction globFunction = newGlobFunction();
     map.put(SkyFunctions.GLOB, globFunction);
     this.globFunction = globFunction;
     map.put(SkyFunctions.TARGET_PATTERN, new TargetPatternFunction());
@@ -708,9 +709,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             () -> !skyframeActionExecutor.actionFileSystemType().inMemoryFileSystem(),
             sourceArtifactsSeen,
             syscallCache));
-    map.put(
-        SkyFunctions.BUILD_INFO_COLLECTION,
-        new BuildInfoCollectionFunction(actionKeyContext, artifactFactory));
     map.put(SkyFunctions.BUILD_INFO, new WorkspaceStatusFunction(this::makeWorkspaceStatusAction));
     map.put(SkyFunctions.COVERAGE_REPORT, new CoverageReportFunction(actionKeyContext));
     this.actionRewindStrategy = new ActionRewindStrategy();
@@ -735,7 +733,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         SkyFunctions.PLATFORM_MAPPING,
         new PlatformMappingFunction(ruleClassProvider.getFragmentRegistry().getOptionsClasses()));
-    map.put(SkyFunctions.ARTIFACT_NESTED_SET, ArtifactNestedSetFunction.createInstance());
+    map.put(SkyFunctions.ARTIFACT_NESTED_SET, new ArtifactNestedSetFunction());
     BuildDriverFunction buildDriverFunction =
         new BuildDriverFunction(
             new TransitiveActionLookupValuesHelper() {
@@ -770,11 +768,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected SkyFunction newActionExecutionFunction() {
     return new ActionExecutionFunction(
-        actionRewindStrategy, skyframeActionExecutor, directories, tsgm::get, bugReporter);
+        actionRewindStrategy,
+        skyframeActionExecutor,
+        () -> memoizingEvaluator,
+        directories,
+        tsgm::get,
+        bugReporter,
+        this::clearingNestedSetAfterActionExecution);
   }
 
   protected SkyFunction newCollectPackagesUnderDirectoryFunction(BlazeDirectories directories) {
     return new CollectPackagesUnderDirectoryFunction(directories);
+  }
+
+  protected GlobFunction newGlobFunction() {
+    return GlobFunction.create(/* recursionInSingleFunction= */ true);
   }
 
   @Nullable
@@ -957,7 +965,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     analysisCacheInvalidated = true;
     skyframeBuildView.clearInvalidatedActionLookupKeys();
     skyframeBuildView.clearLegacyData();
-    ArtifactNestedSetFunction.getInstance().resetArtifactNestedSetFunctionMaps();
   }
 
   /** Used with dump --rules. */
@@ -1042,6 +1049,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return tracksStateForIncrementality()
         ? GlobbingStrategy.SKYFRAME_HYBRID
         : GlobbingStrategy.NON_SKYFRAME;
+  }
+
+  private boolean clearingNestedSetAfterActionExecution() {
+    return clearNestedSetAfterActionExecution;
+  }
+
+  public void setClearNestedSetAfterActionExecution(boolean value) {
+    this.clearNestedSetAfterActionExecution = value;
   }
 
   /**

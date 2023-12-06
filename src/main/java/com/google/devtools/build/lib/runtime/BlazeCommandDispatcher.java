@@ -413,9 +413,10 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     Reporter reporter = env.getReporter();
     OutErr.SystemPatcher systemOutErrPatcher = reporter.getOutErr().getSystemPatcher();
     try {
-      // Temporary: there are modules that output events during beforeCommand, but the reporter
-      // isn't setup yet. Add the stored event handler to catch those events.
+      // Both the call to env.decideKeepIncrementalState() and module.beforeCommand() may emit
+      // events, but the reporter isn't setup yet. Use a stored event handler to catch those events.
       reporter.addHandler(storedEventHandler);
+      env.decideKeepIncrementalState();
       for (BlazeModule module : runtime.getBlazeModules()) {
         try (SilentCloseable closeable = Profiler.instance().profile(module + ".beforeCommand")) {
           module.beforeCommand(env);

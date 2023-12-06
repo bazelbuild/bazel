@@ -189,16 +189,6 @@ public final class CcCommon implements StarlarkValue {
     return getHeaders(ruleContext);
   }
 
-  public static void reportInvalidOptions(
-      RuleContext ruleContext, CppConfiguration cppConfiguration, CcToolchainProvider ccToolchain) {
-    if (cppConfiguration.getLibcTopLabel() != null && ccToolchain.getDefaultSysroot() == null) {
-      ruleContext.ruleError(
-          "The selected toolchain "
-              + ccToolchain.getToolchainIdentifier()
-              + " does not support setting --grte_top (it doesn't specify builtin_sysroot).");
-    }
-  }
-
   /**
    * Supply CC_FLAGS Make variable value computed from FeatureConfiguration. Appends them to
    * original CC_FLAGS, so FeatureConfiguration can override legacy values.

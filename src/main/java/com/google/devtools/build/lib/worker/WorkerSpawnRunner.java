@@ -397,10 +397,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
     Stopwatch queueStopwatch = Stopwatch.createStarted();
     ResourceSet resourceSet =
-        ResourceSet.createWithWorkerKey(
-            spawn.getLocalResources().getMemoryMb(),
-            spawn.getLocalResources().getCpuUsage(),
-            spawn.getLocalResources().getExtraResourceUsage(),
+        ResourceSet.create(
+            spawn.getLocalResources().getResources(),
             spawn.getLocalResources().getLocalTestCount(),
             key);
 
@@ -472,7 +470,14 @@ final class WorkerSpawnRunner implements SpawnRunner {
       Worker worker = (workerOwner == null) ? null : workerOwner.getWorker();
       if (handle != null && worker != null) {
         try {
-          handle.invalidateAndClose(e);
+          if (e instanceof InterruptedException && context.speculating()) {
+            // When interrupted, we don't want to invalidate and kill the worker only to start it up
+            // later again (in dynamic execution). Just #close() the handle to release the acquired
+            // resources.
+            handle.close();
+          } else {
+            handle.invalidateAndClose(e);
+          }
           if (!hasOutputFileLock && worker.getExitValue().isPresent()) {
             // If the worker has died, we take the lock to a) fail earlier and b) have a chance
             // to let the other dynamic execution branch take over if the error can be ignored.

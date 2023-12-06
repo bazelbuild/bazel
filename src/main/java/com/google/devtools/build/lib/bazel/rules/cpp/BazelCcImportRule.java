@@ -159,7 +159,7 @@ cc_binary(
 cc_import(
   name = "curl_lib",
   hdrs = glob(["vendor/curl/include/curl/*.h"]),
-  includes = [ "vendor/curl/include" ],
+  includes = ["vendor/curl/include"],
   shared_library = "vendor/curl/lib/.libs/libcurl.dylib",
 )
 </pre>

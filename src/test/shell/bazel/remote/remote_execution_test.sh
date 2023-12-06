@@ -935,7 +935,6 @@ function test_symlinks_in_directory() {
     # for one of the declared outputs which is not supported when BwoB.
     bazel build \
           --incompatible_remote_symlinks \
-          --noincompatible_remote_disallow_symlink_in_tree_artifact \
           --noincompatible_disallow_unsound_directory_outputs \
           --remote_executor=grpc://localhost:${worker_port} \
           --remote_download_all \
@@ -961,7 +960,6 @@ function test_symlinks_in_directory_cache_only() {
     set_symlinks_in_directory_testfixtures
     bazel build \
           --incompatible_remote_symlinks \
-          --noincompatible_remote_disallow_symlink_in_tree_artifact \
           --noincompatible_disallow_unsound_directory_outputs \
           --remote_cache=grpc://localhost:${worker_port} \
           --remote_download_all \
@@ -972,7 +970,6 @@ function test_symlinks_in_directory_cache_only() {
     bazel clean # Get rid of local results, rely on remote cache.
     bazel build \
           --incompatible_remote_symlinks \
-          --noincompatible_remote_disallow_symlink_in_tree_artifact \
           --noincompatible_disallow_unsound_directory_outputs \
           --remote_cache=grpc://localhost:${worker_port} \
           --remote_download_all \
@@ -2454,22 +2451,23 @@ function test_create_tree_artifact_outputs_remote_cache() {
   [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
 }
 
-function test_symlink_in_tree_artifact() {
+function test_symlinks_in_tree_artifact() {
   mkdir -p pkg
 
-  cat > pkg/defs.bzl <<EOF
+  cat > pkg/defs.bzl <<'EOF'
 def _impl(ctx):
   d = ctx.actions.declare_directory(ctx.label.name)
   ctx.actions.run_shell(
     outputs = [d],
-    command = "cd %s && touch foo && ln -s foo sym" % d.path,
+    command = "cd $1 && mkdir dir && touch dir/file.txt && ln -s dir dsym && ln -s dir/file.txt fsym",
+    arguments = [d.path],
   )
   return DefaultInfo(files = depset([d]))
 
 tree = rule(implementation = _impl)
 EOF
 
-  cat > pkg/BUILD <<EOF
+  cat > pkg/BUILD <<'EOF'
 load(":defs.bzl", "tree")
 
 tree(name = "tree")
@@ -2478,17 +2476,15 @@ EOF
   bazel build \
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
-      --noincompatible_remote_disallow_symlink_in_tree_artifact \
       //pkg:tree &>$TEST_log || fail "Expected build to succeed"
 
-  bazel clean
+  if [[ "$(readlink bazel-bin/pkg/tree/fsym)" != "dir/file.txt" ]]; then
+    fail "expected bazel-bin/pkg/tree/fsym to be a symlink to dir/file.txt"
+  fi
 
-  bazel build \
-      --spawn_strategy=remote \
-      --remote_executor=grpc://localhost:${worker_port} \
-      //pkg:tree &>$TEST_log && fail "Expected build to fail"
-
-  expect_log "Unsupported symlink 'sym' inside tree artifact"
+  if [[ "$(readlink bazel-bin/pkg/tree/dsym)" != "dir" ]]; then
+    fail "expected bazel-bin/tree/dsym to be a symlink to dir"
+  fi
 }
 
 # Runs coverage with `cc_test` and RE then checks the coverage file is returned.

@@ -30,7 +30,6 @@ java_library(
         "AspectCompletor.java",
         "AspectFunction.java",
         "BazelSkyframeExecutorConstants.java",
-        "BuildInfoCollectionFunction.java",
         "BuildTopLevelAspectsDetailsFunction.java",
         "BzlLoadFunction.java",
         "BzlmodRepoRuleFunction.java",
@@ -98,10 +97,10 @@ java_library(
         ":build_driver_function",
         ":build_driver_key",
         ":build_driver_value",
-        ":build_info_collection_value",
         ":build_result_listener",
         ":bzl_compile",
         ":bzl_load_cycle_reporter",
+        ":bzl_load_failed_exception",
         ":bzl_load_value",
         ":bzlmod_repo_cycle_reporter",
         ":cached_bzl_load_value_and_deps",
@@ -227,8 +226,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:aspect_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:aspect_configured_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
-        "//src/main/java/com/google/devtools/build/lib/analysis:buildinfo/build_info_collection",
-        "//src/main/java/com/google/devtools/build/lib/analysis:buildinfo/build_info_key",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/config_conditions",
@@ -828,25 +825,6 @@ java_library(
 )
 
 java_library(
-    name = "build_info_collection_value",
-    srcs = ["BuildInfoCollectionValue.java"],
-    deps = [
-        ":sky_functions",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
-        "//src/main/java/com/google/devtools/build/lib/analysis:buildinfo/build_info_collection",
-        "//src/main/java/com/google/devtools/build/lib/analysis:buildinfo/build_info_key",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/config",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
     name = "builder",
     srcs = ["Builder.java"],
     deps = [
@@ -1275,6 +1253,12 @@ java_library(
 )
 
 java_library(
+    name = "ephemeral_check_if_output_consumed",
+    srcs = ["EphemeralCheckIfOutputConsumed.java"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/actions:artifacts"],
+)
+
+java_library(
     name = "exclusive_test_build_driver_value",
     srcs = ["ExclusiveTestBuildDriverValue.java"],
     deps = [
@@ -1422,7 +1406,11 @@ java_library(
 
 java_library(
     name = "glob_function",
-    srcs = ["GlobFunction.java"],
+    srcs = [
+        "GlobFunction.java",
+        "GlobFunctionWithMultipleRecursiveFunctions.java",
+        "GlobFunctionWithRecursionInSingleFunction.java",
+    ],
     deps = [
         ":directory_listing_value",
         ":glob_descriptor",
@@ -1436,6 +1424,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/io:file_symlink_infinite_expansion_uniqueness_function",
         "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
         "//src/main/java/com/google/devtools/build/lib/packages:globber",
+        "//src/main/java/com/google/devtools/build/lib/packages/producers",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
@@ -1447,7 +1436,11 @@ java_library(
 
 java_library(
     name = "glob_value",
-    srcs = ["GlobValue.java"],
+    srcs = [
+        "GlobValue.java",
+        "GlobValueWithImmutableSet.java",
+        "GlobValueWithNestedSet.java",
+    ],
     deps = [
         ":glob_descriptor",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -2401,6 +2394,17 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "bzl_load_failed_exception",
+    srcs = ["BzlLoadFailedException.java"],
+    deps = [
+        ":sane_analysis_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/protobuf:failure_details_java_proto",
     ],
 )
 

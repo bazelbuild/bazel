@@ -62,7 +62,6 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
   protected void useConfiguration(String... args) throws Exception {
     ImmutableList<String> extraArgs =
         ImmutableList.<String>builder()
-            .add("--noincompatible_enable_cc_toolchain_resolution")
             .add("--xcode_version_config=" + MockObjcSupport.XCODE_VERSION_CONFIG)
             .add("--apple_crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)
             .add("--crosstool_top=" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL)
@@ -75,15 +74,14 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
   @Test
   public void testAppleBuildVariablesIos() throws Exception {
     useConfiguration(
-        "--crosstool_top=//tools/osx/crosstool", "--xcode_version=5.8",
-        "--ios_minimum_os=12.345", "--watchos_minimum_os=11.111",
-        "--cpu=ios_x86_64", "--apple_platform_type=ios");
-     scratch.file(
-        "x/BUILD",
-        "cc_binary(",
-        "   name = 'bin',",
-        "   srcs = ['a.cc'],",
-        ")");
+        "--crosstool_top=//tools/osx/crosstool",
+        "--xcode_version=5.8",
+        "--ios_minimum_os=12.345",
+        "--watchos_minimum_os=11.111",
+        "--cpu=ios_x86_64",
+        "--apple_platform_type=ios",
+        "--platforms=" + MockObjcSupport.IOS_X86_64);
+    scratch.file("x/BUILD", "cc_binary(", "   name = 'bin',", "   srcs = ['a.cc'],", ")");
     scratch.file("x/a.cc");
 
     ConfiguredTarget target = getConfiguredTarget("//x:bin");
@@ -103,7 +101,7 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
     useConfiguration(
         "--crosstool_top=//tools/osx/crosstool", "--xcode_version=5.8",
         "--ios_minimum_os=12.345", "--watchos_minimum_os=" + dummyMinimumOsValue,
-        "--watchos_cpus=armv7k");
+        "--watchos_cpus=armv7k", "--platforms=" + MockObjcSupport.WATCHOS_ARMV7K);
     ObjcRuleTestCase.addAppleBinaryStarlarkRule(scratch);
     scratch.file(
         "x/BUILD",
@@ -145,13 +143,11 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
   @Test
   public void testDefaultBuildVariablesIos() throws Exception {
     useConfiguration(
-        "--apple_platform_type=ios", "--crosstool_top=//tools/osx/crosstool", "--cpu=ios_x86_64");
-     scratch.file(
-        "x/BUILD",
-        "cc_binary(",
-        "   name = 'bin',",
-        "   srcs = ['a.cc'],",
-        ")");
+        "--apple_platform_type=ios",
+        "--crosstool_top=//tools/osx/crosstool",
+        "--cpu=ios_x86_64",
+        "--platforms=" + MockObjcSupport.IOS_X86_64);
+    scratch.file("x/BUILD", "cc_binary(", "   name = 'bin',", "   srcs = ['a.cc'],", ")");
     scratch.file("x/a.cc");
 
     ConfiguredTarget target = getConfiguredTarget("//x:bin");

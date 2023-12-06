@@ -27,13 +27,9 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceStatusValue;
 import com.google.devtools.build.lib.util.Pair;
@@ -370,19 +366,6 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
       throw new MissingDepException("Restart due to missing build info");
     }
     return workspaceStatusValue;
-  }
-
-  @Override
-  public ImmutableList<Artifact> getBuildInfo(
-      boolean stamp, BuildInfoKey key, BuildConfigurationValue config) throws InterruptedException {
-    BuildInfoCollectionValue collectionValue =
-        (BuildInfoCollectionValue) skyframeEnv.getValue(BuildInfoCollectionValue.key(key, config));
-    if (collectionValue == null) {
-      throw new MissingDepException(
-          String.format("Restart due to missing BuildInfoCollectionValue (%s %s)", key, config));
-    }
-    BuildInfoCollection collection = collectionValue.getCollection();
-    return stamp ? collection.getStampedBuildInfo() : collection.getRedactedBuildInfo();
   }
 
   @Override

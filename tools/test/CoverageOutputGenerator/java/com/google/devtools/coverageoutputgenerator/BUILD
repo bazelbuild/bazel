@@ -211,6 +211,7 @@ genrule(
     name = "coverage_empty_workspace",
     outs = ["coverage/WORKSPACE"],
     cmd = "touch $@",
+    visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
 # Used to act as an override for @remote_coverage_tools in integration tests

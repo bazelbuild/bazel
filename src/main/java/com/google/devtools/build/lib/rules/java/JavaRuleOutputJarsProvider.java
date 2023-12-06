@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -44,7 +43,6 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /** Provides information about jar files produced by a Java rule. */
@@ -146,12 +144,8 @@ public abstract class JavaRuleOutputJarsProvider
 
     @Nullable
     @Override
-    public Object getSrcJarsStarlark(StarlarkSemantics semantics) {
-      if (semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_DEPSET_FOR_JAVA_OUTPUT_SOURCE_JARS)) {
-        return Depset.of(Artifact.class, getSourceJars());
-      } else {
-        return StarlarkList.immutableCopyOf(getSourceJarsAsList());
-      }
+    public Depset getSrcJarsStarlark(StarlarkSemantics semantics) {
+      return Depset.of(Artifact.class, getSourceJars());
     }
 
     public static JavaOutput fromStarlarkJavaOutput(StructImpl struct) throws EvalException {

@@ -1016,12 +1016,19 @@ public final class ProfilerTest {
         jsonProfile.getTraceEvents().stream()
             .filter(e -> "action count".equals(e.name()))
             .toArray();
-    // Two cache hit checks and one executed action.
-    assertThat(((TraceEvent) actionCountEvents[0]).args())
-        .containsExactly("action", 1.0, "local action cache", 2.0);
-    // One of the cache hit checks spilled over and used half of the second bucket.
-    assertThat(((TraceEvent) actionCountEvents[1]).args())
-        .containsExactly("local action cache", 0.5);
+
     assertThat(actionCountEvents).hasLength(2);
+
+    TraceEvent first = (TraceEvent) actionCountEvents[0];
+    assertThat(first.processId()).isEqualTo(CounterSeriesTraceData.PROCESS_ID);
+    assertThat(first.threadId()).isEqualTo(Thread.currentThread().getId());
+    // Two cache hit checks and one executed action.
+    assertThat(first.args()).containsExactly("action", 1.0, "local action cache", 2.0);
+
+    TraceEvent second = (TraceEvent) actionCountEvents[1];
+    assertThat(first.processId()).isEqualTo(CounterSeriesTraceData.PROCESS_ID);
+    assertThat(first.threadId()).isEqualTo(Thread.currentThread().getId());
+    // One of the cache hit checks spilled over and used half of the second bucket.
+    assertThat(second.args()).containsExactly("local action cache", 0.5);
   }
 }

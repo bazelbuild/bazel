@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import javax.annotation.Nullable;
@@ -116,7 +117,7 @@ public interface JavaOutputApi<FileT extends FileApi> extends StructApi {
       useStarlarkSemantics = true,
       structField = true)
   @Nullable
-  Object getSrcJarsStarlark(StarlarkSemantics semantics);
+  Depset getSrcJarsStarlark(StarlarkSemantics semantics);
 
   @Override
   default String toProto() throws EvalException {

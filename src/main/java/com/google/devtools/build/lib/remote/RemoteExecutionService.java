@@ -1234,23 +1234,6 @@ public class RemoteExecutionService {
     List<SymlinkMetadata> symlinksInDirectories = new ArrayList<>();
     for (Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
       for (SymlinkMetadata symlink : entry.getValue().symlinks()) {
-        // Symlinks should not be allowed inside directories because their semantics are unclear:
-        // tree artifacts are defined as a collection of regular files, and resolving a remotely
-        // produced symlink against the local filesystem is asking for trouble.
-        //
-        // Sadly, we started permitting relative symlinks at some point, so we have to allow them
-        // until the --incompatible_remote_disallow_symlink_in_tree_artifact flag is flipped.
-        // Absolute symlinks, on the other hand, have never been allowed.
-        //
-        // See also https://github.com/bazelbuild/bazel/issues/16361 for potential future work
-        // to allow *unresolved* symlinks in a tree artifact.
-        boolean isAbsolute = symlink.target().isAbsolute();
-        if (remoteOptions.incompatibleRemoteDisallowSymlinkInTreeArtifact || isAbsolute) {
-          throw new IOException(
-              String.format(
-                  "Unsupported symlink '%s' inside tree artifact '%s'",
-                  symlink.path().relativeTo(entry.getKey()), entry.getKey().relativeTo(execRoot)));
-        }
         symlinksInDirectories.add(symlink);
       }
     }
@@ -1278,11 +1261,7 @@ public class RemoteExecutionService {
               && !metadata.directories.containsKey(localPath)
               && !metadata.symlinks.containsKey(localPath)) {
             throw new IOException(
-                "Invalid action cache entry "
-                    + action.getActionKey().getDigest().getHash()
-                    + ": expected output "
-                    + prettyPrint(output)
-                    + " does not exist.");
+                String.format("mandatory output %s was not created", prettyPrint(output)));
           }
         }
       }

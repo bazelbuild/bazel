@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.remote.util.IntegrationTestUtils;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.starlarkdebug.module.StarlarkDebuggerModule;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Breakpoint;
@@ -41,10 +42,10 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.time.Duration;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -62,7 +63,15 @@ import org.junit.runners.JUnit4;
 public class StarlarkDebugIntegrationTest extends BuildIntegrationTestCase {
   private static final AtomicInteger sequenceIds = new AtomicInteger(1);
 
-  private static final int DEBUG_PORT = 7300;
+  private static final int DEBUG_PORT = getRandomPort();
+
+  private static int getRandomPort() {
+    try {
+      return IntegrationTestUtils.pickUnusedRandomPort();
+    } catch (IOException | InterruptedException e) {
+      throw new RuntimeException(e);
+    }
+  }
 
   private final ExecutorService executor = Executors.newFixedThreadPool(1);
   private final Collection<Event> eventCollector = new ConcurrentLinkedQueue<>();
@@ -136,7 +145,7 @@ public class StarlarkDebugIntegrationTest extends BuildIntegrationTestCase {
         buildTarget(StarlarkDebugIntegrationTest::createClientAndStartDebugging, "//foo");
     assertThat(result).isNotNull();
 
-    Set<String> deletedFiles = new HashSet<>();
+    Set<String> deletedFiles = ConcurrentHashMap.newKeySet();
     injectListenerAtStartOfNextBuild(
         (key, type, order, context) -> {
           if (Objects.equals(key.functionName(), FileValue.FILE)

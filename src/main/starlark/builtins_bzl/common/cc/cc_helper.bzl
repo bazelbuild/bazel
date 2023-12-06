@@ -206,28 +206,19 @@ def _find_cpp_toolchain(ctx, *, mandatory = True):
       optional, mandatory is False and no toolchain has been found.
     """
 
-    # Check the incompatible flag for toolchain resolution.
-    if hasattr(cc_common, "is_cc_toolchain_resolution_enabled_do_not_use") and cc_common.is_cc_toolchain_resolution_enabled_do_not_use(ctx = ctx):
-        if not _CPP_TOOLCHAIN_TYPE in ctx.toolchains:
-            fail("In order to use find_cpp_toolchain, you must include the '//tools/cpp:toolchain_type' in the toolchains argument to your rule.")
-        toolchain_info = ctx.toolchains[_CPP_TOOLCHAIN_TYPE]
-        if toolchain_info == None:
-            if not mandatory:
-                return None
+    if not _CPP_TOOLCHAIN_TYPE in ctx.toolchains:
+        fail("In order to use find_cpp_toolchain, you must include the '//tools/cpp:toolchain_type' in the toolchains argument to your rule.")
+    toolchain_info = ctx.toolchains[_CPP_TOOLCHAIN_TYPE]
+    if toolchain_info == None:
+        if not mandatory:
+            return None
 
-            # No cpp toolchain was found, so report an error.
-            fail("Unable to find a CC toolchain using toolchain resolution. Target: %s, Platform: %s, Exec platform: %s" %
-                 (ctx.label, ctx.fragments.platform.platform, ctx.fragments.platform.host_platform))
-        if hasattr(toolchain_info, "cc_provider_in_toolchain") and hasattr(toolchain_info, "cc"):
-            return toolchain_info.cc
-        return toolchain_info
-
-    # Otherwise, fall back to the legacy attribute.
-    if hasattr(ctx.attr, "_cc_toolchain"):
-        return ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
-
-    # We didn't find anything.
-    fail("In order to use find_cpp_toolchain, you must define the '_cc_toolchain' attribute on your rule or aspect.")
+        # No cpp toolchain was found, so report an error.
+        fail("Unable to find a CC toolchain using toolchain resolution. Target: %s, Platform: %s, Exec platform: %s" %
+             (ctx.label, ctx.fragments.platform.platform, ctx.fragments.platform.host_platform))
+    if hasattr(toolchain_info, "cc_provider_in_toolchain") and hasattr(toolchain_info, "cc"):
+        return toolchain_info.cc
+    return toolchain_info
 
 def _use_cpp_toolchain(mandatory = False):
     """
@@ -663,20 +654,23 @@ def _collect_native_cc_libraries(deps, libraries):
     transitive_libraries = [dep[CcInfo].transitive_native_libraries() for dep in deps if CcInfo in dep]
     return CcNativeLibraryInfo(libraries_to_link = depset(direct = libraries, transitive = transitive_libraries))
 
+def _tool_path(cc_toolchain, tool):
+    return cc_toolchain.tool_paths().get(tool, None)
+
 def _get_toolchain_global_make_variables(cc_toolchain):
     result = {
-        "CC": cc_toolchain.tool_path(tool = "GCC"),
-        "AR": cc_toolchain.tool_path(tool = "AR"),
-        "NM": cc_toolchain.tool_path(tool = "NM"),
-        "LD": cc_toolchain.tool_path(tool = "LD"),
-        "STRIP": cc_toolchain.tool_path(tool = "STRIP"),
+        "CC": _tool_path(cc_toolchain, "gcc"),
+        "AR": _tool_path(cc_toolchain, "ar"),
+        "NM": _tool_path(cc_toolchain, "nm"),
+        "LD": _tool_path(cc_toolchain, "ld"),
+        "STRIP": _tool_path(cc_toolchain, "strip"),
         "C_COMPILER": cc_toolchain.compiler,
     }
-    obj_copy_tool = cc_toolchain.tool_path(tool = "OBJCOPY")
+    obj_copy_tool = _tool_path(cc_toolchain, "objcopy")
     if obj_copy_tool != None:
         # objcopy is optional in Crostool.
         result["OBJCOPY"] = obj_copy_tool
-    gcov_tool = cc_toolchain.tool_path(tool = "GCOVTOOL")
+    gcov_tool = _tool_path(cc_toolchain, "gcov-tool")
     if gcov_tool != None:
         # gcovtool is optional in Crostool.
         result["GCOVTOOL"] = gcov_tool
@@ -697,7 +691,6 @@ def _get_toolchain_global_make_variables(cc_toolchain):
         result["ABI"] = abi
 
     result["CROSSTOOLTOP"] = cc_toolchain.get_crosstool_top_path()
-
     return result
 
 def _contains_sysroot(original_cc_flags, feature_config_cc_flags):
@@ -965,8 +958,13 @@ def _is_stamping_enabled_for_aspect(ctx):
         stamp = ctx.rule.attr.stamp
     return stamp
 
-def _get_local_defines_for_runfiles_lookup(ctx):
-    return ["BAZEL_CURRENT_REPOSITORY=\"{}\"".format(ctx.label.workspace_name)]
+_RUNFILES_LIBRARY_TARGET = Label("@bazel_tools//tools/cpp/runfiles")
+
+def _get_local_defines_for_runfiles_lookup(ctx, all_deps):
+    for dep in all_deps:
+        if dep.label == _RUNFILES_LIBRARY_TARGET:
+            return ["BAZEL_CURRENT_REPOSITORY=\"{}\"".format(ctx.label.workspace_name)]
+    return []
 
 # This should be enough to assume if two labels are equal.
 def _are_labels_equal(a, b):
@@ -1086,9 +1084,9 @@ def _get_coverage_environment(ctx, cc_config, cc_toolchain):
     if not ctx.configuration.coverage_enabled:
         return {}
     env = {
-        "COVERAGE_GCOV_PATH": cc_toolchain.tool_path(tool = "GCOV"),
-        "LLVM_COV": cc_toolchain.tool_path(tool = "LLVM_COV"),
-        "LLVM_PROFDATA": cc_toolchain.tool_path(tool = "LLVM_PROFDATA"),
+        "COVERAGE_GCOV_PATH": _tool_path(cc_toolchain, "gcov"),
+        "LLVM_COV": _tool_path(cc_toolchain, "llvm-cov"),
+        "LLVM_PROFDATA": _tool_path(cc_toolchain, "llvm-profdata"),
         "GENERATE_LLVM_LCOV": "1" if cc_config.generate_llvm_lcov() else "0",
     }
     for k in list(env.keys()):
@@ -1264,4 +1262,5 @@ cc_helper = struct(
     proto_output_root = _proto_output_root,
     cc_toolchain_build_variables = _cc_toolchain_build_variables,
     package_source_root = _package_source_root,
+    tokenize = _tokenize,
 )

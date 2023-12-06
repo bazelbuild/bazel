@@ -78,11 +78,18 @@ JavaToolchainInfo, _new_javatoolchaininfo = provider(
 def _java_toolchain_impl(ctx):
     javac_opts_list = _get_javac_opts(ctx)
     bootclasspath_info = _get_bootclasspath_info(ctx)
+    java_runtime = _get_java_runtime(ctx)
+    if java_runtime and java_runtime.lib_ct_sym:
+        header_compiler_direct_data = [java_runtime.lib_ct_sym]
+        header_compiler_direct_jvm_opts = ["-Dturbine.ctSymPath=" + java_runtime.lib_ct_sym.path]
+    else:
+        header_compiler_direct_data = []
+        header_compiler_direct_jvm_opts = []
     java_toolchain_info = _new_javatoolchaininfo(
         bootclasspath = bootclasspath_info.bootclasspath,
         ijar = ctx.attr.ijar.files_to_run if ctx.attr.ijar else None,
         jacocorunner = ctx.attr.jacocorunner.files_to_run if ctx.attr.jacocorunner else None,
-        java_runtime = _get_java_runtime(ctx),
+        java_runtime = java_runtime,
         jvm_opt = depset(_java_common_internal.expand_java_opts(ctx, "jvm_opts", tokenize = False, exec_paths = True)),
         label = ctx.label,
         proguard_allowlister = ctx.attr.proguard_allowlister.files_to_run if ctx.attr.proguard_allowlister else None,
@@ -100,7 +107,12 @@ def _java_toolchain_impl(ctx):
         _gen_class = ctx.file.genclass,
         _header_compiler = _get_tool_from_ctx(ctx, "header_compiler", "turbine_data", "turbine_jvm_opts"),
         _header_compiler_builtin_processors = depset(ctx.attr.header_compiler_builtin_processors),
-        _header_compiler_direct = _get_tool_from_executable(ctx, "header_compiler_direct"),
+        _header_compiler_direct = _get_tool_from_executable(
+            ctx,
+            "header_compiler_direct",
+            data = header_compiler_direct_data,
+            jvm_opts = header_compiler_direct_jvm_opts,
+        ),
         _javabuilder = _get_tool_from_ctx(ctx, "javabuilder", "javabuilder_data", "javabuilder_jvm_opts"),
         _javacopts = helper.detokenize_javacopts(javac_opts_list),
         _javacopts_list = javac_opts_list,
@@ -174,14 +186,14 @@ def _get_tool_from_ctx(ctx, tool_attr, data_attr, opts_attr):
         jvm_opts = depset([ctx.expand_location(opt, data) for opt in getattr(ctx.attr, opts_attr)]),
     )
 
-def _get_tool_from_executable(ctx, attr_name):
+def _get_tool_from_executable(ctx, attr_name, data = [], jvm_opts = []):
     dep = getattr(ctx.attr, attr_name)
     if not dep:
         return None
     files_to_run = dep.files_to_run
     if not files_to_run or not files_to_run.executable:
         fail(dep.label, "does not refer to a valid executable target")
-    return struct(tool = files_to_run, data = depset(), jvm_opts = depset())
+    return struct(tool = files_to_run, data = depset(data), jvm_opts = depset(jvm_opts))
 
 def _get_compatible_javacopts(ctx):
     result = {}

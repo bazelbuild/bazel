@@ -14,17 +14,20 @@
 
 package com.google.devtools.build.lib.analysis.starlark;
 
+import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.COMMAND_LINE_OPTION_PREFIX;
 import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Sets.SetView;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -44,10 +47,10 @@ import com.google.devtools.common.options.OptionsParsingException;
 import java.lang.reflect.Field;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Stream;
@@ -61,6 +64,10 @@ import net.starlark.java.eval.StarlarkInt;
  * StarlarkRuleTransitionProvider}.
  */
 public final class FunctionTransitionUtil {
+
+  private static final Predicate<String> IS_NATIVE_OPTION =
+      setting -> setting.startsWith(COMMAND_LINE_OPTION_PREFIX);
+  private static final Predicate<String> IS_STARLARK_OPTION = not(IS_NATIVE_OPTION);
 
   /**
    * Figure out what build settings the given transition changes and apply those changes to the
@@ -234,52 +241,63 @@ public final class FunctionTransitionUtil {
       throws ValidationException {
     ImmutableMap<String, String> inputsCanonicalizedToGiven =
         starlarkTransition.getInputsCanonicalizedToGiven();
-    LinkedHashSet<String> remainingInputs =
-        Sets.newLinkedHashSet(inputsCanonicalizedToGiven.keySet());
 
     ImmutableMap.Builder<String, Object> optionsBuilder = ImmutableMap.builder();
 
-    // Add native options
-    for (Map.Entry<String, OptionInfo> entry : optionInfoMap.entrySet()) {
-      String optionName = entry.getKey();
-      String optionKey = COMMAND_LINE_OPTION_PREFIX + optionName;
+    // Handle native options.
+    starlarkTransition.getInputsCanonicalizedToGiven().keySet().stream()
+        .filter(IS_NATIVE_OPTION)
+        .forEach(
+            setting -> {
+              Optional<Object> result = findNativeOptionValue(buildOptions, optionInfoMap, setting);
+              result.ifPresent(optionValue -> optionsBuilder.put(setting, optionValue));
+            });
 
-      if (!remainingInputs.remove(optionKey)) {
-        // This option was not present in inputs. Skip it.
-        continue;
-      }
-      OptionInfo optionInfo = entry.getValue();
+    // Handle starlark options.
+    starlarkTransition.getInputsCanonicalizedToGiven().keySet().stream()
+        .filter(IS_STARLARK_OPTION)
+        .forEach(
+            setting -> {
+              Object optionValue = findStarlarkOptionValue(buildOptions, setting);
+              // Convert the canonical form to the user requested form that they expect to see.
+              String userRequestedLabelForm = inputsCanonicalizedToGiven.get(setting);
+              optionsBuilder.put(userRequestedLabelForm, optionValue);
+            });
 
-      Field field = optionInfo.getDefinition().getField();
-      FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
-      try {
-        Object optionValue = field.get(options);
-        // convert nulls here b/c ImmutableMap bans null values
-        optionsBuilder.put(optionKey, optionValue == null ? Starlark.NONE : optionValue);
-      } catch (IllegalAccessException e) {
-        // These exceptions should not happen, but if they do, throw a RuntimeException.
-        throw new IllegalStateException(e);
-      }
-    }
-
-    // Add Starlark options
-    for (Map.Entry<Label, Object> starlarkOption : buildOptions.getStarlarkOptions().entrySet()) {
-      String canonicalLabelForm = starlarkOption.getKey().getUnambiguousCanonicalForm();
-      if (!remainingInputs.remove(canonicalLabelForm)) {
-        continue;
-      }
-      // Convert the canonical form to the user requested form that they expect to see
-      String userRequestedLabelForm = inputsCanonicalizedToGiven.get(canonicalLabelForm);
-      optionsBuilder.put(userRequestedLabelForm, starlarkOption.getValue());
-    }
-
+    ImmutableMap<String, Object> result = optionsBuilder.buildOrThrow();
+    SetView<String> remainingInputs =
+        Sets.difference(ImmutableSet.copyOf(inputsCanonicalizedToGiven.values()), result.keySet());
     if (!remainingInputs.isEmpty()) {
       throw ValidationException.format(
           "transition inputs [%s] do not correspond to valid settings",
           Joiner.on(", ").join(remainingInputs));
     }
 
-    return optionsBuilder.buildOrThrow();
+    return result;
+  }
+
+  private static Optional<Object> findNativeOptionValue(
+      BuildOptions buildOptions, Map<String, OptionInfo> optionInfoMap, String setting) {
+    setting = setting.substring(COMMAND_LINE_OPTION_PREFIX.length());
+    if (!optionInfoMap.containsKey(setting)) {
+      return Optional.empty();
+    }
+    OptionInfo optionInfo = optionInfoMap.get(setting);
+    Field field = optionInfo.getDefinition().getField();
+    FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
+    try {
+      Object optionValue = field.get(options);
+      // convert nulls here b/c ImmutableMap bans null values
+      return Optional.of(optionValue == null ? Starlark.NONE : optionValue);
+    } catch (IllegalAccessException e) {
+      // These exceptions should not happen, but if they do, throw a RuntimeException.
+      throw new IllegalStateException(e);
+    }
+  }
+
+  private static Object findStarlarkOptionValue(BuildOptions buildOptions, String setting) {
+    Label settingLabel = Label.parseCanonicalUnchecked(setting);
+    return buildOptions.getStarlarkOptions().get(settingLabel);
   }
 
   /**

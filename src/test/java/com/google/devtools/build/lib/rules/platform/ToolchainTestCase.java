@@ -224,7 +224,8 @@ public abstract class ToolchainTestCase extends BuildViewTestCase {
     scratch.file(
         "toolchain/BUILD",
         "toolchain_type(name = 'test_toolchain')",
-        "toolchain_type(name = 'optional_toolchain')");
+        "toolchain_type(name = 'optional_toolchain')",
+        "toolchain_type(name = 'workspace_suffix_toolchain')");
 
     testToolchainTypeLabel = Label.parseCanonicalUnchecked("//toolchain:test_toolchain");
     testToolchainType = ToolchainTypeRequirement.create(testToolchainTypeLabel);
@@ -247,6 +248,22 @@ public abstract class ToolchainTestCase extends BuildViewTestCase {
         ImmutableList.of("//constraints:mac"),
         ImmutableList.of("//constraints:linux"),
         "bar");
+    Label suffixToolchainTypeLabel =
+        Label.parseCanonicalUnchecked("//toolchain:workspace_suffix_toolchain");
+    addToolchain(
+        "toolchain",
+        "suffix_toolchain_1",
+        suffixToolchainTypeLabel,
+        ImmutableList.of(),
+        ImmutableList.of(),
+        "suffix1");
+    addToolchain(
+        "toolchain",
+        "suffix_toolchain_2",
+        suffixToolchainTypeLabel,
+        ImmutableList.of(),
+        ImmutableList.of(),
+        "suffix2");
   }
 
   protected EvaluationResult<RegisteredToolchainsValue> requestToolchainsFromSkyframe(

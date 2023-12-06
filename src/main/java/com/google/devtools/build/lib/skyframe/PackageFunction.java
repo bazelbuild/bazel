@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.io.FileSymlinkException;
@@ -61,7 +60,6 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
-import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
 import com.google.devtools.build.lib.skyframe.RepoFileFunction.BadRepoFileException;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction.BuiltinsFailedException;
@@ -1145,7 +1143,7 @@ public class PackageFunction implements SkyFunction {
         for (SkyKey includeGlobKey : includesGlobKeys) {
           // TODO(bazel-team): NestedSet expansion here is suboptimal.
           boolean foundMatch = false;
-          for (PathFragment match : getGlobMatches(includeGlobKey, globValueMap).toList()) {
+          for (PathFragment match : getGlobMatches(includeGlobKey, globValueMap)) {
             matches.add(match.getPathString());
             foundMatch = true;
           }
@@ -1170,7 +1168,7 @@ public class PackageFunction implements SkyFunction {
         return result;
       }
 
-      private static NestedSet<PathFragment> getGlobMatches(
+      private static ImmutableSet<PathFragment> getGlobMatches(
           SkyKey globKey, SkyframeLookupResult globValueMap) throws IOException {
         try {
           return checkNotNull(

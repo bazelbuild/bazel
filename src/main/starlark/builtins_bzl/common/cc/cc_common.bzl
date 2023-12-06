@@ -524,7 +524,9 @@ def _legacy_cc_flags_make_variable_do_not_use(*, cc_toolchain):
     return cc_common_internal.legacy_cc_flags_make_variable_do_not_use(cc_toolchain = cc_toolchain)
 
 def _is_cc_toolchain_resolution_enabled_do_not_use(*, ctx):
-    return cc_common_internal.is_cc_toolchain_resolution_enabled_do_not_use(ctx = ctx)
+    # Supports public is_cc_toolchain_resolution_enabled_do_not_use
+    # TODO(b/218795674): remove once uses are cleaned up
+    return True
 
 def _create_cc_toolchain_config_info(
         *,
@@ -652,10 +654,6 @@ def _merge_debug_context(debug_contexts = []):
 def _get_tool_requirement_for_action(*, feature_configuration, action_name):
     cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return cc_common_internal.get_tool_requirement_for_action(feature_configuration = feature_configuration, action_name = action_name)
-
-def _get_build_info(ctx):
-    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    return cc_common_internal.get_build_info(ctx)
 
 def _create_extra_link_time_library(*, build_library_func, **kwargs):
     cc_common_internal.check_private_api(allowlist = _BUILTINS)
@@ -912,7 +910,6 @@ cc_common = struct(
     create_debug_context = _create_debug_context,
     merge_debug_context = _merge_debug_context,
     get_tool_requirement_for_action = _get_tool_requirement_for_action,
-    get_build_info = _get_build_info,
     create_extra_link_time_library = _create_extra_link_time_library,
     register_linkstamp_compile_action = _register_linkstamp_compile_action,
     compile = _compile,

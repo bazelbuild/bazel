@@ -394,17 +394,6 @@ public class BuildConfigurationValue
     return outputDirectories.getBinDirectory(repositoryName).getExecPath();
   }
 
-  /**
-   * Returns the build-info directory for this build configuration, where language-specific
-   * generated build-info artifacts are located.
-   *
-   * @deprecated Use {@code RuleContext#getBuildInfoDirectory} instead whenever possible.
-   */
-  @Deprecated
-  public ArtifactRoot getBuildInfoDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getBuildInfoDirectory(repositoryName);
-  }
-
   /** @deprecated Use {@link #getGenfilesDirectory} instead. */
   @Override
   @Deprecated

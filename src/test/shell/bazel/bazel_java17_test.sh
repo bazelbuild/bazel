@@ -54,53 +54,29 @@ if "$is_windows"; then
   export MSYS2_ARG_CONV_EXCL="*"
 fi
 
+RULES_JAVA_REPO_NAME=$(cat "$(rlocation io_bazel/src/test/shell/bazel/RULES_JAVA_REPO_NAME)")
+JAVA_TOOLS_REPO_PREFIX="${RULES_JAVA_REPO_NAME}~toolchains~"
+
 JAVA_TOOLS_ZIP="$1"; shift
-JAVA_TOOLS_PREBUILT_ZIP="$1"; shift
-
-echo "JAVA_TOOLS_ZIP=$JAVA_TOOLS_ZIP"
-
-
-JAVA_TOOLS_RLOCATION=$(rlocation io_bazel/$JAVA_TOOLS_ZIP)
-
-if "$is_windows"; then
-    JAVA_TOOLS_ZIP_FILE_URL="file:///${JAVA_TOOLS_RLOCATION}"
-    JAVA_TOOLS_PREBUILT_ZIP_FILE_URL="file:///$(rlocation io_bazel/$JAVA_TOOLS_PREBUILT_ZIP)"
-else
-    JAVA_TOOLS_ZIP_FILE_URL="file://${JAVA_TOOLS_RLOCATION}"
-    JAVA_TOOLS_PREBUILT_ZIP_FILE_URL="file://$(rlocation io_bazel/$JAVA_TOOLS_PREBUILT_ZIP)"
+if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
+  JAVA_TOOLS_ZIP_FILE="$(rlocation "${JAVA_TOOLS_ZIP}")"
+  JAVA_TOOLS_DIR="$TEST_TMPDIR/_java_tools"
+  unzip -q "${JAVA_TOOLS_ZIP_FILE}" -d "$JAVA_TOOLS_DIR"
+  touch "$JAVA_TOOLS_DIR/WORKSPACE"
+  add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools=${JAVA_TOOLS_DIR}"
 fi
-JAVA_TOOLS_ZIP_FILE_URL=${JAVA_TOOLS_ZIP_FILE_URL:-}
-JAVA_TOOLS_PREBUILT_ZIP_FILE_URL=${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL:-}
 
-disable_bzlmod
-
-function set_up() {
-    cat >>WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-# java_tools versions only used to test Bazel with various JDK toolchains.
-
-http_archive(
-    name = "remote_java_tools",
-    urls = ["${JAVA_TOOLS_ZIP_FILE_URL}"]
-)
-http_archive(
-    name = "remote_java_tools_linux",
-    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
-)
-http_archive(
-    name = "remote_java_tools_windows",
-    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
-)
-http_archive(
-    name = "remote_java_tools_darwin_x86_64",
-    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
-)
-http_archive(
-    name = "remote_java_tools_darwin_arm64",
-    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
-)
-EOF
-}
+JAVA_TOOLS_PREBUILT_ZIP="$1"; shift
+if [[ "${JAVA_TOOLS_PREBUILT_ZIP}" != "released" ]]; then
+  JAVA_TOOLS_PREBUILT_ZIP_FILE="$(rlocation "${JAVA_TOOLS_PREBUILT_ZIP}")"
+  JAVA_TOOLS_PREBUILT_DIR="$TEST_TMPDIR/_java_tools_prebuilt"
+  unzip -q "${JAVA_TOOLS_PREBUILT_ZIP_FILE}" -d "$JAVA_TOOLS_PREBUILT_DIR"
+  touch "$JAVA_TOOLS_PREBUILT_DIR/WORKSPACE"
+  add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_linux=${JAVA_TOOLS_PREBUILT_DIR}"
+  add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_windows=${JAVA_TOOLS_PREBUILT_DIR}"
+  add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_darwin_x86_64=${JAVA_TOOLS_PREBUILT_DIR}"
+  add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_darwin_arm64=${JAVA_TOOLS_PREBUILT_DIR}"
+fi
 
 # Java source files version shall match --java_language_version_flag version.
 function test_java17_text_block() {

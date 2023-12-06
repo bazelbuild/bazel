@@ -78,8 +78,6 @@ public class NoConfigTransitionTest extends BuildViewTestCase {
         "  attrs = {",
         "    'flag_value': attr.string(),",
         "    'dep': attr.label(),",
-        "    '_allowlist_function_transition':",
-        "      attr.label(default = '//tools/allowlists/function_transition_allowlist'),",
         "  },",
         ")");
     scratch.file(
@@ -136,8 +134,6 @@ public class NoConfigTransitionTest extends BuildViewTestCase {
         "  attrs = {",
         "    'feature': attr.string(),",
         "    'dep': attr.label(),",
-        "    '_allowlist_function_transition':",
-        "      attr.label(default = '//tools/allowlists/function_transition_allowlist'),",
         "  },",
         ")");
     scratch.file(

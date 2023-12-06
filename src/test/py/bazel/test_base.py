@@ -209,12 +209,18 @@ class TestBase(absltest.TestCase):
         self.fail('File "%s" does contain "%s"' % (file_path, entry))
 
   def CreateWorkspaceWithDefaultRepos(self, path, lines=None):
+    """Creates a `WORKSPACE` file with default repos and register C++ toolchains."""
     rule_definition = [
         'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")'
     ]
     rule_definition.extend(self.GetDefaultRepoRules())
     if lines:
       rule_definition.extend(lines)
+    rule_definition.extend([
+        'register_toolchains(',
+        '  "@local_config_cc//:all",',
+        ')',
+    ])
     self.ScratchFile(path, rule_definition)
 
   def GetDefaultRepoRules(self):

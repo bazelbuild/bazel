@@ -93,13 +93,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
 
   @Test
   public void testToolchainAndSuiteDifferentPackages() throws Exception {
-    scratch.file(
-        "suite/BUILD",
-        "filegroup(name = 'empty')",
-        "cc_toolchain_suite(",
-        "    name = 'suite',",
-        "    toolchains = { 'banana': '//toolchain' },",
-        ")");
+    scratch.file("suite/BUILD", "filegroup(name = 'empty')");
     scratch.file(
         "toolchain/BUILD",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
@@ -164,15 +158,17 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "    fragments = ['cpp']",
         ")");
 
-    useConfiguration("--cpu=banana");
-    ConfiguredTarget target = getConfiguredTarget("//suite");
+    ConfiguredTarget target = getConfiguredTarget("//toolchain");
     RuleContext ruleContext = getRuleContext(target);
     CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
 
     assertThat(
-            toolchainProvider
-                .getToolPathFragment(CppConfiguration.Tool.CPP, ruleContext)
-                .toString())
+            CcToolchainProvider.getToolPathString(
+                toolchainProvider.getToolPaths(),
+                CppConfiguration.Tool.CPP,
+                toolchainProvider.getCcToolchainLabel(),
+                toolchainProvider.getToolchainIdentifier(),
+                ruleContext))
         .isEqualTo("toolchain/some/cpp");
   }
 
@@ -188,10 +184,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(",
         "   name='empty')",
-        "cc_toolchain_suite(",
-        "    name = 'a',",
-        "    toolchains = { 'k8': ':b' },",
-        ")",
         "cc_toolchain(",
         "    name = 'b',",
         "    all_files = ':empty',",
@@ -222,11 +214,10 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "a/cc_toolchain_config.bzl",
         ResourceLoader.readFromResources(
             "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
-    useConfiguration("--cpu=k8", "--host_cpu=k8");
     CcToolchainProvider ccToolchainProvider =
-        getConfiguredTarget("//a:a").get(CcToolchainProvider.PROVIDER);
+        getConfiguredTarget("//a:b").get(CcToolchainProvider.PROVIDER);
     ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-    ccToolchainProvider.addGlobalMakeVariables(builder);
+    ccToolchainProvider.addGlobalMakeVariables(ccToolchainProvider.getToolPaths(), builder);
     assertThat(builder.build().get("GCOVTOOL")).isNull();
   }
 
@@ -238,10 +229,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(",
         "   name='empty')",
-        "cc_toolchain_suite(",
-        "    name = 'a',",
-        "    toolchains = { 'k8': ':b' },",
-        ")",
         "cc_toolchain(",
         "    name = 'b',",
         "    all_files = ':empty',",
@@ -275,9 +262,9 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
             "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
     useConfiguration("--cpu=k8", "--host_cpu=k8");
     CcToolchainProvider ccToolchainProvider =
-        getConfiguredTarget("//a:a").get(CcToolchainProvider.PROVIDER);
+        getConfiguredTarget("//a:b").get(CcToolchainProvider.PROVIDER);
     ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-    ccToolchainProvider.addGlobalMakeVariables(builder);
+    ccToolchainProvider.addGlobalMakeVariables(ccToolchainProvider.getToolPaths(), builder);
     assertThat(builder.build().get("GCOVTOOL")).isNotNull();
   }
 
@@ -300,10 +287,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(",
         "   name='empty')",
-        "cc_toolchain_suite(",
-        "    name = 'a',",
-        "    toolchains = { 'k8': ':b' },",
-        ")",
         "cc_toolchain(",
         "    name = 'b',",
         "    all_files = ':empty',",
@@ -320,15 +303,14 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         ccToolchainConfigBuilder.build().getCcToolchainConfigRule(),
         "cc_library(",
         "    name = 'lib',",
-        "    toolchains = [':a'],",
+        "    toolchains = [':b'],",
         ")");
     analysisMock.ccSupport().setupCcToolchainConfig(mockToolsConfig, ccToolchainConfigBuilder);
     mockToolsConfig.create(
         "a/cc_toolchain_config.bzl",
         ResourceLoader.readFromResources(
             "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
-    useConfiguration(
-        "--cpu=k8", "--host_cpu=k8", "--collect_code_coverage", "--instrumentation_filter=//a[:/]");
+    useConfiguration("--collect_code_coverage", "--instrumentation_filter=//a[:/]");
     InstrumentedFilesInfo instrumentedFilesInfo =
         getConfiguredTarget("//a:lib").get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
     String gcovPath = null;
@@ -361,10 +343,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(",
         "   name='empty')",
-        "cc_toolchain_suite(",
-        "    name = 'a',",
-        "    toolchains = { 'k8': ':b' },",
-        ")",
         "cc_toolchain(",
         "    name = 'b',",
         "    all_files = ':empty',",
@@ -381,15 +359,14 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         ccToolchainConfigBuilder.build().getCcToolchainConfigRule(),
         "cc_library(",
         "    name = 'lib',",
-        "    toolchains = [':a'],",
+        "    toolchains = [':b'],",
         ")");
     analysisMock.ccSupport().setupCcToolchainConfig(mockToolsConfig, ccToolchainConfigBuilder);
     mockToolsConfig.create(
         "a/cc_toolchain_config.bzl",
         ResourceLoader.readFromResources(
             "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
-    useConfiguration(
-        "--cpu=k8", "--host_cpu=k8", "--collect_code_coverage", "--instrumentation_filter=//a[:/]");
+    useConfiguration("--collect_code_coverage", "--instrumentation_filter=//a[:/]");
 
     InstrumentedFilesInfo instrumentedFilesInfo =
         getConfiguredTarget("//a:lib").get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
@@ -428,10 +405,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(",
         "   name='empty')",
-        "cc_toolchain_suite(",
-        "    name = 'a',",
-        "    toolchains = { 'k8': ':b' },",
-        ")",
         "cc_toolchain(",
         "    name = 'b',",
         "    all_files = ':empty',",
@@ -448,15 +421,14 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         ccToolchainConfigBuilder.build().getCcToolchainConfigRule(),
         "cc_library(",
         "    name = 'lib',",
-        "    toolchains = [':a'],",
+        "    toolchains = [':b'],",
         ")");
     analysisMock.ccSupport().setupCcToolchainConfig(mockToolsConfig, ccToolchainConfigBuilder);
     mockToolsConfig.create(
         "a/cc_toolchain_config.bzl",
         ResourceLoader.readFromResources(
             "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
-    useConfiguration(
-        "--cpu=k8", "--host_cpu=k8", "--collect_code_coverage", "--instrumentation_filter=//a[:/]");
+    useConfiguration("--collect_code_coverage", "--instrumentation_filter=//a[:/]");
 
     InstrumentedFilesInfo instrumentedFilesInfo =
         getConfiguredTarget("//a:lib").get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
@@ -513,53 +485,12 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testUnsupportedSysrootErrorMessage() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
-        "filegroup(name='empty')",
-        "filegroup(name='everything')",
-        "cc_toolchain_suite(",
-        "    name = 'a',",
-        "    toolchains = { 'k8': ':b' },",
-        ")",
-        "cc_toolchain(",
-        "    name = 'b',",
-        "    all_files = ':empty',",
-        "    ar_files = ':empty',",
-        "    as_files = ':empty',",
-        "    compiler_files = ':empty',",
-        "    dwp_files = ':empty',",
-        "    linker_files = ':empty',",
-        "    strip_files = ':empty',",
-        "    objcopy_files = ':empty',",
-        "    toolchain_identifier = 'banana',",
-        "    toolchain_config = ':k8-compiler_config',",
-        ")",
-        // Not specifying `builtin_sysroot` means the toolchain doesn't support --grte_top.
-        CcToolchainConfig.builder().withSysroot("").build().getCcToolchainConfigRule());
-    analysisMock.ccSupport().setupCcToolchainConfig(mockToolsConfig, CcToolchainConfig.builder());
-    mockToolsConfig.create(
-        "a/cc_toolchain_config.bzl",
-        ResourceLoader.readFromResources(
-            "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
-    reporter.removeHandler(failFastHandler);
-    useConfiguration("--grte_top=//a", "--cpu=k8", "--host_cpu=k8");
-    getConfiguredTarget("//a:a");
-    assertContainsEvent("does not support setting --grte_top");
-  }
-
-  @Test
   public void testConfigWithMissingToolDefs() throws Exception {
     scratch.file(
         "a/BUILD",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(",
         "   name='empty')",
-        "cc_toolchain_suite(",
-        "    name = 'a',",
-        "    toolchains = { 'k8': ':b' },",
-        ")",
         "cc_toolchain(",
         "    name = 'b',",
         "    all_files = ':empty',",
@@ -592,8 +523,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         ResourceLoader.readFromResources(
             "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
     reporter.removeHandler(failFastHandler);
-    useConfiguration("--cpu=k8", "--host_cpu=k8");
-    getConfiguredTarget("//a:a");
+    getConfiguredTarget("//a:b");
     assertContainsEvent("Tool path for 'strip' is missing");
   }
 
@@ -603,10 +533,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "a/BUILD",
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         "filegroup(name='empty') ",
-        "cc_toolchain_suite(",
-        "    name = 'a',",
-        "    toolchains = { 'k8': ':b' },",
-        ")",
         "cc_toolchain(",
         "    name = 'b',",
         "    all_files = ':empty',",
@@ -624,8 +550,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     scratch.file("a/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
     analysisMock.ccSupport().setupCcToolchainConfig(mockToolsConfig, CcToolchainConfig.builder());
     reporter.removeHandler(failFastHandler);
-    useConfiguration("--cpu=k8", "--host_cpu=k8");
-    getConfiguredTarget("//a:a");
+    getConfiguredTarget("//a:b");
     assertNoEvents();
   }
 
@@ -638,10 +563,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "filegroup(name = 'empty')",
         "cc_binary(name = 'main', srcs = [ 'main.cc' ],)",
         "cc_binary(name = 'test', linkstatic = 0, srcs = [ 'test.cc' ],)",
-        "cc_toolchain_suite(",
-        "    name = 'a',",
-        "    toolchains = { 'k8': ':b'},",
-        ")",
         "cc_toolchain(",
         "    name = 'b',",
         "    all_files = ':empty',",
@@ -691,10 +612,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         "filegroup(name = 'empty')",
         "cc_binary(name = 'main', srcs = [ 'main.cc' ],)",
         "cc_binary(name = 'test', linkstatic = 0, srcs = [ 'test.cc' ],)",
-        "cc_toolchain_suite(",
-        "    name = 'a',",
-        "    toolchains = { 'k8': ':b'},",
-        ")",
         "cc_toolchain(",
         "    name = 'b',",
         "    all_files = ':empty',",

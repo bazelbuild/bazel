@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksu
 import com.google.devtools.build.lib.analysis.util.ConfigurationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -50,8 +49,6 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
         .matches(outputDirPrefix);
     assertThat(config.getBinDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(outputDirPrefix + "/bin");
-    assertThat(config.getBuildInfoDirectory(RepositoryName.MAIN).getRoot().toString())
-        .matches(outputDirPrefix + "/include");
     assertThat(config.getTestLogsDirectory(RepositoryName.MAIN).getRoot().toString())
         .matches(outputDirPrefix + "/testlogs");
   }
@@ -81,23 +78,6 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     assertThat(env).containsEntry("LANG", "en_US");
     assertThat(env).containsKey("PATH");
     assertThat(env.get("PATH")).contains("/bin:/usr/bin");
-  }
-
-  @Test
-  public void testHostCrosstoolTop() throws Exception {
-    if (analysisMock.isThisBazel()) {
-      return;
-    }
-
-    BuildConfigurationValue config =
-        createConfiguration("--cpu=piii", "--noincompatible_enable_cc_toolchain_resolution");
-    assertThat(config.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
-        .isEqualTo(Label.parseCanonicalUnchecked("//tools/cpp:toolchain"));
-
-    BuildConfigurationValue execConfig =
-        createExec("--noincompatible_enable_cc_toolchain_resolution");
-    assertThat(execConfig.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
-        .isEqualTo(Label.parseCanonicalUnchecked("//tools/cpp:toolchain"));
   }
 
   @Test

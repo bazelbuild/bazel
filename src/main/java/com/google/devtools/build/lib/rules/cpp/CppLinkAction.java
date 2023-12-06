@@ -179,9 +179,8 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
 
   private final boolean isLtoIndexing;
 
-  private final PathFragment ldExecutable;
+  private final String ldExecutable;
   private final String targetCpu;
-
 
   /**
    * Use {@link CppLinkActionBuilder} to create instances of this class. Also see there for the
@@ -204,7 +203,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
       ActionEnvironment env,
       ImmutableMap<String, String> toolchainEnv,
       ImmutableMap<String, String> executionRequirements,
-      PathFragment ldExecutable,
+      String ldExecutable,
       String targetCpu) {
     super(owner, inputs, outputs);
     this.mnemonic = getMnemonic(mnemonic, isLtoIndexing);
@@ -421,7 +420,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
       Fingerprint fp)
       throws CommandLineExpansionException {
     fp.addString(LINK_GUID);
-    fp.addString(ldExecutable.getPathString());
+    fp.addString(ldExecutable);
     fp.addStrings(linkCommandLine.arguments());
     fp.addStringMap(toolchainEnv);
     fp.addStrings(getExecutionInfo().keySet());
@@ -546,17 +545,16 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
       switch (os) {
         case DARWIN:
           resourceSet =
-              ResourceSet.createWithRamCpu(
-                  /* memoryMb= */ 15 + 0.05 * inputsCount, /* cpuUsage= */ 1);
+              ResourceSet.createWithRamCpu(/* memoryMb= */ 15 + 0.05 * inputsCount, /* cpu= */ 1);
           break;
         case LINUX:
           resourceSet =
               ResourceSet.createWithRamCpu(
-                  /* memoryMb= */ Math.max(50, -100 + 0.1 * inputsCount), /* cpuUsage= */ 1);
+                  /* memoryMb= */ Math.max(50, -100 + 0.1 * inputsCount), /* cpu= */ 1);
           break;
         default:
           resourceSet =
-              ResourceSet.createWithRamCpu(/* memoryMb= */ 1500 + inputsCount, /* cpuUsage= */ 1);
+              ResourceSet.createWithRamCpu(/* memoryMb= */ 1500 + inputsCount, /* cpu= */ 1);
           break;
       }
 

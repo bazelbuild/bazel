@@ -379,7 +379,7 @@ public final class DependencyResolver {
               targetAndConfiguration.getConfiguration() == null
                   ? null
                   : targetAndConfiguration.getConfiguration().getOptions(),
-              (bzlKey) -> (BzlLoadValue) env.getValue(bzlKey));
+              (bzlKey) -> (BzlLoadValue) env.getValueOrThrow(bzlKey, BzlLoadFailedException.class));
       if (starlarkExecTransition == null) {
         return false;
       }

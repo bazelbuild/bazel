@@ -56,8 +56,6 @@ public final class BazelCcLibraryRule implements RuleDefinition {
         transitive deps) are only used for compilation of this library, and not libraries that
         depend on it. Libraries specified with <code>implementation_deps</code> are still linked in
         binary targets that depend on this library.
-        <p>For now usage is limited to cc_libraries and guarded by the flag
-        <code>--experimental_cc_implementation_deps</code>.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
             attr("implementation_deps", LABEL_LIST)

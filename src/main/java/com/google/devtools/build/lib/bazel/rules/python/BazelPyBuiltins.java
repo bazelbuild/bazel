@@ -14,11 +14,22 @@
 
 package com.google.devtools.build.lib.bazel.rules.python;
 
+import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.rules.python.PyBuiltins;
+import com.google.devtools.build.lib.rules.python.PythonUtils;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import java.util.UUID;
 
 /** PyBuiltins with Bazel-specific functionality. */
 public final class BazelPyBuiltins extends PyBuiltins {
+
+  private static final UUID GUID = UUID.fromString("0211a192-1b1e-40e6-80e9-7352360b12b1");
+
+  @SerializationConstant
+  public static final Runfiles.EmptyFilesSupplier GET_INIT_PY_FILES =
+      new PythonUtils.GetInitPyFiles(source -> false, GUID);
+
   public BazelPyBuiltins() {
-    super(BazelPythonSemantics.GET_INIT_PY_FILES);
+    super(GET_INIT_PY_FILES);
   }
 }

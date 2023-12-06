@@ -439,7 +439,7 @@ public final class CcLinkingHelper {
     boolean usePicForBinaries =
         CppHelper.usePicForBinaries(ccToolchain, cppConfiguration, featureConfiguration);
     boolean usePicForDynamicLibs =
-        ccToolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration);
+        CcToolchainProvider.usePicForDynamicLibraries(cppConfiguration, featureConfiguration);
 
     PathFragment labelName = PathFragment.create(label.getName());
     String libraryIdentifier =
@@ -724,7 +724,8 @@ public final class CcLinkingHelper {
       try {
         dynamicLinkActionBuilder.setRuntimeInputs(
             ArtifactCategory.DYNAMIC_LIBRARY,
-            ccToolchain.getDynamicRuntimeLinkInputs(featureConfiguration));
+            CcToolchainProvider.getDynamicRuntimeLinkInputsOrThrowError(
+                ccToolchain.getDynamicRuntimeLinkInputs(), featureConfiguration));
       } catch (EvalException e) {
         throw ruleErrorConsumer.throwWithRuleError(e);
       }
@@ -732,7 +733,8 @@ public final class CcLinkingHelper {
       try {
         dynamicLinkActionBuilder.setRuntimeInputs(
             ArtifactCategory.STATIC_LIBRARY,
-            ccToolchain.getStaticRuntimeLinkInputs(featureConfiguration));
+            CcToolchainProvider.getStaticRuntimeLinkInputsOrThrowError(
+                ccToolchain.getStaticRuntimeLinkInputs(), featureConfiguration));
       } catch (EvalException e) {
         throw ruleErrorConsumer.throwWithRuleError(e);
       }

@@ -2920,9 +2920,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "  implementation = _my_rule_impl,",
         "  attrs = {",
         "    'dep':  attr.label(cfg = my_transition),",
-        "#   '_allowlist_function_transition': attr.label(",
-        "#       default = '//tools/allowlists/function_transition_allowlist',",
-        "#   ),",
         "  })",
         "def _simple_rule_impl(ctx):",
         "  return []",
@@ -2968,9 +2965,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "  cfg = my_transition,",
         "  attrs = {",
         "    'dep': attr.label(cfg = my_transition),",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
         "  }",
         ")");
 
@@ -3018,11 +3012,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "my_rule = rule(",
         "  implementation = _rule_impl,",
         "  cfg = my_transition,",
-        "  attrs = {",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
-        "  }",
         ")");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'mytarget')");
 
@@ -3067,9 +3056,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "  cfg = my_transition,",
         "  attrs = {",
         "    'dep': attr.label(cfg = my_transition),",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
         "  }",
         ")");
 
@@ -4002,9 +3988,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "  cfg = my_transition,",
         "  attrs = {",
         "    'dep': attr.label(cfg = my_transition),",
-        "    '_allowlist_function_transition': attr.label(",
-        "        default = '//tools/allowlists/function_transition_allowlist',",
-        "    ),",
         "  }",
         ")");
 

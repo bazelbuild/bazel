@@ -20,6 +20,7 @@ load(":common/java/java_semantics.bzl", "semantics")
 load(":common/paths.bzl", "paths")
 
 testing = _builtins.toplevel.testing
+_java_common_internal = _builtins.internal.java_common_internal_do_not_use
 
 def _collect_all_targets_as_deps(ctx, classpath_type = "all"):
     deps = []
@@ -93,7 +94,7 @@ def _primary_class(ctx):
         for src in ctx.files.srcs:
             if src.basename == main:
                 return _full_classname(_strip_extension(src))
-    return _full_classname(ctx.label.package + "/" + ctx.label.name)
+    return _full_classname(paths.get_relative(ctx.label.package, ctx.label.name))
 
 def _strip_extension(file):
     return file.dirname + "/" + (
@@ -245,16 +246,15 @@ def _get_coverage_config(ctx, runner):
 
 def _get_java_executable(ctx, java_runtime_toolchain, launcher):
     java_executable = launcher.short_path if launcher else java_runtime_toolchain.java_executable_runfiles_path
-    if not _is_absolute_path(ctx, java_executable):
+    if not _is_absolute_target_platform_path(ctx, java_executable):
         java_executable = ctx.workspace_name + "/" + java_executable
     return paths.normalize(java_executable)
 
-# TODO(hvd): we should check target/exec platform and not host
-def _is_windows(ctx):
-    return ctx.configuration.host_path_separator == ";"
+def _is_target_platform_windows(ctx):
+    return cc_helper.has_target_constraints(ctx, ctx.attr._windows_constraints)
 
-def _is_absolute_path(ctx, path):
-    if _is_windows(ctx):
+def _is_absolute_target_platform_path(ctx, path):
+    if _is_target_platform_windows(ctx):
         return len(path) > 2 and path[1] == ":"
     return path.startswith("/")
 
@@ -377,25 +377,34 @@ def _shell_escape(s):
             return "'" + s.replace("'", "'\\''") + "'"
     return s
 
-def _tokenize_javacopts(ctx, opts):
+def _tokenize_javacopts(ctx = None, opts = []):
     """Tokenizes a list or depset of options to a list.
 
     Iff opts is a depset, we reverse the flattened list to ensure right-most
     duplicates are preserved in their correct position.
 
+    If the ctx parameter is omitted, a slow, but pure Starlark, implementation
+    of shell tokenization is used. Otherwise, tokenization is performed using
+    ctx.tokenize() which has significantly better performance (up to 100x for
+    large options lists).
+
     Args:
-        ctx: (RuleContext) the rule context
+        ctx: (RuleContext|None) the rule context
         opts: (depset[str]|[str]) the javac options to tokenize
     Returns:
         [str] list of tokenized options
     """
     if hasattr(opts, "to_list"):
         opts = reversed(opts.to_list())
-    return [
-        token
-        for opt in opts
-        for token in ctx.tokenize(opt)
-    ]
+    if ctx:
+        return [
+            token
+            for opt in opts
+            for token in ctx.tokenize(opt)
+        ]
+    else:
+        # TODO: optimize and use the pure Starlark implementation in cc_helper
+        return _java_common_internal.tokenize_javacopts(opts)
 
 def _detokenize_javacopts(opts):
     """Detokenizes a list of options to a depset.
@@ -455,8 +464,8 @@ helper = struct(
     should_strip_as_default = _should_strip_as_default,
     get_coverage_config = _get_coverage_config,
     get_java_executable = _get_java_executable,
-    is_absolute_path = _is_absolute_path,
-    is_windows = _is_windows,
+    is_absolute_target_platform_path = _is_absolute_target_platform_path,
+    is_target_platform_windows = _is_target_platform_windows,
     runfiles_enabled = _runfiles_enabled,
     get_test_support = _get_test_support,
     test_providers = _test_providers,

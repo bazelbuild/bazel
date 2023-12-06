@@ -69,10 +69,6 @@ import javax.annotation.Nullable;
  */
 @Immutable
 public final class BlazeDirectories {
-  // TODO(bazel-team): is there actually any reason to put build-info files here? Can we at least
-  //  give the directory a better name?
-  // Build-info directory, relative to execRoot/blaze-out/configuration. Only one segment allowed.
-  public static final String RELATIVE_BUILD_INFO_DIR = StringCanonicalizer.intern("include");
   @VisibleForTesting static final String DEFAULT_EXEC_ROOT = "default-exec-root";
 
   private final ServerDirectories serverDirectories;

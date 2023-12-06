@@ -47,8 +47,6 @@ import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.StarlarkLoading;
 import com.google.devtools.build.lib.server.FailureDetails.StarlarkLoading.Code;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction.BuiltinsFailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -553,7 +551,7 @@ public class BzlLoadFunction implements SkyFunction {
     try {
       compileValue = getter.getBzlCompileValue(compileKey, env);
     } catch (BzlCompileFunction.FailedIOException e) {
-      throw BzlLoadFailedException.errorReadingBzl(filePath, e);
+      throw errorReadingBzl(filePath, e);
     }
     if (compileValue == null) {
       return null;
@@ -609,7 +607,7 @@ public class BzlLoadFunction implements SkyFunction {
             /* bzlLoadFunction= */ this);
       }
     } catch (BuiltinsFailedException e) {
-      throw BzlLoadFailedException.builtinsFailed(key.getLabel(), e);
+      throw builtinsFailed(key.getLabel(), e);
     }
   }
 
@@ -649,7 +647,7 @@ public class BzlLoadFunction implements SkyFunction {
     // Bypass package lookup entirely if builtins.
     if (key.isBuiltins()) {
       if (!label.getPackageName().isEmpty()) {
-        throw BzlLoadFailedException.noBuildFile(label, "@_builtins cannot have subpackages");
+        throw noBuildFile(label, "@_builtins cannot have subpackages");
       }
       return key.getCompileKey(getBuiltinsRoot(builtinsBzlPath));
     }
@@ -666,7 +664,7 @@ public class BzlLoadFunction implements SkyFunction {
                   BuildFileNotFoundException.class,
                   InconsistentFilesystemException.class);
     } catch (BuildFileNotFoundException | InconsistentFilesystemException e) {
-      throw BzlLoadFailedException.errorFindingContainingPackage(label.toPathFragment(), e);
+      throw errorFindingContainingPackage(label.toPathFragment(), e);
     }
     if (packageLookup == null) {
       return null;
@@ -685,10 +683,9 @@ public class BzlLoadFunction implements SkyFunction {
         compileKey = key.getCompileKey(packageLookup.getContainingPackageRoot());
       } else {
         if (!packageLookup.hasContainingPackage()) {
-          throw BzlLoadFailedException.noBuildFile(
-              label, packageLookup.getReasonForNoContainingPackage());
+          throw noBuildFile(label, packageLookup.getReasonForNoContainingPackage());
         } else {
-          throw BzlLoadFailedException.labelCrossesPackageBoundary(label, packageLookup);
+          throw labelCrossesPackageBoundary(label, packageLookup);
         }
       }
     }
@@ -1153,7 +1150,7 @@ public class BzlLoadFunction implements SkyFunction {
       try {
         bzlLoads.add((BzlLoadValue) values.getOrThrow(keys.get(i), BzlLoadFailedException.class));
       } catch (BzlLoadFailedException ex) {
-        throw BzlLoadFailedException.whileLoadingDep(programLoads.get(i).second, ex);
+        throw whileLoadingDep(programLoads.get(i).second, ex);
       }
     }
     return env.valuesMissing() ? null : bzlLoads;
@@ -1197,7 +1194,7 @@ public class BzlLoadFunction implements SkyFunction {
         cachedData = computeInlineCachedData(keys.get(i), inliningState);
       } catch (BzlLoadFailedException e) {
         if (deferredException == null) {
-          deferredException = BzlLoadFailedException.whileLoadingDep(programLoads.get(i).second, e);
+          deferredException = whileLoadingDep(programLoads.get(i).second, e);
         }
         continue;
       }
@@ -1273,7 +1270,7 @@ public class BzlLoadFunction implements SkyFunction {
       }
     }
     if (foundViolation && !demoteErrorsToWarnings) {
-      throw BzlLoadFailedException.visibilityViolation(requestingFileDescription);
+      throw visibilityViolation(requestingFileDescription);
     }
   }
 
@@ -1360,7 +1357,7 @@ public class BzlLoadFunction implements SkyFunction {
 
       execAndExport(prog, label, starlarkEventHandler, module, thread);
       if (sawStarlarkError.get()) {
-        throw BzlLoadFailedException.executionFailed(label);
+        throw executionFailed(label);
       }
     }
   }
@@ -1496,59 +1493,6 @@ public class BzlLoadFunction implements SkyFunction {
     }
   }
 
-  /** Indicates a failure to load a .bzl file. */
-  public static final class BzlLoadFailedException extends Exception
-      implements SaneAnalysisException {
-    private final Transience transience;
-    private final DetailedExitCode detailedExitCode;
-
-    private BzlLoadFailedException(
-        String errorMessage, DetailedExitCode detailedExitCode, Transience transience) {
-      super(errorMessage);
-      this.transience = transience;
-      this.detailedExitCode = detailedExitCode;
-    }
-
-    private BzlLoadFailedException(String errorMessage, DetailedExitCode detailedExitCode) {
-      this(errorMessage, detailedExitCode, Transience.PERSISTENT);
-    }
-
-    private BzlLoadFailedException(
-        String errorMessage,
-        DetailedExitCode detailedExitCode,
-        Exception cause,
-        Transience transience) {
-      super(errorMessage, cause);
-      this.transience = transience;
-      this.detailedExitCode = detailedExitCode;
-    }
-
-    private BzlLoadFailedException(String errorMessage, Code code) {
-      this(errorMessage, createDetailedExitCode(errorMessage, code), Transience.PERSISTENT);
-    }
-
-    private BzlLoadFailedException(
-        String errorMessage, Code code, Exception cause, Transience transience) {
-      this(errorMessage, createDetailedExitCode(errorMessage, code), cause, transience);
-    }
-
-    Transience getTransience() {
-      return transience;
-    }
-
-    @Override
-    public DetailedExitCode getDetailedExitCode() {
-      return detailedExitCode;
-    }
-
-    private static DetailedExitCode createDetailedExitCode(String message, Code code) {
-      return DetailedExitCode.of(
-          FailureDetail.newBuilder()
-              .setMessage(message)
-              .setStarlarkLoading(StarlarkLoading.newBuilder().setCode(code))
-              .build());
-    }
-
     private static BzlLoadFailedException whileLoadingDep(
         Location loc, BzlLoadFailedException cause) {
       // Don't chain exception cause, just incorporate the message with a prefix.
@@ -1573,10 +1517,11 @@ public class BzlLoadFunction implements SkyFunction {
       String errorMessage =
           String.format(
               "Encountered error while reading extension file '%s': %s", file, cause.getMessage());
-      DetailedExitCode detailedExitCode =
-          cause instanceof DetailedException
-              ? ((DetailedException) cause).getDetailedExitCode()
-              : createDetailedExitCode(errorMessage, Code.CONTAINING_PACKAGE_NOT_FOUND);
+    DetailedExitCode detailedExitCode =
+        cause instanceof DetailedException
+            ? ((DetailedException) cause).getDetailedExitCode()
+            : BzlLoadFailedException.createDetailedExitCode(
+                errorMessage, Code.CONTAINING_PACKAGE_NOT_FOUND);
       return new BzlLoadFailedException(
           errorMessage, detailedExitCode, cause, Transience.PERSISTENT);
     }
@@ -1639,11 +1584,11 @@ public class BzlLoadFunction implements SkyFunction {
           String.format("%s contains .bzl load visibility violations", fileDescription),
           Code.VISIBILITY_ERROR);
     }
-  }
+
 
   private static final class BzlLoadFunctionException extends SkyFunctionException {
     private BzlLoadFunctionException(BzlLoadFailedException cause) {
-      super(cause, cause.transience);
+      super(cause, cause.getTransience());
     }
   }
 }

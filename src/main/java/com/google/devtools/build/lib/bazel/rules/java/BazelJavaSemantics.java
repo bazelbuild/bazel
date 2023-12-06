@@ -33,16 +33,13 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
-import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
@@ -74,11 +71,6 @@ public class BazelJavaSemantics implements JavaSemantics {
       Template.forResource(BazelJavaSemantics.class, "java_stub_template.txt");
   private static final String CLASSPATH_PLACEHOLDER = "%classpath%";
 
-  private static final String JACOCO_COVERAGE_RUNNER_MAIN_CLASS =
-      "com.google.testing.coverage.JacocoCoverageRunner";
-  private static final String BAZEL_TEST_RUNNER_MAIN_CLASS =
-      "com.google.testing.junit.runner.BazelTestRunner";
-
   private BazelJavaSemantics() {}
 
   private static final String JAVA_TOOLCHAIN_TYPE =
@@ -97,17 +89,8 @@ public class BazelJavaSemantics implements JavaSemantics {
   }
 
   @Override
-  public void checkRule(RuleContext ruleContext, JavaCommon javaCommon) {
-  }
-
-  @Override
   public void checkForProtoLibraryAndJavaProtoLibraryOnSameProto(
       RuleContext ruleContext, JavaCommon javaCommon) {}
-
-  @Override
-  public String getTestRunnerMainClass() {
-    return BAZEL_TEST_RUNNER_MAIN_CLASS;
-  }
 
   @Override
   public ImmutableList<Artifact> collectResources(RuleContext ruleContext) {
@@ -208,19 +191,8 @@ public class BazelJavaSemantics implements JavaSemantics {
                 ? "0"
                 : "1"));
 
-    TransitiveInfoCollection testSupport = JavaSemantics.getTestSupport(ruleContext);
-    NestedSet<Artifact> testSupportJars =
-        testSupport == null
-            ? NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)
-            : getRuntimeJarsForTargets(testSupport);
-
     NestedSetBuilder<Artifact> classpathBuilder = NestedSetBuilder.naiveLinkOrder();
     classpathBuilder.addTransitive(javaCommon.getRuntimeClasspath());
-    if (enforceExplicitJavaTestDeps(ruleContext)) {
-      // Currently, this is only needed when --explicit_java_test_deps=true, as otherwise the
-      // testSupport classpath is wrongly present in the javaCommon.getRuntimeClasspath().
-      classpathBuilder.addTransitive(testSupportJars);
-    }
     NestedSet<Artifact> classpath = classpathBuilder.build();
 
     arguments.add(new ComputedClasspathSubstitution(classpath, workspacePrefix, isRunfilesEnabled));
@@ -335,15 +307,6 @@ public class BazelJavaSemantics implements JavaSemantics {
     return ruleContext.getFragment(JavaConfiguration.class).explicitJavaTestDeps();
   }
 
-  private static NestedSet<Artifact> getRuntimeJarsForTargets(TransitiveInfoCollection... deps)
-      throws RuleErrorException {
-    // The dep may be a simple JAR and not a java rule, hence we can't simply do
-    // dep.getProvider(JavaCompilationArgsProvider.class).getRecursiveJavaCompilationArgs(),
-    // so we reuse the logic within JavaCompilationArgsProvider to handle both scenarios.
-    return JavaCompilationArgsProvider.legacyFromTargets(ImmutableList.copyOf(deps))
-        .getRuntimeJars();
-  }
-
   @Override
   public void addRunfilesForLibrary(RuleContext ruleContext, Runfiles.Builder runfilesBuilder) {
   }
@@ -361,31 +324,12 @@ public class BazelJavaSemantics implements JavaSemantics {
       // targets may break, we are keeping it behind this flag.
       return;
     }
-    // Only add the test support to the dependencies when running in regular mode.
-    // In persistent test runner mode don't pollute the classpath of the test with
-    // the test support classes.
-    TransitiveInfoCollection testSupport = JavaSemantics.getTestSupport(ruleContext);
-    if (testSupport != null) {
-      builder.add(testSupport);
-    }
   }
 
   @Override
   public ImmutableList<String> getCompatibleJavacOptions(
       RuleContext ruleContext, JavaToolchainProvider toolchain) {
     return ImmutableList.of();
-  }
-
-  @Override
-  public String addCoverageSupport(JavaCompilationHelper helper, Artifact executable)
-      throws RuleErrorException {
-    // This method can be called only for *_binary/*_test targets.
-    Preconditions.checkNotNull(executable);
-    helper.addCoverageSupport();
-
-    // We do not add the instrumented jar to the runtime classpath, but provide it in the shell
-    // script via an environment variable.
-    return JACOCO_COVERAGE_RUNNER_MAIN_CLASS;
   }
 
   @Override
@@ -449,11 +393,6 @@ public class BazelJavaSemantics implements JavaSemantics {
     return javaPath == null ? path : javaPath;
   }
 
-  @Override
-  public Artifact getProtoMapping(RuleContext ruleContext) throws InterruptedException {
-    return null;
-  }
-
   @Nullable
   @Override
   public GeneratedExtensionRegistryProvider createGeneratedExtensionRegistry(
@@ -464,12 +403,6 @@ public class BazelJavaSemantics implements JavaSemantics {
       JavaRuleOutputJarsProvider.Builder javaRuleOutputJarsProviderBuilder,
       JavaSourceJarsProvider.Builder javaSourceJarsProviderBuilder)
     throws InterruptedException {
-    return null;
-  }
-
-  @Override
-  public Artifact getObfuscatedConstantStringMap(RuleContext ruleContext)
-      throws InterruptedException {
     return null;
   }
 }

@@ -89,6 +89,15 @@ public interface AndroidDexInfoApi<FileT extends FileApi> extends StructApi {
       allowReturnNones = true)
   FileT getShuffledJavaResourceJar();
 
+  @Nullable
+  @StarlarkMethod(
+      name = "rex_output_package_map",
+      doc = "The output rex package map.",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  FileT getRexOutputPackageMap();
+
   /** Provider for {@link AndroidDexInfoApi}. */
   @StarlarkBuiltin(
       name = "Provider",
@@ -154,6 +163,15 @@ public interface AndroidDexInfoApi<FileT extends FileApi> extends StructApi {
               named = true,
               doc = "The output java resource jar after shuffling the proguarded jar.",
               defaultValue = "None"),
+          @Param(
+              name = "rex_output_package_map",
+              allowedTypes = {
+                @ParamType(type = FileApi.class),
+                @ParamType(type = NoneType.class),
+              },
+              named = true,
+              doc = "The output rex package map.",
+              defaultValue = "None"),
         },
         selfCall = true)
     @StarlarkConstructor
@@ -163,7 +181,8 @@ public interface AndroidDexInfoApi<FileT extends FileApi> extends StructApi {
         Object filteredDeployJar,
         Object finalProguardOutputMap,
         Object javaResourceJar,
-        Object shuffledJavaResourceJar)
+        Object shuffledJavaResourceJar,
+        Object rexOutputPackageMap)
         throws EvalException;
   }
 }

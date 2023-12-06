@@ -99,7 +99,7 @@ import net.starlark.java.eval.StarlarkList;
 public final class JavaCompileAction extends AbstractAction implements CommandAction {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final ResourceSet LOCAL_RESOURCES =
-      ResourceSet.createWithRamCpu(/* memoryMb= */ 750, /* cpuUsage= */ 1);
+      ResourceSet.createWithRamCpu(/* memoryMb= */ 750, /* cpu= */ 1);
   private static final UUID GUID = UUID.fromString("e423747c-2827-49e6-b961-f6c08c10bb51");
 
   private static final ParamFileInfo PARAM_FILE_INFO =
@@ -237,11 +237,6 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     // definition and the output of an action shouldn't change whether something is considered a
     // tool or not.
     fp.addPaths(getRunfilesSupplier().getRunfilesDirs());
-    ImmutableList<Artifact> runfilesManifests = getRunfilesSupplier().getManifests();
-    fp.addInt(runfilesManifests.size());
-    for (Artifact runfilesManifest : runfilesManifests) {
-      fp.addPath(runfilesManifest.getExecPath());
-    }
     getEnvironment().addTo(fp);
     fp.addStringMap(executionInfo);
     PathMappers.addToFingerprint(

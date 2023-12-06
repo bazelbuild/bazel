@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
-import com.google.devtools.build.lib.util.OS;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -179,6 +178,7 @@ public class JavaStarlarkCommon
       Depset compileTimeClasspath,
       Depset directJars,
       Object bootClassPathUnchecked,
+      Depset javaBuilderJvmFlags,
       Depset compileTimeJavaDeps,
       Depset javacOpts,
       String strictDepsMode,
@@ -249,6 +249,8 @@ public class JavaStarlarkCommon
             JavaToolchainProvider.PROVIDER.wrap(javaToolchain),
             Sequence.cast(additionalInputs, Artifact.class, "additional_inputs")
                 .getImmutableList());
+    compilationHelper.javaBuilderJvmFlags(
+        Depset.cast(javaBuilderJvmFlags, String.class, "javabuilder_jvm_flags"));
     compilationHelper.enableJspecify(enableJSpecify);
     compilationHelper.enableDirectClasspath(enableDirectClasspath);
     compilationHelper.createCompileAction(outputs);
@@ -354,15 +356,6 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public boolean isDepsetForJavaOutputSourceJarsEnabled(StarlarkThread thread)
-      throws EvalException {
-    checkPrivateAccess(thread);
-    return thread
-        .getSemantics()
-        .getBool(BuildLanguageOptions.INCOMPATIBLE_DEPSET_FOR_JAVA_OUTPUT_SOURCE_JARS);
-  }
-
-  @Override
   public boolean isJavaInfoMergeRuntimeModuleFlagsEnabled(StarlarkThread thread)
       throws EvalException {
     checkPrivateAccess(thread);
@@ -394,11 +387,6 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public String getCurrentOsName() {
-    return OS.getCurrent().getCanonicalName();
-  }
-
-  @Override
   public Sequence<?> expandJavaOpts(
       StarlarkRuleContext ctx, String attr, boolean tokenize, boolean execPaths)
       throws InterruptedException {
@@ -413,6 +401,12 @@ public class JavaStarlarkCommon
     } else {
       return StarlarkList.immutableCopyOf(expander.list(attr));
     }
+  }
+
+  @Override
+  public Sequence<?> tokenizeJavacOpts(Sequence<?> opts) throws EvalException {
+    return StarlarkList.immutableCopyOf(
+        JavaHelper.tokenizeJavaOptions(Sequence.noneableCast(opts, String.class, "opts")));
   }
 
   static boolean isInstanceOfProvider(Object obj, Provider provider) {

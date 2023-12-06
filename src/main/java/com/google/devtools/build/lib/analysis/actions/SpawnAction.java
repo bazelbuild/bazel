@@ -382,11 +382,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     // definition and the output of an action shouldn't change whether something is considered a
     // tool or not.
     fp.addPaths(runfilesSupplier.getRunfilesDirs());
-    ImmutableList<Artifact> runfilesManifests = runfilesSupplier.getManifests();
-    fp.addInt(runfilesManifests.size());
-    for (Artifact runfilesManifest : runfilesManifests) {
-      fp.addPath(runfilesManifest.getExecPath());
-    }
     env.addTo(fp);
     fp.addStringMap(getExecutionInfo());
     PathMappers.addToFingerprint(getMnemonic(), getExecutionInfo(), outputPathsMode, fp);
@@ -526,13 +521,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           parent,
           parent.resourceSetOrBuilder);
       NestedSetBuilder<ActionInput> inputsBuilder = NestedSetBuilder.stableOrder();
-      ImmutableList<Artifact> manifests = getRunfilesSupplier().getManifests();
-      for (Artifact input : inputs.toList()) {
-        if (!input.isFileset() && !manifests.contains(input)) {
-          inputsBuilder.add(input);
-        }
-      }
+      addNonFilesetInputs(inputsBuilder, inputs, filesetMappings);
       inputsBuilder.addAll(additionalInputs);
+
       this.inputs = inputsBuilder.build();
       this.filesetMappings = filesetMappings;
       this.pathMapper = pathMapper;
@@ -546,6 +537,23 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         effectiveEnvironment = parent.getEffectiveEnvironment(env);
       }
       this.reportOutputs = reportOutputs;
+    }
+
+    private static void addNonFilesetInputs(
+        NestedSetBuilder<ActionInput> builder,
+        NestedSet<Artifact> inputs,
+        Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings) {
+      if (filesetMappings.isEmpty()) {
+        // Keep the original nested set intact. This aids callers that exploit the nested set
+        // structure to perform optimizations (see SpawnInputExpander#walkInputs and its callers).
+        builder.addTransitive(inputs);
+        return;
+      }
+      for (Artifact input : inputs.toList()) {
+        if (!input.isFileset()) {
+          builder.add(input);
+        }
+      }
     }
 
     @Override

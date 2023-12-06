@@ -90,7 +90,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
@@ -150,7 +149,6 @@ import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
-import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -294,10 +292,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues =
         ImmutableList.<PrecomputedValue.Injected>builder()
             .addAll(analysisMock.getPrecomputedValues())
-            .add(
-                PrecomputedValue.injected(
-                    BuildInfoCollectionFunction.BUILD_INFO_FACTORIES,
-                    ruleClassProvider.getBuildInfoFactoriesAsMap()))
             .add(
                 PrecomputedValue.injected(
                     ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())))
@@ -1674,29 +1668,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfigurationValue#getBuildInfoDirectory} corresponding to the package of {@code owner}.
-   * So to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should
-   * just be "foo.h".
-   */
-  protected Artifact getIncludeArtifact(String packageRelativePath, String owner) {
-    return getIncludeArtifact(packageRelativePath, makeConfiguredTargetKey(owner));
-  }
-
-  /**
-   * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfigurationValue#getBuildInfoDirectory} corresponding to the package of {@code owner}.
-   * So to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should
-   * just be "foo.h".
-   */
-  protected Artifact getIncludeArtifact(String packageRelativePath, ArtifactOwner owner) {
-    return getPackageRelativeDerivedArtifact(
-        packageRelativePath,
-        targetConfig.getBuildInfoDirectory(owner.getLabel().getRepository()),
-        owner);
-  }
-
-  /**
    * @return a shared artifact at the binary-root relative path {@code rootRelativePath} owned by
    *     {@code owner}.
    * @param rootRelativePath the binary-root relative path of the artifact.
@@ -1813,13 +1784,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected static ConfiguredAttributeMapper getMapperFromConfiguredTargetAndTarget(
       ConfiguredTargetAndData ctad) {
     return ctad.getAttributeMapperForTesting();
-  }
-
-  private ConfiguredTargetKey makeConfiguredTargetKey(String label) {
-    return ConfiguredTargetKey.builder()
-        .setLabel(Label.parseCanonicalUnchecked(label))
-        .setConfiguration(getConfiguration(label))
-        .build();
   }
 
   protected static ImmutableList<String> actionInputsToPaths(
@@ -2304,12 +2268,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     @Override
     public Artifact getVolatileWorkspaceStatusArtifact() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public ImmutableList<Artifact> getBuildInfo(
-        boolean stamp, BuildInfoKey key, BuildConfigurationValue config) {
       throw new UnsupportedOperationException();
     }
 

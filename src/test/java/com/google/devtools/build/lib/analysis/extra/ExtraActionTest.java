@@ -119,6 +119,7 @@ public class ExtraActionTest extends FoundationTestCase {
     ArtifactRoot out = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out");
     ExtraAction extraAction =
         new ExtraAction(
+            NULL_ACTION_OWNER,
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             EmptyRunfilesSupplier.INSTANCE,
             ImmutableSet.of(
@@ -191,10 +192,10 @@ public class ExtraActionTest extends FoundationTestCase {
     when(shadowedAction.discoversInputs()).thenReturn(true);
     when(shadowedAction.getInputs()).thenReturn(NestedSetBuilder.emptySet(Order.STABLE_ORDER));
     when(shadowedAction.inputsKnown()).thenReturn(true);
-    when(shadowedAction.getOwner()).thenReturn(NULL_ACTION_OWNER);
     when(shadowedAction.getRunfilesSupplier()).thenReturn(EmptyRunfilesSupplier.INSTANCE);
     ExtraAction extraAction =
         new ExtraAction(
+            NULL_ACTION_OWNER,
             NestedSetBuilder.create(Order.STABLE_ORDER, extraIn),
             EmptyRunfilesSupplier.INSTANCE,
             ImmutableSet.of(

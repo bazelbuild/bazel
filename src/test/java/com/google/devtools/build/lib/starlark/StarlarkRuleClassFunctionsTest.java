@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule;
@@ -4336,6 +4337,178 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertNoEvents();
     assertThat(rule.getRuleClassObject().getExecGroups().keySet())
         .containsExactly("parent_exec_group", "child_exec_group");
+  }
+
+  private void scratchStarlarkTransition() throws IOException {
+    if (!TestConstants.PRODUCT_NAME.equals("bazel")) {
+      scratch.overwriteFile(
+          TestConstants.TOOLS_REPOSITORY_SCRATCH
+              + "tools/allowlists/function_transition_allowlist/BUILD",
+          "package_group(",
+          "    name = 'function_transition_allowlist',",
+          "    packages = [",
+          "        '//extend_rule_testing/...',",
+          "    ],",
+          ")");
+    }
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_flag = rule(implementation = _impl, build_setting = config.string(flag=True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "string_flag(",
+        "  name = 'parent-flag',",
+        "  build_setting_default = 'default-parent'",
+        ")",
+        "string_flag(",
+        "  name = 'parent-child-flag',",
+        "  build_setting_default = 'default-parent-child'",
+        ")",
+        "string_flag(",
+        "  name = 'child-flag',",
+        "  build_setting_default = 'child-default'",
+        ")");
+    scratch.file(
+        "test/transitions.bzl",
+        "def _parent_trans_impl(settings, attr):",
+        "  return {'//test:parent-flag': 'parent-changed',",
+        "          '//test:parent-child-flag': 'parent-child-changed-in-parent'}",
+        "parent_transition = transition(",
+        "  implementation = _parent_trans_impl,",
+        "  inputs = [],",
+        "  outputs = ['//test:parent-flag', '//test:parent-child-flag']",
+        ")",
+        "def _child_trans_impl(settings, attr):",
+        "  return {'//test:child-flag': 'child-changed',",
+        "          '//test:parent-child-flag': 'parent-child-changed-in-child'}",
+        "child_transition = transition(",
+        "  implementation = _child_trans_impl,",
+        "  inputs = [],",
+        "  outputs = ['//test:child-flag', '//test:parent-child-flag']",
+        ")");
+  }
+
+  @Test
+  public void extendRule_cfg_fromParent() throws Exception {
+    scratchStarlarkTransition();
+    scratch.file("extend_rule_testing/parent/BUILD");
+    scratch.file(
+        "extend_rule_testing/parent/parent.bzl",
+        "load('//test:transitions.bzl', 'parent_transition')",
+        "def _impl(ctx):",
+        "  pass",
+        "parent_rule = rule(",
+        "  implementation = _impl,",
+        "  extendable = True,",
+        "  cfg = parent_transition",
+        ")");
+    scratch.file(
+        "extend_rule_testing/child.bzl",
+        "load('//extend_rule_testing/parent:parent.bzl', 'parent_rule')",
+        "def _impl(ctx):",
+        "  ctx.super()",
+        "my_library = rule(",
+        "  implementation = _impl,",
+        "  parent = parent_rule,",
+        ")");
+    scratch.file(
+        "extend_rule_testing/BUILD",
+        "load(':child.bzl', 'my_library')",
+        "my_library(name = 'my_target')");
+
+    BuildConfigurationValue configuration =
+        getConfiguration(getConfiguredTarget("//extend_rule_testing:my_target"));
+
+    var options = configuration.getOptions().getStarlarkOptions();
+    assertThat(options.get(Label.parseCanonicalUnchecked("//test:parent-flag")))
+        .isEqualTo("parent-changed");
+    assertThat(options.get(Label.parseCanonicalUnchecked("//test:parent-child-flag")))
+        .isEqualTo("parent-child-changed-in-parent");
+    assertThat(options.get(Label.parseCanonicalUnchecked("//test:child-flag"))).isNull();
+  }
+
+  @Test
+  public void extendRule_cfg_onChild() throws Exception {
+    scratchStarlarkTransition();
+    scratch.file("extend_rule_testing/parent/BUILD");
+    scratch.file(
+        "extend_rule_testing/parent/parent.bzl",
+        "def _impl(ctx):",
+        "  pass",
+        "parent_rule = rule(",
+        "  implementation = _impl,",
+        "  extendable = True,",
+        ")");
+    scratch.file(
+        "extend_rule_testing/child.bzl",
+        "load('//extend_rule_testing/parent:parent.bzl', 'parent_rule')",
+        "load('//test:transitions.bzl', 'child_transition')",
+        "def _impl(ctx):",
+        "  ctx.super()",
+        "my_library = rule(",
+        "  implementation = _impl,",
+        "  parent = parent_rule,",
+        "  cfg = child_transition",
+        ")");
+    scratch.file(
+        "extend_rule_testing/BUILD",
+        "load(':child.bzl', 'my_library')",
+        "my_library(name = 'my_target')");
+
+    BuildConfigurationValue configuration =
+        getConfiguration(getConfiguredTarget("//extend_rule_testing:my_target"));
+
+    var options = configuration.getOptions().getStarlarkOptions();
+    assertThat(options.get(Label.parseCanonicalUnchecked("//test:parent-flag"))).isNull();
+    assertThat(options.get(Label.parseCanonicalUnchecked("//test:parent-child-flag")))
+        .isEqualTo("parent-child-changed-in-child");
+    assertThat(options.get(Label.parseCanonicalUnchecked("//test:child-flag")))
+        .isEqualTo("child-changed");
+  }
+
+  @Test
+  public void extendRule_cfg_onChildAndFromParent() throws Exception {
+    scratchStarlarkTransition();
+    scratch.file("extend_rule_testing/parent/BUILD");
+    scratch.file(
+        "extend_rule_testing/parent/parent.bzl",
+        "load('//test:transitions.bzl', 'parent_transition')",
+        "def _impl(ctx):",
+        "  pass",
+        "parent_rule = rule(",
+        "  implementation = _impl,",
+        "  extendable = True,",
+        "  cfg = parent_transition",
+        ")");
+    scratch.file(
+        "extend_rule_testing/child.bzl",
+        "load('//extend_rule_testing/parent:parent.bzl', 'parent_rule')",
+        "load('//test:transitions.bzl', 'child_transition')",
+        "def _impl(ctx):",
+        "  ctx.super()",
+        "my_library = rule(",
+        "  implementation = _impl,",
+        "  parent = parent_rule,",
+        "  cfg = child_transition",
+        ")");
+    scratch.file(
+        "extend_rule_testing/BUILD",
+        "load(':child.bzl', 'my_library')",
+        "my_library(name = 'my_target')");
+
+    BuildConfigurationValue configuration =
+        getConfiguration(getConfiguredTarget("//extend_rule_testing:my_target"));
+
+    var options = configuration.getOptions().getStarlarkOptions();
+    assertThat(options.get(Label.parseCanonicalUnchecked("//test:parent-flag")))
+        .isEqualTo("parent-changed");
+    assertThat(options.get(Label.parseCanonicalUnchecked("//test:parent-child-flag")))
+        .isEqualTo("parent-child-changed-in-parent");
+    assertThat(options.get(Label.parseCanonicalUnchecked("//test:child-flag")))
+        .isEqualTo("child-changed");
   }
 
   @Test

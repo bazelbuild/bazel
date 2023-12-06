@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -57,6 +58,14 @@ public class BazelShTestConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testWindowsWrapper() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withToolchainTargetConstraints("@platforms//os:windows")
+                .withToolchainExecConstraints()
+                .withCpu("fake"));
     scratch.file(
         "platforms/BUILD",
         "platform(name = 'windows', constraint_values = ['@platforms//os:windows'])");

@@ -1671,9 +1671,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "            allow_single_file = True,",
         "            cfg = cpu_transition,",
         "        ),",
-        "        '_allowlist_function_transition': attr.label(",
-        "            default = '//tools/allowlists/function_transition_allowlist',",
-        "        ),",
         "    },",
         ")");
     scratch.overwriteFile(
@@ -1739,9 +1736,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "apply_custom_transition = rule(",
         "    implementation = _apply_custom_transition_impl,",
         "    attrs = {",
-        "        '_allowlist_function_transition': attr.label(",
-        "            default = '//tools/allowlists/function_transition_allowlist',",
-        "        ),",
         "        'deps': attr.label_list(cfg = custom_transition),",
         "    },",
         ")");
@@ -1890,7 +1884,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testImplementationDepsCompilationContextIsNotPropagated() throws Exception {
-    useConfiguration("--experimental_cc_implementation_deps");
     scratch.file(
         "foo/BUILD",
         "cc_binary(",
@@ -1954,7 +1947,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testImplementationDepsLinkingContextIsPropagated() throws Exception {
-    useConfiguration("--experimental_cc_implementation_deps");
     scratch.file(
         "foo/BUILD",
         "cc_binary(",
@@ -2003,7 +1995,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testImplementationDepsDebugContextIsPropagated() throws Exception {
     useConfiguration(
-        "--experimental_cc_implementation_deps",
         "--fission=yes",
         "--features=per_object_debug_info");
     scratch.file(
@@ -2059,7 +2050,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testImplementationDepsRunfilesArePropagated() throws Exception {
-    useConfiguration("--experimental_cc_implementation_deps");
     scratch.file(
         "foo/BUILD",
         "cc_binary(",
@@ -2097,7 +2087,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testImplementationDepsConfigurationHostSucceeds() throws Exception {
-    useConfiguration("--experimental_cc_implementation_deps");
     scratch.file(
         "foo/BUILD",
         "cc_library(",

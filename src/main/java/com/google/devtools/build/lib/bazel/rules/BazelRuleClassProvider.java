@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidDevice;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidDeviceScriptFixture;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidHostServiceFixture;
-import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidInstrumentationTestRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidLocalTestRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSdkRule;
@@ -76,7 +75,6 @@ import com.google.devtools.build.lib.rules.android.AndroidHostServiceFixtureRule
 import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider;
 import com.google.devtools.build.lib.rules.android.AndroidIdlProvider;
 import com.google.devtools.build.lib.rules.android.AndroidInstrumentationInfo;
-import com.google.devtools.build.lib.rules.android.AndroidInstrumentationTestBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryAarInfo;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryResourceClassJarProvider;
@@ -394,8 +392,6 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new AndroidDeviceRule(BazelAndroidDevice.class));
           builder.addRuleDefinition(new AndroidLocalTestBaseRule());
           builder.addRuleDefinition(new BazelAndroidLocalTestRule());
-          builder.addRuleDefinition(new AndroidInstrumentationTestBaseRule());
-          builder.addRuleDefinition(new BazelAndroidInstrumentationTestRule());
           builder.addRuleDefinition(
               new AndroidDeviceScriptFixtureRule(BazelAndroidDeviceScriptFixture.class));
           builder.addRuleDefinition(

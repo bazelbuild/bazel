@@ -261,10 +261,6 @@ public final class LtoBackendAction extends SpawnAction {
     }
     fp.addString(getMnemonic());
     fp.addPaths(getRunfilesSupplier().getRunfilesDirs());
-    ImmutableList<Artifact> runfilesManifests = getRunfilesSupplier().getManifests();
-    for (Artifact runfilesManifest : runfilesManifests) {
-      fp.addPath(runfilesManifest.getExecPath());
-    }
     for (Artifact input : mandatoryInputs.toList()) {
       fp.addPath(input.getExecPath());
     }

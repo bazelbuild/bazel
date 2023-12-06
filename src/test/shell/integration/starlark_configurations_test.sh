@@ -483,9 +483,6 @@ def _rule_class_transition_rule_impl(ctx):
 rule_class_transition_rule = rule(
     _rule_class_transition_rule_impl,
     cfg = _rule_class_transition,
-    attrs = {
-        "_allowlist_function_transition": attr.label(default = "//tools/allowlists/function_transition_allowlist"),
-    },
     outputs = {"artifact": "%{name}.output"},
 )
 EOF
@@ -609,11 +606,6 @@ def _impl(ctx):
 my_rule = rule(
   implementation = _impl,
   cfg = my_transition,
-  attrs = {
-    '_allowlist_function_transition': attr.label(
-        default = '//tools/allowlists/function_transition_allowlist',
-    ),
-  }
 )
 EOF
   cat > test/BUILD <<'EOF'

@@ -43,6 +43,9 @@ message Node {
   // The spawn or action mnemonic. For example, Javac, GoLink, TestRunner, etc.
   string mnemonic = 4;
 
+  // The rule class for the above target. Examples: java_test, cc_library, etc.
+  string rule_class = 10;
+
   Metrics metrics = 5;
 
   // A list of node indexes corresponding to direct dependencies of this

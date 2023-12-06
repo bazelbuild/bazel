@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
+import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
@@ -83,6 +84,7 @@ import com.google.devtools.build.lib.packages.RuleFactory;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.RuleFunction;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.packages.StarlarkCallbackHelper;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
@@ -379,8 +381,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           executableUnchecked != Starlark.UNBOUND,
           "Omit executable parameter when extending rules.");
       failIf(testUnchecked != Starlark.UNBOUND, "Omit test parameter when extending rules.");
-      // TODO b/300201845 - add cfg support
-      failIf(cfg != Starlark.NONE, "cfg is not supported in extended rules yet.");
       failIf(
           implicitOutputs != Starlark.NONE,
           "implicit_outputs is not supported when extending rules (deprecated).");
@@ -645,23 +645,37 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     if (!buildSetting.equals(Starlark.NONE)) {
       builder.setBuildSetting((BuildSetting) buildSetting);
     }
+
+    TransitionFactory<RuleTransitionData> transitionFactory = null;
     if (!cfg.equals(Starlark.NONE)) {
       if (cfg instanceof StarlarkDefinedConfigTransition) {
         // defined in Starlark via, cfg = transition
         StarlarkDefinedConfigTransition starlarkDefinedConfigTransition =
             (StarlarkDefinedConfigTransition) cfg;
-        builder.cfg(new StarlarkRuleTransitionProvider(starlarkDefinedConfigTransition));
+        transitionFactory = new StarlarkRuleTransitionProvider(starlarkDefinedConfigTransition);
         hasStarlarkDefinedTransition = true;
       } else if (cfg instanceof StarlarkExposedRuleTransitionFactory) {
         // only used for native Android transitions (platforms and feature flags)
         StarlarkExposedRuleTransitionFactory transition =
             (StarlarkExposedRuleTransitionFactory) cfg;
-        builder.cfg(transition);
         transition.addToStarlarkRule(ruleDefinitionEnvironment, builder);
+        transitionFactory = transition;
       } else {
         throw Starlark.errorf(
             "`cfg` must be set to a transition object initialized by the transition() function.");
       }
+    }
+    if (parent != null && parent.getTransitionFactory() != null) {
+      if (transitionFactory == null) {
+        transitionFactory = parent.getTransitionFactory();
+      } else {
+        transitionFactory =
+            ComposingTransitionFactory.of(transitionFactory, parent.getTransitionFactory());
+      }
+      hasStarlarkDefinedTransition = true;
+    }
+    if (transitionFactory != null) {
+      builder.cfg(transitionFactory);
     }
 
     boolean hasFunctionTransitionAllowlist = false;

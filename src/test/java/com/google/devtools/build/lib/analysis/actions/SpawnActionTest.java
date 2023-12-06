@@ -369,15 +369,12 @@ public final class SpawnActionTest extends BuildViewTestCase {
 
   @Test
   public void testInputManifestsRemovedIfSupplied() throws Exception {
-    Artifact manifest = getSourceArtifact("MANIFEST");
     SpawnAction action =
         builder()
-            .addInput(manifest)
             .addRunfilesSupplier(
                 new SingleRunfilesSupplier(
                     PathFragment.create("destination"),
                     Runfiles.EMPTY,
-                    manifest,
                     /* repoMappingManifest= */ null,
                     RunfileSymlinksMode.SKIP,
                     /* buildRunfileLinks= */ false))
@@ -394,7 +391,6 @@ public final class SpawnActionTest extends BuildViewTestCase {
     EXECUTABLE_PATH,
     EXECUTABLE,
     MNEMONIC,
-    RUNFILES_SUPPLIER,
     RUNFILES_SUPPLIER_PATH,
     ENVIRONMENT
   }
@@ -425,16 +421,10 @@ public final class SpawnActionTest extends BuildViewTestCase {
 
             builder.setMnemonic(attributesToFlip.contains(KeyAttributes.MNEMONIC) ? "a" : "b");
 
-            if (attributesToFlip.contains(KeyAttributes.RUNFILES_SUPPLIER)) {
-              builder.addRunfilesSupplier(runfilesSupplier(artifactA, PathFragment.create("a")));
-            } else {
-              builder.addRunfilesSupplier(runfilesSupplier(artifactB, PathFragment.create("a")));
-            }
-
             if (attributesToFlip.contains(KeyAttributes.RUNFILES_SUPPLIER_PATH)) {
-              builder.addRunfilesSupplier(runfilesSupplier(artifactA, PathFragment.create("aa")));
+              builder.addRunfilesSupplier(runfilesSupplier(PathFragment.create("aa")));
             } else {
-              builder.addRunfilesSupplier(runfilesSupplier(artifactA, PathFragment.create("ab")));
+              builder.addRunfilesSupplier(runfilesSupplier(PathFragment.create("ab")));
             }
 
             Map<String, String> env = new HashMap<>();
@@ -585,11 +575,10 @@ public final class SpawnActionTest extends BuildViewTestCase {
         .isEqualTo("ToolPoolMnemonic");
   }
 
-  private static RunfilesSupplier runfilesSupplier(Artifact manifest, PathFragment dir) {
+  private static RunfilesSupplier runfilesSupplier(PathFragment dir) {
     return new SingleRunfilesSupplier(
         dir,
         Runfiles.EMPTY,
-        manifest,
         /* repoMappingManifest= */ null,
         RunfileSymlinksMode.SKIP,
         /* buildRunfileLinks= */ false);

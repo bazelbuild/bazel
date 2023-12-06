@@ -162,11 +162,6 @@ public class AppleRulesTest extends AnalysisTestCase {
         "def _my_rule_impl(ctx):",
         "    return []",
         "my_rule = rule(",
-        "    attrs = {",
-        "        '_allowlist_function_transition': attr.label(",
-        "            default = '//tools/allowlists/function_transition_allowlist',",
-        "        ),",
-        "    },",
         "    cfg = silly_transition,",
         "    implementation = _my_rule_impl,",
         ")");

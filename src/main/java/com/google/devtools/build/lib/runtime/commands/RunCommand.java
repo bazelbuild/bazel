@@ -264,7 +264,7 @@ public class RunCommand implements BlazeCommand {
               ENV_VARIABLES_TO_CLEAR,
               runCommandLine.workingDir.getPathString(),
               builtTargets.configuration.checksum(),
-              /* executionPlatformAsLabelString= */ null);
+              /* executionPlatformLabel= */ null);
 
       PathFragment shExecutable = ShToolchain.getPathForHost(builtTargets.configuration);
       if (shExecutable.isEmpty()) {
@@ -614,9 +614,11 @@ public class RunCommand implements BlazeCommand {
       }
 
       try {
-        cmdLine.addAll(TestStrategy.getArgs(testAction));
+        ImmutableList<String> testArgs = TestStrategy.getArgs(testAction);
+        cmdLine.addAll(testArgs);
         cmdLine.addAll(argsFromResidue);
         prettyCmdLine.addAll(cmdLine);
+        redactedCmdLine.addAll(testArgs);
       } catch (ExecException e) {
         throw new RunCommandException(
             reportAndCreateFailureResult(

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionMiddlemanEvent;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
@@ -53,7 +54,6 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochConverter;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory.InvalidPackagePathSymlinkException;
@@ -410,10 +410,7 @@ public class ExecutionGraphModule extends BlazeModule {
       if (depType != DependencyInfo.NONE) {
         node.setIndex(index);
       }
-      Label ownerLabel = action.getOwner().getLabel();
-      if (ownerLabel != null) {
-        node.setTargetLabel(ownerLabel.toString());
-      }
+      setFieldsFromOwner(node, action.getOwner());
 
       maybeAddEdges(
           node,
@@ -426,6 +423,17 @@ public class ExecutionGraphModule extends BlazeModule {
           index);
 
       return node.build();
+    }
+
+    private void setFieldsFromOwner(ExecutionGraph.Node.Builder node, ActionOwner owner) {
+      if (owner != null) {
+        if (owner.getTargetKind() != null) {
+          node.setRuleClass(owner.getTargetKind());
+        }
+        if (owner.getLabel() != null) {
+          node.setTargetLabel(owner.getLabel().toString());
+        }
+      }
     }
 
     private ExecutionGraph.Node toProto(SpawnExecutedEvent event) {
@@ -444,10 +452,7 @@ public class ExecutionGraphModule extends BlazeModule {
       if (depType != DependencyInfo.NONE) {
         nodeBuilder.setIndex(index);
       }
-      Label ownerLabel = spawn.getResourceOwner().getOwner().getLabel();
-      if (ownerLabel != null) {
-        nodeBuilder.setTargetLabel(ownerLabel.toString());
-      }
+      setFieldsFromOwner(nodeBuilder, spawn.getResourceOwner().getOwner());
 
       SpawnMetrics metrics = spawnResult.getMetrics();
       spawnResult = null;

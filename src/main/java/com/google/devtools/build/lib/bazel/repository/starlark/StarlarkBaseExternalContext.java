@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
 import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
@@ -34,6 +35,8 @@ import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -78,12 +81,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
@@ -94,6 +101,31 @@ import net.starlark.java.syntax.Location;
 
 /** A common base class for Starlark "ctx" objects related to external dependencies. */
 public abstract class StarlarkBaseExternalContext implements StarlarkValue {
+
+  /**
+   * An asynchronous task run as part of fetching the repository.
+   *
+   * <p>The main property of such tasks is that they should under no circumstances keep running
+   * after fetching the repository is finished, whether successfully or not. To this end, the {@link
+   * #cancel()} method must stop all such work.
+   */
+  private interface AsyncTask {
+    /** Returns a user-friendly description of the task. */
+    String getDescription();
+
+    /** Returns where the task was started from. */
+    Location getLocation();
+
+    /**
+     * Cancels the task, if not done yet. Returns false if the task was still in progress.
+     *
+     * <p>No means of error reporting is provided. Any errors should be reported by other means. The
+     * only possible error reported as a consequence of calling this method is one that tells the
+     * user that they didn't wait for an async task they should have waited for.
+     */
+    boolean cancel();
+  }
+
   /** Max. number of command line args added as a profiler description. */
   private static final int MAX_PROFILE_ARGS_LEN = 80;
 
@@ -107,6 +139,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   protected final StarlarkSemantics starlarkSemantics;
   private final HashMap<Label, String> accumulatedFileDigests = new HashMap<>();
   private final RepositoryRemoteExecutor remoteExecutor;
+  private final List<AsyncTask> asyncTasks;
 
   protected StarlarkBaseExternalContext(
       Path workingDirectory,
@@ -126,6 +159,31 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     this.processWrapper = processWrapper;
     this.starlarkSemantics = starlarkSemantics;
     this.remoteExecutor = remoteExecutor;
+    this.asyncTasks = new ArrayList<>();
+  }
+
+  public boolean ensureNoPendingAsyncTasks(EventHandler eventHandler, boolean forSuccessfulFetch) {
+    boolean hadPendingItems = false;
+    for (AsyncTask task : asyncTasks) {
+      if (!task.cancel()) {
+        hadPendingItems = true;
+        if (forSuccessfulFetch) {
+          eventHandler.handle(
+              Event.error(
+                  task.getLocation(),
+                  "Work pending after repository rule finished execution: "
+                      + task.getDescription()));
+        }
+      }
+    }
+
+    return hadPendingItems;
+  }
+
+  // There is no unregister(). We don't have that many futures in each repository and it just
+  // introduces the failure mode of erroneously unregistering async work that's not done.
+  protected void registerAsyncTask(AsyncTask task) {
+    asyncTasks.add(task);
   }
 
   /** A string that can be used to identify this context object. Used for logging purposes. */
@@ -385,6 +443,101 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     return StarlarkInfo.create(StructProvider.STRUCT, out.buildOrThrow(), Location.BUILTIN);
   }
 
+  private class PendingDownload implements StarlarkValue, AsyncTask {
+    private final boolean executable;
+    private final boolean allowFail;
+    private final StarlarkPath outputPath;
+    private final Optional<Checksum> checksum;
+    private final RepositoryFunctionException checksumValidation;
+    private final Future<Path> future;
+    private final Location location;
+
+    private PendingDownload(
+        boolean executable,
+        boolean allowFail,
+        StarlarkPath outputPath,
+        Optional<Checksum> checksum,
+        RepositoryFunctionException checksumValidation,
+        Future<Path> future,
+        Location location) {
+      this.executable = executable;
+      this.allowFail = allowFail;
+      this.outputPath = outputPath;
+      this.checksum = checksum;
+      this.checksumValidation = checksumValidation;
+      this.future = future;
+      this.location = location;
+    }
+
+    @Override
+    public String getDescription() {
+      return String.format("downloading to '%s'", outputPath);
+    }
+
+    @Override
+    public Location getLocation() {
+      return location;
+    }
+
+    @Override
+    public boolean cancel() {
+      if (!future.cancel(true)) {
+        return true;
+      }
+
+      try {
+        future.get();
+        return false;
+      } catch (InterruptedException | ExecutionException | CancellationException e) {
+        // Ignore. The only thing we care about is that there is no async work in progress after
+        // this point. Any error reporting should have been done before.
+        return false;
+      }
+    }
+
+    @StarlarkMethod(
+        name = "wait",
+        doc =
+            "Blocks until the completion of the download and returns or throws as blocking "
+                + " download() call would")
+    public StructImpl await() throws InterruptedException, RepositoryFunctionException {
+      return completeDownload(this);
+    }
+
+    @Override
+    public void repr(Printer printer) {
+      printer.append(String.format("<pending download to '%s'>", outputPath));
+    }
+  }
+
+  private StructImpl completeDownload(PendingDownload pendingDownload)
+      throws RepositoryFunctionException, InterruptedException {
+    Path downloadedPath;
+    try {
+      downloadedPath = downloadManager.finalizeDownload(pendingDownload.future);
+      if (pendingDownload.executable) {
+        pendingDownload.outputPath.getPath().setExecutable(true);
+      }
+    } catch (IOException e) {
+      if (pendingDownload.allowFail) {
+        return StarlarkInfo.create(
+            StructProvider.STRUCT, ImmutableMap.of("success", false), Location.BUILTIN);
+      } else {
+        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+      }
+    } catch (InvalidPathException e) {
+      throw new RepositoryFunctionException(
+          Starlark.errorf(
+              "Could not create output path %s: %s", pendingDownload.outputPath, e.getMessage()),
+          Transience.PERSISTENT);
+    }
+    if (pendingDownload.checksumValidation != null) {
+      throw pendingDownload.checksumValidation;
+    }
+
+    return calculateDownloadResult(pendingDownload.checksum, downloadedPath);
+  }
+
   @StarlarkMethod(
       name = "download",
       doc =
@@ -462,8 +615,18 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
                     + " risk to omit the checksum as remote files can change. At best omitting this"
                     + " field will make your build non-hermetic. It is optional to make development"
                     + " easier but should be set before shipping."),
+        @Param(
+            name = "block",
+            defaultValue = "True",
+            named = true,
+            positional = false,
+            doc =
+                "If set to false, the call returns immediately and instead of the regular return"
+                    + " value, it returns a token with one single method, wait(), which blocks"
+                    + " until the download is finished and returns the usual return value or"
+                    + " throws as usual.")
       })
-  public StructImpl download(
+  public Object download(
       Object url,
       Object output,
       String sha256,
@@ -473,8 +636,10 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       Dict<?, ?> authUnchecked, // <String, Dict> expected 
       Dict<?, ?> headersUnchecked, // <String, List<String> | String> expected
       String integrity,
+      Boolean block,
       StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
+    PendingDownload download = null;
     ImmutableMap<URI, Map<String, List<String>>> authHeaders =
         getAuthHeaders(getAuthContents(authUnchecked, "auth"));
 
@@ -483,9 +648,10 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     ImmutableList<URL> urls =
         getUrls(
             url,
-            /*ensureNonEmpty=*/ !allowFail,
-            /*checksumGiven=*/ !Strings.isNullOrEmpty(sha256) || !Strings.isNullOrEmpty(integrity));
-    Optional<Checksum> checksum;
+            /* ensureNonEmpty= */ !allowFail,
+            /* checksumGiven= */ !Strings.isNullOrEmpty(sha256)
+                || !Strings.isNullOrEmpty(integrity));
+    Optional<Checksum> checksum = null;
     RepositoryFunctionException checksumValidation = null;
     try {
       checksum = validateChecksum(sha256, integrity, urls);
@@ -505,13 +671,24 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             getIdentifyingStringForLogging(),
             thread.getCallerLocation());
     env.getListener().post(w);
-    Path downloadedPath;
-    try (SilentCloseable c =
-        Profiler.instance().profile("fetching: " + getIdentifyingStringForLogging())) {
+
+    try {
       checkInOutputDirectory("write", outputPath);
       makeDirectories(outputPath.getPath());
-      downloadedPath =
-          downloadManager.download(
+    } catch (IOException e) {
+      download =
+          new PendingDownload(
+              executable,
+              allowFail,
+              outputPath,
+              checksum,
+              checksumValidation,
+              Futures.immediateFailedFuture(e),
+              thread.getCallerLocation());
+    }
+    if (download == null) {
+      Future<Path> downloadFuture =
+          downloadManager.startDownload(
               urls,
               headers,
               authHeaders,
@@ -522,26 +699,22 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
               env.getListener(),
               envVariables,
               getIdentifyingStringForLogging());
-      if (executable) {
-        outputPath.getPath().setExecutable(true);
-      }
-    } catch (IOException e) {
-      if (allowFail) {
-        return StarlarkInfo.create(
-            StructProvider.STRUCT, ImmutableMap.of("success", false), Location.BUILTIN);
-      } else {
-        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-      }
-    } catch (InvalidPathException e) {
-      throw new RepositoryFunctionException(
-          Starlark.errorf("Could not create output path %s: %s", outputPath, e.getMessage()),
-          Transience.PERSISTENT);
+      download =
+          new PendingDownload(
+              executable,
+              allowFail,
+              outputPath,
+              checksum,
+              checksumValidation,
+              downloadFuture,
+              thread.getCallerLocation());
+      registerAsyncTask(download);
     }
-    if (checksumValidation != null) {
-      throw checksumValidation;
+    if (!block) {
+      return download;
+    } else {
+      return completeDownload(download);
     }
-
-    return calculateDownloadResult(checksum, downloadedPath);
   }
 
   @StarlarkMethod(
@@ -708,17 +881,15 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
 
     Path downloadedPath;
     Path downloadDirectory;
-    try (SilentCloseable c =
-        Profiler.instance().profile("fetching: " + getIdentifyingStringForLogging())) {
-
+    try {
       // Download to temp directory inside the outputDirectory and delete it after extraction
       java.nio.file.Path tempDirectory =
           Files.createTempDirectory(Paths.get(outputPath.toString()), "temp");
       downloadDirectory =
           workingDirectory.getFileSystem().getPath(tempDirectory.toFile().getAbsolutePath());
 
-      downloadedPath =
-          downloadManager.download(
+      Future<Path> pendingDownload =
+          downloadManager.startDownload(
               urls,
               headers,
               authHeaders,
@@ -729,6 +900,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
               env.getListener(),
               envVariables,
               getIdentifyingStringForLogging());
+      downloadedPath = downloadManager.finalizeDownload(pendingDownload);
     } catch (IOException e) {
       env.getListener().post(w);
       if (allowFail) {
@@ -767,7 +939,11 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     } catch (IOException e) {
       throw new RepositoryFunctionException(
           new IOException(
-              "Couldn't delete temporary directory (" + downloadDirectory.getPathString() + ")", e),
+              "Couldn't delete temporary directory ("
+                  + downloadDirectory.getPathString()
+                  + "): "
+                  + e.getMessage(),
+              e),
           Transience.TRANSIENT);
     }
     return downloadResult;

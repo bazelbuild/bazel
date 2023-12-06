@@ -17,7 +17,6 @@ import static com.google.devtools.build.lib.analysis.config.BuildConfigurationVa
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.BuildFailedException;
@@ -54,8 +53,6 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
-import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectAnalyzedEvent;
@@ -126,17 +123,6 @@ public final class AnalysisPhaseRunner {
     AnalysisResult analysisResult = null;
     if (request.getBuildOptions().performAnalysisPhase) {
       Profiler.instance().markPhase(ProfilePhase.ANALYZE);
-
-      // The build info factories are immutable during the life time of this server. However, we
-      // sometimes clean the graph, which requires re-injecting the value, which requires a hook to
-      // do so afterwards, and there is no such hook at the server / workspace level right now. For
-      // simplicity, we keep the code here for now.
-      env.getSkyframeExecutor()
-          .injectExtraPrecomputedValues(
-              ImmutableList.of(
-                  PrecomputedValue.injected(
-                      BuildInfoCollectionFunction.BUILD_INFO_FACTORIES,
-                      env.getRuntime().getRuleClassProvider().getBuildInfoFactoriesAsMap())));
 
       try (SilentCloseable c = Profiler.instance().profile("runAnalysisPhase")) {
         analysisResult = runAnalysisPhase(env, request, loadingResult, buildOptions);

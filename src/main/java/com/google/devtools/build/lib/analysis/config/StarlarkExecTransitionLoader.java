@@ -15,9 +15,11 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Splitter;
+import com.google.common.base.Verify;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import java.util.List;
@@ -46,7 +48,7 @@ public final class StarlarkExecTransitionLoader {
      * Loads the given {@link BzlLoadValue.Key}. Returns null if not all Skyframe deps are ready.
      */
     @Nullable
-    BzlLoadValue getValue(BzlLoadValue.Key key) throws InterruptedException;
+    BzlLoadValue getValue(BzlLoadValue.Key key) throws BzlLoadFailedException, InterruptedException;
   }
 
   /**
@@ -66,37 +68,38 @@ public final class StarlarkExecTransitionLoader {
   public static Optional<StarlarkAttributeTransitionProvider> loadStarlarkExecTransition(
       @Nullable BuildOptions options, BzlFileLoader bzlFileLoader)
       throws StarlarkExecTransitionLoadingException, InterruptedException {
-    if (options == null) {
+    if (options == null || options.equals(CommonOptions.EMPTY_OPTIONS)) {
       return Optional.empty();
     }
-    String userRef = options.get(CoreOptions.class).starlarkExecConfig;
-    if (userRef == null) {
-      return Optional.empty(); // Use the native exec transition.
+    String userRef =
+        Verify.verifyNotNull(
+            options.get(CoreOptions.class).starlarkExecConfig,
+            "Cannot apply the exec transition since no transition is defined for this build.");
+    final String flagName = "--experimental_exec_config";
+    TransitionReference parsedRef = TransitionReference.create(userRef, flagName);
+    BzlLoadValue bzlValue;
+    try {
+      bzlValue =
+          bzlFileLoader.getValue(
+              Objects.equals(
+                      parsedRef.bzlFile().getRepository(), StarlarkBuiltinsValue.BUILTINS_REPO)
+                  ? BzlLoadValue.keyForBuiltins(parsedRef.bzlFile())
+                  : BzlLoadValue.keyForBuild(parsedRef.bzlFile()));
+    } catch (BzlLoadFailedException e) {
+      throw new StarlarkExecTransitionLoadingException(flagName, userRef, e.getMessage());
     }
-    TransitionReference parsedRef =
-        TransitionReference.create(userRef, "--experimental_exec_config");
-    // TODO(b/301644122): catch and report BzlLoadFailedExceptions. This may required Bazel BUILD
-    // refactoring since BzlLoadFailedException is defined in BzlLoadFunction, which is part of
-    // the ":skyframe_cluster" target, which we can't depend on without dependency cycles.
-    BzlLoadValue bzlValue =
-        bzlFileLoader.getValue(
-            Objects.equals(parsedRef.bzlFile().getRepository(), StarlarkBuiltinsValue.BUILTINS_REPO)
-                ? BzlLoadValue.keyForBuiltins(parsedRef.bzlFile())
-                : BzlLoadValue.keyForBuild(parsedRef.bzlFile()));
     if (bzlValue == null) {
       return null;
     }
     Object transition = bzlValue.getModule().getGlobal(parsedRef.starlarkSymbolName());
     if (transition == null) {
       throw new StarlarkExecTransitionLoadingException(
-          "--experimental_exec_config",
+          flagName,
           userRef,
           String.format("%s not found in %s", parsedRef.starlarkSymbolName(), parsedRef.bzlFile()));
     } else if (!(transition instanceof StarlarkDefinedConfigTransition)) {
       throw new StarlarkExecTransitionLoadingException(
-          "--experimental_exec_config",
-          userRef,
-          parsedRef.starlarkSymbolName() + " is not a Starlark transition");
+          flagName, userRef, parsedRef.starlarkSymbolName() + " is not a Starlark transition");
     }
     return Optional.of(
         new StarlarkAttributeTransitionProvider((StarlarkDefinedConfigTransition) transition));

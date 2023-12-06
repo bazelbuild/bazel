@@ -355,13 +355,9 @@ public class FdoHelper {
       // Get the zipper binary for unzipping the profile.
       Artifact zipperBinaryArtifact = attributes.getZipper();
       if (zipperBinaryArtifact == null) {
-        if (CppHelper.useToolchainResolution(ruleContext)) {
-          ruleContext.ruleError(
-              "Zipped profiles are not supported with platforms/toolchains before "
-                  + "toolchain-transitions are implemented.");
-        } else {
-          ruleContext.ruleError("Cannot find zipper binary to unzip the profile");
-        }
+        ruleContext.ruleError(
+            "Zipped profiles are not supported with platforms/toolchains before "
+                + "toolchain-transitions are implemented.");
         return null;
       }
 
@@ -490,13 +486,9 @@ public class FdoHelper {
     // Get the zipper binary for unzipping the profile.
     Artifact zipperBinaryArtifact = attributes.getZipper();
     if (zipperBinaryArtifact == null) {
-      if (CppHelper.useToolchainResolution(ruleContext)) {
-        ruleContext.ruleError(
-            "Zipped profiles are not supported with platforms/toolchains before "
-                + "toolchain-transitions are implemented.");
-      } else {
-        ruleContext.ruleError("Cannot find zipper binary to unzip the profile");
-      }
+      ruleContext.ruleError(
+          "Zipped profiles are not supported with platforms/toolchains before "
+              + "toolchain-transitions are implemented.");
       return null;
     }
 

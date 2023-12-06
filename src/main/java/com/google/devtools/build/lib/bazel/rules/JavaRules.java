@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaBinaryRule;
-import com.google.devtools.build.lib.bazel.rules.java.BazelJavaBuildInfoFactory;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaImportRule;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaPluginRule;
@@ -57,8 +56,6 @@ public class JavaRules implements RuleSet {
   @Override
   public void init(ConfiguredRuleClassProvider.Builder builder) {
     builder.addConfigurationFragment(JavaConfiguration.class);
-
-    builder.addBuildInfoFactory(new BazelJavaBuildInfoFactory());
 
     builder.addRuleDefinition(new BazelJavaRuleClasses.BaseJavaBinaryRule());
     builder.addRuleDefinition(new JavaToolchainBaseRule());

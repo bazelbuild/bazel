@@ -27,7 +27,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -460,8 +459,6 @@ public final class Crosstool {
       }
     }
 
-    Set<String> seenCpus = new LinkedHashSet<>();
-    StringBuilder compilerMap = new StringBuilder();
     for (CcToolchainConfig toolchain : ccToolchainConfigList) {
       String staticRuntimeLabel =
           toolchain.hasStaticLinkCppRuntimesFeature()
@@ -491,21 +488,6 @@ public final class Crosstool {
                     "  srcs = ['libdynamic-runtime-lib-source.so'])",
                     ""));
       }
-
-      // Generate entry to cc_toolchain_suite.toolchains
-      if (seenCpus.add(toolchain.getTargetCpu())) {
-        compilerMap.append(
-            String.format(
-                "'%s': ':cc-compiler-%s-%s',\n",
-                toolchain.getTargetCpu(), toolchain.getTargetCpu(), toolchain.getCompiler()));
-      }
-      compilerMap.append(
-          String.format(
-              "'%s|%s': ':cc-compiler-%s-%s',\n",
-              toolchain.getTargetCpu(),
-              toolchain.getCompiler(),
-              toolchain.getTargetCpu(),
-              toolchain.getCompiler()));
 
       // Generate cc_toolchain target
       String suffix = toolchain.getTargetCpu() + "-" + toolchain.getCompiler();
@@ -558,8 +540,7 @@ public final class Crosstool {
                 "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
                 "load('"
                     + TestConstants.TOOLS_REPOSITORY
-                    + "//third_party/cc_rules/macros:defs.bzl', 'cc_library', 'cc_toolchain',"
-                    + " 'cc_toolchain_suite')",
+                    + "//third_party/cc_rules/macros:defs.bzl', 'cc_library', 'cc_toolchain')",
                 "toolchain_type(name = 'toolchain_type')",
                 "toolchain_type(name = 'test_runner_toolchain_type')",
                 "cc_toolchain_alias(name = 'current_cc_toolchain')",
@@ -572,9 +553,6 @@ public final class Crosstool {
                 "          srcs = glob(['mock_version/**/*'],",
                 "              exclude_directories = 1),",
                 "          output_licenses = ['unencumbered'])",
-                "",
-                String.format(
-                    "cc_toolchain_suite(name = 'everything', toolchains = {%s})", compilerMap),
                 "",
                 String.format(
                     "filegroup(name = 'every-file', srcs = ['%s'])",
@@ -613,22 +591,6 @@ public final class Crosstool {
   public void writeOSX() throws IOException {
     // Create special lines specifying the compiler map entry for
     // each toolchain.
-    StringBuilder compilerMap =
-        new StringBuilder()
-            .append("'k8': ':cc-compiler-darwin_x86_64',\n")
-            .append("'aarch64': ':cc-compiler-darwin_x86_64',\n");
-    Set<String> seenCpus = new LinkedHashSet<>();
-    for (CcToolchainConfig toolchain : ccToolchainConfigList) {
-      if (seenCpus.add(toolchain.getTargetCpu())) {
-        compilerMap.append(
-            String.format(
-                "'%s': ':cc-compiler-%s',\n", toolchain.getTargetCpu(), toolchain.getTargetCpu()));
-      }
-      compilerMap.append(
-          String.format(
-              "'%s|%s': ':cc-compiler-%s',\n",
-              toolchain.getTargetCpu(), toolchain.getCompiler(), toolchain.getTargetCpu()));
-    }
 
     // Create the test BUILD file.
     ImmutableList.Builder<String> crosstoolBuild =
@@ -638,13 +600,8 @@ public final class Crosstool {
                 "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
                 "load('"
                     + TestConstants.TOOLS_REPOSITORY
-                    + "//third_party/cc_rules/macros:defs.bzl', 'cc_library',"
-                    + " 'cc_toolchain_suite')",
+                    + "//third_party/cc_rules/macros:defs.bzl', 'cc_library')",
                 "exports_files(glob(['**']))",
-                "cc_toolchain_suite(",
-                "    name = 'crosstool',",
-                "    toolchains = { " + compilerMap + " },",
-                ")",
                 "",
                 "cc_library(",
                 "    name = 'custom_malloc',",

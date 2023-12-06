@@ -310,7 +310,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             resourceApk.asDataBindingContext(),
             /* isLibrary */ false,
             shouldCompileJavaSrcs);
-    javaSemantics.checkRule(ruleContext, javaCommon);
+    androidSemantics.checkRule(ruleContext, javaCommon);
     javaSemantics.checkForProtoLibraryAndJavaProtoLibraryOnSameProto(ruleContext, javaCommon);
 
     AndroidCommon androidCommon = new AndroidCommon(javaCommon, /* asNeverLink= */ true);
@@ -578,6 +578,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           applyProguard(
               ruleContext,
               androidCommon,
+              androidSemantics,
               javaSemantics,
               binaryJar,
               proguardSpecs,
@@ -647,7 +648,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       symlinkOptimizationOutputs(
           ruleContext,
           androidSemantics,
-          javaSemantics,
           dataContext,
           filesBuilder,
           hasProguardSpecs,
@@ -682,6 +682,17 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 ruleContext.getImplicitOutputArtifact(
                     AndroidRuleClasses.JAVA_RESOURCES_JAR), // symlink
                 "Symlinking Android shuffled java resources jar"));
+      }
+      if (androidDexInfo.getRexOutputPackageMap() != null) {
+        // Symlink to the Android rex output package map created by this android_binary's
+        // android_binary_internal
+        // target to satisfy its implicit output of android_binary.
+        ruleContext.registerAction(
+            SymlinkAction.toArtifact(
+                ruleContext.getActionOwner(),
+                androidDexInfo.getRexOutputPackageMap(), // target
+                ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.REX_OUTPUT_PACKAGE_MAP),
+                "Symlinking Android rex output package map"));
       }
     } else {
       dexingOutput =
@@ -1085,7 +1096,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   private static void symlinkOptimizationOutputs(
       RuleContext ruleContext,
       AndroidSemantics androidSemantics,
-      JavaSemantics javaSemantics,
       AndroidDataContext dataContext,
       NestedSetBuilder<Artifact> filesBuilder,
       boolean hasProguardSpecs,
@@ -1116,7 +1126,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     if (proguardOutput.getSeeds() != null) {
       Artifact proguardSeeds =
-          ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_SEEDS);
+          ruleContext.getImplicitOutputArtifact(AndroidSemantics.ANDROID_BINARY_PROGUARD_SEEDS);
       ruleContext.registerAction(
           SymlinkAction.toArtifact(
               ruleContext.getActionOwner(),
@@ -1131,7 +1141,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     if (proguardOutput.getConfig() != null) {
       Artifact proguardConfig =
-          ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_CONFIG);
+          ruleContext.getImplicitOutputArtifact(AndroidSemantics.ANDROID_BINARY_PROGUARD_CONFIG);
       ruleContext.registerAction(
           SymlinkAction.toArtifact(
               ruleContext.getActionOwner(),
@@ -1146,7 +1156,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     if (proguardOutput.getUsage() != null) {
       Artifact proguardUsage =
-          ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_USAGE);
+          ruleContext.getImplicitOutputArtifact(AndroidSemantics.ANDROID_BINARY_PROGUARD_USAGE);
       ruleContext.registerAction(
           SymlinkAction.toArtifact(
               ruleContext.getActionOwner(),
@@ -1160,8 +1170,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     }
 
     if (proguardOutput.getProtoMapping() != null
-        && javaSemantics.getProtoMapping(ruleContext) != null) {
-      Artifact proguardProtoMapping = javaSemantics.getProtoMapping(ruleContext);
+        && androidSemantics.getProtoMapping(ruleContext) != null) {
+      Artifact proguardProtoMapping = androidSemantics.getProtoMapping(ruleContext);
       ruleContext.registerAction(
           SymlinkAction.toArtifact(
               ruleContext.getActionOwner(),
@@ -1357,6 +1367,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   private static ProguardOutput applyProguard(
       RuleContext ruleContext,
       AndroidCommon common,
+      AndroidSemantics androidSemantics,
       JavaSemantics javaSemantics,
       Artifact deployJarArtifact,
       ImmutableList<Artifact> proguardSpecs,
@@ -1377,7 +1388,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       // produce at the time of implicit output determination. As a result, this artifact must
       // always be created.
       return createEmptyProguardAction(
-          ruleContext, javaSemantics, proguardOutputJar, deployJarArtifact, proguardOutputMap);
+          ruleContext, androidSemantics, proguardOutputJar, deployJarArtifact, proguardOutputMap);
     }
 
     AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
@@ -1394,9 +1405,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     libraryJars.addTransitive(common.getTransitiveNeverLinkLibraries());
 
     Artifact proguardSeeds =
-        ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_SEEDS);
+        ruleContext.getImplicitOutputArtifact(AndroidSemantics.ANDROID_BINARY_PROGUARD_SEEDS);
     Artifact proguardUsage =
-        ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_USAGE);
+        ruleContext.getImplicitOutputArtifact(AndroidSemantics.ANDROID_BINARY_PROGUARD_USAGE);
     Artifact proguardDictionary = ruleContext.getPrerequisiteArtifact("proguard_apply_dictionary");
     return ProguardHelper.createOptimizationActions(
         ruleContext,
@@ -1409,6 +1420,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         proguardDictionary,
         libraryJars.build(),
         proguardOutputJar,
+        androidSemantics,
         javaSemantics,
         getProguardOptimizationPasses(ruleContext),
         proguardOutputMap,
@@ -1430,7 +1442,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
   private static ProguardOutput createEmptyProguardAction(
       RuleContext ruleContext,
-      JavaSemantics semantics,
+      AndroidSemantics androidSemantics,
       Artifact proguardOutputJar,
       Artifact deployJarArtifact,
       Artifact proguardOutputMap)
@@ -1442,7 +1454,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             /* proguardSeeds= */ null,
             /* proguardUsage= */ null,
             ruleContext,
-            semantics,
+            androidSemantics,
             proguardOutputMap,
             /* libraryJar= */ null,
             /* startupProfileRewritten= */ null,
@@ -2133,31 +2145,44 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       @Nullable Artifact postProcessingOutputMap,
       @Nullable Artifact libraryJar,
       @Nullable Artifact startupProfile) {
+    // Use a param file to pass through all flags with paths that might get large. We need
+    // to use our own param file here (rather than the built-in param file handling) as D8
+    // does not understand the blaze format.
+    Artifact paramFile =
+        ruleContext.getDerivedArtifact(
+            ParameterFile.derivePath(
+                classesDex.getOutputDirRelativePath(
+                    ruleContext.getConfiguration().isSiblingRepositoryLayout())),
+            classesDex.getRoot());
+    CustomCommandLine.Builder paramFileCommand =
+        CustomCommandLine.builder().addExecPaths(dexArchives).addExecPath("--output", classesDex);
+    NestedSetBuilder<Artifact> paramFileInputs = NestedSetBuilder.stableOrder();
+    paramFileInputs.addAll(dexArchives);
     SpawnAction.Builder dexAction =
         createSpawnActionBuilder(ruleContext)
             .useDefaultShellEnvironment()
             .setExecutable(ruleContext.getExecutablePrerequisite(":optimizing_dexer"))
             .setMnemonic("OptimizingDex")
             .setProgressMessage("Optimized dexing for %{label}")
+            .addInput(paramFile)
             .addInputs(dexArchives)
             .addOutput(classesDex);
-    CustomCommandLine.Builder commandLine =
-        CustomCommandLine.builder()
-            .addExecPaths(dexArchives)
-            .addExecPath("--output", classesDex)
-            .add("--release")
-            .add("--no-desugaring")
-            .addAll(DexArchiveAspect.mergerDexopts(ruleContext, dexopts));
+    if (libraryJar != null) {
+      paramFileCommand.addExecPath("--lib", libraryJar);
+      dexAction.addInput(libraryJar);
+    }
     if (proguardOutputMap != null) {
       dexAction.addInput(proguardOutputMap);
-      commandLine.addExecPath("--pg-map", proguardOutputMap);
+      paramFileCommand.addExecPath("--pg-map", proguardOutputMap);
     }
-    dexAction.addOutput(postProcessingOutputMap);
-    commandLine.addExecPath("--pg-map-output", postProcessingOutputMap);
+    if (postProcessingOutputMap != null) {
+      dexAction.addOutput(postProcessingOutputMap);
+      paramFileCommand.addExecPath("--pg-map-output", postProcessingOutputMap);
+    }
     boolean nativeMultidex = getMultidexMode(ruleContext) == MultidexMode.NATIVE;
     if (startupProfile != null && nativeMultidex) {
       dexAction.addInput(startupProfile);
-      commandLine.addExecPath("--startup-profile", startupProfile);
+      paramFileCommand.addExecPath("--startup-profile", startupProfile);
     }
     // TODO(b/261110876): Pass min SDK through here based on the value in the merged manifest.
     // The current value is statically defined for the entire depot.
@@ -2167,20 +2192,26 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     int minSdkVersion = getMinSdkVersion(ruleContext);
     int sdk = nativeMultidex ? Math.max(21, minSdkVersion) : minSdkVersion;
     if (sdk != 0) {
-      commandLine.add("--min-api", Integer.toString(sdk));
+      paramFileCommand.add("--min-api", Integer.toString(sdk));
     }
     if (mainDexList != null) {
-      commandLine.addExecPath("--main-dex-list", mainDexList);
+      paramFileCommand.addExecPath("--main-dex-list", mainDexList);
       dexAction.addInput(mainDexList);
     }
-    if (libraryJar != null) {
-      commandLine.addExecPath("--lib", libraryJar);
-      dexAction.addInput(libraryJar);
-    }
-    dexAction.addCommandLine(
-        commandLine.build(),
-        // Classpaths can be long--overflow into @params file if necessary
-        ParamFileInfo.builder(ParameterFile.ParameterFileType.SHELL_QUOTED).build());
+    ruleContext.registerAction(
+        new ParameterFileWriteAction(
+            ruleContext.getActionOwner(),
+            paramFileInputs.build(),
+            paramFile,
+            paramFileCommand.build(),
+            ParameterFile.ParameterFileType.SHELL_QUOTED));
+    CustomCommandLine.Builder commandLine =
+        CustomCommandLine.builder()
+            .add("--release")
+            .add("--no-desugaring")
+            .addPrefixedExecPath("@", paramFile)
+            .addAll(DexArchiveAspect.mergerDexopts(ruleContext, dexopts));
+    dexAction.addCommandLine(commandLine.build());
     ruleContext.registerAction(dexAction.build(ruleContext));
   }
 

@@ -499,6 +499,15 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "Do not use.")
     public String javaOptimizationMode;
+
+    @Option(
+        name = "incompatible_depset_for_java_output_source_jars",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "No-op.")
+    public boolean incompatibleDepsetForJavaOutputSourceJars;
   }
 
   @Override

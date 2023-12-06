@@ -1306,7 +1306,11 @@ public final class SkyframeBuildView {
     Optional<StarlarkAttributeTransitionProvider> starlarkExecTransition =
         StarlarkExecTransitionLoader.loadStarlarkExecTransition(
             configuration == null ? null : configuration.getOptions(),
-            (bzlKey) -> (BzlLoadValue) analysisEnvironment.getSkyframeEnv().getValue(bzlKey));
+            (bzlKey) ->
+                (BzlLoadValue)
+                    analysisEnvironment
+                        .getSkyframeEnv()
+                        .getValueOrThrow(bzlKey, BzlLoadFailedException.class));
     if (starlarkExecTransition == null) {
       return null;
     }

@@ -11,10 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
-import static com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationProcessorUtil.getGeneratedName;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.getErasure;
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.getGeneratedName;
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.getTypeMirror;
+import static java.util.Arrays.stream;
 
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
@@ -29,21 +32,17 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 import javax.annotation.processing.ProcessingEnvironment;
-import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.MirroredTypesException;
 import javax.lang.model.type.TypeMirror;
 
-/** Static utilities for AutoCodec processors. */
-class AutoCodecUtil {
+/** Methods that initialize generated type and method builders. */
+class Initializers {
   // Synthesized classes will have `_AutoCodec` suffix added.
   private static final String GENERATED_CLASS_NAME_SUFFIX = "AutoCodec";
-  static final Class<AutoCodec> ANNOTATION = AutoCodec.class;
 
   /**
    * Initializes a builder for a class of the appropriate type.
@@ -52,34 +51,16 @@ class AutoCodecUtil {
    */
   static TypeSpec.Builder initializeCodecClassBuilder(
       TypeElement encodedType, ProcessingEnvironment env) {
-    TypeSpec.Builder builder = TypeSpec.classBuilder(getCodecName(encodedType));
-    builder.addAnnotation(
-        AnnotationSpec.builder(ClassName.get(SuppressWarnings.class))
-            .addMember("value", "$S", "unchecked")
-            .addMember("value", "$S", "rawtypes")
-            .build());
-    return builder.addSuperinterface(
-        ParameterizedTypeName.get(
-            ClassName.get(ObjectCodec.class),
-            TypeName.get(env.getTypeUtils().erasure(encodedType.asType()))));
+    return TypeSpec.classBuilder(getGeneratedName(encodedType, GENERATED_CLASS_NAME_SUFFIX))
+        .addAnnotation(
+            AnnotationSpec.builder(ClassName.get(SuppressWarnings.class))
+                .addMember("value", "$S", "unchecked")
+                .addMember("value", "$S", "rawtypes")
+                .build())
+        .addMethod(defineGetEncodedClassMethod(encodedType, env));
   }
 
-  static MethodSpec.Builder initializeGetEncodedClassMethod(
-      TypeElement encodedType, ProcessingEnvironment env) {
-    return MethodSpec.methodBuilder("getEncodedClass")
-        .addModifiers(Modifier.PUBLIC)
-        .addAnnotation(Override.class)
-        .returns(
-            ParameterizedTypeName.get(
-                ClassName.get(Class.class),
-                TypeName.get(env.getTypeUtils().erasure(encodedType.asType()))));
-  }
-
-  /**
-   * Initializes the deserialize method.
-   *
-   * @param encodedType type being serialized
-   */
+  /** Initializes the {@link ObjectCodec#serialize} method. */
   static MethodSpec.Builder initializeSerializeMethodBuilder(
       TypeElement encodedType, AutoCodec annotation, ProcessingEnvironment env) {
     MethodSpec.Builder builder =
@@ -94,17 +75,17 @@ class AutoCodecUtil {
             .addException(SerializationException.class)
             .addException(IOException.class)
             .addParameter(SerializationContext.class, "context")
-            .addParameter(TypeName.get(env.getTypeUtils().erasure(encodedType.asType())), "input")
+            .addParameter(getErasure(encodedType, env), "obj")
             .addParameter(CodedOutputStream.class, "codedOut");
     if (annotation.checkClassExplicitlyAllowed()) {
-      builder.addStatement("context.checkClassExplicitlyAllowed(getEncodedClass(), input)");
+      builder.addStatement("context.checkClassExplicitlyAllowed(getEncodedClass(), obj)");
     }
     List<? extends TypeMirror> explicitlyAllowedClasses;
     try {
       explicitlyAllowedClasses =
-          Arrays.stream(annotation.explicitlyAllowClass())
-              .map((clazz) -> getType(clazz, env))
-              .collect(Collectors.toList());
+          stream(annotation.explicitlyAllowClass())
+              .map(clazz -> getTypeMirror(clazz, env))
+              .collect(toImmutableList());
     } catch (MirroredTypesException e) {
       explicitlyAllowedClasses = e.getTypeMirrors();
     }
@@ -114,35 +95,30 @@ class AutoCodecUtil {
     return builder;
   }
 
-  /**
-   * Initializes the deserialize method.
-   *
-   * @param encodedType type being serialized
-   */
+  /** Initializes the {@link ObjectCodec#deserialize} method. */
   static MethodSpec.Builder initializeDeserializeMethodBuilder(
       TypeElement encodedType, ProcessingEnvironment env) {
-    MethodSpec.Builder builder =
-        MethodSpec.methodBuilder("deserialize")
-            .addModifiers(Modifier.PUBLIC)
-            .returns(TypeName.get(env.getTypeUtils().erasure(encodedType.asType())))
-            .addAnnotation(Override.class)
-            .addException(SerializationException.class)
-            .addException(IOException.class)
-            .addParameter(DeserializationContext.class, "context")
-            .addParameter(CodedInputStream.class, "codedIn");
-    return builder;
+    return MethodSpec.methodBuilder("deserialize")
+        .addModifiers(Modifier.PUBLIC)
+        .returns(getErasure(encodedType, env))
+        .addAnnotation(Override.class)
+        .addException(SerializationException.class)
+        .addException(IOException.class)
+        .addParameter(DeserializationContext.class, "context")
+        .addParameter(CodedInputStream.class, "codedIn");
   }
 
-  /**
-   * Name of the generated codec class.
-   *
-   * <p>For {@code Foo.Bar} this is {@code Foo_Bar_AutoCodec}.
-   */
-  private static String getCodecName(Element element) {
-    return getGeneratedName(element, GENERATED_CLASS_NAME_SUFFIX);
+  /** Defines the link {@link ObjectCodec#getEncodedClass} method. */
+  private static MethodSpec defineGetEncodedClassMethod(
+      TypeElement encodedType, ProcessingEnvironment env) {
+    TypeName returnType = getErasure(encodedType, env);
+    return MethodSpec.methodBuilder("getEncodedClass")
+        .addModifiers(Modifier.PUBLIC)
+        .addAnnotation(Override.class)
+        .returns(ParameterizedTypeName.get(ClassName.get(Class.class), returnType))
+        .addStatement("return $T.class", returnType)
+        .build();
   }
 
-  static TypeMirror getType(Class<?> clazz, ProcessingEnvironment env) {
-    return env.getElementUtils().getTypeElement(clazz.getCanonicalName()).asType();
-  }
+  private Initializers() {}
 }

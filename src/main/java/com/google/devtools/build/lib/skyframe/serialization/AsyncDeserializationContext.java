@@ -28,7 +28,7 @@ import java.io.IOException;
 //
 // Once all codecs are migrated, this should replace the existing DeserializationContext as the
 // interface to codecs.
-interface AsyncDeserializationContext extends SerializationDependencyProvider {
+public interface AsyncDeserializationContext extends SerializationDependencyProvider {
 
   /** Defines a way to set a field in a given object. */
   interface FieldSetter {

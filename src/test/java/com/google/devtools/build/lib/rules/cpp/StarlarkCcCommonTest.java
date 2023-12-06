@@ -5254,45 +5254,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(ccFlags).isEqualTo("-test-cflag1 -testcflag2");
   }
 
-  private boolean toolchainResolutionEnabled() throws Exception {
-    scratch.file(
-        "a/rule.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "  toolchain_resolution_enabled = cc_common.is_cc_toolchain_resolution_enabled_do_not_use(",
-        "      ctx = ctx)",
-        "  return [MyInfo(",
-        "    toolchain_resolution_enabled = toolchain_resolution_enabled)]",
-        "toolchain_resolution_enabled = rule(",
-        "  _impl,",
-        ");");
-
-    scratch.file(
-        "a/BUILD",
-        "load(':rule.bzl', 'toolchain_resolution_enabled')",
-        "toolchain_resolution_enabled(name='r')");
-
-    ConfiguredTarget r = getConfiguredTarget("//a:r");
-    // Use an extra variable in order to suppress the warning.
-    boolean toolchainResolutionEnabled =
-        (boolean) getMyInfoFromTarget(r).getValue("toolchain_resolution_enabled");
-    return toolchainResolutionEnabled;
-  }
-
-  @Test
-  public void testIsToolchainResolutionEnabled_disabled() throws Exception {
-    useConfiguration("--incompatible_enable_cc_toolchain_resolution=false");
-
-    assertThat(toolchainResolutionEnabled()).isFalse();
-  }
-
-  @Test
-  public void testIsToolchainResolutionEnabled_enabled() throws Exception {
-    useConfiguration("--incompatible_enable_cc_toolchain_resolution");
-
-    assertThat(toolchainResolutionEnabled()).isTrue();
-  }
-
   @Test
   public void testWrongExtensionThrowsError() throws Exception {
     setUpCcLinkingContextTest(false);
@@ -6994,7 +6955,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             "toolchain.as_files()",
             "toolchain.ar_files()",
             "toolchain.objcopy_files()",
-            "toolchain.tool_path(tool='ld')",
+            "toolchain.tool_paths()",
             "toolchain.solib_dir()",
             "toolchain.linker_files()",
             "toolchain.coverage_files()",

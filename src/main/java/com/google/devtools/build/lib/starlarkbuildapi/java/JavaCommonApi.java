@@ -537,6 +537,7 @@ public interface JavaCommonApi<
         @Param(name = "compilation_classpath"),
         @Param(name = "direct_jars"),
         @Param(name = "bootclasspath"),
+        @Param(name = "javabuilder_jvm_flags"),
         @Param(name = "compile_time_java_deps"),
         @Param(name = "javac_opts"),
         @Param(name = "strict_deps_mode"),
@@ -566,6 +567,7 @@ public interface JavaCommonApi<
       Depset compileTimeClasspath,
       Depset directJars,
       Object bootClassPath,
+      Depset javabuilderJvmFlags,
       Depset compileTimeJavaDeps,
       Depset javacOpts,
       String strictDepsMode,
@@ -695,12 +697,6 @@ public interface JavaCommonApi<
       throws EvalException, LabelSyntaxException;
 
   @StarlarkMethod(
-      name = "_incompatible_depset_for_java_output_source_jars",
-      documented = false,
-      useStarlarkThread = true)
-  boolean isDepsetForJavaOutputSourceJarsEnabled(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
       name = "_incompatible_java_info_merge_runtime_module_flags",
       documented = false,
       useStarlarkThread = true)
@@ -726,9 +722,6 @@ public interface JavaCommonApi<
       documented = false)
   boolean incompatibleDisableNonExecutableJavaBinary(StarlarkThread thread);
 
-  @StarlarkMethod(name = "current_os_name", structField = true, documented = false)
-  String getCurrentOsName();
-
   @StarlarkMethod(
       name = "expand_java_opts",
       documented = false,
@@ -741,4 +734,10 @@ public interface JavaCommonApi<
   Sequence<?> expandJavaOpts(
       StarlarkRuleContextT ctx, String attr, boolean tokenize, boolean execPaths)
       throws EvalException, InterruptedException;
+
+  @StarlarkMethod(
+      name = "tokenize_javacopts",
+      documented = false,
+      parameters = {@Param(name = "opts")})
+  Sequence<?> tokenizeJavacOpts(Sequence<?> opts) throws EvalException, InterruptedException;
 }

@@ -79,7 +79,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
-import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
@@ -318,7 +317,8 @@ final class AspectFunction implements SkyFunction {
                 targetAndConfiguration.getConfiguration() == null
                     ? null
                     : targetAndConfiguration.getConfiguration().getOptions(),
-                (bzlKey) -> (BzlLoadValue) env.getValue(bzlKey));
+                (bzlKey) ->
+                    (BzlLoadValue) env.getValueOrThrow(bzlKey, BzlLoadFailedException.class));
         if (starlarkExecTransition == null) {
           return null; // Need Skyframe deps.
         }

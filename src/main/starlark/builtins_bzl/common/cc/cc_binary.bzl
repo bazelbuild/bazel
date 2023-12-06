@@ -15,11 +15,10 @@
 """cc_binary Starlark implementation replacing native"""
 
 load(":common/cc/cc_binary_attrs.bzl", "cc_binary_attrs")
-load(":common/cc/cc_shared_library.bzl", "cc_shared_library_initializer")
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper", "linker_mode")
 load(":common/cc/cc_info.bzl", "CcInfo")
-load(":common/cc/cc_shared_library.bzl", "GraphNodeInfo", "add_unused_dynamic_deps", "build_exports_map_from_only_dynamic_deps", "build_link_once_static_libs_map", "merge_cc_shared_library_infos", "separate_static_and_dynamic_link_libraries", "sort_linker_inputs", "throw_linked_but_not_exported_errors")
+load(":common/cc/cc_shared_library.bzl", "GraphNodeInfo", "add_unused_dynamic_deps", "build_exports_map_from_only_dynamic_deps", "build_link_once_static_libs_map", "cc_shared_library_initializer", "merge_cc_shared_library_infos", "separate_static_and_dynamic_link_libraries", "sort_linker_inputs", "throw_linked_but_not_exported_errors")
 load(":common/cc/semantics.bzl", "semantics")
 
 DebugPackageInfo = _builtins.toplevel.DebugPackageInfo
@@ -48,7 +47,7 @@ def _strip_extension(file):
 def _new_dwp_action(ctx, cc_toolchain, dwp_tools):
     return {
         "tools": dwp_tools,
-        "executable": cc_toolchain.tool_path(tool = "DWP"),
+        "executable": cc_toolchain.tool_paths().get("dwp", None),
         "arguments": ctx.actions.args(),
         "inputs": [],
         "outputs": [],
@@ -82,7 +81,12 @@ def _create_intermediate_dwp_packagers(ctx, dwp_output, cc_toolchain, dwp_files,
                 current_packager = _new_dwp_action(ctx, cc_toolchain, dwp_files)
                 inputs_for_current_packager = 0
             current_packager["inputs"].append(dwo_file)
-            current_packager["arguments"].add(dwo_file)
+
+            # add_all expands all directories to their contained files, see
+            # https://bazel.build/rules/lib/builtins/Args#add_all. add doesn't
+            # do that, so using add_all on the one-item list here allows us to
+            # find dwo files in directories.
+            current_packager["arguments"].add_all([dwo_file])
             inputs_for_current_packager += 1
 
         packagers.append(current_packager)
@@ -634,7 +638,7 @@ def cc_binary_impl(ctx, additional_linkopts):
         cc_toolchain = cc_toolchain,
         user_compile_flags = cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions),
         defines = cc_helper.defines(ctx, additional_make_variable_substitutions),
-        local_defines = cc_helper.local_defines(ctx, additional_make_variable_substitutions) + cc_helper.get_local_defines_for_runfiles_lookup(ctx),
+        local_defines = cc_helper.local_defines(ctx, additional_make_variable_substitutions) + cc_helper.get_local_defines_for_runfiles_lookup(ctx, ctx.attr.deps),
         system_includes = cc_helper.system_include_dirs(ctx, additional_make_variable_substitutions),
         private_hdrs = cc_helper.get_private_hdrs(ctx),
         public_hdrs = cc_helper.get_public_hdrs(ctx),

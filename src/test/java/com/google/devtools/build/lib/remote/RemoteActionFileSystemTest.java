@@ -461,6 +461,51 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   @Test
+  public void setLastModifiedTime_forRemoteOutputTree() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
+    PathFragment path = artifact.getPath().asFragment();
+    injectRemoteFile(actionFs, artifact.getPath().asFragment(), "remote contents");
+
+    actionFs.getPath(path).setLastModifiedTime(1234567890);
+    assertThat(actionFs.getPath(path).getLastModifiedTime()).isEqualTo(1234567890);
+  }
+
+  @Test
+  public void setLastModifiedTime_forLocalFilesystem() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
+    PathFragment path = artifact.getPath().asFragment();
+    writeLocalFile(actionFs, artifact.getPath().asFragment(), "local contents");
+
+    actionFs.getPath(path).setLastModifiedTime(1234567890);
+    assertThat(actionFs.getPath(path).getLastModifiedTime()).isEqualTo(1234567890);
+  }
+
+  @Test
+  public void setLastModifiedTime_followSymlinks(
+      @TestParameter FilesystemTestParam from, @TestParameter FilesystemTestParam to)
+      throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    FileSystem fromFs = from.getFilesystem(actionFs);
+    FileSystem toFs = to.getFilesystem(actionFs);
+
+    PathFragment linkPath = getOutputPath("sym");
+    PathFragment targetPath = getOutputPath("target");
+    fromFs.getPath(linkPath).createSymbolicLink(execRoot.getRelative(targetPath).asFragment());
+
+    if (toFs.equals(actionFs.getLocalFileSystem())) {
+      writeLocalFile(actionFs, targetPath, "content");
+    } else {
+      injectRemoteFile(actionFs, targetPath, "content");
+    }
+
+    actionFs.getPath(linkPath).setLastModifiedTime(1234567890);
+    assertThat(actionFs.getPath(linkPath).getLastModifiedTime()).isEqualTo(1234567890);
+    assertThat(actionFs.getPath(targetPath).getLastModifiedTime()).isEqualTo(1234567890);
+  }
+
+  @Test
   public void getDigest_fromInputArtifactData_forLocalArtifact() throws Exception {
     ActionInputMap inputs = new ActionInputMap(1);
     Artifact artifact = createRemoteArtifact("file", "local contents", inputs);

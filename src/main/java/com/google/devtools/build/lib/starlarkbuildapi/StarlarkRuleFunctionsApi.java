@@ -495,7 +495,9 @@ public interface StarlarkRuleFunctionsApi {
                     + " <code>executable</code> and <code>test</code> from the parent. Values of"
                     + " <code>fragments</code>, <code>toolchains</code>,"
                     + " <code>exec_compatible_with</code>, and <code>exec_groups</code> are"
-                    + " merged. Legacy or deprecated parameters may not be set."),
+                    + " merged. Legacy or deprecated parameters may not be set. Incoming "
+                    + "configuration transition <code>cfg</code> of parent is applied after this"
+                    + "rule's incoming configuration."),
         @Param(
             name = "extendable",
             named = true,

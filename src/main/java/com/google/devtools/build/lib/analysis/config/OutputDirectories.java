@@ -70,7 +70,6 @@ public class OutputDirectories {
     MIDDLEMAN("internal"),
     TESTLOGS("testlogs"),
     COVERAGE("coverage-metadata"),
-    BUILDINFO(BlazeDirectories.RELATIVE_BUILD_INFO_DIR),
     OUTPUT("");
 
     private final String name;
@@ -102,7 +101,6 @@ public class OutputDirectories {
 
   private final ArtifactRoot outputDirectory;
   private final ArtifactRoot binDirectory;
-  private final ArtifactRoot buildInfoDirectory;
   private final ArtifactRoot genfilesDirectory;
   private final ArtifactRoot coverageDirectory;
   private final ArtifactRoot testlogsDirectory;
@@ -126,8 +124,6 @@ public class OutputDirectories {
 
     this.outputDirectory = OutputDirectory.OUTPUT.getRoot(mnemonic, directories, workspaceName);
     this.binDirectory = OutputDirectory.BIN.getRoot(mnemonic, directories, workspaceName);
-    this.buildInfoDirectory =
-        OutputDirectory.BUILDINFO.getRoot(mnemonic, directories, workspaceName);
     this.genfilesDirectory = OutputDirectory.GENFILES.getRoot(mnemonic, directories, workspaceName);
     this.coverageDirectory = OutputDirectory.COVERAGE.getRoot(mnemonic, directories, workspaceName);
     this.testlogsDirectory = OutputDirectory.TESTLOGS.getRoot(mnemonic, directories, workspaceName);
@@ -168,13 +164,6 @@ public class OutputDirectories {
   /** Returns the bin directory for this build configuration. */
   ArtifactRoot getBinDirectory(RepositoryName repositoryName) {
     return siblingRepositoryLayout ? buildDerivedRoot("bin", repositoryName, false) : binDirectory;
-  }
-
-  /** Returns the build-info directory for this build configuration. */
-  ArtifactRoot getBuildInfoDirectory(RepositoryName repositoryName) {
-    return siblingRepositoryLayout
-        ? buildDerivedRoot(BlazeDirectories.RELATIVE_BUILD_INFO_DIR, repositoryName, false)
-        : buildInfoDirectory;
   }
 
   /** Returns the genfiles directory for this build configuration. */

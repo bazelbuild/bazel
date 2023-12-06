@@ -984,38 +984,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void javaOutputSourceJarsReturnsListWithIncompatibleFlagDisabled() throws Exception {
-    setBuildLanguageOptions("--noincompatible_depset_for_java_output_source_jars");
-    scratch.file(
-        "foo/extension.bzl",
-        "MyInfo = provider()",
-        "",
-        "def _impl(ctx):",
-        "  return MyInfo(source_jars = ctx.attr.dep[JavaInfo].java_outputs[0].source_jars)",
-        "",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {'dep' : attr.label()}",
-        ")");
-    scratch.file(
-        "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "java_library(name = 'lib')",
-        "my_rule(name = 'my_starlark_rule', dep = ':lib')");
-
-    ConfiguredTarget target = getConfiguredTarget("//foo:my_starlark_rule");
-
-    StarlarkInfo info =
-        (StarlarkInfo)
-            target.get(
-                new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "MyInfo"));
-    assertThat(info).isNotNull();
-    assertThat(info.getValue("source_jars")).isInstanceOf(StarlarkList.class);
-  }
-
-  @Test
   public void javaOutputSourceJarsReturnsDepsetWithIncompatibleFlagEnabled() throws Exception {
-    setBuildLanguageOptions("--incompatible_depset_for_java_output_source_jars");
     scratch.file(
         "foo/extension.bzl",
         "MyInfo = provider()",
@@ -1110,7 +1079,10 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
                 "compilation_info",
                 makeStruct(
                     ImmutableMap.of(
-                        "javac_options", StarlarkList.immutableOf("opt1", "opt2"),
+                        "javac_options",
+                            Depset.of(
+                                String.class,
+                                NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, "opt1", "opt2")),
                         "boot_classpath", StarlarkList.immutableOf(createArtifact("cp.jar")))))
             .buildOrThrow();
     StarlarkInfo starlarkInfo = makeStruct(fields);
@@ -1119,7 +1091,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
     assertThat(javaInfo).isNotNull();
     assertThat(javaInfo.getCompilationInfoProvider()).isNotNull();
-    assertThat(javaInfo.getCompilationInfoProvider().getJavacOpts())
+    assertThat(javaInfo.getCompilationInfoProvider().getJavacOptsList())
         .containsExactly("opt1", "opt2");
     assertThat(javaInfo.getCompilationInfoProvider().getBootClasspathList()).hasSize(1);
     assertThat(prettyArtifactNames(javaInfo.getCompilationInfoProvider().getBootClasspathList()))
@@ -1138,13 +1110,16 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
             ImmutableMap.of(
                 "compilation_classpath", Depset.of(Artifact.class, compilationClasspath),
                 "runtime_classpath", Depset.of(Artifact.class, runtimeClasspath),
-                "javac_options", StarlarkList.immutableOf("opt1", "opt2"),
+                "javac_options",
+                    Depset.of(
+                        String.class,
+                        NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, "opt1", "opt2")),
                 "boot_classpath", StarlarkList.immutableOf(bootClasspathArtifact)));
     JavaCompilationInfoProvider nativeCompilationInfo =
         new JavaCompilationInfoProvider.Builder()
             .setCompilationClasspath(compilationClasspath)
             .setRuntimeClasspath(runtimeClasspath)
-            .setJavacOpts(ImmutableList.of("opt1", "opt2"))
+            .setJavacOpts(NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, "opt1", "opt2"))
             .setBootClasspath(
                 NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, bootClasspathArtifact))
             .build();
@@ -1344,7 +1319,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
     private void build() throws Exception {
       if (useIJar || stampJar || sourceFiles) {
-        JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+        JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
       }
 
       ImmutableList.Builder<String> lines = ImmutableList.builder();

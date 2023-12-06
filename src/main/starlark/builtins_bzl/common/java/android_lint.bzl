@@ -14,7 +14,11 @@
 
 """Creates the android lint action for java rules"""
 
+load(":common/java/java_helper.bzl", "helper")
 load(":common/java/java_semantics.bzl", "semantics")
+
+def _tokenize_opts(opts_depset):
+    return helper.tokenize_javacopts(ctx = None, opts = opts_depset)
 
 def _android_lint_action(ctx, source_files, source_jars, compilation_info):
     """
@@ -97,8 +101,9 @@ def _android_lint_action(ctx, source_files, source_jars, compilation_info):
     args.add("--target_label", ctx.label)
 
     javac_opts = compilation_info.javac_options
-    if (javac_opts):
-        args.add_all("--javacopts", javac_opts)
+    if javac_opts:
+        # wrap in a list so that map_each passes the depset to _tokenize_opts
+        args.add_all("--javacopts", [javac_opts], map_each = _tokenize_opts)
         args.add("--")
 
     args.add("--lintopts")

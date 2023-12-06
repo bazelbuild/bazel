@@ -272,7 +272,7 @@ public final class ProguardHelper {
       @Nullable Artifact proguardSeeds,
       @Nullable Artifact proguardUsage,
       RuleContext ruleContext,
-      JavaSemantics semantics,
+      AndroidSemantics androidSemantics,
       @Nullable Artifact proguardOutputMap,
       @Nullable Artifact libraryJar,
       @Nullable Artifact startupProfileRewritten,
@@ -286,15 +286,15 @@ public final class ProguardHelper {
     if (mappingRequested) {
       // TODO(bazel-team): if rex is enabled, the proguard map will change and then will no
       // longer correspond to the proto map
-      proguardOutputProtoMap = semantics.getProtoMapping(ruleContext);
+      proguardOutputProtoMap = androidSemantics.getProtoMapping(ruleContext);
     }
 
     if (genObfuscatedConstantStringMap(ruleContext.attributes())) {
-      proguardConstantStringMap = semantics.getObfuscatedConstantStringMap(ruleContext);
+      proguardConstantStringMap = androidSemantics.getObfuscatedConstantStringMap(ruleContext);
     }
 
     Artifact proguardConfigOutput =
-        ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_CONFIG);
+        ruleContext.getImplicitOutputArtifact(AndroidSemantics.ANDROID_BINARY_PROGUARD_CONFIG);
 
     return new ProguardOutput(
         outputJar,
@@ -344,7 +344,8 @@ public final class ProguardHelper {
       @Nullable Artifact proguardDictionary,
       NestedSet<Artifact> libraryJars,
       Artifact proguardOutputJar,
-      JavaSemantics semantics,
+      AndroidSemantics androidSemantics,
+      JavaSemantics javaSemantics,
       @Nullable Integer optimizationPasses,
       @Nullable Artifact proguardOutputMap,
       @Nullable Artifact startupProfileIn,
@@ -355,10 +356,10 @@ public final class ProguardHelper {
     Artifact libraryJar = null;
 
     if (!libraryJars.isEmpty() && !libraryJars.isSingleton()) {
-      JavaTargetAttributes attributes = new JavaTargetAttributes.Builder(semantics).build();
+      JavaTargetAttributes attributes = new JavaTargetAttributes.Builder(javaSemantics).build();
       Artifact combinedLibraryJar =
           getProguardTempArtifact(ruleContext, "combined_library_jars.jar");
-      new DeployArchiveBuilder(semantics, ruleContext)
+      new DeployArchiveBuilder(javaSemantics, ruleContext)
           .setOutputJar(combinedLibraryJar)
           .setAttributes(attributes)
           .addRuntimeJars(libraryJars)
@@ -403,7 +404,7 @@ public final class ProguardHelper {
             proguardSeeds,
             proguardUsage,
             ruleContext,
-            semantics,
+            androidSemantics,
             proguardOutputMap,
             libraryJar,
             startupProfileRewritten,

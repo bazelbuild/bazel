@@ -14,6 +14,7 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -65,16 +66,17 @@ import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
-import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -118,6 +120,8 @@ import com.google.protobuf.ByteString;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
+import java.util.Collection;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -694,12 +698,13 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
-  public void downloadOutputs_relativeSymlinkInDirectory_success() throws Exception {
+  public void downloadOutputs_symlinksInDirectory_success() throws Exception {
     Tree tree =
         Tree.newBuilder()
             .setRoot(
                 Directory.newBuilder()
-                    .addSymlinks(SymlinkNode.newBuilder().setName("link").setTarget("../foo")))
+                    .addSymlinks(SymlinkNode.newBuilder().setName("rel").setTarget("foo"))
+                    .addSymlinks(SymlinkNode.newBuilder().setName("abs").setTarget("/bar")))
             .build();
     Digest treeDigest = cache.addContents(remoteActionExecutionContext, tree.toByteArray());
     ActionResult.Builder builder = ActionResult.newBuilder();
@@ -708,7 +713,6 @@ public class RemoteExecutionServiceTest {
         RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
     Spawn spawn = newSpawnFromResult(result);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-    remoteOptions.incompatibleRemoteDisallowSymlinkInTreeArtifact = false;
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
     RemoteAction action = service.buildRemoteAction(spawn, context);
     createOutputDirectories(spawn);
@@ -718,9 +722,12 @@ public class RemoteExecutionServiceTest {
     // Doesn't check for dangling links, hence download succeeds.
     service.downloadOutputs(action, result);
 
-    Path path = execRoot.getRelative("outputs/dir/link");
-    assertThat(path.isSymbolicLink()).isTrue();
-    assertThat(path.readSymbolicLink()).isEqualTo(PathFragment.create("../foo"));
+    Path relPath = execRoot.getRelative("outputs/dir/rel");
+    assertThat(relPath.isSymbolicLink()).isTrue();
+    assertThat(relPath.readSymbolicLink()).isEqualTo(PathFragment.create("foo"));
+    Path absPath = execRoot.getRelative("outputs/dir/abs");
+    assertThat(absPath.isSymbolicLink()).isTrue();
+    assertThat(absPath.readSymbolicLink()).isEqualTo(PathFragment.create("/bar"));
     assertThat(context.isLockOutputFilesCalled()).isTrue();
   }
 
@@ -764,37 +771,6 @@ public class RemoteExecutionServiceTest {
 
     Path path = execRoot.getRelative("outputs/foo");
     assertThat(path.readSymbolicLink()).isEqualTo(PathFragment.create("/abs/link"));
-    assertThat(context.isLockOutputFilesCalled()).isTrue();
-  }
-
-  @Test
-  public void downloadOutputs_absoluteSymlinkInDirectory_error() throws Exception {
-    Tree tree =
-        Tree.newBuilder()
-            .setRoot(
-                Directory.newBuilder()
-                    .addSymlinks(SymlinkNode.newBuilder().setName("link").setTarget("/foo")))
-            .build();
-    Digest treeDigest = cache.addContents(remoteActionExecutionContext, tree.toByteArray());
-    ActionResult.Builder builder = ActionResult.newBuilder();
-    builder.addOutputDirectoriesBuilder().setPath("outputs/dir").setTreeDigest(treeDigest);
-    RemoteActionResult result =
-        RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
-    Spawn spawn = newSpawnFromResult(result);
-    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-    RemoteExecutionService service = newRemoteExecutionService();
-    RemoteAction action = service.buildRemoteAction(spawn, context);
-    createOutputDirectories(spawn);
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
-        .thenReturn(true);
-
-    IOException expected =
-        assertThrows(IOException.class, () -> service.downloadOutputs(action, result));
-
-    assertThat(expected.getSuppressed()).isEmpty();
-    assertThat(expected)
-        .hasMessageThat()
-        .isEqualTo("Unsupported symlink 'link' inside tree artifact 'outputs/dir'");
     assertThat(context.isLockOutputFilesCalled()).isTrue();
   }
 
@@ -1538,7 +1514,7 @@ public class RemoteExecutionServiceTest {
     IOException error =
         assertThrows(IOException.class, () -> service.downloadOutputs(action, result));
 
-    assertThat(error).hasMessageThat().containsMatch("expected output .+ does not exist.");
+    assertThat(error).hasMessageThat().containsMatch("mandatory output .+ was not created");
   }
 
   @Test
@@ -2051,16 +2027,6 @@ public class RemoteExecutionServiceTest {
     //       cannot Mockito.spy on NestedSet as it is final.
 
     // arrange
-    /*
-     * First:
-     *   /bar/file
-     *   /foo1/file
-     * Second:
-     *   /bar/file
-     *   /foo2/file
-     */
-
-    // arrange
     // Single node NestedSets are folded, so always add a dummy file everywhere.
     ActionInput dummyFile = ActionInputHelper.fromPath("file");
     fakeFileCache.createScratchInput(dummyFile, "file");
@@ -2097,24 +2063,34 @@ public class RemoteExecutionServiceTest {
             .addTransitive(nodeFoo2)
             .build();
 
+    Artifact toolDat = ActionsTestUtil.createArtifact(artifactRoot, "tool.dat");
+    fakeFileCache.createScratchInput(toolDat, "tool.dat");
+
+    RunfilesSupplier runfilesSupplier =
+        createRunfilesSupplier("tools/tool.runfiles", ImmutableList.of(toolDat));
+
     Spawn spawn1 =
         new SimpleSpawn(
             new FakeOwner("foo", "bar", "//dummy:label"),
             /* arguments= */ ImmutableList.of(),
             /* environment= */ ImmutableMap.of(),
             /* executionInfo= */ ImmutableMap.of(),
+            /* runfilesSupplier= */ runfilesSupplier,
             /* inputs= */ nodeRoot1,
             /* outputs= */ ImmutableSet.of(),
             ResourceSet.ZERO);
+
     Spawn spawn2 =
         new SimpleSpawn(
             new FakeOwner("foo", "bar", "//dummy:label"),
             /* arguments= */ ImmutableList.of(),
             /* environment= */ ImmutableMap.of(),
             /* executionInfo= */ ImmutableMap.of(),
+            /* runfilesSupplier= */ runfilesSupplier,
             /* inputs= */ nodeRoot2,
             /* outputs= */ ImmutableSet.of(),
             ResourceSet.ZERO);
+
     FakeSpawnExecutionContext context1 = newSpawnExecutionContext(spawn1);
     FakeSpawnExecutionContext context2 = newSpawnExecutionContext(spawn2);
     remoteOptions.remoteMerkleTreeCache = true;
@@ -2133,7 +2109,7 @@ public class RemoteExecutionServiceTest {
                 PathFragment.EMPTY_FRAGMENT,
                 PathMapper.NOOP.getClass()), // fileset mapping
             ImmutableList.of(
-                EmptyRunfilesSupplier.INSTANCE,
+                PathFragment.create("tools/tool.runfiles"),
                 PathFragment.EMPTY_FRAGMENT,
                 PathMapper.NOOP.getClass()),
             ImmutableList.of(tree, PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()),
@@ -2156,7 +2132,7 @@ public class RemoteExecutionServiceTest {
                 PathFragment.EMPTY_FRAGMENT,
                 PathMapper.NOOP.getClass()), // fileset mapping
             ImmutableList.of(
-                EmptyRunfilesSupplier.INSTANCE,
+                PathFragment.create("tools/tool.runfiles"),
                 PathFragment.EMPTY_FRAGMENT,
                 PathMapper.NOOP.getClass()),
             ImmutableList.of(tree, PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()),
@@ -2494,6 +2470,42 @@ public class RemoteExecutionServiceTest {
         tempPathGenerator,
         null,
         remoteOutputChecker);
+  }
+
+  private RunfilesSupplier createRunfilesSupplier(String root, Collection<Artifact> artifacts) {
+    return new RunfilesSupplier() {
+      @Override
+      public NestedSet<Artifact> getAllArtifacts() {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public ImmutableSet<PathFragment> getRunfilesDirs() {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public ImmutableMap<PathFragment, Map<PathFragment, Artifact>> getMappings() {
+        return ImmutableMap.of(
+            PathFragment.create(root),
+            artifacts.stream().collect(toImmutableMap(Artifact::getExecPath, a -> a)));
+      }
+
+      @Override
+      public RunfileSymlinksMode getRunfileSymlinksMode(PathFragment runfilesDir) {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public boolean isBuildRunfileLinks(PathFragment runfilesDir) {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public RunfilesSupplier withOverriddenRunfilesDir(PathFragment newRunfilesDir) {
+        throw new UnsupportedOperationException();
+      }
+    };
   }
 
   private void createOutputDirectories(Spawn spawn) throws IOException {

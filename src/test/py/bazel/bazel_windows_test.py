@@ -21,10 +21,20 @@ class BazelWindowsTest(test_base.TestBase):
 
   def createProjectFiles(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
-    self.ScratchFile('foo/BUILD', ['cc_binary(name="x", srcs=["x.cc"])'])
+    self.ScratchFile('foo/BUILD', [
+        'platform(',
+        '    name = "x64_windows-msys-gcc",',
+        '    constraint_values = [',
+        '        "@platforms//cpu:x86_64",',
+        '        "@platforms//os:windows",',
+        '        "@bazel_tools//tools/cpp:msys",',
+        '    ],',
+        ')',
+        'cc_binary(name="x", srcs=["x.cc"])',
+    ])
     self.ScratchFile('foo/x.cc', [
         '#include <stdio.h>',
-        'int main(int, char**) {'
+        'int main(int, char**) {',
         '  printf("hello\\n");',
         '  return 0;',
         '}',
@@ -39,16 +49,22 @@ class BazelWindowsTest(test_base.TestBase):
             '--host_jvm_args=-Dbazel.windows_unix_root=',
             'build',
             '//foo:x',
-            '--cpu=x64_windows_msys',
-            '--noincompatible_enable_cc_toolchain_resolution',
+            '--extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_msys',
+            '--extra_execution_platforms=//foo:x64_windows-msys-gcc',
         ],
         allow_failure=True,
     )
     self.AssertExitCode(exit_code, 37, stderr)
-    self.assertIn('"bazel.windows_unix_root" JVM flag is not set',
-                  '\n'.join(stderr))
+    self.assertIn(
+        '"bazel.windows_unix_root" JVM flag is not set', '\n'.join(stderr)
+    )
 
-    self.RunBazel(['--batch', 'build', '//foo:x', '--cpu=x64_windows_msys'])
+    self.RunBazel([
+        '--batch', 'build',
+        '--extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_msys',
+        '--extra_execution_platforms=//foo:x64_windows-msys-gcc',
+        '//foo:x',
+    ])
 
   def testWindowsParameterFile(self):
     self.createProjectFiles()

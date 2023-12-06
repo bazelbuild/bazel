@@ -117,8 +117,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
     Runfiles.Builder builder = new Runfiles.Builder("TESTING", false);
     builder.addSymlinks(fakeManifest);
     if (addInitPy) {
-      builder.setEmptyFilesSupplier(
-          analysisMock.pySupport().getPythonSemantics().getEmptyRunfilesSupplier());
+      builder.setEmptyFilesSupplier(analysisMock.pySupport().getEmptyRunfilesSupplier());
     }
     return new SourceManifestAction(type, NULL_ACTION_OWNER, manifestOutputFile, builder.build());
   }

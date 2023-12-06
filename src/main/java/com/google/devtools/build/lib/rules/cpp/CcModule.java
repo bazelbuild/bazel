@@ -1924,13 +1924,6 @@ public abstract class CcModule
   }
 
   @Override
-  public boolean isCcToolchainResolutionEnabled(
-      StarlarkRuleContext starlarkRuleContext, StarlarkThread thread) throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    return CppHelper.useToolchainResolution(starlarkRuleContext.getRuleContext());
-  }
-
-  @Override
   public Tuple createLinkingContextFromCompilationOutputs(
       StarlarkActionFactory starlarkActionFactoryApi,
       FeatureConfigurationForStarlark starlarkFeatureConfiguration,
@@ -2969,18 +2962,6 @@ public abstract class CcModule
                 labelReplacement,
                 outputReplacement,
                 getSemantics()));
-  }
-
-  @StarlarkMethod(
-      name = "get_build_info",
-      documented = false,
-      parameters = {@Param(name = "ctx")},
-      useStarlarkThread = true)
-  public Sequence<Artifact> getBuildInfo(StarlarkRuleContext ruleContext, StarlarkThread thread)
-      throws EvalException, InterruptedException {
-    isCalledFromStarlarkCcCommon(thread);
-    return StarlarkList.immutableCopyOf(
-        ruleContext.getRuleContext().getBuildInfo(CppBuildInfo.KEY));
   }
 
   @StarlarkMethod(

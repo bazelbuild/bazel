@@ -100,6 +100,8 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -148,21 +150,34 @@ public final class ActionExecutionFunction implements SkyFunction {
 
   private final ActionRewindStrategy actionRewindStrategy;
   private final SkyframeActionExecutor skyframeActionExecutor;
+
+  // Direct access to the MemoizingEvaluator should typically not be allowed in SkyFunctions. We
+  // allow it here as an optimization for accessing inputs that are under an ArtifactNestedSet node
+  // without adding a direct Skyframe edge on the input or its generating action.
+  private final Supplier<MemoizingEvaluator> evaluator;
+
   private final BlazeDirectories directories;
   private final Supplier<TimestampGranularityMonitor> tsgm;
   private final BugReporter bugReporter;
 
+  // TODO(b/314282963): Remove this after the rollout.
+  private final Supplier<Boolean> clearNestedSetAfterActionExecution;
+
   public ActionExecutionFunction(
       ActionRewindStrategy actionRewindStrategy,
       SkyframeActionExecutor skyframeActionExecutor,
+      Supplier<MemoizingEvaluator> evaluator,
       BlazeDirectories directories,
       Supplier<TimestampGranularityMonitor> tsgm,
-      BugReporter bugReporter) {
+      BugReporter bugReporter,
+      Supplier<Boolean> clearNestedSetAfterActionExecution) {
     this.actionRewindStrategy = checkNotNull(actionRewindStrategy);
     this.skyframeActionExecutor = checkNotNull(skyframeActionExecutor);
+    this.evaluator = checkNotNull(evaluator);
     this.directories = checkNotNull(directories);
     this.tsgm = checkNotNull(tsgm);
     this.bugReporter = checkNotNull(bugReporter);
+    this.clearNestedSetAfterActionExecution = clearNestedSetAfterActionExecution;
   }
 
   @Override
@@ -365,6 +380,11 @@ public final class ActionExecutionFunction implements SkyFunction {
       return null;
     }
 
+    // We're done with the action. Clear the memo fields of the NestedSets to save some memory.
+    if (clearNestedSetAfterActionExecution.get()) {
+      action.getInputs().clearMemo();
+      allInputs.clearMemo();
+    }
     return result;
   }
 
@@ -1300,13 +1320,14 @@ public final class ActionExecutionFunction implements SkyFunction {
 
   @CanIgnoreReturnValue
   @Nullable
-  private static SkyValue getAndCheckInputSkyValue(
+  private SkyValue getAndCheckInputSkyValue(
       Action action,
       Artifact input,
       Predicate<Artifact> isMandatoryInput,
       ActionExecutionFunctionExceptionHandler actionExecutionFunctionExceptionHandler,
-      ActionLookupData actionLookupDataForError) {
-    SkyValue value = ArtifactNestedSetFunction.getInstance().getValueForKey(Artifact.key(input));
+      ActionLookupData actionLookupDataForError)
+      throws InterruptedException {
+    SkyValue value = lookupInput(input);
     if (value == null) {
       if (isMandatoryInput.test(input)) {
         StringBuilder errorMessage = new StringBuilder();
@@ -1366,6 +1387,28 @@ public final class ActionExecutionFunction implements SkyFunction {
       }
     }
     return value;
+  }
+
+  /**
+   * Looks up the value for an input using {@link
+   * MemoizingEvaluator#getExistingEntryAtCurrentlyEvaluatingVersion} to avoid establishing a direct
+   * dependency on the {@link Artifact#key}.
+   *
+   * <p>Must only be called after a proper direct dependency was established and is done. The direct
+   * dependency may be declared on either the {@link Artifact#key} or an {@link
+   * ArtifactNestedSetKey} containing the input.
+   */
+  @Nullable
+  private SkyValue lookupInput(Artifact input) throws InterruptedException {
+    NodeEntry entry =
+        evaluator.get().getExistingEntryAtCurrentlyEvaluatingVersion(Artifact.key(input));
+    if (entry == null) {
+      return null;
+    }
+    // Use toValue() so that in case the input's generating action was rewound, we still get some
+    // value. It might end up being a lost input when we execute the consuming action, but it may be
+    // available if its generating action was rewound due to losing a different output.
+    return entry.toValue();
   }
 
   private static <T> boolean findPathToKey(
@@ -1544,12 +1587,7 @@ public final class ActionExecutionFunction implements SkyFunction {
      * <p>Also updates ArtifactNestedSetFunction#skyKeyToSkyValue if an Artifact's value is
      * non-null.
      *
-     * @throws ActionExecutionException if the eval of any mandatory artifact threw an exception.
-     *     This may not be the most complete exception because it may lack missing input file causes
-     *     that did not throw exceptions, but were present as "missing file artifact values" in the
-     *     global {@link ArtifactNestedSetFunction#artifactSkyKeyToSkyValue} map. Unfortunately,
-     *     that map is not trustworthy in the exceptional case, since it may not have been populated
-     *     with all data from this build before an exception shut the build down.
+     * @throws ActionExecutionException if the eval of any mandatory artifact threw an exception
      * @return true if there is at least one input artifact that is missing
      */
     boolean accumulateAndMaybeThrowExceptions() throws ActionExecutionException {
@@ -1575,8 +1613,6 @@ public final class ActionExecutionFunction implements SkyFunction {
           if (value instanceof MissingArtifactValue) {
             someInputsMissing = true;
           }
-
-          ArtifactNestedSetFunction.getInstance().updateValueForKey(key, value);
         } catch (SourceArtifactException e) {
           handleSourceArtifactExceptionFromSkykey(key, e);
         } catch (ActionExecutionException e) {

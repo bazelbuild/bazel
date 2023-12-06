@@ -66,6 +66,7 @@ import javax.annotation.Nullable;
  * <a href="http://www.pkware.com/documents/casestudies/APPNOTE.TXT">ZIP format</a>
  */
 public class ZipCombiner implements AutoCloseable {
+  private static final int INFLATER_BUFFER_BYTES = 8192;
   public static final Date DOS_EPOCH = new Date(ZipUtil.DOS_EPOCH);
   /**
    * Whether to compress or decompress entries.
@@ -440,7 +441,7 @@ public class ZipCombiner implements AutoCloseable {
             entries.put(filename, null);
             InputStream in = zip.getRawInputStream(entry);
             if (entry.getMethod() == Compression.DEFLATED) {
-              in = new InflaterInputStream(in, getInflater());
+              in = new InflaterInputStream(in, getInflater(), INFLATER_BUFFER_BYTES);
             }
             action.getStrategy().merge(in, action.getMergeBuffer());
             break;
@@ -492,7 +493,9 @@ public class ZipCombiner implements AutoCloseable {
       writeEntry(entry, new ByteArrayInputStream(uncompressed));
     } else {
       ByteArrayOutputStream compressed = new ByteArrayOutputStream();
-      copyStream(new DeflaterInputStream(new ByteArrayInputStream(uncompressed), getDeflater()),
+      copyStream(
+          new DeflaterInputStream(
+              new ByteArrayInputStream(uncompressed), getDeflater(), INFLATER_BUFFER_BYTES),
           compressed);
       entry.setMethod(Compression.DEFLATED);
       entry.setCompressedSize(compressed.size());
@@ -529,14 +532,19 @@ public class ZipCombiner implements AutoCloseable {
       // from the raw file data and deflate to a temporary byte array to determine the deflated
       // size. Then use this byte array as the input stream for writing the entry.
       ByteArrayOutputStream tmp = new ByteArrayOutputStream();
-      copyStream(new DeflaterInputStream(zip.getRawInputStream(entry), getDeflater()), tmp);
+      copyStream(
+          new DeflaterInputStream(
+              zip.getRawInputStream(entry), getDeflater(), INFLATER_BUFFER_BYTES),
+          tmp);
       data = new ByteArrayInputStream(tmp.toByteArray());
       outEntry.setMethod(Compression.DEFLATED);
       outEntry.setCompressedSize(tmp.size());
     } else if (mode == OutputMode.FORCE_STORED && entry.getMethod() != Compression.STORED) {
       // The output mode is stored, but the entry compression is not; create an inflater stream
-      // from the raw file data. 
-      data = new InflaterInputStream(zip.getRawInputStream(entry), getInflater());
+      // from the raw file data.
+      data =
+          new InflaterInputStream(
+              zip.getRawInputStream(entry), getInflater(), INFLATER_BUFFER_BYTES);
       outEntry.setMethod(Compression.STORED);
       outEntry.setCompressedSize(entry.getSize());
     } else {

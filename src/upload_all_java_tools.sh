@@ -62,14 +62,14 @@ zip_path=${PWD}/bazel-bin/src/java_tools.zip
 bazel build ${RELEASE_BUILD_OPTS} //src:java_tools_prebuilt_zip
 prebuilt_zip_path=${PWD}/bazel-bin/src/java_tools_prebuilt.zip
 
+# copy zips out of bazel-bin so we don't lose them on later bazel invocations
+cp -f ${zip_path} ${prebuilt_zip_path} ./
+zip_path=${PWD}/java_tools.zip
+prebuilt_zip_path=${PWD}/java_tools_prebuilt.zip
+
 if [[ "$platform" == "windows" ]]; then
-    # Windows needs "file:///c:/foo/bar".
-    file_url="file:///$(cygpath -m ${zip_path})"
-    prebuilt_file_url="file:///$(cygpath -m ${prebuilt_zip_path})"
-else
-    # Non-Windows needs "file:///foo/bar".
-    file_url="file://${zip_path}"
-    prebuilt_file_url="file://${prebuilt_zip_path}"
+    zip_path="$(cygpath -m "${zip_path}")"
+    prebuilt_zip_path="$(cygpath -m "${prebuilt_zip_path}")"
 fi
 
 # Skip for now, as the test is broken on Windows.
@@ -79,8 +79,8 @@ if [[ "$platform" != "windows" ]]; then
     for java_version in $JAVA_VERSIONS; do
         bazel test --verbose_failures --test_output=all --nocache_test_results \
             //src/test/shell/bazel:bazel_java_test_local_java_tools_jdk${java_version} \
-            --define=LOCAL_JAVA_TOOLS_ZIP_URL="${file_url}" \
-            --define=LOCAL_JAVA_TOOLS_PREBUILT_ZIP_URL="${prebuilt_file_url}"
+            --define=LOCAL_JAVA_TOOLS_ZIP_PATH="${zip_path}" \
+            --define=LOCAL_JAVA_TOOLS_PREBUILT_ZIP_PATH="${prebuilt_zip_path}"
     done
 fi
 

@@ -1,4 +1,6 @@
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//:workspace_deps.bzl", "gen_workspace_stanza")
+load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -216,15 +218,22 @@ sh_test(
     }),
 )
 
+write_file(
+    name = "gen_rules_java_repo_name",
+    out = "RULES_JAVA_REPO_NAME",
+    content = [get_canonical_repo_name("@rules_java")],
+)
+
 sh_test(
     name = "bazel_java17_test",
     srcs = ["bazel_java17_test.sh"],
     args = [
         # java_tools zip to test
-        "src/java_tools.zip",
-        "src/java_tools_prebuilt.zip",
+        "$(rlocationpath //src:java_tools_zip)",
+        "$(rlocationpath //src:java_tools_prebuilt_zip)",
     ],
     data = [
+        ":gen_rules_java_repo_name",
         ":test-deps",
         "//src:java_tools_prebuilt_zip",
         "//src:java_tools_zip",
@@ -244,6 +253,7 @@ sh_test(
         "released",
     ],
     data = [
+        ":gen_rules_java_repo_name",
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
@@ -262,14 +272,15 @@ JAVA_VERSIONS_COVERAGE = ("11", "17")
         srcs = ["bazel_java_test.sh"],
         args = [
             # java_tools zips to test
-            "src/java_tools.zip",
-            "src/java_tools_prebuilt.zip",
+            "$(rlocationpath //src:java_tools_zip)",
+            "$(rlocationpath //src:java_tools_prebuilt_zip)",
             # --java_language_version value
             java_version,
             # --java_runtime_version value
             java_version,
         ],
         data = [
+            ":gen_rules_java_repo_name",
             ":test-deps",
             "//src:java_tools_prebuilt_zip",
             "//src:java_tools_zip",
@@ -288,14 +299,15 @@ JAVA_VERSIONS_COVERAGE = ("11", "17")
         srcs = ["bazel_java_test.sh"],
         args = [
             # java_tools zips to test
-            "$(LOCAL_JAVA_TOOLS_ZIP_URL)",
-            "$(LOCAL_JAVA_TOOLS_PREBUILT_ZIP_URL)",
+            "$(LOCAL_JAVA_TOOLS_ZIP_PATH)",
+            "$(LOCAL_JAVA_TOOLS_PREBUILT_ZIP_PATH)",
             # --java_language_version value
             java_version,
             # --java_runtime_version value
             java_version,
         ],
         data = [
+            ":gen_rules_java_repo_name",
             ":test-deps",
             "@bazel_tools//tools/bash/runfiles",
         ],
@@ -481,6 +493,7 @@ sh_test(
         "released",
     ],
     data = [
+        ":gen_rules_java_repo_name",
         ":test-deps",
     ],
     tags = [
@@ -504,6 +517,7 @@ sh_test(
             java_version,
         ],
         data = [
+            ":gen_rules_java_repo_name",
             ":test-deps",
         ],
         tags = [
@@ -521,17 +535,19 @@ sh_test(
         srcs = ["bazel_coverage_java_test.sh"],
         args = [
             # java_tools zips to test
-            "src/java_tools.zip",
-            "src/java_tools_prebuilt.zip",
-            # coverage output generator to test
-            "tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator/coverage",
+            "$(rlocationpath //src:java_tools_zip)",
+            "$(rlocationpath //src:java_tools_prebuilt_zip)",
+            # WORKSPACE file of the coverage output generator repo to test
+            "$(rlocationpath //tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_empty_workspace)",
             # --java_runtime_version value
             java_version,
         ],
         data = [
+            ":gen_rules_java_repo_name",
             ":test-deps",
             "//src:java_tools_prebuilt_zip",
             "//src:java_tools_zip",
+            "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_empty_workspace",
             "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo",
         ],
         tags = ["no_windows"],

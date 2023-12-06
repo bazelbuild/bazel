@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
@@ -21,11 +24,16 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.android.ProguardHelper.ProguardOutput;
 import com.google.devtools.build.lib.rules.java.BootClassPathInfo;
+import com.google.devtools.build.lib.rules.java.JavaCommon;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.util.Map;
 import java.util.Optional;
 
@@ -36,6 +44,45 @@ import java.util.Optional;
  * to keep state.
  */
 public interface AndroidSemantics {
+
+  SafeImplicitOutputsFunction ANDROID_BINARY_CLASS_JAR = fromTemplates("%{name}.jar");
+  SafeImplicitOutputsFunction ANDROID_BINARY_SOURCE_JAR = fromTemplates("%{name}-src.jar");
+  SafeImplicitOutputsFunction ANDROID_BINARY_DEPLOY_JAR = fromTemplates("%{name}_deploy.jar");
+  SafeImplicitOutputsFunction ANDROID_BINARY_PROGUARD_MAP = fromTemplates("%{name}_proguard.map");
+  SafeImplicitOutputsFunction ANDROID_BINARY_PROGUARD_PROTO_MAP =
+      fromTemplates("%{name}_proguard.pbmap");
+  SafeImplicitOutputsFunction ANDROID_BINARY_PROGUARD_SEEDS =
+      fromTemplates("%{name}_proguard.seeds");
+  SafeImplicitOutputsFunction ANDROID_BINARY_PROGUARD_USAGE =
+      fromTemplates("%{name}_proguard.usage");
+  SafeImplicitOutputsFunction ANDROID_BINARY_PROGUARD_CONFIG =
+      fromTemplates("%{name}_proguard.config");
+
+  /** Implementation for the :proguard attribute. */
+  @SerializationConstant
+  LabelLateBoundDefault<JavaConfiguration> PROGUARD =
+      LabelLateBoundDefault.fromTargetConfiguration(
+          JavaConfiguration.class,
+          null,
+          (rule, attributes, javaConfig) -> javaConfig.getProguardBinary());
+
+  @SerializationConstant
+  LabelLateBoundDefault<JavaConfiguration> BYTECODE_OPTIMIZER =
+      LabelLateBoundDefault.fromTargetConfiguration(
+          JavaConfiguration.class,
+          null,
+          (rule, attributes, javaConfig) -> {
+            // Use a modicum of smarts to avoid implicit dependencies where we don't need them.
+            boolean hasProguardSpecs =
+                attributes.has("proguard_specs")
+                    && !attributes.get("proguard_specs", LABEL_LIST).isEmpty();
+            JavaConfiguration.NamedLabel optimizer = javaConfig.getBytecodeOptimizer();
+            if ((!hasProguardSpecs && !javaConfig.runLocalJavaOptimizations())
+                || !optimizer.label().isPresent()) {
+              return null;
+            }
+            return optimizer.label().get();
+          });
 
   default AndroidManifest renameManifest(
       AndroidDataContext dataContext, AndroidManifest rawManifest) throws InterruptedException {
@@ -198,4 +245,21 @@ public interface AndroidSemantics {
     }
     return bootClassPathInfo;
   }
+
+  /**
+   * Returns an artifact representing the protobuf-format version of the proguard mapping, or null
+   * if the proguard version doesn't support this.
+   */
+  Artifact getProtoMapping(RuleContext ruleContext) throws InterruptedException;
+
+  Artifact getObfuscatedConstantStringMap(RuleContext ruleContext) throws InterruptedException;
+
+  /**
+   * Verifies if the rule contains any errors.
+   *
+   * <p>Errors should be signaled through {@link RuleContext}.
+   */
+  void checkRule(RuleContext ruleContext, JavaCommon javaCommon) throws RuleErrorException;
+
+  String getTestRunnerMainClass();
 }

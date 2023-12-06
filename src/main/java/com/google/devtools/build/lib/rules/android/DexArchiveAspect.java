@@ -675,8 +675,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
       args.add("--min_sdk_version", Integer.toString(minSdkVersion));
     }
 
-    dexbuilder.addCommandLine(
-        args.build(), ParamFileInfo.builder(UNQUOTED).setUseAlways(true).build());
+    dexbuilder.addCommandLine(args.build());
     ruleContext.registerAction(dexbuilder.build(ruleContext));
     return dexArchive;
   }

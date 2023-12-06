@@ -282,6 +282,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       // it possible to return null and not block but it doesn't seem to be easy with Starlark
       // structure as it is.
       Object result;
+      boolean fetchSuccessful = false;
       try (SilentCloseable c =
           Profiler.instance()
               .profile(ProfilerTask.STARLARK_REPOSITORY_FN, () -> rule.getLabel().toString())) {
@@ -291,7 +292,19 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
                 function,
                 /*args=*/ ImmutableList.of(starlarkRepositoryContext),
                 /*kwargs=*/ ImmutableMap.of());
+        fetchSuccessful = true;
+      } finally {
+        if (starlarkRepositoryContext.ensureNoPendingAsyncTasks(
+            env.getListener(), fetchSuccessful)) {
+          if (fetchSuccessful) {
+            throw new RepositoryFunctionException(
+                new EvalException(
+                    "Pending asynchronous work after repository rule finished running"),
+                Transience.PERSISTENT);
+          }
+        }
       }
+
       RepositoryResolvedEvent resolved =
           new RepositoryResolvedEvent(
               rule, starlarkRepositoryContext.getAttr(), outputDirectory, result);

@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyPro
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
+import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -66,7 +67,8 @@ public final class BaselineOptionsFunction implements SkyFunction {
     try {
       starlarkExecTransition =
           StarlarkExecTransitionLoader.loadStarlarkExecTransition(
-              mappedBaselineOptions, (bzlKey) -> (BzlLoadValue) env.getValue(bzlKey));
+              mappedBaselineOptions,
+              (bzlKey) -> (BzlLoadValue) env.getValueOrThrow(bzlKey, BzlLoadFailedException.class));
     } catch (StarlarkExecTransitionLoadingException e) {
       throw new BaselineOptionsFunctionException(e);
     }

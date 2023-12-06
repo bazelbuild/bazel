@@ -47,6 +47,9 @@ def _cc_semantics_get_stl(*args, **kwargs):
 def _cc_toolchain_strip_files(cc_toolchain, *args, **kwargs):
     return cc_toolchain.strip_files(*args, **kwargs)
 
+def _cc_toolchain_build_info_files(cc_toolchain, *args, **kwargs):
+    return cc_toolchain.build_info_files(*args, **kwargs)
+
 def _cc_launcher_info_cc_info(cc_launcher_info, *args, **kwargs):
     return cc_launcher_info.cc_info(*args, **kwargs)
 
@@ -116,6 +119,9 @@ def _linking_context_extra_link_time_libraries(linking_context, *args, **kwargs)
 def _linking_context_linkstamps(linking_context, *args, **kwargs):
     return linking_context.linkstamps(*args, **kwargs)
 
+def _linkstamp_file(linkstamp, *args, **kwargs):
+    return linkstamp.file(*args, **kwargs)
+
 def _make_runfiles_respect_legacy_external_runfiles(*args, **kwargs):
     return _py_builtins.make_runfiles_respect_legacy_external_runfiles(*args, **kwargs)
 
@@ -149,6 +155,7 @@ py_internal = struct(
     cc_semantics_get_runtimes_toolchain = _cc_semantics_get_runtimes_toolchain,
     cc_semantics_get_stl = _cc_semantics_get_stl,
     cc_toolchain_strip_files = _cc_toolchain_strip_files,
+    cc_toolchain_build_info_files = _cc_toolchain_build_info_files,
     compilation_outputs = _compilation_outputs,
     compile = _compile,
     copy_without_caching = _copy_without_caching,
@@ -170,6 +177,7 @@ py_internal = struct(
     link = _link,
     linking_context_extra_link_time_libraries = _linking_context_extra_link_time_libraries,
     linking_context_linkstamps = _linking_context_linkstamps,
+    linkstamp_file = _linkstamp_file,
     make_runfiles_respect_legacy_external_runfiles = _make_runfiles_respect_legacy_external_runfiles,
     merge_debug_context = _merge_debug_context,
     merge_linking_contexts = _merge_linking_contexts,

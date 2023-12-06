@@ -727,4 +727,14 @@ EOF
   expect_log_n "INFO: Build completed successfully, [456] total actions" 1
 }
 
+function test_exit_code_reported() {
+  bazel build --curses=yes --color=yes error:failwitherror 2>$TEST_log \
+    && fail "${PRODUCT_NAME} build passed"
+  expect_log '//error:failwitherror failed: (Exit 1): '
+
+  bazel test --curses=yes --color=yes pkg:false 2>$TEST_log \
+    && fail "${PRODUCT_NAME} test passed"
+  expect_log '//pkg:false (Exit 1) (see'
+}
+
 run_suite "Integration tests for ${PRODUCT_NAME}'s UI"

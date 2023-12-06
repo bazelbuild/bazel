@@ -556,6 +556,9 @@ BASIC_JAVA_BINARY_ATTRIBUTES = merge_attrs(
             allow_single_file = True,
         ),
         "_java_toolchain_type": attr.label(default = semantics.JAVA_TOOLCHAIN_TYPE),
+        "_windows_constraints": attr.label_list(
+            default = ["@" + paths.join(cc_semantics.get_platforms_root(), "os:windows")],
+        ),
     } | ({} if _builtins.internal.java_common_internal_do_not_use.incompatible_disable_non_executable_java_binary() else {"create_executable": attr.bool(default = True)}),
 )
 

@@ -23,9 +23,12 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidSplitTransitionApi;
@@ -33,7 +36,35 @@ import java.util.List;
 import net.starlark.java.eval.Printer;
 
 /** Android Split configuration transition for properly handling native dependencies */
-final class AndroidSplitTransition implements SplitTransition, AndroidSplitTransitionApi {
+public final class AndroidSplitTransition implements SplitTransition, AndroidSplitTransitionApi {
+
+  public static final AndroidSplitTransition INSTANCE = new AndroidSplitTransition();
+
+  public static final TransitionFactory<AttributeTransitionData> FACTORY = new Factory();
+
+  /** A {@link TransitionFactory} instance that returns the {@link AndroidSplitTransition}. */
+  static final class Factory implements TransitionFactory<AttributeTransitionData> {
+
+    @Override
+    public ConfigurationTransition create(AttributeTransitionData unused) {
+      return INSTANCE;
+    }
+
+    @Override
+    public TransitionType transitionType() {
+      return TransitionType.ATTRIBUTE;
+    }
+
+    @Override
+    public boolean isTool() {
+      return false;
+    }
+
+    @Override
+    public boolean isSplit() {
+      return true;
+    }
+  }
 
   @Override
   public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
@@ -170,8 +201,6 @@ final class AndroidSplitTransition implements SplitTransition, AndroidSplitTrans
     setCcFlagsFromAndroid(androidOptions, splitOptions);
     // Ensure platforms aren't set so that platform mapping can take place.
     splitOptions.get(PlatformOptions.class).platforms = ImmutableList.of();
-    // Because configuration is based on cpu flags we need to disable C++ toolchain resolution
-    splitOptions.get(CppOptions.class).enableCcToolchainResolution = false;
     return handleDefaultSplit(splitOptions, androidOptions.cpu);
   }
 
@@ -195,8 +224,6 @@ final class AndroidSplitTransition implements SplitTransition, AndroidSplitTrans
       setCcFlagsFromAndroid(androidOptions, splitOptions);
       // Ensure platforms aren't set so that platform mapping can take place.
       splitOptions.get(PlatformOptions.class).platforms = ImmutableList.of();
-      // Because configuration is based on cpu flags we need to disable C++ toolchain resolution
-      splitOptions.get(CppOptions.class).enableCcToolchainResolution = false;
       result.put(cpu, splitOptions.underlying());
       addNonCpuSplits(result, cpu, splitOptions);
     }

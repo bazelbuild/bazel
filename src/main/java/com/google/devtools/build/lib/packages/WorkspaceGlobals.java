@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.devtools.build.lib.packages.WorkspaceFactoryHelper.originatesInWorkspaceSuffix;
 import static net.starlark.java.eval.Starlark.NONE;
 
 import com.google.common.collect.ImmutableList;
@@ -114,7 +115,9 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     // Add to the package definition for later.
     Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
     List<String> patterns = Sequence.cast(toolchainLabels, String.class, "toolchain_labels");
-    builder.addRegisteredToolchains(parsePatterns(patterns, builder, thread));
+    builder.addRegisteredToolchains(
+        parsePatterns(patterns, builder, thread),
+        originatesInWorkspaceSuffix(thread.getCallStack()));
   }
 
   @Override

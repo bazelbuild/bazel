@@ -19,6 +19,7 @@ import static java.util.Map.Entry.comparingByKey;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Ordering;
+import com.google.devtools.build.lib.cmdline.Label;
 import java.io.File;
 import java.util.Collection;
 import java.util.Comparator;
@@ -173,7 +174,7 @@ public class CommandFailureUtils {
       @Nullable List<String> environmentVariablesToClear,
       @Nullable String cwd,
       @Nullable String configurationChecksum,
-      @Nullable String executionPlatformAsLabelString) {
+      @Nullable Label executionPlatformLabel) {
 
     Preconditions.checkNotNull(form);
     StringBuilder message = new StringBuilder();
@@ -267,9 +268,9 @@ public class CommandFailureUtils {
         message.append("# Configuration: ").append(configurationChecksum);
       }
 
-      if (executionPlatformAsLabelString != null) {
+      if (executionPlatformLabel != null) {
         message.append("\n");
-        message.append("# Execution platform: ").append(executionPlatformAsLabelString);
+        message.append("# Execution platform: ").append(executionPlatformLabel);
       }
     }
 
@@ -288,8 +289,8 @@ public class CommandFailureUtils {
       Map<String, String> env,
       @Nullable String cwd,
       @Nullable String configurationChecksum,
-      @Nullable String targetLabel,
-      @Nullable String executionPlatformAsLabelString) {
+      @Nullable Label targetLabel,
+      @Nullable Label executionPlatformLabel) {
 
     String commandName = commandLineElements.iterator().next();
     // Extract the part of the command name after the last "/", if any.
@@ -318,7 +319,7 @@ public class CommandFailureUtils {
             null,
             cwd,
             configurationChecksum,
-            executionPlatformAsLabelString));
+            executionPlatformLabel));
     return shortCommandName + " failed: " + output;
   }
 
@@ -332,6 +333,6 @@ public class CommandFailureUtils {
         cwd,
         command.getConfigurationChecksum(),
         command.getTargetLabel(),
-        command.getExecutionPlatformLabelString());
+        command.getExecutionPlatformLabel());
   }
 }

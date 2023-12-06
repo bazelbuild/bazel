@@ -25,8 +25,9 @@ import javax.annotation.Nullable;
 /**
  * State for a node that either has not been built yet or has been dirtied.
  *
- * <p>If the node has previously been built, {@link #isIncremental} returns true. Deps are checked
- * to see if re-evaluation is needed, and the node will either marked clean or re-evaluated.
+ * <p>If the node has previously been built and the state tracks the previous value and dependencies
+ * for purposes of pruning, {@link #isIncremental} returns true. Deps are checked to see if
+ * re-evaluation is needed, and the node will either marked clean or re-evaluated.
  *
  * <p>This class does not attempt to synchronize operations. It is assumed that the calling {@link
  * InMemoryNodeEntry} performs the appropriate synchronization when necessary.

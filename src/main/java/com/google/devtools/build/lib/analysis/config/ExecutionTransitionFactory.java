@@ -137,12 +137,6 @@ public class ExecutionTransitionFactory
     private static final ImmutableSet<Class<? extends FragmentOptions>> FRAGMENTS =
         ImmutableSet.of(CoreOptions.class, PlatformOptions.class);
 
-    // We added this cache after observing an O(100,000)-node build graph that applied multiple exec
-    // transitions on every node via an aspect. Before this cache, this produced O(500,000)
-    // BuildOptions instances that consumed over 3 gigabytes of memory.
-    private static final BuildOptionsCache<Pair<Label, ConfigurationTransition>>
-        nativeApplicationCache = new BuildOptionsCache<>(ExecTransitionFinalizer::transitionImpl);
-
     @Nullable private final Label executionPlatform;
 
     private final ConfigurationTransition mainTransition;
@@ -184,30 +178,6 @@ public class ExecutionTransitionFactory
         // No execution platform is known, so don't change anything.
         return options.underlying();
       }
-
-      // If this is the Starlark exec transition, StarlarkTransitionCache caches application. If
-      // this is the native exec transition, we need to directly cache application here.
-      //
-      // That means we technically don't need to call this cache if this is a Starlark transition
-      // (we could instead call transitionImpl() directly, trusting StarlarkTransitionCache to
-      // control when that's called). But it's simpler to universally call it here and causes no
-      // harm. And once we remove the native transition we can eliminate this cache outright.
-      // TODO(b/301644122): remove this cache when we remove the native exec transition. We'll do
-      // this as a distinct change just in case it causes performance problems.
-      return nativeApplicationCache.applyTransition(
-          options,
-          // The execution platform impacts the output's --platform_suffix and --platforms flags.
-          Pair.of(executionPlatform, mainTransition),
-          eventHandler);
-    }
-
-    private static BuildOptions transitionImpl(
-        BuildOptionsView options,
-        Pair<Label, ConfigurationTransition> data,
-        @Nullable EventHandler eventHandler)
-        throws InterruptedException {
-      Label executionPlatform = data.first;
-      ConfigurationTransition mainTransition = data.second;
 
       Map.Entry<String, BuildOptions> splitOptions =
           Iterables.getOnlyElement(mainTransition.apply(options, eventHandler).entrySet());

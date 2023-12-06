@@ -26,11 +26,9 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.extra.ExtraActionSpec;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -74,15 +72,11 @@ public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
     boolean requiresActionOutput =
         context.attributes().get("requires_action_output", Type.BOOLEAN);
 
-    // TODO(b/234923262): Take exec_group into consideration when selecting sh tools
-    PathFragment shExecutable =
-        ShToolchain.getPathForPlatform(context.getConfiguration(), context.getExecutionPlatform());
     if (context.hasErrors()) {
       return null;
     }
     ExtraActionSpec spec =
         new ExtraActionSpec(
-            shExecutable,
             commandHelper.getResolvedTools(),
             CompositeRunfilesSupplier.fromSuppliers(commandHelper.getToolsRunfilesSuppliers()),
             resolvedData,

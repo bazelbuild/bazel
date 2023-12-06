@@ -1563,7 +1563,7 @@ of individual repository definitions. It then appears in Skyframe as a member of
 
 ## JNI bits {:#jni-bits}
 
-The server of Bazel is_ mostly _written in Java. The exception is the parts that
+The server of Bazel is _mostly_ written in Java. The exception is the parts that
 Java cannot do by itself or couldn't do by itself when we implemented it. This
 is mostly limited to interaction with the file system, process control and
 various other low-level things.
