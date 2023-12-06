@@ -401,3 +401,31 @@ def _exports_test_macro(name, target, targets_that_should_be_claimed_to_be_expor
     )
 
 exports_test = _exports_test_macro
+
+def _pdb_test_impl(env, target):
+    if not env.ctx.target_platform_has_constraint(env.ctx.attr._is_windows[platform_common.ConstraintValueInfo]):
+        return
+
+    target_action = None
+    for action in target.actions:
+        if action.mnemonic == "CppLink":
+            target_action = action
+            break
+
+    outputs = [f.basename for f in target_action.outputs.to_list()]
+
+    env.expect.that_collection(outputs).contains_at_least_predicates([
+        matching.contains("foo_so.pdb"),
+    ])
+
+def _pdb_test_macro(name, target):
+    analysis_test(
+        name = name,
+        impl = _pdb_test_impl,
+        target = target,
+        attrs = {
+            "_is_windows": attr.label(default = "@platforms//os:windows"),
+        },
+    )
+
+pdb_test = _pdb_test_macro

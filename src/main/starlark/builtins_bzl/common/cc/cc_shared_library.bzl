@@ -19,6 +19,7 @@ load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
 load(":common/cc/semantics.bzl", "semantics")
+load(":common/paths.bzl", "paths")
 load(":common/proto/proto_info.bzl", "ProtoInfo")
 
 # TODO(#5200): Add export_define to library_to_link and cc_library
@@ -682,6 +683,13 @@ def _cc_shared_library_impl(ctx):
     if ctx.attr.shared_lib_name:
         main_output = ctx.actions.declare_file(ctx.attr.shared_lib_name)
 
+    pdb_file = None
+    if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "generate_pdb_file"):
+        if ctx.attr.shared_lib_name:
+            pdb_file = ctx.actions.declare_file(paths.replace_extension(ctx.attr.shared_lib_name, ".pdb"))
+        else:
+            pdb_file = ctx.actions.declare_file(ctx.label.name + ".pdb")
+
     win_def_file = None
     if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "targets_windows"):
         object_files = []
@@ -714,6 +722,7 @@ def _cc_shared_library_impl(ctx):
         name = ctx.label.name,
         output_type = "dynamic_library",
         main_output = main_output,
+        pdb_file = pdb_file,
         win_def_file = win_def_file,
     )
 
