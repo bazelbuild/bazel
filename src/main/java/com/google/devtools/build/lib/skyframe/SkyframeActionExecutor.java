@@ -222,6 +222,7 @@ public final class SkyframeActionExecutor {
   private OutputService outputService;
   private boolean finalizeActions;
   private boolean rewindingEnabled;
+  private boolean trackLostDiscoveredInputs;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
 
   private DiscoveredModulesPruner discoveredModulesPruner;
@@ -304,6 +305,7 @@ public final class SkyframeActionExecutor {
     // Cache some option values for performance, since we consult them on every action.
     this.finalizeActions = buildRequestOptions.finalizeActions;
     this.rewindingEnabled = buildRequestOptions.rewindLostInputs;
+    this.trackLostDiscoveredInputs = buildRequestOptions.trackLostDiscoveredInputs;
     this.outputService = outputService;
     this.outputDirectoryHelper = outputDirectoryHelper;
 
@@ -451,7 +453,7 @@ public final class SkyframeActionExecutor {
       // obsolete.
       state.obsolete(failedKey, buildActionMap, ownerlessArtifactWrapper);
     }
-    if (!lostDiscoveredInputs.isEmpty()) {
+    if (trackLostDiscoveredInputs && !lostDiscoveredInputs.isEmpty()) {
       lostDiscoveredInputsMap.put(ownerlessArtifactWrapper, lostDiscoveredInputs);
     }
     if (!actionFileSystemType().inMemoryFileSystem()) {
