@@ -226,9 +226,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
 
   private static ImmutableMap<String, List<String>> getHeaderContents(Dict<?, ?> x, String what)
       throws EvalException {
-    // Dict.cast returns Dict<String, raw Dict>.
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    Dict<String, Object> headersUnchecked = (Dict) Dict.cast(x, String.class, Object.class, what);
+    Dict<String, Object> headersUnchecked = (Dict<String, Object>) Dict.cast(x, String.class, Object.class, what);
     ImmutableMap.Builder<String, List<String>> headers = new ImmutableMap.Builder<>();
 
     for (Map.Entry<String, Object> entry : headersUnchecked.entrySet()) {
@@ -240,8 +238,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
         headerValue = List.of(valueUnchecked.toString());
       } else {
         throw new EvalException(
-            String.format("Trying to build %s, the value in the headers dict"
-                + " must be a string or string sequence.", what));
+          String.format("%s argument must be a dict whose keys are string and whose values are either string or sequence of string", what));
       }
       headers.put(entry.getKey(), headerValue);
     }

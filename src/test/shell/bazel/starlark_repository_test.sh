@@ -2551,7 +2551,7 @@ repo = repository_rule(implementation=_impl)
 EOF
 
   bazel build @foo//:all >& $TEST_log && fail "expected bazel to fail" || :
-  expect_log "Trying to build headers, the value in the headers dict must be a string or string sequence."
+  expect_log "headers argument must be a dict whose keys are string and whose values are either string or sequence of string"
 }
 
 function test_string_starlark_headers() {
