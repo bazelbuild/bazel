@@ -206,28 +206,19 @@ def _find_cpp_toolchain(ctx, *, mandatory = True):
       optional, mandatory is False and no toolchain has been found.
     """
 
-    # Check the incompatible flag for toolchain resolution.
-    if hasattr(cc_common, "is_cc_toolchain_resolution_enabled_do_not_use") and cc_common.is_cc_toolchain_resolution_enabled_do_not_use(ctx = ctx):
-        if not _CPP_TOOLCHAIN_TYPE in ctx.toolchains:
-            fail("In order to use find_cpp_toolchain, you must include the '//tools/cpp:toolchain_type' in the toolchains argument to your rule.")
-        toolchain_info = ctx.toolchains[_CPP_TOOLCHAIN_TYPE]
-        if toolchain_info == None:
-            if not mandatory:
-                return None
+    if not _CPP_TOOLCHAIN_TYPE in ctx.toolchains:
+        fail("In order to use find_cpp_toolchain, you must include the '//tools/cpp:toolchain_type' in the toolchains argument to your rule.")
+    toolchain_info = ctx.toolchains[_CPP_TOOLCHAIN_TYPE]
+    if toolchain_info == None:
+        if not mandatory:
+            return None
 
-            # No cpp toolchain was found, so report an error.
-            fail("Unable to find a CC toolchain using toolchain resolution. Target: %s, Platform: %s, Exec platform: %s" %
-                 (ctx.label, ctx.fragments.platform.platform, ctx.fragments.platform.host_platform))
-        if hasattr(toolchain_info, "cc_provider_in_toolchain") and hasattr(toolchain_info, "cc"):
-            return toolchain_info.cc
-        return toolchain_info
-
-    # Otherwise, fall back to the legacy attribute.
-    if hasattr(ctx.attr, "_cc_toolchain"):
-        return ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
-
-    # We didn't find anything.
-    fail("In order to use find_cpp_toolchain, you must define the '_cc_toolchain' attribute on your rule or aspect.")
+        # No cpp toolchain was found, so report an error.
+        fail("Unable to find a CC toolchain using toolchain resolution. Target: %s, Platform: %s, Exec platform: %s" %
+             (ctx.label, ctx.fragments.platform.platform, ctx.fragments.platform.host_platform))
+    if hasattr(toolchain_info, "cc_provider_in_toolchain") and hasattr(toolchain_info, "cc"):
+        return toolchain_info.cc
+    return toolchain_info
 
 def _use_cpp_toolchain(mandatory = False):
     """

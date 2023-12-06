@@ -292,14 +292,7 @@ public final class CppConfiguration extends Fragment
       defaultInToolRepository = true)
   @Nullable
   public Label getRuleProvidingCcToolchainProvider() {
-    if (cppOptions.enableCcToolchainResolution) {
-      // In case C++ toolchain resolution is enabled, crosstool_top flags are not used.
-      // Returning null prevents additional work on the flags values and makes it possible to
-      // remove `--crosstool_top` flags.
       return null;
-    } else {
-      return cppOptions.crosstoolTop;
-    }
   }
 
   @Nullable
@@ -751,20 +744,6 @@ public final class CppConfiguration extends Fragment
 
   public boolean collectCodeCoverage() {
     return collectCodeCoverage;
-  }
-
-  @StarlarkMethod(
-      name = "enable_cc_toolchain_resolution",
-      documented = false,
-      useStarlarkThread = true)
-  public boolean enableCcToolchainResolutionForStarlark(StarlarkThread thread)
-      throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return enableCcToolchainResolution();
-  }
-
-  public boolean enableCcToolchainResolution() {
-    return cppOptions.enableCcToolchainResolution;
   }
 
   public boolean saveFeatureState() {

@@ -1420,16 +1420,6 @@ public interface CcModuleApi<
   String legacyCcFlagsMakeVariable(CcToolchainProviderT ccToolchain, StarlarkThread thread)
       throws EvalException;
 
-  @StarlarkMethod(
-      name = "is_cc_toolchain_resolution_enabled_do_not_use",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true, doc = "The rule context."),
-      },
-      doc = "Returns true if the --incompatible_enable_cc_toolchain_resolution flag is enabled.",
-      useStarlarkThread = true)
-  boolean isCcToolchainResolutionEnabled(StarlarkRuleContextT ruleContext, StarlarkThread thread)
-      throws EvalException;
 
   @StarlarkMethod(
       name = "create_cc_toolchain_config_info",

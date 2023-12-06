@@ -46,12 +46,7 @@ def _cc_toolchain_impl(ctx):
     providers = [attributes_provider]
     if attributes_provider.licenses_provider() != None:
         providers.append(attributes_provider.licenses_provider())
-    if not ctx.fragments.cpp.enable_cc_toolchain_resolution():
-        # This is not a platforms-backed build, let's provide CcToolchainAttributesProvider
-        # and have cc_toolchain_suite select one of its toolchains and create CcToolchainProvider
-        # from its attributes. We also need to provide a do-nothing ToolchainInfo.
-        providers.append(ToolchainInfo(cc = "dummy cc toolchain"))
-        return providers
+
     cc_toolchain = get_cc_toolchain_provider(ctx, attributes_provider, ctx.attr._is_apple)
     if cc_toolchain == None:
         fail("This should never happen")

@@ -524,7 +524,9 @@ def _legacy_cc_flags_make_variable_do_not_use(*, cc_toolchain):
     return cc_common_internal.legacy_cc_flags_make_variable_do_not_use(cc_toolchain = cc_toolchain)
 
 def _is_cc_toolchain_resolution_enabled_do_not_use(*, ctx):
-    return cc_common_internal.is_cc_toolchain_resolution_enabled_do_not_use(ctx = ctx)
+    # Supports public is_cc_toolchain_resolution_enabled_do_not_use
+    # TODO(b/218795674): remove once uses are cleaned up
+    return True
 
 def _create_cc_toolchain_config_info(
         *,

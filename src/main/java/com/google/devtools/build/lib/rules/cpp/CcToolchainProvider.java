@@ -750,9 +750,6 @@ public final class CcToolchainProvider extends NativeInfo
       AppleConfiguration appleConfiguration,
       String cpu)
       throws EvalException, InterruptedException {
-    if (!cppConfiguration.enableCcToolchainResolution()) {
-      return buildVariables;
-    }
     // With platforms, cc toolchain is analyzed in the exec configuration, so we can only reuse the
     // same build variables instance if the inputs to the construction match.
     PathFragment sysroot = getSysrootPathFragment(cppConfiguration);

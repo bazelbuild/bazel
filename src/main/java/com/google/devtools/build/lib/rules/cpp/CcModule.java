@@ -1924,13 +1924,6 @@ public abstract class CcModule
   }
 
   @Override
-  public boolean isCcToolchainResolutionEnabled(
-      StarlarkRuleContext starlarkRuleContext, StarlarkThread thread) throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    return CppHelper.useToolchainResolution(starlarkRuleContext.getRuleContext());
-  }
-
-  @Override
   public Tuple createLinkingContextFromCompilationOutputs(
       StarlarkActionFactory starlarkActionFactoryApi,
       FeatureConfigurationForStarlark starlarkFeatureConfiguration,

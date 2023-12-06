@@ -17,7 +17,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -34,8 +33,6 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -77,48 +74,16 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
     Label selectedCcToolchain = toolchains.get(key);
     CcToolchainProvider ccToolchainProvider;
 
-    if (CppHelper.useToolchainResolution(ruleContext)) {
-      // This is a platforms build (and the user requested to build this suite explicitly).
-      // Cc_toolchains provide CcToolchainInfo already. Let's select the CcToolchainProvider from
-      // toolchains and provide it here as well.
-      ccToolchainProvider =
-          selectCcToolchain(
-              CcToolchainProvider.PROVIDER,
-              ruleContext,
-              transformedCpu,
-              compiler,
-              selectedCcToolchain);
-    } else {
-      // This is not a platforms build, and cc_toolchain_suite is the one responsible for creating
-      // and providing CcToolchainInfo.
-      CcToolchainAttributesProvider selectedAttributes =
-          selectCcToolchain(
-              CcToolchainAttributesProvider.PROVIDER,
-              ruleContext,
-              transformedCpu,
-              compiler,
-              selectedCcToolchain);
-      StarlarkFunction getCcToolchainProvider =
-          (StarlarkFunction) ruleContext.getStarlarkDefinedBuiltin("get_cc_toolchain_provider");
-      ruleContext.initStarlarkRuleContext();
-      Object starlarkCcToolchainProvider =
-          ruleContext.callStarlarkOrThrowRuleError(
-              getCcToolchainProvider,
-              ImmutableList.of(
-                  /* ctx */ ruleContext.getStarlarkRuleContext(),
-                  /* attributes */ selectedAttributes,
-                  /* has_apple_fragment */ true),
-              ImmutableMap.of());
-      ccToolchainProvider =
-          starlarkCcToolchainProvider != Starlark.NONE
-              ? (CcToolchainProvider) starlarkCcToolchainProvider
-              : null;
-
-      if (ccToolchainProvider == null) {
-        // Skyframe restart
-        return null;
-      }
-    }
+    // This is a platforms build (and the user requested to build this suite explicitly).
+    // Cc_toolchains provide CcToolchainInfo already. Let's select the CcToolchainProvider from
+    // toolchains and provide it here as well.
+    ccToolchainProvider =
+        selectCcToolchain(
+            CcToolchainProvider.PROVIDER,
+            ruleContext,
+            transformedCpu,
+            compiler,
+            selectedCcToolchain);
 
     CcCommon.reportInvalidOptions(ruleContext, cppConfiguration, ccToolchainProvider);
 

@@ -18,9 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.ConfigurationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -44,22 +42,5 @@ public class JavaConfigurationTest extends ConfigurationTestCase {
     config = create("--java_launcher=//foo:bar");
     cfg = config.getFragment(JavaConfiguration.class);
     assertThat(Label.parseCanonicalUnchecked("//foo:bar")).isEqualTo(cfg.getJavaLauncherLabel());
-  }
-
-  @Test
-  public void testHostCrosstoolTop() throws Exception {
-    BuildConfigurationValue config =
-        createConfiguration("--noincompatible_enable_cc_toolchain_resolution");
-    assertThat(config.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
-        .isEqualTo(
-            Label.parseCanonicalUnchecked(
-                TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain"));
-
-    BuildConfigurationValue execConfig =
-        createExec("--noincompatible_enable_cc_toolchain_resolution");
-    assertThat(execConfig.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
-        .isEqualTo(
-            Label.parseCanonicalUnchecked(
-                TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain"));
   }
 }
