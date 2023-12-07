@@ -190,7 +190,6 @@ public final class ExpandedSpawnLogContextTest {
         defaultTimeout(),
         defaultSpawnResult());
 
-    // TODO(tjgq): Propagate tool bit to files inside source directories.
     closeAndAssertLog(
         context,
         defaultSpawnExecBuilder()
@@ -198,7 +197,11 @@ public final class ExpandedSpawnLogContextTest {
                 dirContents.isEmpty()
                     ? ImmutableList.of()
                     : ImmutableList.of(
-                        File.newBuilder().setPath("dir/file").setDigest(getDigest("abc")).build()))
+                        File.newBuilder()
+                            .setPath("dir/file")
+                            .setDigest(getDigest("abc"))
+                            .setIsTool(inputsMode.isTool())
+                            .build()))
             .build());
   }
 
