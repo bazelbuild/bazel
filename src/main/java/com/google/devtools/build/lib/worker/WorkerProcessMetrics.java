@@ -50,6 +50,7 @@ public class WorkerProcessMetrics {
 
   private final WorkerProcessStatus status;
 
+  private boolean newlyCreated = true;
   private final AtomicInteger actionsExecuted = new AtomicInteger(0);
 
   public WorkerProcessMetrics(
@@ -99,6 +100,16 @@ public class WorkerProcessMetrics {
     this.memoryInKb = memoryInKb;
     this.isMeasurable = true;
     this.lastCollectedTime = Optional.of(collectionTime);
+  }
+
+  /** Reset relevant internal states before each command. */
+  public void onBeforeCommand() {
+    newlyCreated = false;
+  }
+
+  /** Whether the worker process was created during the current invocation. */
+  public boolean isNewlyCreated() {
+    return newlyCreated;
   }
 
   public void incrementActionsExecuted() {

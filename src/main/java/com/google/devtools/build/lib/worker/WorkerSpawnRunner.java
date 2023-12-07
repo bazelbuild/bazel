@@ -82,6 +82,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
   public static final String ERROR_MESSAGE_PREFIX =
       "Worker strategy cannot execute this %s action, ";
   public static final String REASON_NO_TOOLS = "because the action has no tools";
+
   /**
    * The verbosity level implied by `--worker_verbose`. This value allows for manually setting some
    * only-slightly-verbose levels.

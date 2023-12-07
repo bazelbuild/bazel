@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.worker;
 import com.google.common.base.Throwables;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
 import java.io.IOException;
 import java.util.LinkedHashMap;
@@ -188,16 +187,6 @@ public class WorkerPoolImpl implements WorkerPool {
           "clearing shrunk by values for %s multiplex worker pool",
           entry.getKey().isEmpty() ? "shared" : entry.getKey());
       entry.getValue().clearShrunkBy();
-    }
-  }
-
-  @Override
-  public void setEventBus(EventBus eventBus) {
-    for (SimpleWorkerPool pool : workerPools.values()) {
-      pool.setEventBus(eventBus);
-    }
-    for (SimpleWorkerPool pool : multiplexPools.values()) {
-      pool.setEventBus(eventBus);
     }
   }
 

@@ -1220,7 +1220,9 @@ message BuildMetrics {
       string mnemonic = 2;
       // Number of workers created during a build.
       int64 created_count = 3;
-      // Number of workers destroyed during a build.
+      // Number of workers destroyed during a build (sum of all workers
+      // destroyed by eviction, UserExecException, IoException,
+      // InterruptedException and unknown reasons below).
       int64 destroyed_count = 4;
       // Number of workers evicted during a build.
       int64 evicted_count = 5;
@@ -1230,6 +1232,10 @@ message BuildMetrics {
       int64 io_exception_destroyed_count = 7;
       // Number of workers destroyed due to InterruptedExceptions.
       int64 interrupted_exception_destroyed_count = 8;
+      // Number of workers destroyed due to an unknown reason.
+      int64 unknown_destroyed_count = 9;
+      // Number of workers alive at the end of the build.
+      int64 alive_count = 10;
     }
   }
 

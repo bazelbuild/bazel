@@ -128,7 +128,6 @@ public abstract class Worker {
     status.maybeUpdateStatus(WorkerProcessStatus.Status.ALIVE);
     WorkerProcessMetricsCollector.instance().onWorkerFinishExecution(getProcessId());
   }
-  ;
 
   /**
    * Destroys this worker. Once this has been called, we assume it's safe to clean up related
