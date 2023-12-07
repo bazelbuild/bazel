@@ -83,9 +83,6 @@ ssize_t portable_getxattr(const char *path, const char *name, void *value,
 ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
                            size_t size, bool *attr_not_found);
 
-// Run sysctlbyname(3), only available on darwin
-int portable_sysctlbyname(const char *name_chars, void *mibp, size_t *sizep);
-
 // Used to surround an region that we want sleep disabled for.
 // push_disable_sleep to start the area.
 // pop_disable_sleep to end the area.

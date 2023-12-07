@@ -14,22 +14,28 @@
 
 package com.google.devtools.build.lib.actions;
 
-/**
- * This class provide a fallback of the local host's resource capacity.
- */
-public class LocalHostResourceFallback {
+import com.sun.management.OperatingSystemMXBean;
+import java.lang.management.ManagementFactory;
 
-  /* If /proc/* information is not available, guess based on what the JVM thinks.  Anecdotally,
-   * the JVM picks 0.22 the total available memory as maxMemory (tested on a standard Mac), so
-   * multiply by 3, and divide by 2^20 because we want megabytes.
-   */
+/** This class computes the local host's resource capacity. */
+final class LocalHostResource {
+
   private static final ResourceSet DEFAULT_RESOURCES =
       ResourceSet.create(
-          3.0 * (Runtime.getRuntime().maxMemory() >> 20),
+          // Only com.sun.management.OperatingSystemMXBean provides the total physical memory size.
+          // This bean is container-aware as of JDK 14.
+          // https://github.com/openjdk/jdk/commit/7b82266a159ce363708e347aba7e1b0d38206b48
+          ((OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean())
+                  .getTotalPhysicalMemorySize()
+              / (1024.0 * 1024.0),
+          // As of JDK 11, availableProcessors is aware of cgroups as commonly used by containers.
+          // https://hg.openjdk.java.net/jdk/hs/rev/7f22774a5f42#l6.178
           Runtime.getRuntime().availableProcessors(),
           Integer.MAX_VALUE);
 
-  public static ResourceSet getLocalHostResources() {
+  public static ResourceSet get() {
     return DEFAULT_RESOURCES;
   }
+
+  private LocalHostResource() {}
 }

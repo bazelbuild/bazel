@@ -85,11 +85,6 @@ ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
   return result;
 }
 
-int portable_sysctlbyname(const char *name_chars, void *mibp, size_t *sizep) {
-  errno = ENOSYS;
-  return -1;
-}
-
 int portable_push_disable_sleep() {
   // Currently not supported.
   return -1;
