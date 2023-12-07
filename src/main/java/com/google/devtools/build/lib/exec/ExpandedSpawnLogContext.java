@@ -159,24 +159,30 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
       for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
         PathFragment displayPath = e.getKey();
         ActionInput input = e.getValue();
+
         if (input instanceof VirtualActionInput.EmptyActionInput) {
           // Do not include a digest, as it's a waste of space.
           builder.addInputsBuilder().setPath(displayPath.getPathString());
           continue;
         }
-        Path contentPath = fileSystem.getPath(execRoot.getRelative(input.getExecPathString()));
-        if (contentPath.isDirectory()) {
-          listDirectoryContents(
-              displayPath, contentPath, builder::addInputs, inputMetadataProvider);
-          continue;
-        }
-        Digest digest =
-            computeDigest(
-                input, contentPath, inputMetadataProvider, xattrProvider, digestHashFunction);
+
         boolean isTool =
             toolFiles.contains(input)
                 || (input instanceof TreeFileArtifact
                     && toolFiles.contains(((TreeFileArtifact) input).getParent()));
+
+        Path contentPath = fileSystem.getPath(execRoot.getRelative(input.getExecPathString()));
+
+        if (contentPath.isDirectory()) {
+          listDirectoryContents(
+              displayPath, contentPath, builder::addInputs, inputMetadataProvider, isTool);
+          continue;
+        }
+
+        Digest digest =
+            computeDigest(
+                input, contentPath, inputMetadataProvider, xattrProvider, digestHashFunction);
+
         builder
             .addInputsBuilder()
             .setPath(displayPath.getPathString())
@@ -199,7 +205,11 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
           ActionInput output = e.getValue();
           if (path.isDirectory()) {
             listDirectoryContents(
-                output.getExecPath(), path, builder::addActualOutputs, inputMetadataProvider);
+                output.getExecPath(),
+                path,
+                builder::addActualOutputs,
+                inputMetadataProvider,
+                /* isTool= */ false);
             continue;
           }
           builder
@@ -306,7 +316,8 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
       PathFragment displayPath,
       Path contentPath,
       Consumer<File> addFile,
-      InputMetadataProvider inputMetadataProvider)
+      InputMetadataProvider inputMetadataProvider,
+      boolean isTool)
       throws IOException {
     // TODO(olaola): once symlink API proposal is implemented, report symlinks here.
     List<Dirent> sortedDirent = new ArrayList<>(contentPath.readdir(Symlinks.NOFOLLOW));
@@ -318,7 +329,8 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
       Path childContentPath = contentPath.getChild(name);
 
       if (dirent.getType() == Dirent.Type.DIRECTORY) {
-        listDirectoryContents(childDisplayPath, childContentPath, addFile, inputMetadataProvider);
+        listDirectoryContents(
+            childDisplayPath, childContentPath, addFile, inputMetadataProvider, isTool);
         continue;
       }
 
@@ -332,6 +344,7 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
                       inputMetadataProvider,
                       xattrProvider,
                       digestHashFunction))
+              .setIsTool(isTool)
               .build());
     }
   }
