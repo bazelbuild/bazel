@@ -2228,7 +2228,7 @@
   "moduleExtensions": {
     "//:extensions.bzl%bazel_android_deps": {
       "general": {
-        "bzlTransitiveDigest": "jRtP5osY4OoM27yZDy++l0G15nhPHicA27B589vWc7Q=",
+        "bzlTransitiveDigest": "GePZH6z20Bg8DBJJz2KRAeVWAUspcD8Fl2sAoNAktTg=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2247,10 +2247,10 @@
     },
     "//:extensions.bzl%bazel_build_deps": {
       "general": {
-        "bzlTransitiveDigest": "jRtP5osY4OoM27yZDy++l0G15nhPHicA27B589vWc7Q=",
+        "bzlTransitiveDigest": "GePZH6z20Bg8DBJJz2KRAeVWAUspcD8Fl2sAoNAktTg=",
         "accumulatedFileDigests": {
-          "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "cd1b6e477c28420dedbc9eb36de4ba497f4af6be18c32042feddd270e35bb717",
-          "@@//:MODULE.bazel": "181678df5c28839fced02f5f546f99ae5a99c21eb263975d3244e17497b7064f"
+        "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "d1de0c7a82ede5b9126e764faf1e228c7ee518d86fc3d193b2b47640cacd535b",
+        "@@//:MODULE.bazel": "181678df5c28839fced02f5f546f99ae5a99c21eb263975d3244e17497b7064f"
         },
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2505,7 +2505,7 @@
     },
     "//:extensions.bzl%bazel_test_deps": {
       "general": {
-        "bzlTransitiveDigest": "jRtP5osY4OoM27yZDy++l0G15nhPHicA27B589vWc7Q=",
+        "bzlTransitiveDigest": "GePZH6z20Bg8DBJJz2KRAeVWAUspcD8Fl2sAoNAktTg=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2555,7 +2555,7 @@
     },
     "//tools/android:android_extensions.bzl%remote_android_tools_extensions": {
       "general": {
-        "bzlTransitiveDigest": "iz3RFYDcsjupaT10sdSPAhA44WL3eDYkTEnYThllj1w=",
+        "bzlTransitiveDigest": "kyYmVfXVvQ/eqU6zuZ6/NCQC72VLGyxJvwX/5Kzw3E8=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2582,7 +2582,7 @@
     },
     "//tools/test:extensions.bzl%remote_coverage_tools_extension": {
       "general": {
-        "bzlTransitiveDigest": "cizrA62cv8WUgb0cCmx5B6PRijtr/I4TAWxg/4caNGU=",
+        "bzlTransitiveDigest": "dSavvzz4Z4n0JlBCZevqTBn9fRwlL29Y3/kjd1rvGAQ=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
