@@ -245,7 +245,7 @@ public final class ExpandedSpawnLogContextTest {
   }
 
   @Test
-  public void testRunfilesInput() throws Exception {
+  public void testRunfilesFileInput() throws Exception {
     Artifact runfilesInput = ActionsTestUtil.createArtifact(rootDir, "data.txt");
 
     writeFile(runfilesInput, "abc");
@@ -253,7 +253,8 @@ public final class ExpandedSpawnLogContextTest {
     SpawnLogContext context = createSpawnLogContext();
 
     context.logSpawn(
-        // In reality, the spawn would have a RunfilesSupplier and a runfiles middleman input.
+        // In reality, the spawn would have a RunfilesSupplier and a runfiles middleman input, but
+        // these don't affect the operation of the spawn logger.
         defaultSpawn(),
         createInputMetadataProvider(runfilesInput),
         /* inputMap= */ ImmutableSortedMap.of(
@@ -262,11 +263,47 @@ public final class ExpandedSpawnLogContextTest {
         defaultTimeout(),
         defaultSpawnResult());
 
-    // TODO(tjgq): The path should be foo.runfiles/data.txt.
     closeAndAssertLog(
         context,
         defaultSpawnExecBuilder()
-            .addInputs(File.newBuilder().setPath("data.txt").setDigest(getDigest("abc")))
+            .addInputs(
+                File.newBuilder().setPath("out/foo.runfiles/data.txt").setDigest(getDigest("abc")))
+            .build());
+  }
+
+  @Test
+  public void testRunfilesDirectoryInput(@TestParameter DirContents dirContents) throws Exception {
+    Artifact runfilesInput = ActionsTestUtil.createArtifact(rootDir, "dir");
+
+    runfilesInput.getPath().createDirectoryAndParents();
+    if (!dirContents.isEmpty()) {
+      writeFile(runfilesInput.getPath().getChild("data.txt"), "abc");
+    }
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    context.logSpawn(
+        // In reality, the spawn would have a RunfilesSupplier and a runfiles middleman input, but
+        // these don't affect the operation of the spawn logger.
+        defaultSpawn(),
+        createInputMetadataProvider(runfilesInput),
+        /* inputMap= */ ImmutableSortedMap.of(
+            outputDir.getExecPath().getRelative("foo.runfiles/dir"), runfilesInput),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addAllInputs(
+                dirContents.isEmpty()
+                    ? ImmutableList.of()
+                    : ImmutableList.of(
+                        File.newBuilder()
+                            .setPath("out/foo.runfiles/dir/data.txt")
+                            .setDigest(getDigest("abc"))
+                            .build()))
             .build());
   }
 
