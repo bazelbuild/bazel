@@ -417,6 +417,25 @@ public final class ExpandedSpawnLogContextTest {
   }
 
   @Test
+  public void testMissingOutput(@TestParameter OutputsMode outputsMode) throws Exception {
+    Artifact missingOutput = ActionsTestUtil.createArtifact(outputDir, "missing");
+
+    SpawnBuilder spawn = defaultSpawnBuilder().withOutputs(missingOutput);
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    context.logSpawn(
+        spawn.build(),
+        createInputMetadataProvider(),
+        createInputMap(),
+        outputsMode.getActionFileSystem(fs),
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    closeAndAssertLog(context, defaultSpawnExecBuilder().addListedOutputs("out/missing").build());
+  }
+
+  @Test
   public void testEnvironment() throws Exception {
     Spawn spawn =
         defaultSpawnBuilder().withEnvironment("SPAM", "eggs").withEnvironment("FOO", "bar").build();
