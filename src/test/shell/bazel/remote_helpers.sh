@@ -179,6 +179,28 @@ function serve_timeout() {
   cd -
 }
 
+# Serves a HTTP 200 Ok response with headers dumped into the file
+# Args:
+#  $1: required; path to the file
+#  $2: optional; path to the file where headers will be written to.
+function serve_file_header_dump() {
+  file_name=served_file.$$
+  cat $1 > "${TEST_TMPDIR}/$file_name"
+  nc_log="${TEST_TMPDIR}/nc.log"
+  rm -f $nc_log
+  touch $nc_log
+  cd "${TEST_TMPDIR}"
+  port_file=server-port.$$
+  rm -f $port_file
+  python3 $python_server always $file_name --dump_headers ${2:-"headers.json"} > $port_file &
+  nc_pid=$!
+  while ! grep started $port_file; do sleep 1; done
+  nc_port=$(head -n 1 $port_file)
+  fileserver_port=$nc_port
+  wait_for_server_startup
+  cd -
+}
+
 # Waits for the SimpleHTTPServer to actually start up before the test is run.
 # Otherwise the entire test can run before the server starts listening for
 # connections, which causes flakes.

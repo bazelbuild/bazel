@@ -116,6 +116,7 @@ public class DownloadManager {
 
   public Future<Path> startDownload(
       List<URL> originalUrls,
+      Map<String, List<String>> headers,
       Map<URI, Map<String, List<String>>> authHeaders,
       Optional<Checksum> checksum,
       String canonicalId,
@@ -129,6 +130,7 @@ public class DownloadManager {
           try (SilentCloseable c = Profiler.instance().profile("fetching: " + context)) {
             return downloadInExecutor(
                 originalUrls,
+                headers,
                 authHeaders,
                 checksum,
                 canonicalId,
@@ -154,6 +156,7 @@ public class DownloadManager {
 
   public Path download(
       List<URL> originalUrls,
+      Map<String, List<String>> headers,
       Map<URI, Map<String, List<String>>> authHeaders,
       Optional<Checksum> checksum,
       String canonicalId,
@@ -166,6 +169,7 @@ public class DownloadManager {
     Future<Path> future =
         startDownload(
             originalUrls,
+            headers,
             authHeaders,
             checksum,
             canonicalId,
@@ -197,6 +201,7 @@ public class DownloadManager {
    */
   private Path downloadInExecutor(
       List<URL> originalUrls,
+      Map<String, List<String>> headers,
       Map<URI, Map<String, List<String>>> authHeaders,
       Optional<Checksum> checksum,
       String canonicalId,
@@ -339,6 +344,7 @@ public class DownloadManager {
       try {
         downloader.download(
             rewrittenUrls,
+            headers,
             credentialFactory.create(rewrittenAuthHeaders),
             checksum,
             canonicalId,

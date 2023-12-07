@@ -17,6 +17,8 @@
 # pylint: disable=g-import-not-at-top,g-importing-member
 import argparse
 import base64
+import json
+
 try:
   from http.server import BaseHTTPRequestHandler
 except ImportError:
@@ -44,11 +46,13 @@ class Handler(BaseHTTPRequestHandler):
   auth = False
   not_found = False
   simulate_timeout = False
+  dump_headers = None
   filename = None
   redirect = None
   valid_headers = [
       b'Basic ' + base64.b64encode('foo:bar'.encode('ascii')), b'Bearer TOKEN'
   ]
+  unstable_headers = ['Host', 'User-Agent']
 
   def do_HEAD(self):  # pylint: disable=invalid-name
     self.send_response(200)
@@ -66,6 +70,13 @@ class Handler(BaseHTTPRequestHandler):
       # Needed for Unix domain connections as the response functions
       # fail without this being set.
       self.client_address = 'localhost'
+
+    if self.dump_headers:
+      headers = filter(
+          lambda hv: hv[0] not in self.unstable_headers, self.headers.items()
+      )
+      with open(self.dump_headers, 'w') as f:
+        f.write(json.dumps(dict(headers)))
 
     if self.simulate_timeout:
       while True:
@@ -110,6 +121,8 @@ class Handler(BaseHTTPRequestHandler):
 def main(argv):
   parser = argparse.ArgumentParser()
   parser.add_argument('--unix_socket', action='store')
+  parser.add_argument('--dump_headers', action='store')
+
   parser.add_argument('mode', type=str, nargs='?')
   parser.add_argument('target', type=str, nargs='?')
   args = parser.parse_args(argv)
@@ -127,6 +140,8 @@ def main(argv):
       Handler.auth = True
       if args.target:
         Handler.filename = args.target
+
+  Handler.dump_headers = args.dump_headers
 
   httpd = None
   if args.unix_socket:
