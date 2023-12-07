@@ -157,30 +157,32 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
 
     try (SilentCloseable c = Profiler.instance().profile("logSpawn/inputs")) {
       for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
+        PathFragment displayPath = e.getKey();
         ActionInput input = e.getValue();
         if (input instanceof VirtualActionInput.EmptyActionInput) {
           continue;
         }
-        Path inputPath = fileSystem.getPath(execRoot.getRelative(input.getExecPathString()));
-        if (inputPath.isDirectory()) {
-          listDirectoryContents(inputPath, builder::addInputs, inputMetadataProvider);
+        Path contentPath = fileSystem.getPath(execRoot.getRelative(input.getExecPathString()));
+        if (contentPath.isDirectory()) {
+          listDirectoryContents(
+              displayPath, contentPath, builder::addInputs, inputMetadataProvider);
           continue;
         }
         Digest digest =
             computeDigest(
-                input, inputPath, inputMetadataProvider, xattrProvider, digestHashFunction);
+                input, contentPath, inputMetadataProvider, xattrProvider, digestHashFunction);
         boolean isTool =
             toolFiles.contains(input)
                 || (input instanceof TreeFileArtifact
                     && toolFiles.contains(((TreeFileArtifact) input).getParent()));
         builder
             .addInputsBuilder()
-            .setPath(input.getExecPathString())
+            .setPath(displayPath.getPathString())
             .setDigest(digest)
             .setIsTool(isTool);
       }
     } catch (IOException e) {
-      logger.atWarning().withCause(e).log("Error computing spawn inputs");
+      logger.atWarning().withCause(e).log("Error computing spawn input properties");
     }
     try (SilentCloseable c = Profiler.instance().profile("logSpawn/outputs")) {
       ArrayList<String> outputPaths = new ArrayList<>();
@@ -189,21 +191,24 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
       }
       Collections.sort(outputPaths);
       builder.addAllListedOutputs(outputPaths);
-      for (Map.Entry<Path, ActionInput> e : existingOutputs.entrySet()) {
-        Path path = e.getKey();
-        if (path.isDirectory()) {
-          listDirectoryContents(path, builder::addActualOutputs, inputMetadataProvider);
-        } else {
-          File.Builder outputBuilder = builder.addActualOutputsBuilder();
-          outputBuilder.setPath(path.relativeTo(fileSystem.getPath(execRoot)).toString());
-          try {
-            outputBuilder.setDigest(
-                computeDigest(
-                    e.getValue(), path, inputMetadataProvider, xattrProvider, digestHashFunction));
-          } catch (IOException ex) {
-            logger.atWarning().withCause(ex).log("Error computing spawn event output properties");
+      try {
+        for (Map.Entry<Path, ActionInput> e : existingOutputs.entrySet()) {
+          Path path = e.getKey();
+          ActionInput output = e.getValue();
+          if (path.isDirectory()) {
+            listDirectoryContents(
+                output.getExecPath(), path, builder::addActualOutputs, inputMetadataProvider);
+            continue;
           }
+          builder
+              .addActualOutputsBuilder()
+              .setPath(output.getExecPathString())
+              .setDigest(
+                  computeDigest(
+                      output, path, inputMetadataProvider, xattrProvider, digestHashFunction));
         }
+      } catch (IOException ex) {
+        logger.atWarning().withCause(ex).log("Error computing spawn output properties");
       }
     }
     builder.setRemotable(Spawns.mayBeExecutedRemotely(spawn));
@@ -288,35 +293,44 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
     return result;
   }
 
+  /**
+   * Expands a directory into its contents.
+   *
+   * <p>Note the difference between {@code displayPath} and {@code contentPath}: the first is where
+   * the spawn can find the directory, while the second is where Bazel can find it. They're not the
+   * same for a directory appearing in a runfiles or fileset tree.
+   */
   private void listDirectoryContents(
-      Path path, Consumer<File> addFile, InputMetadataProvider inputMetadataProvider) {
-    try {
-      // TODO(olaola): once symlink API proposal is implemented, report symlinks here.
-      List<Dirent> sortedDirent = new ArrayList<>(path.readdir(Symlinks.NOFOLLOW));
-      sortedDirent.sort(Comparator.comparing(Dirent::getName));
-      for (Dirent dirent : sortedDirent) {
-        String name = dirent.getName();
-        Path child = path.getRelative(name);
-        if (dirent.getType() == Dirent.Type.DIRECTORY) {
-          listDirectoryContents(child, addFile, inputMetadataProvider);
-        } else {
-          String pathString;
-          if (child.startsWith(execRoot)) {
-            pathString = child.asFragment().relativeTo(execRoot).getPathString();
-          } else {
-            pathString = child.getPathString();
-          }
-          addFile.accept(
-              File.newBuilder()
-                  .setPath(pathString)
-                  .setDigest(
-                      computeDigest(
-                          null, child, inputMetadataProvider, xattrProvider, digestHashFunction))
-                  .build());
-        }
+      PathFragment displayPath,
+      Path contentPath,
+      Consumer<File> addFile,
+      InputMetadataProvider inputMetadataProvider)
+      throws IOException {
+    // TODO(olaola): once symlink API proposal is implemented, report symlinks here.
+    List<Dirent> sortedDirent = new ArrayList<>(contentPath.readdir(Symlinks.NOFOLLOW));
+    sortedDirent.sort(Comparator.comparing(Dirent::getName));
+
+    for (Dirent dirent : sortedDirent) {
+      String name = dirent.getName();
+      PathFragment childDisplayPath = displayPath.getChild(name);
+      Path childContentPath = contentPath.getChild(name);
+
+      if (dirent.getType() == Dirent.Type.DIRECTORY) {
+        listDirectoryContents(childDisplayPath, childContentPath, addFile, inputMetadataProvider);
+        continue;
       }
-    } catch (IOException e) {
-      logger.atWarning().withCause(e).log("Error computing spawn event file properties");
+
+      addFile.accept(
+          File.newBuilder()
+              .setPath(childDisplayPath.getPathString())
+              .setDigest(
+                  computeDigest(
+                      null,
+                      childContentPath,
+                      inputMetadataProvider,
+                      xattrProvider,
+                      digestHashFunction))
+              .build());
     }
   }
 }
