@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.protobuf.util.Durations;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.SortedMap;
@@ -82,9 +81,7 @@ public interface SpawnLogContext extends ActionContext {
 
     if (input != null) {
       if (input instanceof VirtualActionInput) {
-        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-        ((VirtualActionInput) input).writeTo(buffer);
-        byte[] blob = buffer.toByteArray();
+        byte[] blob = ((VirtualActionInput) input).getBytes().toByteArray();
         return builder
             .setHash(digestHashFunction.getHashFunction().hashBytes(blob).toString())
             .setSizeBytes(blob.length)
