@@ -160,6 +160,8 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
         PathFragment displayPath = e.getKey();
         ActionInput input = e.getValue();
         if (input instanceof VirtualActionInput.EmptyActionInput) {
+          // Do not include a digest, as it's a waste of space.
+          builder.addInputsBuilder().setPath(displayPath.getPathString());
           continue;
         }
         Path contentPath = fileSystem.getPath(execRoot.getRelative(input.getExecPathString()));
