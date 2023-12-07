@@ -12,7 +12,6 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/bazel/commands:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/coverage:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:srcs",
-        "//src/main/java/com/google/devtools/build/lib/bazel/execlog:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules:srcs",
     ],
