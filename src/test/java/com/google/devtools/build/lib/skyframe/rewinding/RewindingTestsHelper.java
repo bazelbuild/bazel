@@ -2406,11 +2406,11 @@ public class RewindingTestsHelper {
     testCase.assertContainsError("Executing genrule //foo:fail failed");
   }
 
-  private static boolean isActionExecutionKey(Object key, Label label) {
+  static boolean isActionExecutionKey(Object key, Label label) {
     return key instanceof ActionLookupData && label.equals(((ActionLookupData) key).getLabel());
   }
 
-  private static void awaitUninterruptibly(CountDownLatch latch) {
+  static void awaitUninterruptibly(CountDownLatch latch) {
     assertThat(
             Uninterruptibles.awaitUninterruptibly(latch, TestUtils.WAIT_TIMEOUT_SECONDS, SECONDS))
         .isTrue();

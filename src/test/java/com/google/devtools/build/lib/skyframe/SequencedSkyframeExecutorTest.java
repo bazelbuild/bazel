@@ -105,7 +105,6 @@ import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.query2.common.QueryTransitivePackagePreloader;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
-import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn;
@@ -2659,14 +2658,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   }
 
   @Test
-  public void rewindingPrerequisites(
-      @TestParameter boolean trackIncrementalState, @TestParameter boolean skymeldEnabled)
+  public void rewindingPrerequisites(@TestParameter boolean trackIncrementalState)
       throws Exception {
     initializeSkyframeExecutor();
-    options.parse(
-        "--rewind_lost_inputs",
-        "--experimental_merged_skyframe_analysis_execution=" + skymeldEnabled);
-    skyframeExecutor.setMergedSkyframeAnalysisExecutionSupplier(() -> skymeldEnabled);
+    options.parse("--rewind_lost_inputs");
 
     skyframeExecutor.setActive(false);
     skyframeExecutor.decideKeepIncrementalState(
@@ -2678,13 +2673,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         reporter);
     skyframeExecutor.setActive(true);
 
-    if (skymeldEnabled) {
-      AbruptExitException e = assertThrows(AbruptExitException.class, this::syncSkyframeExecutor);
-      assertThat(e.getDetailedExitCode().getFailureDetail().getActionRewinding().getCode())
-          .isEqualTo(ActionRewinding.Code.REWIND_LOST_INPUTS_PREREQ_UNMET);
-    } else {
-      syncSkyframeExecutor(); // Permitted.
-    }
+    syncSkyframeExecutor(); // Permitted.
   }
 
   private void syncSkyframeExecutor() throws InterruptedException, AbruptExitException {

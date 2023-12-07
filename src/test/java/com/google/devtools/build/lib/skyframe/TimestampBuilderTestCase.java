@@ -258,6 +258,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                         directories,
                         () -> tsgm,
                         BugReporter.defaultInstance(),
+                        () -> null,
                         () -> false))
                 .put(
                     SkyFunctions.PACKAGE,
@@ -297,7 +298,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                 .put(
                     SkyFunctions.ACTION_TEMPLATE_EXPANSION,
                     new DelegatingActionTemplateExpansionFunction())
-                .put(SkyFunctions.ARTIFACT_NESTED_SET, new ArtifactNestedSetFunction())
+                .put(SkyFunctions.ARTIFACT_NESTED_SET, new ArtifactNestedSetFunction(() -> null))
                 .buildOrThrow(),
             differencer,
             evaluationProgressReceiver,

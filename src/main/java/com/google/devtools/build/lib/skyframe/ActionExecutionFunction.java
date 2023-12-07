@@ -159,6 +159,7 @@ public final class ActionExecutionFunction implements SkyFunction {
   private final BlazeDirectories directories;
   private final Supplier<TimestampGranularityMonitor> tsgm;
   private final BugReporter bugReporter;
+  private final Supplier<ConsumedArtifactsTracker> consumedArtifactsTrackerSupplier;
 
   // TODO(b/314282963): Remove this after the rollout.
   private final Supplier<Boolean> clearNestedSetAfterActionExecution;
@@ -170,6 +171,7 @@ public final class ActionExecutionFunction implements SkyFunction {
       BlazeDirectories directories,
       Supplier<TimestampGranularityMonitor> tsgm,
       BugReporter bugReporter,
+      Supplier<ConsumedArtifactsTracker> consumedArtifactsTrackerSupplier,
       Supplier<Boolean> clearNestedSetAfterActionExecution) {
     this.actionRewindStrategy = checkNotNull(actionRewindStrategy);
     this.skyframeActionExecutor = checkNotNull(skyframeActionExecutor);
@@ -178,6 +180,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     this.tsgm = checkNotNull(tsgm);
     this.bugReporter = checkNotNull(bugReporter);
     this.clearNestedSetAfterActionExecution = clearNestedSetAfterActionExecution;
+    this.consumedArtifactsTrackerSupplier = consumedArtifactsTrackerSupplier;
   }
 
   @Override
@@ -291,7 +294,13 @@ public final class ActionExecutionFunction implements SkyFunction {
 
     if (!state.hasArtifactData()) {
       Iterable<SkyKey> depKeys =
-          getInputDepKeys(allInputs, action.getSchedulingDependencies(), state);
+          getInputDepKeys(
+              action,
+              consumedArtifactsTrackerSupplier.get(),
+              allInputs,
+              action.getSchedulingDependencies(),
+              state);
+
       SkyframeLookupResult inputDeps = env.getValuesAndExceptions(depKeys);
       if (previousExecution == null) {
         // Do we actually need to find our metadata?
@@ -363,7 +372,12 @@ public final class ActionExecutionFunction implements SkyFunction {
           actionStartTime,
           env,
           allInputs,
-          getInputDepKeys(allInputs, action.getSchedulingDependencies(), state),
+          getInputDepKeys(
+              action,
+              /* consumedArtifactsTracker= */ null,
+              allInputs,
+              action.getSchedulingDependencies(),
+              state),
           state);
     } catch (ActionExecutionException e) {
       // In this case we do not report the error to the action reporter because we have already
@@ -385,13 +399,67 @@ public final class ActionExecutionFunction implements SkyFunction {
       action.getInputs().clearMemo();
       allInputs.clearMemo();
     }
+    // After the action execution is finalized, unregister the outputs from the consumed set to save
+    // memory.
+    // Note: This can theoretically lead to infinite action rewinding if we're unlucky enough.
+    // Consider an action foo whose outputs A and B are needed by 2 separate actions consumerA and
+    // consumerB. If these 2 actions trigger rewinding alternately, at the correct timing, e.g.:
+    // 1. consumerA requests for A. A is registered. foo produces only A since B isn't registered. A
+    // is de-registered. consumerA isn't executed yet.
+    // 2. consumerB requests for B. B is registered. foo is rewound and produces only B since A
+    // isn't registered. B is de-registered. consumerB isn't executed yet.
+    // 3. Before consumerA enters execution, A falls out of the CAS. consumerA sees that A is
+    // missing and triggers rewinding for A. Repeat step (1).
+    // 4. Before consumerB enters execution, B falls out of the CAS. consumerB sees that B is
+    // missing and triggers rewinding for B. Repeat step (2).
+    if (consumedArtifactsTrackerSupplier.get() != null) {
+      consumedArtifactsTrackerSupplier
+          .get()
+          .unregisterOutputsAfterExecutionDone(action.getOutputs());
+    }
+
     return result;
   }
 
   private static Iterable<SkyKey> getInputDepKeys(
+      Action action,
+      ConsumedArtifactsTracker consumedArtifactsTracker,
       NestedSet<Artifact> allInputs,
       NestedSet<Artifact> schedulingDependencies,
-      InputDiscoveryState state) {
+      InputDiscoveryState state)
+      throws InterruptedException {
+
+    // Register the action's inputs and scheduling deps as "consumed" in the build.
+    // As a general rule, we do it before requesting for the evaluation of these artifacts. This
+    // would provide a good estimate of which outputs are consumed.
+    //
+    // The exception to this rule is middleman actions: it's possible that the output of a
+    // middleman action is only reachable via middleman actions in the action graph. In that case,
+    // we don't want to store any of the underlying artifacts, until we've discovered that there's
+    // a non-middleman action in its path.
+    if (!state.checkedForConsumedArtifactRegistration && consumedArtifactsTracker != null) {
+      // Special case: middleman actions.
+      // Delay registering the artifacts under this middleman action until we know that the
+      // middleman artifact itself is consumed by other non-middleman actions.
+      if (action.getActionType().isMiddleman()) {
+        consumedArtifactsTracker.skipRegisteringArtifactsUnderMiddleman(action.getPrimaryOutput());
+        // Skip the ArtifactNestedSetFunction altogether for this special case. Any artifact
+        // requested via ArtifactNestedSetFunction would be registered as consumed.
+        return Iterables.concat(
+            Artifact.keys(allInputs.toList()), Artifact.keys(schedulingDependencies.toList()));
+      } else {
+        // Only registering the leaves here, since the Artifacts under non-leaves will be registered
+        // in ArtifactNestedSetFunction. Similarly for the non-singleton Scheduling Dependencies.
+        for (Artifact input : allInputs.getLeaves()) {
+          consumedArtifactsTracker.registerConsumedArtifact(input);
+        }
+        if (schedulingDependencies.isSingleton()) {
+          consumedArtifactsTracker.registerConsumedArtifact(schedulingDependencies.getSingleton());
+        }
+      }
+      state.checkedForConsumedArtifactRegistration = true;
+    }
+
     // We "unwrap" the NestedSet and evaluate the first layer of direct Artifacts here in order to
     // save memory:
     // - This top layer costs 1 extra ArtifactNestedSetKey node.
@@ -399,6 +467,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     //   => the top layer offers little in terms of reusability.
     // More details: b/143205147.
     FluentIterable<SkyKey> result = FluentIterable.from(Artifact.keys(allInputs.getLeaves()));
+
     if (schedulingDependencies.isSingleton()) {
       result = result.append(Artifact.key(schedulingDependencies.getSingleton()));
     }
@@ -1485,6 +1554,8 @@ public final class ActionExecutionFunction implements SkyFunction {
     FileSystem actionFileSystem = null;
     boolean preparedInputDiscovery = false;
     boolean actionInputCollectedEventSent = false;
+
+    boolean checkedForConsumedArtifactRegistration = false;
 
     /**
      * Stores the ArtifactNestedSetKeys created from the inputs of this actions. Objective: avoid

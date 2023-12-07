@@ -140,6 +140,7 @@ public class ExecutionTool {
   private BlazeExecutor executor;
   private final ActionInputPrefetcher prefetcher;
   private final ImmutableSet<ExecutorLifecycleListener> executorLifecycleListeners;
+
   private final SpawnStrategyRegistry spawnStrategyRegistry;
   private final ModuleActionContextRegistry actionContextRegistry;
 
@@ -349,7 +350,8 @@ public class ExecutionTool {
     for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
       try (SilentCloseable c =
           Profiler.instance().profile(executorLifecycleListener + ".executionPhaseStarting")) {
-        executorLifecycleListener.executionPhaseStarting(null, () -> null, null);
+        executorLifecycleListener.executionPhaseStarting(
+            null, () -> null, skyframeExecutor.getEphemeralCheckIfOutputConsumed());
       }
     }
     try (SilentCloseable c = Profiler.instance().profile("configureResourceManager")) {

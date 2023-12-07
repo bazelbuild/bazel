@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -25,7 +26,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
-import java.util.List;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -48,11 +49,22 @@ import javax.annotation.Nullable;
  */
 final class ArtifactNestedSetFunction implements SkyFunction {
 
+  private final Supplier<ConsumedArtifactsTracker> consumedArtifactsTrackerSupplier;
+
+  ArtifactNestedSetFunction(Supplier<ConsumedArtifactsTracker> consumedArtifactsTrackerSupplier) {
+    this.consumedArtifactsTrackerSupplier = consumedArtifactsTrackerSupplier;
+  }
+
   @Override
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, ArtifactNestedSetFunctionException {
-    List<SkyKey> depKeys = ((ArtifactNestedSetKey) skyKey).getDirectDepKeys();
+    ArtifactNestedSetKey artifactNestedSetKey = (ArtifactNestedSetKey) skyKey;
+    if (consumedArtifactsTrackerSupplier.get() != null) {
+      artifactNestedSetKey.applyToDirectArtifacts(
+          (x) -> consumedArtifactsTrackerSupplier.get().registerConsumedArtifact(x));
+    }
+    ImmutableList<SkyKey> depKeys = artifactNestedSetKey.getDirectDepKeys();
     SkyframeLookupResult depsEvalResult = env.getValuesAndExceptions(depKeys);
 
     NestedSetBuilder<Pair<SkyKey, Exception>> transitiveExceptionsBuilder =

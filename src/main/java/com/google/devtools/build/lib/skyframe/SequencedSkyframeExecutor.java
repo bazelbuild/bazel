@@ -61,8 +61,6 @@ import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
-import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
@@ -72,7 +70,6 @@ import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryConsumingOutp
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.rewinding.RewindableGraphInconsistencyReceiver;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
@@ -316,18 +313,6 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     var buildRequestOptions = options.getOptions(BuildRequestOptions.class);
     if (buildRequestOptions == null || !buildRequestOptions.rewindLostInputs) {
       return false;
-    }
-    if (isMergedSkyframeAnalysisExecution()) {
-      throw new AbruptExitException(
-          DetailedExitCode.of(
-              FailureDetail.newBuilder()
-                  .setMessage(
-                      "--rewind_lost_inputs is not compatible with Skymeld"
-                          + " (--experimental_merged_skyframe_analysis_execution)")
-                  .setActionRewinding(
-                      ActionRewinding.newBuilder()
-                          .setCode(ActionRewinding.Code.REWIND_LOST_INPUTS_PREREQ_UNMET))
-                  .build()));
     }
     return true;
   }

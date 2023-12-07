@@ -417,6 +417,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   // Reset after each build.
   @Nullable private IncrementalArtifactConflictFinder incrementalArtifactConflictFinder;
+
+  private ConsumedArtifactsTracker consumedArtifactsTracker;
   // end: Skymeld-only
 
   private RuleContextConstraintSemantics ruleContextConstraintSemantics;
@@ -733,7 +735,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         SkyFunctions.PLATFORM_MAPPING,
         new PlatformMappingFunction(ruleClassProvider.getFragmentRegistry().getOptionsClasses()));
-    map.put(SkyFunctions.ARTIFACT_NESTED_SET, new ArtifactNestedSetFunction());
+    map.put(
+        SkyFunctions.ARTIFACT_NESTED_SET,
+        new ArtifactNestedSetFunction(this::getConsumedArtifactsTracker));
     BuildDriverFunction buildDriverFunction =
         new BuildDriverFunction(
             new TransitiveActionLookupValuesHelper() {
@@ -774,6 +778,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         directories,
         tsgm::get,
         bugReporter,
+        this::getConsumedArtifactsTracker,
         this::clearingNestedSetAfterActionExecution);
   }
 
@@ -1475,6 +1480,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         && mergedSkyframeAnalysisExecutionSupplier.get();
   }
 
+  @Nullable
+  ConsumedArtifactsTracker getConsumedArtifactsTracker() {
+    return consumedArtifactsTracker;
+  }
+
+  public void initializeConsumedArtifactsTracker() {
+    consumedArtifactsTracker = new ConsumedArtifactsTracker(this::getEvaluator);
+  }
+
   /** Sets the eventBus to use for posting events. */
   public void setEventBus(@Nullable EventBus eventBus) {
     this.eventBus.set(eventBus);
@@ -2103,6 +2117,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     cleanUpAfterSingleEvaluationWithActionExecution(eventHandler);
     statusReporterRef.get().unregisterFromEventBus();
     setActionExecutionProgressReportingObjects(null, null, null);
+    consumedArtifactsTracker = null;
   }
 
   /**
@@ -2210,6 +2225,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   public IncrementalArtifactConflictFinder getIncrementalArtifactConflictFinder() {
     return incrementalArtifactConflictFinder;
+  }
+
+  /** Whether an artifact is consumed in this build. */
+  @Nullable
+  public EphemeralCheckIfOutputConsumed getEphemeralCheckIfOutputConsumed() {
+    return consumedArtifactsTracker;
   }
 
   /**

@@ -115,6 +115,7 @@ java_library(
         ":configured_target_key",
         ":configured_target_progress_receiver",
         ":configured_value_creation_exception",
+        ":consumed_artifacts_tracker",
         ":containing_package_lookup_function",
         ":containing_package_lookup_value",
         ":coverage_report_value",
@@ -124,6 +125,7 @@ java_library(
         ":diff_awareness_manager",
         ":directory_listing_function",
         ":directory_listing_state_value",
+        ":ephemeral_check_if_output_consumed",
         ":exclusive_test_build_driver_value",
         ":execution_finished_event",
         ":file_function",
@@ -700,6 +702,7 @@ java_library(
     deps = [
         ":artifact_function",
         ":artifact_nested_set_value",
+        ":consumed_artifacts_tracker",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset:artifact_nested_set_key",
@@ -1105,6 +1108,18 @@ java_library(
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "consumed_artifacts_tracker",
+    srcs = ["ConsumedArtifactsTracker.java"],
+    deps = [
+        ":ephemeral_check_if_output_consumed",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//third_party:guava",
     ],
 )
 
