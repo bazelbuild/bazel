@@ -626,7 +626,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
 
     getConfiguredTarget("//a:r");
-    assertContainsEvent("mandatory parameter 'ctx' of cc_common.configure_features is missing");
+    assertContainsEvent("Mandatory parameter 'ctx' of cc_common.configure_features is missing");
   }
 
   @Test

@@ -194,15 +194,10 @@ public abstract class CcModule
     final CppConfiguration cppConfiguration;
     final BuildOptions buildOptions;
     if (ruleContext == null) {
-      if (toolchain.requireCtxInConfigureFeatures()) {
-        throw Starlark.errorf(
-            "Incompatible flag --incompatible_require_ctx_in_configure_features has been flipped, "
-                + "and the mandatory parameter 'ctx' of cc_common.configure_features is missing. "
-                + "Please add 'ctx' as a named parameter. See "
-                + "https://github.com/bazelbuild/bazel/issues/7793 for details.");
-      }
-      cppConfiguration = toolchain.getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas();
-      buildOptions = null;
+      throw Starlark.errorf(
+          "Mandatory parameter 'ctx' of cc_common.configure_features is missing. "
+              + "Please add 'ctx' as a named parameter. See "
+              + "https://github.com/bazelbuild/bazel/issues/7793 for details.");
     } else {
       if (!ruleContext.getRuleContext().isLegalFragment(CppConfiguration.class)) {
         throw Starlark.errorf(
@@ -2544,7 +2539,7 @@ public abstract class CcModule
             TargetUtils.getExecutionInfo(
                 actions.getRuleContext().getRule(),
                 actions.getRuleContext().isAllowTagsPropagation()),
-            /* shouldProcessHeaders= */ ccToolchainProvider.shouldProcessHeaders(
+            /* shouldProcessHeaders= */ CcToolchainProvider.shouldProcessHeaders(
                 featureConfiguration.getFeatureConfiguration(),
                 configuration.getFragment(CppConfiguration.class)));
     boolean tuple =

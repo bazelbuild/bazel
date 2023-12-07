@@ -809,11 +809,9 @@ public class CppOptions extends FragmentOptions {
       name = "incompatible_require_ctx_in_configure_features",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If true, Bazel will require 'ctx' parameter in to cc_common.configure_features "
-              + "(see https://github.com/bazelbuild/bazel/issues/7793 for more information).")
+      help = "This flag is a noop and scheduled for removal.")
   public boolean requireCtxInConfigureFeatures;
 
   @Option(

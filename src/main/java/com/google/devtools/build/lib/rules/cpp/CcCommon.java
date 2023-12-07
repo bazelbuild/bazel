@@ -649,14 +649,7 @@ public final class CcCommon implements StarlarkValue {
       throws RuleErrorException, InterruptedException {
     FeatureConfiguration featureConfiguration = null;
     CppConfiguration cppConfiguration;
-    if (toolchainProvider.requireCtxInConfigureFeatures()) {
-      // When --incompatible_require_ctx_in_configure_features is flipped, this whole method will go
-      // away. But I'm keeping it there so we can experiment with flags before they are flipped.
-      cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
-    } else {
-      cppConfiguration =
-          toolchainProvider.getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas();
-    }
+    cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     try {
       featureConfiguration =
           configureFeaturesOrThrowEvalException(

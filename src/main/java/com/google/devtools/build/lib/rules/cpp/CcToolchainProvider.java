@@ -1060,11 +1060,6 @@ public final class CcToolchainProvider extends NativeInfo
     return defaultSysroot;
   }
 
-  public boolean requireCtxInConfigureFeatures() {
-    return getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas()
-        .requireCtxInConfigureFeatures();
-  }
-
   @VisibleForTesting
   NestedSet<Artifact> getStaticRuntimeLibForTesting() {
     return staticRuntimeLinkInputs;

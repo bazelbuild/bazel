@@ -738,10 +738,6 @@ public final class CppConfiguration extends Fragment
     return cppOptions.dontEnableHostNonhost;
   }
 
-  public boolean requireCtxInConfigureFeatures() {
-    return cppOptions.requireCtxInConfigureFeatures;
-  }
-
   public boolean collectCodeCoverage() {
     return collectCodeCoverage;
   }
