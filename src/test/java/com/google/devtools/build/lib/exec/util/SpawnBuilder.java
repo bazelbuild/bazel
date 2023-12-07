@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
@@ -192,6 +193,12 @@ public final class SpawnBuilder {
   }
 
   @CanIgnoreReturnValue
+  public SpawnBuilder withInputs(NestedSet<ActionInput> inputs) {
+    this.inputs.addTransitive(inputs);
+    return this;
+  }
+
+  @CanIgnoreReturnValue
   public SpawnBuilder withOutput(ActionInput output) {
     outputs.add(output);
     return this;
@@ -248,6 +255,12 @@ public final class SpawnBuilder {
     for (ActionInput tool : tools) {
       this.tools.add(tool);
     }
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public SpawnBuilder withTools(NestedSet<ActionInput> tools) {
+    this.tools.addTransitive(tools);
     return this;
   }
 
