@@ -346,8 +346,9 @@ public final class ExpandedSpawnLogContextTest {
         defaultTimeout(),
         defaultSpawnResult());
 
-    // TODO(tjgq): It would make more sense to report an empty file.
-    closeAndAssertLog(context, defaultSpawnExec());
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder().addInputs(File.newBuilder().setPath("out/__init__.py")).build());
   }
 
   @Test
@@ -712,10 +713,6 @@ public final class ExpandedSpawnLogContextTest {
         .setMnemonic("Mnemonic")
         .setTargetLabel("//dummy:label")
         .setMetrics(Protos.SpawnMetrics.getDefaultInstance());
-  }
-
-  private static SpawnExec defaultSpawnExec() {
-    return defaultSpawnExecBuilder().build();
   }
 
   private static InputMetadataProvider createInputMetadataProvider(Artifact... artifacts)
