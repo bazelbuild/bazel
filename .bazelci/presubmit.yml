@@ -231,7 +231,6 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests"
       - "-//src/test/java/com/google/devtools/build/lib/rules/objc:BazelJ2ObjcLibraryTest"
       - "-//src/test/java/com/google/devtools/build/lib/rules/cpp:CcToolchainTest"
-      - "-//src/test/shell/integration:minimal_jdk_test"
     include_json_profile:
       - build
       - test
