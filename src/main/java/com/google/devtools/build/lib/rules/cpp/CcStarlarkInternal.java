@@ -118,10 +118,8 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "runtime_solib_dir", positional = false, named = true),
         @Param(name = "cc_compilation_context", positional = false, named = true),
         @Param(name = "builtin_include_files", positional = false, named = true),
-        @Param(name = "target_builtin_include_files", positional = false, named = true),
         @Param(name = "builtin_include_directories", positional = false, named = true),
         @Param(name = "sysroot", positional = false, named = true),
-        @Param(name = "target_sysroot", positional = false, named = true),
         @Param(name = "fdo_context", positional = false, named = true),
         @Param(name = "is_tool_configuration", positional = false, named = true),
         @Param(name = "tool_paths", positional = false, named = true),
@@ -153,10 +151,8 @@ public class CcStarlarkInternal implements StarlarkValue {
       String dynamicRuntimeSolibDirStr,
       CcCompilationContext ccCompilationContext,
       Sequence<?> builtinIncludeFiles,
-      Sequence<?> targetBuiltinIncludeFiles,
       Sequence<?> builtInIncludeDirectoriesStr,
       Object sysrootObject,
-      Object targetSysrootObject,
       FdoContext fdoContext,
       boolean isToolConfiguration,
       Dict<?, ?> toolPathsDict,
@@ -200,7 +196,6 @@ public class CcStarlarkInternal implements StarlarkValue {
             .map(PathFragment::create)
             .collect(toImmutableList());
     PathFragment sysroot = getPathfragmentOrNone(sysrootObject);
-    PathFragment targetSysroot = getPathfragmentOrNone(targetSysrootObject);
     Dict<String, String> additionalMakeVariables =
         Dict.cast(additionalMakeVariablesDict, String.class, String.class, "tool_paths");
     PathFragment defaultSysroot = getPathfragmentOrNone(defaultSysrootObject);
@@ -232,14 +227,10 @@ public class CcStarlarkInternal implements StarlarkValue {
         /* builtinIncludeFiles= */ Sequence.cast(
                 builtinIncludeFiles, Artifact.class, "builtin_include_files")
             .getImmutableList(),
-        /* targetBuiltinIncludeFiles= */ Sequence.cast(
-                targetBuiltinIncludeFiles, Artifact.class, "target_builtin_include_files")
-            .getImmutableList(),
         /* linkDynamicLibraryTool= */ attributes.getLinkDynamicLibraryTool(),
         /* grepIncludes= */ attributes.getGrepIncludes(),
         /* builtInIncludeDirectories= */ builtInIncludeDirectories,
         /* sysroot= */ sysroot,
-        /* targetSysroot= */ targetSysroot,
         /* fdoContext= */ fdoContext,
         /* isToolConfiguration= */ isToolConfiguration,
         /* licensesProvider= */ attributes.getLicensesProvider(),

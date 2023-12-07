@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.FdoContext.BranchFdoProfile;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -93,12 +92,10 @@ public final class CcToolchainProvider extends NativeInfo
   private final boolean supportsHeaderParsing;
   private final CcToolchainVariables buildVariables;
   private final ImmutableList<Artifact> builtinIncludeFiles;
-  private final ImmutableList<Artifact> targetBuiltinIncludeFiles;
   @Nullable private final Artifact linkDynamicLibraryTool;
   @Nullable private final Artifact grepIncludes;
   private final ImmutableList<PathFragment> builtInIncludeDirectories;
   @Nullable private final PathFragment sysroot;
-  private final PathFragment targetSysroot;
   private final boolean isToolConfiguration;
   private final ImmutableMap<String, String> toolPaths;
   private final CcToolchainFeatures toolchainFeatures;
@@ -164,12 +161,10 @@ public final class CcToolchainProvider extends NativeInfo
       boolean supportsHeaderParsing,
       CcToolchainVariables buildVariables,
       ImmutableList<Artifact> builtinIncludeFiles,
-      ImmutableList<Artifact> targetBuiltinIncludeFiles,
       Artifact linkDynamicLibraryTool,
       @Nullable Artifact grepIncludes,
       ImmutableList<PathFragment> builtInIncludeDirectories,
       @Nullable PathFragment sysroot,
-      @Nullable PathFragment targetSysroot,
       FdoContext fdoContext,
       boolean isToolConfiguration,
       LicensesProvider licensesProvider,
@@ -226,11 +221,9 @@ public final class CcToolchainProvider extends NativeInfo
     this.supportsHeaderParsing = supportsHeaderParsing;
     this.buildVariables = buildVariables;
     this.builtinIncludeFiles = builtinIncludeFiles;
-    this.targetBuiltinIncludeFiles = targetBuiltinIncludeFiles;
     this.linkDynamicLibraryTool = linkDynamicLibraryTool;
     this.builtInIncludeDirectories = builtInIncludeDirectories;
     this.sysroot = sysroot;
-    this.targetSysroot = targetSysroot;
     this.defaultSysroot = defaultSysroot;
     this.runtimeSysroot = runtimeSysroot;
     this.fdoContext = fdoContext == null ? FdoContext.getDisabledContext() : fdoContext;
@@ -721,20 +714,7 @@ public final class CcToolchainProvider extends NativeInfo
     return featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES);
   }
 
-  /**
-   * Return CppConfiguration instance that was used to configure CcToolchain.
-   *
-   * <p>If C++ rules use platforms/toolchains without
-   * https://github.com/bazelbuild/proposals/blob/master/designs/2019-02-12-toolchain-transitions.md
-   * implemented, CcToolchain is analyzed in the exec configuration. This configuration is not what
-   * should be used by rules using the toolchain. This method should only be used to access stuff
-   * from CppConfiguration that is identical between exec and target (e.g. incompatible flag
-   * values). Don't use it if you don't know what you're doing.
-   *
-   * <p>Once toolchain transitions are implemented, we can safely use the CppConfiguration from the
-   * toolchain in rules.
-   */
-  CppConfiguration getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas() {
+  CppConfiguration getCppConfiguration() {
     return cppConfiguration;
   }
 
@@ -752,11 +732,7 @@ public final class CcToolchainProvider extends NativeInfo
       throws EvalException, InterruptedException {
     // With platforms, cc toolchain is analyzed in the exec configuration, so we can only reuse the
     // same build variables instance if the inputs to the construction match.
-    PathFragment sysroot = getSysrootPathFragment(cppConfiguration);
-    String minOsVersion = cppConfiguration.getMinimumOsVersion();
-    if (Objects.equals(sysroot, this.sysroot)
-        && Objects.equals(minOsVersion, this.cppConfiguration.getMinimumOsVersion())
-        && ccToolchainBuildVariablesFunc.getName().equals("cc_toolchain_build_variables")) {
+    if (ccToolchainBuildVariablesFunc.getName().equals("cc_toolchain_build_variables")) {
       return buildVariables;
     }
     // With platforms, cc toolchain is analyzed in the exec configuration, so we cannot reuse
@@ -822,11 +798,7 @@ public final class CcToolchainProvider extends NativeInfo
    * source file or any of the headers included by it.
    */
   public ImmutableList<Artifact> getBuiltinIncludeFiles(CppConfiguration cppConfiguration) {
-    if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas())) {
-      return builtinIncludeFiles;
-    } else {
-      return targetBuiltinIncludeFiles;
-    }
+    return builtinIncludeFiles;
   }
 
   /**
@@ -854,12 +826,8 @@ public final class CcToolchainProvider extends NativeInfo
     return sysroot != null ? sysroot.getPathString() : null;
   }
 
-  public PathFragment getSysrootPathFragment(CppConfiguration cppConfiguration) {
-    if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas())) {
-      return sysroot;
-    } else {
-      return targetSysroot;
-    }
+  public PathFragment getSysrootPathFragment() {
+    return sysroot;
   }
 
   /**

@@ -14,9 +14,9 @@
 
 """A helper for creating CcToolchainProvider."""
 
+load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/paths.bzl", "paths")
-load(":common/cc/cc_common.bzl", "cc_common")
 
 cc_internal = _builtins.internal.cc_internal
 
@@ -192,11 +192,6 @@ def get_cc_toolchain_provider(ctx, attributes, has_apple_fragment):
     else:
         sysroot = attributes.libc_top_label().package
 
-    if attributes.target_libc_top_label() == None:
-        target_sysroot = sysroot
-    else:
-        target_sysroot = attributes.target_libc_top_label().package
-
     static_runtime_lib = attributes.static_runtime_lib()
     if static_runtime_lib != None:
         static_runtime_link_inputs = static_runtime_lib[DefaultInfo].files
@@ -247,10 +242,8 @@ def get_cc_toolchain_provider(ctx, attributes, has_apple_fragment):
         runtime_solib_dir = runtime_solib_dir,
         cc_compilation_context = cc_compilation_context,
         builtin_include_files = _builtin_includes(attributes.libc()),
-        target_builtin_include_files = _builtin_includes(attributes.target_libc()),
         builtin_include_directories = builtin_include_directories,
         sysroot = sysroot,
-        target_sysroot = target_sysroot,
         fdo_context = fdo_context,
         is_tool_configuration = ctx.configuration.is_tool_configuration(),
         tool_paths = tool_paths,
