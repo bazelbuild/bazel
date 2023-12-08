@@ -293,6 +293,9 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
     checkNotNull(dirtyType, this);
 
     if (isDone()) {
+      if (dirtyType == DirtyType.REWIND && getErrorInfo() != null) {
+        return null; // Rewinding errors is no-op.
+      }
       GroupedDeps directDeps = GroupedDeps.decompress(getCompressedDirectDepsForDoneEntry());
       checkState(
           dirtyType != DirtyType.DIRTY || !directDeps.isEmpty(),

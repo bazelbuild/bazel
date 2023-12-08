@@ -127,6 +127,10 @@ public interface NodeEntry {
      * <p>A node dirtied with {@code REWIND} is re-evaluated during the evaluation phase if it is
      * requested, regardless of the state of its dependencies. Even if it re-evaluates to the same
      * value, dirty parents are re-evaluated.
+     *
+     * <p>Rewinding is tolerated but no-op if the node is already dirty or is done with an
+     * {@linkplain #getErrorInfo() error} (regardless of the error's {@link
+     * com.google.devtools.build.skyframe.SkyFunctionException.Transience}).
      */
     REWIND
   }
@@ -155,10 +159,10 @@ public interface NodeEntry {
    * !P.isChanged()}. Otherwise, this will throw {@link IllegalStateException}.
    *
    * <p>{@code markDirty(DirtyType.REWIND)} may be called at any time (even multiple times
-   * concurrently), although it only has an effect if the node {@link #isDone}.
+   * concurrently), although it only has an effect if the node {@link #isDone} with no error.
    *
-   * @return if the node was done, a {@link MarkedDirtyResult} which may include the node's reverse
-   *     deps; otherwise {@code null}
+   * @return if the node transitioned from done to dirty as a result of this call, a {@link
+   *     MarkedDirtyResult} which may include the node's reverse deps; otherwise {@code null}
    */
   @Nullable
   @ThreadSafe

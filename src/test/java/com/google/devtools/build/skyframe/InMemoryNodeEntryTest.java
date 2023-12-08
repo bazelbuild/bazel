@@ -61,6 +61,7 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
       };
   private static final NestedSet<Reportable> NO_EVENTS =
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+
   @TestParameter boolean isPartialReevaluation;
   protected final V initialVersion = getInitialVersion();
 
@@ -564,6 +565,27 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
     assertThat(entry.isChanged()).isTrue();
     assertThat(entry.isDone()).isFalse();
     assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.NEEDS_REBUILDING);
+  }
+
+  @Test
+  public void rewindErrorfulNode_toleratedButNoOp(@TestParameter Transience transience)
+      throws InterruptedException {
+    InMemoryNodeEntry entry = createEntry();
+    entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
+    entry.markRebuilding();
+
+    ReifiedSkyFunctionException exception =
+        new ReifiedSkyFunctionException(
+            new GenericFunctionException(new SomeErrorException("oops"), transience));
+    ErrorInfo errorInfo = ErrorInfo.fromException(exception, transience == Transience.TRANSIENT);
+    assertThat(setValue(entry, /* value= */ null, errorInfo, initialVersion)).isEmpty();
+
+    assertThat(entry.markDirty(DirtyType.REWIND)).isNull();
+    assertThat(entry.isDone()).isTrue();
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.DONE);
+    assertThat(entry.getValue()).isNull();
+    assertThat(entry.toValue()).isNull();
+    assertThat(entry.getErrorInfo()).isEqualTo(errorInfo);
   }
 
   @CanIgnoreReturnValue
