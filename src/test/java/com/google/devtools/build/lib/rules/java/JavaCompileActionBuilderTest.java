@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getJavacArguments;
 
+import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -143,5 +144,17 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
                     .reducedJars))
         .containsExactly(
             "bin java/com/google/test/libb-hjar.jar", "bin java/com/google/test/libc-hjar.jar");
+  }
+
+  @Test
+  public void testAddOpensNotPassedToJavac() throws Exception {
+    scratch.file(
+        "java/com/google/test/BUILD",
+        "java_library(name = 'a', srcs = ['A.java'], add_opens = ['java.base/java.lang'])");
+
+    JavaCompileAction action =
+        (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:liba.jar");
+
+    assertThat(Joiner.on(" ").join(action.getArguments())).doesNotContain("--add-opens");
   }
 }

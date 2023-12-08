@@ -303,7 +303,7 @@ final class JavaInfoBuildHelper {
         .addAll(
             JavaCommon.computePerPackageJavacOpts(
                 starlarkRuleContext.getRuleContext(), toolchainProvider))
-        .addAll(JavaModuleFlagsProvider.toFlags(addExports, addOpens))
+        .addAll(JavaModuleFlagsProvider.toFlags(addExports, /* addOpens = */ ImmutableList.of()))
         .addAll(tokenize(javacOpts));
 
     JavaLibraryHelper helper =
