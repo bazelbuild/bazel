@@ -1436,7 +1436,10 @@ public class RemoteExecutionService {
     // concurrency. This prevents memory exhaustion. We assume that
     // ensureInputsPresent() provides enough parallelism to saturate the
     // network connection.
-    remoteActionBuildingSemaphore.acquire();
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "acquiring semaphore")) {
+      remoteActionBuildingSemaphore.acquire();
+    }
     try {
       MerkleTree merkleTree = action.getMerkleTree();
       if (merkleTree == null) {
