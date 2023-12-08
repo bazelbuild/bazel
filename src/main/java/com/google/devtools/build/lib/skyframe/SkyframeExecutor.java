@@ -737,7 +737,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         new PlatformMappingFunction(ruleClassProvider.getFragmentRegistry().getOptionsClasses()));
     map.put(
         SkyFunctions.ARTIFACT_NESTED_SET,
-        new ArtifactNestedSetFunction(this::getConsumedArtifactsTracker));
+        ArtifactNestedSetFunction.createInstance(this::getConsumedArtifactsTracker));
     BuildDriverFunction buildDriverFunction =
         new BuildDriverFunction(
             new TransitiveActionLookupValuesHelper() {
@@ -774,7 +774,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return new ActionExecutionFunction(
         actionRewindStrategy,
         skyframeActionExecutor,
-        () -> memoizingEvaluator,
         directories,
         tsgm::get,
         bugReporter,
@@ -970,6 +969,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     analysisCacheInvalidated = true;
     skyframeBuildView.clearInvalidatedActionLookupKeys();
     skyframeBuildView.clearLegacyData();
+    ArtifactNestedSetFunction.getInstance().resetArtifactNestedSetFunctionMaps();
   }
 
   /** Used with dump --rules. */
