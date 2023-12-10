@@ -22,13 +22,15 @@ import com.google.common.collect.ImmutableMap;
 public final class RamResourceConverter extends ResourceConverter.IntegerConverter {
   public RamResourceConverter() {
     super(
-        /* keywords= */ ImmutableMap.of("HOST_RAM", HOST_RAM),
+        /* keywords= */ ImmutableMap.of(HOST_RAM_KEYWORD, HOST_RAM_SUPPLIER),
         /* minValue= */ 0,
         /* maxValue= */ Integer.MAX_VALUE);
   }
 
   @Override
   public String getTypeDescription() {
-    return "an integer number of MBs, or \"HOST_RAM\", optionally followed by [-|*]<float>.";
+    return String.format(
+        "an integer number of MBs, or \"%s\", optionally followed by [-|*]<float>.",
+        HOST_RAM_KEYWORD);
   }
 }

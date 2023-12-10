@@ -401,7 +401,7 @@ public class BuildRequestOptions extends OptionsBase {
   public static class ThreadConverter extends ResourceConverter.IntegerConverter {
     public ThreadConverter() {
       super(
-          /* autoSupplier= */ HOST_CPUS,
+          /* autoSupplier= */ HOST_CPUS_SUPPLIER,
           /* minValue= */ 1,
           /* maxValue= */ Integer.MAX_VALUE);
     }
@@ -449,7 +449,7 @@ public class BuildRequestOptions extends OptionsBase {
   public static class JobsConverter extends ResourceConverter.IntegerConverter {
     public JobsConverter() {
       super(
-          /* autoSupplier= */ HOST_CPUS,
+          /* autoSupplier= */ HOST_CPUS_SUPPLIER,
           /* minValue= */ 1,
           /* maxValue= */ MAX_JOBS);
     }

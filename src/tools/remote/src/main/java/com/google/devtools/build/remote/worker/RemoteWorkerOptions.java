@@ -194,7 +194,7 @@ public class RemoteWorkerOptions extends OptionsBase {
   public static class JobsConverter extends ResourceConverter.IntegerConverter {
     public JobsConverter() {
       super(
-          /* autoSupplier= */ HOST_CPUS,
+          /* autoSupplier= */ HOST_CPUS_SUPPLIER,
           /* minValue= */ 1,
           /* maxValue= */ MAX_JOBS);
     }

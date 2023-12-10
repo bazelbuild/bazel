@@ -373,7 +373,7 @@ public class SandboxOptions extends OptionsBase {
   public static final class AsyncTreeDeletesConverter extends ResourceConverter.IntegerConverter {
     public AsyncTreeDeletesConverter() {
       super(
-          /* autoSupplier= */ HOST_CPUS,
+          /* autoSupplier= */ HOST_CPUS_SUPPLIER,
           /* minValue= */ 0,
           /* maxValue= */ Integer.MAX_VALUE);
     }

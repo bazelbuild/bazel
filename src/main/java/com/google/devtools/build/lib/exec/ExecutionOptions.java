@@ -293,33 +293,37 @@ public class ExecutionOptions extends OptionsBase {
 
   @Option(
       name = "local_cpu_resources",
-      defaultValue = "HOST_CPUS",
+      defaultValue = ResourceConverter.HOST_CPUS_KEYWORD,
       deprecationWarning =
           "--local_cpu_resources is deprecated, please use --local_resources=cpu= instead.",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
           "Explicitly set the total number of local CPU cores available to Bazel to spend on build"
-              + " actions executed locally. Takes an integer, or \"HOST_CPUS\", optionally followed"
-              + " by [-|*]<float> (eg. HOST_CPUS*.5 to use half the available CPU cores).By"
-              + " default, (\"HOST_CPUS\"), Bazel will query system configuration to estimate"
-              + " the number of CPU cores available.",
+              + " actions executed locally. Takes an integer, or \""
+              + ResourceConverter.HOST_CPUS_KEYWORD + "\", optionally followed"
+              + " by [-|*]<float> (eg. " + ResourceConverter.HOST_CPUS_KEYWORD + "*.5"
+              + " to use half the available CPU cores). By default, (\""
+              + ResourceConverter.HOST_CPUS_KEYWORD + "\"), Bazel will query system"
+              + " configuration to estimate the number of CPU cores available.",
       converter = CpuResourceConverter.class)
   public double localCpuResources;
 
   @Option(
       name = "local_ram_resources",
-      defaultValue = "HOST_RAM*.67",
+      defaultValue = ResourceConverter.HOST_RAM_KEYWORD + "*.67",
       deprecationWarning =
           "--local_ram_resources is deprecated, please use --local_resources=memory= instead.",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
           "Explicitly set the total amount of local host RAM (in MB) available to Bazel to spend on"
-              + " build actions executed locally. Takes an integer, or \"HOST_RAM\", optionally"
-              + " followed by [-|*]<float> (eg. HOST_RAM*.5 to use half the available RAM). By"
-              + " default, (\"HOST_RAM*.67\"), Bazel will query system configuration to estimate"
-              + " the amount of RAM available and will use 67% of it.",
+              + " build actions executed locally. Takes an integer, or \""
+              + ResourceConverter.HOST_RAM_KEYWORD + "\", optionally followed by [-|*]<float>"
+              + " (eg. " + ResourceConverter.HOST_RAM_KEYWORD + "*.5 to use half the available"
+              + " RAM). By default, (\"" + ResourceConverter.HOST_RAM_KEYWORD + "*.67\"),"
+              + " Bazel will query system configuration to estimate the amount of RAM available"
+              + " and will use 67% of it.",
       converter = RamResourceConverter.class)
   public double localRamResources;
 
@@ -350,13 +354,15 @@ public class ExecutionOptions extends OptionsBase {
       allowMultiple = true,
       help =
           "Set the number of resources available to Bazel. "
-              + "Takes in an assignment to a float or HOST_RAM/HOST_CPU, optionally "
-              + "followed by [-|*]<float> (eg. memory=HOST_RAM*.5 to use half the available RAM)."
+              + "Takes in an assignment to a float or " + ResourceConverter.HOST_RAM_KEYWORD
+              + "/" + ResourceConverter.HOST_CPUS_KEYWORD + ", optionally "
+              + "followed by [-|*]<float> (eg. memory=" + ResourceConverter.HOST_RAM_KEYWORD
+              + "*.5 to use half the available RAM)."
               + "Can be used multiple times to specify multiple "
               + "types of resources. Bazel will limit concurrently running actions "
               + "based on the available resources and the resources required. "
               + "Tests can declare the amount of resources they need "
-              + "by using a tag of the \"resources:<resoucename>:<amount>\" format.",
+              + "by using a tag of the \"resources:<resource name>:<amount>\" format.",
       converter = ResourceConverter.AssignmentConverter.class)
   public List<Map.Entry<String, Double>> localResources;
 

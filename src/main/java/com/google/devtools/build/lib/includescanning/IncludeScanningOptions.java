@@ -32,7 +32,7 @@ public class IncludeScanningOptions extends OptionsBase {
   public static class ParallelismConverter extends ResourceConverter.IntegerConverter {
     public ParallelismConverter() throws OptionsParsingException {
       super(
-          /* autoSupplier= */ HOST_CPUS,
+          /* autoSupplier= */ HOST_CPUS_SUPPLIER,
           /* minValue= */ 0,
           /* maxValue= */ Integer.MAX_VALUE);
     }

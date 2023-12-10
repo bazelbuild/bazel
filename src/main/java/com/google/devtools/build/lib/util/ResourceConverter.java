@@ -42,9 +42,13 @@ import javax.annotation.Nullable;
  * passed to the constructor.
  */
 public abstract class ResourceConverter<T extends Number & Comparable<T>> extends Converter.Contextless<T> {
-  public static final Supplier<Integer> HOST_CPUS =
+  public static final String AUTO_KEYWORD = "auto";
+  public static final String HOST_CPUS_KEYWORD = "HOST_CPUS";
+  public static final String HOST_RAM_KEYWORD = "HOST_RAM";
+
+  public static final Supplier<Integer> HOST_CPUS_SUPPLIER =
       () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage());
-  public static final Supplier<Integer> HOST_RAM =
+  public static final Supplier<Integer> HOST_RAM_SUPPLIER =
       () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getMemoryMb());
 
   public static class AssignmentConverter extends Converter.Contextless<Map.Entry<String, Double>> {
@@ -53,8 +57,8 @@ public abstract class ResourceConverter<T extends Number & Comparable<T>> extend
     private static final ResourceConverter.DoubleConverter resource =
         new ResourceConverter.DoubleConverter(
             ImmutableMap.of(
-                "HOST_CPU", () -> (double) HOST_CPUS.get(),
-                "HOST_RAM", () -> (double) HOST_RAM.get()),
+                HOST_CPUS_KEYWORD, () -> (double) HOST_CPUS_SUPPLIER.get(),
+                HOST_RAM_KEYWORD, () -> (double) HOST_RAM_SUPPLIER.get()),
             0.0,
             Double.MAX_VALUE);
 
@@ -75,7 +79,7 @@ public abstract class ResourceConverter<T extends Number & Comparable<T>> extend
 
     public IntegerConverter(Supplier<Integer> auto, int minValue, int maxValue) {
       this(
-        ImmutableMap.of("auto", auto, "HOST_CPUS", HOST_CPUS, "HOST_RAM", HOST_RAM),
+        ImmutableMap.of(AUTO_KEYWORD, auto, HOST_CPUS_KEYWORD, HOST_CPUS_SUPPLIER, HOST_RAM_KEYWORD, HOST_RAM_SUPPLIER),
         minValue,
         maxValue);
     }
@@ -99,9 +103,9 @@ public abstract class ResourceConverter<T extends Number & Comparable<T>> extend
     public DoubleConverter(Supplier<Double> auto, Double minValue, Double maxValue) {
       this(
           ImmutableMap.of(
-            "auto", auto,
-            "HOST_CPUS", () -> (double) HOST_CPUS.get(),
-            "HOST_RAM", () -> (double) HOST_RAM.get()),
+            AUTO_KEYWORD, auto,
+            HOST_CPUS_KEYWORD, () -> (double) HOST_CPUS_SUPPLIER.get(),
+            HOST_RAM_KEYWORD, () -> (double) HOST_RAM_SUPPLIER.get()),
           minValue,
           maxValue);
     }
@@ -127,8 +131,9 @@ public abstract class ResourceConverter<T extends Number & Comparable<T>> extend
 
   /** Description of the accepted inputs to the converter. */
   public static final String FLAG_SYNTAX =
-      "an integer, or a keyword (\"auto\", \"HOST_CPUS\", \"HOST_RAM\"), optionally followed by "
-          + "an operation ([-|*]<float>) eg. \"auto\", \"HOST_CPUS*.5\"";
+      "an integer, or a keyword (\"" + AUTO_KEYWORD + "\", \"" + HOST_CPUS_KEYWORD + "\", \""
+          + HOST_RAM_KEYWORD + "\"), optionally followed by an operation ([-|*]<float>) eg. \""
+          + AUTO_KEYWORD + "\", \"" + HOST_CPUS_KEYWORD + "*.5\"";
 
   private final ImmutableMap<String, Supplier<T>> keywords;
 

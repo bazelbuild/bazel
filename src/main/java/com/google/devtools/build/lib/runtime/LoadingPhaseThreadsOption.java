@@ -52,7 +52,7 @@ public class LoadingPhaseThreadsOption extends OptionsBase {
       // any guarantees that "auto" means number of cores precisely to leave us room to tune this
       // further in the future.)
       super(
-          /* autoSupplier= */ HOST_CPUS,
+          /* autoSupplier= */ HOST_CPUS_SUPPLIER,
           /* minValue= */ 1,
           /* maxValue= */ Integer.MAX_VALUE);
     }

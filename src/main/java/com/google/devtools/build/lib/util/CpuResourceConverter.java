@@ -22,13 +22,13 @@ import com.google.common.collect.ImmutableMap;
 public final class CpuResourceConverter extends ResourceConverter.IntegerConverter {
   public CpuResourceConverter() {
     super(
-        /* keywords= */ ImmutableMap.of("HOST_CPUS", HOST_CPUS),
+        /* keywords= */ ImmutableMap.of(HOST_CPUS_KEYWORD, HOST_CPUS_SUPPLIER),
         /* minValue= */ 0,
         /* maxValue= */ Integer.MAX_VALUE);
   }
 
   @Override
   public String getTypeDescription() {
-    return "an integer, or \"HOST_CPUS\", optionally followed by [-|*]<float>.";
+    return String.format("an integer, or \"%s\", optionally followed by [-|*]<float>.", HOST_CPUS_KEYWORD);
   }
 }
