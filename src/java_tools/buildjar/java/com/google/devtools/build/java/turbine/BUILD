@@ -1,3 +1,4 @@
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load("@rules_graalvm//graalvm:defs.bzl", "native_image")
 load("@rules_java//java:defs.bzl", "java_binary")
 
@@ -26,6 +27,18 @@ java_binary(
     runtime_deps = [":turbine_deps"],
 )
 
+# If enabled, build Turbine with PGO instrumentation and without a PGO profile.
+# This is used by :update_turbine_pgo.
+bool_flag(
+    name = "turbine_direct_graal_pgo_instrument",
+    build_setting_default = False,
+)
+
+config_setting(
+    name = "turbine_direct_graal_do_pgo_instrument",
+    flag_values = {"turbine_direct_graal_pgo_instrument": str(True)},
+)
+
 native_image(
     name = "turbine_direct_graal",
     executable_name = select({
@@ -35,12 +48,10 @@ native_image(
         "//conditions:default": "%target%",
     }),
     extra_args = [
+        # Opt into stricter behavior to squelch a warning on recent GraalVM versions.
+        "--strict-image-heap",
         # Workaround for https://github.com/oracle/graal/issues/4757.
         "-H:-UseContainerSupport",
-        # Do not fall back to bundling a full JVM when native image compilation fails.
-        "--no-fallback",
-        # More verbose errors in case of compilation failures.
-        "-H:+ReportExceptionStackTraces",
         # A benchmark on Bazel itself shows a ~15% improvement in combined compile and header
         # compile action time on an incremental build triggered by a signature change to Label with
         # this option. 256m provides a noticeably smaller improvement, higher values do not provide
@@ -67,8 +78,15 @@ native_image(
             "-march=x86-64-v2",
         ],
         "//conditions:default": [],
+    }) + select({
+        ":turbine_direct_graal_do_pgo_instrument": ["--pgo-instrument"],
+        "//conditions:default": [],
     }),
     main_class = _TURBINE_MAIN_CLASS,
+    profiles = select({
+        ":turbine_direct_graal_do_pgo_instrument": [],
+        "//conditions:default": ["profile.iprof"],
+    }),
     # This provides libz.a on Linux instead of the host system.
     static_zlib = "//third_party/zlib",
     deps = [":turbine_deps"],
@@ -81,6 +99,12 @@ sh_binary(
     args = ["$(rlocationpath turbine_direct_graal)"],
     data = [":turbine_direct_graal"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+# Run this target to update profile.iprof.
+sh_binary(
+    name = "update_turbine_pgo",
+    srcs = ["update_turbine_pgo.sh"],
 )
 
 filegroup(

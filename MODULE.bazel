@@ -311,7 +311,7 @@ use_repo(cc_configure, "local_config_cc")
 gvm = use_extension("@rules_graalvm//:extensions.bzl", "graalvm")
 gvm.graalvm(
     name = "graalvm",
-    distribution = "ce",
+    distribution = "oracle",
     java_version = "21",
     version = "21.0.2",
 )
