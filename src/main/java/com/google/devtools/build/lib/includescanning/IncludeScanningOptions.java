@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.includescanning;
 
-import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.util;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.LocalHostCapacity;
 
 /**
  * Converter for --local_cpu_resources, which takes an integer greater than or equal to 1, or
