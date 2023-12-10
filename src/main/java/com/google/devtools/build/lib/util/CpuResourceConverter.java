@@ -21,7 +21,10 @@ import com.google.common.collect.ImmutableMap;
  */
 public final class CpuResourceConverter extends ResourceConverter.IntegerConverter {
   public CpuResourceConverter() {
-    super(ImmutableMap.of("HOST_CPUS", HOST_CPUS), 0, Integer.MAX_VALUE);
+    super(
+        /* keywords= */ ImmutableMap.of("HOST_CPUS", HOST_CPUS),
+        /* minValue= */ 0,
+        /* maxValue= */ Integer.MAX_VALUE);
   }
 
   @Override

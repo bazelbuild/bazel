@@ -21,7 +21,10 @@ import com.google.common.collect.ImmutableMap;
  */
 public final class RamResourceConverter extends ResourceConverter.IntegerConverter {
   public RamResourceConverter() {
-    super(ImmutableMap.of("HOST_RAM", HOST_RAM), 0, Integer.MAX_VALUE);
+    super(
+        /* keywords= */ ImmutableMap.of("HOST_RAM", HOST_RAM),
+        /* minValue= */ 0,
+        /* maxValue= */ Integer.MAX_VALUE);
   }
 
   @Override

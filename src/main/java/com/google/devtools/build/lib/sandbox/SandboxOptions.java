@@ -372,9 +372,10 @@ public class SandboxOptions extends OptionsBase {
   /** Converter for the number of threads used for asynchronous tree deletion. */
   public static final class AsyncTreeDeletesConverter extends ResourceConverter.IntegerConverter {
     public AsyncTreeDeletesConverter() {
-      super(ResourceConverter.HOST_CPUS,
-          0,
-          Integer.MAX_VALUE);
+      super(
+          /* autoSupplier= */ HOST_CPUS,
+          /* minValue= */ 0,
+          /* maxValue= */ Integer.MAX_VALUE);
     }
   }
 }

@@ -400,7 +400,10 @@ public class BuildRequestOptions extends OptionsBase {
   /** Converter for filesystem value checker threads. */
   public static class ThreadConverter extends ResourceConverter.IntegerConverter {
     public ThreadConverter() {
-      super(HOST_CPUS, 1, Integer.MAX_VALUE);
+      super(
+          /* autoSupplier= */ HOST_CPUS,
+          /* minValue= */ 1,
+          /* maxValue= */ Integer.MAX_VALUE);
     }
   }
 
@@ -445,7 +448,10 @@ public class BuildRequestOptions extends OptionsBase {
    */
   public static class JobsConverter extends ResourceConverter.IntegerConverter {
     public JobsConverter() {
-      super(HOST_CPUS, 1, MAX_JOBS);
+      super(
+          /* autoSupplier= */ HOST_CPUS,
+          /* minValue= */ 1,
+          /* maxValue= */ MAX_JOBS);
     }
 
     @Override

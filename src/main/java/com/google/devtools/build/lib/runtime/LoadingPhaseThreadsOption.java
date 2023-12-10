@@ -51,7 +51,10 @@ public class LoadingPhaseThreadsOption extends OptionsBase {
       // Mac Pros and MacBook Pros but we should probably do better than this. (We haven't made
       // any guarantees that "auto" means number of cores precisely to leave us room to tune this
       // further in the future.)
-      super(HOST_CPUS, 1, Integer.MAX_VALUE);
+      super(
+          /* autoSupplier= */ HOST_CPUS,
+          /* minValue= */ 1,
+          /* maxValue= */ Integer.MAX_VALUE);
     }
 
     @Override

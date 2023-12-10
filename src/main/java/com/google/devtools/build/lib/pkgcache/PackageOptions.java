@@ -60,7 +60,10 @@ public class PackageOptions extends OptionsBase {
   /** Converter for globbing threads. */
   public static class ParallelismConverter extends ResourceConverter.IntegerConverter {
     public ParallelismConverter() throws OptionsParsingException {
-      super(HOST_CPUS, 1, Integer.MAX_VALUE);
+      super(
+          /* autoSupplier= */ HOST_CPUS,
+          /* minValue= */ 1,
+          /* maxValue= */ Integer.MAX_VALUE);
     }
   }
 
