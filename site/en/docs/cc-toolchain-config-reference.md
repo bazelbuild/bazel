@@ -33,7 +33,8 @@ granularity for configuring the behavior of Bazel's C++ rules. By default,
 Bazel automatically configures `CcToolchainConfigInfo` for your build, but you
 have the option to configure it manually. For that, you need a Starlark rule
 that provides the `CcToolchainConfigInfo` and you need to point the
-[`toolchain_config`](/reference/be/c-cpp#cc_toolchain.toolchain_config) attribute of the `cc_toolchain` to your rule.
+[`toolchain_config`](/reference/be/c-cpp#cc_toolchain.toolchain_config) attribute of the
+[`cc_toolchain`](/reference/be/c-cpp#cc_toolchain) to your rule.
 You can create the `CcToolchainConfigInfo` by calling
 [`cc_common.create_cc_toolchain_config_info()`](/rules/lib/toplevel/cc_common#create_cc_toolchain_config_info).
 You can find Starlark constructors for all structs you'll need in the process in

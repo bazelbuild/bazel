@@ -29,7 +29,6 @@
 namespace blaze {
 
 using std::string;
-using ::testing::HasSubstr;
 
 class BlazeUtilTest : public ::testing::Test {
  protected:

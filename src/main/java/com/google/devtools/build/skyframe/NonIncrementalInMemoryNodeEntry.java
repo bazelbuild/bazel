@@ -147,6 +147,9 @@ public class NonIncrementalInMemoryNodeEntry
     if (!isDone()) {
       return null; // Tolerate concurrent requests to rewind.
     }
+    if (getErrorInfo() != null) {
+      return null; // Rewinding errors is no-op.
+    }
     dirtyBuildingState = new RewoundNonIncrementalBuildingState(value);
     value = null;
     return MarkedDirtyResult.forRewinding();

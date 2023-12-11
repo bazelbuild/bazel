@@ -1421,11 +1421,7 @@ java_library(
 
 java_library(
     name = "glob_function",
-    srcs = [
-        "GlobFunction.java",
-        "GlobFunctionWithMultipleRecursiveFunctions.java",
-        "GlobFunctionWithRecursionInSingleFunction.java",
-    ],
+    srcs = ["GlobFunction.java"],
     deps = [
         ":directory_listing_value",
         ":glob_descriptor",
@@ -1439,7 +1435,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/io:file_symlink_infinite_expansion_uniqueness_function",
         "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
         "//src/main/java/com/google/devtools/build/lib/packages:globber",
-        "//src/main/java/com/google/devtools/build/lib/packages/producers",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
@@ -1451,11 +1446,7 @@ java_library(
 
 java_library(
     name = "glob_value",
-    srcs = [
-        "GlobValue.java",
-        "GlobValueWithImmutableSet.java",
-        "GlobValueWithNestedSet.java",
-    ],
+    srcs = ["GlobValue.java"],
     deps = [
         ":glob_descriptor",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

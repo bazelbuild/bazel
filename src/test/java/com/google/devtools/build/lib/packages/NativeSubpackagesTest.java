@@ -50,7 +50,7 @@ public class NativeSubpackagesTest extends BuildViewTestCase {
 
   @Test
   public void subpackages_simple_include() throws Exception {
-    makeSubpackageFileGroup("test/starlark/BUILD", "sub1", null, null);
+    makeSubpackageFileGroup("test/starlark/BUILD", "sub1/**", null, null);
 
     makeFilesSubPackage("test/starlark/sub");
     makeFilesSubPackage("test/starlark/sub1");
@@ -232,7 +232,9 @@ public class NativeSubpackagesTest extends BuildViewTestCase {
   @Test
   public void includeValidMatchSubdir() throws Exception {
     scratch.file("foo/subdir/BUILD");
-    scratch.file("foo/BUILD", "[sh_library(name = p) for p in subpackages(include = ['subdir'])]");
+    scratch.file(
+        "foo/BUILD", "[sh_library(name = p) for p in subpackages(include = ['subdir/*'])]");
+
     getConfiguredTargetAndData("//foo:subdir");
   }
 
