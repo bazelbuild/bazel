@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.skyframe.Dirents;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -199,7 +201,12 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
     if (environ == null) {
       return null;
     }
-    prepareLocalRepositorySymlinkTree(rule, outputDirectory);
+    try {
+      outputDirectory.createDirectoryAndParents();
+      FileSystemUtils.createEmptyFile(outputDirectory.getRelative(LabelConstants.REPO_FILE_NAME));
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
     WorkspaceAttributeMapper attributes = WorkspaceAttributeMapper.of(rule);
     FileSystem fs = directories.getOutputBase().getFileSystem();
     Path androidSdkPath;

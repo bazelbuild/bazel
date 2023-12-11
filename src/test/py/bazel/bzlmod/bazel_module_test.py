@@ -44,7 +44,7 @@ class BazelModuleTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'build --enable_bzlmod',
+            'build --noenable_workspace',
             'build --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
@@ -56,10 +56,6 @@ class BazelModuleTest(test_base.TestBase):
             'build --lockfile_mode=update',
         ],
     )
-    self.ScratchFile('WORKSPACE')
-    # The existence of WORKSPACE.bzlmod prevents WORKSPACE prefixes or suffixes
-    # from being used; this allows us to test built-in modules actually work
-    self.ScratchFile('WORKSPACE.bzlmod')
 
   def writeMainProjectFiles(self):
     self.ScratchFile('aaa.patch', [
@@ -243,11 +239,14 @@ class BazelModuleTest(test_base.TestBase):
         'use_repo(module_ext, "foo")',
     ])
     self.ScratchFile('pkg/BUILD.bazel')
-    self.ScratchFile('pkg/rules.bzl', [
-        'def _repo_rule_impl(ctx):',
-        '    ctx.file("WORKSPACE")',
-        'repo_rule = repository_rule(implementation = _repo_rule_impl)',
-    ])
+    self.ScratchFile(
+        'pkg/rules.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    pass',
+            'repo_rule = repository_rule(implementation = _repo_rule_impl)',
+        ],
+    )
     self.ScratchFile('pkg/extension.bzl', [
         'load(":rules.bzl", "repo_rule")',
         'def _module_ext_impl(ctx):',
@@ -274,10 +273,8 @@ class BazelModuleTest(test_base.TestBase):
         'use_repo(data_ext, "no_op")',
     ])
     self.ScratchFile('BUILD')
-    self.ScratchFile('WORKSPACE')
     self.ScratchFile('ext.bzl', [
         'def _no_op_impl(ctx):',
-        '  ctx.file("WORKSPACE")',
         '  ctx.file("BUILD", "filegroup(name=\\"no_op\\")")',
         'no_op = repository_rule(_no_op_impl)',
         'def _data_ext_impl(ctx):',
@@ -312,7 +309,6 @@ class BazelModuleTest(test_base.TestBase):
         '  deps = ["@%s//:lib_%s"],' % (dep_name, dep_name),
         ')',
     ])
-    self.ScratchFile('WORKSPACE', [])
 
   def testLocalRepoInSourceJsonAbsoluteBasePath(self):
     self.main_registry.setModuleBasePath(str(self.main_registry.projects))
@@ -335,7 +331,6 @@ class BazelModuleTest(test_base.TestBase):
             'local_path_override(module_name="bar",path="bar")',
         ],
     )
-    self.ScratchFile('WORKSPACE')
     self.ScratchFile('BUILD')
     self.ScratchFile(
         'defs.bzl',
@@ -362,7 +357,6 @@ class BazelModuleTest(test_base.TestBase):
             'bazel_dep(name="foo", repo_name="bleb")',
         ],
     )
-    self.ScratchFile('bar/WORKSPACE')
     self.ScratchFile(
         'bar/quux/BUILD',
         [
@@ -399,7 +393,7 @@ class BazelModuleTest(test_base.TestBase):
             'test()',
         ],
     )
-    self.ScratchFile('foo/WORKSPACE')
+    self.ScratchFile('foo/REPO.bazel')
     self.ScratchFile('foo/BUILD', ['filegroup(name="test")'])
     self.ScratchFile(
         'foo/test.bzl',
@@ -412,7 +406,7 @@ class BazelModuleTest(test_base.TestBase):
         ],
     )
 
-    _, _, stderr = self.RunBazel(['build', '@foo//:test'])
+    _, _, stderr = self.RunBazel(['build', '--enable_workspace', '@foo//:test'])
     stderr = '\n'.join(stderr)
     # @bar is mapped to @@baz, which Bzlmod doesn't recognize, so we leave it be
     self.assertIn('1st: @@baz//:z', stderr)
@@ -439,18 +433,16 @@ class BazelModuleTest(test_base.TestBase):
         ],
     )
     self.ScratchFile('BUILD', ['filegroup(name="a")'])
-    self.ScratchFile('hello/WORKSPACE')
     self.ScratchFile('hello/BUILD')
     self.ScratchFile('hello/MODULE.bazel', ['module(name="hello")'])
     self.ScratchFile('hello/world.bzl', ['message="I LUV U!"'])
 
-    _, _, stderr = self.RunBazel(['build', ':a'])
+    _, _, stderr = self.RunBazel(['build', '--enable_workspace', ':a'])
     self.assertIn('I LUV U!', '\n'.join(stderr))
 
   def testNoModuleDotBazelAndFallbackToWorkspace(self):
     if os.path.exists(self.Path('MODULE.bazel')):
       os.remove(self.Path('MODULE.bazel'))
-    os.remove(self.Path('WORKSPACE.bzlmod'))
     self.ScratchFile(
         'WORKSPACE',
         [
@@ -460,11 +452,11 @@ class BazelModuleTest(test_base.TestBase):
         ],
     )
     self.ScratchFile('BUILD', ['filegroup(name="a")'])
-    self.ScratchFile('hello/WORKSPACE')
+    self.ScratchFile('hello/REPO.bazel')
     self.ScratchFile('hello/BUILD')
     self.ScratchFile('hello/world.bzl', ['message="I LUV U!"'])
 
-    _, _, stderr = self.RunBazel(['build', ':a'])
+    _, _, stderr = self.RunBazel(['build', '--enable_workspace', ':a'])
     self.assertIn('I LUV U!', '\n'.join(stderr))
     # MODULE.bazel file should be generated automatically
     self.assertTrue(os.path.exists(self.Path('MODULE.bazel')))
@@ -518,7 +510,6 @@ class BazelModuleTest(test_base.TestBase):
             'local_path_override(module_name="bar",path="bar")',
         ],
     )
-    self.ScratchFile('WORKSPACE')
     self.ScratchFile(
         'WORKSPACE.bzlmod', ['local_repository(name="quux",path="quux")']
     )
@@ -533,7 +524,6 @@ class BazelModuleTest(test_base.TestBase):
     #      `report_ext` which generates a repo `report_repo`.
     self.main_registry.createLocalPathModule('foo', '1.0', 'foo')
     projects_dir.joinpath('foo').mkdir(exist_ok=True)
-    scratchFile(projects_dir.joinpath('foo', 'WORKSPACE'))
     scratchFile(
         projects_dir.joinpath('foo', 'BUILD'),
         [
@@ -565,7 +555,6 @@ class BazelModuleTest(test_base.TestBase):
         ],
     )
     # bar: a repo defined by a Bazel module with a non-registry override
-    self.ScratchFile('bar/WORKSPACE')
     self.ScratchFile(
         'bar/MODULE.bazel',
         [
@@ -581,7 +570,7 @@ class BazelModuleTest(test_base.TestBase):
         ],
     )
     # quux: a repo defined by WORKSPACE
-    self.ScratchFile('quux/WORKSPACE')
+    self.ScratchFile('quux/REPO.bazel')
     self.ScratchFile(
         'quux/BUILD',
         [
@@ -593,6 +582,7 @@ class BazelModuleTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(
         [
             'build',
+            '--enable_workspace',
             ':a',
             '@foo//:a',
             '@report_repo//:a',
@@ -615,7 +605,6 @@ class BazelModuleTest(test_base.TestBase):
     self.ScratchFile(
         'WORKSPACE', ['register_toolchains("//:my_toolchain_toolchain")']
     )
-    os.remove(self.Path('WORKSPACE.bzlmod'))
 
     self.ScratchFile(
         'BUILD.bazel',
@@ -681,6 +670,7 @@ class BazelModuleTest(test_base.TestBase):
 
     self.RunBazel([
         'build',
+        '--enable_workspace',
         '//:my_consumer',
         '--toolchain_resolution_debug=//:my_toolchain_type',
     ])
@@ -751,7 +741,6 @@ class BazelModuleTest(test_base.TestBase):
         ],
     )
     self.ScratchFile('hello/MODULE.bazel', ['wat'])
-    self.ScratchFile('hello/WORKSPACE.bazel')
     _, _, stderr = self.RunBazel(['build', '@what'], allow_failure=True)
     self.assertIn('ERROR: @@hello~override//:MODULE.bazel', '\n'.join(stderr))
 
@@ -773,7 +762,6 @@ class BazelModuleTest(test_base.TestBase):
                 " 'find_java_toolchain')"
             ),
             'def _repo_impl(ctx):',
-            "  ctx.file('WORKSPACE')",
             "  ctx.file('BUILD', 'exports_files([\"data.txt\"])')",
             "  ctx.file('data.txt', 'hi')",
             'repo = repository_rule(implementation = _repo_impl)',

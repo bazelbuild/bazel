@@ -40,7 +40,7 @@ class ModCommandTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'mod --enable_bzlmod',
+            'mod --noenable_workspace',
             'mod --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
@@ -51,10 +51,6 @@ class ModCommandTest(test_base.TestBase):
             'mod --charset=ascii',
         ],
     )
-    self.ScratchFile('WORKSPACE')
-    # The existence of WORKSPACE.bzlmod prevents WORKSPACE prefixes or suffixes
-    # from being used; this allows us to test built-in modules actually work
-    self.ScratchFile('WORKSPACE.bzlmod')
 
     self.ScratchFile(
         'MODULE.bazel',
@@ -130,13 +126,9 @@ class ModCommandTest(test_base.TestBase):
     ]
 
     self.main_registry.createLocalPathModule('ext', '1.0', 'ext')
-    self.projects_dir.joinpath('ext').mkdir(exist_ok=True)
-    scratchFile(self.projects_dir.joinpath('ext', 'WORKSPACE'))
     scratchFile(self.projects_dir.joinpath('ext', 'BUILD'))
     scratchFile(self.projects_dir.joinpath('ext', 'ext.bzl'), ext_src)
     self.main_registry.createLocalPathModule('ext2', '1.0', 'ext2')
-    self.projects_dir.joinpath('ext2').mkdir(exist_ok=True)
-    scratchFile(self.projects_dir.joinpath('ext2', 'WORKSPACE'))
     scratchFile(self.projects_dir.joinpath('ext2', 'BUILD'))
     scratchFile(self.projects_dir.joinpath('ext2', 'ext.bzl'), ext_src)
 

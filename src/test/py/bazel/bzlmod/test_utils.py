@@ -155,7 +155,6 @@ class BazelRegistry:
         return ''
       return ', repo_name = "%s"' % repo_names[dep]
 
-    scratchFile(src_dir.joinpath('WORKSPACE'))
     scratchFile(
         src_dir.joinpath('MODULE.bazel'),
         [
@@ -330,13 +329,15 @@ class BazelRegistry:
     if deps is None:
       deps = {}
 
-    scratchFile(
-        module_dir.joinpath('MODULE.bazel'), [
-            'module(',
-            '  name = "%s",' % name,
-            '  version = "%s",' % version,
-            ')',
-        ] + ['bazel_dep(name="%s",version="%s")' % p for p in deps.items()])
+    module_file_lines = [
+        'module(',
+        '  name = "%s",' % name,
+        '  version = "%s",' % version,
+        ')',
+    ] + ['bazel_dep(name="%s",version="%s")' % p for p in deps.items()]
+    scratchFile(module_dir.joinpath('MODULE.bazel'), module_file_lines)
+    self.projects.joinpath(path).mkdir(exist_ok=True)
+    scratchFile(self.projects.joinpath(path, 'MODULE.bazel'), module_file_lines)
 
     with module_dir.joinpath('source.json').open('w') as f:
       json.dump(source, f, indent=4, sort_keys=True)

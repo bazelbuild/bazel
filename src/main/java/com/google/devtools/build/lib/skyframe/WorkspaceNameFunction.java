@@ -59,16 +59,19 @@ public class WorkspaceNameFunction implements SkyFunction {
       // danger (i.e. going through repo mapping is idempotent).
       return WorkspaceNameValue.withName(ruleClassProvider.getRunfilesPrefix());
     }
-    PackageValue externalPackageValue =
-        (PackageValue) env.getValue(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
-    if (externalPackageValue == null) {
-      return null;
+    if (starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE)) {
+      PackageValue externalPackageValue =
+          (PackageValue) env.getValue(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
+      if (externalPackageValue == null) {
+        return null;
+      }
+      Package externalPackage = externalPackageValue.getPackage();
+      if (externalPackage.containsErrors()) {
+        throw new WorkspaceNameFunctionException();
+      }
+      return WorkspaceNameValue.withName(externalPackage.getWorkspaceName());
     }
-    Package externalPackage = externalPackageValue.getPackage();
-    if (externalPackage.containsErrors()) {
-      throw new WorkspaceNameFunctionException();
-    }
-    return WorkspaceNameValue.withName(externalPackage.getWorkspaceName());
+    throw new WorkspaceNameFunctionException();
   }
 
   private static class WorkspaceNameFunctionException extends SkyFunctionException {
