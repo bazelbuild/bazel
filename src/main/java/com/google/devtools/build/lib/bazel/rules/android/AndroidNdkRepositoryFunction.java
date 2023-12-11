@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpl;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpls;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpls.GnuLibStdCppStlImpl;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpls.LibCppStlImpl;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
@@ -270,7 +271,12 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
     if (environ == null) {
       return null;
     }
-    prepareLocalRepositorySymlinkTree(rule, outputDirectory);
+    try {
+      outputDirectory.createDirectoryAndParents();
+      FileSystemUtils.createEmptyFile(outputDirectory.getRelative(LabelConstants.REPO_FILE_NAME));
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
     WorkspaceAttributeMapper attributes = WorkspaceAttributeMapper.of(rule);
     PathFragment pathFragment;
     String userDefinedPath = null;

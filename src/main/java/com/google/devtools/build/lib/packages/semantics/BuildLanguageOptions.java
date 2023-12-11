@@ -206,6 +206,16 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean enableBzlmod;
 
   @Option(
+      name = "enable_workspace",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
+      help =
+          "If true, enables the legacy WORKSPACE system for external dependencies. See"
+              + " https://bazel.build/external/overview for more information.")
+  public boolean enableWorkspace;
+
+  @Option(
       name = "experimental_isolated_extension_usages",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -745,6 +755,7 @@ public final class BuildLanguageOptions extends OptionsBase {
                 EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, experimentalEnableAndroidMigrationApis)
             .setBool(EXPERIMENTAL_ENABLE_SCL_DIALECT, experimentalEnableSclDialect)
             .setBool(ENABLE_BZLMOD, enableBzlmod)
+            .setBool(ENABLE_WORKSPACE, enableWorkspace)
             .setBool(EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, experimentalIsolatedExtensionUsages)
             .setBool(
                 INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW, incompatibleExistingRulesImmutableView)
@@ -852,6 +863,7 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-experimental_enable_android_migration_apis";
   public static final String EXPERIMENTAL_ENABLE_SCL_DIALECT = "-experimental_enable_scl_dialect";
   public static final String ENABLE_BZLMOD = "+enable_bzlmod";
+  public static final String ENABLE_WORKSPACE = "+enable_workspace";
   public static final String EXPERIMENTAL_ISOLATED_EXTENSION_USAGES =
       "-experimental_isolated_extension_usages";
   public static final String INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW =

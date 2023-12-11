@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.repository;
 
 import static com.google.common.base.Preconditions.checkState;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -400,35 +399,6 @@ public abstract class RepositoryFunction {
   /** Wheather the rule declares it inspects the local environment for configure purpose. */
   protected boolean isConfigure(Rule rule) {
     return false;
-  }
-
-  protected Path prepareLocalRepositorySymlinkTree(Rule rule, Path repositoryDirectory)
-      throws RepositoryFunctionException {
-    try {
-      repositoryDirectory.createDirectoryAndParents();
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-    }
-
-    // Add x/WORKSPACE.
-    createWorkspaceFile(repositoryDirectory, rule.getTargetKind(), rule.getName());
-    return repositoryDirectory;
-  }
-
-  public static void createWorkspaceFile(Path repositoryDirectory, String ruleKind, String ruleName)
-      throws RepositoryFunctionException {
-    try {
-      Path workspaceFile = repositoryDirectory.getRelative(LabelConstants.WORKSPACE_FILE_NAME);
-      FileSystemUtils.writeContent(
-          workspaceFile,
-          UTF_8,
-          String.format(
-              "# DO NOT EDIT: automatically generated WORKSPACE file for %s\n"
-                  + "workspace(name = \"%s\")\n",
-              ruleKind, ruleName));
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-    }
   }
 
   protected static RepositoryDirectoryValue.Builder writeFile(

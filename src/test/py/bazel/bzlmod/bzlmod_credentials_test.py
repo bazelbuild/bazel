@@ -38,15 +38,11 @@ class BzlmodCredentialsTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'common --enable_bzlmod',
+            'common --noenable_workspace',
             # Disable yanked version check so we are not affected BCR changes.
             'common --allow_yanked_versions=all',
         ],
     )
-    self.ScratchFile('WORKSPACE')
-    # The existence of WORKSPACE.bzlmod prevents WORKSPACE prefixes or suffixes
-    # from being used; this allows us to test built-in modules actually work
-    self.ScratchFile('WORKSPACE.bzlmod')
     self.ScratchFile(
         'MODULE.bazel',
         [
