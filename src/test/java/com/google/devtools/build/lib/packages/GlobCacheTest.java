@@ -21,7 +21,6 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
-import com.google.devtools.build.lib.packages.Globber.Operation;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
@@ -339,21 +338,9 @@ public class GlobCacheTest {
   }
 
   @Test
-  public void testSubpackages_noWildcard() throws Exception {
-    assertThat(cache.globUnsorted(list("sub/sub.js"), list(), Operation.SUBPACKAGES, true))
-        .isEmpty();
-  }
-
-  @Test
-  public void testSubpackages_simpleDoubleStar() throws Exception {
+  public void testSubpackages() throws Exception {
     assertThat(cache.globUnsorted(list("**"), list(), Globber.Operation.SUBPACKAGES, true))
         .containsExactly("sub");
-  }
-
-  @Test
-  public void testSubpackages_doubleStarWithTrailingPattern() throws Exception {
-    assertThat(cache.globUnsorted(list("**/bar"), list(), Globber.Operation.SUBPACKAGES, true))
-        .isEmpty();
   }
 
   private void assertEmpty(Collection<?> glob) {

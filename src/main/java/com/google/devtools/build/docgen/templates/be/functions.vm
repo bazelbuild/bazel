@@ -390,8 +390,7 @@ path matches any of the <code>include</code> patterns and none of the
 The <code>include</code> and <code>exclude</code> lists contain path patterns
 that are relative to the current package. Every pattern may consist of one or
 more path segments. As usual with Unix paths, these segments are separated by
-<code>/</code>. The segments in the pattern are matched against the segments of
-the path. Segments may contain the <code>*</code> wildcard: this matches
+<code>/</code>. Segments may contain the <code>*</code> wildcard: this matches
 any substring in the path segment (even the empty substring), excluding the
 directory separator <code>/</code>. This wildcard can be used multiple times
 within one path segment. Additionally, the <code>**</code> wildcard can match
@@ -402,33 +401,26 @@ path segment.
 Examples:
 <ul>
 <li><code>foo/bar.txt</code> matches exactly the <code>foo/bar.txt</code> file
-in this package (unless <code>foo/</code> is a subpackage)</li>
+in this package</li>
 <li><code>foo/*.txt</code> matches every file in the <code>foo/</code> directory
-if the file ends with <code>.txt</code> (unless <code>foo/</code> is a
-subpackage)</li>
-<li><code>foo/*</code> matches every file in the <code>foo/</code> directory,
-(unless <code>foo/</code> is a subpackage). It does not match <code>foo</code>
-directory itself.</li>
+if the file ends with
+<code>.txt</code> (unless <code>foo/</code> is a subpackage)</li>
 <li><code>foo/a*.htm*</code> matches every file in the <code>foo/</code>
 directory that starts with <code>a</code>, then has an arbitrary string (could
-be empty), then has <code>.htm</code>, and ends with another arbitrary string
-(unless <code>foo/</code> is a subpackage) ; such as <code>foo/axx.htm</code>
-and <code>foo/a.html</code> or <code>foo/axxx.html</code></li>
+be empty), then has <code>.htm</code>, and ends with another arbitrary string;
+such as <code>foo/axx.htm</code> and <code>foo/a.html</code> or
+<code>foo/axxx.html</code></li>
 <li><code>**/a.txt</code> matches every <code>a.txt</code> file in every
-non-subpackage subdirectory of this package</li>
+subdirectory of this package</li>
 <li><code>**/bar/**/*.txt</code> matches every <code>.txt</code> file in every
-non-subpackage subdirectory of this package, if at least one directory on the
-resulting path is called <code>bar</code>, such as
-<code>xxx/bar/yyy/zzz/a.txt</code> or <code>bar/a.txt</code> (remember that
-<code>**</code> also matches zero segments) or <code>bar/zzz/a.txt</code></li>
-<li><code>**</code> matches every file in every non-subpackage subdirectory of
-this package</li>
-<li><code>foo/**</code> matches every file in every non-subpackage subdirectory
-under package's first level subdirectory <code>foo/</code></li>
+subdirectory of this package, if at least one directory on the resulting path is
+called <code>bar</code>, such as <code>xxx/bar/yyy/zzz/a.txt</code> or
+<code>bar/a.txt</code> (remember that <code>**</code> also matches zero
+segments) or <code>bar/zzz/a.txt</code></li>
+<li><code>**</code> matches every file in every subdirectory of this
+package</li>
 <li><code>foo**/a.txt</code> is an invalid pattern, because <code>**</code> must
 stand on its own as a segment</li>
-<li><code>foo/</code> is an invalid pattern, because the second segment defined
-after <code>/</code> is an empty string</li>
 </ul>
 
 <p>
@@ -745,42 +737,16 @@ sh_binary(
 # The following BUILD files exist:
 # foo/BUILD
 # foo/bar/baz/BUILD
-# foo/bar/but/bad/BUILD
 # foo/sub/BUILD
 # foo/sub/deeper/BUILD
 #
 # In foo/BUILD a call to
-subs1 = subpackages(include = ["**"])
+subs = subpackages(include = ["**"])
 
-# results in subs1 == ["sub", "bar/baz", "bar/but/bad"]
+# results in subs == ["sub", "bar/baz"]
 #
 # 'sub/deeper' is not included because it is a subpackage of 'foo/sub' not of
 # 'foo'
-
-subs2 = subpackages(include = ["bar/*"])
-# results in subs2 = ["bar/baz"]
-#
-# Since 'bar' is not a subpackage itself, bazel looks for any subpackages under
-# all first level subdirectories of 'bar'.
-
-subs3 = subpackages(include = ["bar/**"])
-# results in subs3 = ["bar/baz", "bar/but/bad"]
-#
-# Since bar is not a subpackage itself, bazel looks for any subpackages which
-# are (1) under all subdirectories of 'bar' which can be at any level, (2) not a
-# subpackage of another subpackages.
-
-subs4 = subpackages(include = ["sub"])
-subs5 = subpackages(include = ["sub/*"])
-subs6 = subpackages(include = ["sub/**"])
-# results in subs4 = ["sub"]
-# results in both subs5 and subs6 being [].
-#
-# In subs4, expression "sub" checks whether 'foo/sub' is a package (i.e. is a
-# subpackage of 'foo').
-# In subs5 and subs5, "sub/*" and "sub/**" try to look for subpackages under
-# directory 'foo/sub'. Since 'foo/sub' is already a subpackage itself, the
-# subdirectory will not be traversed anymore.
 </pre>
 
     <p>

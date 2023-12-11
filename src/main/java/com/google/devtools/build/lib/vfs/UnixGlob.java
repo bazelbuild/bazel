@@ -737,13 +737,9 @@ public final class UnixGlob {
      */
     private void reallyGlob(Path base, boolean baseIsDir, int idx, GlobTaskContext context)
         throws IOException {
-      // Make sure that `patternParts` index is not out of bounds.
-      if (idx >= context.patternParts.length) {
-        throw new IllegalArgumentException(
-            String.format(
-                "non skyframe glob index runs out of bounds. glob pattern = %s; current base = %s;"
-                    + " index = %d",
-                String.join("/", context.patternParts), base, idx));
+      if (idx == context.patternParts.length) { // Base case.
+        maybeAddResult(context, base, baseIsDir);
+        return;
       }
 
       // Do an early readdir() call here if the pattern contains a wildcard (* or ?). The reason is
@@ -758,6 +754,11 @@ public final class UnixGlob {
         dents = context.syscalls.readdir(base);
       }
 
+      if (baseIsDir && !context.pathDiscriminator.shouldTraverseDirectory(base)) {
+        maybeAddResult(context, base, baseIsDir);
+        return;
+      }
+
       if (!baseIsDir) {
         // Nothing to find here.
         return;
@@ -766,13 +767,7 @@ public final class UnixGlob {
       // ** is special: it can match nothing at all.
       // For example, x/** matches x, **/y matches y, and x/**/y matches x/y.
       if (isRecursivePattern(pattern)) {
-        if (idx + 1 == context.patternParts.length) {
-          // If ** is the last pattern, decide whether base is a matching result.
-          maybeAddResult(context, base, baseIsDir);
-        } else {
-          // If there are patterns trailing this **, enqueue the next Glob.
-          context.queueGlob(base, baseIsDir, idx + 1);
-        }
+        context.queueGlob(base, baseIsDir, idx + 1);
       }
 
       if (!patternContainsWildcard) {
@@ -783,7 +778,8 @@ public final class UnixGlob {
           // The file is a dangling symlink, fifo, does not exist, etc.
           return;
         }
-        processFileOrDirectory(child, status.isDirectory(), idx, context);
+
+        context.queueGlob(child, status.isDirectory(), idx + 1);
         return;
       }
 
@@ -834,18 +830,10 @@ public final class UnixGlob {
     private void processFileOrDirectory(
         Path path, boolean isDir, int idx, GlobTaskContext context) {
       boolean isRecursivePattern = isRecursivePattern(context.patternParts[idx]);
-      int nextIdx = idx + (isRecursivePattern ? 0 : 1);
-
-      if (isDir
-          && nextIdx < context.patternParts.length
-          && context.pathDiscriminator.shouldTraverseDirectory(path)) {
-        // Call queueGlob iff (1) path is a directory, (2) next index is in-bound and (3) no
-        // subpackage crossing exists.
-        context.queueGlob(path, /* baseIsDir= */ true, nextIdx);
+      if (isDir) {
+        context.queueGlob(path, /* baseIsDir= */ true, idx + (isRecursivePattern ? 0 : 1));
       } else if (idx + 1 == context.patternParts.length) {
-        // All glob patterns have been matched, so we should decide whether the path is a matching
-        // result.
-        maybeAddResult(context, path, isDir);
+        maybeAddResult(context, path, /* isDirectory= */ false);
       }
     }
   }
