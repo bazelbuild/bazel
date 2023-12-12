@@ -93,7 +93,7 @@ function get_realpath() {
 function get_workspace_root() {
   workspace_dir="${PWD}"
   while [[ "${workspace_dir}" != / ]]; do
-    if [[ -e "${workspace_dir}/WORKSPACE" || -e "${workspace_dir}/WORKSPACE.bazel" ]]; then
+    if [[ -e "${workspace_dir}/WORKSPACE" || -e "${workspace_dir}/WORKSPACE.bazel" || -e "${workspace_dir}/MODULE.bazel" ]]; then
       readonly workspace_dir
       return
     fi
