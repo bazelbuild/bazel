@@ -2250,7 +2250,7 @@
       "general": {
         "bzlTransitiveDigest": "DSeXJLRZhP/A/L6FhhbvcMg1auJWnRmHqERfXhXJwZY=",
         "accumulatedFileDigests": {
-          "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "7fd09363e734c78e66a87157b9baab177a58dec56bc8645ecc084ef3eff14360",
+          "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "a978fc4a223709c22ea07dd0ceb68e75b0023470f354cb1787f82363f8d90c24",
           "@@//:MODULE.bazel": "181678df5c28839fced02f5f546f99ae5a99c21eb263975d3244e17497b7064f"
         },
         "envVariables": {},
@@ -2574,8 +2574,8 @@
             "ruleClassName": "http_jar",
             "attributes": {
               "name": "_main~remote_android_tools_extensions~android_gmaven_r8",
-              "sha256": "57a696749695a09381a87bc2f08c3a8ed06a717a5caa3ef878a3077e0d3af19d",
-              "url": "https://maven.google.com/com/android/tools/r8/8.1.56/r8-8.1.56.jar"
+              "sha256": "80c39a28bb66b64efc232d68ae554d59fe3838808738b4fe584884691cb1e5a3",
+              "url": "https://maven.google.com/com/android/tools/r8/8.2.33/r8-8.2.33.jar"
             }
           }
         }
@@ -2672,8 +2672,8 @@
             "ruleClassName": "http_jar",
             "attributes": {
               "name": "bazel_tools~remote_android_tools_extensions~android_gmaven_r8",
-              "sha256": "57a696749695a09381a87bc2f08c3a8ed06a717a5caa3ef878a3077e0d3af19d",
-              "url": "https://maven.google.com/com/android/tools/r8/8.1.56/r8-8.1.56.jar"
+              "sha256": "80c39a28bb66b64efc232d68ae554d59fe3838808738b4fe584884691cb1e5a3",
+              "url": "https://maven.google.com/com/android/tools/r8/8.2.33/r8-8.2.33.jar"
             }
           }
         }
