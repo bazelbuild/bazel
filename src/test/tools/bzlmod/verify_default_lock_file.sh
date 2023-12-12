@@ -30,7 +30,7 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 function test_verify_lock_file() {
-  touch WORKSPACE
+  touch REPO.bazel
   rm -f MODULE.bazel
   cp $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) MODULE.bazel.lock
   echo "Running: bazel mod deps --lockfile_mode=error" >& "$TEST_log"
