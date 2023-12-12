@@ -51,7 +51,7 @@ responsible for creating (possibly empty) `__init__.py` files and adding them to
 the `srcs` of Python targets as required.
                                        """,
         ),
-        "_zipper": attr.label(
+        "zipper": attr.label(
             cfg = "exec",
             executable = True,
             default = "@" + TOOLS_REPO + "//tools/zip:zipper",
@@ -402,7 +402,7 @@ def _create_zip_file(ctx, *, output, original_nonzip_executable, executable_for_
     zip_cli_args.add(output)
 
     ctx.actions.run(
-        executable = ctx.executable._zipper,
+        executable = ctx.executable.zipper,
         arguments = [zip_cli_args, manifest],
         inputs = depset(inputs),
         outputs = [output],
