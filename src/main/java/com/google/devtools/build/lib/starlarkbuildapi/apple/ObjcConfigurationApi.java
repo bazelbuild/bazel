@@ -121,4 +121,12 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
       useStarlarkThread = true)
   boolean targetShouldAlwayslink(StarlarkRuleContext ruleContext, StarlarkThread thread)
       throws EvalException;
+
+  @StarlarkMethod(
+      name = "strip_executable_safely",
+      structField = true,
+      doc =
+          "Returns whether executable strip action should use flag -x, which does not break "
+              + "dynamic symbol resolution.")
+  boolean stripExecutableSafely();
 }
