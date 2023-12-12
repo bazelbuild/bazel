@@ -6,28 +6,27 @@ Book: /_book.yaml
 {% include "_buttons.html" %}
 
 A target `A` _depends upon_ a target `B` if `B` is needed by `A` at build or
-execution time. The _depends upon_ relation induces a
+execution time. The _depends upon_ relation creates a
 [Directed Acyclic Graph](https://en.wikipedia.org/wiki/Directed_acyclic_graph){: .external}
-(DAG) over targets, and it is called a _dependency graph_.
+(DAG) of targets, and it is called a _dependency graph_.
 
-A target's _direct_ dependencies are those other targets reachable by a path
-of length 1 in the dependency graph. A target's _transitive_ dependencies are
-those targets upon which it depends via a path of any length through the graph.
+A target's _direct_ dependencies are other targets reachable by a path
+of length 1. A target's _transitive_ dependencies are graph targets with a path
+of any length.
 
-In fact, in the context of builds, there are two dependency graphs, the graph
-of _actual dependencies_ and the graph of _declared dependencies_. Most of the
-time, the two graphs are so similar that this distinction need not be made, but
-it is useful for the discussion below.
+For builds, there are two dependency graphs, the graph
+of _actual dependencies_ and the graph of _declared dependencies_. The two
+graphs are mostly similar. The difference is discussion below.
 
 ## Actual and declared dependencies {:#actual-and-declared-dependencies}
 
 A target `X` is _actually dependent_ on target `Y` if `Y` must be present,
-built, and up-to-date in order for `X` to be built correctly. _Built_ could
-mean generated, processed, compiled, linked, archived, compressed, executed, or
-any of the other kinds of tasks that routinely occur during a build.
+built, and up-to-date in order for `X` to be built correctly. _Built_ means
+generated, compiled, linked, archived, compressed, executed, or processed
+with any of other kinds of build tasks.
 
 A target `X` has a _declared dependency_ on target `Y` if there is a dependency
-edge from `X` to `Y` in the package of `X`.
+route (edge) from `X` to `Y` in the package of `X`.
 
 For correct builds, the graph of actual dependencies _A_ must be a subgraph of
 the graph of declared dependencies _D_. That is, every pair of
