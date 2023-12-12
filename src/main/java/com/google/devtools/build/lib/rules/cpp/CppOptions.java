@@ -818,11 +818,9 @@ public class CppOptions extends FragmentOptions {
       name = "incompatible_validate_top_level_header_inclusions",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If true, Bazel will also validate top level directory header inclusions "
-              + "(see https://github.com/bazelbuild/bazel/issues/10047 for more information).")
+      help = "This flag is a noop and scheduled for removal.")
   public boolean validateTopLevelHeaderInclusions;
 
   @Option(

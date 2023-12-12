@@ -714,10 +714,6 @@ public final class CcToolchainProvider extends NativeInfo
     return featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES);
   }
 
-  CppConfiguration getCppConfiguration() {
-    return cppConfiguration;
-  }
-
   /** Return context-sensitive fdo instrumentation path. */
   public String getCSFdoInstrument() {
     return cppConfiguration.getCSFdoInstrument();

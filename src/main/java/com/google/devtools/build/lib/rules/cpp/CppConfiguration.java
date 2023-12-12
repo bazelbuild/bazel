@@ -764,10 +764,6 @@ public final class CppConfiguration extends Fragment
     return disableNoCopts();
   }
 
-  public boolean validateTopLevelHeaderInclusions() {
-    return cppOptions.validateTopLevelHeaderInclusions;
-  }
-
   @Override
   public boolean appleGenerateDsym() {
     return appleGenerateDsym;

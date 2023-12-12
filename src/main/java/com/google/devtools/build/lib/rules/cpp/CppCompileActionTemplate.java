@@ -203,8 +203,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
         mandatoryInputs,
         cppCompileActionBuilder.getPrunableHeaders(),
         cppCompileActionBuilder.getBuiltinIncludeDirectories(),
-        cppCompileActionBuilder.getInputsForInvalidation(),
-        toolchain.getCppConfiguration().validateTopLevelHeaderInclusions());
+        cppCompileActionBuilder.getInputsForInvalidation());
   }
 
   private boolean shouldCompileHeaders() {

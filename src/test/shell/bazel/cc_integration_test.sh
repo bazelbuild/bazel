@@ -581,40 +581,6 @@ EOF
   nm -D bazel-bin/"$pkg"/libg.so  | grep VERS_42.0 || fail "VERS_42.0 not in binary"
 }
 
-function test_incompatible_validate_top_level_header_inclusions() {
-  local workspace="${FUNCNAME[0]}"
-  mkdir -p "${workspace}"
-
-  create_workspace_with_default_repos "${workspace}/WORKSPACE"
-  cat >> "${workspace}/BUILD" << EOF
-cc_library(
-    name = "foo",
-    srcs = ["foo.cc"],
-)
-EOF
-  cat >> "${workspace}/foo.cc" << EOF
-#include "top_level.h"
-
-int foo() {
-  return bar();
-}
-EOF
-cat >> "${workspace}/top_level.h" << EOF
-inline int bar() { return 42; }
-EOF
-
-  cd "${workspace}"
-  bazel build --noincompatible_validate_top_level_header_inclusions \
-  --spawn_strategy=standalone \
-    //:foo  &>"$TEST_log" || fail "Build failed but should have succeeded"
-
-  bazel build --incompatible_validate_top_level_header_inclusions \
-  --spawn_strategy=standalone \
-    //:foo  &>"$TEST_log" && fail "Build succeeded but should have failed"
-  expect_log "this rule is missing dependency declarations for the "\
-    "following files included by 'foo.cc'"
-}
-
 function test_aspect_accessing_args_link_action_with_tree_artifact() {
   # This test assumes the presence of "nodeps" dynamic libraries, which do not
   # function on Apple platforms.
