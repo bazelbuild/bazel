@@ -35,12 +35,12 @@ function generate_lock_file() {
   trap 'cleanup $tmpdir' EXIT
 
   cd "${tmpdir}"
-  touch WORKSPACE
+  touch REPO.bazel
   bazel=$(rlocation io_bazel/src/bazel)
 
   echo "Running: $bazel mod deps"
   $bazel mod deps
-  cp ./MODULE.bazel.lock $BUILD_WORKING_DIRECTORY/src/test/tools/bzlmod/MODULE.bazel.lock
+  cp ./MODULE.bazel.lock $BUILD_WORKSPACE_DIRECTORY/src/test/tools/bzlmod/MODULE.bazel.lock
 }
 
 generate_lock_file
