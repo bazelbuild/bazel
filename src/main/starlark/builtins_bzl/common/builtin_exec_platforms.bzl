@@ -394,6 +394,7 @@ bazel_fragments["ObjcCommandLineOptions"] = fragment(
         "//command_line_option:incompatible_avoid_hardcoded_objc_compilation_flags",
         "//command_line_option:incompatible_disallow_sdk_frameworks_attributes",
         "//command_line_option:incompatible_objc_alwayslink_by_default",
+        "//command_line_option:incompatible_strip_executable_safely",
     ],
 )
 
