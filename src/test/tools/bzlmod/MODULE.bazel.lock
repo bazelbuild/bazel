@@ -13,7 +13,7 @@
     "compatibilityMode": "ERROR"
   },
   "localOverrideHashes": {
-    "bazel_tools": "21ee31bd25965d6f79596d406f7ae79f83fe7e3888dd6bda5645fd1dcd750644"
+    "bazel_tools": "c64974534363108531967c013d374899a17f98a6fd86dc67aa8a865250b14ba5"
   },
   "moduleDepGraph": {
     "<root>": {
@@ -155,7 +155,7 @@
         "rules_java": "rules_java@7.3.1",
         "rules_license": "rules_license@0.0.7",
         "rules_proto": "rules_proto@5.3.0-21.7",
-        "rules_python": "rules_python@0.22.0",
+        "rules_python": "rules_python@0.22.1",
         "platforms": "platforms@0.0.7",
         "com_google_protobuf": "protobuf@21.7",
         "zlib": "zlib@1.3",
@@ -384,20 +384,22 @@
         }
       }
     },
-    "rules_python@0.22.0": {
+    "rules_python@0.22.1": {
       "name": "rules_python",
-      "version": "0.22.0",
-      "key": "rules_python@0.22.0",
+      "version": "0.22.1",
+      "key": "rules_python@0.22.1",
       "repoName": "rules_python",
       "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
+      "toolchainsToRegister": [
+        "@bazel_tools//tools/python:autodetecting_toolchain"
+      ],
       "extensionUsages": [
         {
           "extensionBzlFile": "@rules_python//python/extensions/private:internal_deps.bzl",
           "extensionName": "internal_deps",
-          "usingModule": "rules_python@0.22.0",
+          "usingModule": "rules_python@0.22.1",
           "location": {
-            "file": "https://bcr.bazel.build/modules/rules_python/0.22.0/MODULE.bazel",
+            "file": "https://bcr.bazel.build/modules/rules_python/0.22.1/MODULE.bazel",
             "line": 14,
             "column": 30
           },
@@ -439,7 +441,7 @@
               "attributeValues": {},
               "devDependency": false,
               "location": {
-                "file": "https://bcr.bazel.build/modules/rules_python/0.22.0/MODULE.bazel",
+                "file": "https://bcr.bazel.build/modules/rules_python/0.22.1/MODULE.bazel",
                 "line": 15,
                 "column": 22
               }
@@ -451,9 +453,9 @@
         {
           "extensionBzlFile": "@rules_python//python/extensions:python.bzl",
           "extensionName": "python",
-          "usingModule": "rules_python@0.22.0",
+          "usingModule": "rules_python@0.22.1",
           "location": {
-            "file": "https://bcr.bazel.build/modules/rules_python/0.22.0/MODULE.bazel",
+            "file": "https://bcr.bazel.build/modules/rules_python/0.22.1/MODULE.bazel",
             "line": 50,
             "column": 23
           },
@@ -478,16 +480,16 @@
         "bzlFile": "@bazel_tools//tools/build_defs/repo:http.bzl",
         "ruleClassName": "http_archive",
         "attributes": {
-          "name": "rules_python~0.22.0",
+          "name": "rules_python~0.22.1",
           "urls": [
-            "https://github.com/bazelbuild/rules_python/releases/download/0.22.0/rules_python-0.22.0.tar.gz"
+            "https://github.com/bazelbuild/rules_python/releases/download/0.22.1/rules_python-0.22.1.tar.gz"
           ],
-          "integrity": "sha256-hjug+pRDGffj1pVxFCfZrYC6ksbt0LfHRDuE6QRolTk=",
-          "strip_prefix": "rules_python-0.22.0",
+          "integrity": "sha256-pWQP3dS+sD6MH95e1xYMC6a9R359BIZhwwwGk2om/WM=",
+          "strip_prefix": "rules_python-0.22.1",
           "remote_patches": {
-            "https://bcr.bazel.build/modules/rules_python/0.22.0/patches/module_dot_bazel_version.patch": "sha256-vkTKvRF90qu2osevlH+kcbaag0gQ7KFz9MWoRW14TZ4="
+            "https://bcr.bazel.build/modules/rules_python/0.22.1/patches/module_dot_bazel_version.patch": "sha256-3+VLDH9gYDzNI4eOW7mABC/LKxh1xqF6NhacLbNTucs="
           },
-          "remote_patch_strip": 0
+          "remote_patch_strip": 1
         }
       }
     },
@@ -571,7 +573,7 @@
       ],
       "deps": {
         "bazel_skylib": "bazel_skylib@1.3.0",
-        "rules_python": "rules_python@0.22.0",
+        "rules_python": "rules_python@0.22.1",
         "rules_cc": "rules_cc@0.0.9",
         "rules_proto": "rules_proto@5.3.0-21.7",
         "rules_java": "rules_java@7.3.1",
@@ -726,7 +728,7 @@
       "toolchainsToRegister": [],
       "extensionUsages": [],
       "deps": {
-        "rules_python": "rules_python@0.22.0",
+        "rules_python": "rules_python@0.22.1",
         "bazel_skylib": "bazel_skylib@1.3.0",
         "rules_license": "rules_license@0.0.7",
         "bazel_tools": "bazel_tools@_",
@@ -2738,24 +2740,24 @@
         }
       }
     },
-    "@@rules_python~0.22.0//python/extensions:python.bzl%python": {
+    "@@rules_python~0.22.1//python/extensions:python.bzl%python": {
       "general": {
         "bzlTransitiveDigest": "5984r65oTDrHlsC2EzVYYzZuSysKJJHzbkPtXZaZq9Q=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "pythons_hub": {
-            "bzlFile": "@@rules_python~0.22.0//python/extensions/private:interpreter_hub.bzl",
+            "bzlFile": "@@rules_python~0.22.1//python/extensions/private:interpreter_hub.bzl",
             "ruleClassName": "hub_repo",
             "attributes": {
-              "name": "rules_python~0.22.0~python~pythons_hub",
+              "name": "rules_python~0.22.1~python~pythons_hub",
               "toolchains": []
             }
           }
         }
       }
     },
-    "@@rules_python~0.22.0//python/extensions/private:internal_deps.bzl%internal_deps": {
+    "@@rules_python~0.22.1//python/extensions/private:internal_deps.bzl%internal_deps": {
       "general": {
         "bzlTransitiveDigest": "BnJzAP4gt64l11dxPIXHUAtc4AYnunQFksKopy7uynE=",
         "accumulatedFileDigests": {},
@@ -2765,13 +2767,13 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__coverage_cp39_aarch64-apple-darwin",
+              "name": "rules_python~0.22.1~internal_deps~pypi__coverage_cp39_aarch64-apple-darwin",
               "build_file_content": "\nfilegroup(\n    name = \"coverage\",\n    srcs = [\"coverage/__main__.py\"],\n    data = glob([\"coverage/*.py\", \"coverage/**/*.py\", \"coverage/*.so\"]),\n    visibility = [\"//visibility:public\"],\n)\n    ",
               "patch_args": [
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.0//python/private:coverage.patch"
+                "@@rules_python~0.22.1//python/private:coverage.patch"
               ],
               "sha256": "95203854f974e07af96358c0b261f1048d8e1083f2de9b1c565e1be4a3a48cfc",
               "type": "zip",
@@ -2784,13 +2786,13 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__coverage_cp38_aarch64-unknown-linux-gnu",
+              "name": "rules_python~0.22.1~internal_deps~pypi__coverage_cp38_aarch64-unknown-linux-gnu",
               "build_file_content": "\nfilegroup(\n    name = \"coverage\",\n    srcs = [\"coverage/__main__.py\"],\n    data = glob([\"coverage/*.py\", \"coverage/**/*.py\", \"coverage/*.so\"]),\n    visibility = [\"//visibility:public\"],\n)\n    ",
               "patch_args": [
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.0//python/private:coverage.patch"
+                "@@rules_python~0.22.1//python/private:coverage.patch"
               ],
               "sha256": "6c4459b3de97b75e3bd6b7d4b7f0db13f17f504f3d13e2a7c623786289dd670e",
               "type": "zip",
@@ -2803,7 +2805,7 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__pip_tools",
+              "name": "rules_python~0.22.1~internal_deps~pypi__pip_tools",
               "url": "https://files.pythonhosted.org/packages/5e/e8/f6d7d1847c7351048da870417724ace5c4506e816b38db02f4d7c675c189/pip_tools-6.12.1-py3-none-any.whl",
               "sha256": "f0c0c0ec57b58250afce458e2e6058b1f30a4263db895b7d72fd6311bf1dc6f7",
               "type": "zip",
@@ -2814,13 +2816,13 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__coverage_cp310_x86_64-unknown-linux-gnu",
+              "name": "rules_python~0.22.1~internal_deps~pypi__coverage_cp310_x86_64-unknown-linux-gnu",
               "build_file_content": "\nfilegroup(\n    name = \"coverage\",\n    srcs = [\"coverage/__main__.py\"],\n    data = glob([\"coverage/*.py\", \"coverage/**/*.py\", \"coverage/*.so\"]),\n    visibility = [\"//visibility:public\"],\n)\n    ",
               "patch_args": [
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.0//python/private:coverage.patch"
+                "@@rules_python~0.22.1//python/private:coverage.patch"
               ],
               "sha256": "af4fffaffc4067232253715065e30c5a7ec6faac36f8fc8d6f64263b15f74db0",
               "type": "zip",
@@ -2833,13 +2835,13 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__coverage_cp311_x86_64-apple-darwin",
+              "name": "rules_python~0.22.1~internal_deps~pypi__coverage_cp311_x86_64-apple-darwin",
               "build_file_content": "\nfilegroup(\n    name = \"coverage\",\n    srcs = [\"coverage/__main__.py\"],\n    data = glob([\"coverage/*.py\", \"coverage/**/*.py\", \"coverage/*.so\"]),\n    visibility = [\"//visibility:public\"],\n)\n    ",
               "patch_args": [
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.0//python/private:coverage.patch"
+                "@@rules_python~0.22.1//python/private:coverage.patch"
               ],
               "sha256": "4a5375e28c5191ac38cca59b38edd33ef4cc914732c916f2929029b4bfb50795",
               "type": "zip",
@@ -2852,13 +2854,13 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__coverage_cp310_aarch64-unknown-linux-gnu",
+              "name": "rules_python~0.22.1~internal_deps~pypi__coverage_cp310_aarch64-unknown-linux-gnu",
               "build_file_content": "\nfilegroup(\n    name = \"coverage\",\n    srcs = [\"coverage/__main__.py\"],\n    data = glob([\"coverage/*.py\", \"coverage/**/*.py\", \"coverage/*.so\"]),\n    visibility = [\"//visibility:public\"],\n)\n    ",
               "patch_args": [
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.0//python/private:coverage.patch"
+                "@@rules_python~0.22.1//python/private:coverage.patch"
               ],
               "sha256": "b4a5be1748d538a710f87542f22c2cad22f80545a847ad91ce45e77417293eb4",
               "type": "zip",
@@ -2871,13 +2873,13 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__coverage_cp39_aarch64-unknown-linux-gnu",
+              "name": "rules_python~0.22.1~internal_deps~pypi__coverage_cp39_aarch64-unknown-linux-gnu",
               "build_file_content": "\nfilegroup(\n    name = \"coverage\",\n    srcs = [\"coverage/__main__.py\"],\n    data = glob([\"coverage/*.py\", \"coverage/**/*.py\", \"coverage/*.so\"]),\n    visibility = [\"//visibility:public\"],\n)\n    ",
               "patch_args": [
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.0//python/private:coverage.patch"
+                "@@rules_python~0.22.1//python/private:coverage.patch"
               ],
               "sha256": "b9023e237f4c02ff739581ef35969c3739445fb059b060ca51771e69101efffe",
               "type": "zip",
@@ -2890,13 +2892,13 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__coverage_cp310_aarch64-apple-darwin",
+              "name": "rules_python~0.22.1~internal_deps~pypi__coverage_cp310_aarch64-apple-darwin",
               "build_file_content": "\nfilegroup(\n    name = \"coverage\",\n    srcs = [\"coverage/__main__.py\"],\n    data = glob([\"coverage/*.py\", \"coverage/**/*.py\", \"coverage/*.so\"]),\n    visibility = [\"//visibility:public\"],\n)\n    ",
               "patch_args": [
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.0//python/private:coverage.patch"
+                "@@rules_python~0.22.1//python/private:coverage.patch"
               ],
               "sha256": "784f53ebc9f3fd0e2a3f6a78b2be1bd1f5575d7863e10c6e12504f240fd06660",
               "type": "zip",
@@ -2909,7 +2911,7 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__pip",
+              "name": "rules_python~0.22.1~internal_deps~pypi__pip",
               "url": "https://files.pythonhosted.org/packages/09/bd/2410905c76ee14c62baf69e3f4aa780226c1bbfc9485731ad018e35b0cb5/pip-22.3.1-py3-none-any.whl",
               "sha256": "908c78e6bc29b676ede1c4d57981d490cb892eb45cd8c214ab6298125119e077",
               "type": "zip",
@@ -2920,13 +2922,13 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__coverage_cp38_x86_64-apple-darwin",
+              "name": "rules_python~0.22.1~internal_deps~pypi__coverage_cp38_x86_64-apple-darwin",
               "build_file_content": "\nfilegroup(\n    name = \"coverage\",\n    srcs = [\"coverage/__main__.py\"],\n    data = glob([\"coverage/*.py\", \"coverage/**/*.py\", \"coverage/*.so\"]),\n    visibility = [\"//visibility:public\"],\n)\n    ",
               "patch_args": [
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.0//python/private:coverage.patch"
+                "@@rules_python~0.22.1//python/private:coverage.patch"
               ],
               "sha256": "d900bb429fdfd7f511f868cedd03a6bbb142f3f9118c09b99ef8dc9bf9643c3c",
               "type": "zip",
@@ -2939,13 +2941,13 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__coverage_cp311_x86_64-unknown-linux-gnu",
+              "name": "rules_python~0.22.1~internal_deps~pypi__coverage_cp311_x86_64-unknown-linux-gnu",
               "build_file_content": "\nfilegroup(\n    name = \"coverage\",\n    srcs = [\"coverage/__main__.py\"],\n    data = glob([\"coverage/*.py\", \"coverage/**/*.py\", \"coverage/*.so\"]),\n    visibility = [\"//visibility:public\"],\n)\n    ",
               "patch_args": [
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.0//python/private:coverage.patch"
+                "@@rules_python~0.22.1//python/private:coverage.patch"
               ],
               "sha256": "a8fb6cf131ac4070c9c5a3e21de0f7dc5a0fbe8bc77c9456ced896c12fcdad91",
               "type": "zip",
@@ -2958,7 +2960,7 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__tomli",
+              "name": "rules_python~0.22.1~internal_deps~pypi__tomli",
               "url": "https://files.pythonhosted.org/packages/97/75/10a9ebee3fd790d20926a90a2547f0bf78f371b2f13aa822c759680ca7b9/tomli-2.0.1-py3-none-any.whl",
               "sha256": "939de3e7a6161af0c887ef91b7d41a53e7c5a1ca976325f429cb46ea9bc30ecc",
               "type": "zip",
@@ -2969,13 +2971,13 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__coverage_cp39_x86_64-apple-darwin",
+              "name": "rules_python~0.22.1~internal_deps~pypi__coverage_cp39_x86_64-apple-darwin",
               "build_file_content": "\nfilegroup(\n    name = \"coverage\",\n    srcs = [\"coverage/__main__.py\"],\n    data = glob([\"coverage/*.py\", \"coverage/**/*.py\", \"coverage/*.so\"]),\n    visibility = [\"//visibility:public\"],\n)\n    ",
               "patch_args": [
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.0//python/private:coverage.patch"
+                "@@rules_python~0.22.1//python/private:coverage.patch"
               ],
               "sha256": "633713d70ad6bfc49b34ead4060531658dc6dfc9b3eb7d8a716d5873377ab745",
               "type": "zip",
@@ -2988,7 +2990,7 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__wheel",
+              "name": "rules_python~0.22.1~internal_deps~pypi__wheel",
               "url": "https://files.pythonhosted.org/packages/bd/7c/d38a0b30ce22fc26ed7dbc087c6d00851fb3395e9d0dac40bec1f905030c/wheel-0.38.4-py3-none-any.whl",
               "sha256": "b60533f3f5d530e971d6737ca6d58681ee434818fab630c83a734bb10c083ce8",
               "type": "zip",
@@ -2999,13 +3001,13 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__coverage_cp311_aarch64-unknown-linux-gnu",
+              "name": "rules_python~0.22.1~internal_deps~pypi__coverage_cp311_aarch64-unknown-linux-gnu",
               "build_file_content": "\nfilegroup(\n    name = \"coverage\",\n    srcs = [\"coverage/__main__.py\"],\n    data = glob([\"coverage/*.py\", \"coverage/**/*.py\", \"coverage/*.so\"]),\n    visibility = [\"//visibility:public\"],\n)\n    ",
               "patch_args": [
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.0//python/private:coverage.patch"
+                "@@rules_python~0.22.1//python/private:coverage.patch"
               ],
               "sha256": "c4ed2820d919351f4167e52425e096af41bfabacb1857186c1ea32ff9983ed75",
               "type": "zip",
@@ -3018,7 +3020,7 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__click",
+              "name": "rules_python~0.22.1~internal_deps~pypi__click",
               "url": "https://files.pythonhosted.org/packages/76/0a/b6c5f311e32aeb3b406e03c079ade51e905ea630fc19d1262a46249c1c86/click-8.0.1-py3-none-any.whl",
               "sha256": "fba402a4a47334742d782209a7c79bc448911afe1149d07bdabdf480b3e2f4b6",
               "type": "zip",
@@ -3029,13 +3031,13 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__coverage_cp39_x86_64-unknown-linux-gnu",
+              "name": "rules_python~0.22.1~internal_deps~pypi__coverage_cp39_x86_64-unknown-linux-gnu",
               "build_file_content": "\nfilegroup(\n    name = \"coverage\",\n    srcs = [\"coverage/__main__.py\"],\n    data = glob([\"coverage/*.py\", \"coverage/**/*.py\", \"coverage/*.so\"]),\n    visibility = [\"//visibility:public\"],\n)\n    ",
               "patch_args": [
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.0//python/private:coverage.patch"
+                "@@rules_python~0.22.1//python/private:coverage.patch"
               ],
               "sha256": "8f830ed581b45b82451a40faabb89c84e1a998124ee4212d440e9c6cf70083e5",
               "type": "zip",
@@ -3048,7 +3050,7 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__importlib_metadata",
+              "name": "rules_python~0.22.1~internal_deps~pypi__importlib_metadata",
               "url": "https://files.pythonhosted.org/packages/d7/31/74dcb59a601b95fce3b0334e8fc9db758f78e43075f22aeb3677dfb19f4c/importlib_metadata-1.4.0-py2.py3-none-any.whl",
               "sha256": "bdd9b7c397c273bcc9a11d6629a38487cd07154fa255a467bf704cd2c258e359",
               "type": "zip",
@@ -3059,7 +3061,7 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__pep517",
+              "name": "rules_python~0.22.1~internal_deps~pypi__pep517",
               "url": "https://files.pythonhosted.org/packages/ee/2f/ef63e64e9429111e73d3d6cbee80591672d16f2725e648ebc52096f3d323/pep517-0.13.0-py3-none-any.whl",
               "sha256": "4ba4446d80aed5b5eac6509ade100bff3e7943a8489de249654a5ae9b33ee35b",
               "type": "zip",
@@ -3070,13 +3072,13 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__coverage_cp38_x86_64-unknown-linux-gnu",
+              "name": "rules_python~0.22.1~internal_deps~pypi__coverage_cp38_x86_64-unknown-linux-gnu",
               "build_file_content": "\nfilegroup(\n    name = \"coverage\",\n    srcs = [\"coverage/__main__.py\"],\n    data = glob([\"coverage/*.py\", \"coverage/**/*.py\", \"coverage/*.so\"]),\n    visibility = [\"//visibility:public\"],\n)\n    ",
               "patch_args": [
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.0//python/private:coverage.patch"
+                "@@rules_python~0.22.1//python/private:coverage.patch"
               ],
               "sha256": "6b07130585d54fe8dff3d97b93b0e20290de974dc8177c320aeaf23459219c0b",
               "type": "zip",
@@ -3089,13 +3091,13 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__coverage_cp38_aarch64-apple-darwin",
+              "name": "rules_python~0.22.1~internal_deps~pypi__coverage_cp38_aarch64-apple-darwin",
               "build_file_content": "\nfilegroup(\n    name = \"coverage\",\n    srcs = [\"coverage/__main__.py\"],\n    data = glob([\"coverage/*.py\", \"coverage/**/*.py\", \"coverage/*.so\"]),\n    visibility = [\"//visibility:public\"],\n)\n    ",
               "patch_args": [
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.0//python/private:coverage.patch"
+                "@@rules_python~0.22.1//python/private:coverage.patch"
               ],
               "sha256": "2198ea6fc548de52adc826f62cb18554caedfb1d26548c1b7c88d8f7faa8f6ba",
               "type": "zip",
@@ -3108,7 +3110,7 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__packaging",
+              "name": "rules_python~0.22.1~internal_deps~pypi__packaging",
               "url": "https://files.pythonhosted.org/packages/8f/7b/42582927d281d7cb035609cd3a543ffac89b74f3f4ee8e1c50914bcb57eb/packaging-22.0-py3-none-any.whl",
               "sha256": "957e2148ba0e1a3b282772e791ef1d8083648bc131c8ab0c1feba110ce1146c3",
               "type": "zip",
@@ -3119,7 +3121,7 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__setuptools",
+              "name": "rules_python~0.22.1~internal_deps~pypi__setuptools",
               "url": "https://files.pythonhosted.org/packages/7c/5b/3d92b9f0f7ca1645cba48c080b54fe7d8b1033a4e5720091d1631c4266db/setuptools-60.10.0-py3-none-any.whl",
               "sha256": "782ef48d58982ddb49920c11a0c5c9c0b02e7d7d1c2ad0aa44e1a1e133051c96",
               "type": "zip",
@@ -3130,7 +3132,7 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__zipp",
+              "name": "rules_python~0.22.1~internal_deps~pypi__zipp",
               "url": "https://files.pythonhosted.org/packages/f4/50/cc72c5bcd48f6e98219fc4a88a5227e9e28b81637a99c49feba1d51f4d50/zipp-1.0.0-py2.py3-none-any.whl",
               "sha256": "8dda78f06bd1674bd8720df8a50bb47b6e1233c503a4eed8e7810686bde37656",
               "type": "zip",
@@ -3141,7 +3143,7 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__colorama",
+              "name": "rules_python~0.22.1~internal_deps~pypi__colorama",
               "url": "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl",
               "sha256": "4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6",
               "type": "zip",
@@ -3152,7 +3154,7 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__build",
+              "name": "rules_python~0.22.1~internal_deps~pypi__build",
               "url": "https://files.pythonhosted.org/packages/03/97/f58c723ff036a8d8b4d3115377c0a37ed05c1f68dd9a0d66dab5e82c5c1c/build-0.9.0-py3-none-any.whl",
               "sha256": "38a7a2b7a0bdc61a42a0a67509d88c71ecfc37b393baba770fae34e20929ff69",
               "type": "zip",
@@ -3163,13 +3165,13 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__coverage_cp310_x86_64-apple-darwin",
+              "name": "rules_python~0.22.1~internal_deps~pypi__coverage_cp310_x86_64-apple-darwin",
               "build_file_content": "\nfilegroup(\n    name = \"coverage\",\n    srcs = [\"coverage/__main__.py\"],\n    data = glob([\"coverage/*.py\", \"coverage/**/*.py\", \"coverage/*.so\"]),\n    visibility = [\"//visibility:public\"],\n)\n    ",
               "patch_args": [
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~0.22.0//python/private:coverage.patch"
+                "@@rules_python~0.22.1//python/private:coverage.patch"
               ],
               "sha256": "ef8674b0ee8cc11e2d574e3e2998aea5df5ab242e012286824ea3c6970580e53",
               "type": "zip",
@@ -3182,7 +3184,7 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__installer",
+              "name": "rules_python~0.22.1~internal_deps~pypi__installer",
               "url": "https://files.pythonhosted.org/packages/e5/ca/1172b6638d52f2d6caa2dd262ec4c811ba59eee96d54a7701930726bce18/installer-0.7.0-py3-none-any.whl",
               "sha256": "05d1933f0a5ba7d8d6296bb6d5018e7c94fa473ceb10cf198a92ccea19c27b53",
               "type": "zip",
@@ -3193,7 +3195,7 @@
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "rules_python~0.22.0~internal_deps~pypi__more_itertools",
+              "name": "rules_python~0.22.1~internal_deps~pypi__more_itertools",
               "url": "https://files.pythonhosted.org/packages/bd/3f/c4b3dbd315e248f84c388bd4a72b131a29f123ecacc37ffb2b3834546e42/more_itertools-8.13.0-py3-none-any.whl",
               "sha256": "c5122bffc5f104d37c1626b8615b511f3427aa5389b94d61e5ef8236bfbc3ddb",
               "type": "zip",
