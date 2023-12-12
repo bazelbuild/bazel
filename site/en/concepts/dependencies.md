@@ -16,7 +16,7 @@ of any length.
 
 For builds, there are two dependency graphs, the graph
 of _actual dependencies_ and the graph of _declared dependencies_. The two
-graphs are mostly similar. The difference is discussion below.
+graphs are almost similar, with the differences discussed below.
 
 ## Actual and declared dependencies {:#actual-and-declared-dependencies}
 
