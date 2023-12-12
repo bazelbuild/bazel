@@ -173,6 +173,21 @@ Bazel supports the following non-registry overrides:
 *   [`git_override`](/rules/lib/globals/module#git_override)
 *   [`local_path_override`](/rules/lib/globals/module#local_path_override)
 
+## Define repos that don't represent Bazel modules {:#use_repo_rule}
+
+With `bazel_dep`, you can define repos that represent other Bazel modules.
+Sometimes there is a need to define a repo that does _not_ represent a Bazel
+module; for example, one that contains a plain JSON file to be read as data.
+
+In this case, you could use the [`use_repo_rule`
+directive](/rules/lib/globals/module#use_repo_rule) to directly define a repo
+by invoking a repo rule. This repo will only be visible to the module it's
+defined in.
+
+Under the hood, this is implemented using the same mechanism as [module
+extensions](/external/extension), which lets you define repos with more
+flexibility.
+
 ## Repository names and strict deps
 
 The [canonical name](/external/overview#canonical-repo-name) of a repo backing a

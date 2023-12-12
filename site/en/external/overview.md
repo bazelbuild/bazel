@@ -25,8 +25,14 @@ in Bazel, before going into a bit more detail about the two systems in order.
 
 ### Repository {:#repository}
 
-A directory with a `WORKSPACE` or `WORKSPACE.bazel` file, containing source
-files to be used in a Bazel build. Often shortened to just **repo**.
+A directory tree with a boundary marker file at its root, containing source
+files that can be used in a Bazel build. Often shortened to just **repo**.
+
+A repo boundary marker file can be `MODULE.bazel` (signaling that this repo
+represents a Bazel module), `REPO.bazel` (see [below](#repo.bazel)), or in
+legacy contexts, `WORKSPACE` or `WORKSPACE.bazel`. Any repo boundary marker file
+will signify the boundary of a repo; multiple such files can coexist in a
+directory.
 
 ### Main repository {:#main-repository}
 
@@ -98,6 +104,29 @@ canonical name `canonical_name`:
 
 ```posix-terminal
 ls $(bazel info output_base)/external/{{ '<var>' }} canonical_name {{ '</var>' }}
+```
+
+### REPO.bazel file {:#repo.bazel}
+
+The `REPO.bazel` file is used to mark the topmost boundary of the directory tree
+that constitutes a repo. It doesn't need to contain anything to serve as a repo
+boundary file; however, it can also be used to specify some common attributes
+for all build targets inside the repo.
+
+The syntax of a `REPO.bazel` file is similar to `BUILD` files, except that no
+`load` statements are supported, and only a single function, `repo()`, is
+available. `repo()` takes the same arguments as the [`package()`
+function](/reference/be/functions#package) in `BUILD` files; whereas `package()`
+specifies common attributes for all build targets inside the package, `repo()`
+analogously does so for all build targets inside the repo.
+
+For example, you can specify a common license for all targets in your repo by
+having the following `REPO.bazel` file:
+
+```python
+repo(
+    default_package_metadata = ["//:my_license"],
+)
 ```
 
 ## Manage external dependencies with Bzlmod {:#bzlmod}

@@ -39,6 +39,10 @@ package(default_deprecation, default_package_metadata, default_testonly, default
 <p>This function declares metadata that applies to every rule in the
 package. It is used at most once within a package (BUILD file).</p>
 
+<p>For the counterpart that declares metadata applying to every rule in the whole
+<em>repository</em>, use the <code>repo()</code> function in the
+<a href="/external/overview#repo.bazel"><code>REPO.bazel</code> file</a> at the root of your repo.
+The <code>repo()</code> function takes exactly the same arguments as <code>package()</code>.</p>
 <p>The package() function should be called right after all the load() statements at the top of the
 file, before any rule.</p>
 
