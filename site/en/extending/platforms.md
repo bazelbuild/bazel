@@ -117,7 +117,7 @@ command-line flags:
 *  `--host_platform` - defaults to `@local_config_platform//:host`
    *  `@local_config_platform` is a repository rule that detects the host OS and
       CPU and writes the platform target.
-   *  It also creates `@local_config_platform//:constraintz.bzl`, which exposes
+   *  It also creates `@local_config_platform//:constraints.bzl`, which exposes
       an array called `HOST_CONSTRAINTS`, which can be used in other BUILD and
       Starlark files.
 *  `--platforms` - defaults to the host platform
