@@ -89,12 +89,13 @@ public final class InMemoryMemoizingEvaluator
     // NOTE: Performance critical code. See bug "Null build performance parity".
     Version graphVersion = getNextGraphVersion();
     setAndCheckEvaluateState(true, roots);
-    try {
-      // Mark for removal inflight and rewound nodes from the previous evaluation. When the
-      // invalidator runs, it will delete the reverse transitive closure.
-      valuesToDelete.addAll(progressReceiver.getAndClearInflightKeys());
-      valuesToDelete.addAll(progressReceiver.getAndClearRewindingKeys());
 
+    // Mark for removal any nodes from the previous evaluation that were still inflight or were
+    // rewound but did not complete successfully. When the invalidator runs, it will delete the
+    // reverse transitive closure.
+    valuesToDelete.addAll(progressReceiver.getAndClearInflightKeys());
+    valuesToDelete.addAll(progressReceiver.getAndClearUnsuccessfullyRewoundKeys());
+    try {
       // The RecordingDifferencer implementation is not quite working as it should be at this point.
       // It clears the internal data structures after getDiff is called and will not return
       // diffs for historical versions. This makes the following code sensitive to interrupts.
