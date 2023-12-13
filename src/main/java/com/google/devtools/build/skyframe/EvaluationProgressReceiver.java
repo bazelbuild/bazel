@@ -15,7 +15,6 @@ package com.google.devtools.build.skyframe;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** Receiver for various stages of the lifetime of a skyframe node evaluation. */
@@ -25,31 +24,51 @@ public interface EvaluationProgressReceiver {
   /** A no-op {@link EvaluationProgressReceiver}. */
   EvaluationProgressReceiver NULL = new EvaluationProgressReceiver() {};
 
-  /** New state of the value entry after evaluation. */
+  /** The state of a node after it was evaluated. */
   enum EvaluationState {
-    /** The value was successfully re-evaluated. */
-    BUILT,
-    /** The value is clean or re-validated. */
-    CLEAN,
-  }
+    SUCCESS_CHANGED(true, true),
+    SUCCESS_UNCHANGED(true, false),
+    FAIL_CHANGED(false, true),
+    FAIL_UNCHANGED(false, true);
 
-  /** Whether or not evaluation of this node succeeded. */
-  enum EvaluationSuccessState {
-    SUCCESS(true),
-    FAILURE(false);
-
-    EvaluationSuccessState(boolean succeeded) {
-      this.succeeded = succeeded;
+    static EvaluationState get(@Nullable SkyValue valueMaybeWithMetadata, boolean changed) {
+      boolean success = ValueWithMetadata.justValue(valueMaybeWithMetadata) != null;
+      if (changed) {
+        return success ? SUCCESS_CHANGED : FAIL_CHANGED;
+      } else {
+        return success ? SUCCESS_UNCHANGED : FAIL_UNCHANGED;
+      }
     }
 
     private final boolean succeeded;
+    private final boolean changed;
 
+    EvaluationState(boolean succeeded, boolean changed) {
+      this.succeeded = succeeded;
+      this.changed = changed;
+    }
+
+    /**
+     * Whether the node has a value.
+     *
+     * <p>If {@code false}, the node has only an error and no value.
+     */
     public boolean succeeded() {
       return succeeded;
     }
 
-    public Supplier<EvaluationSuccessState> supplier() {
-      return () -> this;
+    /**
+     * Whether the node's {@link NodeEntry#getVersion} changed as a result of this evaluation.
+     *
+     * <p>If {@code true}, the node was built during the current evaluation and its {@link
+     * NodeEntry#getVersion} changed. Parents need to be rebuilt.
+     *
+     * <p>If {@code false}, the node's {@link NodeEntry#getVersion} did not change, either because
+     * it was deemed up-to-date and not built or was built and evaluated to the same value as its
+     * prior evaluation. Parents do not necessarily need to be rebuilt.
+     */
+    public boolean changed() {
+      return changed;
     }
   }
 
@@ -105,27 +124,19 @@ public interface EvaluationProgressReceiver {
   default void stateEnding(SkyKey skyKey, NodeState nodeState) {}
 
   /**
-   * Notifies that the node for {@code skyKey} has been evaluated, or found to not need
-   * re-evaluation.
+   * Notifies that the node for {@code skyKey} has been evaluated.
    *
-   * @param newValue The new value. Only available if just evaluated, i.e. on success *and* {@code
-   *     state == EvaluationState.BUILT}
-   * @param newError The new error. Only available if just evaluated, i.e. on error *and* {@code
-   *     state == EvaluationState.BUILT}
-   * @param evaluationSuccessState whether the node has a value or only an error, behind a {@link
-   *     Supplier} for lazy retrieval. Available regardless of whether the node was just evaluated
-   * @param state {@code EvaluationState.BUILT} if the node needed to be evaluated and has a new
-   *     value or error (i.e., {@code EvaluationState.BUILT} if and only if at least one of newValue
-   *     and newError is non-null)
-   * @param directDeps Direct dependencies of {@code skyKey}. This is not-{@code null} when node was
-   *     just built, so direct deps are available; {@code null} when node was dirty but marked clean
-   *     or was already up-to-date from a prior evaluation.
+   * @param state the current state of the node for {@code skyKey}
+   * @param newValue the node's value if {@link EvaluationState#changed()} and {@link
+   *     EvaluationState#succeeded()}, otherwise {@code null}
+   * @param newError the node's error if it has one and {@link EvaluationState#changed()}
+   * @param directDeps direct dependencies of {@code skyKey} if the node was just built, otherwise
+   *     {@code null}
    */
   default void evaluated(
       SkyKey skyKey,
+      EvaluationState state,
       @Nullable SkyValue newValue,
       @Nullable ErrorInfo newError,
-      Supplier<EvaluationSuccessState> evaluationSuccessState,
-      EvaluationState state,
       @Nullable GroupedDeps directDeps) {}
 }

@@ -2898,10 +2898,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     @Override
     public void evaluated(
         SkyKey skyKey,
+        EvaluationState state,
         @Nullable SkyValue newValue,
         @Nullable ErrorInfo newError,
-        Supplier<EvaluationSuccessState> evaluationSuccessState,
-        EvaluationState state,
         @Nullable GroupedDeps directDeps) {
       if (heuristicallyDropNodes) {
         Object argument = skyKey.argument();
@@ -2936,7 +2935,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         }
       }
 
-      if (EvaluationState.BUILT.equals(state)) {
+      if (state.changed()) {
         skyKeyStateReceiver.evaluated(skyKey);
       }
       if (ignoreInvalidations) {
@@ -2944,10 +2943,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       }
       skyframeBuildView
           .getProgressReceiver()
-          .evaluated(skyKey, newValue, newError, evaluationSuccessState, state, directDeps);
+          .evaluated(skyKey, state, newValue, newError, directDeps);
       if (executionProgressReceiver != null) {
-        executionProgressReceiver.evaluated(
-            skyKey, newValue, newError, evaluationSuccessState, state, directDeps);
+        executionProgressReceiver.evaluated(skyKey, state, newValue, newError, directDeps);
       }
 
       // After a PACKAGE node is evaluated, all targets and the labels associated with this package
@@ -3657,7 +3655,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     /** Called when {@code key}'s associated {@link SkyFunction#compute} has finished. */
     default void computationEnded(SkyKey key) {}
 
-    /** Called when {@code key} has been evaluated and has a value. */
+    /** Called when {@code key} has been evaluated and has a new value. */
     default void evaluated(SkyKey key) {}
 
     default ThreadStateReceiver makeThreadStateReceiver(SkyKey key) {
