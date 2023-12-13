@@ -220,7 +220,10 @@ class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
       NestedSet<Artifact> files = PrerequisiteArtifacts.nestedSet(prerequisites, a.getName());
       filesBuilder.put(
           skyname,
-          files.isEmpty() ? StarlarkList.empty() : StarlarkList.lazyImmutable(files::toList));
+          files.isEmpty()
+              ? StarlarkList.empty()
+              : StarlarkList.lazyImmutable(
+                  (StarlarkList.SerializableListSupplier<Artifact>) files::toList));
 
       if (type == BuildType.LABEL && !a.getTransitionFactory().isSplit()) {
         Object prereq = prerequisites.getPrerequisite(a.getName());
