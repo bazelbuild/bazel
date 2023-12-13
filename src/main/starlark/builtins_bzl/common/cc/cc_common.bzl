@@ -37,6 +37,7 @@ _PRIVATE_STARLARKIFICATION_ALLOWLIST = [
     ("rules_android", ""),
     ("", "rust/private"),
     ("rules_rust", "rust/private"),
+    ("", "third_party/gpus/cuda"),
 ]
 
 _BUILTINS = [("_builtins", "")]

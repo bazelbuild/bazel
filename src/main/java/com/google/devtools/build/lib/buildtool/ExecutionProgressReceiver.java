@@ -43,7 +43,6 @@ import java.text.NumberFormat;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -107,10 +106,9 @@ public final class ExecutionProgressReceiver
   @Override
   public void evaluated(
       SkyKey skyKey,
+      EvaluationState state,
       @Nullable SkyValue newValue,
       @Nullable ErrorInfo newError,
-      Supplier<EvaluationSuccessState> evaluationSuccessState,
-      EvaluationState state,
       @Nullable GroupedDeps directDeps) {
     SkyFunctionName type = skyKey.functionName();
     if (type.equals(SkyFunctions.ACTION_EXECUTION)) {
@@ -120,7 +118,7 @@ public final class ExecutionProgressReceiver
       return;
     }
 
-    if (!evaluationSuccessState.get().succeeded()) {
+    if (!state.succeeded()) {
       return;
     }
 
@@ -169,12 +167,13 @@ public final class ExecutionProgressReceiver
    * <p>This method adds the action lookup data to {@link #completedActions} and notifies the {@link
    * #activityIndicator}.
    *
-   * <p>We could do this only in the {@link #evaluated} method too, but as it happens the action
-   * executor tells the reporter about the completed action before the node is inserted into the
-   * graph, so the reporter would find out about the completed action sooner than we could have
-   * updated {@link #completedActions}, which would result in incorrect numbers on the progress
-   * messages. However we have to store completed actions in {@link #evaluated} too, because that's
-   * the only place we get notified about completed cached actions.
+   * <p>We could do this only in the {@link EvaluationProgressReceiver#evaluated} method too, but as
+   * it happens the action executor tells the reporter about the completed action before the node is
+   * inserted into the graph, so the reporter would find out about the completed action sooner than
+   * we could have updated {@link #completedActions}, which would result in incorrect numbers on the
+   * progress messages. However we have to store completed actions in {@link
+   * EvaluationProgressReceiver#evaluated} too, because that's the only place we get notified about
+   * completed cached actions.
    */
   @Override
   public void actionCompleted(ActionLookupData actionLookupData) {

@@ -19,7 +19,6 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Set;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -82,13 +81,11 @@ public class InflightOnlyTrackingProgressReceiver implements InflightTrackingPro
   @Override
   public final void evaluated(
       SkyKey skyKey,
+      EvaluationState state,
       @Nullable SkyValue newValue,
       @Nullable ErrorInfo newError,
-      Supplier<EvaluationSuccessState> evaluationSuccessState,
-      EvaluationState state,
       @Nullable GroupedDeps directDeps) {
-    progressReceiver.evaluated(
-        skyKey, newValue, newError, evaluationSuccessState, state, directDeps);
+    progressReceiver.evaluated(skyKey, state, newValue, newError, directDeps);
 
     // This key was either built or marked clean, so we can remove it from both the dirty and
     // inflight nodes.

@@ -937,23 +937,19 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
         primaryEntry.setValue(
             valueWithMetadata, evaluatorContext.getGraphVersion(), maxTransitiveSourceVersion);
     Version currentVersion = primaryEntry.getVersion();
+    boolean changed = !currentVersion.equals(previousVersion);
 
     // Tell the receiver that this value was built. If currentVersion.equals(evaluationVersion), it
     // was evaluated this run, and so was changed. Otherwise, it is less than evaluationVersion, by
     // the Preconditions check above, and was not actually changed this run -- when it was written
     // above, its version stayed below this update's version, so its value remains the same.
-    // We use a SkyValueSupplier here because it keeps a reference to the entry, allowing for
-    // the receiver to be confident that the entry is readily accessible in memory.
-    EvaluationState evaluationState =
-        currentVersion.equals(previousVersion) ? EvaluationState.CLEAN : EvaluationState.BUILT;
     evaluatorContext
         .getProgressReceiver()
         .evaluated(
             skyKey,
-            evaluationState == EvaluationState.BUILT ? value : null,
-            evaluationState == EvaluationState.BUILT ? errorInfo : null,
-            EvaluationSuccessStateSupplier.fromSkyValue(valueWithMetadata),
-            evaluationState,
+            EvaluationState.get(value, changed),
+            /* newValue= */ changed ? value : null,
+            /* newError= */ changed ? errorInfo : null,
             temporaryDirectDeps);
 
     return reverseDeps;

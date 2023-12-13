@@ -2583,4 +2583,26 @@ EOF
   assert_contains '"Accept": "application/text"' "$headers"
 }
 
+function test_repo_boundary_files() {
+  create_new_workspace
+  cat > MODULE.bazel <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  rctx.file("BUILD", "filegroup(name='r', srcs=glob(['*']))")
+r = repository_rule(_r)
+EOF
+
+  bazel query --noenable_workspace --output=build @r > output || fail "expected bazel to succeed"
+  assert_contains 'REPO.bazel' output
+  assert_not_contains 'WORKSPACE' output
+
+  bazel query --enable_workspace --output=build @r > output || fail "expected bazel to succeed"
+  assert_contains 'REPO.bazel' output
+  assert_contains 'WORKSPACE' output
+}
+
 run_suite "local repository tests"

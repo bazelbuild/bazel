@@ -27,7 +27,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -133,7 +132,7 @@ public final class StarlarkListTest {
   @Test
   public void lazyImmutable() {
     AtomicBoolean called = new AtomicBoolean(false);
-    Supplier<ImmutableList<Object>> supplier =
+    StarlarkList.SerializableListSupplier<Object> supplier =
         () -> {
           assertThat(called.getAndSet(true)).isFalse();
           return ImmutableList.of("a", "b", "c");

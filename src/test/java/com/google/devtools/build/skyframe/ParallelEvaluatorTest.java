@@ -86,7 +86,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Assume;
@@ -499,10 +498,9 @@ public class ParallelEvaluatorTest {
               @Override
               public void evaluated(
                   SkyKey skyKey,
+                  EvaluationState state,
                   @Nullable SkyValue newValue,
                   @Nullable ErrorInfo newError,
-                  Supplier<EvaluationSuccessState> evaluationSuccessState,
-                  EvaluationState state,
                   @Nullable GroupedDeps directDeps) {
                 receivedValues.add(skyKey);
               }
@@ -2557,10 +2555,9 @@ public class ParallelEvaluatorTest {
           @Override
           public void evaluated(
               SkyKey skyKey,
+              EvaluationState state,
               @Nullable SkyValue newValue,
               @Nullable ErrorInfo newError,
-              Supplier<EvaluationSuccessState> evaluationSuccessState,
-              EvaluationState state,
               @Nullable GroupedDeps directDeps) {
             evaluatedValues.add(skyKey);
           }

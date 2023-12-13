@@ -376,7 +376,8 @@ public class JavaStarlarkCommon
     ImmutableList<String> interned =
         JavaCompilationHelper.internJavacOpts(
             Sequence.cast(javacOpts, String.class, "javac_opts").getImmutableList());
-    return StarlarkList.lazyImmutable(() -> interned);
+    return StarlarkList.lazyImmutable(
+        (StarlarkList.SerializableListSupplier<String>) () -> interned);
   }
 
   @Override

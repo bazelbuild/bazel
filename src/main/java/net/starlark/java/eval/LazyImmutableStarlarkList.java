@@ -15,15 +15,13 @@
 package net.starlark.java.eval;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import java.util.function.Supplier;
 
 /** An immutable {@link StarlarkList} that lazily invokes a supplier to obtain its elements. */
-final class LazyImmutableStarlarkList<E> extends ImmutableStarlarkList<E> {
-  private Supplier<ImmutableList<E>> supplier;
+public final class LazyImmutableStarlarkList<E> extends ImmutableStarlarkList<E> {
+  private SerializableListSupplier<E> supplier;
   private volatile Object[] elems;
 
-  LazyImmutableStarlarkList(Supplier<ImmutableList<E>> supplier) {
+  LazyImmutableStarlarkList(SerializableListSupplier<E> supplier) {
     this.supplier = supplier;
   }
 

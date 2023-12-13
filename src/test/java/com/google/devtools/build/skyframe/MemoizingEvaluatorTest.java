@@ -2964,6 +2964,75 @@ public abstract class MemoizingEvaluatorTest {
     assertThatEvaluationResult(result).hasReverseDepsInGraphThat(dep).isEmpty();
   }
 
+  /**
+   * Tests that when a node is rewound and evaluates to an error, its reverse transitive closure is
+   * deleted from the graph, including parents that were done before rewinding took place.
+   */
+  @Test
+  public void depWithDoneParentEvaluatesToErrorAfterRewind_reverseTransitiveClosureDeleted()
+      throws Exception {
+    assume().that(resetSupported()).isTrue();
+    assume().that(incrementalitySupported()).isTrue();
+
+    var inconsistencyReceiver = recordInconsistencies();
+    var rewindableErrorFunction =
+        new SkyFunction() {
+          private int calls = 0;
+
+          @Nullable
+          @Override
+          public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
+            if (++calls == 1) {
+              return RewindableFunction.STALE_VALUE;
+            }
+            throw new GenericFunctionException(new SomeErrorException("error"));
+          }
+        };
+    CountDownLatch goodTopDone = new CountDownLatch(1);
+    SkyKey goodTop = skyKey("goodTop");
+    SkyKey badTop = skyKey("badTop");
+    SkyKey dep = nonHermeticKey("dep");
+
+    injectGraphListenerForTesting(
+        (key, type, order, context) -> {
+          if (key.equals(goodTop) && type == EventType.SET_VALUE && order == Order.AFTER) {
+            goodTopDone.countDown();
+          }
+        },
+        /* deterministic= */ false);
+    tester.getOrCreate(dep).setBuilder(rewindableErrorFunction);
+    tester.getOrCreate(goodTop).addDependency(dep).setComputedValue(COPY);
+    tester
+        .getOrCreate(badTop)
+        .setBuilder(
+            (skyKey, env) -> {
+              if (env.getValue(dep) == null) {
+                return null;
+              }
+              goodTopDone.await();
+              var rewindGraph = Reset.newRewindGraphFor(badTop);
+              rewindGraph.putEdge(badTop, dep);
+              return Reset.of(rewindGraph);
+            });
+
+    var result = tester.eval(/* keepGoing= */ false, goodTop, badTop);
+
+    assertThatEvaluationResult(result).hasError();
+    assertThat(result.errorMap().keySet()).containsExactly(badTop);
+    assertThatEvaluationResult(result)
+        .hasEntryThat(goodTop)
+        .isEqualTo(RewindableFunction.STALE_VALUE);
+    assertThat(inconsistencyReceiver)
+        .containsExactly(
+            InconsistencyData.resetRequested(badTop),
+            InconsistencyData.rewind(badTop, ImmutableSet.of(dep)));
+
+    result = tester.eval(/* keepGoing= */ false, new SkyKey[0]);
+
+    assertThatEvaluationResult(result).hasNoError();
+    assertThat(tester.getEvaluator().getValues().keySet()).containsNoneOf(dep, badTop, goodTop);
+  }
+
   private static void awaitUnchecked(CyclicBarrier barrier) {
     try {
       barrier.await();

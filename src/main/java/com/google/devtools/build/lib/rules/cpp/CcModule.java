@@ -150,7 +150,8 @@ public abstract class CcModule
                   "", "rust/private"),
               BuiltinRestriction.allowlistEntry("build_bazel_rules_android", ""),
               BuiltinRestriction.allowlistEntry("rules_android", ""),
-              BuiltinRestriction.allowlistEntry("rules_rust", "rust/private"));
+              BuiltinRestriction.allowlistEntry("rules_rust", "rust/private"),
+              BuiltinRestriction.allowlistEntry("", "third_party/gpus/cuda"));
 
   // TODO(bazel-team): This only makes sense for the parameter in cc_common.compile()
   //  additional_include_scanning_roots which is technical debt and should go away.
