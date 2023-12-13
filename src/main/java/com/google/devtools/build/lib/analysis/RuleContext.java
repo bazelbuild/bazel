@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.AliasProvider.TargetMode;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
+import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
@@ -559,6 +560,16 @@ public class RuleContext extends TargetContext
 
   @Override
   public void registerAction(ActionAnalysisMetadata action) {
+    // TODO(jcater): every file write action should have a platform (which is probably local), but
+    // currently they don't.
+    boolean needsPlatform = !(action instanceof AbstractFileWriteAction);
+    if (needsPlatform) {
+      if (getToolchainContexts() == null || getToolchainContext().executionPlatform() == null) {
+        throw new IllegalStateException(
+            String.format(
+                "No toolchain context present but attempted to register action : %s", action));
+      }
+    }
     getAnalysisEnvironment().registerAction(action);
   }
 
