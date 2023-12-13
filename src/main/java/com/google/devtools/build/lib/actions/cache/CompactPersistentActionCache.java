@@ -402,6 +402,14 @@ public class CompactPersistentActionCache implements ActionCache {
   @ThreadSafety.ThreadHostile
   @Override
   public long save() throws IOException {
+    // TODO(b/314086729): Remove after we understand the bug.
+    try {
+      validateIntegrity(indexer.size(), map.get(VALIDATION_KEY));
+    } catch (IOException e) {
+      logger.atInfo().withCause(e).log(
+          "Integrity check failed on the inmemory objects right before save");
+    }
+
     long indexSize = indexer.save();
     long mapSize = map.save();
     return indexSize + mapSize;
