@@ -559,6 +559,11 @@ public class RuleContext extends TargetContext
 
   @Override
   public void registerAction(ActionAnalysisMetadata action) {
+    if (getToolchainContexts() == null || getToolchainContext().executionPlatform() == null) {
+      throw new IllegalStateException(
+          String.format(
+              "No toolchain context present but attempted to register action : %s", action));
+    }
     getAnalysisEnvironment().registerAction(action);
   }
 
