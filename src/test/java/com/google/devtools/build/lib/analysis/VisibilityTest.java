@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -92,14 +93,15 @@ public class VisibilityTest extends AnalysisTestCase {
   }
 
   @Test
-  public void testToolVisibilityUseCheckAtRule() throws Exception {
+  public void testToolVisibilityUseCheckAtRule_fallbackToUse() throws Exception {
     setupArgsScenario();
     scratch.file("data/BUILD", "exports_files(['data.txt'], visibility=['//visibility:public'])");
     scratch.file("tool/BUILD", "exports_files(['tool.sh'], visibility=['//use:__pkg__'])");
     useConfiguration("--incompatible_visibility_private_attributes_at_definition");
 
-    reporter.removeHandler(failFastHandler);
-    assertThrows(ViewCreationFailedException.class, () -> update("//use:world"));
+    update("//use:world");
+
+    assertThat(hasErrors(getConfiguredTarget("//use:world"))).isFalse();
   }
 
   @Test
@@ -200,6 +202,380 @@ public class VisibilityTest extends AnalysisTestCase {
 
     update("//:my_target");
     assertThat(hasErrors(getConfiguredTarget("//:my_target"))).isFalse();
+  }
+
+  @Test
+  public void testAspectImplicitDependencyCheckedAtDefinition_visible() throws Exception {
+    scratch.file("inner_aspect/BUILD");
+    scratch.file(
+        "inner_aspect/lib.bzl",
+        "InnerAspectInfo = provider()",
+        "def _impl_inner_aspect(ctx, target):",
+        "  return [InnerAspectInfo()]",
+        "inner_aspect = aspect(",
+        "  _impl_inner_aspect,",
+        "  attrs = { '_inner_aspect_tool': attr.label(default = '//tool:inner_aspect_tool') },",
+        "  provides = [InnerAspectInfo],",
+        ")");
+    scratch.file("outer_aspect/BUILD");
+    scratch.file(
+        "outer_aspect/lib.bzl",
+        "load('//inner_aspect:lib.bzl', 'InnerAspectInfo')",
+        "def _impl_outer_aspect(ctx, target):",
+        "  return []",
+        "outer_aspect = aspect(",
+        "  _impl_outer_aspect,",
+        "  attrs = { '_outer_aspect_tool': attr.label(default = '//tool:outer_aspect_tool') },",
+        "  required_aspect_providers = [InnerAspectInfo],",
+        ")");
+    scratch.file("rule/BUILD");
+    scratch.file(
+        "rule/lib.bzl",
+        "load('//inner_aspect:lib.bzl', 'inner_aspect')",
+        "load('//outer_aspect:lib.bzl', 'outer_aspect')",
+        "def _impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  _impl,",
+        "  attrs = {",
+        "    'dep': attr.label(aspects = [inner_aspect, outer_aspect]),",
+        "    '_rule_tool': attr.label(default = '//tool:rule_tool'),",
+        "  },",
+        ")",
+        "simple_starlark_rule = rule(",
+        "  _impl,",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load('//rule:lib.bzl','my_rule', 'simple_starlark_rule')",
+        "simple_starlark_rule(name = 'simple_dep')",
+        "my_rule(name = 'target_with_aspects', dep = ':simple_dep')");
+    scratch.file(
+        "tool/BUILD",
+        "sh_binary(",
+        "  name = 'outer_aspect_tool',",
+        "  srcs = ['a.sh'],",
+        "  visibility = ['//outer_aspect:__pkg__'],",
+        ")",
+        "sh_binary(",
+        "  name = 'inner_aspect_tool',",
+        "  srcs = ['a.sh'],",
+        "  visibility = ['//inner_aspect:__pkg__'],",
+        ")",
+        "sh_binary(",
+        "  name = 'rule_tool',",
+        "  srcs = ['a.sh'],",
+        "  visibility = ['//rule:__pkg__'],",
+        ")");
+    useConfiguration("--incompatible_visibility_private_attributes_at_definition");
+
+    update("//foo:target_with_aspects");
+
+    assertThat(hasErrors(getConfiguredTarget("//foo:target_with_aspects"))).isFalse();
+  }
+
+  @Ignore(
+      "TODO(b/206127051): The aspects path implicit dependencies with same name are incorrectly"
+          + " merged, enable this test when this is fixed.")
+  @Test
+  public void testAspectImplicitDependencyCheckedAtDefinition_visibleWithNameCollision()
+      throws Exception {
+    scratch.file("inner_aspect/BUILD");
+    scratch.file(
+        "inner_aspect/lib.bzl",
+        "InnerAspectInfo = provider()",
+        "def _impl_inner_aspect(ctx, target):",
+        "  return [InnerAspectInfo()]",
+        "inner_aspect = aspect(",
+        "  _impl_inner_aspect,",
+        "  attrs = { '_tool': attr.label(default = '//tool:inner_aspect_tool') },",
+        "  provides = [InnerAspectInfo],",
+        ")");
+    scratch.file("outer_aspect/BUILD");
+    scratch.file(
+        "outer_aspect/lib.bzl",
+        "load('//inner_aspect:lib.bzl', 'InnerAspectInfo')",
+        "def _impl_outer_aspect(ctx, target):",
+        "  return []",
+        "outer_aspect = aspect(",
+        "  _impl_outer_aspect,",
+        "  attrs = { '_tool': attr.label(default = '//tool:outer_aspect_tool') },",
+        "  required_aspect_providers = [InnerAspectInfo],",
+        ")");
+    scratch.file("rule/BUILD");
+    scratch.file(
+        "rule/lib.bzl",
+        "load('//inner_aspect:lib.bzl', 'inner_aspect')",
+        "load('//outer_aspect:lib.bzl', 'outer_aspect')",
+        "def _impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  _impl,",
+        "  attrs = {",
+        "    'dep': attr.label(aspects = [inner_aspect, outer_aspect]),",
+        "    '_tool': attr.label(default = '//tool:rule_tool'),",
+        "  },",
+        ")",
+        "simple_starlark_rule = rule(",
+        "  _impl,",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load('//rule:lib.bzl','my_rule', 'simple_starlark_rule')",
+        "simple_starlark_rule(name = 'simple_dep')",
+        "my_rule(name = 'target_with_aspects', dep = ':simple_dep')");
+    scratch.file(
+        "tool/BUILD",
+        "sh_binary(",
+        "  name = 'outer_aspect_tool',",
+        "  srcs = ['a.sh'],",
+        "  visibility = ['//outer_aspect:__pkg__'],",
+        ")",
+        "sh_binary(",
+        "  name = 'inner_aspect_tool',",
+        "  srcs = ['a.sh'],",
+        "  visibility = ['//inner_aspect:__pkg__'],",
+        ")",
+        "sh_binary(",
+        "  name = 'rule_tool',",
+        "  srcs = ['a.sh'],",
+        "  visibility = ['//rule:__pkg__'],",
+        ")");
+    useConfiguration("--incompatible_visibility_private_attributes_at_definition");
+
+    update("//foo:target_with_aspects");
+
+    assertThat(hasErrors(getConfiguredTarget("//foo:target_with_aspects"))).isFalse();
+  }
+
+  @Test
+  public void testAspectImplicitDependencyCheckedAtDefinition_outerAspectToolNotVisible()
+      throws Exception {
+    scratch.file("inner_aspect/BUILD");
+    scratch.file(
+        "inner_aspect/lib.bzl",
+        "InnerAspectInfo = provider()",
+        "def _impl_inner_aspect(ctx, target):",
+        "  return [InnerAspectInfo()]",
+        "inner_aspect = aspect(",
+        "  _impl_inner_aspect,",
+        "  attrs = { '_inner_aspect_tool': attr.label(default = '//tool:inner_aspect_tool') },",
+        "  provides = [InnerAspectInfo],",
+        ")");
+    scratch.file("outer_aspect/BUILD");
+    scratch.file(
+        "outer_aspect/lib.bzl",
+        "load('//inner_aspect:lib.bzl', 'InnerAspectInfo')",
+        "def _impl_outer_aspect(ctx, target):",
+        "  return []",
+        "outer_aspect = aspect(",
+        "  _impl_outer_aspect,",
+        "  attrs = { '_outer_aspect_tool': attr.label(default = '//tool:outer_aspect_tool') },",
+        "  required_aspect_providers = [InnerAspectInfo],",
+        ")");
+    scratch.file("rule/BUILD");
+    scratch.file(
+        "rule/lib.bzl",
+        "load('//inner_aspect:lib.bzl', 'inner_aspect')",
+        "load('//outer_aspect:lib.bzl', 'outer_aspect')",
+        "def _impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  _impl,",
+        "  attrs = {",
+        "    'dep': attr.label(aspects = [inner_aspect, outer_aspect]),",
+        "    '_rule_tool': attr.label(default = '//tool:rule_tool'),",
+        "  },",
+        ")",
+        "simple_starlark_rule = rule(",
+        "  _impl,",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load('//rule:lib.bzl','my_rule', 'simple_starlark_rule')",
+        "simple_starlark_rule(name = 'simple_dep')",
+        "my_rule(name = 'target_with_aspects', dep = ':simple_dep')");
+    scratch.file(
+        "tool/BUILD",
+        "sh_binary(",
+        "  name = 'outer_aspect_tool',",
+        "  srcs = ['a.sh'],",
+        "  visibility = [",
+        "    '//inner_aspect:__pkg__',",
+        "    '//rule:__pkg__',",
+        "  ],",
+        ")",
+        "sh_binary(",
+        "  name = 'inner_aspect_tool',",
+        "  srcs = ['a.sh'],",
+        "  visibility = ['//inner_aspect:__pkg__'],",
+        ")",
+        "sh_binary(",
+        "  name = 'rule_tool',",
+        "  srcs = ['a.sh'],",
+        "  visibility = ['//rule:__pkg__'],",
+        ")");
+    useConfiguration("--incompatible_visibility_private_attributes_at_definition");
+    reporter.removeHandler(failFastHandler);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//foo:target_with_aspects"));
+    assertContainsEvent(
+        "in //inner_aspect:lib.bzl%inner_aspect,//outer_aspect:lib.bzl%outer_aspect "
+            + "aspect on simple_starlark_rule rule //foo:simple_dep: target "
+            + "'//tool:outer_aspect_tool' is not visible from target '//outer_aspect:lib.bzl'");
+  }
+
+  @Test
+  public void testAspectImplicitDependencyCheckedAtDefinition_innerAspectToolNotVisible()
+      throws Exception {
+    scratch.file("inner_aspect/BUILD");
+    scratch.file(
+        "inner_aspect/lib.bzl",
+        "InnerAspectInfo = provider()",
+        "def _impl_inner_aspect(ctx, target):",
+        "  return [InnerAspectInfo()]",
+        "inner_aspect = aspect(",
+        "  _impl_inner_aspect,",
+        "  attrs = { '_inner_aspect_tool': attr.label(default = '//tool:inner_aspect_tool') },",
+        "  provides = [InnerAspectInfo],",
+        ")");
+    scratch.file("outer_aspect/BUILD");
+    scratch.file(
+        "outer_aspect/lib.bzl",
+        "load('//inner_aspect:lib.bzl', 'InnerAspectInfo')",
+        "def _impl_outer_aspect(ctx, target):",
+        "  return []",
+        "outer_aspect = aspect(",
+        "  _impl_outer_aspect,",
+        "  attrs = { '_outer_aspect_tool': attr.label(default = '//tool:outer_aspect_tool') },",
+        "  required_aspect_providers = [InnerAspectInfo],",
+        ")");
+    scratch.file("rule/BUILD");
+    scratch.file(
+        "rule/lib.bzl",
+        "load('//inner_aspect:lib.bzl', 'inner_aspect')",
+        "load('//outer_aspect:lib.bzl', 'outer_aspect')",
+        "def _impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  _impl,",
+        "  attrs = {",
+        "    'dep': attr.label(aspects = [inner_aspect, outer_aspect]),",
+        "    '_rule_tool': attr.label(default = '//tool:rule_tool'),",
+        "  },",
+        ")",
+        "simple_starlark_rule = rule(",
+        "  _impl,",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load('//rule:lib.bzl','my_rule', 'simple_starlark_rule')",
+        "simple_starlark_rule(name = 'simple_dep')",
+        "my_rule(name = 'target_with_aspects', dep = ':simple_dep')");
+    scratch.file(
+        "tool/BUILD",
+        "sh_binary(",
+        "  name = 'outer_aspect_tool',",
+        "  srcs = ['a.sh'],",
+        "  visibility = ['//outer_aspect:__pkg__'],",
+        ")",
+        "sh_binary(",
+        "  name = 'inner_aspect_tool',",
+        "  srcs = ['a.sh'],",
+        "  visibility = [",
+        "    '//outer_aspect:__pkg__',",
+        "    '//rule:__pkg__',",
+        "  ],",
+        ")",
+        "sh_binary(",
+        "  name = 'rule_tool',",
+        "  srcs = ['a.sh'],",
+        "  visibility = ['//rule:__pkg__'],",
+        ")");
+    useConfiguration("--incompatible_visibility_private_attributes_at_definition");
+    reporter.removeHandler(failFastHandler);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//foo:target_with_aspects"));
+    assertContainsEvent(
+        "in //inner_aspect:lib.bzl%inner_aspect aspect on simple_starlark_rule "
+            + "rule //foo:simple_dep: target '//tool:inner_aspect_tool' is not visible from "
+            + "target '//inner_aspect:lib.bzl'");
+  }
+
+  @Test
+  public void testAspectImplicitDependencyCheckedAtDefinition_ruleToolNotVisible()
+      throws Exception {
+    scratch.file("inner_aspect/BUILD");
+    scratch.file(
+        "inner_aspect/lib.bzl",
+        "InnerAspectInfo = provider()",
+        "def _impl_inner_aspect(ctx, target):",
+        "  return [InnerAspectInfo()]",
+        "inner_aspect = aspect(",
+        "  _impl_inner_aspect,",
+        "  attrs = { '_inner_aspect_tool': attr.label(default = '//tool:inner_aspect_tool') },",
+        "  provides = [InnerAspectInfo],",
+        ")");
+    scratch.file("outer_aspect/BUILD");
+    scratch.file(
+        "outer_aspect/lib.bzl",
+        "load('//inner_aspect:lib.bzl', 'InnerAspectInfo')",
+        "def _impl_outer_aspect(ctx, target):",
+        "  return []",
+        "outer_aspect = aspect(",
+        "  _impl_outer_aspect,",
+        "  attrs = { '_outer_aspect_tool': attr.label(default = '//tool:outer_aspect_tool') },",
+        "  required_aspect_providers = [InnerAspectInfo],",
+        ")");
+    scratch.file("rule/BUILD");
+    scratch.file(
+        "rule/lib.bzl",
+        "load('//inner_aspect:lib.bzl', 'inner_aspect')",
+        "load('//outer_aspect:lib.bzl', 'outer_aspect')",
+        "def _impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  _impl,",
+        "  attrs = {",
+        "    'dep': attr.label(aspects = [inner_aspect, outer_aspect]),",
+        "    '_rule_tool': attr.label(default = '//tool:rule_tool'),",
+        "  },",
+        ")",
+        "simple_starlark_rule = rule(",
+        "  _impl,",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        "load('//rule:lib.bzl','my_rule', 'simple_starlark_rule')",
+        "simple_starlark_rule(name = 'simple_dep')",
+        "my_rule(name = 'target_with_aspects', dep = ':simple_dep')");
+    scratch.file(
+        "tool/BUILD",
+        "sh_binary(",
+        "  name = 'outer_aspect_tool',",
+        "  srcs = ['a.sh'],",
+        "  visibility = ['//outer_aspect:__pkg__'],",
+        ")",
+        "sh_binary(",
+        "  name = 'inner_aspect_tool',",
+        "  srcs = ['a.sh'],",
+        "  visibility = ['//inner_aspect:__pkg__'],",
+        ")",
+        "sh_binary(",
+        "  name = 'rule_tool',",
+        "  srcs = ['a.sh'],",
+        "  visibility = [",
+        "    '//outer_aspect:__pkg__',",
+        "    '//inner_aspect:__pkg__',",
+        "  ],",
+        ")");
+    useConfiguration("--incompatible_visibility_private_attributes_at_definition");
+    reporter.removeHandler(failFastHandler);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//foo:target_with_aspects"));
+    assertContainsEvent(
+        "in my_rule rule //foo:target_with_aspects: target '//tool:rule_tool' is "
+            + "not visible from target '//rule:lib.bzl'");
   }
 
   void setupFilesScenario(String wantRead) throws Exception {

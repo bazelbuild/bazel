@@ -34,6 +34,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
+import com.google.common.collect.Streams;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -84,6 +85,7 @@ import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -2111,6 +2113,20 @@ public final class RuleContext extends TargetContext
      */
     public boolean isVisible(TransitiveInfoCollection prerequisite) {
       return RuleContext.isVisible(target.getAssociatedRule(), prerequisite);
+    }
+
+    @Nullable
+    Aspect getMainAspect() {
+      return Streams.findLast(aspects.stream()).orElse(null);
+    }
+
+    boolean isStarlarkRuleOrAspect() {
+      Aspect mainAspect = getMainAspect();
+      if (mainAspect != null) {
+        return mainAspect.getAspectClass() instanceof StarlarkAspectClass;
+      } else {
+        return getRule().getRuleClassObject().getRuleDefinitionEnvironmentLabel() != null;
+      }
     }
 
     private void validateDirectPrerequisiteFileTypes(
