@@ -2,6 +2,7 @@
 # 1. Copy WORKSPACE.bzlmod to replace the original WORKSPACE file.
 # 2. Run `bazel build --experimental_enable_bzlmod //src:bazel_nojdk`.
 
+
 module(
     name = "bazel",
     version = "6.0.0-pre",
