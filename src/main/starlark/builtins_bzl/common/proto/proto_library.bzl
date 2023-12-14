@@ -233,22 +233,98 @@ def _write_descriptor_set(ctx, proto_info, deps, exports, descriptor_set):
 
 proto_library = rule(
     _proto_library_impl,
+    # TODO(b/311576642): proto_common docs are missing
+    # TODO(b/311576642): ProtoInfo link doesn't work and docs are missing
+    doc = """
+<p>If using Bazel, please load the rule from <a href="https://github.com/bazelbuild/rules_proto">
+https://github.com/bazelbuild/rules_proto</a>.
+
+<p>Use <code>proto_library</code> to define libraries of protocol buffers which
+may be used from multiple languages. A <code>proto_library</code> may be listed
+in the <code>deps</code> clause of supported rules, such as
+<code>java_proto_library</code>.
+
+<p>When compiled on the command-line, a <code>proto_library</code> creates a file
+named <code>foo-descriptor-set.proto.bin</code>, which is the descriptor set for
+the messages the rule srcs. The file is a serialized
+<code>FileDescriptorSet</code>, which is described in
+<a href="https://developers.google.com/protocol-buffers/docs/techniques#self-description">
+https://developers.google.com/protocol-buffers/docs/techniques#self-description</a>.
+
+<p>It only contains information about the <code>.proto</code> files directly
+mentioned by a <code>proto_library</code> rule; the collection of transitive
+descriptor sets is available through the
+<code>[ProtoInfo].transitive_descriptor_sets</code> Starlark provider.
+See documentation in <code>proto_info.bzl</code>.
+
+<p>Recommended code organization:
+<ul>
+<li>One <code>proto_library</code> rule per <code>.proto</code> file.
+<li>A file named <code>foo.proto</code> will be in a rule named <code>foo_proto</code>,
+  which is located in the same package.
+<li>A <code>[language]_proto_library</code> that wraps a <code>proto_library</code>
+  named <code>foo_proto</code> should be called <code>foo_[language]_proto</code>,
+  and be located in the same package.
+</ul>""",
     attrs = {
         "srcs": attr.label_list(
             allow_files = [".proto", ".protodevel"],
             flags = ["DIRECT_COMPILE_TIME_INPUT"],
+            # TODO(b/311576642): Should .protodevel be advertised or deprecated?
+            doc = """
+The list of <code>.proto</code> and <code>.protodevel</code> files that are
+processed to create the target. This is usually a non empty list. One usecase
+where <code>srcs</code> can be empty is an <i>alias-library</i>. This is a
+proto_library rule having one or more other proto_library in <code>deps</code>.
+This pattern can be used to e.g. export a public api under a persistent name.""",
         ),
         "deps": attr.label_list(
             providers = [ProtoInfo],
+            doc = """
+The list of other <code>proto_library</code> rules that the target depends upon.
+A <code>proto_library</code> may only depend on other <code>proto_library</code>
+targets. It may not depend on language-specific libraries.""",
         ),
         "exports": attr.label_list(
             providers = [ProtoInfo],
+            doc = """
+List of proto_library targets that can be referenced via "import public" in the
+proto source.
+It's an error if you use "import public" but do not list the corresponding library
+in the exports attribute.
+Note that you have list the library both in deps and exports since not all
+lang_proto_library implementations have been changed yet.""",
         ),
-        "strip_import_prefix": attr.string(default = "/"),
-        "import_prefix": attr.string(),
+        "strip_import_prefix": attr.string(
+            default = "/",
+            doc = """
+The prefix to strip from the paths of the .proto files in this rule.
+
+<p>When set, .proto source files in the <code>srcs</code> attribute of this rule are
+accessible at their path with this prefix cut off.
+
+<p>If it's a relative path (not starting with a slash), it's taken as a package-relative
+one. If it's an absolute one, it's understood as a repository-relative path.
+
+<p>The prefix in the <code>import_prefix</code> attribute is added after this prefix is
+stripped.""",
+        ),
+        "import_prefix": attr.string(
+            doc = """
+The prefix to add to the paths of the .proto files in this rule.
+
+<p>When set, the .proto source files in the <code>srcs</code> attribute of this rule are
+accessible at is the value of this attribute prepended to their repository-relative path.
+
+<p>The prefix in the <code>strip_import_prefix</code> attribute is removed before this
+prefix is added.""",
+        ),
         "allow_exports": attr.label(
             cfg = "exec",
             providers = [PackageSpecificationInfo],
+            doc = """
+An optional allowlist that prevents proto library to be reexported or used in
+lang_proto_library that is not in one of the listed packages.""",
         ),
         "data": attr.label_list(
             allow_files = True,
