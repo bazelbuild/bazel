@@ -14,9 +14,8 @@
 
 """Starlark implementation of cc_toolchain rule."""
 
-load(":common/cc/cc_toolchain_provider_helper.bzl", "get_cc_toolchain_provider")
 load(":common/cc/cc_helper.bzl", "cc_helper")
-load(":common/objc/objc_common.bzl", "objc_common")
+load(":common/cc/cc_toolchain_provider_helper.bzl", "get_cc_toolchain_provider")
 
 cc_internal = _builtins.internal.cc_internal
 ToolchainInfo = _builtins.toplevel.platform_common.ToolchainInfo
@@ -33,21 +32,18 @@ def _validate_toolchain(ctx, is_apple):
 
 def _cc_toolchain_impl(ctx):
     _validate_toolchain(ctx, ctx.attr._is_apple)
+    xcode_config_info = None
     if ctx.attr._is_apple:
-        build_vars_func = objc_common.apple_cc_toolchain_build_variables(ctx.attr._xcode_config[apple_common.XcodeVersionConfig])
-    else:
-        build_vars_func = cc_helper.cc_toolchain_build_variables(None)
-
+        xcode_config_info = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
     attributes_provider = cc_internal.construct_cc_toolchain_attributes_info(
         ctx = ctx,
         is_apple = ctx.attr._is_apple,
-        build_vars_func = build_vars_func,
     )
     providers = [attributes_provider]
     if attributes_provider.licenses_provider() != None:
         providers.append(attributes_provider.licenses_provider())
 
-    cc_toolchain = get_cc_toolchain_provider(ctx, attributes_provider, ctx.attr._is_apple)
+    cc_toolchain = get_cc_toolchain_provider(ctx, attributes_provider, xcode_config_info)
     if cc_toolchain == None:
         fail("This should never happen")
     template_variable_info = TemplateVariableInfo(

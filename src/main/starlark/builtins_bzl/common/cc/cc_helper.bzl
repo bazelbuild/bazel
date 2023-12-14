@@ -711,13 +711,35 @@ def _lookup_var(ctx, additional_vars, var):
         return expanded_make_var_ctx
     fail("{}: {} not defined".format(ctx.label, "$(" + var + ")"))
 
+def _build_variables(cc_toolchain, cpp_config, apple_config, cpu):
+    if not cc_toolchain.xcode_config_info():
+        return cc_toolchain.build_variables()
+
+    return objc_common.apple_cc_toolchain_build_variables(
+        cc_toolchain.xcode_config_info(),
+        apple_config.single_arch_platform,
+        cpu,
+        cpp_config,
+        cc_toolchain.sysroot,
+    )
+
 def _get_cc_flags_make_variable(ctx, feature_configuration, cc_toolchain):
     original_cc_flags = cc_toolchain.legacy_cc_flags_make_variable()
     sysroot_cc_flag = ""
     if cc_toolchain.sysroot != None:
         sysroot_cc_flag = SYSROOT_FLAG + cc_toolchain.sysroot
-    build_vars = cc_toolchain.get_build_variables(ctx = ctx, cpp_configuration = ctx.fragments.cpp)
-    feature_config_cc_flags = cc_common.get_memory_inefficient_command_line(feature_configuration = feature_configuration, action_name = "cc-flags-make-variable", variables = build_vars)
+
+    build_vars = _build_variables(
+        cc_toolchain,
+        ctx.fragments.cpp,
+        cc_internal.apple_config_if_available(ctx = ctx),
+        ctx.configuration.cpu(),
+    )
+    feature_config_cc_flags = cc_common.get_memory_inefficient_command_line(
+        feature_configuration = feature_configuration,
+        action_name = "cc-flags-make-variable",
+        variables = build_vars,
+    )
     cc_flags = [original_cc_flags]
 
     # Only add sysroots flag if nothing else adds sysroot, BUT it must appear
@@ -1190,13 +1212,6 @@ def _proto_output_root(proto_root, bin_dir_path):
     else:
         return bin_dir_path + "/" + proto_root
 
-# buildifier: disable=unused-variable
-def _cc_toolchain_build_variables(xcode_config):
-    def cc_toolchain_build_variables(platform, cpu, cpp_config, sysroot):
-        return cc_internal.cc_toolchain_variables(vars = objc_common.get_common_vars(cpp_config, sysroot))
-
-    return cc_toolchain_build_variables
-
 cc_helper = struct(
     CPP_TOOLCHAIN_TYPE = _CPP_TOOLCHAIN_TYPE,
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
@@ -1260,7 +1275,7 @@ cc_helper = struct(
     package_exec_path = _package_exec_path,
     repository_exec_path = _repository_exec_path,
     proto_output_root = _proto_output_root,
-    cc_toolchain_build_variables = _cc_toolchain_build_variables,
     package_source_root = _package_source_root,
     tokenize = _tokenize,
+    build_variables = _build_variables,
 )

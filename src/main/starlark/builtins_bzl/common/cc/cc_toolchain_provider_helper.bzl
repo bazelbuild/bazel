@@ -16,6 +16,7 @@
 
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/objc/objc_common.bzl", "objc_common")
 load(":common/paths.bzl", "paths")
 
 cc_internal = _builtins.internal.cc_internal
@@ -154,13 +155,13 @@ def _resolve_include_dir(target_label, s, sysroot, crosstool_path):
 
     return paths.get_relative(path_prefix, path_string)
 
-def get_cc_toolchain_provider(ctx, attributes, has_apple_fragment):
+def get_cc_toolchain_provider(ctx, attributes, xcode_config_info):
     """Constructs a CcToolchainProvider instance.
 
     Args:
         ctx: rule context.
         attributes: an instance of CcToolchainAttributesProvider.
-        has_apple_fragment: whether an instance of ctx.fragments contains "apple".
+        xcode_config_info: XcodeConfigInfo provider can be none if not present.
     Returns:
         A constructed CcToolchainProvider instance.
     """
@@ -226,10 +227,16 @@ def get_cc_toolchain_provider(ctx, attributes, has_apple_fragment):
     for s in toolchain_config_info.cxx_builtin_include_directories():
         builtin_include_directories.append(_resolve_include_dir(ctx.label, s, sysroot, tools_directory))
 
-    if has_apple_fragment:
-        build_vars = attributes.build_vars_func()(ctx.fragments.apple.single_arch_platform, ctx.fragments.apple.cpu(), ctx.fragments.cpp, sysroot)
+    if xcode_config_info:
+        build_vars = objc_common.apple_cc_toolchain_build_variables(
+            xcode_config_info,
+            ctx.fragments.apple.single_arch_platform,
+            ctx.fragments.apple.cpu(),
+            ctx.fragments.cpp,
+            sysroot,
+        )
     else:
-        build_vars = attributes.build_vars_func()("", "", ctx.fragments.cpp, sysroot)
+        build_vars = cc_internal.cc_toolchain_variables(vars = objc_common.get_common_vars(ctx.fragments.cpp, sysroot))
 
     return cc_internal.construct_toolchain_provider(
         ctx = ctx,
@@ -267,4 +274,5 @@ def get_cc_toolchain_provider(ctx, attributes, has_apple_fragment):
         ld = tool_paths.get("ld", ""),
         gcov = tool_paths.get("gcov", ""),
         vars = build_vars,
+        xcode_config_info = xcode_config_info,
     )

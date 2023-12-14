@@ -177,12 +177,13 @@ public enum CompileBuildVariables {
       }
       return setupVariables(
           featureConfiguration,
-          ccToolchainProvider.getBuildVars(
+          CcToolchainProvider.getBuildVars(
               ccToolchainProvider,
               thread,
               cppConfiguration,
               buildOptions,
-              buildOptions.get(CoreOptions.class).cpu),
+              buildOptions.get(CoreOptions.class).cpu,
+              ccToolchainProvider.getBuildVarsFunc()),
           sourceFile,
           outputFile,
           gcnoFile,
@@ -253,12 +254,13 @@ public enum CompileBuildVariables {
     }
     return setupVariables(
         featureConfiguration,
-        ccToolchainProvider.getBuildVars(
+        CcToolchainProvider.getBuildVars(
             ccToolchainProvider,
             thread,
             cppConfiguration,
             buildOptions,
-            buildOptions.get(CoreOptions.class).cpu),
+            buildOptions.get(CoreOptions.class).cpu,
+            ccToolchainProvider.getBuildVarsFunc()),
         sourceFile,
         outputFile,
         gcnoFile,

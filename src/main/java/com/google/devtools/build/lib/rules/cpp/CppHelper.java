@@ -278,7 +278,7 @@ public class CppHelper {
       CppConfiguration cppConfiguration,
       FeatureConfiguration featureConfiguration) {
     return cppConfiguration.forcePic()
-        || (toolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration)
+        || (CcToolchainProvider.usePicForDynamicLibraries(cppConfiguration, featureConfiguration)
             && (cppConfiguration.getCompilationMode() != CompilationMode.OPT
                 || featureConfiguration.isEnabled(CppRuleClasses.PREFER_PIC_FOR_OPT_BINARIES)));
   }
@@ -344,7 +344,8 @@ public class CppHelper {
               ruleContext.getStarlarkThread(),
               cppConfiguration,
               ruleContext.getConfiguration().getOptions(),
-              ruleContext.getConfiguration().getOptions().get(CoreOptions.class).cpu);
+              ruleContext.getConfiguration().getOptions().get(CoreOptions.class).cpu,
+              toolchain.getBuildVarsFunc());
     } catch (EvalException e) {
       throw new RuleErrorException(e.getMessage());
     }

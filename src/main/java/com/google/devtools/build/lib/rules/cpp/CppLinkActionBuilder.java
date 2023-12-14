@@ -342,7 +342,7 @@ public class CppLinkActionBuilder {
         toolchain,
         fdoContext,
         usePicForLtoBackendActions,
-        toolchain.shouldCreatePerObjectDebugInfo(featureConfiguration, cppConfiguration),
+        CcToolchainProvider.shouldCreatePerObjectDebugInfo(featureConfiguration, cppConfiguration),
         argv);
   }
 
@@ -775,7 +775,8 @@ public class CppLinkActionBuilder {
               ((RuleContext) actionConstructionContext).getStarlarkThread(),
               cppConfiguration,
               configuration.getOptions(),
-              configuration.getOptions().get(CoreOptions.class).cpu);
+              configuration.getOptions().get(CoreOptions.class).cpu,
+              toolchain.getBuildVarsFunc());
     } catch (EvalException e) {
       throw new RuleErrorException(e.getMessage());
     }
@@ -1013,7 +1014,7 @@ public class CppLinkActionBuilder {
                 featureConfiguration,
                 cppConfiguration.forcePic()
                     || (linkType.isDynamicLibrary()
-                        && toolchain.usePicForDynamicLibraries(
+                        && CcToolchainProvider.usePicForDynamicLibraries(
                             cppConfiguration, featureConfiguration)),
                 Matcher.quoteReplacement(
                     isNativeDeps && cppConfiguration.shareNativeDeps()

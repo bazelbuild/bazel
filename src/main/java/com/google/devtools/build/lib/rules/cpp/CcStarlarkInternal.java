@@ -35,7 +35,9 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
+import com.google.devtools.build.lib.rules.objc.XcodeConfigInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.util.Pair;
@@ -82,12 +84,10 @@ public class CcStarlarkInternal implements StarlarkValue {
       parameters = {
         @Param(name = "ctx", positional = false, named = true),
         @Param(name = "is_apple", positional = false, named = true),
-        @Param(name = "build_vars_func", positional = false, named = true),
       })
   public CcToolchainAttributesProvider constructCcToolchainAttributesInfo(
-      StarlarkRuleContext ruleContext, boolean isApple, Object buildVarsFunc) throws EvalException {
-    return new CcToolchainAttributesProvider(
-        ruleContext.getRuleContext(), isApple, (StarlarkFunction) buildVarsFunc);
+      StarlarkRuleContext ruleContext, boolean isApple) throws EvalException {
+    return new CcToolchainAttributesProvider(ruleContext.getRuleContext(), isApple);
   }
 
   @StarlarkMethod(
@@ -139,6 +139,7 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "ld", positional = false, named = true),
         @Param(name = "gcov", positional = false, named = true),
         @Param(name = "vars", positional = false, named = true),
+        @Param(name = "xcode_config_info", positional = false, named = true),
       })
   public CcToolchainProvider getCcToolchainProvider(
       StarlarkRuleContext ruleContext,
@@ -171,8 +172,9 @@ public class CcStarlarkInternal implements StarlarkValue {
       String stripExecutable,
       String ldExecutable,
       String gcovExecutable,
-      Object vars)
-      throws EvalException {
+      Object vars,
+      Object xcodeConfigInfoObject)
+      throws EvalException, InterruptedException {
     CppConfiguration cppConfiguration = CcModule.convertFromNoneable(cppConfigurationObject, null);
     PathFragment toolsDirectory = PathFragment.create(toolsDirectoryStr);
     NestedSet<Artifact> staticRuntimeLinkInputsSet = null;
@@ -200,7 +202,18 @@ public class CcStarlarkInternal implements StarlarkValue {
         Dict.cast(additionalMakeVariablesDict, String.class, String.class, "tool_paths");
     PathFragment defaultSysroot = getPathfragmentOrNone(defaultSysrootObject);
     PathFragment runtimeSysroot = getPathfragmentOrNone(runtimeSysrootObject);
-
+    StarlarkFunction buildFunc;
+    try {
+      buildFunc =
+          (StarlarkFunction)
+              ruleContext.getRuleContext().getStarlarkDefinedBuiltin("build_variables");
+    } catch (RuleErrorException e) {
+      throw new EvalException(e);
+    }
+    XcodeConfigInfo xcodeConfigInfo = null;
+    if (xcodeConfigInfoObject != Starlark.NONE) {
+      xcodeConfigInfo = (XcodeConfigInfo) xcodeConfigInfoObject;
+    }
     return new CcToolchainProvider(
         /* cppConfiguration= */ cppConfiguration,
         /* toolchainFeatures= */ toolchainFeatures,
@@ -260,7 +273,8 @@ public class CcStarlarkInternal implements StarlarkValue {
         /* stripExecutable= */ stripExecutable,
         /* ldExecutable= */ ldExecutable,
         /* gcovExecutable= */ gcovExecutable,
-        /* ccToolchainBuildVariablesFunc */ attributes.getCcToolchainBuildVariablesFunc(),
+        /* ccToolchainVariablesBuilderFunc */ buildFunc,
+        /* xcodeConfigInfo */ xcodeConfigInfo,
         /* ccBuildInfoTranslator */ attributes.getCcBuildInfoTranslator());
   }
 
@@ -615,5 +629,17 @@ public class CcStarlarkInternal implements StarlarkValue {
                 moduleMapHomeIsCwd,
                 generateSubmodules,
                 withoutExternDependencies));
+  }
+
+  @StarlarkMethod(
+      name = "apple_config_if_available",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true),
+      },
+      allowReturnNones = true)
+  @Nullable
+  public AppleConfiguration getAppleConfigIfAvailable(StarlarkRuleContext ruleContext) {
+    return ruleContext.getRuleContext().getConfiguration().getFragment(AppleConfiguration.class);
   }
 }

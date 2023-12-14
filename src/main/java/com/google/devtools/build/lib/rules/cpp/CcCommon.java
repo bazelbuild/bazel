@@ -652,7 +652,8 @@ public final class CcCommon implements StarlarkValue {
                 ruleContext.getStarlarkThread(),
                 cppConfiguration,
                 ruleContext.getConfiguration().getOptions(),
-                ruleContext.getConfiguration().getOptions().get(CoreOptions.class).cpu);
+                ruleContext.getConfiguration().getOptions().get(CoreOptions.class).cpu,
+                toolchainProvider.getBuildVarsFunc());
       return CppHelper.getCommandLine(
           ruleContext, featureConfiguration, buildVariables, CppActionNames.CC_FLAGS_MAKE_VARIABLE);
 

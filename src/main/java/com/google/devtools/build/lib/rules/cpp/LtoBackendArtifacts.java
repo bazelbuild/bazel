@@ -127,7 +127,8 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
               thread,
               cppConfiguration,
               buildOptions,
-              buildOptions.get(CoreOptions.class).cpu);
+              buildOptions.get(CoreOptions.class).cpu,
+              ccToolchain.getBuildVarsFunc());
     } catch (EvalException e) {
       throw new RuleErrorException(e.getMessage());
     }

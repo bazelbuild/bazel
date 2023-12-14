@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
@@ -39,13 +38,14 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.FdoContext.BranchFdoProfile;
+import com.google.devtools.build.lib.rules.objc.XcodeConfigInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -134,9 +134,21 @@ public final class CcToolchainProvider extends NativeInfo
   private final String stripExecutable;
   private final String ldExecutable;
   private final String gcovExecutable;
-  private final StarlarkFunction ccToolchainBuildVariablesFunc;
+  private final StarlarkFunction ccToolchainVariablesBuilderFunc;
+  private final XcodeConfigInfo xcodeConfigInfo;
   private final OutputGroupInfo ccBuildInfoTranslator;
 
+  /**
+   * {@code CcToolchainInfo} provider constructor.
+   *
+   * @param ccToolchainVariablesBuilderFunc This is a function which produces final build variables.
+   *     This field is temporary and the only reason it exists is because there is still Java code
+   *     calling getBuildVars. Unfortunately not all Java calls have access to RuleContext and
+   *     therefore cannot find a function exported by Starlark to call into. We can get RuleContext
+   *     from StarlarkThread however that only works if the thread itself came from RuleContext.
+   *     That is not always the case, for example if Starlarkmethod has useStarlarkThread set to
+   *     true.
+   */
   public CcToolchainProvider(
       @Nullable CppConfiguration cppConfiguration,
       CcToolchainFeatures toolchainFeatures,
@@ -193,7 +205,8 @@ public final class CcToolchainProvider extends NativeInfo
       String stripExecutable,
       String ldExecutable,
       String gcovExecutable,
-      StarlarkFunction ccToolchainBuildVariablesFunc,
+      StarlarkFunction ccToolchainVariablesBuilderFunc,
+      XcodeConfigInfo xcodeConfigInfo,
       OutputGroupInfo ccBuildInfoTranslator) {
     super();
     this.cppConfiguration = cppConfiguration;
@@ -255,7 +268,8 @@ public final class CcToolchainProvider extends NativeInfo
     this.ldExecutable = ldExecutable;
     this.gcovExecutable = gcovExecutable;
     this.grepIncludes = grepIncludes;
-    this.ccToolchainBuildVariablesFunc = ccToolchainBuildVariablesFunc;
+    this.ccToolchainVariablesBuilderFunc = ccToolchainVariablesBuilderFunc;
+    this.xcodeConfigInfo = xcodeConfigInfo;
     this.ccBuildInfoTranslator = ccBuildInfoTranslator;
   }
 
@@ -719,74 +733,34 @@ public final class CcToolchainProvider extends NativeInfo
     return cppConfiguration.getCSFdoInstrument();
   }
 
-  /** Returns build variables to be templated into the crosstool. */
-  private CcToolchainVariables getBuildVariables(
-      StarlarkThread thread,
-      CppConfiguration cppConfiguration,
-      AppleConfiguration appleConfiguration,
-      String cpu)
-      throws EvalException, InterruptedException {
-    // With platforms, cc toolchain is analyzed in the exec configuration, so we can only reuse the
-    // same build variables instance if the inputs to the construction match.
-    if (ccToolchainBuildVariablesFunc.getName().equals("cc_toolchain_build_variables")) {
-      return buildVariables;
-    }
-    // With platforms, cc toolchain is analyzed in the exec configuration, so we cannot reuse
-    // build variables instance.
-    ApplePlatform platform = appleConfiguration.getSingleArchPlatform();
-    Object ccToolchainVariables =
-        Starlark.call(
-            thread,
-            ccToolchainBuildVariablesFunc,
-            ImmutableList.of(
-                /* platform */ platform,
-                /* cpu */ cpu,
-                /* cpp_config */ cppConfiguration,
-                /* sysroot */ (sysroot != null ? sysroot.getPathString() : Starlark.NONE)),
-            ImmutableMap.of());
-    return (CcToolchainVariables) ccToolchainVariables;
-  }
-
   public static CcToolchainVariables getBuildVars(
       CcToolchainProvider ccToolchainProvider,
       StarlarkThread thread,
       CppConfiguration cppConfiguration,
       BuildOptions buildOptions,
-      String cpu)
+      String cpu,
+      StarlarkFunction buildVarsFunc)
       throws EvalException, InterruptedException {
-    return ccToolchainProvider.getBuildVariables(
-        thread,
-        cppConfiguration,
-        buildOptions.contains(AppleCommandLineOptions.class)
-            ? new AppleConfiguration(buildOptions)
-            : null,
-        cpu);
+    Object ccToolchainVariables =
+        Starlark.call(
+            thread,
+            buildVarsFunc,
+            ImmutableList.of(
+                /* cc_toolchain */ ccToolchainProvider,
+                /* cpp_config */ cppConfiguration,
+                /* apple_config */ buildOptions.contains(AppleCommandLineOptions.class)
+                    ? new AppleConfiguration(buildOptions)
+                    : Starlark.NONE,
+                /* cpu */ cpu),
+            ImmutableMap.of());
+    return (CcToolchainVariables) ccToolchainVariables;
   }
 
   @Override
-  public CcToolchainVariables getBuildVariablesForStarlark(
-      StarlarkRuleContext starlarkRuleContext,
-      CppConfiguration cppConfiguration,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException {
+  public CcToolchainVariables getBuildVariablesForStarlark(StarlarkThread thread)
+      throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return getBuildVariables(
-        starlarkRuleContext.getRuleContext().getStarlarkThread(),
-        cppConfiguration,
-        starlarkRuleContext
-                .getRuleContext()
-                .getConfiguration()
-                .getOptions()
-                .contains(AppleCommandLineOptions.class)
-            ? new AppleConfiguration(
-                starlarkRuleContext.getRuleContext().getConfiguration().getOptions())
-            : null,
-        starlarkRuleContext
-            .getRuleContext()
-            .getConfiguration()
-            .getOptions()
-            .get(CoreOptions.class)
-            .cpu);
+    return buildVariables;
   }
 
   /**
@@ -1047,5 +1021,20 @@ public final class CcToolchainProvider extends NativeInfo
       throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return getCcBuildInfoTranslator();
+  }
+
+  public StarlarkFunction getBuildVarsFunc() {
+    return ccToolchainVariablesBuilderFunc;
+  }
+
+  @StarlarkMethod(
+      name = "xcode_config_info",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public XcodeConfigInfo getXcodeConfigInfoForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return xcodeConfigInfo;
   }
 }

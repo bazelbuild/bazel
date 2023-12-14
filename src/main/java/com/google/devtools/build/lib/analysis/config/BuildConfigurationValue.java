@@ -826,6 +826,12 @@ public class BuildConfigurationValue
     return options.cpu;
   }
 
+  @Override
+  public String getCpuForStarlark(StarlarkThread thread) throws EvalException {
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    return getCpu();
+  }
+
   @VisibleForTesting
   public String getHostCpu() {
     return options.hostCpu;

@@ -1314,7 +1314,8 @@ public final class CcCompilationHelper {
                 thread,
                 cppConfiguration,
                 configuration.getOptions(),
-                configuration.getOptions().get(CoreOptions.class).cpu);
+                configuration.getOptions().get(CoreOptions.class).cpu,
+                ccToolchain.getBuildVarsFunc());
       } catch (EvalException e) {
         throw new RuleErrorException(e.getMessage());
       }

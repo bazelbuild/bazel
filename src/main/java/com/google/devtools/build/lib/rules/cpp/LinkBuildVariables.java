@@ -134,7 +134,8 @@ public enum LinkBuildVariables {
                 thread,
                 cppConfiguration,
                 buildOptions,
-                buildOptions.get(CoreOptions.class).cpu));
+                buildOptions.get(CoreOptions.class).cpu,
+                ccToolchainProvider.getBuildVarsFunc()));
 
     // pic
     if (cppConfiguration.forcePic()) {
@@ -146,7 +147,7 @@ public enum LinkBuildVariables {
     }
 
     if (isUsingLinkerNotArchiver
-        && ccToolchainProvider.shouldCreatePerObjectDebugInfo(
+        && CcToolchainProvider.shouldCreatePerObjectDebugInfo(
             featureConfiguration, cppConfiguration)) {
       buildVariables.addStringVariable(IS_USING_FISSION.getVariableName(), "");
     }
