@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.License;
@@ -87,7 +86,6 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
   private final String purposePrefix;
   private final String runtimeSolibDirBase;
   private final LicensesProvider licensesProvider;
-  private final Label toolchainType;
   private final CcToolchainConfigInfo ccToolchainConfigInfo;
   private final String toolchainIdentifier;
   private final FdoProfileProvider fdoOptimizeProvider;
@@ -197,15 +195,7 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     } else {
       this.licensesProvider = null;
     }
-    // TODO(b/65835260): Remove this conditional once j2objc can learn the toolchain type.
-    if (ruleContext.attributes().has(CcToolchainRule.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME)) {
-      this.toolchainType =
-          ruleContext
-              .attributes()
-              .get(CcToolchainRule.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, BuildType.LABEL);
-    } else {
-      this.toolchainType = null;
-    }
+
     this.allowlistForLayeringCheck =
         Allowlist.fetchPackageSpecificationProvider(
             ruleContext, CcToolchainRule.ALLOWED_LAYERING_CHECK_FEATURES_ALLOWLIST);
@@ -263,10 +253,6 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
 
   public String getToolchainIdentifier() {
     return toolchainIdentifier;
-  }
-
-  public Label getToolchainType() {
-    return toolchainType;
   }
 
   @StarlarkMethod(name = "cc_toolchain_config_info", documented = false, useStarlarkThread = true)

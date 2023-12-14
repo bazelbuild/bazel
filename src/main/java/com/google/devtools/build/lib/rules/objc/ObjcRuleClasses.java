@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
@@ -39,8 +38,6 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -255,13 +252,6 @@ public class ObjcRuleClasses {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(
-              attr(CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
-                  .mandatoryProviders(CcToolchainProvider.PROVIDER.id())
-                  .value(CppRuleClasses.ccToolchainAttribute(env)))
-          .add(
-              attr(CcToolchainRule.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
-                  .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
           .addToolchainTypes(CppRuleClasses.ccToolchainTypeRequirement(env))
           .build();
     }

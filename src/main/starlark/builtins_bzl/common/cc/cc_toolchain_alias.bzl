@@ -47,8 +47,6 @@ cc_toolchain_alias = rule(
     fragments = ["cpp", "platform"],
     attrs = {
         "mandatory": attr.bool(default = True),
-        "_cc_toolchain": attr.label(default = configuration_field(fragment = "cpp", name = "cc_toolchain"), providers = [CcToolchainInfo]),
-        "_cc_toolchain_type": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:toolchain_type"),
     },
     toolchains = cc_helper.use_cpp_toolchain() +
                  semantics.get_runtimes_toolchain(),
