@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -31,6 +32,12 @@ import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Pair;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -172,6 +179,27 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         .isEqualTo("toolchain/some/cpp");
   }
 
+  private ImmutableMap<String, String> getMakeVariables(CcToolchainProvider ccToolchainProvider)
+      throws Exception {
+    StarlarkFunction getMakeVariables =
+        (StarlarkFunction)
+            getTestAnalysisEnvironment()
+                .getStarlarkDefinedBuiltins()
+                .get("get_toolchain_global_make_variables");
+    try (Mutability mu = Mutability.create("test")) {
+      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      Dict<?, ?> makeVarsDict =
+          (Dict<?, ?>)
+              Starlark.call(
+                  thread,
+                  getMakeVariables,
+                  ImmutableList.of(ccToolchainProvider),
+                  ImmutableMap.of());
+      return ImmutableMap.copyOf(
+          Dict.cast(makeVarsDict, String.class, String.class, "make_vars_for_test"));
+    }
+  }
+
   /*
    * Crosstools should load fine with or without 'gcov-tool'. Those that define 'gcov-tool'
    * should also add a make variable.
@@ -216,9 +244,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
             "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
     CcToolchainProvider ccToolchainProvider =
         getConfiguredTarget("//a:b").get(CcToolchainProvider.PROVIDER);
-    ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-    ccToolchainProvider.addGlobalMakeVariables(ccToolchainProvider.getToolPaths(), builder);
-    assertThat(builder.build().get("GCOVTOOL")).isNull();
+    assertThat(getMakeVariables(ccToolchainProvider)).doesNotContainKey("GCOVTOOL");
   }
 
   @Test
@@ -263,9 +289,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     useConfiguration("--cpu=k8", "--host_cpu=k8");
     CcToolchainProvider ccToolchainProvider =
         getConfiguredTarget("//a:b").get(CcToolchainProvider.PROVIDER);
-    ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-    ccToolchainProvider.addGlobalMakeVariables(ccToolchainProvider.getToolPaths(), builder);
-    assertThat(builder.build().get("GCOVTOOL")).isNotNull();
+    assertThat(getMakeVariables(ccToolchainProvider)).containsKey("GCOVTOOL");
   }
 
   @Test

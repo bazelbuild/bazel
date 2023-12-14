@@ -332,61 +332,6 @@ public final class CcToolchainProvider extends NativeInfo
     return featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS);
   }
 
-  public void addGlobalMakeVariables(
-      ImmutableMap<String, String> toolPaths,
-      ImmutableMap.Builder<String, String> globalMakeEnvBuilder) {
-    ImmutableMap.Builder<String, String> result = ImmutableMap.builder();
-
-    // hardcoded CC->gcc setting for unit tests
-    result.put("CC", getToolPathStringOrNull(toolPaths, Tool.GCC));
-
-    // Make variables provided by crosstool/gcc compiler suite.
-    result.put("AR", getToolPathStringOrNull(toolPaths, Tool.AR));
-    result.put("NM", getToolPathStringOrNull(toolPaths, Tool.NM));
-    result.put("LD", getToolPathStringOrNull(toolPaths, Tool.LD));
-    String objcopyTool = getToolPathStringOrNull(toolPaths, Tool.OBJCOPY);
-    if (objcopyTool != null) {
-      // objcopy is optional in Crosstool
-      result.put("OBJCOPY", objcopyTool);
-    }
-    result.put("STRIP", getToolPathStringOrNull(toolPaths, Tool.STRIP));
-
-    String gcovtool = getToolPathStringOrNull(toolPaths, Tool.GCOVTOOL);
-    if (gcovtool != null) {
-      // gcov-tool is optional in Crosstool
-      result.put("GCOVTOOL", gcovtool);
-    }
-
-    if (getTargetLibc().startsWith("glibc-")) {
-      result.put("GLIBC_VERSION", getTargetLibc().substring("glibc-".length()));
-    } else {
-      result.put("GLIBC_VERSION", getTargetLibc());
-    }
-
-    result.put("C_COMPILER", getCompiler());
-
-    // Deprecated variables
-
-    // TODO(bazel-team): delete all of these.
-    result.put("CROSSTOOLTOP", crosstoolTopPathFragment.getPathString());
-
-    // TODO(bazel-team): Remove when Starlark dependencies can be updated to rely on
-    // CcToolchainProvider.
-    result.putAll(getAdditionalMakeVariables());
-
-    String abiGlibcVersion = getAbiGlibcVersion();
-    if (abiGlibcVersion != null) {
-      result.put("ABI_GLIBC_VERSION", getAbiGlibcVersion());
-    }
-
-    String abi = getAbi();
-    if (abi != null) {
-      result.put("ABI", getAbi());
-    }
-
-    globalMakeEnvBuilder.putAll(result.buildOrThrow());
-  }
-
   /**
    * Returns the path String that is either absolute or relative to the execution root that can be
    * used to execute the given tool.

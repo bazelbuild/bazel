@@ -104,4 +104,5 @@ exported_to_java = {
     "init_cc_compilation_context": cc_compilation_helper.init_cc_compilation_context,
     "java_common": java_common,
     "get_build_info": get_java_build_info,
+    "get_toolchain_global_make_variables": cc_helper.get_toolchain_global_make_variables,
 }
