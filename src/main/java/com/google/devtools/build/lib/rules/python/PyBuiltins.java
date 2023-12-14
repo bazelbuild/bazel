@@ -244,12 +244,13 @@ public abstract class PyBuiltins implements StarlarkValue {
       ImmutableList<Artifact> artifacts;
       // This logic is basically a copy of how LocationExpander.java treats the data attribute.
       var filesToRun = current.getProvider(FilesToRunProvider.class);
+      var filesToBuild = current.getProvider(FileProvider.class).getFilesToBuild();
       if (filesToRun == null) {
-        artifacts = current.getProvider(FileProvider.class).getFilesToBuild().toList();
+        artifacts = filesToBuild.toList();
       } else {
-        Artifact executable = filesToRun == null ? null : filesToRun.getExecutable();
+        Artifact executable = filesToRun.getExecutable();
         if (executable == null) {
-          artifacts = filesToRun.getFilesToRun().toList();
+          artifacts = filesToBuild.toList();
         } else {
           artifacts = ImmutableList.of(executable);
         }
