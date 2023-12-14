@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.PROCESS_TIME;
+import static com.google.devtools.build.lib.profiler.ProfilerTask.FETCH;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_DOWNLOAD;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_EXECUTION;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_QUEUE;
@@ -334,16 +335,34 @@ public class RemoteSpawnRunner implements SpawnRunner {
         "queue");
     logProfileTask(
         converter,
+        executedActionMetadata.getWorkerStartTimestamp(),
+        executedActionMetadata.getInputFetchStartTimestamp(),
+        REMOTE_SETUP,
+        "pre-fetch");
+    logProfileTask(
+        converter,
         executedActionMetadata.getInputFetchStartTimestamp(),
         executedActionMetadata.getInputFetchCompletedTimestamp(),
-        REMOTE_SETUP,
+        FETCH,
         "fetch");
+    logProfileTask(
+        converter,
+        executedActionMetadata.getInputFetchCompletedTimestamp(),
+        executedActionMetadata.getExecutionStartTimestamp(),
+        REMOTE_SETUP,
+        "pre-execute");
     logProfileTask(
         converter,
         executedActionMetadata.getExecutionStartTimestamp(),
         executedActionMetadata.getExecutionCompletedTimestamp(),
         PROCESS_TIME,
         "execute");
+    logProfileTask(
+        converter,
+        executedActionMetadata.getExecutionCompletedTimestamp(),
+        executedActionMetadata.getOutputUploadStartTimestamp(),
+        REMOTE_SETUP,
+        "pre-upload");
     logProfileTask(
         converter,
         executedActionMetadata.getOutputUploadStartTimestamp(),
