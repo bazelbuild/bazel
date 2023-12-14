@@ -241,7 +241,7 @@ def _get_coverage_config(ctx, runner):
             "JAVA_RUNTIME_CLASSPATH_FOR_COVERAGE": manifest.path,
             "SINGLE_JAR_TOOL": singlejar.executable.path,
         },
-        support_files = [manifest, singlejar],
+        support_files = [manifest, singlejar.executable],
     )
 
 def _get_java_executable(ctx, java_runtime_toolchain, launcher):

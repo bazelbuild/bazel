@@ -1145,32 +1145,17 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "  ctx.actions.write(file2, '')",
         "  return coverage_common.instrumented_files_info(",
         "    ctx,",
-        "    coverage_support_files = [depset([file1]), file2, ctx.attr.tool.files_to_run],",
+        "    coverage_support_files = [depset([file1]), file2],",
         "  )",
         "",
         "overridden_extra_action = rule(",
         "  implementation = _impl,",
-        "  attrs = {'tool': attr.label(cfg = 'exec', executable = True)},",
         ")",
         "",
         "exported_toplevels = {}",
         "exported_rules = {'+extra_action': overridden_extra_action}",
         "exported_to_java = {}");
-    scratch.file(
-        "test/starlark/tool_with_runfiles.bzl",
-        "def _impl(ctx):",
-        "  exe = ctx.actions.declare_file(ctx.label.name)",
-        "  ctx.actions.write(exe, '', is_executable = True)",
-        "  data = ctx.actions.declare_file(ctx.label.name + '.data')",
-        "  ctx.actions.write(data, '')",
-        "  return DefaultInfo(executable = exe, runfiles = ctx.runfiles(files = [data]))",
-        "",
-        "tool_with_runfiles = rule(implementation = _impl)");
-    scratch.file(
-        "test/starlark/BUILD",
-        "load(':tool_with_runfiles.bzl', 'tool_with_runfiles')",
-        "tool_with_runfiles(name = 'tool')",
-        "extra_action(name = 'foo', tool = ':tool')");
+    scratch.file("test/starlark/BUILD", "extra_action(name = 'foo')");
     scratch.file("test/starlark/bin.sh", "");
 
     useConfiguration(
@@ -1182,7 +1167,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
                 getConfiguredTarget("//test/starlark:foo")
                     .get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR)
                     .getCoverageSupportFiles()))
-        .containsExactly("foo.file1", "foo.file2", "tool", "test_Sstarlark_Stool-runfiles");
+        .containsExactly("foo.file1", "foo.file2");
   }
 
   @Test
