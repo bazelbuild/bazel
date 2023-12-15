@@ -16,17 +16,20 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toListenableFuture;
-import static com.google.devtools.build.lib.remote.util.RxUtils.mergeBulkTransfer;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
+import static com.google.devtools.build.lib.remote.util.Utils.mergeBulkTransfer;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
@@ -53,7 +56,6 @@ import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import io.reactivex.rxjava3.core.Completable;
-import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Single;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -291,30 +293,38 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     // it must still synchronize on the output permissions having been set.
     Set<Path> dirsWithOutputPermissions = Sets.newConcurrentHashSet();
 
-    Completable prefetch =
-        mergeBulkTransfer(
-                Flowable.fromIterable(files)
-                    .flatMapSingle(
-                        input ->
-                            prefetchFile(
-                                action,
-                                dirsWithOutputPermissions,
-                                metadataSupplier,
-                                input,
-                                priority)))
-            .doOnComplete(
-                // Set output permissions on tree artifact subdirectories, matching the behavior of
-                // SkyframeActionExecutor#checkOutputs for artifacts produced by local actions.
-                () -> {
-                  for (Path dir : dirsWithOutputPermissions) {
-                    directoryTracker.setOutputPermissions(dir);
-                  }
-                });
+    List<ListenableFuture<Void>> transfers = new ArrayList<>(files.size());
+    try (var s = Profiler.instance().profile("compose prefetches")) {
+      for (var file : files) {
+        var result =
+            prefetchFile(action, dirsWithOutputPermissions, metadataSupplier, file, priority);
+        transfers.add(result);
+      }
+    }
 
-    return toListenableFuture(prefetch);
+    ListenableFuture<Void> mergedTransfer;
+    try (var s = Profiler.instance().profile("mergeBulkTransfer")) {
+      mergedTransfer = mergeBulkTransfer(transfers);
+    }
+
+    return Futures.transformAsync(
+        mergedTransfer,
+        unused -> {
+          try {
+            // Set output permissions on tree artifact subdirectories, matching the behavior of
+            // SkyframeActionExecutor#checkOutputs for artifacts produced by local actions.
+            for (Path dir : dirsWithOutputPermissions) {
+              directoryTracker.setOutputPermissions(dir);
+            }
+          } catch (IOException e) {
+            return immediateFailedFuture(e);
+          }
+          return immediateVoidFuture();
+        },
+        directExecutor());
   }
 
-  private Single<TransferResult> prefetchFile(
+  private ListenableFuture<Void> prefetchFile(
       ActionExecutionMetadata action,
       Set<Path> dirsWithOutputPermissions,
       MetadataSupplier metadataSupplier,
@@ -323,14 +333,14 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     try {
       if (input instanceof VirtualActionInput) {
         prefetchVirtualActionInput((VirtualActionInput) input);
-        return Single.just(TransferResult.ok());
+        return immediateVoidFuture();
       }
 
       PathFragment execPath = input.getExecPath();
 
       FileArtifactValue metadata = metadataSupplier.getMetadata(input);
       if (metadata == null || !canDownloadFile(execRoot.getRelative(execPath), metadata)) {
-        return Single.just(TransferResult.ok());
+        return immediateVoidFuture();
       }
 
       @Nullable Symlink symlink = maybeGetSymlink(action, input, metadata, metadataSupplier);
@@ -357,11 +367,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         result = result.andThen(plantSymlink(symlink));
       }
 
-      return RxUtils.toTransferResult(result);
-    } catch (IOException e) {
-      return Single.just(TransferResult.error(e));
-    } catch (InterruptedException e) {
-      return Single.just(TransferResult.interrupted());
+      return toListenableFuture(result);
+    } catch (IOException | InterruptedException e) {
+      return immediateFailedFuture(e);
     }
   }
 
