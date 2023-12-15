@@ -14,6 +14,9 @@
 package com.google.devtools.build.lib.exec;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -23,8 +26,13 @@ import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.exec.Protos.Digest;
+import com.google.devtools.build.lib.exec.Protos.EnvironmentVariable;
+import com.google.devtools.build.lib.exec.Protos.Platform;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -34,6 +42,7 @@ import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.protobuf.util.Durations;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Map;
 import java.util.SortedMap;
 import javax.annotation.Nullable;
 
@@ -63,6 +72,35 @@ public interface SpawnLogContext extends ActionContext {
 
   /** Finishes writing the log and performs any required post-processing. */
   void close() throws IOException;
+
+  /** Computes the environment variables. */
+  static ImmutableList<EnvironmentVariable> getEnvironmentVariables(Spawn spawn) {
+    ImmutableMap<String, String> environment = spawn.getEnvironment();
+    ImmutableList.Builder<EnvironmentVariable> builder =
+        ImmutableList.builderWithExpectedSize(environment.size());
+    for (Map.Entry<String, String> entry : ImmutableSortedMap.copyOf(environment).entrySet()) {
+      builder.add(
+          EnvironmentVariable.newBuilder()
+              .setName(entry.getKey())
+              .setValue(entry.getValue())
+              .build());
+    }
+    return builder.build();
+  }
+
+  /** Computes the execution platform. */
+  @Nullable
+  static Platform getPlatform(Spawn spawn, RemoteOptions remoteOptions) throws UserExecException {
+    var execPlatform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
+    if (execPlatform == null) {
+      return null;
+    }
+    Platform.Builder builder = Platform.newBuilder();
+    for (var p : execPlatform.getPropertiesList()) {
+      builder.addPropertiesBuilder().setName(p.getName()).setValue(p.getValue());
+    }
+    return builder.build();
+  }
 
   /**
    * Computes the digest of an ActionInput or its path.
