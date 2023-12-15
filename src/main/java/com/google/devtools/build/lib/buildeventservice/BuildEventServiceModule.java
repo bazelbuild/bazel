@@ -679,7 +679,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
       StringBuilder msg = new StringBuilder();
       msg.append("Streaming build results to: ");
       if (uiUsesColor) {
-        msg.append(new String(Color.BLUE.getEscapeSeq(), StandardCharsets.US_ASCII));
+        msg.append(new String(Color.CYAN.getEscapeSeq(), StandardCharsets.US_ASCII));
       }
       msg.append(getInvocationIdPrefix(commandName));
       msg.append(invocationId);
