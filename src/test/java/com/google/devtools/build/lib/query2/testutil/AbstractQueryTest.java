@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.Path;
@@ -72,7 +73,6 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.util.Collections;
-import java.util.List;
 import java.util.Set;
 import org.junit.After;
 import org.junit.Before;
@@ -283,11 +283,9 @@ public abstract class AbstractQueryTest<T> {
     writeFile("a/BUILD");
     EvalThrowsResult evalThrowsResult = evalThrows("//a:b", false);
     assertThat(evalThrowsResult.getMessage())
-        .isEqualTo(
-            "no such target '//a:b': target 'b' not declared in package 'a' "
-                + "defined by "
-                + helper.getRootDirectory().getPathString()
-                + "/a/BUILD (Tip: use `query \"//a:*\"` to see all the targets in that package)");
+        .matches(
+            TestUtils.createMissingTargetAssertionString(
+                "b", "a", helper.getRootDirectory().getPathString(), ""));
     assertThat(evalThrowsResult.getFailureDetail().getPackageLoading().getCode())
         .isEqualTo(FailureDetails.PackageLoading.Code.TARGET_MISSING);
   }
@@ -635,10 +633,10 @@ public abstract class AbstractQueryTest<T> {
     writeFile("c/BUILD", "genrule(name='c', srcs=['//d'], outs=['out'], cmd=':')");
     writeFile("d/BUILD", "exports_files(['d'])");
 
-    List<String> pathList1 = ImmutableList.of("//a:a0", "//a:a1", "//b:b", "//d:d");
-    List<String> pathList2 = ImmutableList.of("//a:a0", "//a:a1", "//c:c", "//d:d");
+    ImmutableList<String> pathList1 = ImmutableList.of("//a:a0", "//a:a1", "//b:b", "//d:d");
+    ImmutableList<String> pathList2 = ImmutableList.of("//a:a0", "//a:a1", "//c:c", "//d:d");
 
-    List<String> somepathAToD = evalToListOfStrings("somepath(//a:a0, //d)");
+    ImmutableList<String> somepathAToD = evalToListOfStrings("somepath(//a:a0, //d)");
     if (somepathAToD.contains("//b:b")) {
       assertThat(pathList1).isEqualTo(somepathAToD);
     } else {
@@ -750,7 +748,7 @@ public abstract class AbstractQueryTest<T> {
         "        srcs = [':dep1.txt', ':dep2.txt'],",
         "        cmd = 'echo $(SRCS) >$@')");
 
-    List<String> result = evalToListOfStrings("deps(//s:my_rule)");
+    ImmutableList<String> result = evalToListOfStrings("deps(//s:my_rule)");
     assertThat(result).containsAtLeast("//s:dep2", "//s:dep1.txt", "//s:dep2.txt", "//s:my_rule");
     assertThat(result)
         .containsNoneOf("//deps:BUILD", "//deps:build_def", "//deps:starlark.bzl", "//s:BUILD");
