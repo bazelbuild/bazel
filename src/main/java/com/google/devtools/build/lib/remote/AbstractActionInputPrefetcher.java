@@ -285,6 +285,10 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       files.add(input);
     }
 
+    if (files.isEmpty()) {
+      return immediateVoidFuture();
+    }
+
     // Collect the set of directories whose output permissions must be set at the end of this call.
     // This responsibility cannot lie with the downloading of an individual file, because multiple
     // files may be concurrently downloaded into the same directory within a single call to

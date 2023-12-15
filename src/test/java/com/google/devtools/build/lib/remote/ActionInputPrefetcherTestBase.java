@@ -760,7 +760,7 @@ public abstract class ActionInputPrefetcherTestBase {
         prefetcher.prefetchFiles(
             action, ImmutableList.of(a1), interruptedMetadataSupplier, Priority.MEDIUM);
 
-    assertThrows(CancellationException.class, future::get);
+    assertThrows(InterruptedException.class, () -> getFromFuture(future));
   }
 
   @Test
