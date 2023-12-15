@@ -48,6 +48,12 @@ class IFileMtime {
   // Returns true if the mtime was changed successfully.
   virtual bool SetToNow(const Path &path) = 0;
 
+  // Attempt to set the mtime of file under `path` to the current time.
+  //
+  // Returns true if the mtime was changed successfully OR if setting the mtime
+  // failed due to permissions errors.
+  virtual bool SetToNowIfPossible(const Path &path) = 0;
+
   // Sets the mtime of file under `path` to the distant future.
   // "Distant future" should be on the order of some years into the future, like
   // a decade.
