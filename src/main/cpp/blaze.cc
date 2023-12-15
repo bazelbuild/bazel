@@ -1011,7 +1011,9 @@ static void EnsureCorrectRunningVersion(const StartupOptions &startup_options,
     // find install bases that haven't been used for a long time
     std::unique_ptr<blaze_util::IFileMtime> mtime(
         blaze_util::CreateFileMtime());
-    if (!mtime->SetToNow(blaze_util::Path(startup_options.install_base))) {
+    // Ignore permissions errors (i.e. if the install base is not writable):
+    if (!mtime->SetToNowIfPossible(
+            blaze_util::Path(startup_options.install_base))) {
       string err = GetLastErrorString();
       BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
           << "failed to set timestamp on '" << startup_options.install_base

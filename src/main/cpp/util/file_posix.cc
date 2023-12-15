@@ -453,6 +453,7 @@ class PosixFileMtime : public IFileMtime {
 
   bool IsUntampered(const Path &path) override;
   bool SetToNow(const Path &path) override;
+  bool SetToNowIfPossible(const Path &path) override;
   bool SetToDistantFuture(const Path &path) override;
 
  private:
@@ -484,6 +485,19 @@ bool PosixFileMtime::SetToNow(const Path &path) {
   time_t now(GetNow());
   struct utimbuf times = {now, now};
   return Set(path, times);
+}
+
+bool PosixFileMtime::SetToNowIfPossible(const Path &path) {
+  bool okay = this->SetToNow(path);
+  if (!okay) {
+    // `SetToNow`/`Set` are backed by `utime(2)` which can return `EROFS` and
+    // `EPERM` when there's a permissions issue:
+    if (errno == EROFS || errno == EPERM) {
+      okay = true;
+    }
+  }
+
+  return okay;
 }
 
 bool PosixFileMtime::SetToDistantFuture(const Path &path) {
