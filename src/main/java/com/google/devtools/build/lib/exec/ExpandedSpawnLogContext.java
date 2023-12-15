@@ -14,9 +14,10 @@
 package com.google.devtools.build.lib.exec;
 
 import static com.google.devtools.build.lib.exec.SpawnLogContext.computeDigest;
+import static com.google.devtools.build.lib.exec.SpawnLogContext.getEnvironmentVariables;
+import static com.google.devtools.build.lib.exec.SpawnLogContext.getPlatform;
 import static com.google.devtools.build.lib.exec.SpawnLogContext.getSpawnMetricsProto;
 
-import build.bazel.remote.execution.v2.Platform;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -27,9 +28,9 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
-import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.Protos.File;
+import com.google.devtools.build.lib.exec.Protos.Platform;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -55,7 +56,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
-import java.util.TreeSet;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
@@ -145,13 +145,7 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
     SortedMap<Path, ActionInput> existingOutputs = listExistingOutputs(spawn, fileSystem);
     SpawnExec.Builder builder = SpawnExec.newBuilder();
     builder.addAllCommandArgs(spawn.getArguments());
-
-    Map<String, String> env = spawn.getEnvironment();
-    // Sorting the environment pairs by variable name.
-    TreeSet<String> variables = new TreeSet<>(env.keySet());
-    for (String var : variables) {
-      builder.addEnvironmentVariablesBuilder().setName(var).setValue(env.get(var));
-    }
+    builder.addAllEnvironmentVariables(getEnvironmentVariables(spawn));
 
     ImmutableSet<? extends ActionInput> toolFiles = spawn.getToolFiles().toSet();
 
@@ -225,9 +219,9 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
     }
     builder.setRemotable(Spawns.mayBeExecutedRemotely(spawn));
 
-    Platform execPlatform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
-    if (execPlatform != null) {
-      builder.setPlatform(buildPlatform(execPlatform));
+    Platform platform = getPlatform(spawn, remoteOptions);
+    if (platform != null) {
+      builder.setPlatform(platform);
     }
     if (result.status() != SpawnResult.Status.SUCCESS) {
       builder.setStatus(result.status().toString());
@@ -283,14 +277,6 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
         // Intentionally ignored.
       }
     }
-  }
-
-  private static Protos.Platform buildPlatform(Platform platform) {
-    Protos.Platform.Builder platformBuilder = Protos.Platform.newBuilder();
-    for (Platform.Property p : platform.getPropertiesList()) {
-      platformBuilder.addPropertiesBuilder().setName(p.getName()).setValue(p.getValue());
-    }
-    return platformBuilder.build();
   }
 
   private SortedMap<Path, ActionInput> listExistingOutputs(Spawn spawn, FileSystem fileSystem) {
