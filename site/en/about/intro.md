@@ -100,13 +100,3 @@ and the build actions that Bazel will perform. Thanks to this graph, Bazel can
 file content as well as changes to actions, such as build or test commands, and
 know what build work has previously been done. The graph also enables you to
 easily [trace dependencies](/query/guide) in your code.
-
-## Getting started tutorials {:#getting-started-tutorials}
-
-To get started with Bazel, see [Getting Started](/start/) or jump
-directly to the Bazel tutorials:
-
-*   [Tutorial: Build a C++ Project](/start/cpp)
-*   [Tutorial: Build a Java Project](/start/java)
-*   [Tutorial: Build an Android Application](/start/android-app)
-*   [Tutorial: Build an iOS Application](/start/ios-app)
