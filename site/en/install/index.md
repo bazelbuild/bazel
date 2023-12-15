@@ -21,7 +21,7 @@ officially support them. Contact the package maintainers for support.
 *   [Debian](https://qa.debian.org/developer.php?email=team%2Bbazel%40tracker.debian.org){: .external}
 *   [FreeBSD](https://www.freshports.org/devel/bazel){: .external}
 *   [Gentoo](https://packages.gentoo.org/packages/dev-util/bazel){: .external}
-*   [Linuxbrew](https://github.com/Linuxbrew/homebrew-core/blob/master/Formula/bazel.rb){: .external}
+*   [Homebrew](https://formulae.brew.sh/formula/bazel){: .external}
 *   [Nixpkgs](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/build-managers/bazel){: .external}
 *   [openSUSE](/install/suse)
 *   [Parabola](https://www.parabola.nu/packages/?q=bazel){: .external}
