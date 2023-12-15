@@ -157,7 +157,6 @@ def basic_java_binary(
             runtime_classpath = runtime_classpath,
             boot_classpath = compilation_info.boot_classpath,
             javac_options = compilation_info.javac_options,
-            javac_options_list = compilation_info.javac_options_list,
         )
 
     java_attrs = _collect_attrs(ctx, runtime_classpath, classpath_resources)

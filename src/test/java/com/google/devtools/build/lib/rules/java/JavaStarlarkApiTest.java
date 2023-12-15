@@ -2232,7 +2232,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "foo/extension.bzl",
         "result = provider()",
         "def _impl(ctx):",
-        "  return [result(property = ctx.attr.dep[JavaInfo].compilation_info.javac_options_list)]",
+        "  return [result(property = ctx.attr.dep[JavaInfo].compilation_info.javac_options)]",
         "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
     scratch.file(
         "foo/BUILD",
@@ -2247,8 +2247,9 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         (StructImpl)
             myRuleTarget.get(
                 new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "result"));
-    Sequence<String> javacOptionsList =
-        Sequence.cast(info.getValue("property"), String.class, "javac_options_list");
+    ImmutableList<String> javacOptionsList =
+        JavaHelper.tokenizeJavaOptions(
+            Depset.cast(info.getValue("property"), String.class, "javac_options"));
 
     assertThat(javacOptionsList).containsAtLeast("opt1", "opt2").inOrder();
   }
@@ -3736,7 +3737,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     "{api: _google_legacy_api_enabled}",
     "{api: _check_java_toolchain_is_declared_on_rule}",
     "{api: wrap_java_info}",
-    "{api: intern_javac_opts}",
     "{api: tokenize_javacopts}",
   })
   public void testJavaCommonPrivateApis_areNotVisibleToPublicStarlark(String api) throws Exception {
