@@ -62,13 +62,4 @@ public interface RunfilesSupplier extends StarlarkValue {
    * @param runfilesDir runfiles directory relative to the exec root
    */
   boolean isBuildRunfileLinks(PathFragment runfilesDir);
-
-  /**
-   * Returns a {@link RunfilesSupplier} identical to this one, but with the given runfiles
-   * directory.
-   *
-   * <p>Must only be called on suppliers with a single runfiles directory, i.e. {@link
-   * #getRunfilesDirs} returns a set of size 1.
-   */
-  RunfilesSupplier withOverriddenRunfilesDir(PathFragment newRunfilesDir);
 }

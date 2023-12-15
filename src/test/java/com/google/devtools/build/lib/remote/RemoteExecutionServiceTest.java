@@ -2501,10 +2501,6 @@ public class RemoteExecutionServiceTest {
         throw new UnsupportedOperationException();
       }
 
-      @Override
-      public RunfilesSupplier withOverriddenRunfilesDir(PathFragment newRunfilesDir) {
-        throw new UnsupportedOperationException();
-      }
     };
   }
 

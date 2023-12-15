@@ -554,15 +554,4 @@ public final class RunfilesSupport implements RunfilesSupplier {
             /* eventHandler= */ null, /* location= */ null, repoMappingManifest));
   }
 
-  @Override
-  public RunfilesSupplier withOverriddenRunfilesDir(PathFragment newRunfilesDir) {
-    return newRunfilesDir.equals(getRunfilesDirectoryExecPath())
-        ? this
-        : new SingleRunfilesSupplier(
-            newRunfilesDir,
-            runfiles,
-            repoMappingManifest,
-            runfileSymlinksMode,
-            buildRunfileLinks);
-  }
 }

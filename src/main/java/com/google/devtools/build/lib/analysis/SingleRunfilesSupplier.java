@@ -153,7 +153,6 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
     return buildRunfileLinks && this.runfilesDir.equals(runfilesDir);
   }
 
-  @Override
   public SingleRunfilesSupplier withOverriddenRunfilesDir(PathFragment newRunfilesDir) {
     return newRunfilesDir.equals(runfilesDir)
         ? this

@@ -59,8 +59,4 @@ public final class EmptyRunfilesSupplier implements RunfilesSupplier {
     return false;
   }
 
-  @Override
-  public RunfilesSupplier withOverriddenRunfilesDir(PathFragment newRunfilesDir) {
-    throw new UnsupportedOperationException();
-  }
 }
