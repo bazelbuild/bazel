@@ -464,10 +464,10 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    * @throws LabelSyntaxException if {@code targetName} is not a valid target name
    */
   @StarlarkMethod(
-      name = "local_target_label",
+      name = "same_package_label",
       doc = "Creates a label in the same package as this label with the given target name.",
       parameters = {@Param(name = "target_name", doc = "The target name of the new label.")})
-  public Label getLocalTargetLabel(String targetName) throws LabelSyntaxException {
+  public Label getSamePackageLabel(String targetName) throws LabelSyntaxException {
     return create(packageIdentifier, targetName);
   }
 
@@ -485,7 +485,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
       doc =
           "<strong>Deprecated.</strong> This method behaves surprisingly when used with an argument"
               + " containing an apparent repo name. Prefer <a"
-              + " href=\"#local_target_label\"><code>Label.local_target_label()</code></a>, <a"
+              + " href=\"#local_target_label\"><code>Label.same_package_label()</code></a>, <a"
               + " href=\"../toplevel/native#package_relative_label\"><code>native.package_relative_label()</code></a>,"
               + " or <a href=\"#Label\"><code>Label()</code></a> instead.<p>Resolves a label that"
               + " is either absolute (starts with <code>//</code>) or relative to the current"
