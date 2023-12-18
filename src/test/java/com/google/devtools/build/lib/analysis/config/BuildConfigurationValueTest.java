@@ -198,9 +198,124 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void testExecDefine() throws Exception {
+  public void testExecDefine_isAllowedByDefault() throws Exception {
     BuildConfigurationValue cfg = createExec("--define=foo=bar");
     assertThat(cfg.getCommandLineBuildVariables().get("foo")).isEqualTo("bar");
+  }
+
+  @Test
+  public void testExecDefine_isIgnoredIfExcludedAndNotAllowed() throws Exception {
+    BuildConfigurationValue cfg =
+        createExec("--define=foo=bar", "--experimental_exclude_defines_from_exec_config=true");
+    assertThat(cfg.getCommandLineBuildVariables()).doesNotContainKey("foo");
+  }
+
+  @Test
+  public void testExecDefine_isPropagatedIfAllowedByFlag() throws Exception {
+    BuildConfigurationValue cfg =
+        createExec(
+            "--define=foo=bar",
+            "--experimental_exclude_defines_from_exec_config=true",
+            "--experimental_propagate_custom_flag=foo",
+            "--define=baz=qux");
+    assertThat(cfg.getCommandLineBuildVariables()).containsEntry("foo", "bar");
+    assertThat(cfg.getCommandLineBuildVariables()).doesNotContainEntry("baz", "qux");
+  }
+
+  @Test
+  public void testExecStarlarkFlag_isAllowedByDefault() throws Exception {
+    scratch.file(
+        "my_starlark_flag/rule_defs.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "bool_flag = rule(",
+        "  implementation = _basic_impl,",
+        "  build_setting = config.bool(flag = True),",
+        ")");
+    scratch.file(
+        "my_starlark_flag/BUILD",
+        "load('//:my_starlark_flag:rule_defs.bzl', 'bool_flag')",
+        "bool_flag(",
+        "   name = 'starlark_flag',",
+        "   build_setting_default = 'False',",
+        ")");
+    BuildConfigurationValue cfg =
+        createExec(ImmutableMap.of("//my_starlark_flag:starlark_flag", "true"));
+    assertThat(
+            cfg.getOptions()
+                .getStarlarkOptions()
+                .get(Label.parseCanonicalUnchecked("//my_starlark_flag:starlark_flag")))
+        .isEqualTo("true");
+  }
+
+  @Test
+  public void testExecStarlarkFlag_isIgnoredIfExcludedAndNotAllowed() throws Exception {
+    scratch.file(
+        "my_starlark_flag/rule_defs.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "bool_flag = rule(",
+        "  implementation = _basic_impl,",
+        "  build_setting = config.bool(flag = True),",
+        ")");
+    scratch.file(
+        "my_starlark_flag/BUILD",
+        "load('//my_starlark_flag:rule_defs.bzl', 'bool_flag')",
+        "bool_flag(",
+        "   name = 'starlark_flag',",
+        "   build_setting_default = 'False',",
+        ")");
+    BuildConfigurationValue cfg =
+        createExec(
+            ImmutableMap.of("//my_starlark_flag:starlark_flag", "true"),
+            "--experimental_exclude_starlark_flags_from_exec_config=true");
+    assertThat(
+            cfg.getOptions()
+                .getStarlarkOptions()
+                .get(Label.parseCanonicalUnchecked("//my_starlark_flag:starlark_flag")))
+        .isNull();
+  }
+
+  @Test
+  public void testExecStarlarkFlag_isPropagatedIfAllowedByFlag() throws Exception {
+    scratch.file(
+        "my_starlark_flag/rule_defs.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "bool_flag = rule(",
+        "  implementation = _basic_impl,",
+        "  build_setting = config.bool(flag = True),",
+        ")");
+    scratch.file(
+        "my_starlark_flag/BUILD",
+        "load('//my_starlark_flag:rule_defs.bzl', 'bool_flag')",
+        "bool_flag(",
+        "   name = 'starlark_flag',",
+        "   build_setting_default = 'False',",
+        ")",
+        "bool_flag(",
+        "   name = 'other_starlark_flag',",
+        "   build_setting_default = 'False',",
+        ")");
+    BuildConfigurationValue cfg =
+        createExec(
+            ImmutableMap.of(
+                "//my_starlark_flag:starlark_flag",
+                "true",
+                "//my_starlark_flag:other_starlark_flag",
+                "true"),
+            "--experimental_exclude_starlark_flags_from_exec_config=true",
+            "--experimental_propagate_custom_flag=//my_starlark_flag:starlark_flag");
+    assertThat(
+            cfg.getOptions()
+                .getStarlarkOptions()
+                .get(Label.parseCanonicalUnchecked("//my_starlark_flag:starlark_flag")))
+        .isEqualTo("true");
+    assertThat(
+            cfg.getOptions()
+                .getStarlarkOptions()
+                .get(Label.parseCanonicalUnchecked("//my_starlark_flag:other_starlark_flag")))
+        .isNull();
   }
 
   @Test
