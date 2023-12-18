@@ -1172,7 +1172,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testInstrumentedFilesInfo_coverageSupportAndEnvVarsArePrivateAPI() throws Exception {
-    // Arrange
     scratch.file(
         "test/starlark/extension.bzl",
         "",
@@ -1201,10 +1200,8 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         ")");
     reporter.removeHandler(failFastHandler);
 
-    // Act
     getConfiguredTarget("//test/starlark:foo");
 
-    // Assert
     assertContainsEvent("file '//test/starlark:extension.bzl' cannot use private @_builtins API");
   }
 
