@@ -310,6 +310,10 @@ EOF
   link_children "${PWD}" tools/python "${BAZEL_TOOLS_REPO}"
   link_children "${PWD}" tools "${BAZEL_TOOLS_REPO}"
 
+  # Create @bazel_tools//tools/allowlists
+  mkdir -p ${BAZEL_TOOLS_REPO}/tools/allowlists/function_transition_allowlist
+  link_file "${PWD}/tools/allowlists/function_transition_allowlist/BUILD.tools" "${BAZEL_TOOLS_REPO}/tools/allowlists/function_transition_allowlist/BUILD"
+
   # Set up @maven properly
   cp derived/maven/BUILD.vendor derived/maven/BUILD
 

@@ -251,6 +251,11 @@ distrib_jar_filegroup(
     srcs = [
         "@maven//:com_google_auto_value_auto_value_annotations_file",
         "@maven//:com_google_auto_value_auto_value_file",
+        "@maven//:com_ryanharter_auto_value_auto_value_gson_runtime_file",
+        "@maven//:com_ryanharter_auto_value_auto_value_gson_extension_file",
+        "@maven//:com_ryanharter_auto_value_auto_value_gson_factory_file",
+        "@maven//:com_squareup_javapoet_file",
+        "@maven//:com_google_code_gson_gson_file",
     ],
     enable_distributions = ["debian"],
 )
