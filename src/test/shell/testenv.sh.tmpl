@@ -624,7 +624,6 @@ function create_workspace_with_default_repos() {
   write_workspace_file "${1:-WORKSPACE}" "${2:-main}"
   workspace_file=${1:-WORKSPACE}
   write_workspace_file "${workspace_file}" "${2:-main}"
-  touch MODULE.bazel
   write_default_lockfile "$(dirname ${workspace_file})/MODULE.bazel.lock"
   echo "$1"
 }
@@ -665,7 +664,9 @@ EOF
 
 # Set up a lockfile to avoid accessing BCR for tests with a clean workspace.
 function write_default_lockfile() {
-  cp -f $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) ${1:-MODULE.bazel.lock}
+  module_lockfile=${1:-MODULE.bazel.lock}
+  touch "$(dirname ${module_lockfile})/MODULE.bazel"
+  cp -f $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) ${module_lockfile}
 }
 
 workspaces=()
@@ -676,7 +677,6 @@ function create_new_workspace() {
   mkdir -p ${new_workspace_dir}
   workspaces+=(${new_workspace_dir})
   cd ${new_workspace_dir}
-  touch MODULE.bazel
   mkdir tools
 
   copy_tools_directory
@@ -720,7 +720,6 @@ function cleanup_workspace() {
       fi
     done
     write_workspace_file "WORKSPACE" "$WORKSPACE_NAME"
-    touch MODULE.bazel
     write_default_lockfile "MODULE.bazel.lock"
   fi
   for i in "${workspaces[@]}"; do
