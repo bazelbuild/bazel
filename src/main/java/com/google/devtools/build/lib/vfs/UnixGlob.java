@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -227,7 +228,7 @@ public final class UnixGlob {
     StringBuilder regexp = new StringBuilder();
     for (int i = 0, len = pattern.length(); i < len; i++) {
       char c = pattern.charAt(i);
-      switch(c) {
+      switch (c) {
         case '*':
           int toIncrement = 0;
           if (len > i + 1 && pattern.charAt(i + 1) == '*') {
@@ -755,7 +756,12 @@ public final class UnixGlob {
       }
 
       if (baseIsDir && !context.pathDiscriminator.shouldTraverseDirectory(base)) {
-        maybeAddResult(context, base, baseIsDir);
+        if (areAllRemainingPatternsDoubleStar(context, idx)) {
+          // For SUBPACKAGES, we encounter this when all remaining patterns in the glob expression
+          // are `**`s. In that case we should include the subpackage's PathFragment (relative to
+          // the package fragment) in the matching results.
+          maybeAddResult(context, base, baseIsDir);
+        }
         return;
       }
 
@@ -805,6 +811,12 @@ public final class UnixGlob {
       if (context.pathDiscriminator.shouldIncludePathInResult(base, isDirectory)) {
         results.add(base);
       }
+    }
+
+    private static boolean areAllRemainingPatternsDoubleStar(
+        GlobTaskContext context, int startIdx) {
+      return Arrays.stream(context.patternParts, startIdx, context.patternParts.length)
+          .allMatch("**"::equals);
     }
 
     /**

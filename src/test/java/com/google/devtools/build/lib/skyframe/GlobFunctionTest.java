@@ -73,7 +73,9 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -106,7 +108,7 @@ public class GlobFunctionTest {
   private static final PackageIdentifier PKG_ID = PackageIdentifier.createInMainRepo("pkg");
 
   @Before
-  public final void setUp() throws Exception  {
+  public final void setUp() throws Exception {
     fs = new CustomInMemoryFs(new ManualClock());
     root = fs.getPath("/root/workspace");
     writableRoot = fs.getPath("/writableRoot/workspace");
@@ -180,7 +182,7 @@ public class GlobFunctionTest {
                 .getPackageFactoryBuilderForTesting(directories)
                 .build(ruleClassProvider, fs),
             directories,
-            /*bzlLoadFunctionForInlining=*/ null));
+            /* bzlLoadFunctionForInlining= */ null));
     skyFunctions.put(
         SkyFunctions.EXTERNAL_PACKAGE,
         new ExternalPackageFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
@@ -454,9 +456,7 @@ public class GlobFunctionTest {
   private void assertGlobsEqual(String pattern1, String pattern2) throws Exception {
     GlobValue value1 = runGlob(pattern1, Globber.Operation.FILES_AND_DIRS);
     GlobValue value2 = runGlob(pattern2, Globber.Operation.FILES_AND_DIRS);
-    new EqualsTester()
-        .addEqualityGroup(value1, value2)
-        .testEquals();
+    new EqualsTester().addEqualityGroup(value1, value2).testEquals();
   }
 
   private GlobValue runGlob(String pattern, Globber.Operation globberOperation) throws Exception {
@@ -536,9 +536,7 @@ public class GlobFunctionTest {
                 PathFragment.EMPTY_FRAGMENT));
   }
 
-  /**
-   * Tests that globs can contain Java regular expression special characters
-   */
+  /** Tests that globs can contain Java regular expression special characters */
   @Test
   public void testSpecialRegexCharacter() throws Exception {
     Path aDotB = pkgPath.getChild("a.b");
@@ -702,7 +700,7 @@ public class GlobFunctionTest {
     fs.stubStat(pkgPath, null);
     RootedPath pkgRootedPath = RootedPath.toRootedPath(Root.fromPath(root), pkgPath);
     FileStateValue pkgDirFileStateValue =
-        FileStateValue.create(pkgRootedPath, SyscallCache.NO_CACHE, /*tsgm=*/ null);
+        FileStateValue.create(pkgRootedPath, SyscallCache.NO_CACHE, /* tsgm= */ null);
     FileValue pkgDirValue =
         FileValue.value(
             ImmutableList.of(pkgRootedPath),
@@ -899,83 +897,8 @@ public class GlobFunctionTest {
   }
 
   @Test
-  public void subpackages_oneLevelDeep() throws Exception {
-    makeEmptyPackage("base/sub");
-    makeEmptyPackage("base/sub2");
-    makeEmptyPackage("base/sub3");
-
-    assertSubpackageMatches("base/*", /* => */ "base/sub", "base/sub2", "base/sub3");
-    assertSubpackageMatches("base/**", /* => */ "base/sub", "base/sub2", "base/sub3");
-  }
-
-  @Test
-  public void subpackages_oneLevel_notDeepEnough() throws Exception {
-    makeEmptyPackage("base/sub/pkg");
-    makeEmptyPackage("base/sub2/pkg");
-    makeEmptyPackage("base/sub3/pkg");
-
-    // * doesn't go deep enough
-    assertSubpackageMatches("base/*");
-    // But if we go with ** it works fine.
-    assertSubpackageMatches("base/**", /* => */ "base/sub/pkg", "base/sub2/pkg", "base/sub3/pkg");
-  }
-
-  @Test
-  public void subpackages_deepRecurse() throws Exception {
-    makeEmptyPackage("base/sub/1");
-    makeEmptyPackage("base/sub/2");
-    makeEmptyPackage("base/sub2/3");
-    makeEmptyPackage("base/sub2/4");
-    makeEmptyPackage("base/sub3/5");
-    makeEmptyPackage("base/sub3/6");
-
-    FileSystemUtils.createEmptyFile(pkgPath.getRelative("foo/bar/BUILD"));
-    // "foo/bar" should not be in the results because foo/bar is a separate package.
-    assertSubpackageMatches(
-        "base/*/*",
-        "base/sub/1",
-        "base/sub/2",
-        "base/sub2/3",
-        "base/sub2/4",
-        "base/sub3/5",
-        "base/sub3/6");
-
-    assertSubpackageMatches(
-        "base/**",
-        "base/sub/1",
-        "base/sub/2",
-        "base/sub2/3",
-        "base/sub2/4",
-        "base/sub3/5",
-        "base/sub3/6");
-  }
-
-  @Test
-  public void subpackages_middleWidlcard() throws Exception {
-    makeEmptyPackage("base/sub1/same");
-    makeEmptyPackage("base/sub2/same");
-    makeEmptyPackage("base/sub3/same");
-    makeEmptyPackage("base/sub4/same");
-    makeEmptyPackage("base/sub5/same");
-    makeEmptyPackage("base/sub6/same");
-
-    assertSubpackageMatches(
-        "base/*/same",
-        "base/sub1/same",
-        "base/sub2/same",
-        "base/sub3/same",
-        "base/sub4/same",
-        "base/sub5/same",
-        "base/sub6/same");
-
-    assertSubpackageMatches(
-        "base/**/same",
-        "base/sub1/same",
-        "base/sub2/same",
-        "base/sub3/same",
-        "base/sub4/same",
-        "base/sub5/same",
-        "base/sub6/same");
+  public void subpackages_doubleStarPatternWithNamedChild() throws Exception {
+    assertSubpackageMatches("**/bar");
   }
 
   @Test
@@ -990,6 +913,112 @@ public class GlobFunctionTest {
     assertSubpackageMatches("sub2", "sub2");
     assertSubpackageMatches("sub3/deep", "sub3/deep");
     assertSubpackageMatches("sub4/deeper/deeper", "sub4/deeper/deeper");
+  }
+
+  @Test
+  public void subpackages_zeroLevelDeep() throws Exception {
+    makeEmptyPackage("sub");
+
+    assertSubpackageMatches("sub/*");
+
+    // `**` is considered to matching nothing below.
+    assertSubpackageMatches("sub/**", "sub");
+    assertSubpackageMatches("sub/**/**", "sub");
+
+    assertSubpackageMatches("sub/**/foo");
+    assertSubpackageMatches("sub/**/foo/**");
+  }
+
+  @Test
+  public void subpackages_zeroAndOneLevelDeep() throws Exception {
+    makeEmptyPackage("sub");
+    makeEmptyPackage("sub/subOfSub");
+
+    assertSubpackageMatches("sub/*");
+
+    // `**` is considered to matching nothing below.
+    assertSubpackageMatches("sub/**", "sub");
+    assertSubpackageMatches("sub/**/**", "sub");
+
+    assertSubpackageMatches("sub/**/foo");
+    assertSubpackageMatches("sub/**/foo/**");
+  }
+
+  @Test
+  public void subpackages_oneLevelDeep() throws Exception {
+    makeEmptyPackage("base/sub");
+    makeEmptyPackage("base/sub2");
+    makeEmptyPackage("base/sub3");
+
+    List<String> matchingPatterns =
+        Arrays.asList("base/*", "base/**", "base/**/**", "base/**/sub*", "base/**/sub*/**");
+
+    for (String pattern : matchingPatterns) {
+      assertSubpackageMatches(pattern, /* => */ "base/sub", "base/sub2", "base/sub3");
+    }
+  }
+
+  @Test
+  public void subpackages_deepRecurse() throws Exception {
+    makeEmptyPackage("base/sub/1");
+    makeEmptyPackage("base/sub/2");
+    makeEmptyPackage("base/sub2/3");
+    makeEmptyPackage("base/sub2/4");
+    makeEmptyPackage("base/sub3/5");
+    makeEmptyPackage("base/sub3/6");
+
+    FileSystemUtils.createEmptyFile(pkgPath.getRelative("foo/bar/BUILD"));
+
+    // * doesn't go deep enough, so no matches
+    assertSubpackageMatches("base/*");
+
+    List<String> matchingPatterns =
+        Arrays.asList("base/**", "base/*/*", "base/*/*/**", "base/*/*/**/**", "base/**/sub*/**");
+
+    for (String pattern : matchingPatterns) {
+      assertSubpackageMatches(
+          pattern,
+          "base/sub/1",
+          "base/sub/2",
+          "base/sub2/3",
+          "base/sub2/4",
+          "base/sub3/5",
+          "base/sub3/6");
+    }
+  }
+
+  @Test
+  public void subpackages_middleWildcard() throws Exception {
+    makeEmptyPackage("base/same");
+    makeEmptyPackage("base/sub1/same");
+    makeEmptyPackage("base/sub2/same");
+    makeEmptyPackage("base/sub3/same");
+    makeEmptyPackage("base/sub4/same");
+    makeEmptyPackage("base/sub5/same");
+    makeEmptyPackage("base/sub6/same");
+    makeEmptyPackage("base/sub7/sub8/same");
+    makeEmptyPackage("base/sub9/sub10/sub11/same");
+
+    assertSubpackageMatches(
+        "base/*/same",
+        "base/sub1/same",
+        "base/sub2/same",
+        "base/sub3/same",
+        "base/sub4/same",
+        "base/sub5/same",
+        "base/sub6/same");
+
+    assertSubpackageMatches(
+        "base/**/same",
+        "base/same",
+        "base/sub1/same",
+        "base/sub2/same",
+        "base/sub3/same",
+        "base/sub4/same",
+        "base/sub5/same",
+        "base/sub6/same",
+        "base/sub7/sub8/same",
+        "base/sub9/sub10/sub11/same");
   }
 
   @Test

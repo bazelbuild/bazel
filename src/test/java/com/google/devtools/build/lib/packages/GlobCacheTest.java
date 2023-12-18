@@ -338,9 +338,52 @@ public class GlobCacheTest {
   }
 
   @Test
-  public void testSubpackages() throws Exception {
+  public void testSubpackages_noWildcard() throws Exception {
+    assertThat(cache.globUnsorted(list("sub/sub.js"), list(), Globber.Operation.SUBPACKAGES, true))
+        .isEmpty();
+  }
+
+  @Test
+  public void testSubpackages_simpleDoubleStar() throws Exception {
     assertThat(cache.globUnsorted(list("**"), list(), Globber.Operation.SUBPACKAGES, true))
         .containsExactly("sub");
+  }
+
+  @Test
+  public void testSubpackages_onlySub() throws Exception {
+    assertThat(cache.globUnsorted(list("sub"), list(), Globber.Operation.SUBPACKAGES, true))
+        .containsExactly("sub");
+  }
+
+  @Test
+  public void testSubpackages_singleStarsAfterSub() throws Exception {
+    assertThat(cache.globUnsorted(list("sub/*"), list(), Globber.Operation.SUBPACKAGES, true))
+        .isEmpty();
+  }
+
+  @Test
+  public void testSubpackages_doubleStarsAfterSub() throws Exception {
+    assertThat(cache.globUnsorted(list("sub/**"), list(), Globber.Operation.SUBPACKAGES, true))
+        .containsExactly("sub");
+  }
+
+  @Test
+  public void testSubpackages_twoDoubleStarsAfterSub() throws Exception {
+    // Both `**`s are considered to match no path fragments.
+    assertThat(cache.globUnsorted(list("sub/**/**"), list(), Globber.Operation.SUBPACKAGES, true))
+        .containsExactly("sub");
+  }
+
+  @Test
+  public void testSubpackages_doubleStarsAndOtherPathAfterSub() throws Exception {
+    assertThat(cache.globUnsorted(list("sub/**/foo"), list(), Globber.Operation.SUBPACKAGES, true))
+        .isEmpty();
+  }
+
+  @Test
+  public void testSubpackages_doubleStarWithTrailingPattern() throws Exception {
+    assertThat(cache.globUnsorted(list("**/bar"), list(), Globber.Operation.SUBPACKAGES, true))
+        .isEmpty();
   }
 
   private void assertEmpty(Collection<?> glob) {

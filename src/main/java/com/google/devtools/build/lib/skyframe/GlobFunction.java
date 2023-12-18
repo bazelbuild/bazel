@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static java.util.Arrays.stream;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
@@ -78,6 +80,20 @@ public final class GlobFunction implements SkyFunction {
       }
     }
 
+    String pattern = glob.getPattern();
+    // Split off the first path component of the pattern.
+    int slashPos = pattern.indexOf('/');
+    String patternHead;
+    String patternTail;
+    if (slashPos == -1) {
+      patternHead = pattern;
+      patternTail = null;
+    } else {
+      // Substrings will share the backing array of the original glob string. That should be fine.
+      patternHead = pattern.substring(0, slashPos);
+      patternTail = pattern.substring(slashPos + 1);
+    }
+
     // Note that the glob's package is assumed to exist which implies that the package's BUILD file
     // exists which implies that the package's directory exists.
     if (!globSubdir.equals(PathFragment.EMPTY_FRAGMENT)) {
@@ -97,11 +113,11 @@ public final class GlobFunction implements SkyFunction {
         // defines another package, so glob expansion should not descend into
         // that subdir.
         //
-        // For SUBPACKAGES, we encounter this when the pattern is a recursive ** and we are a
-        // terminal package for that pattern. In that case we should include the subDirFragment
-        // PathFragment (relative to the glob's package) in the GlobValue.getMatches,
-        // otherwise for file/dir matching return EMPTY;
-        if (globberOperation == Globber.Operation.SUBPACKAGES) {
+        // For SUBPACKAGES, we encounter this when all remaining patterns in the glob expression
+        // are `**`s. In that case we should include the subpackage's PathFragment (relative to the
+        // package fragment) in the GlobValue.getMatches. Otherwise, return EMPTY.
+        if (globberOperation == Globber.Operation.SUBPACKAGES
+            && areAllRemainingPatternsDoubleStar(patternHead, patternTail)) {
           return new GlobValue(
               NestedSetBuilder.<PathFragment>stableOrder()
                   .add(subDirFragment.relativeTo(glob.getPackageId().getPackageFragment()))
@@ -113,20 +129,6 @@ public final class GlobFunction implements SkyFunction {
         // We crossed a repository boundary, so glob expansion should not descend into that subdir.
         return GlobValue.EMPTY;
       }
-    }
-
-    String pattern = glob.getPattern();
-    // Split off the first path component of the pattern.
-    int slashPos = pattern.indexOf('/');
-    String patternHead;
-    String patternTail;
-    if (slashPos == -1) {
-      patternHead = pattern;
-      patternTail = null;
-    } else {
-      // Substrings will share the backing array of the original glob string. That should be fine.
-      patternHead = pattern.substring(0, slashPos);
-      patternTail = pattern.substring(slashPos + 1);
     }
 
     NestedSetBuilder<PathFragment> matches = NestedSetBuilder.stableOrder();
@@ -362,6 +364,17 @@ public final class GlobFunction implements SkyFunction {
     return new GlobValue(matchesBuilt);
   }
 
+  private static boolean areAllRemainingPatternsDoubleStar(
+      String patternHead, @Nullable String patternTail) {
+    if (!patternHead.equals("**")) {
+      return false;
+    }
+    if (patternTail == null) {
+      return true;
+    }
+    return stream(patternTail.split("/")).allMatch("**"::equals);
+  }
+
   private static void processSubdir(
       Map.Entry<SkyKey, SkyValue> keyAndValue,
       Map<SkyKey, Dirent> subdirMap,
@@ -484,8 +497,8 @@ public final class GlobFunction implements SkyFunction {
   }
 
   /**
-   * Used to declare all the exception types that can be wrapped in the exception thrown by
-   * {@link GlobFunction#compute}.
+   * Used to declare all the exception types that can be wrapped in the exception thrown by {@link
+   * GlobFunction#compute}.
    */
   private static final class GlobFunctionException extends SkyFunctionException {
     GlobFunctionException(InconsistentFilesystemException e, Transience transience) {
