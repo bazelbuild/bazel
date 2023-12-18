@@ -673,6 +673,7 @@ function create_new_workspace() {
   mkdir -p ${new_workspace_dir}
   workspaces+=(${new_workspace_dir})
   cd ${new_workspace_dir}
+  touch MODULE.bazel
   mkdir tools
 
   copy_tools_directory
