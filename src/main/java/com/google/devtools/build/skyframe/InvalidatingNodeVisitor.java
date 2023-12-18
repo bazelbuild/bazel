@@ -573,9 +573,6 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
         // AbstractQueueVisitor is shutting down. We haven't yet removed the pending
         // visitation, so we can resume next time.
         return;
-      } catch (IllegalStateException e) {
-        // Debugging for #10912.
-        throw new IllegalStateException("Crash caused by " + key, e);
       }
       if (markedDirtyResult == null) {
         // Another thread has already dirtied this node. Don't do anything in this thread.
