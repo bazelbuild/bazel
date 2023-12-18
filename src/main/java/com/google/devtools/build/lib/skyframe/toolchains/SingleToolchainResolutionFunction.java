@@ -354,7 +354,7 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
     // be forced to match with it.
     ImmutableSet<ConstraintSettingInfo> mismatchSettingsWithDefault =
         mismatchSettings.stream()
-            .filter(toolchainConstraints::hasWithoutDefault)
+            .filter(c -> toolchainConstraints.hasWithoutDefault(c) || platform.constraints().hasWithoutDefault(c))
             .collect(ImmutableSet.toImmutableSet());
 
     if (resolutionTrace != null && !mismatchSettingsWithDefault.isEmpty()) {

@@ -152,6 +152,8 @@ public abstract class ConstraintCollection
 
       if (thisConstraint != null && !thisConstraint.equals(otherConstraint)) {
         mismatchSettings.add(constraintSetting);
+      } else if (thisConstraint == null && otherConstraint != null) {
+        mismatchSettings.add(constraintSetting);
       }
     }
 
