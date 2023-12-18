@@ -69,14 +69,13 @@ import java.util.stream.Collectors;
 
 /** The 'blaze help' command, which prints all available commands as well as specific help pages. */
 @Command(
-  name = "help",
-  options = {HelpCommand.Options.class},
-  allowResidue = true,
-  mustRunInWorkspace = false,
-  shortDescription = "Prints help for commands, or the index.",
-  completion = "command|{startup_options,target-syntax,info-keys}",
-  help = "resource:help.txt"
-)
+    name = "help",
+    options = {HelpCommand.Options.class},
+    allowResidue = true,
+    mustRunInWorkspace = false,
+    shortDescription = "Prints help for commands, or the index.",
+    completion = "command|{startup_options,target-syntax,info-keys}",
+    help = "resource:help.txt")
 public final class HelpCommand implements BlazeCommand {
   private static final Joiner SPACE_JOINER = Joiner.on(" ");
 
@@ -89,34 +88,31 @@ public final class HelpCommand implements BlazeCommand {
   public static class Options extends OptionsBase {
 
     @Option(
-      name = "help_verbosity",
-      defaultValue = "medium",
-      converter = Converters.HelpVerbosityConverter.class,
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
-      help = "Select the verbosity of the help command."
-    )
+        name = "help_verbosity",
+        defaultValue = "medium",
+        converter = Converters.HelpVerbosityConverter.class,
+        documentationCategory = OptionDocumentationCategory.LOGGING,
+        effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+        help = "Select the verbosity of the help command.")
     public OptionsParser.HelpVerbosity helpVerbosity;
 
     @Option(
-      name = "long",
-      abbrev = 'l',
-      defaultValue = "null",
-      expansion = {"--help_verbosity=long"},
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
-      help = "Show full description of each option, instead of just its name."
-    )
+        name = "long",
+        abbrev = 'l',
+        defaultValue = "null",
+        expansion = {"--help_verbosity=long"},
+        documentationCategory = OptionDocumentationCategory.LOGGING,
+        effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+        help = "Show full description of each option, instead of just its name.")
     public Void showLongFormOptions;
 
     @Option(
-      name = "short",
-      defaultValue = "null",
-      expansion = {"--help_verbosity=short"},
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.TERMINAL_OUTPUT},
-      help = "Show only the names of the options, not their types or meanings."
-    )
+        name = "short",
+        defaultValue = "null",
+        expansion = {"--help_verbosity=short"},
+        documentationCategory = OptionDocumentationCategory.LOGGING,
+        effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+        help = "Show only the names of the options, not their types or meanings.")
     public Void showShortFormOptions;
   }
 
@@ -342,8 +338,8 @@ public final class HelpCommand implements BlazeCommand {
   }
 
   private static void emitGenericHelp(OutErr outErr, BlazeRuntime runtime) {
-    outErr.printOut(String.format("Usage: %s <command> <options> ...\n\n",
-            runtime.getProductName()));
+    outErr.printOut(
+        String.format("Usage: %s <command> <options> ...\n\n", runtime.getProductName()));
     outErr.printOut("Available commands:\n");
 
     Map<String, BlazeCommand> commandsByName = runtime.getCommandMap();
@@ -357,8 +353,8 @@ public final class HelpCommand implements BlazeCommand {
         continue;
       }
 
-      String shortDescription = annotation.shortDescription().
-          replace("%{product}", runtime.getProductName());
+      String shortDescription =
+          annotation.shortDescription().replace("%{product}", runtime.getProductName());
       outErr.printOut(String.format("  %-19s %s\n", name, shortDescription));
     }
 
@@ -367,8 +363,9 @@ public final class HelpCommand implements BlazeCommand {
     outErr.printOut(String.format("  %s help <command>\n", runtime.getProductName()));
     outErr.printOut("                   Prints help and options for <command>.\n");
     outErr.printOut(String.format("  %s help startup_options\n", runtime.getProductName()));
-    outErr.printOut(String.format("                   Options for the JVM hosting %s.\n",
-        runtime.getProductName()));
+    outErr.printOut(
+        String.format(
+            "                   Options for the JVM hosting %s.\n", runtime.getProductName()));
     outErr.printOut(String.format("  %s help target-syntax\n", runtime.getProductName()));
     outErr.printOut("                   Explains the syntax for specifying targets.\n");
     outErr.printOut(String.format("  %s help info-keys\n", runtime.getProductName()));
@@ -393,8 +390,8 @@ public final class HelpCommand implements BlazeCommand {
         if (annotation.hidden()) {
           continue;
         }
-        String shortDescription = annotation.shortDescription().
-            replace("%{product}", runtime.getProductName());
+        String shortDescription =
+            annotation.shortDescription().replace("%{product}", runtime.getProductName());
 
         result.append("<tr>\n");
         result.append(
@@ -456,44 +453,42 @@ public final class HelpCommand implements BlazeCommand {
       }
 
       // Describe the tags once, any mentions above should link to these descriptions.
-        String productName = runtime.getProductName();
-        ImmutableMap<OptionEffectTag, String> effectTagDescriptions =
-            OptionFilterDescriptions.getOptionEffectTagDescription(productName);
-        result.append("<h3>Option Effect Tags</h3>\n");
-        result.append("<table>\n");
-        for (OptionEffectTag tag : OptionEffectTag.values()) {
-          String tagDescription = effectTagDescriptions.get(tag);
+      String productName = runtime.getProductName();
+      ImmutableMap<OptionEffectTag, String> effectTagDescriptions =
+          OptionFilterDescriptions.getOptionEffectTagDescription(productName);
+      result.append("<h3>Option Effect Tags</h3>\n");
+      result.append("<table>\n");
+      for (OptionEffectTag tag : OptionEffectTag.values()) {
+        String tagDescription = effectTagDescriptions.get(tag);
+
+        result.append("<tr>\n");
+        result.append(
+            String.format(
+                "<td id=\"effect_tag_%s\"><code>%s</code></td>\n", tag, tag.name().toLowerCase()));
+        result.append(String.format("<td>%s</td>\n", HTML_ESCAPER.escape(tagDescription)));
+        result.append("</tr>\n");
+      }
+      result.append("</table>\n");
+
+      ImmutableMap<OptionMetadataTag, String> metadataTagDescriptions =
+          OptionFilterDescriptions.getOptionMetadataTagDescription(productName);
+      result.append("<h3>Option Metadata Tags</h3>\n");
+      result.append("<table>\n");
+      for (OptionMetadataTag tag : OptionMetadataTag.values()) {
+        // skip the tags that are reserved for undocumented flags.
+        if (!tag.equals(OptionMetadataTag.HIDDEN) && !tag.equals(OptionMetadataTag.INTERNAL)) {
+          String tagDescription = metadataTagDescriptions.get(tag);
 
           result.append("<tr>\n");
           result.append(
               String.format(
-                  "<td id=\"effect_tag_%s\"><code>%s</code></td>\n",
+                  "<td id=\"metadata_tag_%s\"><code>%s</code></td>\n",
                   tag, tag.name().toLowerCase()));
           result.append(String.format("<td>%s</td>\n", HTML_ESCAPER.escape(tagDescription)));
           result.append("</tr>\n");
         }
-        result.append("</table>\n");
-
-        ImmutableMap<OptionMetadataTag, String> metadataTagDescriptions =
-            OptionFilterDescriptions.getOptionMetadataTagDescription(productName);
-        result.append("<h3>Option Metadata Tags</h3>\n");
-        result.append("<table>\n");
-        for (OptionMetadataTag tag : OptionMetadataTag.values()) {
-          // skip the tags that are reserved for undocumented flags.
-          if (!tag.equals(OptionMetadataTag.HIDDEN) && !tag.equals(OptionMetadataTag.INTERNAL)) {
-            String tagDescription = metadataTagDescriptions.get(tag);
-
-            result.append("<tr>\n");
-            result.append(
-                String.format(
-                    "<td id=\"metadata_tag_%s\"><code>%s</code></td>\n",
-                    tag, tag.name().toLowerCase()));
-            result.append(String.format("<td>%s</td>\n", HTML_ESCAPER.escape(tagDescription)));
-            result.append("</tr>\n");
-          }
-        }
-        result.append("</table>\n");
-
+      }
+      result.append("</table>\n");
 
       outErr.printOut(result.toString());
     }
@@ -502,10 +497,8 @@ public final class HelpCommand implements BlazeCommand {
         StringBuilder result, Iterable<Class<? extends OptionsBase>> optionsClasses) {
       OptionsParser parser = OptionsParser.builder().optionsClasses(optionsClasses).build();
       String productName = runtime.getProductName();
-        result.append(
-            parser
-                .describeOptionsHtml(HTML_ESCAPER, productName)
-                .replace("%{product}", productName));
+      result.append(
+          parser.describeOptionsHtml(HTML_ESCAPER, productName).replace("%{product}", productName));
     }
 
     private static String capitalize(String s) {
@@ -538,4 +531,3 @@ public final class HelpCommand implements BlazeCommand {
             .build());
   }
 }
-
