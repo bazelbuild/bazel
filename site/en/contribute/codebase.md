@@ -395,11 +395,24 @@ around this issue by:
     usage.
 3.  Storing state between restarts, either using
     `SkyFunction.Environment.getState()`, or keeping an ad hoc static cache
-    "behind the back of Skyframe".
+    "behind the back of Skyframe". With complex SkyFunctions, state management
+    between restarts can get tricky, so
+    [`StateMachine`s](/contribute/statemachine-guide) were introduced for a
+    structured approach to logical concurrency, including hooks to suspend and
+    resume hierarchical computations within a `SkyFunction`. Example:
+    [`DependencyResolver#computeDependencies`][statemachine_example]
+    uses a `StateMachine` with `getState()` to compute the potentially huge set
+    of direct dependencies of a configured target, which otherwise can result in
+    expensive restarts.
 
-Fundamentally, we need these types of workarounds because we routinely have
-hundreds of thousands of in-flight Skyframe nodes, and Java doesn't support
-lightweight threads.
+[statemachine_example]: https://developers.google.com/devsite/reference/markdown/links#reference_links
+
+Fundamentally, Bazel need these types of workarounds because hundreds of
+thousands of in-flight Skyframe nodes is common, and Java's support of
+lightweight threads [does not outperform][virtual_threads] the
+`StateMachine` implementation as of 2023.
+
+[virtual_threads]: /contribute/statemachine-guide#epilogue_eventually_removing_callbacks
 
 ## Starlark {:#starlark}
 
