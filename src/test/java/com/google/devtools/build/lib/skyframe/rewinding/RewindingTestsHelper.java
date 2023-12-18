@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase.assertAndClearBugReporterStoredCrash;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContentAsLatin1;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -33,6 +34,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
+import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -45,6 +47,7 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
@@ -70,13 +73,17 @@ import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
 import com.google.devtools.build.skyframe.NotifyingHelper.Order;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.ValueWithMetadata;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -682,6 +689,7 @@ public class RewindingTestsHelper {
         "//test:consume_5",
         "//test:consume_6");
     assertOnlyActionsRewound(rewoundKeys);
+    verifyAllSpawnShimsConsumed();
     recorder.assertRewindActionStats(
         /* totalLostInputCounts= */ ImmutableList.of(21),
         /* lostInputAndActionsPosts= */ ImmutableList.of(
@@ -2406,6 +2414,225 @@ public class RewindingTestsHelper {
     testCase.assertContainsError("Executing genrule //foo:fail failed");
   }
 
+  private void runFlakyActionFailsAfterRewind_raceWithIndirectConsumer(
+      NotifyingHelper.Listener synchronizingListener) throws Exception {
+    testCase.write(
+        "foo/defs.bzl",
+        "def _action_with_indirect_input(ctx):",
+        "  other1 = ctx.actions.declare_file('other1')",
+        "  ctx.actions.write(other1, '')",
+        "  other2 = ctx.actions.declare_file('other2')",
+        "  ctx.actions.write(other2, '')",
+        "",
+        "  out = ctx.actions.declare_file(ctx.attr.name + '.out')",
+        "  indirect_input = ctx.file.indirect_input",
+        "  ctx.actions.run_shell(",
+        "    inputs = depset([other1], transitive = [depset([other2, indirect_input])]),",
+        "    outputs = [out],",
+        "    command = 'cat $1 $2 $3 > $4',",
+        "    arguments = [other1.path, other2.path, indirect_input.path, out.path],",
+        "  )",
+        "  return DefaultInfo(files = depset([out]))",
+        "",
+        "action_with_indirect_input = rule(",
+        "  implementation = _action_with_indirect_input,",
+        "  attrs = {'indirect_input': attr.label(allow_single_file = True)},",
+        ")");
+    testCase.write(
+        "foo/BUILD",
+        "load(':defs.bzl', 'action_with_indirect_input')",
+        "action_with_indirect_input(name = 'top2', indirect_input = ':flaky_lost')",
+        "genrule(name = 'top1', srcs = [':flaky_lost'], outs = ['top1.out'], cmd = 'cp $< $@')",
+        "genrule(name = 'flaky_lost', outs = ['flaky_lost.out'], cmd = 'touch $@')");
+    Label top2 = Label.parseCanonical("//foo:top2");
+    Label top1 = Label.parseCanonical("//foo:top1");
+    Label flakyLost = Label.parseCanonical("//foo:flaky_lost");
+
+    Map<Label, TargetCompleteEvent> targetCompleteEvents = recordTargetCompleteEvents();
+    List<SkyKey> rewoundKeys = new ArrayList<>();
+    NotifyingHelper.Listener rewoundKeysListener =
+        collectOrderedRewoundKeysListener(rewoundKeys, /* exactNestedSets= */ false);
+    testCase.injectListenerAtStartOfNextBuild(
+        (key, type, order, context) -> {
+          rewoundKeysListener.accept(key, type, order, context);
+          synchronizingListener.accept(key, type, order, context);
+        });
+
+    assertThrows(
+        BuildFailedException.class, () -> testCase.buildTarget("//foo:top1", "//foo:top2"));
+    verifyAllSpawnShimsConsumed();
+    assertThat(rewoundArtifactOwnerLabels(rewoundKeys)).containsExactly("//foo:flaky_lost");
+
+    // Check that TargetCompleteEvents were posted with the correct root cause.
+    if (keepGoing()) {
+      assertThat(targetCompleteEvents.keySet()).containsExactly(top1, top2);
+    } else {
+      assertThat(targetCompleteEvents).hasSize(1);
+      assertThat(targetCompleteEvents.keySet()).containsAnyOf(top1, top2);
+    }
+    targetCompleteEvents.forEach(
+        (target, event) ->
+            assertWithMessage("%s", target)
+                .that(event.getRootCauses().getSingleton().getLabel())
+                .isEqualTo(flakyLost));
+
+    // Trying again irons out the flaky failure with no rewinding.
+    rewoundKeys.clear();
+    testCase.buildTarget("//foo:top1", "//foo:top2");
+    assertThat(rewoundKeys).isEmpty();
+  }
+
+  /**
+   * Tests handling of an action that is rewound and completes with an error in between the time
+   * that a second action declares a dependency on it and consumes it during input checking, where
+   * the second action depends on the lost input indirectly (via an {@link ArtifactNestedSetKey}).
+   *
+   * <p>Targets in this test:
+   *
+   * <ul>
+   *   <li>{@code :flaky_lost}: initially executes successfully, but then gets rewound and completes
+   *       with an error.
+   *   <li>{@code :top1}: initiates rewinding on {@code :flaky_lost}.
+   *   <li>{@code :top2}: depends indirectly on {@code :flaky_lost} and observes it as an undone
+   *       input.
+   * </ul>
+   *
+   * <p>Order of events in this test:
+   *
+   * <ol>
+   *   <li>{@code :top2} requests its inputs from Skyframe, including an {@link
+   *       ArtifactNestedSetKey} containing {@code flaky_lost.out}. It is not done, so {@code :top2}
+   *       needs a Skyframe restart.
+   *   <li>The {@link ArtifactNestedSetKey} containing {@code flaky_lost.out} completes
+   *       successfully.
+   *   <li>{@code :top2} resumes after the Skyframe restart.
+   *   <li>{@code :top1} observes {@code flaky_lost.out} to be a lost input and rewinds {@code
+   *       :flaky_lost}.
+   *   <li>{@code :flaky_lost} executes a second time, and this time the action fails.
+   *   <li>{@code :top2} has no missing direct deps, but cannot look up {@code flaky_lost.out}
+   *       because its generating action failed. In order to propagate a valid root cause, it
+   *       initiates rewinding of the {@link ArtifactNestedSetKey}.
+   * </ol>
+   */
+  public final void
+      runFlakyActionFailsAfterRewind_raceWithIndirectConsumer_undoneDuringInputChecking()
+          throws Exception {
+    CountDownLatch top2RestartedWithDoneNestedSet = new CountDownLatch(1);
+    CountDownLatch errorSet = new CountDownLatch(1);
+    addSpawnShim(
+        "Executing genrule //foo:top1",
+        (spawn, context) -> {
+          top2RestartedWithDoneNestedSet.await();
+          addSpawnShim(
+              "Executing genrule //foo:flaky_lost",
+              (spawn2, context2) ->
+                  ExecResult.ofException(
+                      new SpawnExecException(
+                          "Flaky action failure",
+                          FAILED_RESULT,
+                          /* forciblyRunRemotely= */ false,
+                          /* catastrophe= */ false)));
+          ImmutableList<ActionInput> lostInputs =
+              ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "flaky_lost.out"));
+          return createLostInputsExecException(
+              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+        });
+
+    NotifyingHelper.Listener synchronizingListener =
+        (key, type, order, context) -> {
+          if (key instanceof ArtifactNestedSetKey
+              && type == EventType.GET_BATCH
+              && order == Order.BEFORE
+              && context == Reason.PREFETCH) {
+            top2RestartedWithDoneNestedSet.countDown();
+            awaitUninterruptibly(errorSet);
+          } else if (isActionExecutionKey(key, Label.parseCanonicalUnchecked("//foo:flaky_lost"))
+              && type == EventType.SET_VALUE
+              && order == Order.AFTER
+              && ValueWithMetadata.getMaybeErrorInfo((SkyValue) context) != null) {
+            errorSet.countDown();
+          }
+        };
+
+    runFlakyActionFailsAfterRewind_raceWithIndirectConsumer(synchronizingListener);
+  }
+
+  /**
+   * Tests handling of an action that is rewound and completes with an error in between the time
+   * that a second action observes it to be lost and attempts to look it up during lost input
+   * handling, where the second action depends on the lost input indirectly (via an {@link
+   * ArtifactNestedSetKey}).
+   *
+   * <p>Targets in this test:
+   *
+   * <ul>
+   *   <li>{@code :flaky_lost}: initially executes successfully, but then gets rewound and completes
+   *       with an error.
+   *   <li>{@code :top1}: initiates rewinding on {@code :flaky_lost}.
+   *   <li>{@code :top2}: depends indirectly on {@code :flaky_lost} and observes it as an undone
+   *       input.
+   * </ul>
+   *
+   * <p>Order of events in this test:
+   *
+   * <ol>
+   *   <li>{@code :top2} requests its inputs from Skyframe, including an {@link
+   *       ArtifactNestedSetKey} containing {@code flaky_lost.out}. All are done, so it begins to
+   *       execute, and observes {@code flaky_lost.out} to be lost.
+   *   <li>{@code :top1} observes {@code flaky_lost.out} to be a lost input and rewinds {@code
+   *       :flaky_lost}.
+   *   <li>{@code :flaky_lost} executes a second time, and this time the action fails.
+   *   <li>{@code :top2} attempts to handle lost inputs by initiating rewinding, but this requires
+   *       looking up {@code flaky_lost.out}, which is undone.
+   * </ol>
+   */
+  public final void
+      runFlakyActionFailsAfterRewind_raceWithIndirectConsumer_undoneDuringLostInputHandling()
+          throws Exception {
+    CountDownLatch top2Executing = new CountDownLatch(1);
+    CountDownLatch errorSet = new CountDownLatch(1);
+    addSpawnShim(
+        "Executing genrule //foo:top1",
+        (spawn, context) -> {
+          top2Executing.await();
+          addSpawnShim(
+              "Executing genrule //foo:flaky_lost",
+              (spawn2, context2) ->
+                  ExecResult.ofException(
+                      new SpawnExecException(
+                          "Flaky action failure",
+                          FAILED_RESULT,
+                          /* forciblyRunRemotely= */ false,
+                          /* catastrophe= */ false)));
+          ImmutableList<ActionInput> lostInputs =
+              ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "flaky_lost.out"));
+          return createLostInputsExecException(
+              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+        });
+    addSpawnShim(
+        "Action foo/top2.out",
+        (spawn, context) -> {
+          top2Executing.countDown();
+          awaitUninterruptibly(errorSet);
+          ImmutableList<ActionInput> lostInputs =
+              ImmutableList.of(SpawnInputUtils.getInputWithName(spawn, "flaky_lost.out"));
+          return createLostInputsExecException(
+              context, lostInputs, new ActionInputDepOwnerMap(lostInputs));
+        });
+
+    NotifyingHelper.Listener synchronizingListener =
+        (key, type, order, context) -> {
+          if (isActionExecutionKey(key, Label.parseCanonicalUnchecked("//foo:flaky_lost"))
+              && type == EventType.SET_VALUE
+              && order == Order.AFTER
+              && ValueWithMetadata.getMaybeErrorInfo((SkyValue) context) != null) {
+            errorSet.countDown();
+          }
+        };
+
+    runFlakyActionFailsAfterRewind_raceWithIndirectConsumer(synchronizingListener);
+  }
+
   static boolean isActionExecutionKey(Object key, Label label) {
     return key instanceof ActionLookupData && label.equals(((ActionLookupData) key).getLabel());
   }
@@ -2422,5 +2649,20 @@ public class RewindingTestsHelper {
 
   final boolean buildRunfileManifests() {
     return testCase.getRuntimeWrapper().getOptions(CoreOptions.class).buildRunfileManifests;
+  }
+
+  private Map<Label, TargetCompleteEvent> recordTargetCompleteEvents() {
+    Map<Label, TargetCompleteEvent> targetCompleteEvents = new HashMap<>();
+    testCase
+        .getRuntimeWrapper()
+        .registerSubscriber(
+            new Object() {
+              @Subscribe
+              @SuppressWarnings("unused")
+              public void accept(TargetCompleteEvent event) {
+                targetCompleteEvents.put(event.getLabel(), event);
+              }
+            });
+    return targetCompleteEvents;
   }
 }

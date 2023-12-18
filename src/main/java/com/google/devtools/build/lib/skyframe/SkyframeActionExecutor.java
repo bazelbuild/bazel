@@ -362,6 +362,10 @@ public final class SkyframeActionExecutor {
     return options.getOptions(BuildEventProtocolOptions.class).publishTargetSummary;
   }
 
+  boolean rewindingEnabled() {
+    return rewindingEnabled;
+  }
+
   OutputPermissions getOutputPermissions() {
     return options.getOptions(CoreOptions.class).experimentalWritableOutputs
         ? OutputPermissions.WRITABLE
