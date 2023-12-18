@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
@@ -1291,8 +1292,12 @@ public final class ActionExecutionFunction implements SkyFunction {
           actionExecutionFunctionExceptionHandler.accumulateAndMaybeThrowExceptions();
     }
 
-    if (env.valuesMissing() && allowValuesMissingEarlyReturn) {
-      return null;
+    if (env.valuesMissing()) {
+      if (allowValuesMissingEarlyReturn) {
+        return null;
+      }
+      logger.atWarning().atMostEvery(1, MINUTES).log(
+          "Values missing while handling lost inputs for %s", action.describe());
     }
 
     ImmutableList<Artifact> allInputsList = allInputs.toList();
