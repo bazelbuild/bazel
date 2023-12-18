@@ -137,6 +137,7 @@ class TestBase(absltest.TestCase):
           # For reducing SSD usage on our physical Mac machines.
           f.write('common --experimental_repository_cache_hardlinks\n')
       f.write('common --enable_bzlmod\n')
+      f.write('common --lockfile_mode=error\n')
     self.CopyFile(
         self.Rlocation('io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock'),
         'MODULE.bazel.lock',
@@ -222,7 +223,7 @@ class TestBase(absltest.TestCase):
         ')',
     ])
     self.ScratchFile(path, rule_definition)
-    self.ScratchFile(path.replace("WORKSPACE", "MODULE"))
+    self.ScratchFile(path.replace("WORKSPACE.bazel", "MODULE.bazel").replace("WORKSPACE", "MODULE.bazel"))
 
   def GetDefaultRepoRules(self):
     with open(

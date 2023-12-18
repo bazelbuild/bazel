@@ -266,6 +266,8 @@ build --incompatible_use_toolchain_resolution_for_java_rules
 
 # Enable Bzlmod in all shell integration tests
 common --enable_bzlmod
+# Error on mismatching lockfile by default
+common --lockfile_mode=error
 
 ${EXTRA_BAZELRC:-}
 EOF
@@ -622,6 +624,7 @@ function create_workspace_with_default_repos() {
   write_workspace_file "${1:-WORKSPACE}" "${2:-main}"
   workspace_file=${1:-WORKSPACE}
   write_workspace_file "${workspace_file}" "${2:-main}"
+  touch MODULE.bazel
   write_default_lockfile "$(dirname ${workspace_file})/MODULE.bazel.lock"
   echo "$1"
 }
@@ -717,6 +720,7 @@ function cleanup_workspace() {
       fi
     done
     write_workspace_file "WORKSPACE" "$WORKSPACE_NAME"
+    touch MODULE.bazel
     write_default_lockfile "MODULE.bazel.lock"
   fi
   for i in "${workspaces[@]}"; do
