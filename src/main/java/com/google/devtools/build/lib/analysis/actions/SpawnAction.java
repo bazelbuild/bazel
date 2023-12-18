@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
@@ -381,7 +382,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     // We don't need the toolManifests here, because they are a subset of the inputManifests by
     // definition and the output of an action shouldn't change whether something is considered a
     // tool or not.
-    fp.addPaths(runfilesSupplier.getRunfilesDirs());
+    for (RunfilesTree runfilesTree : getRunfilesSupplier().getRunfilesTrees()) {
+      fp.addPath(runfilesTree.getExecPath());
+    }
     env.addTo(fp);
     fp.addStringMap(getExecutionInfo());
     PathMappers.addToFingerprint(getMnemonic(), getExecutionInfo(), outputPathsMode, fp);

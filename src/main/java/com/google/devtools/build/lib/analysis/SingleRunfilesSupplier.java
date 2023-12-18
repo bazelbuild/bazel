@@ -17,10 +17,10 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -32,7 +32,7 @@ import javax.annotation.Nullable;
 
 /** {@link RunfilesSupplier} implementation wrapping a single {@link Runfiles} directory mapping. */
 @AutoCodec
-public final class SingleRunfilesSupplier implements RunfilesSupplier {
+public final class SingleRunfilesSupplier implements RunfilesSupplier, RunfilesTree {
 
   private final PathFragment runfilesDir;
   private final Runfiles runfiles;
@@ -125,32 +125,8 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
   }
 
   @Override
-  public NestedSet<Artifact> getAllArtifacts() {
-    return runfiles.getAllArtifacts();
-  }
-
-  @Override
-  public ImmutableSet<PathFragment> getRunfilesDirs() {
-    return ImmutableSet.of(runfilesDir);
-  }
-
-  @Override
-  public ImmutableMap<PathFragment, Map<PathFragment, Artifact>> getMappings() {
-    return ImmutableMap.of(runfilesDir, runfilesInputs.get());
-  }
-
-  @Override
-  @Nullable
-  public RunfileSymlinksMode getRunfileSymlinksMode(PathFragment runfilesDir) {
-    if (this.runfilesDir.equals(runfilesDir)) {
-      return runfileSymlinksMode;
-    }
-    return null;
-  }
-
-  @Override
-  public boolean isBuildRunfileLinks(PathFragment runfilesDir) {
-    return buildRunfileLinks && this.runfilesDir.equals(runfilesDir);
+  public ImmutableList<RunfilesTree> getRunfilesTrees() {
+    return ImmutableList.of(this);
   }
 
   public SingleRunfilesSupplier withOverriddenRunfilesDir(PathFragment newRunfilesDir) {
@@ -163,6 +139,31 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
             repoMappingManifest,
             runfileSymlinksMode,
             buildRunfileLinks);
+  }
+
+  @Override
+  public NestedSet<Artifact> getArtifacts() {
+    return runfiles.getAllArtifacts();
+  }
+
+  @Override
+  public PathFragment getExecPath() {
+    return runfilesDir;
+  }
+
+  @Override
+  public Map<PathFragment, Artifact> getMapping() {
+    return runfilesInputs.get();
+  }
+
+  @Override
+  public RunfileSymlinksMode getSymlinksMode() {
+    return runfileSymlinksMode;
+  }
+
+  @Override
+  public boolean isBuildRunfileLinks() {
+    return buildRunfileLinks;
   }
 
   /** Softly caches the result of {@link Runfiles#getRunfilesInputs}. */

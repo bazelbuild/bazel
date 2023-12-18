@@ -14,52 +14,43 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Convenience wrapper around runfiles allowing lazy expansion. */
-// TODO(bazel-team): Ideally we could refer to Runfiles objects directly here, but current package
-// structure makes this difficult. Consider moving things around to make this possible.
-//
 // RunfilesSuppliers appear to be Starlark values;
 // they are exposed through ctx.resolve_tools[2], for example.
 public interface RunfilesSupplier extends StarlarkValue {
+  /** Lazy wrapper for a single runfiles tree. */
+  // TODO(bazel-team): Ideally we could refer to Runfiles objects directly here, but current package
+  // structure makes this difficult. Consider moving things around to make this possible.
+  //
+  interface RunfilesTree {
+    /** Returns the execpath of the root directory of the runfiles tree. */
+    PathFragment getExecPath();
 
-  /**
-   * Returns artifacts the runfiles tree contain symlinks to.
-   *
-   * <p>This includes artifacts that the symlinks and root symlinks point to, not just artifacts at
-   * their canonical location.
-   */
-  NestedSet<Artifact> getAllArtifacts();
+    /** Returns the mapping from the location in the runfiles tree to the artifact that's there. */
+    Map<PathFragment, Artifact> getMapping();
 
-  /** Returns the runfiles' root directories. */
-  ImmutableSet<PathFragment> getRunfilesDirs();
+    /**
+     * Returns artifacts the runfiles tree contain symlinks to.
+     *
+     * <p>This includes artifacts that the symlinks and root symlinks point to, not just artifacts
+     * at their canonical location.
+     */
+    NestedSet<Artifact> getArtifacts();
 
-  /** Returns mappings from runfiles directories to artifact mappings in that directory. */
-  ImmutableMap<PathFragment, Map<PathFragment, Artifact>> getMappings();
+    /** Returns the {@link RunfileSymlinksMode} for this runfiles tree. */
+    RunfileSymlinksMode getSymlinksMode();
 
-  /**
-   * Returns the {@link RunfileSymlinksMode} for the given {@code runfilesDir}, or {@code null} if
-   * the {@link RunfilesSupplier} doesn't know about the directory.
-   *
-   * @param runfilesDir runfiles directory relative to the exec root
-   */
-  @Nullable
-  RunfileSymlinksMode getRunfileSymlinksMode(PathFragment runfilesDir);
+    /** Returns whether the runfile symlinks should be materialized during the build. */
+    boolean isBuildRunfileLinks();
+  }
 
-  /**
-   * Returns whether the runfile symlinks should be materialized during the build for the given
-   * {@code runfilesDir}, or {@code false} if the {@link RunfilesSupplier} doesn't know about the
-   * directory.
-   *
-   * @param runfilesDir runfiles directory relative to the exec root
-   */
-  boolean isBuildRunfileLinks(PathFragment runfilesDir);
+  /** Returns the runfiles trees to be materialized on the inputs of the action. */
+  ImmutableList<RunfilesTree> getRunfilesTrees();
 }

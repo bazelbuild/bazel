@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -99,9 +98,8 @@ public class BaseSpawn implements Spawn {
    */
   @Nullable
   private PathFragment getRunfilesRoot() {
-    Set<PathFragment> runfilesSupplierRoots = runfilesSupplier.getRunfilesDirs();
-    if (runfilesSupplierRoots.size() == 1) {
-      return Iterables.getOnlyElement(runfilesSupplierRoots);
+    if (runfilesSupplier.getRunfilesTrees().size() == 1) {
+      return Iterables.getOnlyElement(runfilesSupplier.getRunfilesTrees()).getExecPath();
     } else {
       return null;
     }

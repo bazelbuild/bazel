@@ -179,14 +179,14 @@ public abstract class PyBuiltins implements StarlarkValue {
     ActionExecutionMetadata action = (ActionExecutionMetadata) actionUnchecked;
 
     Dict.Builder<String, Dict<String, StarlarkValue>> inputManifest = Dict.builder();
-    for (var outerEntry : action.getRunfilesSupplier().getMappings().entrySet()) {
+    for (var outerEntry : action.getRunfilesSupplier().getRunfilesTrees()) {
       Dict.Builder<String, StarlarkValue> runfilesMap = Dict.builder();
-      for (var innerEntry : outerEntry.getValue().entrySet()) {
+      for (var innerEntry : outerEntry.getMapping().entrySet()) {
         Artifact value = innerEntry.getValue();
         // NOTE: value may be null. This happens for Runfiles.empty_filenames entries.
         runfilesMap.put(innerEntry.getKey().getPathString(), value == null ? Starlark.NONE : value);
       }
-      inputManifest.put(outerEntry.getKey().getPathString(), runfilesMap.buildImmutable());
+      inputManifest.put(outerEntry.getExecPath().getPathString(), runfilesMap.buildImmutable());
     }
     return inputManifest.buildImmutable();
   }

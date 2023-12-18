@@ -110,7 +110,8 @@ public final class SpawnInputUtils {
   }
 
   public static Artifact getRunfilesArtifactWithName(Spawn spawn, String name) {
-    return spawn.getRunfilesSupplier().getAllArtifacts().toList().stream()
+    return spawn.getRunfilesSupplier().getRunfilesTrees().stream()
+        .flatMap(t -> t.getArtifacts().toList().stream())
         .filter(artifact -> artifact.getExecPathString().contains(name))
         .findFirst()
         .orElseThrow(() -> noSuchInput("runfiles artifact", name, spawn));

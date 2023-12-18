@@ -13,15 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.DigestUtils;
@@ -30,7 +28,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -74,11 +71,9 @@ public class RunfilesTreeUpdater {
   public void updateRunfiles(
       RunfilesSupplier runfilesSupplier, ImmutableMap<String, String> env, OutErr outErr)
       throws ExecException, IOException, InterruptedException {
-    for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> entry :
-        runfilesSupplier.getMappings().entrySet()) {
-      PathFragment runfilesDir = entry.getKey();
-      Map<PathFragment, Artifact> runfilesMapping = entry.getValue();
-      if (runfilesSupplier.isBuildRunfileLinks(runfilesDir)) {
+    for (RunfilesTree tree : runfilesSupplier.getRunfilesTrees()) {
+      PathFragment runfilesDir = tree.getExecPath();
+      if (tree.isBuildRunfileLinks()) {
         continue;
       }
 
@@ -88,12 +83,7 @@ public class RunfilesTreeUpdater {
       if (priorFuture == null) {
         // We are the first attempt; update the runfiles tree and mark the future complete.
         try {
-          updateRunfilesTree(
-              runfilesDir,
-              runfilesMapping,
-              env,
-              outErr,
-              checkNotNull(runfilesSupplier.getRunfileSymlinksMode(runfilesDir)));
+          updateRunfilesTree(tree, env, outErr);
           freshFuture.complete(null);
         } catch (Exception e) {
           freshFuture.completeExceptionally(e);
@@ -118,13 +108,9 @@ public class RunfilesTreeUpdater {
   }
 
   private void updateRunfilesTree(
-      PathFragment runfilesDir,
-      Map<PathFragment, Artifact> runfilesMapping,
-      ImmutableMap<String, String> env,
-      OutErr outErr,
-      RunfileSymlinksMode runfileSymlinksMode)
+      RunfilesTree tree, ImmutableMap<String, String> env, OutErr outErr)
       throws IOException, ExecException, InterruptedException {
-    Path runfilesDirPath = execRoot.getRelative(runfilesDir);
+    Path runfilesDirPath = execRoot.getRelative(tree.getExecPath());
     Path inputManifest = RunfilesSupport.inputManifestPath(runfilesDirPath);
     if (!inputManifest.exists()) {
       return;
@@ -154,7 +140,7 @@ public class RunfilesTreeUpdater {
     SymlinkTreeHelper helper =
         new SymlinkTreeHelper(inputManifest, runfilesDirPath, /* filesetTree= */ false);
 
-    switch (runfileSymlinksMode) {
+    switch (tree.getSymlinksMode()) {
       case SKIP:
         helper.linkManifest();
         break;
@@ -162,7 +148,7 @@ public class RunfilesTreeUpdater {
         helper.createSymlinksUsingCommand(execRoot, binTools, env, outErr);
         break;
       case INTERNAL:
-        helper.createSymlinksDirectly(runfilesDirPath, runfilesMapping);
+        helper.createSymlinksDirectly(runfilesDirPath, tree.getMapping());
         outputManifest.createSymbolicLink(inputManifest);
         break;
     }
