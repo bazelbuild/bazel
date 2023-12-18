@@ -162,11 +162,6 @@ public class NonIncrementalInMemoryNodeEntry
   }
 
   @Override
-  public final void removeInProgressReverseDep(SkyKey reverseDep) {
-    checkNotNull(dirtyBuildingState, "Not evaluating: %s", this).removeReverseDep(reverseDep);
-  }
-
-  @Override
   public final synchronized boolean signalDep(
       Version childVersion, @Nullable SkyKey childForDebugging) {
     checkState(
@@ -178,7 +173,7 @@ public class NonIncrementalInMemoryNodeEntry
 
   @Override
   public final void removeReverseDep(SkyKey reverseDep) {
-    throw unsupported();
+    checkNotNull(dirtyBuildingState, "Not evaluating: %s", this).removeReverseDep(reverseDep);
   }
 
   @Override

@@ -199,11 +199,6 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public void removeInProgressReverseDep(SkyKey reverseDep) {
-    getDelegate().removeInProgressReverseDep(reverseDep);
-  }
-
-  @Override
   public Collection<SkyKey> getReverseDepsForDoneEntry() throws InterruptedException {
     return getDelegate().getReverseDepsForDoneEntry();
   }

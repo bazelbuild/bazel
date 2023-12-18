@@ -529,7 +529,7 @@ public class SimpleCycleDetector implements CycleDetector {
     NodeEntry childEntry =
         evaluatorContext.getGraph().get(inProgressParent, Reason.CYCLE_CHECKING, child);
     if (!isDoneForBuild(childEntry)) {
-      childEntry.removeInProgressReverseDep(inProgressParent);
+      childEntry.removeReverseDep(inProgressParent);
       return true;
     }
     return false;
