@@ -674,7 +674,7 @@ public final class BuildLanguageOptions extends OptionsBase {
               + " obtained from the default shell environment by overriding with the values passed"
               + " in to 'env'. If disabled, the value of 'env' is completely ignored in this case.")
   public boolean incompatibleMergeFixedAndDefaultShellEnv;
-  
+
   @Option(
       name = "incompatible_disable_objc_library_transition",
       defaultValue = "false",
@@ -685,6 +685,16 @@ public final class BuildLanguageOptions extends OptionsBase {
           "Disable objc_library's custom transition and inherit "
               + "from the top level target instead")
   public boolean incompatibleDisableObjcLibraryTransition;
+
+  @Option(
+      name = "incompatible_enable_deprecated_label_apis",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "If enabled, certain deprecated APIs (native.repository_name, Label.workspace_name,"
+              + " Label.relative) can be used.")
+  public boolean enableDeprecatedLabelApis;
 
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
@@ -784,6 +794,7 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION,
                 incompatibleDisableObjcLibraryTransition)
+            .setBool(INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS, enableDeprecatedLabelApis)
             .build();
     return INTERNER.intern(semantics);
   }
@@ -878,6 +889,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-experimental_merge_fixed_and_default_shell_env";
   public static final String INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION =
       "-incompatible_disable_objc_library_transition";
+  public static final String INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS =
+      "+incompatible_enable_deprecated_label_apis";
 
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =
