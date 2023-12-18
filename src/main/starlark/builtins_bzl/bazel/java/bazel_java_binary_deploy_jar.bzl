@@ -18,6 +18,7 @@ This needs to be a separate rule because we need to add the runfiles manifest as
 the generating actions, so that the runfiles symlink tree is staged for the deploy jars.
 """
 
+load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 load(":common/java/java_binary.bzl", "InternalDeployJarInfo")
 load(":common/java/java_binary_deploy_jar.bzl", "create_deploy_archives", "make_deploy_jars_rule")
 
@@ -61,6 +62,12 @@ def _bazel_deploy_jars_impl(ctx):
 
     return []
 
-deploy_jars = make_deploy_jars_rule(implementation = _bazel_deploy_jars_impl)
+_ATTRS = {
+    "_cc_toolchain": attr.label(
+        default = "@" + cc_semantics.get_repo() + "//tools/cpp:optional_current_cc_toolchain",
+    ),
+}
 
-deploy_jars_nonexec = make_deploy_jars_rule(implementation = _bazel_deploy_jars_impl, create_executable = False)
+deploy_jars = make_deploy_jars_rule(implementation = _bazel_deploy_jars_impl, extra_attrs = _ATTRS)
+
+deploy_jars_nonexec = make_deploy_jars_rule(implementation = _bazel_deploy_jars_impl, extra_attrs = _ATTRS, create_executable = False)

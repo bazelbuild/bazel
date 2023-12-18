@@ -848,6 +848,7 @@ cc_shared_library = rule(
         "static_deps": attr.string_list(),
         "user_link_flags": attr.string_list(),
         "_def_parser": semantics.get_def_parser(),
+        "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
     },
     toolchains = cc_helper.use_cpp_toolchain(),
     fragments = ["cpp"] + semantics.additional_fragments(),

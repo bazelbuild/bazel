@@ -13,6 +13,7 @@
 # limitations under the License.
 
 load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 load(":common/java/android_lint.bzl", "android_lint_subrule")
 load(":common/java/java_binary.bzl", "BASE_TEST_ATTRIBUTES", "BASIC_JAVA_BINARY_ATTRIBUTES", "basic_java_binary")
 load(":common/java/java_helper.bzl", "helper")
@@ -311,6 +312,7 @@ _BASE_BINARY_ATTRS = merge_attrs(
             cfg = "exec",
             executable = True,
         ),
+        "_cc_toolchain": attr.label(default = "@" + cc_semantics.get_repo() + "//tools/cpp:optional_current_cc_toolchain"),
     },
 )
 

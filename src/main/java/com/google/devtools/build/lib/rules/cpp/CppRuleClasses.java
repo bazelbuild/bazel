@@ -39,24 +39,54 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault.Resolver;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OsUtils;
 
 /** Rule class definitions for C++ rules. */
 public class CppRuleClasses {
+
+  /**
+   * Label of a pseudo-filegroup that contains all crosstool and libcfiles for all configurations,
+   * as specified on the command-line.
+   */
+  public static final String CROSSTOOL_LABEL = "//tools/cpp:toolchain";
+
   public static final LabelLateBoundDefault<?> DEFAULT_MALLOC =
       LabelLateBoundDefault.fromTargetConfiguration(
           CppConfiguration.class, null, (rule, attributes, cppConfig) -> cppConfig.customMalloc());
 
+  public static LabelLateBoundDefault<CppConfiguration> ccToolchainAttribute(
+      RuleDefinitionEnvironment env) {
+    return LabelLateBoundDefault.fromTargetConfiguration(
+        CppConfiguration.class,
+        env.getToolsLabel(CROSSTOOL_LABEL),
+        CC_TOOLCHAIN_CONFIGURATION_RESOLVER);
+  }
+
+  @SerializationConstant
+  static final Resolver<CppConfiguration, Label> CC_TOOLCHAIN_CONFIGURATION_RESOLVER =
+      (rule, attributes, configuration) -> configuration.getRuleProvidingCcToolchainProvider();
+
+  public static Label ccToolchainTypeAttribute(RuleDefinitionEnvironment env) {
+    return env.getToolsLabel(CppHelper.TOOLCHAIN_TYPE_LABEL);
+  }
+
+  public static ToolchainTypeRequirement ccToolchainTypeRequirement(Label ccToolchainType) {
+    // This is an optional dependency: if a toolchain cannot be found, CppHelper will give an
+    // appropriate error.
+    return ToolchainTypeRequirement.builder(ccToolchainType).mandatory(false).build();
+  }
+
   public static ToolchainTypeRequirement ccToolchainTypeRequirement(RuleDefinitionEnvironment env) {
-    return ToolchainTypeRequirement.builder(env.getToolsLabel(CppHelper.TOOLCHAIN_TYPE_LABEL))
-        .mandatory(false)
-        .build();
+    return ccToolchainTypeRequirement(CppRuleClasses.ccToolchainTypeAttribute(env));
   }
 
   // Artifacts of these types are discarded from the 'hdrs' attribute in cc rules

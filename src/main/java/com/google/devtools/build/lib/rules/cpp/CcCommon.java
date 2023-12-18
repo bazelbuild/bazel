@@ -208,8 +208,17 @@ public final class CcCommon implements StarlarkValue {
         return null;
       }
 
+      TransitiveInfoCollection toolchain;
+      if (ruleContext.attributes().has(CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME)) {
+        toolchain =
+            ruleContext.getPrerequisite(CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
+      } else {
+        toolchain =
+            ruleContext.getPrerequisite(
+                CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME_FOR_STARLARK);
+      }
+
       try {
-        CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
         return CcCommon.computeCcFlags(ruleContext, toolchain);
       } catch (RuleErrorException e) {
         throw new ExpansionException(e.getMessage());
@@ -584,9 +593,9 @@ public final class CcCommon implements StarlarkValue {
    * Computes the appropriate value of the {@code $(CC_FLAGS)} Make variable based on the given
    * toolchain.
    */
-  public static String computeCcFlags(
-      RuleContext ruleContext, CcToolchainProvider toolchainProvider)
+  public static String computeCcFlags(RuleContext ruleContext, TransitiveInfoCollection toolchain)
       throws RuleErrorException, InterruptedException {
+    CcToolchainProvider toolchainProvider = toolchain.get(CcToolchainProvider.PROVIDER);
 
     // Determine the original value of CC_FLAGS.
     String originalCcFlags = toolchainProvider.getLegacyCcFlagsMakeVariable();

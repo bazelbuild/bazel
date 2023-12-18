@@ -125,6 +125,7 @@ objc_library = rule(
             "implementation_deps": attr.label_list(providers = [CcInfo], allow_files = False),
         },
         common_attrs.ALWAYSLINK_RULE,
+        common_attrs.CC_TOOLCHAIN_RULE,
         common_attrs.COMPILING_RULE,
         common_attrs.COMPILE_DEPENDENCY_RULE,
         common_attrs.COPTS_RULE,

@@ -1070,7 +1070,7 @@ public abstract class AbstractQueryTest<T> {
     }
 
     String targetDepsExpr = "//x:x + //x:x.cc";
-    String toolchainDepsExpr = "//tools/cpp:toolchain_type";
+    String toolchainDepsExpr = "//tools/cpp:toolchain_type + //tools/cpp:current_cc_toolchain";
 
     // Test all combinations of --[no]host_deps and --[no]implicit_deps on //x:x
     String expected = targetDepsExpr + " + " + hostDepsExpr + implicitDepsExpr;

@@ -17,6 +17,7 @@ Definition of j2objc_library rule.
 """
 
 load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/objc/attrs.bzl", "common_attrs")
 load(":common/objc/transitions.bzl", "apple_crosstool_transition")
 load(":common/cc/semantics.bzl", "semantics")
 load(":common/objc/providers.bzl", "J2ObjcEntryClassInfo", "J2ObjcMappingFileInfo")
@@ -104,7 +105,10 @@ J2OBJC_ATTRS = {
 
 j2objc_library = rule(
     _j2objc_library_impl,
-    attrs = J2OBJC_ATTRS,
+    attrs = common_attrs.union(
+        J2OBJC_ATTRS,
+        common_attrs.CC_TOOLCHAIN_RULE,
+    ),
     cfg = apple_crosstool_transition,
     fragments = ["apple", "cpp", "j2objc", "objc"] + semantics.additional_fragments(),
     toolchains = cc_helper.use_cpp_toolchain(),

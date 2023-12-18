@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.testutil;
 
+import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CROSSTOOL_LABEL;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 
@@ -152,7 +154,9 @@ public class TestConstants {
 
   /** Partial query to filter out implicit dependencies of C/C++ rules. */
   public static final String CC_DEPENDENCY_CORRECTION =
-      " - deps(" + TOOLS_REPOSITORY + "//tools/cpp:grep-includes)";
+      " - deps(" + TOOLS_REPOSITORY + CROSSTOOL_LABEL + ")"
+      + " - deps(" + TOOLS_REPOSITORY + "//tools/cpp:current_cc_toolchain)"
+      + " - deps(" + TOOLS_REPOSITORY + "//tools/cpp:grep-includes)";
 
   public static final String APPLE_PLATFORM_PATH = "build_bazel_apple_support/platforms";
   public static final String APPLE_PLATFORM_PACKAGE_ROOT = "@build_bazel_apple_support//platforms";

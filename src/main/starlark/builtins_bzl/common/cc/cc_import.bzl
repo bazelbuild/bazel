@@ -19,6 +19,7 @@ rely on this. Pass the flag --experimental_starlark_cc_import
 """
 
 load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/objc/semantics.bzl", "semantics")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_common.bzl", "cc_common")
 
@@ -132,7 +133,7 @@ def _cc_import_impl(ctx):
         library_to_link = cc_common.create_library_to_link(
             actions = ctx.actions,
             feature_configuration = feature_configuration,
-            cc_toolchain = cc_toolchain,
+            cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo],
             static_library = static_library,
             pic_static_library = pic_static_library,
             interface_library = ctx.file.interface_library,
@@ -198,6 +199,7 @@ cc_import = rule(
             allow_files = True,
             flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
         ),
+        "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
         "_use_auto_exec_groups": attr.bool(default = True),
     },
     provides = [CcInfo],

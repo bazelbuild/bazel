@@ -921,9 +921,12 @@ EOF
   BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 bazel build '@local_config_cc//:toolchain' &>/dev/null || \
     fail "Fake toolchain target causes analysis errors"
 
-  BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 bazel build  '//:ok' --toolchain_resolution_debug=@bazel_tools//tools/cpp:toolchain_type &>"$TEST_log" && \
-    fail "Toolchains shouldn't be found"
-  expect_log "ToolchainResolution: No @@bazel_tools//tools/cpp:toolchain_type toolchain found for target platform @@local_config_platform//:host."
+  # This only shows reliably for query due to ordering issues in how Bazel shows
+  # errors.
+  BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1 bazel query 'deps(//:ok)' &>"$TEST_log" || \
+    fail "Should pass with fake toolchain"
+  expect_not_log "An error occurred during the fetch of repository 'local_config_cc'"
+  expect_log "@@bazel_tools~cc_configure_extension~local_config_cc//:empty"
 }
 
 function setup_workspace_layout_with_external_directory() {

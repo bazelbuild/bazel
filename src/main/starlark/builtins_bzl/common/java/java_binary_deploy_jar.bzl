@@ -275,6 +275,7 @@ def make_deploy_jars_rule(
         implementation,
         *,
         create_executable = True,
+        extra_attrs = {},
         extra_toolchains = []):
     """Creates the deploy jar auxiliary rule for java_binary
 
@@ -303,7 +304,7 @@ def make_deploy_jars_rule(
             "_build_info_translator": attr.label(
                 default = semantics.BUILD_INFO_TRANSLATOR_LABEL,
             ),
-        },
+        } | extra_attrs,
         outputs = _implicit_outputs,
         fragments = ["java"],
         toolchains = toolchains,

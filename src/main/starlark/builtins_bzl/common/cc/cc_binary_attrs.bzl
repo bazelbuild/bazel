@@ -85,6 +85,8 @@ cc_binary_attrs = {
     "_cc_binary": attr.bool(),
     "_is_test": attr.bool(default = False),
     "_stl": semantics.get_stl(),
+    "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
+    "_cc_toolchain_type": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:toolchain_type"),
     "_def_parser": semantics.get_def_parser(),
     "_use_auto_exec_groups": attr.bool(default = True),
 }

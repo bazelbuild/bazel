@@ -123,6 +123,7 @@ cc_toolchain_attrs_exec = {
         allow_single_file = True,
         cfg = "exec",
     ),
+    "_cc_toolchain_type": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:toolchain_type"),
     "_zipper": attr.label(
         default = configuration_field(fragment = "cpp", name = "zipper"),
         allow_single_file = True,

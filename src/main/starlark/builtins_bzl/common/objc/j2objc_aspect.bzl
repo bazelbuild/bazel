@@ -573,6 +573,9 @@ j2objc_aspect = aspect(
         "_j2objc_proto_toolchain": attr.label(
             default = configuration_field(fragment = "proto", name = "proto_toolchain_for_j2objc"),
         ),
+        "_cc_toolchain": attr.label(
+            default = "@" + cc_semantics.get_repo() + "//tools/cpp:current_cc_toolchain",
+        ),
     },
     required_providers = [[JavaInfo], [ProtoInfo]],
     provides = [apple_common.Objc, CcInfo],
