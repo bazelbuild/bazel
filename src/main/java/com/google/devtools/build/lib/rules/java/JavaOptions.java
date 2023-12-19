@@ -592,6 +592,14 @@ public class JavaOptions extends FragmentOptions {
       help = "Enable experimental jspecify integration.")
   public boolean experimentalEnableJspecify;
 
+  @Option(
+      name = "experimental_java_test_auto_create_deploy_jar",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "DO NOT USE")
+  public boolean autoCreateDeployJarForJavaTests;
+
   @Override
   public FragmentOptions getExec() {
     // Note validation actions don't run in exec config, so no need copying flags related to that.
