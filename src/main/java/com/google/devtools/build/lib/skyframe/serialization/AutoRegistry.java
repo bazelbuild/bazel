@@ -63,7 +63,12 @@ public class AutoRegistry {
           // Sadly, these builders are serialized as part of StarlarkCustomCommandLine$Builder,
           // which apparently can be preserved through analysis. We may investigate if this actually
           // has performance/correctness implications.
-          "com.google.common.collect.ImmutableList$Builder");
+          "com.google.common.collect.ImmutableList$Builder",
+          // These list types are internal to the Java Collections API but persisted in Skyframe.
+          "java.util.Arrays$ArrayList",
+          "java.util.Collections$SingletonList",
+          "java.util.Collections$UnmodifiableList",
+          "java.util.Collections$UnmodifiableRandomAccessList");
 
   private static final ImmutableList<Object> REFERENCE_CONSTANTS_TO_REGISTER =
       ImmutableList.of(
