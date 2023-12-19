@@ -41,6 +41,13 @@ public abstract class RepositoryMapping {
   public abstract ImmutableMap<String, RepositoryName> entries();
 
   /**
+   * Returns inverse entries mapping for faster lookup.
+   * Although it would be sufficient to just iterate over entries(),
+   * having an inverse map allows us to perform lookups more efficiently.
+   */
+  public abstract ImmutableMap<RepositoryName, String> inverseEntries();
+
+  /**
    * The owner repo of this repository mapping. It is for providing useful debug information when
    * repository mapping fails due to enforcing strict dependency, therefore it's only recorded when
    * we don't fallback to the requested repo name.
@@ -60,7 +67,14 @@ public abstract class RepositoryMapping {
 
   private static RepositoryMapping createInternal(
       Map<String, RepositoryName> entries, RepositoryName ownerRepo) {
-    return new AutoValue_RepositoryMapping(ImmutableMap.copyOf(entries), ownerRepo);
+    System.out.println("Creating inverse map!");
+    Map<RepositoryName, String> inverseMap = new HashMap<>();
+    for (Map.Entry<String, RepositoryName> entry : entries.entrySet()) {
+      if (!inverseMap.containsKey(entry.getValue())) {
+        inverseMap.put(entry.getValue(), entry.getKey());
+      }
+    }
+    return new AutoValue_RepositoryMapping(ImmutableMap.copyOf(entries), ImmutableMap.copyOf(inverseMap), ownerRepo);
   }
 
   /**
@@ -111,10 +125,7 @@ public abstract class RepositoryMapping {
    * Returns the first apparent name in this mapping that maps to the given canonical name, if any.
    */
   public Optional<String> getInverse(RepositoryName postMappingName) {
-    return entries().entrySet().stream()
-        .filter(e -> e.getValue().equals(postMappingName))
-        .map(Entry::getKey)
-        .findFirst();
+    return Optional.ofNullable(inverseEntries().get(postMappingName));
   }
 
   /**
