@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.BinTools;
+import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
@@ -106,7 +107,9 @@ public class SandboxHelpersTest {
 
     SandboxInputs inputs =
         sandboxHelpers.processInputFiles(
-            inputMap(paramFile), execRootPath, execRootPath, ImmutableList.of(), null);
+            inputMap(paramFile),
+            new FakeActionInputFileCache(),
+            execRootPath, execRootPath, ImmutableList.of(), null);
 
     assertThat(inputs.getFiles())
         .containsExactly(PathFragment.create("paramFile"), execRootedPath("paramFile"));
@@ -127,7 +130,9 @@ public class SandboxHelpersTest {
 
     SandboxInputs inputs =
         sandboxHelpers.processInputFiles(
-            inputMap(tool), execRootPath, execRootPath, ImmutableList.of(), null);
+            inputMap(tool),
+            new FakeActionInputFileCache(),
+            execRootPath, execRootPath, ImmutableList.of(), null);
 
     assertThat(inputs.getFiles())
         .containsExactly(PathFragment.create("_bin/say_hello"), execRootedPath("_bin/say_hello"));
@@ -173,7 +178,7 @@ public class SandboxHelpersTest {
               try {
                 var unused =
                     sandboxHelpers.processInputFiles(
-                        inputMap(input), customExecRoot, customExecRoot, ImmutableList.of(), null);
+                        inputMap(input), new FakeActionInputFileCache(), customExecRoot, customExecRoot, ImmutableList.of(), null);
                 finishProcessingSemaphore.release();
               } catch (IOException | InterruptedException e) {
                 throw new IllegalArgumentException(e);
@@ -181,7 +186,7 @@ public class SandboxHelpersTest {
             });
     var unused =
         sandboxHelpers.processInputFiles(
-            inputMap(input), customExecRoot, customExecRoot, ImmutableList.of(), null);
+            inputMap(input), new FakeActionInputFileCache(), customExecRoot, customExecRoot, ImmutableList.of(), null);
     finishProcessingSemaphore.release();
     future.get();
 

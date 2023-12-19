@@ -214,6 +214,12 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
         xattrProvider);
   }
 
+  public static FileArtifactValue createForResolvedSymlink(
+      PathFragment realPath, FileArtifactValue metadata, @Nullable byte[] digest) {
+    return new ResolvedSymlinkFileArtifactValue(
+        realPath, digest, metadata.getContentsProxy(), metadata.getSize());
+  }
+
   public static FileArtifactValue createFromInjectedDigest(
       FileArtifactValue metadata, @Nullable byte[] digest) {
     return createForNormalFile(digest, metadata.getContentsProxy(), metadata.getSize());
@@ -439,7 +445,22 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
   }
 
-  private static final class RegularFileArtifactValue extends FileArtifactValue {
+  private static final class ResolvedSymlinkFileArtifactValue extends RegularFileArtifactValue {
+    private final PathFragment realPath;
+
+    private ResolvedSymlinkFileArtifactValue(PathFragment realPath, @Nullable byte[] digest,
+        @Nullable FileContentsProxy proxy, long size) {
+      super(digest, proxy, size);
+      this.realPath = realPath;
+    }
+
+    @Override
+    public Optional<PathFragment> getMaterializationExecPath() {
+      return Optional.of(realPath);
+    }
+  }
+
+  private static class RegularFileArtifactValue extends FileArtifactValue {
     private final byte[] digest;
     @Nullable private final FileContentsProxy proxy;
     private final long size;

@@ -29,6 +29,8 @@ import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
@@ -444,6 +446,25 @@ public final class SandboxHelpers {
             symlink.getPathString()));
   }
 
+  private static RootedPath processResolvedSymlink(
+      Root absoluteRoot,
+      PathFragment symlinkTarget,
+      Root execRootWithinSandbox,
+      PathFragment execRootFragment,
+      ImmutableList<Root> packageRoots) {
+    for (Root packageRoot : packageRoots) {
+      if (packageRoot.contains(symlinkTarget)) {
+        return RootedPath.toRootedPath(packageRoot, packageRoot.relativize(symlinkTarget));
+      }
+    }
+
+    if (symlinkTarget.startsWith(execRootFragment)) {
+      return RootedPath.toRootedPath(execRootWithinSandbox, symlinkTarget.relativeTo(execRootFragment));
+    }
+
+    return RootedPath.toRootedPath(absoluteRoot, symlinkTarget);
+  }
+
   /**
    * Returns the inputs of a Spawn as a map of PathFragments relative to an execRoot to paths in the
    * host filesystem where the input files can be found.
@@ -458,6 +479,7 @@ public final class SandboxHelpers {
    */
   public SandboxInputs processInputFiles(
       Map<PathFragment, ActionInput> inputMap,
+      InputMetadataProvider inputMetadataProvider,
       Path execRootPath,
       Path withinSandboxExecRootPath,
       ImmutableList<Root> packageRoots,
@@ -468,6 +490,7 @@ public final class SandboxHelpers {
         withinSandboxExecRootPath.equals(execRootPath)
             ? withinSandboxExecRoot
             : Root.fromPath(execRootPath);
+    Root absoluteRoot = Root.absoluteRoot(execRootPath.getFileSystem());
 
     Map<PathFragment, RootedPath> inputFiles = new TreeMap<>();
     Map<PathFragment, PathFragment> inputSymlinks = new TreeMap<>();
@@ -503,9 +526,11 @@ public final class SandboxHelpers {
 
         if (actionInput instanceof EmptyActionInput) {
           inputPath = null;
+        } else if (actionInput instanceof VirtualActionInput) {
+          inputPath = RootedPath.toRootedPath(withinSandboxExecRoot, actionInput.getExecPath());
         } else if (actionInput instanceof Artifact) {
           Artifact inputArtifact = (Artifact) actionInput;
-          if (inputArtifact.isSourceArtifact() && sandboxSourceRoots != null) {
+          if (inputArtifact.isSourceArtifact() && !inputArtifact.isDirectory() && sandboxSourceRoots != null) {
             Root sourceRoot = inputArtifact.getRoot().getRoot();
             if (!sourceRootToSandboxSourceRoot.containsKey(sourceRoot)) {
               int next = sourceRootToSandboxSourceRoot.size();
@@ -518,6 +543,18 @@ public final class SandboxHelpers {
                 RootedPath.toRootedPath(
                     sourceRootToSandboxSourceRoot.get(sourceRoot),
                     inputArtifact.getRootRelativePath());
+          } else if (!inputArtifact.isSourceArtifact() && sandboxSourceRoots != null) {
+            FileArtifactValue metadata = inputMetadataProvider.getInputMetadata(actionInput);
+            if (!metadata.isRemote() && metadata.getMaterializationExecPath().isPresent()) {
+              inputPath = processResolvedSymlink(
+                  absoluteRoot,
+                  metadata.getMaterializationExecPath().get(),
+                  execRoot,
+                  execRootPath.asFragment(),
+                  packageRoots);
+            } else {
+              inputPath = RootedPath.toRootedPath(withinSandboxExecRoot, inputArtifact.getExecPath());
+            }
           } else {
             inputPath = RootedPath.toRootedPath(withinSandboxExecRoot, inputArtifact.getExecPath());
           }
