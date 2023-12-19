@@ -290,6 +290,29 @@ def basic_java_binary(
     if is_test_rule_class and ctx.fragments.java.auto_create_java_test_deploy_jars():
         extra_files.append(_auto_create_deploy_jar(ctx, internal_deploy_jar_info))
 
+    internal_deploy_jar_info = InternalDeployJarInfo(
+        java_attrs = java_attrs,
+        launcher_info = struct(
+            runtime_jars = launcher_info.runtime_jars,
+            launcher = launcher_info.launcher,
+            unstripped_launcher = launcher_info.unstripped_launcher,
+        ),
+        shared_archive = shared_archive,
+        main_class = main_class,
+        coverage_main_class = coverage_main_class,
+        strip_as_default = strip_as_default,
+        stamp = ctx.attr.stamp,
+        hermetic = hasattr(ctx.attr, "hermetic") and ctx.attr.hermetic,
+        add_exports = add_exports,
+        add_opens = add_opens,
+        manifest_lines = ctx.attr.deploy_manifest_lines,
+    )
+
+    # "temporary" workaround for https://github.com/bazelbuild/intellij/issues/5845
+    extra_files = []
+    if is_test_rule_class and ctx.fragments.java.auto_create_java_test_deploy_jars():
+        extra_files.append(_auto_create_deploy_jar(ctx, internal_deploy_jar_info))
+
     default_info = struct(
         files = depset(extra_files, transitive = [files]),
         runfiles = runfiles,
