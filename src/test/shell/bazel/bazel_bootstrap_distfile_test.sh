@@ -104,11 +104,22 @@ function test_bootstrap() {
 
     env EXTRA_BAZEL_ARGS="--tool_java_runtime_version=local_jdk" ./compile.sh \
         || fail "Expected to be able to bootstrap bazel"
+
     ./output/bazel \
       --server_javabase=$JAVABASE --host_jvm_args=--add-opens=java.base/java.nio=ALL-UNNAMED \
       version --nognu_format &> "${TEST_log}" \
       || fail "Generated bazel not working"
     expect_log "${SOURCE_DATE_EPOCH}"
+
+    # TODO: make the build work without network and check for success
+    # the repo cache is currently missing:
+    # 1) canonical IDs
+    # 2) remote jdks & java_tools (if not using a custom java_toolchain)
+    ./output/bazel \
+      --server_javabase=$JAVABASE --host_jvm_args=--add-opens=java.base/java.nio=ALL-UNNAMED \
+      build --nobuild --repository_cache=derived/repository_cache \
+      //src:bazel_nojdk &> "${TEST_log}" || true
+    expect_not_log "FATAL: bazel crashed due to an internal error"
 }
 
 run_suite "bootstrap test"
