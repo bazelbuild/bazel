@@ -642,4 +642,18 @@ public class CcStarlarkInternal implements StarlarkValue {
   public AppleConfiguration getAppleConfigIfAvailable(StarlarkRuleContext ruleContext) {
     return ruleContext.getRuleContext().getConfiguration().getFragment(AppleConfiguration.class);
   }
+
+  private static final StarlarkProvider buildSettingInfo =
+      StarlarkProvider.builder(Location.BUILTIN)
+          .setExported(
+              new StarlarkProvider.Key(
+                  Label.parseCanonicalUnchecked(
+                      "//third_party/bazel_skylib/rules:common_settings.bzl"),
+                  "BuildSettingInfo"))
+          .build();
+
+  @StarlarkMethod(name = "BuildSettingInfo", documented = false, structField = true)
+  public StarlarkProvider buildSettingInfo() throws EvalException {
+    return buildSettingInfo;
+  }
 }
