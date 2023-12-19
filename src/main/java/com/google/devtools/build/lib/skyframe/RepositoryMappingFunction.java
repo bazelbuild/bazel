@@ -128,14 +128,17 @@ public class RepositoryMappingFunction implements SkyFunction {
             .withAdditionalMappings(
                 ImmutableMap.of(
                     externalPackageValue.getPackage().getWorkspaceName(), RepositoryName.MAIN))
-            .withAdditionalMappings(additionalMappings);
+            .withAdditionalMappings(additionalMappings)
+            .withCachedInverseMap();
       }
 
       // Try and see if this is a repo generated from a Bazel module.
       Optional<RepositoryMappingValue> mappingValue =
           computeForBazelModuleRepo(repositoryName, bazelDepGraphValue);
       if (mappingValue.isPresent()) {
-        return mappingValue.get();
+        return repositoryName.isMain()
+            ? mappingValue.get().withCachedInverseMap()
+            : mappingValue.get();
       }
 
       // Now try and see if this is a repo generated from a module extension.
