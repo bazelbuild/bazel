@@ -297,12 +297,12 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     // it must still synchronize on the output permissions having been set.
     Set<Path> dirsWithOutputPermissions = Sets.newConcurrentHashSet();
 
+    // Using plain futures to avoid RxJava overheads.
     List<ListenableFuture<Void>> transfers = new ArrayList<>(files.size());
     try (var s = Profiler.instance().profile("compose prefetches")) {
       for (var file : files) {
-        var result =
-            prefetchFile(action, dirsWithOutputPermissions, metadataSupplier, file, priority);
-        transfers.add(result);
+        transfers.add(
+            prefetchFile(action, dirsWithOutputPermissions, metadataSupplier, file, priority));
       }
     }
 
