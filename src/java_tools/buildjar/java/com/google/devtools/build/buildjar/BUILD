@@ -1,5 +1,5 @@
-load("@rules_java//java:defs.bzl", "java_binary", "java_library")
 load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_binary", "bootstrap_java_library")
+load("@rules_java//java:defs.bzl", "java_binary", "java_library")
 
 # Description:
 #   The Java library builders, which are used by Bazel to compile Java
@@ -174,7 +174,6 @@ bootstrap_java_library(
     name = "starlark-deps",
     srcs = ["//:bootstrap-derived-java-srcs"],
     jars = [
-        "//third_party:auto_value-jars",
         "//:bootstrap-derived-java-jars",
         "//third_party:bootstrap_guava_and_error_prone-jars",
         "//third_party:jsr305-jars",
@@ -182,6 +181,7 @@ bootstrap_java_library(
         "//third_party/grpc-java:bootstrap-grpc-jars",
         "//third_party:tomcat_annotations_api-jars",
     ],
+    neverlink_jars = ["//third_party:auto_value-jars"],
     tags = ["manual"],
 )
 
@@ -213,6 +213,7 @@ bootstrap_java_binary(
         "javac/WerrorCustomOption.java",
     ],
     main_class = "com.google.devtools.build.buildjar.VanillaJavaBuilder",
+    neverlink_jars = ["//third_party:auto_value-jars"],
     tags = ["manual"],
     deps = [
         ":starlark-deps",
