@@ -124,6 +124,9 @@ public class Package {
     }
   }
 
+  /** Governs the error message behavior of {@link Package#getTarget}. */
+  // TODO(bazel-team): Arguably, this could be replaced by a boolean param to getTarget(), or some
+  // separate action taken by the caller. But there's a lot of call sites that would need updating.
   private final boolean succinctTargetNotFoundErrors;
 
   /**
@@ -216,30 +219,29 @@ public class Package {
   }
 
   /**
-   * Package initialization, part 1 of 3: instantiates a new package with the given name.
+   * Constructs a new (incomplete) Package instance. Intended only for use by {@link
+   * Package.Builder}.
    *
-   * <p>As part of initialization, {@link Builder} constructs {@link InputFile} and {@link
-   * PackageGroup} instances that require a valid Package instance where {@link
-   * Package#getNameFragment()} is accessible. That's why these settings are applied here at the
-   * start.
-   *
-   * <p>{@code name} <b>MUST</b> be a suffix of {@code filename.getParentDirectory())}.
+   * <p>Packages and Targets refer to one another. Therefore, the builder needs to have a Package
+   * instance on-hand before it can associate any targets with the package. Certain Metadata fields
+   * like the package's name must be known before that point, while other fields are filled in when
+   * the builder calls {@link Package#finishInit}.
    */
+  // TODO(#19922): Better separate fields that must be known a priori from those determined through
+  // BUILD evaluation.
   private Package(
-      PackageIdentifier packageId,
-      String workspaceName,
+      Metadata metadata,
       Optional<String> associatedModuleName,
       Optional<String> associatedModuleVersion,
       boolean succinctTargetNotFoundErrors) {
-    this.metadata = new Metadata();
-    this.metadata.packageIdentifier = packageId;
-    this.metadata.workspaceName = workspaceName;
+    this.metadata = metadata;
+    // TODO(#19922): move these three fields into Metadata
     this.associatedModuleName = associatedModuleName;
     this.associatedModuleVersion = associatedModuleVersion;
     this.succinctTargetNotFoundErrors = succinctTargetNotFoundErrors;
   }
 
-  /** Returns this packages' identifier. */
+  /** Returns this package's identifier. */
   public PackageIdentifier getPackageIdentifier() {
     return metadata.packageIdentifier;
   }
@@ -319,10 +321,7 @@ public class Package {
   }
 
   /**
-   * Package initialization: part 3 of 3: applies all other settings and completes initialization of
-   * the package.
-   *
-   * <p>Only after this method is called can this package be considered "complete" and be shared
+   * Completes the initialization of this package. Only after this method may a package by shared
    * publicly.
    */
   private void finishInit(Builder builder) {
@@ -366,7 +365,6 @@ public class Package {
     this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
     this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
     this.firstWorkspaceSuffixRegisteredToolchain = builder.firstWorkspaceSuffixRegisteredToolchain;
-    this.metadata.repositoryMapping = Preconditions.checkNotNull(builder.repositoryMapping);
     ImmutableMap.Builder<RepositoryName, ImmutableMap<String, RepositoryName>>
         repositoryMappingsBuilder = ImmutableMap.builder();
     if (!builder.externalPackageRepositoryMappings.isEmpty() && !builder.isRepoRulePackage()) {
@@ -527,6 +525,8 @@ public class Package {
     }
   }
 
+  // TODO(bazel-team): Seems like we shouldn't permit this mutation on an already-initialized
+  // Package. Is it possible for this to be called today after initialization?
   void setContainsErrors() {
     containsErrors = true;
   }
@@ -818,7 +818,10 @@ public class Package {
    */
   public static class Builder {
 
-    /** Defines configuration to control the runtime behavior of {@link Package}s. */
+    /**
+     * A bundle of options affecting package construction, that is not specific to any particular
+     * package.
+     */
     public interface PackageSettings {
       /**
        * Returns whether or not extra detail should be added to {@link NoSuchTargetException}s
@@ -863,13 +866,6 @@ public class Package {
     // This is only used in the //external package, it is an empty map for all other packages.
     private final HashMap<RepositoryName, HashMap<String, RepositoryName>>
         externalPackageRepositoryMappings = new HashMap<>();
-
-    /**
-     * The map of repository reassignments for BUILD packages loaded within external repositories.
-     * It contains an entry from "@<main workspace name>" to "@" for packages within the main
-     * workspace.
-     */
-    private final RepositoryMapping repositoryMapping;
 
     /** Converts label literals to Label objects within this package. */
     private final LabelConverter labelConverter;
@@ -964,6 +960,7 @@ public class Package {
     }
 
     /** Sets the package's map of "generator_name" values keyed by the location of the call site. */
+    // TODO(#19922): Require this to be set before BUILD evaluation.
     @CanIgnoreReturnValue
     public Builder setGeneratorMap(ImmutableMap<Location, String> map) {
       this.generatorMap = map;
@@ -1006,19 +1003,22 @@ public class Package {
         Optional<String> associatedModuleVersion,
         boolean noImplicitFileExport,
         RepositoryMapping repositoryMapping,
+        // TODO(#19922): Spurious parameter, delete.
         RepositoryMapping mainRepositoryMapping,
         @Nullable Semaphore cpuBoundSemaphore,
         PackageOverheadEstimator packageOverheadEstimator) {
+      Metadata metadata = new Metadata();
+      metadata.packageIdentifier = Preconditions.checkNotNull(id);
+      metadata.workspaceName = Preconditions.checkNotNull(workspaceName);
+      metadata.repositoryMapping = Preconditions.checkNotNull(repositoryMapping);
       this.pkg =
           new Package(
-              id,
-              workspaceName,
+              metadata,
               associatedModuleName,
               associatedModuleVersion,
               packageSettings.succinctTargetNotFoundErrors());
       this.precomputeTransitiveLoads = packageSettings.precomputeTransitiveLoads();
       this.noImplicitFileExport = noImplicitFileExport;
-      this.repositoryMapping = repositoryMapping;
       this.labelConverter = new LabelConverter(id, repositoryMapping);
       if (pkg.getName().startsWith("javatests/")) {
         mergePackageArgsFrom(PackageArgs.builder().setDefaultTestOnly(true));
@@ -1107,6 +1107,7 @@ public class Package {
     }
 
     /** Sets the name of this package's BUILD file. */
+    // TODO(#19922): Require this to be set before BUILD evaluation.
     @CanIgnoreReturnValue
     public Builder setFilename(RootedPath filename) {
       pkg.metadata.filename = filename;
@@ -1187,6 +1188,7 @@ public class Package {
     }
 
     /** Sets visibility enforcement policy for <code>config_setting</code>. */
+    // TODO(#19922): Require this to be set before BUILD evaluation.
     @CanIgnoreReturnValue
     public Builder setConfigSettingVisibilityPolicy(ConfigSettingVisibilityPolicy policy) {
       this.pkg.metadata.configSettingVisibilityPolicy = policy;
@@ -1194,6 +1196,11 @@ public class Package {
     }
 
     /** Uses the workspace name from {@code //external} to set this package's workspace name. */
+    // TODO(#19922): Seems like this is only used for WORKSPACE logic (`workspace()` callable), but
+    // it clashes with the notion that, for BUILD files, the workspace name should be supplied to
+    // the Builder constructor and not mutated during evaluation. Either put up with this until we
+    // delete WORKSPACE logic, or else separate the `workspace()` callable's mutation from this
+    // metadata field.
     @CanIgnoreReturnValue
     @VisibleForTesting
     public Builder setWorkspaceName(String workspaceName) {
@@ -1292,6 +1299,7 @@ public class Package {
       return null;
     }
 
+    // TODO(#19922): Require this to be set before BUILD evaluation.
     @CanIgnoreReturnValue
     public Builder setLoads(Iterable<Module> directLoads) {
       checkLoadsNotSet();
@@ -1645,10 +1653,10 @@ public class Package {
 
     @CanIgnoreReturnValue
     private Builder beforeBuild(boolean discoverAssumedInputFiles) throws NoSuchPackageException {
-      Preconditions.checkNotNull(pkg);
+      // TODO(#19922): Won't have to check filename/buildFileLabel if we merge setFilename into the
+      // Builder constructor.
       Preconditions.checkNotNull(pkg.metadata.filename);
       Preconditions.checkNotNull(pkg.metadata.buildFileLabel);
-      Preconditions.checkNotNull(makeEnv);
       if (ioException != null) {
         throw new NoSuchPackageException(
             getPackageIdentifier(), ioExceptionMessage, ioException, ioExceptionDetailedExitCode);
@@ -1665,12 +1673,18 @@ public class Package {
         targets = ((SnapshottableBiMap<String, Target>) targets).getUnderlyingBiMap();
       }
 
-      // We create the original BUILD InputFile when the package filename is set; however, the
-      // visibility may be overridden with an exports_files directive, so we need to obtain the
-      // current instance here.
+      // We create an InputFile corresponding to the BUILD file when setFilename is called. However,
+      // the visibility of this target may be overridden with an exports_files directive, so we wait
+      // until now to obtain the current instance from the targets map.
       pkg.metadata.buildFile =
           (InputFile)
               Preconditions.checkNotNull(targets.get(pkg.metadata.buildFileLabel.getName()));
+
+      // TODO(bazel-team): We run testSuiteImplicitTestsAccumulator here in beforeBuild(), but what
+      // if one of the accumulated tests is later removed in PackageFunction, between the call to
+      // buildPartial() and finishBuild(), due to a label-crossing-subpackage-boundary error? Seems
+      // like that would mean a test_suite is referencing a Target that's been deleted from its
+      // Package.
 
       // Clear tests before discovering them again in order to keep this method idempotent -
       // otherwise we may double-count tests if we're called twice due to a skyframe restart, etc.
@@ -1682,7 +1696,15 @@ public class Package {
           // All labels mentioned by a rule that refer to an unknown target in the current package
           // are assumed to be InputFiles, so let's create them. We add them to a temporary map
           // to avoid concurrent modification to this.targets while iterating (via getRules()).
-          List<Label> labels = ruleLabels != null ? ruleLabels.get(rule) : rule.getLabels();
+          List<Label> labels = null;
+          if (ruleLabels != null) {
+            // Can theoretically be absent from the map if the caller used both addRule() and
+            // addRuleUnchecked() on the same Builder.
+            labels = ruleLabels.get(rule);
+          }
+          if (labels == null) {
+            labels = rule.getLabels();
+          }
           for (Label label : labels) {
             if (label.getPackageIdentifier().equals(pkg.getPackageIdentifier())
                 && !targets.containsKey(label.getName())
@@ -1711,6 +1733,10 @@ public class Package {
     }
 
     /** Intended for use by {@link com.google.devtools.build.lib.skyframe.PackageFunction} only. */
+    // TODO(bazel-team): It seems like the motivation for this method (added in cl/74794332) is to
+    // allow PackageFunction to delete targets that are found to violate the
+    // label-crossing-subpackage-boundaries check. Is there a simpler way to express this idea that
+    // doesn't make package-building a multi-stage process?
     public Builder buildPartial() throws NoSuchPackageException {
       if (alreadyBuilt) {
         return this;
@@ -1921,7 +1947,7 @@ public class Package {
   }
 
   /**
-   * A collection of data about the package that does not require evaluating the whole package.
+   * A collection of data about a package that does not require evaluating the whole package.
    *
    * <p>In particular, this does not contain any target information. It does contain data known
    * prior to BUILD file evaluation, data mutated by BUILD file evaluation, and data computed
@@ -1937,7 +1963,11 @@ public class Package {
 
     private PackageIdentifier packageIdentifier;
 
-    /** Returns the repository identifier for this package. */
+    /**
+     * Returns the package identifier for this package.
+     *
+     * <p>This is a suffix of {@code getFilename().getParentDirectory()}.
+     */
     public PackageIdentifier getPackageIdentifier() {
       return packageIdentifier;
     }
@@ -1999,17 +2029,6 @@ public class Package {
       return repositoryMapping;
     }
 
-    private Optional<Root> sourceRoot;
-
-    /**
-     * Returns the root of the source tree in which this package was found. It is an invariant that
-     * {@code sourceRoot.getRelative(packageId.getSourceRoot()).equals(packageDirectory)}. Returns
-     * {@link Optional#empty} if this {@link Package} is derived from a WORKSPACE file.
-     */
-    public Optional<Root> getSourceRoot() {
-      return sourceRoot;
-    }
-
     private ConfigSettingVisibilityPolicy configSettingVisibilityPolicy;
 
     /** Returns the visibility policy. */
@@ -2034,6 +2053,8 @@ public class Package {
       return packageArgs;
     }
 
+    // Fields that are only set after BUILD file execution (but before symbolic macro expansion).
+
     private InputFile buildFile;
 
     /**
@@ -2046,7 +2067,16 @@ public class Package {
       return buildFile;
     }
 
-    // Fields that are only set after BUILD file execution (but before symbolic macro expansion).
+    private Optional<Root> sourceRoot;
+
+    /**
+     * Returns the root of the source tree in which this package was found. It is an invariant that
+     * {@code sourceRoot.getRelative(packageId.getSourceRoot()).equals(packageDirectory)}. Returns
+     * {@link Optional#empty} if this {@link Package} is derived from a WORKSPACE file.
+     */
+    public Optional<Root> getSourceRoot() {
+      return sourceRoot;
+    }
 
     private ImmutableMap<String, String> makeEnv;
 
