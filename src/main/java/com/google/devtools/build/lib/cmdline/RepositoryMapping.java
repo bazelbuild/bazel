@@ -67,12 +67,9 @@ public abstract class RepositoryMapping {
 
   private static RepositoryMapping createInternal(
       Map<String, RepositoryName> entries, RepositoryName ownerRepo) {
-    System.out.println("Creating inverse map!");
     Map<RepositoryName, String> inverseMap = new HashMap<>();
     for (Map.Entry<String, RepositoryName> entry : entries.entrySet()) {
-      if (!inverseMap.containsKey(entry.getValue())) {
-        inverseMap.put(entry.getValue(), entry.getKey());
-      }
+      inverseMap.putIfAbsent(entry.getValue(), entry.getKey());
     }
     return new AutoValue_RepositoryMapping(ImmutableMap.copyOf(entries), ImmutableMap.copyOf(inverseMap), ownerRepo);
   }
