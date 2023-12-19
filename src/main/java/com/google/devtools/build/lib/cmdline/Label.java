@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -63,7 +62,6 @@ import net.starlark.java.eval.StarlarkValue;
             + "<p>For every <code>Label</code> instance <code>l</code>, the string representation"
             + " <code>str(l)</code> has the property that <code>Label(str(l)) == l</code>,"
             + " regardless of where the <code>Label()</code> call occurs.")
-@AutoCodec
 @Immutable
 @ThreadSafe
 public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, CommandLineItem {
@@ -240,15 +238,18 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    * <p>Only call this method if you know what you're doing; in particular, don't call it on
    * arbitrary {@code name} inputs
    */
-  @AutoCodec.Instantiator
   public static Label createUnvalidated(PackageIdentifier packageIdentifier, String name) {
-    String internedName = name;
-    if (internedName.equals(PKG_VISIBILITY_NAME)) {
-      internedName = PKG_VISIBILITY_NAME;
-    } else if (internedName.equals(SUBPACKAGES_VISIBILITY_NAME)) {
-      internedName = SUBPACKAGES_VISIBILITY_NAME;
+    return interner.intern(new Label(packageIdentifier, internIfConstantName(name)));
+  }
+
+  static String internIfConstantName(String name) {
+    if (name.equals(PKG_VISIBILITY_NAME)) {
+      return PKG_VISIBILITY_NAME;
     }
-    return interner.intern(new Label(packageIdentifier, internedName));
+    if (name.equals(SUBPACKAGES_VISIBILITY_NAME)) {
+      return SUBPACKAGES_VISIBILITY_NAME;
+    }
+    return name;
   }
 
   /** The name and repository of the package. */

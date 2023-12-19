@@ -21,6 +21,7 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.Label.RepoContext;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.regex.Pattern;
 import net.starlark.java.eval.Starlark;
@@ -500,5 +501,17 @@ public class LabelTest {
             .build();
     assertThat(Starlark.str(Label.parseCanonical("//x"), semantics)).isEqualTo("//x:x");
     assertThat(Starlark.str(Label.parseCanonical("@x//y"), semantics)).isEqualTo("@@x//y:y");
+  }
+
+  @Test
+  public void testCodec() throws Exception {
+    new SerializationTester(
+            Label.parseCanonical("//foo/bar:baz"),
+            Label.parseCanonical("@foo"),
+            Label.parseCanonical("@@foo//bar"),
+            Label.parseCanonical("//xyz/@foo:abc"))
+        .setVerificationFunction(
+            (original, deserialized) -> assertThat(original).isSameInstanceAs(deserialized))
+        .runTests();
   }
 }

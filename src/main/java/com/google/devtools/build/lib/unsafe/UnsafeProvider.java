@@ -23,8 +23,7 @@ import sun.misc.Unsafe;
 /**
  * An accessor for Unsafe.
  *
- * <p>Not for general consumption. Public only so that generated codecs in different packages can
- * access this.
+ * <p>Used for serialization.
  */
 public class UnsafeProvider {
 
@@ -32,6 +31,10 @@ public class UnsafeProvider {
 
   public static Unsafe unsafe() {
     return UNSAFE;
+  }
+
+  public static long getFieldOffset(Class<?> type, String fieldName) throws NoSuchFieldException {
+    return UNSAFE.objectFieldOffset(type.getDeclaredField(fieldName));
   }
 
   /**
