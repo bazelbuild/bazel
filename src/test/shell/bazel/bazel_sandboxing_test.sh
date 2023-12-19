@@ -306,6 +306,34 @@ EOF
   bazel build //pkg:a &>$TEST_log || fail "expected build to succeed"
 }
 
+function test_add_mount_pair_tmp_source() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # Tests Linux-specific functionality
+    return 0
+  fi
+
+  create_workspace_with_default_repos WORKSPACE
+
+  sed -i.bak '/sandbox_tmpfs_path/d' $TEST_TMPDIR/bazelrc
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+genrule(
+    name = "gen",
+    outs = ["gen.txt"],
+    cmd = "cp /etc/data.txt $@",
+)
+EOF
+
+  local mounted=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
+  trap "rm -fr $mounted" EXIT
+  echo GOOD > "$mounted/data.txt"
+
+  # This assumes the existence of /etc on the host system
+  bazel build --sandbox_add_mount_pair="$mounted:/etc" //pkg:gen || fail "build failed"
+  assert_contains GOOD bazel-bin/pkg/gen.txt
+}
+
 # The test shouldn't fail if the environment doesn't support running it.
 check_sandbox_allowed || exit 0
 
