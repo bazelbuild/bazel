@@ -147,4 +147,10 @@ public interface JavaConfigurationApi extends StarlarkValue {
               + " optimizer into. Note that if split_bytecode_optimization_pass is set, this will"
               + " only change behavior if it is > 2.")
   int bytecodeOptimizationPassActions();
+
+  @StarlarkMethod(
+      name = "auto_create_java_test_deploy_jars",
+      useStarlarkThread = true,
+      documented = false)
+  boolean autoCreateJavaTestDeployJars(StarlarkThread thread) throws EvalException;
 }
