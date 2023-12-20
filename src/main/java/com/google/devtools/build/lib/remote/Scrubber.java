@@ -143,13 +143,9 @@ public class Scrubber {
     }
 
     /** Whether the given input should be omitted from the cache key. */
-    public boolean shouldOmitInput(ActionInput input) {
-      if (input.equals(VirtualActionInput.EMPTY_MARKER)) {
-        return false;
-      }
-      String execPath = input.getExecPathString();
+    public boolean shouldOmitInput(String path) {
       for (Pattern pattern : omittedInputPatterns) {
-        if (pattern.matcher(execPath).matches()) {
+        if (pattern.matcher(path).matches()) {
           return true;
         }
       }

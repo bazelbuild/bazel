@@ -262,10 +262,11 @@ class DirectoryTreeBuilder {
       PathFragment path = e.getKey();
       T input = e.getValue();
 
-      if (scrubber != null
-          && input instanceof ActionInput
-          && scrubber.shouldOmitInput((ActionInput) input)) {
-        continue;
+      if (scrubber != null && input instanceof ActionInput) {
+        String inputPath = input.equals(VirtualActionInput.EMPTY_MARKER) ? path.getPathString() : ((ActionInput)input).getExecPathString();
+        if (scrubber.shouldOmitInput(inputPath)) {
+          continue;
+        }
       }
 
       if (input instanceof DerivedArtifact && ((DerivedArtifact) input).isTreeArtifact()) {
