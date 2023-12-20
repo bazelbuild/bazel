@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.FdoContext.BranchFdoMode;
@@ -39,10 +40,21 @@ public class FdoHelper {
   @Nullable
   public static FdoContext getFdoContext(
       RuleContext ruleContext,
-      CcToolchainAttributesProvider attributes,
       BuildConfigurationValue configuration,
       CppConfiguration cppConfiguration,
-      ImmutableMap<String, PathFragment> toolPaths)
+      ImmutableMap<String, PathFragment> toolPaths,
+      FdoPrefetchHintsProvider fdoPrefetchProvider,
+      PropellerOptimizeProvider propellerOptimizeProvider,
+      MemProfProfileProvider memProfProfileProvider,
+      FdoProfileProvider fdoOptimizeProvider,
+      FdoProfileProvider fdoProfileProvider,
+      FdoProfileProvider xFdoProfileProvider,
+      FdoProfileProvider csFdoProfileProvider,
+      NestedSet<Artifact> allFiles,
+      Artifact zipper,
+      CcToolchainConfigInfo ccToolchainConfigInfo,
+      ImmutableList<Artifact> fdoOptimizeArtifacts,
+      Label fdoOptimizeLabel)
       throws InterruptedException, RuleErrorException {
     FdoInputFile fdoInputFile = null;
     FdoInputFile csFdoInputFile = null;
@@ -53,8 +65,7 @@ public class FdoHelper {
     Pair<FdoInputFile, Artifact> fdoInputs = null;
     if (configuration.getCompilationMode() == CompilationMode.OPT) {
       if (cppConfiguration.getFdoPrefetchHintsLabel() != null) {
-        FdoPrefetchHintsProvider provider = attributes.getFdoPrefetch();
-        prefetchHints = provider.getInputFile();
+        prefetchHints = fdoPrefetchProvider.getInputFile();
       }
 
       if (cppConfiguration.getPropellerOptimizeAbsoluteCCProfile() != null
@@ -75,12 +86,11 @@ public class FdoHelper {
           propellerOptimizeInputFile = new PropellerOptimizeInputFile(ccArtifact, ldArtifact);
         }
       } else if (cppConfiguration.getPropellerOptimizeLabel() != null) {
-        PropellerOptimizeProvider provider = attributes.getPropellerOptimize();
-        propellerOptimizeInputFile = provider.getInputFile();
+        propellerOptimizeInputFile = propellerOptimizeProvider.getInputFile();
       }
 
       if (cppConfiguration.getMemProfProfileLabel() != null) {
-        memprofProfile = attributes.getMemProfProfileProvider().getInputFile();
+        memprofProfile = memProfProfileProvider.getInputFile();
       }
 
       if (cppConfiguration.getFdoPath() != null) {
@@ -90,16 +100,16 @@ public class FdoHelper {
         Preconditions.checkState(fdoInputFile == null);
         fdoInputFile = FdoInputFile.fromAbsolutePath(fdoZip);
       } else if (cppConfiguration.getFdoOptimizeLabel() != null) {
-        FdoProfileProvider fdoProfileProvider = attributes.getFdoOptimizeProvider();
-        if (fdoProfileProvider != null) {
-          fdoInputs = getFdoInputs(ruleContext, fdoProfileProvider);
+        if (fdoOptimizeProvider != null) {
+          fdoInputs = getFdoInputs(ruleContext, fdoOptimizeProvider);
         } else {
-          fdoInputFile = fdoInputFileFromArtifacts(ruleContext, attributes);
+          fdoInputFile =
+              fdoInputFileFromArtifacts(ruleContext, fdoOptimizeArtifacts, fdoOptimizeLabel);
         }
       } else if (cppConfiguration.getFdoProfileLabel() != null) {
-        fdoInputs = getFdoInputs(ruleContext, attributes.getFdoProfileProvider());
+        fdoInputs = getFdoInputs(ruleContext, fdoProfileProvider);
       } else if (cppConfiguration.getXFdoProfileLabel() != null) {
-        fdoInputs = getFdoInputs(ruleContext, attributes.getXFdoProfileProvider());
+        fdoInputs = getFdoInputs(ruleContext, xFdoProfileProvider);
       }
 
       Pair<FdoInputFile, Artifact> csFdoInputs = null;
@@ -107,7 +117,7 @@ public class FdoHelper {
       if (csFdoZip != null) {
         csFdoInputFile = FdoInputFile.fromAbsolutePath(csFdoZip);
       } else if (cppConfiguration.getCSFdoProfileLabel() != null) {
-        csFdoInputs = getFdoInputs(ruleContext, attributes.getCSFdoProfileProvider());
+        csFdoInputs = getFdoInputs(ruleContext, csFdoProfileProvider);
       }
       if (csFdoInputs != null) {
         csFdoInputFile = csFdoInputs.getFirst();
@@ -168,7 +178,14 @@ public class FdoHelper {
       Artifact profileArtifact = null;
       if (branchFdoMode == BranchFdoMode.LLVM_FDO) {
         profileArtifact =
-            convertLLVMRawProfileToIndexed(attributes, fdoInputFile, toolPaths, ruleContext, "fdo");
+            convertLLVMRawProfileToIndexed(
+                fdoInputFile,
+                toolPaths,
+                ruleContext,
+                "fdo",
+                zipper,
+                ccToolchainConfigInfo,
+                allFiles);
         if (ruleContext.hasErrors()) {
           return null;
         }
@@ -184,20 +201,33 @@ public class FdoHelper {
             "Symlinking FDO profile " + fdoInputFile.getBasename());
       } else if (branchFdoMode == BranchFdoMode.LLVM_CS_FDO) {
         Artifact nonCSProfileArtifact =
-            convertLLVMRawProfileToIndexed(attributes, fdoInputFile, toolPaths, ruleContext, "fdo");
+            convertLLVMRawProfileToIndexed(
+                fdoInputFile,
+                toolPaths,
+                ruleContext,
+                "fdo",
+                zipper,
+                ccToolchainConfigInfo,
+                allFiles);
         if (ruleContext.hasErrors()) {
           return null;
         }
         Artifact csProfileArtifact =
             convertLLVMRawProfileToIndexed(
-                attributes, csFdoInputFile, toolPaths, ruleContext, "csfdo");
+                csFdoInputFile,
+                toolPaths,
+                ruleContext,
+                "csfdo",
+                zipper,
+                ccToolchainConfigInfo,
+                allFiles);
         if (ruleContext.hasErrors()) {
           return null;
         }
         if (nonCSProfileArtifact != null && csProfileArtifact != null) {
           profileArtifact =
               mergeLLVMProfiles(
-                  attributes,
+                  allFiles,
                   toolPaths,
                   ruleContext,
                   nonCSProfileArtifact,
@@ -215,7 +245,7 @@ public class FdoHelper {
     Artifact prefetchHintsArtifact = getPrefetchHintsArtifact(prefetchHints, ruleContext);
 
     Artifact memprofProfileArtifact =
-        getMemProfProfileArtifact(attributes, memprofProfile, ruleContext);
+        getMemProfProfileArtifact(zipper, memprofProfile, ruleContext);
     if (ruleContext.hasErrors()) {
       return null;
     }
@@ -287,7 +317,7 @@ public class FdoHelper {
 
   /** This function merges profile1 and profile2 and generates mergedOutput. */
   private static Artifact mergeLLVMProfiles(
-      CcToolchainAttributesProvider attributes,
+      NestedSet<Artifact> allFiles,
       ImmutableMap<String, PathFragment> toolPaths,
       RuleContext ruleContext,
       Artifact profile1,
@@ -303,7 +333,7 @@ public class FdoHelper {
         new SpawnAction.Builder()
             .addInput(profile1)
             .addInput(profile2)
-            .addTransitiveInputs(attributes.getAllFiles())
+            .addTransitiveInputs(allFiles)
             .addOutput(profileArtifact)
             .useDefaultShellEnvironment()
             .setExecutable(toolPaths.get(Tool.LLVM_PROFDATA.getNamePart()))
@@ -328,11 +358,13 @@ public class FdoHelper {
    */
   @Nullable
   private static Artifact convertLLVMRawProfileToIndexed(
-      CcToolchainAttributesProvider attributes,
       FdoInputFile fdoProfile,
       ImmutableMap<String, PathFragment> toolPaths,
       RuleContext ruleContext,
-      String fdoUniqueArtifactName) {
+      String fdoUniqueArtifactName,
+      Artifact zipperBinaryArtifact,
+      CcToolchainConfigInfo ccToolchainConfigInfo,
+      NestedSet<Artifact> allFiles) {
     Artifact profileArtifact =
         ruleContext.getUniqueDirectoryArtifact(
             fdoUniqueArtifactName,
@@ -353,7 +385,6 @@ public class FdoHelper {
 
     if (CppFileTypes.LLVM_PROFILE_ZIP.matches(fdoProfile)) {
       // Get the zipper binary for unzipping the profile.
-      Artifact zipperBinaryArtifact = attributes.getZipper();
       if (zipperBinaryArtifact == null) {
         ruleContext.ruleError(
             "Zipped profiles are not supported with platforms/toolchains before "
@@ -363,7 +394,7 @@ public class FdoHelper {
 
       // TODO(zhayu): find a way to avoid hard-coding cpu architecture here (b/65582760)
       String rawProfileFileName = "fdocontrolz_profile.profraw";
-      String cpu = attributes.getCcToolchainConfigInfo().getTargetCpu();
+      String cpu = ccToolchainConfigInfo.getTargetCpu();
       if (!"k8".equals(cpu)) {
         rawProfileFileName = "fdocontrolz_profile-" + cpu + ".profraw";
       }
@@ -431,7 +462,7 @@ public class FdoHelper {
     ruleContext.registerAction(
         new SpawnAction.Builder()
             .addInput(rawProfileArtifact)
-            .addTransitiveInputs(attributes.getAllFiles())
+            .addTransitiveInputs(allFiles)
             .addOutput(profileArtifact)
             .useDefaultShellEnvironment()
             .setExecutable(toolPaths.get(Tool.LLVM_PROFDATA.getNamePart()))
@@ -454,9 +485,7 @@ public class FdoHelper {
    */
   @Nullable
   private static Artifact getMemProfProfileArtifact(
-      CcToolchainAttributesProvider attributes,
-      FdoInputFile memprofProfile,
-      RuleContext ruleContext) {
+      Artifact zipperBinaryArtifact, FdoInputFile memprofProfile, RuleContext ruleContext) {
     if (memprofProfile == null) {
       return null;
     }
@@ -484,7 +513,6 @@ public class FdoHelper {
     }
 
     // Get the zipper binary for unzipping the profile.
-    Artifact zipperBinaryArtifact = attributes.getZipper();
     if (zipperBinaryArtifact == null) {
       ruleContext.ruleError(
           "Zipped profiles are not supported with platforms/toolchains before "
@@ -544,19 +572,19 @@ public class FdoHelper {
 
   @Nullable
   private static FdoInputFile fdoInputFileFromArtifacts(
-      RuleContext ruleContext, CcToolchainAttributesProvider attributes) {
-    ImmutableList<Artifact> fdoArtifacts = attributes.getFdoOptimizeArtifacts();
-    if (fdoArtifacts.size() != 1) {
+      RuleContext ruleContext,
+      ImmutableList<Artifact> fdoOptimizeArtifacts,
+      Label fdoOptimizeLabel) {
+    if (fdoOptimizeArtifacts.size() != 1) {
       ruleContext.ruleError("--fdo_optimize does not point to a single target");
       return null;
     }
 
-    Artifact fdoArtifact = fdoArtifacts.get(0);
-    Label fdoLabel = attributes.getFdoOptimize().getLabel();
-    if (!fdoLabel
+    Artifact fdoArtifact = fdoOptimizeArtifacts.get(0);
+    if (!fdoOptimizeLabel
         .getPackageIdentifier()
         .getExecPath(ruleContext.getConfiguration().isSiblingRepositoryLayout())
-        .getRelative(fdoLabel.getName())
+        .getRelative(fdoOptimizeLabel.getName())
         .equals(fdoArtifact.getExecPath())) {
       ruleContext.ruleError(
           "--fdo_optimize points to a target that is not an input file or an fdo_profile rule");

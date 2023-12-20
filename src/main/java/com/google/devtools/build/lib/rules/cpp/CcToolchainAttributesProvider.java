@@ -42,6 +42,8 @@ import com.google.devtools.build.lib.packages.Type;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 
 /**
@@ -249,12 +251,48 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     return runtimeSolibDirBase;
   }
 
+  @StarlarkMethod(
+      name = "fdo_prefetch_provider",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public FdoPrefetchHintsProvider getFdoPrefetchForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return fdoPrefetch;
+  }
+
   public FdoPrefetchHintsProvider getFdoPrefetch() {
     return fdoPrefetch;
   }
 
+  @StarlarkMethod(
+      name = "propeller_optimize_provider",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public PropellerOptimizeProvider getPropellerOptimizeForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return propellerOptimize;
+  }
+
   public PropellerOptimizeProvider getPropellerOptimize() {
     return propellerOptimize;
+  }
+
+  @StarlarkMethod(
+      name = "mem_prof_profile_provider",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public MemProfProfileProvider getMemProfProfileProviderForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return memprofProfileProvider;
   }
 
   public MemProfProfileProvider getMemProfProfileProvider() {
@@ -278,6 +316,13 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
 
   public CcToolchainConfigInfo getCcToolchainConfigInfo() {
     return ccToolchainConfigInfo;
+  }
+
+  @StarlarkMethod(name = "fdo_optimize_artifacts", documented = false, useStarlarkThread = true)
+  public Sequence<Artifact> getFdoOptimizeArtifactsForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return StarlarkList.immutableCopyOf(fdoOptimizeArtifacts);
   }
 
   public ImmutableList<Artifact> getFdoOptimizeArtifacts() {
@@ -336,6 +381,12 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     return supportsHeaderParsing;
   }
 
+  @StarlarkMethod(name = "all_files", documented = false, useStarlarkThread = true)
+  public Depset getAllFilesForstarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Artifact.class, allFiles);
+  }
+
   public NestedSet<Artifact> getAllFiles() {
     return allFiles;
   }
@@ -350,6 +401,20 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
 
   public NestedSet<Artifact> getObjcopyFiles() {
     return objcopyFiles;
+  }
+
+  @StarlarkMethod(
+      name = "fdo_optimize_label",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public Label getFdoOptimizeForstarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    if (fdoOptimize == null) {
+      return null;
+    }
+    return fdoOptimize.getLabel();
   }
 
   public TransitiveInfoCollection getFdoOptimize() {
@@ -401,6 +466,18 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     return dwpFiles;
   }
 
+  @StarlarkMethod(
+      name = "fdo_optimize_provider",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public FdoProfileProvider getFdoOptimizeProviderForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return fdoOptimizeProvider;
+  }
+
   public FdoProfileProvider getFdoOptimizeProvider() {
     return fdoOptimizeProvider;
   }
@@ -419,16 +496,63 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     return fullInputsForCrosstool;
   }
 
+  @StarlarkMethod(
+      name = "fdo_profile_provider",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public FdoProfileProvider getFdoProfileProviderForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return fdoProfileProvider;
+  }
+
   public FdoProfileProvider getFdoProfileProvider() {
     return fdoProfileProvider;
+  }
+
+  @StarlarkMethod(
+      name = "cs_fdo_profile_provider",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public FdoProfileProvider getCsFdoProfileProviderForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return csFdoProfileProvider;
   }
 
   public FdoProfileProvider getCSFdoProfileProvider() {
     return csFdoProfileProvider;
   }
 
+  @StarlarkMethod(
+      name = "x_fdo_profile_provider",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public FdoProfileProvider getXFdoProfileProviderForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return xfdoProfileProvider;
+  }
+
   public FdoProfileProvider getXFdoProfileProvider() {
     return xfdoProfileProvider;
+  }
+
+  @StarlarkMethod(
+      name = "zipper",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public Artifact getZipperForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return zipper;
   }
 
   public Artifact getZipper() {

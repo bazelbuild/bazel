@@ -175,10 +175,21 @@ def get_cc_toolchain_provider(ctx, attributes, xcode_config_info):
     toolchain_features = cc_internal.cc_toolchain_features(toolchain_config_info = toolchain_config_info, tools_directory = tools_directory)
     fdo_context = cc_internal.fdo_context(
         ctx = ctx,
-        attributes = attributes,
         configuration = ctx.configuration,
         cpp_config = ctx.fragments.cpp,
         tool_paths = tool_paths,
+        fdo_prefetch_provider = attributes.fdo_prefetch_provider(),
+        propeller_optimize_provider = attributes.propeller_optimize_provider(),
+        mem_prof_profile_provider = attributes.mem_prof_profile_provider(),
+        fdo_optimize_provider = attributes.fdo_optimize_provider(),
+        fdo_profile_provider = attributes.fdo_profile_provider(),
+        x_fdo_profile_provider = attributes.x_fdo_profile_provider(),
+        cs_fdo_profile_provider = attributes.cs_fdo_profile_provider(),
+        all_files = attributes.all_files(),
+        zipper = attributes.zipper(),
+        cc_toolchain_config_info = attributes.cc_toolchain_config_info(),
+        fdo_optimize_artifacts = attributes.fdo_optimize_artifacts(),
+        fdo_optimize_label = attributes.fdo_optimize_label(),
     )
     if fdo_context == None:
         return None

@@ -64,6 +64,11 @@ public class CcStarlarkInternal implements StarlarkValue {
   public static final String NAME = "cc_internal";
 
   @Nullable
+  private static <T> T nullIfNone(Object object, Class<T> type) {
+    return object != Starlark.NONE ? type.cast(object) : null;
+  }
+
+  @Nullable
   private PathFragment getPathfragmentOrNone(Object o) {
     String pathString = CcModule.convertFromNoneable(o, null);
     if (pathString == null) {
@@ -316,27 +321,68 @@ public class CcStarlarkInternal implements StarlarkValue {
       documented = false,
       parameters = {
         @Param(name = "ctx", positional = false, named = true),
-        @Param(name = "attributes", positional = false, named = true),
         @Param(name = "configuration", positional = false, named = true),
         @Param(name = "cpp_config", positional = false, named = true),
         @Param(name = "tool_paths", positional = false, named = true),
+        @Param(name = "fdo_prefetch_provider", positional = false, named = true),
+        @Param(name = "propeller_optimize_provider", positional = false, named = true),
+        @Param(name = "mem_prof_profile_provider", positional = false, named = true),
+        @Param(name = "fdo_optimize_provider", positional = false, named = true),
+        @Param(name = "fdo_profile_provider", positional = false, named = true),
+        @Param(name = "x_fdo_profile_provider", positional = false, named = true),
+        @Param(name = "cs_fdo_profile_provider", positional = false, named = true),
+        @Param(name = "all_files", positional = false, named = true),
+        @Param(name = "zipper", positional = false, named = true),
+        @Param(name = "cc_toolchain_config_info", positional = false, named = true),
+        @Param(name = "fdo_optimize_artifacts", positional = false, named = true),
+        @Param(name = "fdo_optimize_label", positional = false, named = true),
       },
       allowReturnNones = true)
   @Nullable
   public FdoContext fdoContext(
       StarlarkRuleContext ruleContext,
-      CcToolchainAttributesProvider attributes,
       BuildConfigurationValue configuration,
       CppConfiguration cppConfiguration,
-      Dict<?, ?> toolPathsDict)
+      Dict<?, ?> toolPathsDict,
+      Object fdoPrefetchProvider,
+      Object propellerOptimizeProvider,
+      Object memProfProfileProvider,
+      Object fdoOptimizeProvider,
+      Object fdoProfileProvider,
+      Object xFdoProfileProvider,
+      Object csFdoProfileProvider,
+      Object allFilesObject,
+      Object zipper,
+      CcToolchainConfigInfo ccToolchainConfigInfo,
+      Sequence<?> fdoOptimizeArtifacts,
+      Object fdoOptimizeLabel)
       throws EvalException, InterruptedException {
+    NestedSet<Artifact> allFiles = null;
+
+    try {
+      allFiles = ((Depset) allFilesObject).getSet(Artifact.class);
+    } catch (TypeException e) {
+      throw new EvalException(e);
+    }
     try {
       return FdoHelper.getFdoContext(
           ruleContext.getRuleContext(),
-          attributes,
           configuration,
           cppConfiguration,
-          castDict(toolPathsDict));
+          castDict(toolPathsDict),
+          nullIfNone(fdoPrefetchProvider, FdoPrefetchHintsProvider.class),
+          nullIfNone(propellerOptimizeProvider, PropellerOptimizeProvider.class),
+          nullIfNone(memProfProfileProvider, MemProfProfileProvider.class),
+          nullIfNone(fdoOptimizeProvider, FdoProfileProvider.class),
+          nullIfNone(fdoProfileProvider, FdoProfileProvider.class),
+          nullIfNone(xFdoProfileProvider, FdoProfileProvider.class),
+          nullIfNone(csFdoProfileProvider, FdoProfileProvider.class),
+          allFiles,
+          nullIfNone(zipper, Artifact.class),
+          ccToolchainConfigInfo,
+          Sequence.cast(fdoOptimizeArtifacts, Artifact.class, "fdo_optimize_artifacts")
+              .getImmutableList(),
+          nullIfNone(fdoOptimizeLabel, Label.class));
     } catch (RuleErrorException e) {
       throw new EvalException(e);
     }
