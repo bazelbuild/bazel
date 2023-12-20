@@ -332,12 +332,19 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
     }
 
     // Same rationale as for constructFileArtifactValue.
-    if (anyRemote.get() && treeDir.isSymbolicLink() && stat instanceof FileStatusWithMetadata) {
-      FileArtifactValue metadata = ((FileStatusWithMetadata) stat).getMetadata();
-      tree.setMaterializationExecPath(
-          metadata
-              .getMaterializationExecPath()
-              .orElse(treeDir.resolveSymbolicLinks().asFragment().relativeTo(execRoot)));
+    if (treeDir.isSymbolicLink()) {
+      PathFragment materializationExecPath = null;
+      if (stat instanceof FileStatusWithMetadata) {
+        materializationExecPath = ((FileStatusWithMetadata) stat).getMetadata()
+            .getMaterializationExecPath()
+            .orElse(null);
+      }
+
+      if (materializationExecPath == null) {
+        materializationExecPath = treeDir.resolveSymbolicLinks().asFragment().relativeTo(execRoot);
+      }
+
+      tree.setMaterializationExecPath(materializationExecPath);
     }
 
     return tree.build();

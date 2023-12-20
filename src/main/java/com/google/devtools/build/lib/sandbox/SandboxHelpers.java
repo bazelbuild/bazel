@@ -448,10 +448,11 @@ public final class SandboxHelpers {
 
   private static RootedPath processResolvedSymlink(
       Root absoluteRoot,
-      PathFragment symlinkTarget,
+      PathFragment execRootRelativeSymlinkTarget,
       Root execRootWithinSandbox,
       PathFragment execRootFragment,
       ImmutableList<Root> packageRoots) {
+    PathFragment symlinkTarget = execRootFragment.getRelative(execRootRelativeSymlinkTarget);
     for (Root packageRoot : packageRoots) {
       if (packageRoot.contains(symlinkTarget)) {
         return RootedPath.toRootedPath(packageRoot, packageRoot.relativize(symlinkTarget));
@@ -530,33 +531,49 @@ public final class SandboxHelpers {
           inputPath = RootedPath.toRootedPath(withinSandboxExecRoot, actionInput.getExecPath());
         } else if (actionInput instanceof Artifact) {
           Artifact inputArtifact = (Artifact) actionInput;
-          if (inputArtifact.isSourceArtifact() && !inputArtifact.isDirectory() && sandboxSourceRoots != null) {
-            Root sourceRoot = inputArtifact.getRoot().getRoot();
-            if (!sourceRootToSandboxSourceRoot.containsKey(sourceRoot)) {
-              int next = sourceRootToSandboxSourceRoot.size();
-              sourceRootToSandboxSourceRoot.put(
-                  sourceRoot,
-                  Root.fromPath(sandboxSourceRoots.getRelative(Integer.toString(next))));
-            }
-
-            inputPath =
-                RootedPath.toRootedPath(
-                    sourceRootToSandboxSourceRoot.get(sourceRoot),
-                    inputArtifact.getRootRelativePath());
-          } else if (!inputArtifact.isSourceArtifact() && sandboxSourceRoots != null) {
-            FileArtifactValue metadata = inputMetadataProvider.getInputMetadata(actionInput);
-            if (!metadata.isRemote() && metadata.getMaterializationExecPath().isPresent()) {
-              inputPath = processResolvedSymlink(
-                  absoluteRoot,
-                  metadata.getMaterializationExecPath().get(),
-                  execRoot,
-                  execRootPath.asFragment(),
-                  packageRoots);
-            } else {
-              inputPath = RootedPath.toRootedPath(withinSandboxExecRoot, inputArtifact.getExecPath());
-            }
-          } else {
+          if (sandboxSourceRoots == null) {
             inputPath = RootedPath.toRootedPath(withinSandboxExecRoot, inputArtifact.getExecPath());
+          } else {
+            if (inputArtifact.isSourceArtifact()) {
+              Root sourceRoot = inputArtifact.getRoot().getRoot();
+              if (!sourceRootToSandboxSourceRoot.containsKey(sourceRoot)) {
+                int next = sourceRootToSandboxSourceRoot.size();
+                sourceRootToSandboxSourceRoot.put(
+                    sourceRoot,
+                    Root.fromPath(sandboxSourceRoots.getRelative(Integer.toString(next))));
+              }
+
+              inputPath =
+                  RootedPath.toRootedPath(
+                      sourceRootToSandboxSourceRoot.get(sourceRoot),
+                      inputArtifact.getRootRelativePath());
+            } else {
+              PathFragment materializationExecPath = null;
+              if (inputArtifact.isChildOfDeclaredDirectory()) {
+                FileArtifactValue parentMetadata = inputMetadataProvider.getInputMetadata(inputArtifact.getParent());
+                if (!parentMetadata.isRemote() && parentMetadata.getMaterializationExecPath().isPresent()) {
+                  materializationExecPath =
+                      parentMetadata.getMaterializationExecPath().get()
+                          .getRelative(inputArtifact.getParentRelativePath());
+                }
+              } else {
+                FileArtifactValue metadata = inputMetadataProvider.getInputMetadata(actionInput);
+                if (metadata.getMaterializationExecPath().isPresent()) {
+                  materializationExecPath = metadata.getMaterializationExecPath().get();
+                }
+              }
+
+              if (materializationExecPath != null) {
+                inputPath = processResolvedSymlink(
+                    absoluteRoot,
+                    materializationExecPath,
+                    withinSandboxExecRoot,
+                    execRootPath.asFragment(),
+                    packageRoots);
+              } else {
+                inputPath = RootedPath.toRootedPath(withinSandboxExecRoot, inputArtifact.getExecPath());
+              }
+            }
           }
         } else {
           PathFragment execPath = actionInput.getExecPath();
