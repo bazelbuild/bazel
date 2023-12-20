@@ -1382,7 +1382,7 @@ function test_external_repo_scope() {
   local -r dir=$FUNCNAME
 
   mkdir -p $dir/repo
-  touch $dir/repo/WORKSPACE
+  touch $dir/repo/REPO.bazel
   cat > $dir/repo/BUILD <<EOF
 sh_library(name='maple', deps=[':japanese'])
 sh_library(name='japanese')

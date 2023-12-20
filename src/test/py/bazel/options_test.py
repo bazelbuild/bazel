@@ -19,7 +19,7 @@ from src.test.py.bazel import test_base
 class OptionsTest(test_base.TestBase):
 
   def testCanOverrideStarlarkFlagInBazelrcConfigStanza(self):
-    self.ScratchFile("WORKSPACE.bazel")
+    self.ScratchFile("MODULE.bazel")
     self.ScratchFile(
         "bazelrc",
         [
@@ -84,7 +84,7 @@ class OptionsTest(test_base.TestBase):
     )
 
   def testCommonPseudoCommand(self):
-    self.ScratchFile("WORKSPACE.bazel")
+    self.ScratchFile("MODULE.bazel")
     self.ScratchFile(
         ".bazelrc",
         [
@@ -183,7 +183,7 @@ class OptionsTest(test_base.TestBase):
     )
 
   def testCommonPseudoCommand_singleLineParsesUnambiguously(self):
-    self.ScratchFile("WORKSPACE.bazel")
+    self.ScratchFile("MODULE.bazel")
     self.ScratchFile(
         ".bazelrc",
         [
@@ -225,7 +225,7 @@ class OptionsTest(test_base.TestBase):
     )
 
   def testCommonPseudoCommand_unsupportedOptionValue(self):
-    self.ScratchFile("WORKSPACE.bazel")
+    self.ScratchFile("MODULE.bazel")
     self.ScratchFile(
         ".bazelrc",
         [
@@ -271,7 +271,7 @@ class OptionsTest(test_base.TestBase):
   def testCommonPseudoCommand_allowResidueFalseCommandIgnoresStarlarkOptions(
       self,
   ):
-    self.ScratchFile("WORKSPACE.bazel")
+    self.ScratchFile("MODULE.bazel")
     self.ScratchFile(
         ".bazelrc",
         [

@@ -225,6 +225,11 @@ class TestBase(absltest.TestCase):
         ')',
     ])
     self.ScratchFile(path, rule_definition)
+    self.ScratchFile(
+        path.replace('WORKSPACE.bazel', 'MODULE.bazel').replace(
+            'WORKSPACE', 'MODULE.bazel'
+        )
+    )
 
   def GetDefaultRepoRules(self):
     with open(

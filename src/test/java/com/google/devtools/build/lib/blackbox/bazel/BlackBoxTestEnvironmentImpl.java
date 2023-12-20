@@ -42,6 +42,7 @@ public class BlackBoxTestEnvironmentImpl extends BlackBoxTestEnvironment {
             testName, "bazel", binaryPath, Collections.emptyMap(), executorService);
     // Any Bazel command requires that workspace is already set up.
     testContext.write("WORKSPACE", "workspace(name = 'main')", getWorkspaceWithDefaultRepos());
+    testContext.write("MODULE.bazel");
     Path defaultLockfile = RunfilesUtil.find("io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock");
     Files.copy(defaultLockfile, testContext.getWorkDir().resolve("MODULE.bazel.lock"));
 
