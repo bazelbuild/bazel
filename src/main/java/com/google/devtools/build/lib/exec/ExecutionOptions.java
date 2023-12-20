@@ -397,8 +397,8 @@ public class ExecutionOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
       help =
-          "Log the executed spawns into this file as delimited Spawn protos, according to"
-              + " src/main/protobuf/spawn.proto. Related flags:"
+          "Log the executed spawns into this file as length-delimited SpawnExec protos, according"
+              + " to src/main/protobuf/spawn.proto. Related flags:"
               + " --execution_log_json_file (text JSON format; mutually exclusive),"
               + " --execution_log_sort (whether to sort the execution log),"
               + " --subcommands (for displaying subcommands in terminal output).")
@@ -412,12 +412,28 @@ public class ExecutionOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
       help =
-          "Log the executed spawns into this file as a JSON representation of the delimited Spawn"
-              + " protos, according to src/main/protobuf/spawn.proto. Related flags:"
+          "Log the executed spawns into this file as newline-delimited JSON representations of"
+              + " SpawnExec protos, according to src/main/protobuf/spawn.proto. Related flags:"
               + " --execution_log_binary_file (binary protobuf format; mutually exclusive),"
               + " --execution_log_sort (whether to sort the execution log),"
               + " --subcommands (for displaying subcommands in terminal output).")
   public PathFragment executionLogJsonFile;
+
+  @Option(
+      name = "experimental_execution_log_compact_file",
+      defaultValue = "null",
+      category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
+      help =
+          "Log the executed spawns into this file as length-delimited ExecLogEntry protos,"
+              + " according to src/main/protobuf/spawn.proto. This is an experimental format under"
+              + " active development, and may change at any time. Related flags:"
+              + " --execution_log_binary_file (binary protobuf format; mutually exclusive),"
+              + " --execution_log_json_file (text JSON format; mutually exclusive),"
+              + " --subcommands (for displaying subcommands in terminal output).")
+  public PathFragment executionLogCompactFile;
 
   @Option(
       name = "execution_log_sort",
@@ -428,7 +444,8 @@ public class ExecutionOptions extends OptionsBase {
           "Whether to sort the execution log, making it easier to compare logs across invocations."
               + " Set to false to avoid potentially significant CPU and memory usage at the end of"
               + " the invocation, at the cost of producing the log in nondeterministic execution"
-              + " order.")
+              + " order. Only applies to the binary and JSON formats; the compact format is never"
+              + " sorted.")
   public boolean executionLogSort;
 
   @Option(
