@@ -142,113 +142,115 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
       Duration timeout,
       SpawnResult result)
       throws IOException, ExecException {
-    SortedMap<Path, ActionInput> existingOutputs = listExistingOutputs(spawn, fileSystem);
-    SpawnExec.Builder builder = SpawnExec.newBuilder();
-    builder.addAllCommandArgs(spawn.getArguments());
-    builder.addAllEnvironmentVariables(getEnvironmentVariables(spawn));
+    try (SilentCloseable c = Profiler.instance().profile("logSpawn")) {
+      SortedMap<Path, ActionInput> existingOutputs = listExistingOutputs(spawn, fileSystem);
+      SpawnExec.Builder builder = SpawnExec.newBuilder();
+      builder.addAllCommandArgs(spawn.getArguments());
+      builder.addAllEnvironmentVariables(getEnvironmentVariables(spawn));
 
-    ImmutableSet<? extends ActionInput> toolFiles = spawn.getToolFiles().toSet();
+      ImmutableSet<? extends ActionInput> toolFiles = spawn.getToolFiles().toSet();
 
-    try (SilentCloseable c = Profiler.instance().profile("logSpawn/inputs")) {
-      for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
-        PathFragment displayPath = e.getKey();
-        ActionInput input = e.getValue();
+      try (SilentCloseable c1 = Profiler.instance().profile("logSpawn/inputs")) {
+        for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
+          PathFragment displayPath = e.getKey();
+          ActionInput input = e.getValue();
 
-        if (input instanceof VirtualActionInput.EmptyActionInput) {
-          // Do not include a digest, as it's a waste of space.
-          builder.addInputsBuilder().setPath(displayPath.getPathString());
-          continue;
-        }
-
-        boolean isTool =
-            toolFiles.contains(input)
-                || (input instanceof TreeFileArtifact
-                    && toolFiles.contains(((TreeFileArtifact) input).getParent()));
-
-        Path contentPath = fileSystem.getPath(execRoot.getRelative(input.getExecPathString()));
-
-        if (contentPath.isDirectory()) {
-          listDirectoryContents(
-              displayPath, contentPath, builder::addInputs, inputMetadataProvider, isTool);
-          continue;
-        }
-
-        Digest digest =
-            computeDigest(
-                input, contentPath, inputMetadataProvider, xattrProvider, digestHashFunction);
-
-        builder
-            .addInputsBuilder()
-            .setPath(displayPath.getPathString())
-            .setDigest(digest)
-            .setIsTool(isTool);
-      }
-    } catch (IOException e) {
-      logger.atWarning().withCause(e).log("Error computing spawn input properties");
-    }
-    try (SilentCloseable c = Profiler.instance().profile("logSpawn/outputs")) {
-      ArrayList<String> outputPaths = new ArrayList<>();
-      for (ActionInput output : spawn.getOutputFiles()) {
-        outputPaths.add(output.getExecPathString());
-      }
-      Collections.sort(outputPaths);
-      builder.addAllListedOutputs(outputPaths);
-      try {
-        for (Map.Entry<Path, ActionInput> e : existingOutputs.entrySet()) {
-          Path path = e.getKey();
-          ActionInput output = e.getValue();
-          if (path.isDirectory()) {
-            listDirectoryContents(
-                output.getExecPath(),
-                path,
-                builder::addActualOutputs,
-                inputMetadataProvider,
-                /* isTool= */ false);
+          if (input instanceof VirtualActionInput.EmptyActionInput) {
+            // Do not include a digest, as it's a waste of space.
+            builder.addInputsBuilder().setPath(displayPath.getPathString());
             continue;
           }
+
+          boolean isTool =
+              toolFiles.contains(input)
+                  || (input instanceof TreeFileArtifact
+                      && toolFiles.contains(((TreeFileArtifact) input).getParent()));
+
+          Path contentPath = fileSystem.getPath(execRoot.getRelative(input.getExecPathString()));
+
+          if (contentPath.isDirectory()) {
+            listDirectoryContents(
+                displayPath, contentPath, builder::addInputs, inputMetadataProvider, isTool);
+            continue;
+          }
+
+          Digest digest =
+              computeDigest(
+                  input, contentPath, inputMetadataProvider, xattrProvider, digestHashFunction);
+
           builder
-              .addActualOutputsBuilder()
-              .setPath(output.getExecPathString())
-              .setDigest(
-                  computeDigest(
-                      output, path, inputMetadataProvider, xattrProvider, digestHashFunction));
+              .addInputsBuilder()
+              .setPath(displayPath.getPathString())
+              .setDigest(digest)
+              .setIsTool(isTool);
         }
-      } catch (IOException ex) {
-        logger.atWarning().withCause(ex).log("Error computing spawn output properties");
+      } catch (IOException e) {
+        logger.atWarning().withCause(e).log("Error computing spawn input properties");
       }
-    }
-    builder.setRemotable(Spawns.mayBeExecutedRemotely(spawn));
+      try (SilentCloseable c1 = Profiler.instance().profile("logSpawn/outputs")) {
+        ArrayList<String> outputPaths = new ArrayList<>();
+        for (ActionInput output : spawn.getOutputFiles()) {
+          outputPaths.add(output.getExecPathString());
+        }
+        Collections.sort(outputPaths);
+        builder.addAllListedOutputs(outputPaths);
+        try {
+          for (Map.Entry<Path, ActionInput> e : existingOutputs.entrySet()) {
+            Path path = e.getKey();
+            ActionInput output = e.getValue();
+            if (path.isDirectory()) {
+              listDirectoryContents(
+                  output.getExecPath(),
+                  path,
+                  builder::addActualOutputs,
+                  inputMetadataProvider,
+                  /* isTool= */ false);
+              continue;
+            }
+            builder
+                .addActualOutputsBuilder()
+                .setPath(output.getExecPathString())
+                .setDigest(
+                    computeDigest(
+                        output, path, inputMetadataProvider, xattrProvider, digestHashFunction));
+          }
+        } catch (IOException ex) {
+          logger.atWarning().withCause(ex).log("Error computing spawn output properties");
+        }
+      }
+      builder.setRemotable(Spawns.mayBeExecutedRemotely(spawn));
 
-    Platform platform = getPlatform(spawn, remoteOptions);
-    if (platform != null) {
-      builder.setPlatform(platform);
-    }
-    if (result.status() != SpawnResult.Status.SUCCESS) {
-      builder.setStatus(result.status().toString());
-    }
-    if (!timeout.isZero()) {
-      builder.setTimeoutMillis(timeout.toMillis());
-    }
-    builder.setCacheable(Spawns.mayBeCached(spawn));
-    builder.setRemoteCacheable(Spawns.mayBeCachedRemotely(spawn));
-    builder.setExitCode(result.exitCode());
-    builder.setCacheHit(result.isCacheHit());
-    builder.setRunner(result.getRunnerName());
+      Platform platform = getPlatform(spawn, remoteOptions);
+      if (platform != null) {
+        builder.setPlatform(platform);
+      }
+      if (result.status() != SpawnResult.Status.SUCCESS) {
+        builder.setStatus(result.status().toString());
+      }
+      if (!timeout.isZero()) {
+        builder.setTimeoutMillis(timeout.toMillis());
+      }
+      builder.setCacheable(Spawns.mayBeCached(spawn));
+      builder.setRemoteCacheable(Spawns.mayBeCachedRemotely(spawn));
+      builder.setExitCode(result.exitCode());
+      builder.setCacheHit(result.isCacheHit());
+      builder.setRunner(result.getRunnerName());
 
-    if (result.getDigest() != null) {
-      builder.setDigest(result.getDigest());
-    }
+      if (result.getDigest() != null) {
+        builder.setDigest(result.getDigest());
+      }
 
-    builder.setMnemonic(spawn.getMnemonic());
+      builder.setMnemonic(spawn.getMnemonic());
 
-    if (spawn.getTargetLabel() != null) {
-      builder.setTargetLabel(spawn.getTargetLabel().toString());
-    }
+      if (spawn.getTargetLabel() != null) {
+        builder.setTargetLabel(spawn.getTargetLabel().toString());
+      }
 
-    builder.setMetrics(getSpawnMetricsProto(result));
+      builder.setMetrics(getSpawnMetricsProto(result));
 
-    try (SilentCloseable c = Profiler.instance().profile("logSpawn/write")) {
-      rawOutputStream.write(builder.build());
+      try (SilentCloseable c1 = Profiler.instance().profile("logSpawn/write")) {
+        rawOutputStream.write(builder.build());
+      }
     }
   }
 

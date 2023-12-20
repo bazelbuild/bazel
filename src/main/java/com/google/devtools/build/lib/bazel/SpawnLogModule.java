@@ -15,8 +15,10 @@ package com.google.devtools.build.lib.bazel;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.primitives.Booleans;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.exec.CompactSpawnLogContext;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ExpandedSpawnLogContext;
@@ -48,17 +50,25 @@ public final class SpawnLogModule extends BlazeModule {
     clear();
 
     ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
-    if (executionOptions == null
-        || (executionOptions.executionLogBinaryFile == null
-            && executionOptions.executionLogJsonFile == null)) {
+    if (executionOptions == null) {
+      return;
+    }
+
+    int numFormats =
+        Booleans.countTrue(
+            executionOptions.executionLogCompactFile != null,
+            executionOptions.executionLogBinaryFile != null,
+            executionOptions.executionLogJsonFile != null);
+
+    if (numFormats == 0) {
       // No logging requested.
       return;
     }
 
-    if (executionOptions.executionLogBinaryFile != null
-        && executionOptions.executionLogJsonFile != null) {
+    if (numFormats > 1) {
       String message =
-          "Must specify at most one of --execution_log_json_file and --execution_log_binary_file";
+          "Must specify at most one of --execution_log_binary_file, --execution_log_json_file and"
+              + " --experimental_execution_log_compact_file";
       env.getBlazeModuleEnvironment()
           .exit(
               new AbruptExitException(
@@ -77,30 +87,41 @@ public final class SpawnLogModule extends BlazeModule {
     Path workingDirectory = env.getWorkingDirectory();
     Path outputBase = env.getOutputBase();
 
-    Path outputPath = null;
-    Encoding encoding = null;
-    if (executionOptions.executionLogBinaryFile != null) {
-      encoding = Encoding.BINARY;
-      outputPath = workingDirectory.getRelative(executionOptions.executionLogBinaryFile);
-    } else if (executionOptions.executionLogJsonFile != null) {
-      encoding = Encoding.JSON;
-      outputPath = workingDirectory.getRelative(executionOptions.executionLogJsonFile);
+    if (executionOptions.executionLogCompactFile != null) {
+      spawnLogContext =
+          new CompactSpawnLogContext(
+              workingDirectory.getRelative(executionOptions.executionLogCompactFile),
+              env.getExecRoot().asFragment(),
+              env.getOptions().getOptions(RemoteOptions.class),
+              env.getRuntime().getFileSystem().getDigestFunction(),
+              env.getXattrProvider());
+    } else {
+      Path outputPath = null;
+      Encoding encoding = null;
+
+      if (executionOptions.executionLogBinaryFile != null) {
+        encoding = Encoding.BINARY;
+        outputPath = workingDirectory.getRelative(executionOptions.executionLogBinaryFile);
+      } else if (executionOptions.executionLogJsonFile != null) {
+        encoding = Encoding.JSON;
+        outputPath = workingDirectory.getRelative(executionOptions.executionLogJsonFile);
+      }
+
+      // Use a well-known temporary path to avoid accumulation of potentially large files in /tmp
+      // due to abnormally terminated invocations (e.g., when running out of memory).
+      Path tempPath = outputBase.getRelative("execution.log");
+
+      spawnLogContext =
+          new ExpandedSpawnLogContext(
+              checkNotNull(outputPath),
+              tempPath,
+              checkNotNull(encoding),
+              /* sorted= */ executionOptions.executionLogSort,
+              env.getExecRoot().asFragment(),
+              env.getOptions().getOptions(RemoteOptions.class),
+              env.getRuntime().getFileSystem().getDigestFunction(),
+              env.getXattrProvider());
     }
-
-    // Use a well-known temporary path to avoid accumulation of potentially large files in /tmp
-    // due to abnormally terminated invocations (e.g., when running out of memory).
-    Path tempPath = outputBase.getRelative("execution.log");
-
-    spawnLogContext =
-        new ExpandedSpawnLogContext(
-            checkNotNull(outputPath),
-            tempPath,
-            checkNotNull(encoding),
-            /* sorted= */ executionOptions.executionLogSort,
-            env.getExecRoot().asFragment(),
-            env.getOptions().getOptions(RemoteOptions.class),
-            env.getRuntime().getFileSystem().getDigestFunction(),
-            env.getXattrProvider());
   }
 
   @Override
