@@ -111,15 +111,42 @@ function test_bootstrap() {
       || fail "Generated bazel not working"
     expect_log "${SOURCE_DATE_EPOCH}"
 
-    # TODO: make the build work without network and check for success
-    # the repo cache is currently missing:
-    # 1) canonical IDs
-    # 2) remote jdks & java_tools (if not using a custom java_toolchain)
+    # the repo cache is currently missing canonical IDs
+    export BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0
+
+    JAVA_VERSION=exotic # so we don't accidentally match something else
+
+    # create a fake toolchain to avoid @remote_java_tools
+    # this can't actually build anything, but we're just testing analysis
+    mkdir fake_java_toolchain
+    touch fake_java_toolchain/dummy.jar
+    cat << EOF > fake_java_toolchain/BUILD
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+default_java_toolchain(
+    name = "fake_java_toolchain",
+    genclass = [":dummy.jar"],
+    header_compiler = [":dummy.jar"],
+    header_compiler_direct = [":dummy.jar"],
+    ijar = [":dummy.jar"],
+    jacocorunner = ":dummy.jar",
+    java_runtime = "@local_jdk//:jdk",
+    javabuilder = [":dummy.jar"],
+    singlejar = [":dummy.jar"],
+    source_version = "${JAVA_VERSION}",
+    target_version = "${JAVA_VERSION}",
+    tags = ["manual"],
+    visibility = ["//visibility:public"],
+)
+EOF
+
     ./output/bazel \
       --server_javabase=$JAVABASE --host_jvm_args=--add-opens=java.base/java.nio=ALL-UNNAMED \
       build --nobuild --repository_cache=derived/repository_cache \
-      //src:bazel_nojdk &> "${TEST_log}" || true
-    expect_not_log "FATAL: bazel crashed due to an internal error"
+      --override_repository=$(cat derived/maven/MAVEN_CANONICAL_REPO_NAME)=derived/maven \
+      --java_language_version=${JAVA_VERSION} --tool_java_language_version=${JAVA_VERSION} \
+      --tool_java_runtime_version=local_jdk \
+      --extra_toolchains=//fake_java_toolchain:all \
+      //src:bazel_nojdk &> "${TEST_log}" || fail "analysis with bootstrapped Bazel failed"
 }
 
 run_suite "bootstrap test"
