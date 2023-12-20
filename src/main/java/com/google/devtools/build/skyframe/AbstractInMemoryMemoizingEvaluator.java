@@ -106,7 +106,7 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
         throw new InterruptedException();
       }
 
-      String canonicalizedKey = canonicalizeKey(entry.getKey());
+      String canonicalizedKey = entry.getKey().getCanonicalName();
       if (!filter.test(canonicalizedKey) || !entry.isDone()) {
         continue;
       }
@@ -117,7 +117,7 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
           out.format("  Group %d:\n", i + 1);
           for (SkyKey dep : deps.getDepGroup(i)) {
             out.print("    ");
-            out.println(canonicalizeKey(dep));
+            out.println(dep.getCanonicalName());
           }
         }
       } else {
@@ -136,7 +136,7 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
         throw new InterruptedException();
       }
 
-      String canonicalizedKey = canonicalizeKey(entry.getKey());
+      String canonicalizedKey = entry.getKey().getCanonicalName();
       if (!filter.test(canonicalizedKey) || !entry.isDone()) {
         continue;
       }
@@ -145,18 +145,13 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
         Collection<SkyKey> rdeps = entry.getReverseDepsForDoneEntry();
         for (SkyKey rdep : rdeps) {
           out.print("    ");
-          out.println(canonicalizeKey(rdep));
+          out.println(rdep.getCanonicalName());
         }
       } else {
         out.println("  (rdeps not stored)");
       }
       out.println();
     }
-  }
-
-  private static String canonicalizeKey(SkyKey key) {
-    return String.format(
-        "%s:%s\n", key.functionName(), key.argument().toString().replace('\n', '_'));
   }
 
   @Override
