@@ -14,9 +14,10 @@
 
 package com.google.devtools.build.lib.cmdline;
 
-import com.google.auto.value.AutoValue;
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -24,43 +25,66 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
- * A class to distinguish repository mappings for repos from WORKSPACE and Bzlmod.
+ * Stores the mapping from apparent repo name to canonical repo name, from the viewpoint of an
+ * "owner repo".
  *
  * <p>For repositories from the WORKSPACE file, if the requested repo doesn't exist in the mapping,
  * we fallback to the requested name. For repositories from Bzlmod, we return null to let the caller
- * decide what to do. This class won't be needed if one day we don't define external repositories in
- * the WORKSPACE file since {@code fallback} would always be false.
+ * decide what to do.
  */
-@AutoValue
-public abstract class RepositoryMapping {
-
-  // Always fallback to the requested name
+public class RepositoryMapping {
+  /* A repo mapping that always falls back to using the apparent name as the canonical name. */
   public static final RepositoryMapping ALWAYS_FALLBACK = createAllowingFallback(ImmutableMap.of());
 
+  private final ImmutableMap<String, RepositoryName> entries;
+  @Nullable private final RepositoryName ownerRepo;
+
+  private RepositoryMapping(
+      Map<String, RepositoryName> entries, @Nullable RepositoryName ownerRepo) {
+    this.entries = ImmutableMap.copyOf(entries);
+    this.ownerRepo = ownerRepo;
+  }
+
   /** Returns all the entries in this repo mapping. */
-  public abstract ImmutableMap<String, RepositoryName> entries();
+  public final ImmutableMap<String, RepositoryName> entries() {
+    return entries;
+  }
 
   /**
    * The owner repo of this repository mapping. It is for providing useful debug information when
    * repository mapping fails due to enforcing strict dependency, therefore it's only recorded when
-   * we don't fallback to the requested repo name.
+   * we don't fall back to the requested repo name.
    */
   @Nullable
-  abstract RepositoryName ownerRepo();
+  public final RepositoryName ownerRepo() {
+    return ownerRepo;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof RepositoryMapping)) {
+      return false;
+    }
+    RepositoryMapping that = (RepositoryMapping) o;
+    return Objects.equal(entries, that.entries) && Objects.equal(ownerRepo, that.ownerRepo);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(entries, ownerRepo);
+  }
 
   public static RepositoryMapping create(
       Map<String, RepositoryName> entries, RepositoryName ownerRepo) {
-    return createInternal(
+    return new RepositoryMapping(
         Preconditions.checkNotNull(entries), Preconditions.checkNotNull(ownerRepo));
   }
 
   public static RepositoryMapping createAllowingFallback(Map<String, RepositoryName> entries) {
-    return createInternal(Preconditions.checkNotNull(entries), null);
-  }
-
-  private static RepositoryMapping createInternal(
-      Map<String, RepositoryName> entries, RepositoryName ownerRepo) {
-    return new AutoValue_RepositoryMapping(ImmutableMap.copyOf(entries), ownerRepo);
+    return new RepositoryMapping(Preconditions.checkNotNull(entries), null);
   }
 
   /**
@@ -70,7 +94,7 @@ public abstract class RepositoryMapping {
   public RepositoryMapping withAdditionalMappings(Map<String, RepositoryName> additionalMappings) {
     HashMap<String, RepositoryName> allMappings = new HashMap<>(additionalMappings);
     allMappings.putAll(entries());
-    return createInternal(allMappings, ownerRepo());
+    return new RepositoryMapping(allMappings, ownerRepo());
   }
 
   /**
@@ -134,6 +158,26 @@ public abstract class RepositoryMapping {
       RepositoryName mappedName = other.get(entry.getValue().getName());
       entries.put(entry.getKey(), mappedName.isVisible() ? mappedName : entry.getValue());
     }
-    return createInternal(entries, null);
+    return new RepositoryMapping(entries, null);
+  }
+
+  /**
+   * Returns a new {@link RepositoryMapping} instance with identical contents, except that the
+   * inverse mapping is cached, causing {@link #getInverse} to be much more efficient. This is
+   * particularly important for the main repo mapping, as it's often used to generate display-form
+   * labels ({@link Label#getDisplayForm}).
+   */
+  public RepositoryMapping withCachedInverseMap() {
+    var inverse = Maps.<RepositoryName, String>newHashMapWithExpectedSize(entries.size());
+    for (Map.Entry<String, RepositoryName> entry : entries.entrySet()) {
+      inverse.putIfAbsent(entry.getValue(), entry.getKey());
+    }
+    var inverseCopy = ImmutableMap.copyOf(inverse);
+    return new RepositoryMapping(entries, ownerRepo) {
+      @Override
+      public Optional<String> getInverse(RepositoryName postMappingName) {
+        return Optional.ofNullable(inverseCopy.get(postMappingName));
+      }
+    };
   }
 }
