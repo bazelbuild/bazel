@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.vfs.Dirent.Type.DIRECTORY;
 import static com.google.devtools.build.lib.vfs.Dirent.Type.SYMLINK;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -451,11 +452,14 @@ public final class SandboxHelpers {
       PathFragment execRootRelativeSymlinkTarget,
       Root execRootWithinSandbox,
       PathFragment execRootFragment,
-      ImmutableList<Root> packageRoots) {
+      ImmutableList<Root> packageRoots,
+      Function<Root, Root> sourceRooWithinSandbox) {
     PathFragment symlinkTarget = execRootFragment.getRelative(execRootRelativeSymlinkTarget);
     for (Root packageRoot : packageRoots) {
       if (packageRoot.contains(symlinkTarget)) {
-        return RootedPath.toRootedPath(packageRoot, packageRoot.relativize(symlinkTarget));
+        return RootedPath.toRootedPath(
+            sourceRooWithinSandbox.apply(packageRoot),
+            packageRoot.relativize(symlinkTarget));
       }
     }
 
@@ -498,6 +502,17 @@ public final class SandboxHelpers {
     Map<VirtualActionInput, byte[]> virtualInputs = new HashMap<>();
     Map<Root, Root> sourceRootToSandboxSourceRoot = new TreeMap<>();
 
+    Function<Root, Root> sourceRootWithinSandbox = r -> {
+      if (!sourceRootToSandboxSourceRoot.containsKey(r)) {
+        int next = sourceRootToSandboxSourceRoot.size();
+        sourceRootToSandboxSourceRoot.put(
+            r,
+            Root.fromPath(sandboxSourceRoots.getRelative(Integer.toString(next))));
+      }
+
+      return sourceRootToSandboxSourceRoot.get(r);
+    };
+
     for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
       if (Thread.interrupted()) {
         throw new InterruptedException();
@@ -536,22 +551,15 @@ public final class SandboxHelpers {
           } else {
             if (inputArtifact.isSourceArtifact()) {
               Root sourceRoot = inputArtifact.getRoot().getRoot();
-              if (!sourceRootToSandboxSourceRoot.containsKey(sourceRoot)) {
-                int next = sourceRootToSandboxSourceRoot.size();
-                sourceRootToSandboxSourceRoot.put(
-                    sourceRoot,
-                    Root.fromPath(sandboxSourceRoots.getRelative(Integer.toString(next))));
-              }
-
               inputPath =
                   RootedPath.toRootedPath(
-                      sourceRootToSandboxSourceRoot.get(sourceRoot),
+                      sourceRootWithinSandbox.apply(sourceRoot),
                       inputArtifact.getRootRelativePath());
             } else {
               PathFragment materializationExecPath = null;
               if (inputArtifact.isChildOfDeclaredDirectory()) {
                 FileArtifactValue parentMetadata = inputMetadataProvider.getInputMetadata(inputArtifact.getParent());
-                if (!parentMetadata.isRemote() && parentMetadata.getMaterializationExecPath().isPresent()) {
+                if (parentMetadata.getMaterializationExecPath().isPresent()) {
                   materializationExecPath =
                       parentMetadata.getMaterializationExecPath().get()
                           .getRelative(inputArtifact.getParentRelativePath());
@@ -569,7 +577,8 @@ public final class SandboxHelpers {
                     materializationExecPath,
                     withinSandboxExecRoot,
                     execRootPath.asFragment(),
-                    packageRoots);
+                    packageRoots,
+                    sourceRootWithinSandbox);
               } else {
                 inputPath = RootedPath.toRootedPath(withinSandboxExecRoot, inputArtifact.getExecPath());
               }
