@@ -13,7 +13,7 @@
     "compatibilityMode": "ERROR"
   },
   "localOverrideHashes": {
-    "bazel_tools": "75309ca8f012966e1226d3b90b5f86671f5910980be0100d1e254df59880d0ec"
+    "bazel_tools": "8903a871e52ee1ae96141198b51b2d163059212613fa77a7b520ee771baf9e50"
   },
   "moduleDepGraph": {
     "<root>": {
@@ -172,7 +172,7 @@
         "rules_java": "rules_java@7.1.0",
         "rules_license": "rules_license@0.0.7",
         "rules_proto": "rules_proto@5.3.0-21.7",
-        "rules_python": "rules_python@0.22.0",
+        "rules_python": "rules_python@0.22.1",
         "buildozer": "buildozer@6.4.0.2",
         "platforms": "platforms@0.0.7",
         "com_google_protobuf": "protobuf@21.7",
@@ -398,20 +398,22 @@
         }
       }
     },
-    "rules_python@0.22.0": {
+    "rules_python@0.22.1": {
       "name": "rules_python",
-      "version": "0.22.0",
-      "key": "rules_python@0.22.0",
+      "version": "0.22.1",
+      "key": "rules_python@0.22.1",
       "repoName": "rules_python",
       "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
+      "toolchainsToRegister": [
+        "@bazel_tools//tools/python:autodetecting_toolchain"
+      ],
       "extensionUsages": [
         {
           "extensionBzlFile": "@rules_python//python/extensions/private:internal_deps.bzl",
           "extensionName": "internal_deps",
-          "usingModule": "rules_python@0.22.0",
+          "usingModule": "rules_python@0.22.1",
           "location": {
-            "file": "https://bcr.bazel.build/modules/rules_python/0.22.0/MODULE.bazel",
+            "file": "https://bcr.bazel.build/modules/rules_python/0.22.1/MODULE.bazel",
             "line": 14,
             "column": 30
           },
@@ -453,7 +455,7 @@
               "attributeValues": {},
               "devDependency": false,
               "location": {
-                "file": "https://bcr.bazel.build/modules/rules_python/0.22.0/MODULE.bazel",
+                "file": "https://bcr.bazel.build/modules/rules_python/0.22.1/MODULE.bazel",
                 "line": 15,
                 "column": 22
               }
@@ -465,9 +467,9 @@
         {
           "extensionBzlFile": "@rules_python//python/extensions:python.bzl",
           "extensionName": "python",
-          "usingModule": "rules_python@0.22.0",
+          "usingModule": "rules_python@0.22.1",
           "location": {
-            "file": "https://bcr.bazel.build/modules/rules_python/0.22.0/MODULE.bazel",
+            "file": "https://bcr.bazel.build/modules/rules_python/0.22.1/MODULE.bazel",
             "line": 50,
             "column": 23
           },
@@ -493,14 +495,14 @@
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
-            "https://github.com/bazelbuild/rules_python/releases/download/0.22.0/rules_python-0.22.0.tar.gz"
+            "https://github.com/bazelbuild/rules_python/releases/download/0.22.1/rules_python-0.22.1.tar.gz"
           ],
-          "integrity": "sha256-hjug+pRDGffj1pVxFCfZrYC6ksbt0LfHRDuE6QRolTk=",
-          "strip_prefix": "rules_python-0.22.0",
+          "integrity": "sha256-pWQP3dS+sD6MH95e1xYMC6a9R359BIZhwwwGk2om/WM=",
+          "strip_prefix": "rules_python-0.22.1",
           "remote_patches": {
-            "https://bcr.bazel.build/modules/rules_python/0.22.0/patches/module_dot_bazel_version.patch": "sha256-vkTKvRF90qu2osevlH+kcbaag0gQ7KFz9MWoRW14TZ4="
+            "https://bcr.bazel.build/modules/rules_python/0.22.1/patches/module_dot_bazel_version.patch": "sha256-3+VLDH9gYDzNI4eOW7mABC/LKxh1xqF6NhacLbNTucs="
           },
-          "remote_patch_strip": 0
+          "remote_patch_strip": 1
         }
       }
     },
@@ -649,7 +651,7 @@
       ],
       "deps": {
         "bazel_skylib": "bazel_skylib@1.3.0",
-        "rules_python": "rules_python@0.22.0",
+        "rules_python": "rules_python@0.22.1",
         "rules_cc": "rules_cc@0.0.9",
         "rules_proto": "rules_proto@5.3.0-21.7",
         "rules_java": "rules_java@7.1.0",
@@ -800,7 +802,7 @@
       "toolchainsToRegister": [],
       "extensionUsages": [],
       "deps": {
-        "rules_python": "rules_python@0.22.0",
+        "rules_python": "rules_python@0.22.1",
         "bazel_skylib": "bazel_skylib@1.3.0",
         "rules_license": "rules_license@0.0.7",
         "bazel_tools": "bazel_tools@_",
