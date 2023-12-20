@@ -35,6 +35,8 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
+import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionException;
+import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFunction;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.Globber;
 import com.google.devtools.build.lib.packages.Globber.Operation;
@@ -72,6 +74,8 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -85,10 +89,9 @@ import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link GlobFunction}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class GlobFunctionTest {
   private static final EvaluationContext EVALUATION_OPTIONS =
       EvaluationContext.newBuilder()
@@ -96,6 +99,8 @@ public class GlobFunctionTest {
           .setParallelism(SkyframeExecutor.DEFAULT_THREAD_COUNT)
           .setEventHandler(NullEventHandler.INSTANCE)
           .build();
+
+  @TestParameter private boolean recursionInSingleFunction;
 
   private CustomInMemoryFs fs;
   private MemoizingEvaluator evaluator;
@@ -148,7 +153,7 @@ public class GlobFunctionTest {
             directories);
 
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
-    skyFunctions.put(SkyFunctions.GLOB, new GlobFunction());
+    skyFunctions.put(SkyFunctions.GLOB, GlobFunction.create(recursionInSingleFunction));
     skyFunctions.put(
         SkyFunctions.DIRECTORY_LISTING_STATE,
         new DirectoryListingStateFunction(externalFilesHelper, SyscallCache.NO_CACHE));
@@ -169,6 +174,9 @@ public class GlobFunctionTest {
             Suppliers.ofInstance(new TimestampGranularityMonitor(BlazeClock.instance())),
             SyscallCache.NO_CACHE,
             externalFilesHelper));
+    skyFunctions.put(
+        FileSymlinkInfiniteExpansionUniquenessFunction.NAME,
+        new FileSymlinkCycleUniquenessFunction());
     skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator, directories));
     skyFunctions.put(
         FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction());
@@ -435,18 +443,20 @@ public class GlobFunctionTest {
 
   private void assertGlobMatches(
       String pattern, Globber.Operation globberOperation, String... expecteds) throws Exception {
-    // The order requirement is not strictly necessary -- a change to GlobFunction semantics that
-    // changes the output order is fine, but we require that the order be the same here to detect
-    // potential non-determinism in output order, which would be bad.
-    // The current order in the case of "**" or "*" is roughly that of nestedset.Order.STABLE_ORDER,
-    // putting subdirectories before directories, but putting ordinary files after their parent
-    // directories.
-    assertThat(
-            Iterables.transform(
-                runGlob(pattern, globberOperation).getMatches().toList(),
-                Functions.toStringFunction()))
-        .containsExactlyElementsIn(ImmutableList.copyOf(expecteds))
-        .inOrder();
+    Iterable<String> matches =
+        Iterables.transform(
+            runGlob(pattern, globberOperation).getMatches(), Functions.toStringFunction());
+    if (recursionInSingleFunction) {
+      assertThat(matches).containsExactlyElementsIn(ImmutableList.copyOf(expecteds));
+    } else {
+      // The order requirement is not strictly necessary -- a change to GlobFunction semantics that
+      // changes the output order is fine, but we require that the order be the same here to detect
+      // potential non-determinism in output order, which would be bad.
+      // The current order in the case of "**" or "*" is roughly that of
+      // nestedset.Order.STABLE_ORDER, putting subdirectories before directories, but putting
+      // ordinary files after their parent directories.
+      assertThat(matches).containsExactlyElementsIn(ImmutableList.copyOf(expecteds)).inOrder();
+    }
   }
 
   private void assertGlobWithoutDirsMatches(String pattern, String... expecteds) throws Exception {
@@ -499,7 +509,7 @@ public class GlobFunctionTest {
   }
 
   @Test
-  public void testIllegalPatterns() throws Exception {
+  public void testIllegalPatterns() {
     assertIllegalPattern("foo**bar");
     assertIllegalPattern("?");
     assertIllegalPattern("");
@@ -672,27 +682,6 @@ public class GlobFunctionTest {
     assertGlobMatches("foo/bar/wiz/file/**" /* => nothing */);
   }
 
-  /** Regression test for b/225434889: Value with exception will not crash. */
-  @Test
-  public void symlinkFileValueWithError() throws Exception {
-    FileSystemUtils.ensureSymbolicLink(pkgPath.getChild("self"), "self");
-
-    IOException ioException =
-        assertThrows(IOException.class, () -> runGlob("self", Operation.FILES_AND_DIRS));
-    assertThat(ioException).hasMessageThat().matches("Symlink cycle");
-  }
-
-  @Test
-  public void symlinkSubdirValueWithError() throws Exception {
-    Path cycle = pkgPath.getChild("cycle");
-    FileSystemUtils.ensureSymbolicLink(cycle.getChild("self"), "self");
-    FileSystemUtils.ensureSymbolicLink(pkgPath.getChild("symlink"), cycle);
-
-    IOException ioException =
-        assertThrows(IOException.class, () -> runGlob("symlink/self", Operation.FILES_AND_DIRS));
-    assertThat(ioException).hasMessageThat().matches("Symlink cycle");
-  }
-
   /** Regression test for b/13319874: Directory listing crash. */
   @Test
   public void testResilienceToFilesystemInconsistencies_directoryExistence() throws Exception {
@@ -833,13 +822,210 @@ public class GlobFunctionTest {
     assertThat(errorInfo.getException()).hasMessageThat().contains(expectedMessage);
   }
 
+  /**
+   * When globbing symlinks, the returned path should use the path of the symlink source instead of
+   * the symlink target, regardless of whether glob pattern contains wildcard character or not.
+   */
   @Test
-  public void testSymlinks() throws Exception {
+  public void testSymlinks(@TestParameter boolean withWildcard) throws Exception {
     pkgPath.getRelative("symlinks").createDirectoryAndParents();
     FileSystemUtils.ensureSymbolicLink(pkgPath.getRelative("symlinks/dangling.txt"), "nope");
     FileSystemUtils.createEmptyFile(pkgPath.getRelative("symlinks/yup"));
     FileSystemUtils.ensureSymbolicLink(pkgPath.getRelative("symlinks/existing.txt"), "yup");
-    assertGlobMatches("symlinks/*.txt", "symlinks/existing.txt");
+
+    String globPattern = withWildcard ? "symlinks/*.txt" : "symlinks/existing.txt";
+    assertGlobMatches(globPattern, "symlinks/existing.txt");
+  }
+
+  @Test
+  public void testSymlinks_symlinkPointToDirectory() throws Exception {
+    root.getRelative("target_direc").createDirectoryAndParents();
+    FileSystemUtils.createEmptyFile(root.getRelative("target_direc/file1"));
+    root.getRelative("target_direc/sub").createDirectoryAndParents();
+    FileSystemUtils.createEmptyFile(root.getRelative("target_direc/sub/file2"));
+
+    FileSystemUtils.ensureSymbolicLink(
+        pkgPath.getRelative("symlink"), root.getRelative("target_direc"));
+    assertGlobMatches("symlink/**", "symlink/sub", "symlink/sub/file2", "symlink", "symlink/file1");
+  }
+
+  @Test
+  public void symlinkFileValueWithError_symlinkCycleToSelf() throws Exception {
+    FileSystemUtils.ensureSymbolicLink(pkgPath.getChild("self"), "self");
+
+    IOException ioException =
+        assertThrows(IOException.class, () -> runGlob("self", Operation.FILES_AND_DIRS));
+    assertThat(ioException).hasMessageThat().matches("Symlink cycle");
+  }
+
+  @Test
+  public void symlinkFileValueWithError_symlinkCycleBetweenTwoSymlinks(
+      @TestParameter boolean withWildcard) throws Exception {
+    pkgPath.getRelative("foo").createDirectoryAndParents();
+    pkgPath.getRelative("bar").createDirectoryAndParents();
+
+    FileSystemUtils.ensureSymbolicLink(pkgPath.getRelative("foo/a"), pkgPath.getRelative("bar/b"));
+    FileSystemUtils.ensureSymbolicLink(pkgPath.getRelative("bar/b"), pkgPath.getRelative("foo/a"));
+
+    String globPattern = withWildcard ? "foo/*" : "foo/a";
+    IOException ioException =
+        assertThrows(IOException.class, () -> runGlob(globPattern, Operation.FILES_AND_DIRS));
+    assertThat(ioException).hasMessageThat().matches("Symlink cycle");
+  }
+
+  @Test
+  public void symlinkSubdirValueWithError() throws Exception {
+    Path cycle = pkgPath.getChild("cycle");
+    FileSystemUtils.ensureSymbolicLink(cycle.getChild("self"), "self");
+    FileSystemUtils.ensureSymbolicLink(pkgPath.getChild("symlink"), cycle);
+
+    IOException ioException =
+        assertThrows(IOException.class, () -> runGlob("symlink/self", Operation.FILES_AND_DIRS));
+    assertThat(ioException).hasMessageThat().matches("Symlink cycle");
+  }
+
+  @Test
+  public void testSymlinks_unboundedSymlinkExpansion(@TestParameter boolean withRecursiveWildcard)
+      throws Exception {
+    pkgPath.getRelative("parent/sub").createDirectoryAndParents();
+    FileSystemUtils.ensureSymbolicLink(
+        pkgPath.getRelative("parent/sub/symlink"), pkgPath.getRelative("parent"));
+
+    String globPattern = withRecursiveWildcard ? "parent/**" : "parent/sub/symlink";
+    SkyKey skyKey =
+        GlobValue.key(
+            PKG_ID,
+            Root.fromPath(root),
+            globPattern,
+            Globber.Operation.FILES_AND_DIRS,
+            PathFragment.EMPTY_FRAGMENT);
+
+    EvaluationResult<GlobValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), EVALUATION_OPTIONS);
+
+    if (withRecursiveWildcard) {
+      assertThat(result.hasError()).isTrue();
+      ErrorInfo errorInfo = result.getError(skyKey);
+      assertThat(errorInfo.getException())
+          .isInstanceOf(FileSymlinkInfiniteExpansionException.class);
+      assertThat(errorInfo.getException()).hasMessageThat().contains("Infinite symlink expansion");
+    } else {
+      assertThat(result.hasError()).isFalse();
+    }
+  }
+
+  /**
+   * Covers the scenario when a directory has two symlinks of different status.
+   *
+   * <p>One of the symlinks is a normal one whose path should be accepted by {@code
+   * SymlinkProducer}.
+   *
+   * <p>The other symlink shows different {@code readdir} and {@code stat} status. {@code readdir}
+   * shows that it is a symlink but {@code stat} shows that it is a normal file. A {@link
+   * InconsistentFilesystemException} should be accepted for this path by {@code SymlinkProducer}.
+   *
+   * <p>{@code PatternWithWildcardProducer} immediately returns {@code DONE} when knowing the number
+   * of accepted symlink paths (1) is smaller than the number of symlink queried (2). The size
+   * mismatch indicates that one of the symlinks goes wrong.
+   */
+  @Test
+  public void testSymlinks_oneNormalOneInconsistencyFilesystemError() throws Exception {
+    pkgPath.getRelative("inconsistent").createDirectoryAndParents();
+    FileSystemUtils.createEmptyFile(pkgPath.getRelative("target"));
+    FileSystemUtils.ensureSymbolicLink(
+        pkgPath.getRelative("inconsistent/good"), pkgPath.getRelative("target"));
+    FileSystemUtils.ensureSymbolicLink(
+        pkgPath.getRelative("inconsistent/bad"), pkgPath.getRelative("target"));
+
+    RootedPath badRootedPath =
+        RootedPath.toRootedPath(Root.fromPath(root), pkgPath.getRelative("inconsistent/bad"));
+    final FileStatus realStat = badRootedPath.asPath().stat();
+    fs.stubStat(
+        badRootedPath.asPath(),
+        new FileStatus() {
+
+          @Override
+          public boolean isFile() {
+            // Intentionally set `isFile` as true, which disagree with filesystem.
+            return true;
+          }
+
+          @Override
+          public boolean isSpecialFile() {
+            return false;
+          }
+
+          @Override
+          public boolean isDirectory() {
+            return false;
+          }
+
+          @Override
+          public boolean isSymbolicLink() {
+            // Intentionally set `isSymbolicLink` as false, which disagree with filesystem.
+            return false;
+          }
+
+          @Override
+          public long getSize() throws IOException {
+            return realStat.getSize();
+          }
+
+          @Override
+          public long getLastModifiedTime() throws IOException {
+            return realStat.getLastModifiedTime();
+          }
+
+          @Override
+          public long getLastChangeTime() throws IOException {
+            return realStat.getLastChangeTime();
+          }
+
+          @Override
+          public long getNodeId() throws IOException {
+            return realStat.getNodeId();
+          }
+        });
+
+    SkyKey skyKey =
+        GlobValue.key(
+            PKG_ID,
+            Root.fromPath(root),
+            "inconsistent/*",
+            Globber.Operation.FILES_AND_DIRS,
+            PathFragment.EMPTY_FRAGMENT);
+    EvaluationResult<GlobValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), EVALUATION_OPTIONS);
+    assertThat(result.hasError()).isTrue();
+    ErrorInfo errorInfo = result.getError(skyKey);
+    assertThat(errorInfo.getException()).isInstanceOf(InconsistentFilesystemException.class);
+    assertThat(errorInfo.getException())
+        .hasMessageThat()
+        .contains("Inconsistent filesystem operations. readdir and stat disagree");
+  }
+
+  /**
+   * The test below covers the case when {@link DirectoryListingValue} contains multiple symlinks,
+   * which is common for bazel shell integration tests. Bazel shell integration tests usually create
+   * symlinks for all source files.
+   *
+   * <p>Expect all matches to be returned when globbing multiple symlinks under the directory.
+   */
+  @Test
+  public void testSymlinksUnderDirectory_shouldAllBeGlobbed() throws Exception {
+    root.getRelative("targets").createDirectoryAndParents();
+    pkgPath.getRelative("symlinks").createDirectoryAndParents();
+    for (char c = 'a'; c <= 'z'; ++c) {
+      FileSystemUtils.createEmptyFile(root.getRelative("targets/" + c + ".bzl"));
+      FileSystemUtils.ensureSymbolicLink(
+          pkgPath.getRelative("symlinks/" + c + ".bzl"), root.getRelative("targets/" + c + ".bzl"));
+    }
+
+    GlobValue result = runGlob("symlinks/*.bzl", Operation.FILES_AND_DIRS);
+    assertThat(result.getMatches()).hasSize(26);
+    for (char c = 'a'; c <= 'z'; ++c) {
+      assertThat(result.getMatches()).contains(PathFragment.create("symlinks/" + c + ".bzl"));
+    }
   }
 
   private static final class CustomInMemoryFs extends InMemoryFileSystem {
@@ -865,7 +1051,7 @@ public class GlobFunctionTest {
   private void assertSubpackageMatches(String pattern, String... expecteds) throws Exception {
     assertThat(
             Iterables.transform(
-                runGlob(pattern, Globber.Operation.SUBPACKAGES).getMatches().toList(),
+                runGlob(pattern, Globber.Operation.SUBPACKAGES).getMatches(),
                 Functions.toStringFunction()))
         .containsExactlyElementsIn(ImmutableList.copyOf(expecteds));
   }
@@ -916,23 +1102,12 @@ public class GlobFunctionTest {
   }
 
   @Test
-  public void subpackages_zeroLevelDeep() throws Exception {
+  public void subpackages_zeroLevelDeep(@TestParameter boolean withDeeperSubpackage)
+      throws Exception {
     makeEmptyPackage("sub");
-
-    assertSubpackageMatches("sub/*");
-
-    // `**` is considered to matching nothing below.
-    assertSubpackageMatches("sub/**", "sub");
-    assertSubpackageMatches("sub/**/**", "sub");
-
-    assertSubpackageMatches("sub/**/foo");
-    assertSubpackageMatches("sub/**/foo/**");
-  }
-
-  @Test
-  public void subpackages_zeroAndOneLevelDeep() throws Exception {
-    makeEmptyPackage("sub");
-    makeEmptyPackage("sub/subOfSub");
+    if (withDeeperSubpackage) {
+      makeEmptyPackage("sub/subOfSub");
+    }
 
     assertSubpackageMatches("sub/*");
 

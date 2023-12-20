@@ -375,7 +375,7 @@ class IncludeParser {
               globKey);
           continue;
         }
-        for (PathFragment file : globValue.getMatches().toList()) {
+        for (PathFragment file : globValue.getMatches()) {
           hints.add(
               artifactFactory.getSourceArtifact(
                   packageFragment.getRelative(file), globKey.getPackageRoot()));
