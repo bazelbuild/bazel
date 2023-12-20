@@ -349,6 +349,12 @@ EOF
     echo "testenv.sh: Using shared install base at $TEST_INSTALL_BASE."
     echo "startup --install_base=$TEST_INSTALL_BASE" >> $TEST_TMPDIR/bazelrc
   fi
+
+  if is_darwin; then
+    echo "Add flags to prefer ipv6 network"
+    echo "startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true" >> $TEST_TMPDIR/bazelrc
+    echo "build --jvmopt=-Djava.net.preferIPv6Addresses" >> $TEST_TMPDIR/bazelrc
+  fi
 }
 
 function setup_android_sdk_support() {
