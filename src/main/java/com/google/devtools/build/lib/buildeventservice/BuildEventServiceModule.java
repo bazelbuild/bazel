@@ -769,6 +769,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
             .commandName(cmdEnv.getCommandName())
             .keywords(getBesKeywords(besOptions, cmdEnv.getRuntime().getStartupOptionsProvider()))
             .checkPrecedingLifecycleEvents(besOptions.besCheckPrecedingLifecycleEvents)
+            .attemptNumber(cmdEnv.getAttemptNumber())
             .build();
 
     return new BuildEventServiceTransport.Builder()

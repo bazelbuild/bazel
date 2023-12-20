@@ -174,7 +174,8 @@ public final class RemoteModuleTest {
         /* commandStartTime= */ 0,
         /* commandExtensions= */ ImmutableList.of(),
         /* shutdownReasonConsumer= */ s -> {},
-        NO_OP_COMMAND_EXTENSION_REPORTER);
+        NO_OP_COMMAND_EXTENSION_REPORTER,
+        /* attemptNumber= */ 1);
   }
 
   static class CapabilitiesImpl extends CapabilitiesImplBase {

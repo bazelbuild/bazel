@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -118,6 +119,7 @@ public class CommandEnvironment {
   private final BuildResultListener buildResultListener;
   private final CommandLinePathFactory commandLinePathFactory;
   private final CommandExtensionReporter commandExtensionReporter;
+  private final int attemptNumber;
 
   private boolean mergedAnalysisAndExecution;
 
@@ -190,7 +192,10 @@ public class CommandEnvironment {
       long commandStartTime,
       List<Any> commandExtensions,
       Consumer<String> shutdownReasonConsumer,
-      CommandExtensionReporter commandExtensionReporter) {
+      CommandExtensionReporter commandExtensionReporter,
+      int attemptNumber) {
+    checkArgument(attemptNumber >= 1);
+
     this.runtime = runtime;
     this.workspace = workspace;
     this.directories = workspace.getDirectories();
@@ -205,6 +210,7 @@ public class CommandEnvironment {
     this.commandExtensionReporter = commandExtensionReporter;
     this.blazeModuleEnvironment = new BlazeModuleEnvironment();
     this.timestampGranularityMonitor = new TimestampGranularityMonitor(runtime.getClock());
+    this.attemptNumber = attemptNumber;
     // Record the command's starting time again, for use by
     // TimestampGranularityMonitor.waitForTimestampGranularity().
     // This should be done as close as possible to the start of
@@ -937,5 +943,14 @@ public class CommandEnvironment {
   @SuppressWarnings("unused")
   void gotBuildInfo(BuildInfoEvent event) {
     buildInfoPosted = true;
+  }
+
+  /**
+   * Returns the number of the invocation attempt, starting at 1 and increasing by 1 for each new
+   * attempt. Can be used to determine if there is a build retry by {@code
+   * --experimental_remote_cache_eviction_retries}.
+   */
+  public int getAttemptNumber() {
+    return attemptNumber;
   }
 }
