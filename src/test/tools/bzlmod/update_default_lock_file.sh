@@ -35,7 +35,7 @@ function generate_lock_file() {
   trap 'cleanup $tmpdir' EXIT
 
   cd "${tmpdir}"
-  touch REPO.bazel
+  touch MODULE.bazel
   bazel=$(rlocation io_bazel/src/bazel)
 
   echo "Running: $bazel mod deps"

@@ -620,7 +620,9 @@ EOF
 
 # Set up a lockfile to avoid accessing BCR for tests with a clean workspace.
 function write_default_lockfile() {
-  cp -f $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) ${1:-MODULE.bazel.lock}
+  module_lockfile=${1:-MODULE.bazel.lock}
+  touch "$(dirname ${module_lockfile})/MODULE.bazel"
+  cp -f $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) ${module_lockfile}
 }
 
 workspaces=()
