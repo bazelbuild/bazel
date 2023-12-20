@@ -326,9 +326,10 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
       name = "package",
       structField = true,
       doc =
-          "The package part of this label. "
-              + "For instance:<br>"
-              + "<pre class=language-python>Label(\"//pkg/foo:abc\").package == \"pkg/foo\"</pre>")
+          "The name of the package containing the target referred to by this label, without the"
+              + " repository name. For instance:<br><pre"
+              + " class=language-python>Label(\"@@repo//pkg/foo:abc\").package =="
+              + " \"pkg/foo\"</pre>")
   public String getPackageName() {
     return packageIdentifier.getPackageFragment().getPathString();
   }
@@ -345,9 +346,9 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
       name = "workspace_root",
       structField = true,
       doc =
-          "Returns the execution root for the workspace of this label, relative to the execroot. "
-              + "For instance:<br>"
-              + "<pre class=language-python>Label(\"@repo//pkg/foo:abc\").workspace_root =="
+          "Returns the execution root for the repository containing the target referred to by this"
+              + " label, relative to the execroot. For instance:<br><pre"
+              + " class=language-python>Label(\"@repo//pkg/foo:abc\").workspace_root =="
               + " \"external/repo\"</pre>",
       useStarlarkSemantics = true)
   @Deprecated
@@ -396,9 +397,8 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
       name = "name",
       structField = true,
       doc =
-          "The name of this label within the package. "
-              + "For instance:<br>"
-              + "<pre class=language-python>Label(\"//pkg/foo:abc\").name == \"abc\"</pre>")
+          "The name of the target referred to by this label. For instance:<br>"
+              + "<pre class=language-python>Label(\"@@foo//pkg/foo:abc\").name == \"abc\"</pre>")
   public String getName() {
     return name;
   }
@@ -452,11 +452,28 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
       name = "workspace_name",
       structField = true,
       doc =
-          "The repository part of this label. For instance, "
-              + "<pre class=language-python>Label(\"@foo//bar:baz\").workspace_name"
-              + " == \"foo\"</pre>")
+          "<strong>Deprecated.</strong> The field name \"workspace name\" is a misnomer here; use"
+              + " the identically-behaving <a href=\"#repo_name\"><code>Label.repo_name</code></a>"
+              + " instead.<p>The canonical name of the repository containing the target referred to"
+              + " by this label, without any leading at-signs (<code>@</code>). For instance, <pre"
+              + " class=language-python>Label(\"@@foo//bar:baz\").workspace_name == \"foo\"</pre>",
+      enableOnlyWithFlag = BuildLanguageOptions.INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS)
+  @Deprecated
   public String getWorkspaceName() throws EvalException {
     checkRepoVisibilityForStarlark("workspace_name");
+    return packageIdentifier.getRepository().getName();
+  }
+
+  /** Return the name of the repository label refers to without the leading `at` symbol. */
+  @StarlarkMethod(
+      name = "repo_name",
+      structField = true,
+      doc =
+          "The canonical name of the repository containing the target referred to by this label,"
+              + " without any leading at-signs (<code>@</code>). For instance, <pre"
+              + " class=language-python>Label(\"@@foo//bar:baz\").repo_name == \"foo\"</pre>")
+  public String getRepoName() throws EvalException {
+    checkRepoVisibilityForStarlark("repo_name");
     return packageIdentifier.getRepository().getName();
   }
 
@@ -484,7 +501,11 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    *
    * @throws LabelSyntaxException if {@code targetName} is not a valid target name
    */
-  public Label getLocalTargetLabel(String targetName) throws LabelSyntaxException {
+  @StarlarkMethod(
+      name = "same_package_label",
+      doc = "Creates a label in the same package as this label with the given target name.",
+      parameters = {@Param(name = "target_name", doc = "The target name of the new label.")})
+  public Label getSamePackageLabel(String targetName) throws LabelSyntaxException {
     return create(packageIdentifier, targetName);
   }
 
@@ -501,34 +522,38 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   @StarlarkMethod(
       name = "relative",
       doc =
-          // TODO(#14503): Fix the documentation.
-          "Resolves a label that is either absolute (starts with <code>//</code>) or relative to "
-              + "the current package. If this label is in a remote repository, the argument will "
-              + "be resolved relative to that repository. If the argument contains a repository "
-              + "name, the current label is ignored and the argument is returned as-is, except "
-              + "that the repository name is rewritten if it is in the current repository mapping. "
-              + "Reserved labels will also be returned as-is.<br>"
-              + "For example:<br>"
-              + "<pre class=language-python>\n"
+          "<strong>Deprecated.</strong> This method behaves surprisingly when used with an argument"
+              + " containing an apparent repo name. Prefer <a"
+              + " href=\"#local_target_label\"><code>Label.same_package_label()</code></a>, <a"
+              + " href=\"../toplevel/native#package_relative_label\"><code>native.package_relative_label()</code></a>,"
+              + " or <a href=\"#Label\"><code>Label()</code></a> instead.<p>Resolves a label that"
+              + " is either absolute (starts with <code>//</code>) or relative to the current"
+              + " package. If this label is in a remote repository, the argument will be resolved"
+              + " relative to that repository. If the argument contains a repository name, the"
+              + " current label is ignored and the argument is returned as-is, except that the"
+              + " repository name is rewritten if it is in the current repository mapping. Reserved"
+              + " labels will also be returned as-is.<br>For example:<br><pre"
+              + " class=language-python>\n"
               + "Label(\"//foo/bar:baz\").relative(\":quux\") == Label(\"//foo/bar:quux\")\n"
               + "Label(\"//foo/bar:baz\").relative(\"//wiz:quux\") == Label(\"//wiz:quux\")\n"
-              + "Label(\"@repo//foo/bar:baz\").relative(\"//wiz:quux\") == "
-              + "Label(\"@repo//wiz:quux\")\n"
-              + "Label(\"@repo//foo/bar:baz\").relative(\"//visibility:public\") == "
-              + "Label(\"//visibility:public\")\n"
-              + "Label(\"@repo//foo/bar:baz\").relative(\"@other//wiz:quux\") == "
-              + "Label(\"@other//wiz:quux\")\n"
-              + "</pre>"
-              + "<p>If the repository mapping passed in is <code>{'@other' : '@remapped'}</code>, "
-              + "then the following remapping will take place:<br>"
-              + "<pre class=language-python>\n"
-              + "Label(\"@repo//foo/bar:baz\").relative(\"@other//wiz:quux\") == "
-              + "Label(\"@remapped//wiz:quux\")\n"
+              + "Label(\"@repo//foo/bar:baz\").relative(\"//wiz:quux\") =="
+              + " Label(\"@repo//wiz:quux\")\n"
+              + "Label(\"@repo//foo/bar:baz\").relative(\"//visibility:public\") =="
+              + " Label(\"//visibility:public\")\n"
+              + "Label(\"@repo//foo/bar:baz\").relative(\"@other//wiz:quux\") =="
+              + " Label(\"@other//wiz:quux\")\n"
+              + "</pre><p>If the repository mapping passed in is <code>{'@other' :"
+              + " '@remapped'}</code>, then the following remapping will take place:<br><pre"
+              + " class=language-python>\n"
+              + "Label(\"@repo//foo/bar:baz\").relative(\"@other//wiz:quux\") =="
+              + " Label(\"@remapped//wiz:quux\")\n"
               + "</pre>",
       parameters = {
         @Param(name = "relName", doc = "The label that will be resolved relative to this one.")
       },
+      enableOnlyWithFlag = BuildLanguageOptions.INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS,
       useStarlarkThread = true)
+  @Deprecated
   public Label getRelative(String relName, StarlarkThread thread) throws LabelSyntaxException {
     return getRelativeWithRemapping(
         relName,

@@ -187,7 +187,11 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
   @StarlarkMethod(
       name = "workspace_name",
       structField = true,
-      doc = "The workspace name as defined in the WORKSPACE file.")
+      doc =
+          "The name of the workspace, which is effectively the execution root name and runfiles"
+              + " prefix for the main repo. If <code>--enable_bzlmod</code> is on, this is the"
+              + " fixed string <code>_main</code>. Otherwise, this is the workspace name as defined"
+              + " in the WORKSPACE file.")
   String getWorkspaceName() throws EvalException;
 
   @StarlarkMethod(
