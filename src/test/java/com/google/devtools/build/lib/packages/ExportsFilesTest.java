@@ -59,10 +59,7 @@ public class ExportsFilesTest extends PackageLoadingTestCase {
         assertThrows(NoSuchTargetException.class, () -> pkg().getTarget("baz.txt"));
     assertThat(e)
         .hasMessageThat()
-        .isEqualTo(
-            "no such target '//pkg:baz.txt': target 'baz.txt' not declared in package 'pkg' "
-                + "defined by /workspace/pkg/BUILD (did you mean 'bar.txt'? Tip: use `query "
-                + "\"//pkg:*\"` to see all the targets in that package)");
+        .contains("no such target '//pkg:baz.txt': target 'baz.txt' not declared in package 'pkg'");
   }
 
   @Test

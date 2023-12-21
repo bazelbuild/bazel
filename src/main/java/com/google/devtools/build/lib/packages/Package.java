@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.base.MoreObjects.firstNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
@@ -80,7 +79,6 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -230,13 +228,6 @@ public class Package {
    * the main workspace.
    */
   private RepositoryMapping repositoryMapping;
-
-  /**
-   * The repository mapping of the main repository. This is only used internally to obtain
-   * user-friendly apparent names from canonical repository names in error message arising from this
-   * package.
-   */
-  private RepositoryMapping mainRepositoryMapping;
 
   private ImmutableList<TargetPattern> registeredExecutionPlatforms;
   private ImmutableList<TargetPattern> registeredToolchains;
@@ -405,7 +396,6 @@ public class Package {
     this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
     this.firstWorkspaceSuffixRegisteredToolchain = builder.firstWorkspaceSuffixRegisteredToolchain;
     this.repositoryMapping = Preconditions.checkNotNull(builder.repositoryMapping);
-    this.mainRepositoryMapping = Preconditions.checkNotNull(builder.mainRepositoryMapping);
     ImmutableMap.Builder<RepositoryName, ImmutableMap<String, RepositoryName>>
         repositoryMappingsBuilder = ImmutableMap.builder();
     if (!builder.externalPackageRepositoryMappings.isEmpty() && !builder.isRepoRulePackage()) {
@@ -695,15 +685,7 @@ public class Package {
           + getName()
           + "/BUILD?)";
     } else {
-      String suggestedTarget = SpellChecker.suggest(targetName, targets.keySet());
-      String targetSuggestion =
-          suggestedTarget == null ? null : String.format("did you mean '%s'?", suggestedTarget);
-      String blazeQuerySuggestion =
-          String.format(
-              "Tip: use `query \"%s:*\"` to see all the targets in that package",
-              packageIdentifier.getDisplayForm(mainRepositoryMapping));
-      return String.format(
-          " (%s)", Joiner.on(" ").skipNulls().join(targetSuggestion, blazeQuerySuggestion));
+      return TargetSuggester.suggestTargets(targetName, targets.keySet());
     }
   }
 
@@ -894,11 +876,6 @@ public class Package {
      * workspace.
      */
     private final RepositoryMapping repositoryMapping;
-    /**
-     * The repository mapping of the main repository. This is only used to resolve user-friendly
-     * apparent names from canonical repository names in error message arising from this package.
-     */
-    private final RepositoryMapping mainRepositoryMapping;
     /** Converts label literals to Label objects within this package. */
     private final LabelConverter labelConverter;
 
@@ -1045,7 +1022,6 @@ public class Package {
       this.precomputeTransitiveLoads = packageSettings.precomputeTransitiveLoads();
       this.noImplicitFileExport = noImplicitFileExport;
       this.repositoryMapping = repositoryMapping;
-      this.mainRepositoryMapping = mainRepositoryMapping;
       this.labelConverter = new LabelConverter(id, repositoryMapping);
       if (pkg.getName().startsWith("javatests/")) {
         mergePackageArgsFrom(PackageArgs.builder().setDefaultTestOnly(true));
