@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -232,10 +233,8 @@ public class PackageLoadingTest extends FoundationTestCase {
         assertThrows(NoSuchTargetException.class, () -> getTarget("//pkg1:not-there"));
     assertThat(e)
         .hasMessageThat()
-        .isEqualTo(
-            "no such target '//pkg1:not-there': target 'not-there' "
-                + "not declared in package 'pkg1' defined by /workspace/pkg1/BUILD (Tip: use "
-                + "`query \"//pkg1:*\"` to see all the targets in that package)");
+        .matches(
+            TestUtils.createMissingTargetAssertionString("not-there", "pkg1", "/workspace", ""));
   }
 
   /**
