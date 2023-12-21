@@ -32,7 +32,7 @@ public final class ActionInputHelper {
    * implement equality via path comparison. Since file caches are keyed by ActionInput, equality
    * checking does come up.
    */
-  public abstract static class BasicActionInput implements ActionInput {
+  private abstract static class BasicActionInput implements ActionInput {
 
     // TODO(lberki): Plumb this flag from InputTree.build() somehow.
     @Override

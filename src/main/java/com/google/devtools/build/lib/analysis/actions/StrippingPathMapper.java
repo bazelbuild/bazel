@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis.actions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper.BasicActionInput;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.CommandLineItem.ExceptionlessMapFn;
@@ -121,7 +120,7 @@ public final class StrippingPathMapper {
     return new PathMapper() {
       @Override
       public String getMappedExecPathString(ActionInput artifact) {
-        if (isSupportedInputType(artifact) && isOutputPath(artifact, outputRoot)) {
+        if (artifact instanceof DerivedArtifact || artifact instanceof ParamFileActionInput) {
           return strip(artifact.getExecPath()).getPathString();
         } else {
           return artifact.getExecPathString();
@@ -178,12 +177,6 @@ public final class StrippingPathMapper {
           }
         }
         return MapFn.DEFAULT;
-      }
-
-      private boolean isSupportedInputType(ActionInput artifact) {
-        return artifact instanceof DerivedArtifact
-            || artifact instanceof ParamFileActionInput
-            || artifact instanceof BasicActionInput;
       }
     };
   }
@@ -280,12 +273,6 @@ public final class StrippingPathMapper {
    * Strips the configuration prefix from an output artifact's exec path.
    */
   private static PathFragment strip(PathFragment execPath) {
-    if (execPath.subFragment(1, 2).getPathString().equals("tmp")) {
-      return execPath
-          .subFragment(0, 2)
-          .getRelative(FIXED_CONFIG_SEGMENT)
-          .getRelative(execPath.subFragment(3));
-    }
     return execPath
         .subFragment(0, 1)
         // Keep the config segment, but replace it with a fixed string to improve cacheability while
