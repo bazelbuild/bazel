@@ -26,7 +26,7 @@ import java.util.List;
  * home for the codec, is a dependency of AutoCodec, so doing so would create a circular dependency.
  */
 @SuppressWarnings("rawtypes")
-class EmptyListCodec implements ObjectCodec<List> {
+class EmptyListCodec extends LeafObjectCodec<List> {
 
   @Override
   public Class<? extends List> getEncodedClass() {
@@ -34,11 +34,10 @@ class EmptyListCodec implements ObjectCodec<List> {
   }
 
   @Override
-  public void serialize(
-      SerializationContext unusedContext, List unusedValue, CodedOutputStream unusedCodedOut) {}
+  public void serialize(List unusedValue, CodedOutputStream unusedCodedOut) {}
 
   @Override
-  public List deserialize(DeserializationContext unusedContext, CodedInputStream unusedCodedIn) {
+  public List deserialize(CodedInputStream unusedCodedIn) {
     return Collections.emptyList();
   }
 }

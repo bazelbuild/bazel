@@ -20,18 +20,15 @@ import java.io.IOException;
 import java.time.Duration;
 
 /** Encodes a Duration. */
-public class DurationCodec implements ObjectCodec<Duration> {
-
+public class DurationCodec extends LeafObjectCodec<Duration> {
   @Override
-  public void serialize(SerializationContext context, Duration obj, CodedOutputStream codedOut)
-      throws SerializationException, IOException {
+  public void serialize(Duration obj, CodedOutputStream codedOut) throws IOException {
     codedOut.writeInt64NoTag(obj.getSeconds());
     codedOut.writeInt32NoTag(obj.getNano());
   }
 
   @Override
-  public Duration deserialize(DeserializationContext context, CodedInputStream codedIn)
-      throws SerializationException, IOException {
+  public Duration deserialize(CodedInputStream codedIn) throws IOException {
     return Duration.ofSeconds(codedIn.readInt64(), codedIn.readInt32());
   }
 

@@ -19,7 +19,7 @@ import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.UUID;
 
-class UUIDCodec implements ObjectCodec<UUID> {
+class UUIDCodec extends LeafObjectCodec<UUID> {
 
   @Override
   public Class<UUID> getEncodedClass() {
@@ -27,15 +27,13 @@ class UUIDCodec implements ObjectCodec<UUID> {
   }
 
   @Override
-  public void serialize(SerializationContext unusedContext, UUID uuid, CodedOutputStream codedOut)
-      throws SerializationException, IOException {
+  public void serialize(UUID uuid, CodedOutputStream codedOut) throws IOException {
     codedOut.writeInt64NoTag(uuid.getMostSignificantBits());
     codedOut.writeInt64NoTag(uuid.getLeastSignificantBits());
   }
 
   @Override
-  public UUID deserialize(DeserializationContext unusedContext, CodedInputStream codedIn)
-      throws SerializationException, IOException {
+  public UUID deserialize(CodedInputStream codedIn) throws SerializationException, IOException {
     return new UUID(codedIn.readInt64(), codedIn.readInt64());
   }
 }

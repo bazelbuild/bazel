@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
+
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -21,33 +23,34 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 
 /** {@link ObjectCodec} for {@link Method}. */
-class MethodCodec implements ObjectCodec<Method> {
+class MethodCodec extends LeafObjectCodec<Method> {
+  private static final ClassCodec CLASS_CODEC = new ClassCodec();
+
   @Override
   public Class<Method> getEncodedClass() {
     return Method.class;
   }
 
   @Override
-  public void serialize(SerializationContext context, Method obj, CodedOutputStream codedOut)
+  public void serialize(Method obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
-    context.serialize(obj.getDeclaringClass(), codedOut);
-    context.serialize(obj.getName(), codedOut);
+    CLASS_CODEC.serialize(obj.getDeclaringClass(), codedOut);
+    stringCodec().serialize(obj.getName(), codedOut);
     Class<?>[] parameterTypes = obj.getParameterTypes();
     codedOut.writeInt32NoTag(parameterTypes.length);
     for (Class<?> parameter : parameterTypes) {
-      context.serialize(parameter, codedOut);
+      CLASS_CODEC.serialize(parameter, codedOut);
     }
   }
 
   @Override
-  public Method deserialize(DeserializationContext context, CodedInputStream codedIn)
-      throws SerializationException, IOException {
-    Class<?> clazz = context.deserialize(codedIn);
-    String name = context.deserialize(codedIn);
+  public Method deserialize(CodedInputStream codedIn) throws SerializationException, IOException {
+    Class<?> clazz = CLASS_CODEC.deserialize(codedIn);
+    String name = stringCodec().deserialize(codedIn);
 
     Class<?>[] parameters = new Class<?>[codedIn.readInt32()];
     for (int i = 0; i < parameters.length; i++) {
-      parameters[i] = context.deserialize(codedIn);
+      parameters[i] = CLASS_CODEC.deserialize(codedIn);
     }
     try {
       return clazz.getDeclaredMethod(name, parameters);
