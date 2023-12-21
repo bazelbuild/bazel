@@ -14,7 +14,6 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import java.io.PrintStream;
 import java.util.Collection;
 import java.util.HashMap;
@@ -44,29 +43,21 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   @Override
   @Nullable
   public final SkyValue getExistingValue(SkyKey key) {
-    NodeEntry entry = getExistingEntryAtCurrentlyEvaluatingVersion(key);
-    try {
-      return isDone(entry) ? entry.getValue() : null;
-    } catch (InterruptedException e) {
-      throw new IllegalStateException("InMemoryGraph does not throw" + key + ", " + entry, e);
-    }
+    InMemoryNodeEntry entry = getExistingEntryAtCurrentlyEvaluatingVersion(key);
+    return isDone(entry) ? entry.getValue() : null;
   }
 
   @Override
   @Nullable
   public final ErrorInfo getExistingErrorForTesting(SkyKey key) {
-    NodeEntry entry = getExistingEntryAtCurrentlyEvaluatingVersion(key);
-    try {
-      return isDone(entry) ? entry.getErrorInfo() : null;
-    } catch (InterruptedException e) {
-      throw new IllegalStateException("InMemoryGraph does not throw" + key + ", " + entry, e);
-    }
+    InMemoryNodeEntry entry = getExistingEntryAtCurrentlyEvaluatingVersion(key);
+    return isDone(entry) ? entry.getErrorInfo() : null;
   }
 
   @Nullable
   @Override
-  public final NodeEntry getExistingEntryAtCurrentlyEvaluatingVersion(SkyKey key) {
-    return getInMemoryGraph().get(null, Reason.OTHER, key);
+  public final InMemoryNodeEntry getExistingEntryAtCurrentlyEvaluatingVersion(SkyKey key) {
+    return getInMemoryGraph().getIfPresent(key);
   }
 
   @Override
