@@ -544,7 +544,15 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
         // target during previous action execution.
         path = statAndValue.realPath();
         injectedDigest = DigestUtils.manuallyComputeDigest(path, value.getSize());
-        return FileArtifactValue.createForResolvedSymlink(path.asFragment(), value, injectedDigest);
+
+        PathFragment execRootRelativeRealPath;
+        if (path.asFragment().startsWith(execRoot)) {
+          execRootRelativeRealPath = path.asFragment().relativeTo(execRoot);
+        } else {
+          execRootRelativeRealPath = path.asFragment();
+        }
+
+        return FileArtifactValue.createForResolvedSymlink(execRootRelativeRealPath, value, injectedDigest);
       }
 
       injectedDigest = DigestUtils.manuallyComputeDigest(path, value.getSize());
