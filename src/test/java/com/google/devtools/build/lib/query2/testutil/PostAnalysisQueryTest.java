@@ -155,11 +155,12 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
         assertThrows(TargetParsingException.class, super::testTargetLiteralWithMissingTargets);
     assertThat(e)
         .hasMessageThat()
-        .isEqualTo(
-            "no such target '//a:b': target 'b' not declared in package 'a' "
-                + "defined by "
-                + helper.getRootDirectory().getPathString()
-                + "/a/BUILD (Tip: use `query \"//a:*\"` to see all the targets in that package)");
+        .matches(
+            TestUtils.createMissingTargetAssertionString(
+                /* target= */ "b",
+                /* packageStr= */ "a",
+                helper.getRootDirectory().getPathString(),
+                ""));
     assertThat(e.getDetailedExitCode().getFailureDetail().getPackageLoading().getCode())
         .isEqualTo(FailureDetails.PackageLoading.Code.TARGET_MISSING);
   }

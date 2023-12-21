@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -158,10 +159,8 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
         assertThrows(TargetParsingException.class, () -> parseCompileOneDep("//foo:missing.cc"));
     assertThat(e)
         .hasMessageThat()
-        .isEqualTo(
-            "no such target '//foo:missing.cc': target 'missing.cc' not declared in package "
-                + "'foo' defined by /workspace/foo/BUILD (Tip: use `query \"//foo:*\"` to see all "
-                + "the targets in that package)");
+        .matches(
+            TestUtils.createMissingTargetAssertionString("missing.cc", "foo", "/workspace", ""));
 
     // Also, try a valid input file which has no dependent rules in its package.
     e = assertThrows(TargetParsingException.class, () -> parseCompileOneDep("//foo:baz/bang"));
