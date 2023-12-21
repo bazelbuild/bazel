@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 import com.google.common.base.Joiner;
@@ -24,6 +23,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Predicates;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -59,7 +59,6 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
-import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
@@ -256,14 +255,6 @@ public final class ActionExecutionFunction implements SkyFunction {
     // action; downstream consumers of action events reasonably don't expect them.
     if (!skyframeActionExecutor.shouldEmitProgressEvents(action)) {
       env = new ProgressEventSuppressingEnvironment(env);
-    }
-
-    if (action.discoversInputs()) {
-      // If this action previously failed due to a lost input found during input discovery, ensure
-      // that the input is regenerated before attempting discovery again.
-      if (declareDepsOnLostDiscoveredInputsIfAny(env, action)) {
-        return null;
-      }
     }
 
     InputDiscoveryState state;
@@ -494,39 +485,6 @@ public final class ActionExecutionFunction implements SkyFunction {
     return result.build();
   }
 
-  private boolean declareDepsOnLostDiscoveredInputsIfAny(Environment env, Action action)
-      throws InterruptedException, ActionExecutionFunctionException {
-    ImmutableList<SkyKey> previouslyLostDiscoveredInputs =
-        skyframeActionExecutor.getLostDiscoveredInputs(action);
-    if (previouslyLostDiscoveredInputs != null) {
-      SkyframeLookupResult lostInputValues =
-          env.getValuesAndExceptions(previouslyLostDiscoveredInputs);
-      if (env.valuesMissing()) {
-        return true;
-      }
-      for (SkyKey lostInputKey : previouslyLostDiscoveredInputs) {
-        try {
-          SkyValue value =
-              lostInputValues.getOrThrow(
-                  lostInputKey, MissingInputFileException.class, ActionExecutionException.class);
-          if (value == null) {
-            return true;
-          }
-        } catch (MissingInputFileException e) {
-          // MissingInputFileException comes from problems with source artifact construction.
-          // Rewinding never invalidates source artifacts.
-          throw new IllegalStateException(
-              "MissingInputFileException unexpected from rewound generated discovered input. key="
-                  + lostInputKey,
-              e);
-        } catch (ActionExecutionException e) {
-          throw new ActionExecutionFunctionException(e);
-        }
-      }
-    }
-    return false;
-  }
-
   /**
    * Cleans up state associated with the current action execution attempt and returns a {@link
    * SkyFunction.Reset} value which rewinds the actions that generate the lost inputs.
@@ -549,7 +507,7 @@ public final class ActionExecutionFunction implements SkyFunction {
 
     // Collect the set of direct deps of this action which may be responsible for the lost inputs,
     // some of which may be discovered.
-    ImmutableList<SkyKey> lostDiscoveredInputs = ImmutableList.of();
+    // TODO: b/315059768 - We can likely just use inputDepKeys. Confirm this and simplify.
     ImmutableSet<SkyKey> failedActionDeps;
     if (e.isFromInputDiscovery()) {
       // Lost inputs found during input discovery are necessarily ordinary derived artifacts. Their
@@ -558,17 +516,18 @@ public final class ActionExecutionFunction implements SkyFunction {
       // lostDiscoveredInputsMap. Also, lost inputs from input discovery may come from nested sets,
       // which may be directly represented in skyframe. To ensure that applicable nested set nodes
       // are rewound, this action's deps are also considered when computing the rewind plan.
-      lostDiscoveredInputs =
-          e.getLostInputs().values().stream()
-              .map(input -> Artifact.key((Artifact) input))
-              .collect(toImmutableList());
       failedActionDeps =
-          ImmutableSet.<SkyKey>builder().addAll(inputDepKeys).addAll(lostDiscoveredInputs).build();
+          ImmutableSet.<SkyKey>builder()
+              .addAll(inputDepKeys)
+              .addAll(
+                  Collections2.transform(
+                      e.getLostInputs().values(), input -> Artifact.key((Artifact) input)))
+              .build();
     } else if (state.discoveredInputs != null) {
       failedActionDeps =
           ImmutableSet.<SkyKey>builder()
               .addAll(inputDepKeys)
-              .addAll(Lists.transform(state.discoveredInputs.toList(), Artifact::key))
+              .addAll(Artifact.keys(state.discoveredInputs.toList()))
               .build();
     } else {
       failedActionDeps = inputDepKeys;
@@ -584,7 +543,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     } catch (ActionExecutionException rewindingFailedException) {
       // This ensures coalesced shared actions aren't orphaned.
       skyframeActionExecutor.prepareForRewinding(
-          actionLookupData, action, lostDiscoveredInputs, /* depsToRewind= */ ImmutableList.of());
+          actionLookupData, action, /* depsToRewind= */ ImmutableList.of());
       throw new ActionExecutionFunctionException(
           new AlreadyReportedActionExecutionException(
               skyframeActionExecutor.processAndGetExceptionToThrow(
@@ -598,7 +557,7 @@ public final class ActionExecutionFunction implements SkyFunction {
       // Obsolete the ActionExecutionState so that after rewinding, we will check inputs again and
       // discover the propagated exception.
       skyframeActionExecutor.prepareForRewinding(
-          actionLookupData, action, lostDiscoveredInputs, /* depsToRewind= */ ImmutableList.of());
+          actionLookupData, action, /* depsToRewind= */ ImmutableList.of());
       throw undoneInputsException;
     } finally {
       if (e.isActionStartedEventAlreadyEmitted()) {
@@ -615,7 +574,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
 
     skyframeActionExecutor.prepareForRewinding(
-        actionLookupData, action, lostDiscoveredInputs, rewindPlan.getDepsToRewind());
+        actionLookupData, action, rewindPlan.getDepsToRewind());
     return rewindPlan.getReset();
   }
 
