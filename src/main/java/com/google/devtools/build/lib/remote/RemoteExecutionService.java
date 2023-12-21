@@ -188,6 +188,8 @@ public class RemoteExecutionService {
 
   @Nullable private final Scrubber scrubber;
 
+  private final int attemptNumber;
+
   public RemoteExecutionService(
       Executor executor,
       Reporter reporter,
@@ -202,7 +204,8 @@ public class RemoteExecutionService {
       @Nullable RemoteExecutionClient remoteExecutor,
       TempPathGenerator tempPathGenerator,
       @Nullable Path captureCorruptedOutputsDir,
-      @Nullable RemoteOutputChecker remoteOutputChecker) {
+      @Nullable RemoteOutputChecker remoteOutputChecker,
+      int attemptNumber) {
     this.reporter = reporter;
     this.verboseFailures = verboseFailures;
     this.execRoot = execRoot;
@@ -213,6 +216,7 @@ public class RemoteExecutionService {
     this.remoteOptions = remoteOptions;
     this.remoteCache = remoteCache;
     this.remoteExecutor = remoteExecutor;
+    this.attemptNumber = attemptNumber;
 
     Caffeine<Object, Object> merkleTreeCacheBuilder = Caffeine.newBuilder().softValues();
     // remoteMerkleTreesCacheSize = 0 means limitless.
@@ -586,7 +590,7 @@ public class RemoteExecutionService {
 
       RequestMetadata metadata =
           TracingMetadataUtils.buildMetadata(
-              buildRequestId, commandId, actionKey.getDigest().getHash(), spawn.getResourceOwner());
+              buildRequestId, commandId, actionKey.getDigest().getHash(), this.attemptNumber, spawn.getResourceOwner());
       RemoteActionExecutionContext remoteActionExecutionContext =
           RemoteActionExecutionContext.create(
               spawn, metadata, getWriteCachePolicy(spawn), getReadCachePolicy(spawn));

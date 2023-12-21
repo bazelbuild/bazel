@@ -346,7 +346,7 @@ public class HttpCacheClientTest {
     remoteActionExecutionContext =
         RemoteActionExecutionContext.create(
             TracingMetadataUtils.buildMetadata(
-                "none", "none", Digest.getDefaultInstance().getHash(), null));
+                "none", "none", Digest.getDefaultInstance().getHash(), 1, null));
   }
 
   @Test

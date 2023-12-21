@@ -93,7 +93,7 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
       throws IOException {
     checkArgument(metadata.isRemote(), "Cannot download file that is not a remote file.");
     RequestMetadata requestMetadata =
-        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "prefetcher", action);
+        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "prefetcher", 1, action);
     RemoteActionExecutionContext context = RemoteActionExecutionContext.create(requestMetadata);
 
     Digest digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());

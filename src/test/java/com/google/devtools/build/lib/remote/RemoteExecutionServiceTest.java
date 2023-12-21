@@ -193,7 +193,7 @@ public class RemoteExecutionServiceTest {
     executor = mock(RemoteExecutionClient.class);
 
     RequestMetadata metadata =
-        TracingMetadataUtils.buildMetadata("none", "none", "action-id", null);
+        TracingMetadataUtils.buildMetadata("none", "none", "action-id", 1, null);
     remoteActionExecutionContext = RemoteActionExecutionContext.create(metadata);
   }
 

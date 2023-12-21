@@ -256,7 +256,7 @@ public class GrpcCacheClientTest {
     outErr = new FileOutErr(stdout, stderr);
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata(
-            "none", "none", Digest.getDefaultInstance().getHash(), null);
+            "none", "none", Digest.getDefaultInstance().getHash(), 1, null);
     context = RemoteActionExecutionContext.create(metadata);
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
   }

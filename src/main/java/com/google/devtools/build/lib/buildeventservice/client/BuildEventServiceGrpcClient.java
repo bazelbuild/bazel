@@ -101,6 +101,7 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
                       buildRequestId,
                       commandId.toString(),
                       "publish_lifecycle_event",
+                      /* attemptNumber= */ 1,
                       /* actionMetadata= */ null)))
           .publishLifecycleEvent(lifecycleEvent);
     } catch (StatusRuntimeException e) {
@@ -127,6 +128,7 @@ public class BuildEventServiceGrpcClient implements BuildEventServiceClient {
                           buildRequestId,
                           commandId.toString(),
                           "publish_build_tool_event_stream",
+                          /* attemptNumber= */ 1,
                           /* actionMetadata= */ null)))
               .publishBuildToolEventStream(
                   new StreamObserver<PublishBuildToolEventStreamResponse>() {

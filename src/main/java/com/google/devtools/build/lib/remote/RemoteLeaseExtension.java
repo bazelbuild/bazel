@@ -87,7 +87,7 @@ public class RemoteLeaseExtension implements LeaseExtension {
     this.remoteCache = remoteCache;
     this.remoteCacheTtl = remoteCacheTtl;
     RequestMetadata requestMetadata =
-        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "lease-extension", null);
+        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "lease-extension", 1, null);
     this.context = RemoteActionExecutionContext.create(requestMetadata);
   }
 

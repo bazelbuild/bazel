@@ -140,6 +140,7 @@ public class ByteStreamUploaderTest {
             "none",
             "none",
             DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()).getDigest().getHash(),
+            1,
             null);
     context = RemoteActionExecutionContext.create(metadata);
 
@@ -1036,6 +1037,7 @@ public class ByteStreamUploaderTest {
               "build-req-id",
               "command-id",
               DIGEST_UTIL.asActionKey(actionDigest).getDigest().getHash(),
+              1,
               null);
       RemoteActionExecutionContext remoteActionExecutionContext =
           RemoteActionExecutionContext.create(metadata);

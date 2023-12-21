@@ -106,7 +106,7 @@ public class RemoteCacheTest {
   public void setUp() throws Exception {
     MockitoAnnotations.initMocks(this);
     RequestMetadata metadata =
-        TracingMetadataUtils.buildMetadata("none", "none", "action-id", null);
+        TracingMetadataUtils.buildMetadata("none", "none", "action-id", 1, null);
     Spawn spawn =
         new SimpleSpawn(
             new FakeOwner("foo", "bar", "//dummy:label"),

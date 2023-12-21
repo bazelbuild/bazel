@@ -108,6 +108,7 @@ public class GrpcRemoteDownloaderTest {
             "none",
             "none",
             DIGEST_UTIL.asActionKey(Digest.getDefaultInstance()).getDigest().getHash(),
+            1,
             null);
     context = RemoteActionExecutionContext.create(metadata);
 

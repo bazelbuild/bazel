@@ -170,7 +170,8 @@ final class RemoteActionContextProvider {
               remoteExecutor,
               tempPathGenerator,
               captureCorruptedOutputsDir,
-              remoteOutputChecker);
+              remoteOutputChecker,
+              env.getAttemptNumber());
       env.getEventBus().register(remoteExecutionService);
     }
 

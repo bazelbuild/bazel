@@ -120,7 +120,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       Optional<String> type)
       throws IOException, InterruptedException {
     RequestMetadata metadata =
-        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "remote_downloader", null);
+        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "remote_downloader", 1, null);
     RemoteActionExecutionContext remoteActionExecutionContext =
         RemoteActionExecutionContext.create(metadata);
 
