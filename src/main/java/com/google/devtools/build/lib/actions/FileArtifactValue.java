@@ -171,9 +171,12 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
    *
    * <p>If present, this artifact is a copy of another artifact. It is still tracked as a
    * non-symlink by Bazel, but materialized in the local filesystem as a symlink to the original
-   * artifact, whose contents live at this location. This is used by {@link
+   * artifact, whose contents live at this location.
+   *
+   * <p>This is used by {@link
    * com.google.devtools.build.lib.remote.AbstractActionInputPrefetcher} to implement zero-cost
-   * copies of remotely stored artifacts.
+   * copies of remotely stored artifacts and to tack which real files (artifact or otherwise)
+   * resolved symlink artifacts point to.
    */
   public Optional<PathFragment> getMaterializationExecPath() {
     return Optional.empty();

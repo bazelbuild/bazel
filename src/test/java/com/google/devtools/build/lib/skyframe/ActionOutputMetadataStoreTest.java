@@ -481,11 +481,8 @@ public final class ActionOutputMetadataStoreTest {
         .getPath(outputArtifact.getPath().getPathString())
         .createSymbolicLink(targetArtifact.getPath().asFragment());
 
-    PathFragment expectedMaterializationExecPath = null;
-    if (composition.isPartiallyRemote()) {
-      expectedMaterializationExecPath =
+    PathFragment expectedMaterializationExecPath =
           preexistingPath != null ? preexistingPath : targetArtifact.getExecPath();
-    }
 
     assertThat(store.getTreeArtifactValue(outputArtifact))
         .isEqualTo(
