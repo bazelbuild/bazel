@@ -66,6 +66,8 @@ public class AutoRegistry {
           // which apparently can be preserved through analysis. We may investigate if this actually
           // has performance/correctness implications.
           "com.google.common.collect.ImmutableList$Builder",
+          "java.util.concurrent.atomic.AtomicReference",
+          "java.util.concurrent.atomic.AtomicReferenceArray",
           // These list types are internal to the Java Collections API but persisted in Skyframe.
           "java.util.Arrays$ArrayList",
           "java.util.Collections$SingletonList",
