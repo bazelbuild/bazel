@@ -60,6 +60,8 @@ public class AutoRegistry {
           "java.lang.invoke.SerializedLambda",
           "java.time.Instant",
           "com.google.common.base.Predicates$InPredicate",
+          // Implementation class for com.google.common.base.Optional.
+          "com.google.common.base.Present",
           // Sadly, these builders are serialized as part of StarlarkCustomCommandLine$Builder,
           // which apparently can be preserved through analysis. We may investigate if this actually
           // has performance/correctness implications.
@@ -68,7 +70,8 @@ public class AutoRegistry {
           "java.util.Arrays$ArrayList",
           "java.util.Collections$SingletonList",
           "java.util.Collections$UnmodifiableList",
-          "java.util.Collections$UnmodifiableRandomAccessList");
+          "java.util.Collections$UnmodifiableRandomAccessList",
+          "java.util.Optional");
 
   private static final ImmutableList<Object> REFERENCE_CONSTANTS_TO_REGISTER =
       ImmutableList.of(
