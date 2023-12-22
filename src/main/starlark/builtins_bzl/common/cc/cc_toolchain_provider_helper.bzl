@@ -160,15 +160,15 @@ def get_cc_toolchain_provider(ctx, attributes, xcode_config_info):
 
     Args:
         ctx: rule context.
-        attributes: an instance of CcToolchainAttributesProvider.
+        attributes: encapsulated attributes of cc_toolchain rule.
         xcode_config_info: XcodeConfigInfo provider can be none if not present.
     Returns:
         A constructed CcToolchainProvider instance.
     """
-    toolchain_config_info = attributes.cc_toolchain_config_info()
+    toolchain_config_info = attributes.cc_toolchain_config_info
     tools_directory = cc_helper.package_exec_path(
         ctx,
-        attributes.cc_toolchain_label().package,
+        attributes.cc_toolchain_label.package,
         ctx.configuration.is_sibling_repository_layout(),
     )
     tool_paths = _compute_tool_paths(toolchain_config_info, tools_directory)
@@ -178,39 +178,39 @@ def get_cc_toolchain_provider(ctx, attributes, xcode_config_info):
         configuration = ctx.configuration,
         cpp_config = ctx.fragments.cpp,
         tool_paths = tool_paths,
-        fdo_prefetch_provider = attributes.fdo_prefetch_provider(),
-        propeller_optimize_provider = attributes.propeller_optimize_provider(),
-        mem_prof_profile_provider = attributes.mem_prof_profile_provider(),
-        fdo_optimize_provider = attributes.fdo_optimize_provider(),
-        fdo_profile_provider = attributes.fdo_profile_provider(),
-        x_fdo_profile_provider = attributes.x_fdo_profile_provider(),
-        cs_fdo_profile_provider = attributes.cs_fdo_profile_provider(),
-        all_files = attributes.all_files(),
-        zipper = attributes.zipper(),
-        cc_toolchain_config_info = attributes.cc_toolchain_config_info(),
-        fdo_optimize_artifacts = attributes.fdo_optimize_artifacts(),
-        fdo_optimize_label = attributes.fdo_optimize_label(),
+        fdo_prefetch_provider = attributes.fdo_prefetch_provider,
+        propeller_optimize_provider = attributes.propeller_optimize_provider,
+        mem_prof_profile_provider = attributes.mem_prof_profile_provider,
+        fdo_optimize_provider = attributes.fdo_optimize_provider,
+        fdo_profile_provider = attributes.fdo_profile_provider,
+        x_fdo_profile_provider = attributes.x_fdo_profile_provider,
+        cs_fdo_profile_provider = attributes.cs_fdo_profile_provider,
+        all_files = attributes.all_files,
+        zipper = attributes.zipper,
+        cc_toolchain_config_info = attributes.cc_toolchain_config_info,
+        fdo_optimize_artifacts = attributes.fdo_optimize_artifacts,
+        fdo_optimize_label = attributes.fdo_optimize_label,
     )
     if fdo_context == None:
         return None
-    runtime_solib_dir_base = attributes.runtime_solib_dir_base()
+    runtime_solib_dir_base = attributes.runtime_solib_dir_base
     runtime_solib_dir = paths.get_relative(ctx.bin_dir.path, runtime_solib_dir_base)
     solib_directory = "_solib_" + toolchain_config_info.target_cpu()
     default_sysroot = None
     if toolchain_config_info.builtin_sysroot() != "":
         default_sysroot = toolchain_config_info.builtin_sysroot()
-    if attributes.libc_top_label() == None:
+    if attributes.libc_top_label == None:
         sysroot = default_sysroot
     else:
-        sysroot = attributes.libc_top_label().package
+        sysroot = attributes.libc_top_label.package
 
-    static_runtime_lib = attributes.static_runtime_lib()
+    static_runtime_lib = attributes.static_runtime_lib
     if static_runtime_lib != None:
         static_runtime_link_inputs = static_runtime_lib[DefaultInfo].files
     else:
         static_runtime_link_inputs = None
 
-    dynamic_runtime_lib = attributes.dynamic_runtime_lib()
+    dynamic_runtime_lib = attributes.dynamic_runtime_lib
     if dynamic_runtime_lib != None:
         dynamic_runtime_link_symlinks_elems = []
         for artifact in dynamic_runtime_lib[DefaultInfo].files.to_list():
@@ -229,8 +229,8 @@ def get_cc_toolchain_provider(ctx, attributes, xcode_config_info):
         dynamic_runtime_link_symlinks = None
 
     module_map = None
-    if attributes.module_map() != None and attributes.module_map_artifact() != None:
-        module_map = cc_common.create_module_map(file = attributes.module_map_artifact(), name = "crosstool")
+    if attributes.module_map != None and attributes.module_map_artifact != None:
+        module_map = cc_common.create_module_map(file = attributes.module_map_artifact, name = "crosstool")
 
     cc_compilation_context = cc_common.create_compilation_context(module_map = module_map)
 
@@ -254,12 +254,11 @@ def get_cc_toolchain_provider(ctx, attributes, xcode_config_info):
         cpp_config = ctx.fragments.cpp,
         toolchain_features = toolchain_features,
         tools_directory = tools_directory,
-        attributes = attributes,
         static_runtime_link_inputs = static_runtime_link_inputs,
         dynamic_runtime_link_symlinks = dynamic_runtime_link_symlinks,
         runtime_solib_dir = runtime_solib_dir,
         cc_compilation_context = cc_compilation_context,
-        builtin_include_files = _builtin_includes(attributes.libc()),
+        builtin_include_files = _builtin_includes(attributes.libc),
         builtin_include_directories = builtin_include_directories,
         sysroot = sysroot,
         fdo_context = fdo_context,
@@ -286,4 +285,23 @@ def get_cc_toolchain_provider(ctx, attributes, xcode_config_info):
         gcov = tool_paths.get("gcov", ""),
         vars = build_vars,
         xcode_config_info = xcode_config_info,
+        all_files = attributes.all_files,
+        all_files_including_libc = attributes.all_files_including_libc,
+        compiler_files = attributes.compiler_files,
+        compiler_files_without_includes = attributes.compiler_files_without_includes,
+        strip_files = attributes.strip_files,
+        objcopy_files = attributes.objcopy_files,
+        as_files = attributes.as_files,
+        ar_files = attributes.ar_files,
+        linker_files = attributes.linker_files,
+        if_so_builder = attributes.if_so_builder,
+        dwp_files = attributes.dwp_files,
+        coverage_files = attributes.coverage_files,
+        supports_param_files = attributes.supports_param_files,
+        supports_header_parsing = attributes.supports_header_parsing,
+        link_dynamic_library_tool = attributes.link_dynamic_library_tool,
+        grep_includes = attributes.grep_includes,
+        licenses_provider = attributes.licenses_provider,
+        allowlist_for_layering_check = attributes.allowlist_for_layering_check,
+        build_info_files = attributes.build_info_files,
     )

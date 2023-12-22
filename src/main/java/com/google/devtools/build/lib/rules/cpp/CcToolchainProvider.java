@@ -56,16 +56,15 @@ import net.starlark.java.eval.StarlarkThread;
 @Immutable
 public final class CcToolchainProvider extends NativeInfo
     implements CcToolchainProviderApi<
-            FeatureConfigurationForStarlark,
-            BranchFdoProfile,
-            FdoContext,
-            ConstraintValueInfo,
-            StarlarkRuleContext,
-            InvalidConfigurationException,
-            CppConfiguration,
-            CcToolchainVariables,
-            OutputGroupInfo>,
-        HasCcToolchainLabel {
+        FeatureConfigurationForStarlark,
+        BranchFdoProfile,
+        FdoContext,
+        ConstraintValueInfo,
+        StarlarkRuleContext,
+        InvalidConfigurationException,
+        CppConfiguration,
+        CcToolchainVariables,
+        OutputGroupInfo> {
 
   public static final BuiltinProvider<CcToolchainProvider> PROVIDER =
       new BuiltinProvider<CcToolchainProvider>("CcToolchainInfo", CcToolchainProvider.class) {};
@@ -622,7 +621,6 @@ public final class CcToolchainProvider extends NativeInfo
     return toolchainFeatures;
   }
 
-  @Override
   public Label getCcToolchainLabel() {
     return ccToolchainLabel;
   }
