@@ -13,12 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
+import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.CommandLineItem;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileType;
@@ -835,23 +835,22 @@ public abstract class PathFragment
   }
 
   @SuppressWarnings("unused") // found by CLASSPATH-scanning magic
-  private static class Codec implements ObjectCodec<PathFragment> {
+  private static class Codec extends LeafObjectCodec<PathFragment> {
     @Override
     public Class<PathFragment> getEncodedClass() {
       return PathFragment.class;
     }
 
     @Override
-    public void serialize(
-        SerializationContext context, PathFragment obj, CodedOutputStream codedOut)
+    public void serialize(PathFragment obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
-      context.serialize(obj.normalizedPath, codedOut);
+      stringCodec().serialize(obj.normalizedPath, codedOut);
     }
 
     @Override
-    public PathFragment deserialize(DeserializationContext context, CodedInputStream codedIn)
+    public PathFragment deserialize(CodedInputStream codedIn)
         throws SerializationException, IOException {
-      return createAlreadyNormalized(context.deserialize(codedIn));
+      return createAlreadyNormalized(stringCodec().deserialize(codedIn));
     }
   }
 }
