@@ -62,6 +62,7 @@ public class AutoRegistry {
           "com.google.common.base.Predicates$InPredicate",
           // Implementation class for com.google.common.base.Optional.
           "com.google.common.base.Present",
+          "com.google.common.collect.ImmutableEntry",
           // Sadly, these builders are serialized as part of StarlarkCustomCommandLine$Builder,
           // which apparently can be preserved through analysis. We may investigate if this actually
           // has performance/correctness implications.
@@ -70,6 +71,8 @@ public class AutoRegistry {
           "java.util.concurrent.atomic.AtomicReferenceArray",
           // These list types are internal to the Java Collections API but persisted in Skyframe.
           "java.util.Arrays$ArrayList",
+          "java.util.AbstractMap$SimpleEntry",
+          "java.util.AbstractMap$SimpleImmutableEntry",
           "java.util.Collections$SingletonList",
           "java.util.Collections$UnmodifiableList",
           "java.util.Collections$UnmodifiableRandomAccessList",
