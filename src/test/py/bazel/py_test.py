@@ -46,6 +46,9 @@ class PyTest(test_base.TestBase):
         ])
 
   def testSmoke(self):
+    if test_base.TestBase.IsDarwin():
+      # Re-enable after fixing https://github.com/bazelbuild/bazel/issues/20660
+      return
     self.createSimpleFiles()
     exit_code, stdout, stderr = self.RunBazel(['run', '//a:a'])
     self.AssertExitCode(exit_code, 0, stderr)
