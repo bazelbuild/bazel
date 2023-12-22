@@ -37,12 +37,9 @@ import javax.annotation.Nullable;
  *
  * <p>{@link ArtifactNestedSetFunction} then evaluates the {@link ArtifactNestedSetKey} by:
  *
- * <p>- Evaluating the directs elements as Artifacts. Commit the result into
- * artifactSkyKeyToSkyValue.
+ * <p>- Evaluating the directs elements as Artifacts.
  *
  * <p>- Evaluating the transitive elements as {@link ArtifactNestedSetKey}s.
- *
- * <p>ActionExecutionFunction can then access this map to get the Artifacts' values.
  *
  * <p>[1] Heuristic: If the size of the NestedSet exceeds a certain threshold, we evaluate it as an
  * ArtifactNestedSetKey.
@@ -73,8 +70,6 @@ final class ArtifactNestedSetFunction implements SkyFunction {
     ArtifactNestedSetValue result = ArtifactNestedSetValue.ALL_PRESENT;
 
     // Throw a SkyFunctionException when a dep evaluation results in an exception.
-    // Only non-null values should be committed to
-    // ArtifactNestedSetFunction#artifacSkyKeyToSkyValue.
     for (SkyKey key : depKeys) {
       try {
         // Trigger the exception, if any.
