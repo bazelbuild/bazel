@@ -23,6 +23,7 @@ load("//src/main/res:winsdk_configure.bzl", "winsdk_configure")
 load("//src/test/shell/bazel:list_source_repository.bzl", "list_source_repository")
 load("//src/tools/bzlmod:utils.bzl", "parse_bazel_module_repos")
 load("//tools/distributions/debian:deps.bzl", "debian_deps")
+load("@rules_java//toolchains:remote_java_repository.bzl", "remote_java_repository")
 
 ### Dependencies for building Bazel
 def _bazel_build_deps(_ctx):
@@ -41,6 +42,20 @@ def _bazel_test_deps(_ctx):
     bazelci_rules_repo()
     list_source_repository(name = "local_bazel_source_list")
     winsdk_configure(name = "local_config_winsdk")
+    remote_java_repository(
+        name = "remote_jdk8_linux",
+        sha256 = "1db6b2fa642950ee1b4b1ec2b6bc8a9113d7a4cd723f79398e1ada7dab1c981c",
+        strip_prefix = "zulu8.50.0.51-ca-jdk8.0.275-linux_x64",
+        target_compatible_with = [
+            "@platforms//os:linux",
+            "@platforms//cpu:x86_64",
+        ],
+        urls = [
+            "https://mirror.bazel.build/openjdk/azul-zulu-8.50.0.51-ca-jdk8.0.275/zulu8.50.0.51-ca-jdk8.0.275-linux_x64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu8.50.0.51-ca-jdk8.0.275-linux_x64.tar.gz",
+        ],
+        version = "8",
+    )
 
 bazel_test_deps = module_extension(implementation = _bazel_test_deps)
 
