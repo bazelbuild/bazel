@@ -1,0 +1,56 @@
+name: Update Lockfile
+
+on:
+  pull_request:
+    types:
+      - labeled
+
+env:
+  GH_TOKEN: ${{ secrets.BAZEL_IO_TOKEN }}
+
+jobs:
+  update-lockfile:
+    runs-on: ubuntu-latest
+    if: contains(github.event.label.name, 'updatelock')
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+      # - name: Mount bazel cache
+      #   uses: actions/cache@v1
+      #   with:
+      #     path: "/home/runner/.cache/bazel"
+      #     key: bazel
+      - name: Install bazelisk
+        run: |
+          curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64"
+          mkdir -p "${GITHUB_WORKSPACE}/bin/"
+          mv bazelisk-linux-amd64 "${GITHUB_WORKSPACE}/bin/bazel"
+          chmod +x "${GITHUB_WORKSPACE}/bin/bazel"
+      # - name: Update Lockfile
+      #   run: |
+      # subprocess.run(['git', 'clone', f"https://{user_name}:{token}@github.com/{gh_cli_repo_name}.git"])
+      # cat MODULE.bazel.lock
+      # "${GITHUB_WORKSPACE}/bin/bazel" run //src/test/tools/bzlmod:update_default_lock_file
+      # "${GITHUB_WORKSPACE}/bin/bazel" mod deps --lockfile_mode=update
+      # echo hello world!
+      # git clone https://iancha1992:$GH_TOKEN@github.com/{gh_cli_repo_name}.git
+      # git branch
+      # git status
+      # git diff
+      # pwd
+      # ls
+      # # git config --global user.name iancha1992
+      # # git config --global user.email heec@google.com
+      # git add .
+      # git commit -m "Updated the MODULE.bazel.lock"
+      # git push origin HEAD:pull/404/merge
+      # cat MODULE.bazel.lock
+      - if: startsWith(github.event.issue.body, 'Forked from')
+        name: Run cherrypicker on comment
+        uses: iancha1992/continuous-integration/actions/lockfile-test
+        # with:
+        #   triggered-on: commented
+        #   pr-number: ${{ github.event.issue.body }}
+        #   milestone-title: ${{ github.event.milestone.title }}
+        #   milestoned-issue-number: ${{ github.event.issue.number }}
+        #   is-prod: True
