@@ -1,0 +1,27 @@
+name: Update Lockfile
+
+on:
+  pull_request:
+    types:
+      - labeled
+
+env:
+  GH_TOKEN: ${{ secrets.BAZEL_IO_TOKEN }}
+
+jobs:
+  update-lockfile:
+    runs-on: ubuntu-latest
+    if: contains(github.event.label.name, 'updatelock')
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+      - name: Install bazelisk
+        run: |
+          curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64"
+          mkdir -p "${GITHUB_WORKSPACE}/bin/"
+          mv bazelisk-linux-amd64 "${GITHUB_WORKSPACE}/bin/bazel"
+          chmod +x "${GITHUB_WORKSPACE}/bin/bazel"
+      - name: Run cherrypicker on comment
+        uses: iancha1992/continuous-integration/actions/lockfile-test
+        with:
+          github-dir: ${{ GITHUB_WORKSPACE }}/bin/bazel
