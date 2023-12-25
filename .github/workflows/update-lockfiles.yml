@@ -45,8 +45,7 @@ jobs:
       # git commit -m "Updated the MODULE.bazel.lock"
       # git push origin HEAD:pull/404/merge
       # cat MODULE.bazel.lock
-      - if: startsWith(github.event.issue.body, 'Forked from')
-        name: Run cherrypicker on comment
+      - name: Run cherrypicker on comment
         uses: iancha1992/continuous-integration/actions/lockfile-test
         # with:
         #   triggered-on: commented
