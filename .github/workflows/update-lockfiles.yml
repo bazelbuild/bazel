@@ -9,7 +9,7 @@ on:
 
 env:
   GH_TOKEN: ${{ secrets.BAZEL_IO_TOKEN }}
-  GITHUB_WORKSPACE: ${{ GITHUB_WORKSPACE }}
+  # GITHUB_WORKSPACE: ${{ GITHUB_WORKSPACE }}
 
 jobs:
   update-lockfile:
