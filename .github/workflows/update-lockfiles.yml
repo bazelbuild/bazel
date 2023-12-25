@@ -26,4 +26,4 @@ jobs:
       - name: Update lockfile
         uses: iancha1992/continuous-integration/actions/lockfile-test@lockfile-test
         with:
-          github-dir: ${{ GITHUB_WORKSPACE }}/bin/bazel
+          github-dir: "${GITHUB_WORKSPACE}/bin/bazel"
