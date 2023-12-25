@@ -283,7 +283,7 @@ domain socket:
 
 ```posix-terminal
    build --remote_cache=http://{{ '<var>' }}your.host:port{{ '</var>' }}
-   build --remote_cache_proxy=unix:/{{ '<var>' }}path/to/socket{{ '</var>' }}
+   build --remote_proxy=unix:/{{ '<var>' }}path/to/socket{{ '</var>' }}
 ```
 
 This feature is unsupported on Windows.
