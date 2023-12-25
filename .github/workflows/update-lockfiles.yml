@@ -4,9 +4,12 @@ on:
   pull_request:
     types:
       - labeled
+    branches:
+      - lockfile_testing
 
 env:
   GH_TOKEN: ${{ secrets.BAZEL_IO_TOKEN }}
+  GITHUB_WORKSPACE: ${{ GITHUB_WORKSPACE }}
 
 jobs:
   update-lockfile:
@@ -21,7 +24,7 @@ jobs:
           mkdir -p "${GITHUB_WORKSPACE}/bin/"
           mv bazelisk-linux-amd64 "${GITHUB_WORKSPACE}/bin/bazel"
           chmod +x "${GITHUB_WORKSPACE}/bin/bazel"
-      - name: Run cherrypicker on comment
-        uses: iancha1992/continuous-integration/actions/lockfile-test
-        with:
-          github-dir: ${{ GITHUB_WORKSPACE }}/bin/bazel
+      - name: Update lockfile
+        uses: iancha1992/continuous-integration/actions/lockfile-test@lockfile-test
+        # with:
+        #   github-dir: "${GITHUB_WORKSPACE}/bin/bazel"
