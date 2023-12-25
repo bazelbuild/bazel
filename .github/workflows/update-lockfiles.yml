@@ -23,7 +23,7 @@ jobs:
           mkdir -p "${GITHUB_WORKSPACE}/bin/"
           mv bazelisk-linux-amd64 "${GITHUB_WORKSPACE}/bin/bazel"
           chmod +x "${GITHUB_WORKSPACE}/bin/bazel"
-      - name: Run cherrypicker on comment
-        uses: iancha1992/continuous-integration/actions/lockfile-test
+      - name: Update lockfile
+        uses: iancha1992/continuous-integration/actions/lockfile-test@lockfile-test
         with:
           github-dir: ${{ GITHUB_WORKSPACE }}/bin/bazel
