@@ -47,7 +47,8 @@ jobs:
       # cat MODULE.bazel.lock
       - name: Run cherrypicker on comment
         uses: iancha1992/continuous-integration/actions/lockfile-test
-        # with:
+        with:
+          github-dir: ${{ GITHUB_WORKSPACE }}/bin/bazel
         #   triggered-on: commented
         #   pr-number: ${{ github.event.issue.body }}
         #   milestone-title: ${{ github.event.milestone.title }}
