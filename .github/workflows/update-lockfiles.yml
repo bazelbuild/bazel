@@ -4,6 +4,8 @@ on:
   pull_request:
     types:
       - labeled
+    branches:
+      - lockfile_testing
 
 env:
   GH_TOKEN: ${{ secrets.BAZEL_IO_TOKEN }}
