@@ -137,6 +137,7 @@ java_library(
         ":ignored_package_prefixes_function",
         ":ignored_package_prefixes_value",
         ":incremental_artifact_conflict_finder",
+        ":invalid_glob_pattern_exception",
         ":loading_phase_started_event",
         ":local_repository_lookup_value",
         ":map_as_package_roots",
@@ -1420,6 +1421,18 @@ java_library(
 )
 
 java_library(
+    name = "glob_exception",
+    srcs = ["GlobException.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/io:file_symlink_infinite_expansion_exception",
+        "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
+        "//src/main/java/com/google/devtools/build/lib/packages/producers",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "glob_function",
     srcs = [
         "GlobFunction.java",
@@ -1429,6 +1442,7 @@ java_library(
     deps = [
         ":directory_listing_value",
         ":glob_descriptor",
+        ":glob_exception",
         ":glob_value",
         ":ignored_package_prefixes_value",
         ":package_lookup_value",
@@ -1458,6 +1472,7 @@ java_library(
     ],
     deps = [
         ":glob_descriptor",
+        ":invalid_glob_pattern_exception",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
@@ -1525,6 +1540,14 @@ java_library(
     deps = [
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "invalid_glob_pattern_exception",
+    srcs = ["InvalidGlobPatternException.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
     ],
 )
 

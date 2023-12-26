@@ -71,22 +71,4 @@ public abstract class GlobValue implements SkyValue {
       Globber.Operation globOperation) {
     return GlobDescriptor.create(packageId, packageRoot, subdir, pattern, globOperation);
   }
-
-  /**
-   * An exception that indicates that a glob pattern is syntactically invalid.
-   */
-  @ThreadSafe
-  public static final class InvalidGlobPatternException extends Exception {
-    private final String pattern;
-
-    InvalidGlobPatternException(String pattern, String error) {
-      super(error);
-      this.pattern = pattern;
-    }
-
-    @Override
-    public String toString() {
-      return String.format("invalid glob pattern '%s': %s", pattern, getMessage());
-    }
-  }
 }

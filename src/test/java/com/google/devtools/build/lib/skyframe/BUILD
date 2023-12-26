@@ -232,6 +232,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:ignored_package_prefixes_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:incompatible_view_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:incremental_artifact_conflict_finder",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:invalid_glob_pattern_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:local_repository_lookup_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:metadata_consumer_for_metrics",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_error_message_value",

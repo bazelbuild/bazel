@@ -49,7 +49,7 @@ public final class GlobFunctionWithMultipleRecursiveFunctions extends GlobFuncti
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
-      throws GlobFunctionException, InterruptedException {
+      throws GlobException, InterruptedException {
     GlobDescriptor glob = (GlobDescriptor) skyKey.argument();
     Globber.Operation globberOperation = glob.globberOperation();
 
@@ -245,7 +245,7 @@ public final class GlobFunctionWithMultipleRecursiveFunctions extends GlobFuncti
             return null;
           }
           if (!symlinkFileValue.isSymlink()) {
-            throw new GlobFunctionException(
+            throw new GlobException(
                 new InconsistentFilesystemException(
                     "readdir and stat disagree about whether "
                         + ((RootedPath) subdirAndSymlinksKey.argument()).asPath()
@@ -274,7 +274,7 @@ public final class GlobFunctionWithMultipleRecursiveFunctions extends GlobFuncti
                 new FileSymlinkInfiniteExpansionException(
                     symlinkFileValue.pathToUnboundedAncestorSymlinkExpansionChain(),
                     symlinkFileValue.unboundedAncestorSymlinkExpansionChain());
-            throw new GlobFunctionException(symlinkException, Transience.PERSISTENT);
+            throw new GlobException(symlinkException, Transience.PERSISTENT);
           }
 
           Dirent dirent = symlinkFileMap.get(subdirAndSymlinksKey);

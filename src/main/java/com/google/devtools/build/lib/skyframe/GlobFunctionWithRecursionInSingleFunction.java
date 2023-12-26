@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.packages.producers.GlobComputationProducer;
 import com.google.devtools.build.lib.packages.producers.GlobError;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
-import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.Driver;
@@ -74,7 +73,7 @@ public class GlobFunctionWithRecursionInSingleFunction extends GlobFunction {
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
-      throws GlobFunctionException, InterruptedException {
+      throws GlobException, InterruptedException {
     GlobDescriptor glob = (GlobDescriptor) skyKey.argument();
     State state = env.getState(State::new);
 
@@ -85,29 +84,12 @@ public class GlobFunctionWithRecursionInSingleFunction extends GlobFunction {
 
     if (!state.globComputationDriver.drive(env)) {
       // Even though glob computation has not completed, we still want to throw exceptions
-      // discovered in the current skyframe session.
-      handleExceptions(state);
+      // discovered in the current Skyframe session.
+      GlobException.handleExceptions(state.error);
       return null;
     }
 
-    handleExceptions(state);
+    GlobException.handleExceptions(state.error);
     return new GlobValueWithImmutableSet(state.globMatchingResult);
-  }
-
-  /**
-   * If any exception are caught and stored in {@link State}, wrap it inside a {@link
-   * GlobFunctionException} and throw.
-   */
-  void handleExceptions(State state) throws GlobFunctionException {
-    if (state.error == null) {
-      return;
-    }
-    switch (state.error.kind()) {
-      case INCONSISTENT_FILESYSTEM:
-        throw new GlobFunctionException(state.error.inconsistentFilesystem(), Transience.TRANSIENT);
-      case FILE_SYMLINK_INFINITE_EXPANSION:
-        throw new GlobFunctionException(
-            state.error.fileSymlinkInfiniteExpansion(), Transience.PERSISTENT);
-    }
   }
 }
