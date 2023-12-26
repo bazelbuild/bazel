@@ -22,7 +22,10 @@ genrule(
         ":generate_bash_completion.sh",
         "//src:bazel",
     ],
-    visibility = ["//scripts/packages:__subpackages__"],
+    visibility = [
+        "//scripts/packages:__subpackages__",
+        "//src/test/py/bazel:__pkg__",
+    ],
 )
 
 sh_test(
