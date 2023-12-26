@@ -23,12 +23,15 @@ import java.io.IOException;
 public class HashCodeCodec extends LeafObjectCodec<HashCode> {
 
   @Override
-  public void serialize(HashCode obj, CodedOutputStream codedOut) throws IOException {
+  public void serialize(
+      SerializationDependencyProvider dependencies, HashCode obj, CodedOutputStream codedOut)
+      throws IOException {
     codedOut.writeByteArrayNoTag(obj.asBytes());
   }
 
   @Override
-  public HashCode deserialize(CodedInputStream codedIn) throws IOException {
+  public HashCode deserialize(
+      SerializationDependencyProvider dependencies, CodedInputStream codedIn) throws IOException {
     return HashCode.fromBytes(codedIn.readByteArray());
   }
 

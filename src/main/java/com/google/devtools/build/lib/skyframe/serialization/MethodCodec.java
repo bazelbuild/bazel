@@ -32,25 +32,27 @@ class MethodCodec extends LeafObjectCodec<Method> {
   }
 
   @Override
-  public void serialize(Method obj, CodedOutputStream codedOut)
+  public void serialize(
+      SerializationDependencyProvider dependencies, Method obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
-    CLASS_CODEC.serialize(obj.getDeclaringClass(), codedOut);
-    stringCodec().serialize(obj.getName(), codedOut);
+    CLASS_CODEC.serialize(dependencies, obj.getDeclaringClass(), codedOut);
+    stringCodec().serialize(dependencies, obj.getName(), codedOut);
     Class<?>[] parameterTypes = obj.getParameterTypes();
     codedOut.writeInt32NoTag(parameterTypes.length);
     for (Class<?> parameter : parameterTypes) {
-      CLASS_CODEC.serialize(parameter, codedOut);
+      CLASS_CODEC.serialize(dependencies, parameter, codedOut);
     }
   }
 
   @Override
-  public Method deserialize(CodedInputStream codedIn) throws SerializationException, IOException {
-    Class<?> clazz = CLASS_CODEC.deserialize(codedIn);
-    String name = stringCodec().deserialize(codedIn);
+  public Method deserialize(SerializationDependencyProvider dependencies, CodedInputStream codedIn)
+      throws SerializationException, IOException {
+    Class<?> clazz = CLASS_CODEC.deserialize(dependencies, codedIn);
+    String name = stringCodec().deserialize(dependencies, codedIn);
 
     Class<?>[] parameters = new Class<?>[codedIn.readInt32()];
     for (int i = 0; i < parameters.length; i++) {
-      parameters[i] = CLASS_CODEC.deserialize(codedIn);
+      parameters[i] = CLASS_CODEC.deserialize(dependencies, codedIn);
     }
     try {
       return clazz.getDeclaredMethod(name, parameters);

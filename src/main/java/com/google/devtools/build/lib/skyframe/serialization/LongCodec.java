@@ -27,12 +27,15 @@ class LongCodec extends LeafObjectCodec<Long> {
   }
 
   @Override
-  public void serialize(Long value, CodedOutputStream codedOut) throws IOException {
+  public void serialize(
+      SerializationDependencyProvider dependencies, Long value, CodedOutputStream codedOut)
+      throws IOException {
     codedOut.writeInt64NoTag(value);
   }
 
   @Override
-  public Long deserialize(CodedInputStream codedIn) throws IOException {
+  public Long deserialize(SerializationDependencyProvider dependencies, CodedInputStream codedIn)
+      throws IOException {
     return codedIn.readInt64();
   }
 }

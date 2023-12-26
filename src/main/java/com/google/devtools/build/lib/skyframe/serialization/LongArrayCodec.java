@@ -25,7 +25,9 @@ class LongArrayCodec extends LeafObjectCodec<long[]> {
   }
 
   @Override
-  public void serialize(long[] obj, CodedOutputStream codedOut) throws IOException {
+  public void serialize(
+      SerializationDependencyProvider dependencies, long[] obj, CodedOutputStream codedOut)
+      throws IOException {
     codedOut.writeInt32NoTag(obj.length);
     for (long l : obj) {
       codedOut.writeInt64NoTag(l);
@@ -33,7 +35,8 @@ class LongArrayCodec extends LeafObjectCodec<long[]> {
   }
 
   @Override
-  public long[] deserialize(CodedInputStream codedIn) throws IOException {
+  public long[] deserialize(SerializationDependencyProvider dependencies, CodedInputStream codedIn)
+      throws IOException {
     long[] result = new long[codedIn.readInt32()];
     for (int i = 0; i < result.length; i++) {
       result[i] = codedIn.readInt64();

@@ -27,12 +27,15 @@ class IntegerCodec extends LeafObjectCodec<Integer> {
   }
 
   @Override
-  public void serialize(Integer value, CodedOutputStream codedOut) throws IOException {
+  public void serialize(
+      SerializationDependencyProvider dependencies, Integer value, CodedOutputStream codedOut)
+      throws IOException {
     codedOut.writeInt32NoTag(value);
   }
 
   @Override
-  public Integer deserialize(CodedInputStream codedIn) throws IOException {
+  public Integer deserialize(SerializationDependencyProvider dependencies, CodedInputStream codedIn)
+      throws IOException {
     return codedIn.readInt32();
   }
 }

@@ -26,26 +26,28 @@ public abstract class LeafObjectCodec<T> implements ObjectCodec<T> {
   @Override
   public final void serialize(SerializationContext context, T obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
-    serialize(obj, codedOut);
+    serialize((SerializationDependencyProvider) context, obj, codedOut);
   }
 
   /**
-   * This has the same contract as {@link #serialize}, but never uses the {@link
-   * SerializationContext}.
+   * This has the same contract as {@link #serialize}, but may only depend on {@link
+   * SerializationDependencyProvider} instead of the full {@link SerializationContext}.
    */
-  public abstract void serialize(T obj, CodedOutputStream codedOut)
+  public abstract void serialize(
+      SerializationDependencyProvider dependencies, T obj, CodedOutputStream codedOut)
       throws SerializationException, IOException;
 
   @Override
   public final T deserialize(DeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
-    return deserialize(codedIn);
+    return deserialize((SerializationDependencyProvider) context, codedIn);
   }
 
   /**
-   * This has the same contract as {@link #deserialize}, but never uses the {@link
-   * DeserializationContext}.
+   * This has the same contract as {@link #deserialize}, but may only depend on {@link
+   * SerializationDependencyProvider} instead of the full {@link DeserializationContext}.
    */
-  public abstract T deserialize(CodedInputStream codedIn)
+  public abstract T deserialize(
+      SerializationDependencyProvider dependencies, CodedInputStream codedIn)
       throws SerializationException, IOException;
 }

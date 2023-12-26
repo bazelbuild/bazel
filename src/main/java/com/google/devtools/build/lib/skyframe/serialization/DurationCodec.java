@@ -22,13 +22,16 @@ import java.time.Duration;
 /** Encodes a Duration. */
 public class DurationCodec extends LeafObjectCodec<Duration> {
   @Override
-  public void serialize(Duration obj, CodedOutputStream codedOut) throws IOException {
+  public void serialize(
+      SerializationDependencyProvider dependencies, Duration obj, CodedOutputStream codedOut)
+      throws IOException {
     codedOut.writeInt64NoTag(obj.getSeconds());
     codedOut.writeInt32NoTag(obj.getNano());
   }
 
   @Override
-  public Duration deserialize(CodedInputStream codedIn) throws IOException {
+  public Duration deserialize(
+      SerializationDependencyProvider dependencies, CodedInputStream codedIn) throws IOException {
     return Duration.ofSeconds(codedIn.readInt64(), codedIn.readInt32());
   }
 

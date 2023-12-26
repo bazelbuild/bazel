@@ -28,12 +28,15 @@ public class ByteStringCodec extends LeafObjectCodec<ByteString> {
   }
 
   @Override
-  public void serialize(ByteString obj, CodedOutputStream codedOut) throws IOException {
+  public void serialize(
+      SerializationDependencyProvider dependencies, ByteString obj, CodedOutputStream codedOut)
+      throws IOException {
     codedOut.writeBytesNoTag(obj);
   }
 
   @Override
-  public ByteString deserialize(CodedInputStream codedIn) throws IOException {
+  public ByteString deserialize(
+      SerializationDependencyProvider dependencies, CodedInputStream codedIn) throws IOException {
     return codedIn.readBytes();
   }
 }

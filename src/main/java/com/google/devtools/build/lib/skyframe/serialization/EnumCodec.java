@@ -41,13 +41,16 @@ public class EnumCodec<T extends Enum<T>> extends LeafObjectCodec<T> {
   }
 
   @Override
-  public void serialize(T value, CodedOutputStream codedOut) throws IOException {
+  public void serialize(
+      SerializationDependencyProvider dependencies, T value, CodedOutputStream codedOut)
+      throws IOException {
     Preconditions.checkNotNull(value, "Enum value for %s is null", enumClass);
     codedOut.writeEnumNoTag(value.ordinal());
   }
 
   @Override
-  public T deserialize(CodedInputStream codedIn) throws SerializationException, IOException {
+  public T deserialize(SerializationDependencyProvider dependencies, CodedInputStream codedIn)
+      throws SerializationException, IOException {
     int ordinal = codedIn.readEnum();
     try {
       return values.get(ordinal);

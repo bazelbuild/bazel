@@ -26,12 +26,15 @@ public class DoubleCodec extends LeafObjectCodec<Double> {
   }
 
   @Override
-  public void serialize(Double value, CodedOutputStream codedOut) throws IOException {
+  public void serialize(
+      SerializationDependencyProvider dependencies, Double value, CodedOutputStream codedOut)
+      throws IOException {
     codedOut.writeDoubleNoTag(value);
   }
 
   @Override
-  public Double deserialize(CodedInputStream codedIn) throws IOException {
+  public Double deserialize(SerializationDependencyProvider dependencies, CodedInputStream codedIn)
+      throws IOException {
     return codedIn.readDouble();
   }
 }

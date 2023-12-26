@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileType;
@@ -842,15 +843,17 @@ public abstract class PathFragment
     }
 
     @Override
-    public void serialize(PathFragment obj, CodedOutputStream codedOut)
+    public void serialize(
+        SerializationDependencyProvider dependencies, PathFragment obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
-      stringCodec().serialize(obj.normalizedPath, codedOut);
+      stringCodec().serialize(dependencies, obj.normalizedPath, codedOut);
     }
 
     @Override
-    public PathFragment deserialize(CodedInputStream codedIn)
+    public PathFragment deserialize(
+        SerializationDependencyProvider dependencies, CodedInputStream codedIn)
         throws SerializationException, IOException {
-      return createAlreadyNormalized(stringCodec().deserialize(codedIn));
+      return createAlreadyNormalized(stringCodec().deserialize(dependencies, codedIn));
     }
   }
 }

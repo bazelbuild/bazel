@@ -27,13 +27,16 @@ class UUIDCodec extends LeafObjectCodec<UUID> {
   }
 
   @Override
-  public void serialize(UUID uuid, CodedOutputStream codedOut) throws IOException {
+  public void serialize(
+      SerializationDependencyProvider dependencies, UUID uuid, CodedOutputStream codedOut)
+      throws IOException {
     codedOut.writeInt64NoTag(uuid.getMostSignificantBits());
     codedOut.writeInt64NoTag(uuid.getLeastSignificantBits());
   }
 
   @Override
-  public UUID deserialize(CodedInputStream codedIn) throws SerializationException, IOException {
+  public UUID deserialize(SerializationDependencyProvider dependencies, CodedInputStream codedIn)
+      throws SerializationException, IOException {
     return new UUID(codedIn.readInt64(), codedIn.readInt64());
   }
 }

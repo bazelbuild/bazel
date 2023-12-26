@@ -53,12 +53,15 @@ public class SingletonCodec<T> extends LeafObjectCodec<T> {
   }
 
   @Override
-  public void serialize(T t, CodedOutputStream codedOut) throws IOException {
+  public void serialize(
+      SerializationDependencyProvider dependencies, T t, CodedOutputStream codedOut)
+      throws IOException {
     codedOut.writeByteArrayNoTag(mnemonic);
   }
 
   @Override
-  public T deserialize(CodedInputStream codedIn) throws SerializationException, IOException {
+  public T deserialize(SerializationDependencyProvider dependencies, CodedInputStream codedIn)
+      throws SerializationException, IOException {
     // Get ByteBuffer instead of raw bytes, as it may be a direct view of the data and not a copy,
     // which is much more efficient.
     ByteBuffer readMnemonic = codedIn.readByteBuffer();

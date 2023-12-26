@@ -27,12 +27,15 @@ class BooleanCodec extends LeafObjectCodec<Boolean> {
   }
 
   @Override
-  public void serialize(Boolean value, CodedOutputStream codedOut) throws IOException {
+  public void serialize(
+      SerializationDependencyProvider dependencies, Boolean value, CodedOutputStream codedOut)
+      throws IOException {
     codedOut.writeBoolNoTag(value);
   }
 
   @Override
-  public Boolean deserialize(CodedInputStream codedIn) throws IOException {
+  public Boolean deserialize(SerializationDependencyProvider dependencies, CodedInputStream codedIn)
+      throws IOException {
     return codedIn.readBool();
   }
 }

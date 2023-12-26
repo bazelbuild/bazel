@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization.strings;
 
 import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.protobuf.CodedInputStream;
@@ -58,7 +59,8 @@ public final class UnsafeStringCodec extends LeafObjectCodec<String> {
   }
 
   @Override
-  public void serialize(String obj, CodedOutputStream codedOut)
+  public void serialize(
+      SerializationDependencyProvider dependencies, String obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
     byte coder = stringUnsafe.getCoder(obj);
     byte[] value = stringUnsafe.getByteArray(obj);
@@ -76,7 +78,8 @@ public final class UnsafeStringCodec extends LeafObjectCodec<String> {
   }
 
   @Override
-  public String deserialize(CodedInputStream codedIn) throws SerializationException, IOException {
+  public String deserialize(SerializationDependencyProvider dependencies, CodedInputStream codedIn)
+      throws SerializationException, IOException {
     int length = codedIn.readInt32();
     byte coder;
     if (length >= 0) {
