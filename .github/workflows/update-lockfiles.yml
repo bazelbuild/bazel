@@ -17,12 +17,12 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v2
-      - name: Install bazelisk
-        run: |
-          curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64"
-          mkdir -p "${GITHUB_WORKSPACE}/bin/"
-          mv bazelisk-linux-amd64 "${GITHUB_WORKSPACE}/bin/bazel"
-          chmod +x "${GITHUB_WORKSPACE}/bin/bazel"
+      # - name: Install bazelisk
+      #   run: |
+      #     curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64"
+      #     mkdir -p "${GITHUB_WORKSPACE}/bin/"
+      #     mv bazelisk-linux-amd64 "${GITHUB_WORKSPACE}/bin/bazel"
+      #     chmod +x "${GITHUB_WORKSPACE}/bin/bazel"
       - name: Testing
         run: |
           echo hi testing!
