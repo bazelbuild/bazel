@@ -23,6 +23,11 @@ jobs:
           mkdir -p "${GITHUB_WORKSPACE}/bin/"
           mv bazelisk-linux-amd64 "${GITHUB_WORKSPACE}/bin/bazel"
           chmod +x "${GITHUB_WORKSPACE}/bin/bazel"
+      - name: Testing
+        run: |
+          echo hi testing!
+          pwd
+          ls
       - name: Update lockfile
         uses: iancha1992/continuous-integration/actions/lockfile-test@lockfile-test
         # with:
