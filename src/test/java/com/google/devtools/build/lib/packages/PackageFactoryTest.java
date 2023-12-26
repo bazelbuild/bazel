@@ -727,7 +727,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   @Test
   public void testBadCharacterInGlob() throws Exception {
     reporter.removeHandler(failFastHandler);
-    assertGlobFails("glob(['?'])", "Error in glob: wildcard ? forbidden");
+    assertGlobFails("glob(['?'])", "Error in glob: invalid glob pattern '?': wildcard ? forbidden");
   }
 
   @Test

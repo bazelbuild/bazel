@@ -26,7 +26,7 @@ public final class InvalidGlobPatternException extends Exception {
   }
 
   @Override
-  public String toString() {
-    return String.format("invalid glob pattern '%s': %s", pattern, getMessage());
+  public String getMessage() {
+    return String.format("invalid glob pattern '%s': %s", pattern, super.getMessage());
   }
 }
