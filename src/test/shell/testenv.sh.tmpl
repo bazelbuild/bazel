@@ -285,6 +285,9 @@ build --incompatible_use_toolchain_resolution_for_java_rules
 # Enable Bzlmod in all shell integration tests
 common --enable_bzlmod
 
+# Verify compatibility before the flip (https://github.com/bazelbuild/bazel/issues/12821)
+common --nolegacy_external_runfiles
+
 ${EXTRA_BAZELRC:-}
 EOF
 

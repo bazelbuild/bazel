@@ -371,9 +371,8 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
             .map(PathFragment::getPathString)
             .collect(toImmutableList());
     assertThat(runfilesPaths)
-        .containsExactly(
+        .containsAtLeast(
             "aaa~1.0/aaa",
-            getRuleClassProvider().getRunfilesPrefix() + "/external/aaa~1.0/aaa",
             getRuleClassProvider().getRunfilesPrefix() + "/path/to/pkg/symlink",
             "symlinks~1.0/path/to/pkg/root_symlink",
             "_repo_mapping");

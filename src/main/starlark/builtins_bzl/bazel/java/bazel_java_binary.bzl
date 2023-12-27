@@ -251,8 +251,7 @@ def _create_windows_exe_launcher(ctx, java_executable, classpath, main_class, jv
     launch_info.add(main_class, format = "java_start_class=%s")
     launch_info.add_joined(classpath, map_each = _short_path, join_with = ";", format_joined = "classpath=%s", omit_if_empty = False)
     launch_info.add_joined(jvm_flags_for_launcher, join_with = "\t", format_joined = "jvm_flags=%s", omit_if_empty = False)
-    jar_bin_path = semantics.find_java_runtime_toolchain(ctx).java_home + "/bin/jar.exe"
-    launch_info.add(jar_bin_path, format = "jar_bin_path=%s")
+    launch_info.add(semantics.find_java_runtime_toolchain(ctx).java_home_runfiles_path, format = "jar_bin_path=%s/bin/jar.exe")
 
     # TODO(b/295221112): Change to use the "launcher" attribute (only windows use a fixed _launcher attribute)
     launcher_artifact = ctx.executable._launcher
