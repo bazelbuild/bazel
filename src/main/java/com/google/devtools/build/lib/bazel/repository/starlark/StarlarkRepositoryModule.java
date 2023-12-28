@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
@@ -244,18 +243,17 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       String ruleClassName = getRuleClassName();
       try {
         RuleClass ruleClass = builder.build(ruleClassName, ruleClassName);
-        PackageContext context = PackageFactory.getContext(thread);
-        Package.Builder packageBuilder = context.getBuilder();
+        Package.Builder pkgBuilder = PackageFactory.getContext(thread);
 
         // TODO(adonovan): is this cast safe? Check.
         String name = (String) kwargs.get("name");
         if (name == null) {
           throw Starlark.errorf("argument 'name' is required");
         }
-        WorkspaceFactoryHelper.addMainRepoEntry(packageBuilder, name);
-        WorkspaceFactoryHelper.addRepoMappings(packageBuilder, kwargs, name);
+        WorkspaceFactoryHelper.addMainRepoEntry(pkgBuilder, name);
+        WorkspaceFactoryHelper.addRepoMappings(pkgBuilder, kwargs, name);
         return WorkspaceFactoryHelper.createAndAddRepositoryRule(
-            context.getBuilder(),
+            pkgBuilder,
             ruleClass,
             /* bindRuleClass= */ null,
             WorkspaceFactoryHelper.getFinalKwargs(kwargs),

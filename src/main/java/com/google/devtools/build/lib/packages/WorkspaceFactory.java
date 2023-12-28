@@ -120,8 +120,7 @@ public class WorkspaceFactory {
       StarlarkThread thread = new StarlarkThread(mutability, starlarkSemantics);
       thread.setLoader(loadedModules::get);
       thread.setPrintHandler(Event.makeDebugPrintHandler(localReporter));
-      thread.setThreadLocal(
-          PackageFactory.PackageContext.class, new PackageFactory.PackageContext(builder));
+      thread.setThreadLocal(Package.Builder.class, builder);
       builder.setLocalEventHandler(localReporter);
 
       // The workspace environment doesn't need the tools repository or the fragment map
@@ -249,7 +248,7 @@ public class WorkspaceFactory {
           throw new EvalException("unexpected positional arguments");
         }
         try {
-          Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
+          Package.Builder builder = PackageFactory.getContext(thread);
           // TODO(adonovan): this cast doesn't look safe!
           String externalRepoName = (String) kwargs.get("name");
           if (!allowOverride

@@ -208,12 +208,16 @@ public final class PackageFactory {
     return ruleClassProvider;
   }
 
-  /** Get the PackageContext by looking up in the environment. */
-  // TODO(#19922): Eliminate PackageContext and retrieve the Package.Builder directly instead.
-  public static PackageContext getContext(StarlarkThread thread) throws EvalException {
-    PackageContext value = thread.getThreadLocal(PackageContext.class);
+  /**
+   * Retrieves the {@link Package.Builder} from the given {@link StarlarkThread}, or throws {@link
+   * EvalException} if unavailable.
+   */
+  // TODO(#19922): The name is a holdover from when we had PackageContext. Migrate this to a static
+  // fromOrFail method on Package.Builder or a new parent interface of it.
+  public static Package.Builder getContext(StarlarkThread thread) throws EvalException {
+    Package.Builder value = thread.getThreadLocal(Package.Builder.class);
     if (value == null) {
-      // if PackageContext is missing, we're not called from a BUILD file. This happens if someone
+      // if PackageBuilder is missing, we're not called from a BUILD file. This happens if someone
       // uses native.some_func() in the wrong place.
       throw Starlark.errorf(
           "The native module can be accessed only from a BUILD thread. "
@@ -280,31 +284,6 @@ public final class PackageFactory {
             executor,
             maxDirectoriesToEagerlyVisitInGlobbing,
             threadStateReceiverForMetrics));
-  }
-
-  /**
-   * This class holds state associated with the construction of a single package for the duration of
-   * execution of one BUILD file. (We use a PackageContext object in preference to storing these
-   * values in mutable fields of the PackageFactory.)
-   *
-   * <p>PLEASE NOTE: the PackageContext is referred to by the StarlarkThread, but should become
-   * unreachable once the StarlarkThread is discarded at the end of evaluation. Please be aware of
-   * your memory footprint when making changes here!
-   */
-  // TODO(#19922): Merge this into Package.Builder, store the builder directly using
-  // StarlarkThread.setThreadLocal.
-  public static class PackageContext {
-    final Package.Builder pkgBuilder;
-
-    @VisibleForTesting
-    public PackageContext(Package.Builder pkgBuilder) {
-      this.pkgBuilder = pkgBuilder;
-    }
-
-    /** Returns the builder of this Package. */
-    public Package.Builder getBuilder() {
-      return pkgBuilder;
-    }
   }
 
   /**
@@ -423,7 +402,6 @@ public final class PackageFactory {
     pkgBuilder.setLoads(loadedModules.values());
 
     StoredEventHandler eventHandler = new StoredEventHandler();
-    PackageContext pkgContext = new PackageContext(pkgBuilder);
     pkgBuilder.setLocalEventHandler(eventHandler);
 
     try (Mutability mu = Mutability.create("package", pkgBuilder.getFilename())) {
@@ -437,16 +415,14 @@ public final class PackageFactory {
               new SymbolGenerator<>(pkgBuilder.getPackageIdentifier()))
           .storeInThread(thread);
 
-      // TODO(adonovan): save this as a field in BazelStarlarkContext.
-      // It needn't be a second thread-local.
-      thread.setThreadLocal(PackageContext.class, pkgContext);
+      // TODO(#19922): Have Package.Builder inherit from BazelStarlarkContext and only store one
+      // thread-local object.
+      thread.setThreadLocal(Package.Builder.class, pkgBuilder);
 
       // TODO(b/291752414): The rule definition environment shouldn't be needed at BUILD evaluation
       // time EXCEPT for analysis_test, which needs the tools repository for use in
       // StarlarkRuleClassFunctions#createRule. So we set it here as a thread-local to be retrieved
       // by StarlarkTestingModule#analysisTest.
-      // TODO(b/236456122): Though instead of being a separate thread-local, we should stick it and
-      // PackageContext on a new PackageThreadContext object.
       thread.setThreadLocal(RuleDefinitionEnvironment.class, ruleClassProvider);
 
       try {
@@ -456,7 +432,7 @@ public final class PackageFactory {
             Package.error(null, ex.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
         pkgBuilder.setContainsErrors();
       } catch (InterruptedException ex) {
-        if (pkgContext.pkgBuilder.containsErrors()) {
+        if (pkgBuilder.containsErrors()) {
           // Suppress the interrupted exception: we have an error of our own to return.
           Thread.currentThread().interrupt();
           logger.atInfo().withCause(ex).log(
