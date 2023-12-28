@@ -6,7 +6,6 @@ on:
       - labeled
     branches:
       - lockfile_testing
-
 env:
   GH_TOKEN: ${{ secrets.BAZEL_IO_TOKEN }}
   PR_NUMBER: ${{ github.event.number }}
