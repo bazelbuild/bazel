@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import static com.google.devtools.build.lib.skyframe.serialization.ClassCodec.classCodec;
 import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
 
 import com.google.protobuf.CodedInputStream;
@@ -24,8 +25,6 @@ import java.util.Arrays;
 
 /** {@link ObjectCodec} for {@link Method}. */
 class MethodCodec extends LeafObjectCodec<Method> {
-  private static final ClassCodec CLASS_CODEC = new ClassCodec();
-
   @Override
   public Class<Method> getEncodedClass() {
     return Method.class;
@@ -35,24 +34,24 @@ class MethodCodec extends LeafObjectCodec<Method> {
   public void serialize(
       SerializationDependencyProvider dependencies, Method obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
-    CLASS_CODEC.serialize(dependencies, obj.getDeclaringClass(), codedOut);
+    classCodec().serialize(dependencies, obj.getDeclaringClass(), codedOut);
     stringCodec().serialize(dependencies, obj.getName(), codedOut);
     Class<?>[] parameterTypes = obj.getParameterTypes();
     codedOut.writeInt32NoTag(parameterTypes.length);
     for (Class<?> parameter : parameterTypes) {
-      CLASS_CODEC.serialize(dependencies, parameter, codedOut);
+      classCodec().serialize(dependencies, parameter, codedOut);
     }
   }
 
   @Override
   public Method deserialize(SerializationDependencyProvider dependencies, CodedInputStream codedIn)
       throws SerializationException, IOException {
-    Class<?> clazz = CLASS_CODEC.deserialize(dependencies, codedIn);
+    Class<?> clazz = classCodec().deserialize(dependencies, codedIn);
     String name = stringCodec().deserialize(dependencies, codedIn);
 
     Class<?>[] parameters = new Class<?>[codedIn.readInt32()];
     for (int i = 0; i < parameters.length; i++) {
-      parameters[i] = CLASS_CODEC.deserialize(dependencies, codedIn);
+      parameters[i] = classCodec().deserialize(dependencies, codedIn);
     }
     try {
       return clazz.getDeclaredMethod(name, parameters);

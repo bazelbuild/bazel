@@ -70,4 +70,15 @@ public interface AsyncDeserializationContext extends SerializationDependencyProv
    */
   void deserialize(CodedInputStream codedIn, Object obj, long offset)
       throws IOException, SerializationException;
+
+  /**
+   * Similar to the {@code offset} based {@link #deserialize} above, but includes a {@code done}
+   * callback.
+   *
+   * <p>The {@code done} callback is called once the assignment is complete, which is useful for
+   * container codecs that perform reference counting. The {@code done} callback is always called,
+   * even if the deserialized value is null.
+   */
+  void deserialize(CodedInputStream codedIn, Object obj, long offset, Runnable done)
+      throws IOException, SerializationException;
 }
