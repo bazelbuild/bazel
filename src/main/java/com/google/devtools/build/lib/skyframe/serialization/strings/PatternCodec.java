@@ -11,19 +11,19 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.skyframe.serialization.strings;
 
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
+
+import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.regex.Pattern;
 
-class PatternCodec implements ObjectCodec<Pattern> {
+class PatternCodec extends LeafObjectCodec<Pattern> {
 
   @Override
   public Class<Pattern> getEncodedClass() {
@@ -31,15 +31,16 @@ class PatternCodec implements ObjectCodec<Pattern> {
   }
 
   @Override
-  public void serialize(SerializationContext context, Pattern pattern, CodedOutputStream codedOut)
+  public void serialize(
+      SerializationDependencyProvider dependencies, Pattern pattern, CodedOutputStream codedOut)
       throws SerializationException, IOException {
-    context.serialize(pattern.pattern(), codedOut);
+    stringCodec().serialize(dependencies, pattern.pattern(), codedOut);
     codedOut.writeInt32NoTag(pattern.flags());
   }
 
   @Override
-  public Pattern deserialize(DeserializationContext context, CodedInputStream codedIn)
+  public Pattern deserialize(SerializationDependencyProvider dependencies, CodedInputStream codedIn)
       throws SerializationException, IOException {
-    return Pattern.compile(context.deserialize(codedIn), codedIn.readInt32());
+    return Pattern.compile(stringCodec().deserialize(dependencies, codedIn), codedIn.readInt32());
   }
 }
