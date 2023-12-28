@@ -113,7 +113,7 @@ public class StarlarkTestingModule implements TestingModuleApi {
     // TODO(b/291752414): Fix.
     Label dummyBzlFile = Label.createUnvalidated(PackageIdentifier.EMPTY_PACKAGE_ID, "dummy_label");
     Fingerprint fingerprint = new Fingerprint();
-    fingerprint.addString(pkgContext.getLabel().getPackageName());
+    fingerprint.addString(pkgContext.getBuilder().getBuildFileLabel().getPackageName());
     fingerprint.addString(name);
     byte[] transitiveDigestToUse = fingerprint.digestAndReset();
 
@@ -164,7 +164,9 @@ public class StarlarkTestingModule implements TestingModuleApi {
     // evaluation in BzlLoadFunction#execAndExport.
     StoredEventHandler handler = new StoredEventHandler();
     starlarkRuleFunction.export(
-        handler, pkgContext.getLabel(), name + "_test"); // export in BUILD thread
+        handler,
+        pkgContext.getBuilder().getBuildFileLabel(),
+        name + "_test"); // export in BUILD thread
     if (handler.hasErrors()) {
       StringBuilder errors =
           handler.getEvents().stream()

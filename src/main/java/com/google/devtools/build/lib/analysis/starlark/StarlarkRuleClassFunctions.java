@@ -1147,7 +1147,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
             thread
                 .getSemantics()
                 .getBool(BuildLanguageOptions.INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES),
-            pkgContext.getEventHandler(),
+            // TODO(#19922): Delete this arg once it's definitely redundant (when the builder owns
+            // its eventHandler).
+            pkgContext.getBuilder().getLocalEventHandler(),
             thread.getCallStack());
       } catch (InvalidRuleException | NameConflictException e) {
         throw new EvalException(e);

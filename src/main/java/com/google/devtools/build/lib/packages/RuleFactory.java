@@ -300,7 +300,8 @@ public class RuleFactory {
             thread
                 .getSemantics()
                 .getBool(BuildLanguageOptions.INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES),
-            context.eventHandler,
+            // TODO(#19922): createAndAddRule() should get this from the builder arg directly.
+            context.getBuilder().getLocalEventHandler(),
             thread.getCallStack());
       } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {
         throw new EvalException(e);

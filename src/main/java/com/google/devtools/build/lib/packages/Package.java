@@ -42,7 +42,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
@@ -858,6 +860,9 @@ public class Package {
     private final TreeMap<String, String> makeEnv = new TreeMap<>();
     private final List<Event> events = Lists.newArrayList();
     private final List<Postable> posts = Lists.newArrayList();
+    // Assigned by setLocalEventHandler, but not necessarily in all contexts.
+    // TODO(#19922): Make non-nullable, init in constructor.
+    @Nullable private StoredEventHandler localEventHandler = null;
     @Nullable private String ioExceptionMessage = null;
     @Nullable private IOException ioException = null;
     @Nullable private DetailedExitCode ioExceptionDetailedExitCode = null;
@@ -875,6 +880,10 @@ public class Package {
     // [*] Not in the context of the package, anyway. Skyframe values containing a package may
     // serialize events emitted during its construction/evaluation.
     @Nullable private FailureDetail failureDetailOverride = null;
+
+    // Used by glob(). Null for contexts where glob() is disallowed, including WORKSPACE files and
+    // some tests.
+    @Nullable private Globber globber = null;
 
     // All targets added to the package. We use SnapshottableBiMap to help track insertion order of
     // Rule targets, for use by native.existing_rules().
@@ -1092,7 +1101,7 @@ public class Package {
       return this;
     }
 
-    Label getBuildFileLabel() {
+    public Label getBuildFileLabel() {
       return pkg.metadata.buildFileLabel;
     }
 
@@ -1135,8 +1144,31 @@ public class Package {
       return events;
     }
 
+    /** Associates a {@link StoredEventHandler} with this builder. */
+    // TODO(#19922): This is a temporary method resulting from migrating PackageContext.eventHandler
+    // to Package.Builder. The next step is to create the StoredEventHandler in Package.Builder's
+    // constructor, and use that to eliminate the separate `events` and `posts` fields.
     @CanIgnoreReturnValue
-    Builder setMakeVariable(String name, String value) {
+    Builder setLocalEventHandler(StoredEventHandler eventHandler) {
+      this.localEventHandler = eventHandler;
+      return this;
+    }
+
+    /**
+     * Returns the {@link ExtendedEventHandler} associated with this builder. Using this handler
+     * <i>should</i> be equivalent to calling {@link #addEvent} / {@link #addPosts}.
+     *
+     * <p>This field may be null in tests.
+     */
+    // TODO(#19922): The "should" in the above javadoc will be guaranteed by eliminating the
+    // separate `events` and `posts` fields. We'll also make this non-nullable.
+    @Nullable
+    public ExtendedEventHandler getLocalEventHandler() {
+      return localEventHandler;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setMakeVariable(String name, String value) {
       makeEnv.put(name, value);
       return this;
     }
@@ -1297,6 +1329,25 @@ public class Package {
           pkg.metadata.transitiveLoads == null,
           "Transitive loads already set: %s",
           pkg.metadata.transitiveLoads);
+    }
+
+    /** Sets the {@link Globber}. */
+    // TODO(#19922): Move this to Builder() constructor.
+    @CanIgnoreReturnValue
+    public Builder setGlobber(Globber globber) {
+      Preconditions.checkState(this.globber == null);
+      this.globber = globber;
+      return this;
+    }
+
+    /**
+     * Returns the {@link Globber} used to implement {@code glob()} functionality during BUILD
+     * evaluation. Null for contexts where globbing is not possible, including WORKSPACE files and
+     * some tests.
+     */
+    @Nullable
+    public Globber getGlobber() {
+      return globber;
     }
 
     /**

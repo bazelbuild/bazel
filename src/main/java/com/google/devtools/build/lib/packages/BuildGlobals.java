@@ -93,7 +93,7 @@ public class BuildGlobals {
     try {
       Location loc = thread.getCallerLocation();
       context.pkgBuilder.addEnvironmentGroup(
-          name, environments, defaults, context.eventHandler, loc);
+          name, environments, defaults, context.getBuilder().getLocalEventHandler(), loc);
       return Starlark.NONE;
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("environment group has invalid name: %s: %s", name, e.getMessage());
@@ -125,8 +125,12 @@ public class BuildGlobals {
       License license = BuildType.LICENSE.convert(licensesList, "'licenses' operand");
       context.pkgBuilder.mergePackageArgsFrom(PackageArgs.builder().setLicense(license));
     } catch (ConversionException e) {
-      context.eventHandler.handle(
-          Package.error(thread.getCallerLocation(), e.getMessage(), Code.LICENSE_PARSE_FAILURE));
+      context
+          .getBuilder()
+          .getLocalEventHandler()
+          .handle(
+              Package.error(
+                  thread.getCallerLocation(), e.getMessage(), Code.LICENSE_PARSE_FAILURE));
       context.pkgBuilder.setContainsErrors();
     }
     return Starlark.NONE;
@@ -149,9 +153,12 @@ public class BuildGlobals {
           BuildType.DISTRIBUTIONS.convert(object, "'distribs' operand");
       context.pkgBuilder.mergePackageArgsFrom(PackageArgs.builder().setDistribs(distribs));
     } catch (ConversionException e) {
-      context.eventHandler.handle(
-          Package.error(
-              thread.getCallerLocation(), e.getMessage(), Code.DISTRIBUTIONS_PARSE_FAILURE));
+      context
+          .getBuilder()
+          .getLocalEventHandler()
+          .handle(
+              Package.error(
+                  thread.getCallerLocation(), e.getMessage(), Code.DISTRIBUTIONS_PARSE_FAILURE));
       context.pkgBuilder.setContainsErrors();
     }
     return Starlark.NONE;

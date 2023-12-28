@@ -121,8 +121,8 @@ public class WorkspaceFactory {
       thread.setLoader(loadedModules::get);
       thread.setPrintHandler(Event.makeDebugPrintHandler(localReporter));
       thread.setThreadLocal(
-          PackageFactory.PackageContext.class,
-          new PackageFactory.PackageContext(builder, null, localReporter));
+          PackageFactory.PackageContext.class, new PackageFactory.PackageContext(builder));
+      builder.setLocalEventHandler(localReporter);
 
       // The workspace environment doesn't need the tools repository or the fragment map
       // because executing workspace rules happens before analysis and it doesn't need a

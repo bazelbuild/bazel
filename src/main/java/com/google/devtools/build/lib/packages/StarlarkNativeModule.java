@@ -546,13 +546,14 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
           name,
           packages,
           includes,
-          /*allowPublicPrivate=*/ thread
+          /* allowPublicPrivate= */ thread
               .getSemantics()
               .getBool(BuildLanguageOptions.INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX),
-          /*repoRootMeansCurrentRepo=*/ thread
+          /* repoRootMeansCurrentRepo= */ thread
               .getSemantics()
               .getBool(BuildLanguageOptions.INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX),
-          context.eventHandler,
+          // TODO(#19922): addPackageGroup should access the builder's own eventHandler directly.
+          context.getBuilder().getLocalEventHandler(),
           loc);
       return Starlark.NONE;
     } catch (LabelSyntaxException e) {
@@ -864,8 +865,11 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
         // being acquired more times than it is released.
         cpuSemaphore.release();
       }
-      Globber.Token globToken = context.globber.runAsync(includes, excludes, operation, allowEmpty);
-      return context.globber.fetchUnsorted(globToken);
+      // getGlobber() is not null because we're called from glob() and subpackages(), both of which
+      // are guarded with checkLoadingPhase().
+      Globber.Token globToken =
+          context.getBuilder().getGlobber().runAsync(includes, excludes, operation, allowEmpty);
+      return context.getBuilder().getGlobber().fetchUnsorted(globToken);
     } catch (IOException e) {
       logger.atWarning().withCause(e).log(
           "Exception processing includes=%s, excludes=%s)", includes, excludes);
@@ -887,7 +891,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
               e instanceof FileSymlinkException
                   ? Code.EVAL_GLOBS_SYMLINK_ERROR
                   : Code.GLOB_IO_EXCEPTION);
-      context.eventHandler.handle(error);
+      context.getBuilder().getLocalEventHandler().handle(error);
       context.pkgBuilder.setIOException(e, errorMessage, error.getProperty(DetailedExitCode.class));
       return ImmutableList.of();
     } catch (BadGlobException e) {

@@ -1398,6 +1398,15 @@ public class PackageFunction implements SkyFunction {
 
       long startTimeNanos = BlazeClock.nanoTime();
 
+      GlobberWithSkyframeGlobDeps globber =
+          makeGlobber(
+              buildFileRootedPath.asPath(),
+              packageId,
+              repositoryIgnoredPatterns,
+              packageRoot,
+              env,
+              keyForMetrics);
+
       // Create the package,
       // even if it will be empty because we cannot attempt execution.
       Package.Builder pkgBuilder =
@@ -1412,7 +1421,8 @@ public class PackageFunction implements SkyFunction {
                   mainRepositoryMappingValue.getRepositoryMapping(),
                   cpuBoundSemaphore.get())
               .setFilename(buildFileRootedPath)
-              .setConfigSettingVisibilityPolicy(configSettingVisibilityPolicy);
+              .setConfigSettingVisibilityPolicy(configSettingVisibilityPolicy)
+              .setGlobber(globber);
 
       pkgBuilder
           .mergePackageArgsFrom(PackageArgs.builder().setDefaultVisibility(defaultVisibility))
@@ -1422,15 +1432,6 @@ public class PackageFunction implements SkyFunction {
 
       // OK to execute BUILD program?
       if (compiled.ok()) {
-        GlobberWithSkyframeGlobDeps globber =
-            makeGlobber(
-                buildFileRootedPath.asPath(),
-                packageId,
-                repositoryIgnoredPatterns,
-                packageRoot,
-                env,
-                keyForMetrics);
-
         pkgBuilder.setGeneratorMap(compiled.generatorMap);
 
         packageFactory.executeBuildFile(
@@ -1441,8 +1442,7 @@ public class PackageFunction implements SkyFunction {
             compiled.subpackages,
             compiled.predeclared,
             loadedModules,
-            starlarkBuiltinsValue.starlarkSemantics,
-            globber);
+            starlarkBuiltinsValue.starlarkSemantics);
 
         globDepKeys = globber.getGlobDepsRequested();
 

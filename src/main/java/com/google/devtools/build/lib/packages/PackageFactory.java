@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
@@ -210,6 +209,7 @@ public final class PackageFactory {
   }
 
   /** Get the PackageContext by looking up in the environment. */
+  // TODO(#19922): Eliminate PackageContext and retrieve the Package.Builder directly instead.
   public static PackageContext getContext(StarlarkThread thread) throws EvalException {
     PackageContext value = thread.getThreadLocal(PackageContext.class);
     if (value == null) {
@@ -291,41 +291,19 @@ public final class PackageFactory {
    * unreachable once the StarlarkThread is discarded at the end of evaluation. Please be aware of
    * your memory footprint when making changes here!
    */
-  // TODO(adonovan): is there any reason not to merge this with Package.Builder?
+  // TODO(#19922): Merge this into Package.Builder, store the builder directly using
+  // StarlarkThread.setThreadLocal.
   public static class PackageContext {
     final Package.Builder pkgBuilder;
-    final Globber globber;
-    final ExtendedEventHandler eventHandler;
 
     @VisibleForTesting
-    public PackageContext(
-        Package.Builder pkgBuilder, Globber globber, ExtendedEventHandler eventHandler) {
+    public PackageContext(Package.Builder pkgBuilder) {
       this.pkgBuilder = pkgBuilder;
-      this.eventHandler = eventHandler;
-      this.globber = globber;
-    }
-
-    /** Returns the Label of this Package's BUILD file. */
-    public Label getLabel() {
-      return pkgBuilder.getBuildFileLabel();
-    }
-
-    /** Sets a Make variable. */
-    public void setMakeVariable(String name, String value) {
-      pkgBuilder.setMakeVariable(name, value);
     }
 
     /** Returns the builder of this Package. */
     public Package.Builder getBuilder() {
       return pkgBuilder;
-    }
-
-    /**
-     * Returns the event handler that should be used to report events happening while building this
-     * package.
-     */
-    public ExtendedEventHandler getEventHandler() {
-      return eventHandler;
     }
   }
 
@@ -397,9 +375,10 @@ public final class PackageFactory {
       ImmutableList<String> subpackages,
       ImmutableMap<String, Object> predeclared,
       ImmutableMap<String, Module> loadedModules,
-      StarlarkSemantics starlarkSemantics,
-      Globber globber)
+      StarlarkSemantics starlarkSemantics)
       throws InterruptedException {
+    Globber globber = pkgBuilder.getGlobber();
+
     // Prefetch glob patterns asynchronously.
     if (maxDirectoriesToEagerlyVisitInGlobbing == -2) {
       try {
@@ -422,7 +401,7 @@ public final class PackageFactory {
         cpuSemaphore.acquire();
       }
       executeBuildFileImpl(
-          pkgBuilder, buildFileProgram, predeclared, loadedModules, starlarkSemantics, globber);
+          pkgBuilder, buildFileProgram, predeclared, loadedModules, starlarkSemantics);
     } catch (InterruptedException e) {
       globber.onInterrupt();
       throw e;
@@ -439,19 +418,19 @@ public final class PackageFactory {
       Program buildFileProgram,
       ImmutableMap<String, Object> predeclared,
       ImmutableMap<String, Module> loadedModules,
-      StarlarkSemantics semantics,
-      Globber globber)
+      StarlarkSemantics semantics)
       throws InterruptedException {
     pkgBuilder.setLoads(loadedModules.values());
 
     StoredEventHandler eventHandler = new StoredEventHandler();
-    PackageContext pkgContext = new PackageContext(pkgBuilder, globber, eventHandler);
+    PackageContext pkgContext = new PackageContext(pkgBuilder);
+    pkgBuilder.setLocalEventHandler(eventHandler);
 
     try (Mutability mu = Mutability.create("package", pkgBuilder.getFilename())) {
       Module module = Module.withPredeclared(semantics, predeclared);
       StarlarkThread thread = new StarlarkThread(mu, semantics);
       thread.setLoader(loadedModules::get);
-      thread.setPrintHandler(Event.makeDebugPrintHandler(pkgContext.eventHandler));
+      thread.setPrintHandler(Event.makeDebugPrintHandler(eventHandler));
 
       new BazelStarlarkContext(
               BazelStarlarkContext.Phase.LOADING,
@@ -473,7 +452,7 @@ public final class PackageFactory {
       try {
         Starlark.execFileProgram(buildFileProgram, module, thread);
       } catch (EvalException ex) {
-        pkgContext.eventHandler.handle(
+        eventHandler.handle(
             Package.error(null, ex.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
         pkgBuilder.setContainsErrors();
       } catch (InterruptedException ex) {
