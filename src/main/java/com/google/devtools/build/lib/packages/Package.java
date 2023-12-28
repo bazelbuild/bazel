@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
@@ -78,7 +77,6 @@ import java.util.TreeMap;
 import java.util.concurrent.Semaphore;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
-import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 
@@ -730,7 +728,7 @@ public class Package {
       RootedPath workspacePath,
       String workspaceName,
       RepositoryMapping mainRepoMapping,
-      StarlarkSemantics starlarkSemantics,
+      boolean noImplicitFileExport,
       PackageOverheadEstimator packageOverheadEstimator) {
     return new Builder(
             helper,
@@ -738,7 +736,7 @@ public class Package {
             workspaceName,
             /* associatedModuleName= */ Optional.empty(),
             /* associatedModuleVersion= */ Optional.empty(),
-            starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
+            noImplicitFileExport,
             mainRepoMapping,
             mainRepoMapping,
             /* cpuBoundSemaphore= */ null,
@@ -748,7 +746,7 @@ public class Package {
 
   public static Builder newExternalPackageBuilderForBzlmod(
       RootedPath moduleFilePath,
-      StarlarkSemantics starlarkSemantics,
+      boolean noImplicitFileExport,
       PackageIdentifier basePackageId,
       RepositoryMapping repoMapping) {
     return new Builder(
@@ -757,7 +755,7 @@ public class Package {
             DUMMY_WORKSPACE_NAME_FOR_BZLMOD_PACKAGES,
             /* associatedModuleName= */ Optional.empty(),
             /* associatedModuleVersion= */ Optional.empty(),
-            starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
+            noImplicitFileExport,
             repoMapping,
             // This mapping is *not* the main repository's mapping, but since it is only used to
             // construct a query command in an error message and the package built here can't be

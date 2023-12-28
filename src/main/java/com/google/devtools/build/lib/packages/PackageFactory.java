@@ -232,7 +232,7 @@ public final class PackageFactory {
         workspacePath,
         workspaceName,
         mainRepoMapping,
-        starlarkSemantics,
+        starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
         packageOverheadEstimator);
   }
 

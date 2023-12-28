@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
@@ -70,7 +71,8 @@ final class WorkspaceFactoryTestHelper {
                 RootedPath.toRootedPath(root, workspaceFilePath),
                 "",
                 RepositoryMapping.ALWAYS_FALLBACK,
-                StarlarkSemantics.DEFAULT,
+                starlarkSemantics.getBool(
+                    BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
                 PackageOverheadEstimator.NOOP_ESTIMATOR)
             .setLoads(ImmutableList.of());
     WorkspaceFactory factory =
