@@ -9,6 +9,7 @@ on:
 
 env:
   GH_TOKEN: ${{ secrets.BAZEL_IO_TOKEN }}
+  PR_NUMBER: ${{ github.event.number }}
   # GITHUB_WORKSPACE: ${{ GITHUB_WORKSPACE }}
 
 jobs:
