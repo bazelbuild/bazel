@@ -324,7 +324,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
     ResourceSetOrBuilder localResources = new LinkResourceSetBuilder();
 
     try {
-      int inputsCount = linkCommandLine.getLinkerInputArtifacts().memoizedFlattenAndGetSize();
+      int inputsCount = getInputs().memoizedFlattenAndGetSize();
       ResourceSet resourceSet = localResources.buildResourceSet(OS.getCurrent(), inputsCount);
       Spawn spawn = createSpawn(actionExecutionContext, resourceSet);
       ImmutableList<SpawnResult> spawnResults =

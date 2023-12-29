@@ -22,10 +22,6 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.PathMapper;
-import com.google.devtools.build.lib.collect.CollectionUtils;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -49,7 +45,6 @@ public final class LinkCommandLine extends CommandLine {
   private final CcToolchainVariables variables;
   // The feature config can be null for tests.
   @Nullable private final FeatureConfiguration featureConfiguration;
-  private final NestedSet<Artifact> linkerInputArtifacts;
   private final LinkTargetType linkTargetType;
   private final Link.LinkingMode linkingMode;
   @Nullable private final PathFragment toolchainLibrariesSolibDir;
@@ -61,7 +56,6 @@ public final class LinkCommandLine extends CommandLine {
   private LinkCommandLine(
       String actionName,
       String forcedToolPath,
-      NestedSet<Artifact> linkerInputArtifacts,
       LinkTargetType linkTargetType,
       Link.LinkingMode linkingMode,
       @Nullable PathFragment toolchainLibrariesSolibDir,
@@ -75,7 +69,6 @@ public final class LinkCommandLine extends CommandLine {
     this.forcedToolPath = forcedToolPath;
     this.variables = variables;
     this.featureConfiguration = featureConfiguration;
-    this.linkerInputArtifacts = Preconditions.checkNotNull(linkerInputArtifacts);
     this.linkTargetType = Preconditions.checkNotNull(linkTargetType);
     this.linkingMode = Preconditions.checkNotNull(linkingMode);
     this.toolchainLibrariesSolibDir = toolchainLibrariesSolibDir;
@@ -87,11 +80,6 @@ public final class LinkCommandLine extends CommandLine {
   @Nullable
   public Artifact getParamFile() {
     return paramFile;
-  }
-
-  /** Returns the (ordered, immutable) list of paths to the linker's input files. */
-  public NestedSet<Artifact> getLinkerInputArtifacts() {
-    return linkerInputArtifacts;
   }
 
   @Nullable
@@ -378,8 +366,6 @@ public final class LinkCommandLine extends CommandLine {
   public static final class Builder {
 
     private String forcedToolPath;
-    private NestedSet<Artifact> linkerInputArtifacts =
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     @Nullable private LinkTargetType linkTargetType;
     private Link.LinkingMode linkingMode = Link.LinkingMode.STATIC;
     @Nullable private PathFragment toolchainLibrariesSolibDir;
@@ -398,7 +384,6 @@ public final class LinkCommandLine extends CommandLine {
       return new LinkCommandLine(
           actionName,
           forcedToolPath,
-          linkerInputArtifacts,
           linkTargetType,
           linkingMode,
           toolchainLibrariesSolibDir,
@@ -433,17 +418,6 @@ public final class LinkCommandLine extends CommandLine {
     public Builder setLinkTargetType(LinkTargetType linkTargetType) {
       Preconditions.checkArgument(linkTargetType != LinkTargetType.INTERFACE_DYNAMIC_LIBRARY);
       this.linkTargetType = linkTargetType;
-      return this;
-    }
-
-    /**
-     * Sets a list of linker input artifacts. These get turned into linker options depending on the
-     * staticness and the target type. This call makes an immutable copy of the inputs, if the
-     * provided Iterable isn't already immutable (see {@link CollectionUtils#makeImmutable}).
-     */
-    @CanIgnoreReturnValue
-    public Builder setLinkerInputArtifacts(NestedSet<Artifact> linkerInputArtifacts) {
-      this.linkerInputArtifacts = linkerInputArtifacts;
       return this;
     }
 
