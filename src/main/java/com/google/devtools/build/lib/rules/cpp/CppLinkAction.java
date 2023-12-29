@@ -375,11 +375,6 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
     }
   }
 
-  /** Returns the (ordered, immutable) list of header files that contain build info. */
-  public ImmutableList<Artifact> getBuildInfoHeaderArtifacts() {
-    return linkCommandLine.getBuildInfoHeaderArtifacts();
-  }
-
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,

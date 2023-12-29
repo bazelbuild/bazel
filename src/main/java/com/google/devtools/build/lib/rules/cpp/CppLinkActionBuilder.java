@@ -915,10 +915,6 @@ public class CppLinkActionBuilder {
           toolchain.getLinkDynamicLibraryTool().getExecPathString());
     }
 
-    if (!isLtoIndexing) {
-      linkCommandLineBuilder.setBuildInfoHeaderArtifacts(buildInfoHeaderArtifacts);
-    }
-
     linkCommandLineBuilder.setBuildVariables(buildVariables);
     LinkCommandLine linkCommandLine = linkCommandLineBuilder.build();
 

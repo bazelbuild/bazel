@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -135,22 +134,6 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
 
   private LinkCommandLine.Builder minimalConfiguration() throws Exception {
     return minimalConfiguration(getMockBuildVariables());
-  }
-
-  private void assertError(String expectedSubstring, LinkCommandLine.Builder builder) {
-    RuntimeException e = assertThrows(RuntimeException.class, () -> builder.build());
-    assertThat(e).hasMessageThat().contains(expectedSubstring);
-  }
-
-  @Test
-  public void testStaticLinkWithBuildInfoHeadersIsError() throws Exception {
-    assertError(
-        "build info headers may only be present",
-        minimalConfiguration()
-            .setLinkTargetType(LinkTargetType.STATIC_LIBRARY)
-            .setLinkingMode(LinkingMode.STATIC)
-            .setBuildInfoHeaderArtifacts(
-                ImmutableList.of(scratchArtifact("FakeBuildInfoHeaderArtifact1"))));
   }
 
   /**

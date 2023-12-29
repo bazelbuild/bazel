@@ -49,7 +49,6 @@ public final class LinkCommandLine extends CommandLine {
   private final CcToolchainVariables variables;
   // The feature config can be null for tests.
   @Nullable private final FeatureConfiguration featureConfiguration;
-  private final ImmutableList<Artifact> buildInfoHeaderArtifacts;
   private final NestedSet<Artifact> linkerInputArtifacts;
   private final LinkTargetType linkTargetType;
   private final Link.LinkingMode linkingMode;
@@ -62,7 +61,6 @@ public final class LinkCommandLine extends CommandLine {
   private LinkCommandLine(
       String actionName,
       String forcedToolPath,
-      ImmutableList<Artifact> buildInfoHeaderArtifacts,
       NestedSet<Artifact> linkerInputArtifacts,
       LinkTargetType linkTargetType,
       Link.LinkingMode linkingMode,
@@ -77,7 +75,6 @@ public final class LinkCommandLine extends CommandLine {
     this.forcedToolPath = forcedToolPath;
     this.variables = variables;
     this.featureConfiguration = featureConfiguration;
-    this.buildInfoHeaderArtifacts = Preconditions.checkNotNull(buildInfoHeaderArtifacts);
     this.linkerInputArtifacts = Preconditions.checkNotNull(linkerInputArtifacts);
     this.linkTargetType = Preconditions.checkNotNull(linkTargetType);
     this.linkingMode = Preconditions.checkNotNull(linkingMode);
@@ -90,11 +87,6 @@ public final class LinkCommandLine extends CommandLine {
   @Nullable
   public Artifact getParamFile() {
     return paramFile;
-  }
-
-  /** See {@link CppLinkAction#getBuildInfoHeaderArtifacts()} */
-  public ImmutableList<Artifact> getBuildInfoHeaderArtifacts() {
-    return buildInfoHeaderArtifacts;
   }
 
   /** Returns the (ordered, immutable) list of paths to the linker's input files. */
@@ -386,7 +378,6 @@ public final class LinkCommandLine extends CommandLine {
   public static final class Builder {
 
     private String forcedToolPath;
-    private ImmutableList<Artifact> buildInfoHeaderArtifacts = ImmutableList.of();
     private NestedSet<Artifact> linkerInputArtifacts =
         NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     @Nullable private LinkTargetType linkTargetType;
@@ -400,12 +391,6 @@ public final class LinkCommandLine extends CommandLine {
     private String actionName;
 
     public LinkCommandLine build() {
-      if (linkTargetType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER) {
-        Preconditions.checkArgument(
-            buildInfoHeaderArtifacts.isEmpty(),
-            "build info headers may only be present on dynamic library or executable links");
-      }
-
       if (variables == null) {
         variables = CcToolchainVariables.EMPTY;
       }
@@ -413,7 +398,6 @@ public final class LinkCommandLine extends CommandLine {
       return new LinkCommandLine(
           actionName,
           forcedToolPath,
-          buildInfoHeaderArtifacts,
           linkerInputArtifacts,
           linkTargetType,
           linkingMode,
@@ -471,17 +455,6 @@ public final class LinkCommandLine extends CommandLine {
     @CanIgnoreReturnValue
     public Builder setLinkingMode(Link.LinkingMode linkingMode) {
       this.linkingMode = linkingMode;
-      return this;
-    }
-
-    /**
-     * The build info header artifacts are generated header files that are used for link stamping.
-     * The {@link #build} method throws an exception if the build info header artifacts are
-     * non-empty for a static link (see {@link LinkTargetType#linkerOrArchiver()}}).
-     */
-    @CanIgnoreReturnValue
-    public Builder setBuildInfoHeaderArtifacts(ImmutableList<Artifact> buildInfoHeaderArtifacts) {
-      this.buildInfoHeaderArtifacts = buildInfoHeaderArtifacts;
       return this;
     }
 
