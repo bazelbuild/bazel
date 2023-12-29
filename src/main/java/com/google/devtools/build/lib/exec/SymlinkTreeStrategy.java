@@ -105,9 +105,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
           // Delete symlinks possibly left over by a previous invocation with a different mode.
           // This is required because only the output manifest is considered an action output, so
           // Skyframe does not clear the directory for us.
-          var helper = createSymlinkTreeHelper(action, actionExecutionContext);
-          helper.clearRunfilesDirectory();
-          helper.linkManifest();
+          createSymlinkTreeHelper(action, actionExecutionContext).clearAndLinkManifest();
         } else if (action.getRunfileSymlinksMode() == RunfileSymlinksMode.INTERNAL
             && !action.isFilesetTree()) {
           try {

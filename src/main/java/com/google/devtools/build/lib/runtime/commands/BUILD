@@ -58,6 +58,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
+        "//src/main/java/com/google/devtools/build/lib/exec:runfiles_tree_updater",
         "//src/main/java/com/google/devtools/build/lib/exec:symlink_tree_helper",
         "//src/main/java/com/google/devtools/build/lib/exec:test_policy",
         "//src/main/java/com/google/devtools/build/lib/exec/local:options",

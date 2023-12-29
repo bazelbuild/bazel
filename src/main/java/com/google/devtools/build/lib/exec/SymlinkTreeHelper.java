@@ -121,8 +121,17 @@ public final class SymlinkTreeHelper {
     }
   }
 
+  /**
+   * Ensures that the runfiles directory is empty except for the symlinked MANIFEST. This is the
+   * expected state with --noenable_runfiles.
+   */
+  public void clearAndLinkManifest() throws ExecException {
+    clearRunfilesDirectory();
+    linkManifest();
+  }
+
   /** Deletes the contents of the runfiles directory. */
-  public void clearRunfilesDirectory() throws ExecException {
+  private void clearRunfilesDirectory() throws ExecException {
     try (SilentCloseable c = Profiler.instance().profile("Clear symlink tree")) {
       symlinkTreeRoot.deleteTreesBelow();
     } catch (IOException e) {
@@ -131,7 +140,7 @@ public final class SymlinkTreeHelper {
   }
 
   /** Links the output manifest to the input manifest. */
-  public void linkManifest() throws ExecException {
+  private void linkManifest() throws ExecException {
     // Pretend we created the runfiles tree by symlinking the output manifest to the input manifest.
     Path outputManifest = getOutputManifest();
     try {
