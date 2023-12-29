@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.HashCodes;
 import com.google.protobuf.TextFormat;
 import java.util.Map;
@@ -31,6 +33,7 @@ import java.util.Map;
  * <p>Used for dependency resolution.
  */
 @Immutable
+@AutoCodec
 public final class AspectDescriptor {
 
   private static final Interner<AspectDescriptor> interner = BlazeInterners.newWeakInterner();
@@ -108,5 +111,11 @@ public final class AspectDescriptor {
     }
     builder.append(']');
     return builder.toString();
+  }
+
+  @AutoCodec.Interner
+  @VisibleForSerialization
+  static AspectDescriptor intern(AspectDescriptor descriptor) {
+    return interner.intern(descriptor);
   }
 }
