@@ -25,8 +25,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.extra.CppLinkInfo;
-import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -338,88 +336,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     action = (CppLinkAction) getGeneratingAction(sharedObject);
     assertThat(MockCcSupport.getLinkopts(action.getLinkCommandLineForTesting()))
         .contains("-Wl,-soname=libhello_Slibhello.so");
-  }
-
-  @Test
-  public void testCppLinkActionExtraActionInfoWithoutSharedLibraries() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder()
-                .withFeatures(
-                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
-                    CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
-    useConfiguration("--nointerface_shared_objects");
-
-    ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
-    Artifact sharedObject =
-        getOnlyElement(
-            FileType.filter(getFilesToBuild(hello).toList(), CppFileTypes.SHARED_LIBRARY));
-    CppLinkAction action = (CppLinkAction) getGeneratingAction(sharedObject);
-
-    ExtraActionInfo.Builder builder = action.getExtraActionInfo(actionKeyContext);
-    ExtraActionInfo info = builder.build();
-    assertThat(info.getMnemonic()).isEqualTo("CppLink");
-
-    CppLinkInfo cppLinkInfo = info.getExtension(CppLinkInfo.cppLinkInfo);
-
-    Iterable<String> inputs =
-        Artifact.asExecPaths(action.getLinkCommandLineForTesting().getLinkerInputArtifacts());
-    assertThat(cppLinkInfo.getInputFileList()).containsExactlyElementsIn(inputs);
-    assertThat(cppLinkInfo.getOutputFile())
-        .isEqualTo(action.getPrimaryOutput().getExecPathString());
-    assertThat(cppLinkInfo.hasInterfaceOutputFile()).isFalse();
-    assertThat(cppLinkInfo.getLinkTargetType())
-        .isEqualTo(action.getLinkCommandLineForTesting().getLinkTargetType().name());
-    assertThat(cppLinkInfo.getLinkStaticness())
-        .isEqualTo(action.getLinkCommandLineForTesting().getLinkingMode().name());
-    Iterable<String> linkstamps = Artifact.asExecPaths(action.getLinkstampObjects());
-    assertThat(cppLinkInfo.getLinkStampList()).containsExactlyElementsIn(linkstamps);
-    Iterable<String> buildInfoHeaderArtifacts =
-        Artifact.asExecPaths(action.getBuildInfoHeaderArtifacts());
-    assertThat(cppLinkInfo.getBuildInfoHeaderArtifactList())
-        .containsExactlyElementsIn(buildInfoHeaderArtifacts);
-    assertThat(cppLinkInfo.getLinkOptList()).containsExactlyElementsIn(action.getArguments());
-  }
-
-  @Test
-  public void testCppLinkActionExtraActionInfoWithSharedLibraries() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
-    useConfiguration("--cpu=k8");
-    ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
-    Artifact sharedObject =
-        FileType.filter(getFilesToBuild(hello).toList(), CppFileTypes.SHARED_LIBRARY)
-            .iterator()
-            .next();
-    CppLinkAction action = (CppLinkAction) getGeneratingAction(sharedObject);
-
-    ExtraActionInfo.Builder builder = action.getExtraActionInfo(actionKeyContext);
-    ExtraActionInfo info = builder.build();
-    assertThat(info.getMnemonic()).isEqualTo("CppLink");
-
-    CppLinkInfo cppLinkInfo = info.getExtension(CppLinkInfo.cppLinkInfo);
-
-    Iterable<String> inputs =
-        Artifact.asExecPaths(action.getLinkCommandLineForTesting().getLinkerInputArtifacts());
-    assertThat(cppLinkInfo.getInputFileList()).containsExactlyElementsIn(inputs);
-    assertThat(cppLinkInfo.getOutputFile())
-        .isEqualTo(action.getPrimaryOutput().getExecPathString());
-    assertThat(cppLinkInfo.getLinkTargetType())
-        .isEqualTo(action.getLinkCommandLineForTesting().getLinkTargetType().name());
-    assertThat(cppLinkInfo.getLinkStaticness())
-        .isEqualTo(action.getLinkCommandLineForTesting().getLinkingMode().name());
-    Iterable<String> linkstamps = Artifact.asExecPaths(action.getLinkstampObjects());
-    assertThat(cppLinkInfo.getLinkStampList()).containsExactlyElementsIn(linkstamps);
-    Iterable<String> buildInfoHeaderArtifacts =
-        Artifact.asExecPaths(action.getBuildInfoHeaderArtifacts());
-    assertThat(cppLinkInfo.getBuildInfoHeaderArtifactList())
-        .containsExactlyElementsIn(buildInfoHeaderArtifacts);
-    assertThat(cppLinkInfo.getLinkOptList()).containsExactlyElementsIn(action.getArguments());
   }
 
   @Test

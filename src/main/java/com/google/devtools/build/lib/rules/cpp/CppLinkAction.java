@@ -44,8 +44,6 @@ import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.actions.extra.CppLinkInfo;
-import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.Args;
@@ -382,31 +380,6 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
               getOwner().getLabel(), e.getMessage());
       DetailedExitCode code = createDetailedExitCode(message, Code.COMMAND_GENERATION_FAILURE);
       throw new ActionExecutionException(message, this, /*catastrophe=*/ false, code);
-    }
-  }
-
-  @Override
-  public ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext)
-      throws CommandLineExpansionException, InterruptedException {
-    // The uses of getLinkConfiguration in this method may not be consistent with the computed key.
-    // I.e., this may be incrementally incorrect.
-    CppLinkInfo.Builder info = CppLinkInfo.newBuilder();
-    info.addAllInputFile(Artifact.toExecPaths(linkCommandLine.getLinkerInputArtifacts().toList()));
-    info.setOutputFile(getPrimaryOutput().getExecPathString());
-    if (interfaceOutputLibrary != null) {
-      info.setInterfaceOutputFile(interfaceOutputLibrary.getArtifact().getExecPathString());
-    }
-    info.setLinkTargetType(linkCommandLine.getLinkTargetType().name());
-    info.setLinkStaticness(linkCommandLine.getLinkingMode().name());
-    info.addAllLinkStamp(Artifact.toExecPaths(getLinkstampObjects()));
-    info.addAllBuildInfoHeaderArtifact(Artifact.toExecPaths(getBuildInfoHeaderArtifacts()));
-    info.addAllLinkOpt(linkCommandLine.getRawLinkArgv(null));
-
-    try {
-      return super.getExtraActionInfo(actionKeyContext)
-          .setExtension(CppLinkInfo.cppLinkInfo, info.build());
-    } catch (CommandLineExpansionException e) {
-      throw new AssertionError("CppLinkAction command line expansion cannot fail.");
     }
   }
 
