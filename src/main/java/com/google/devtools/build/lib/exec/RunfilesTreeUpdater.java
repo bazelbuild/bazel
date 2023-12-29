@@ -150,11 +150,12 @@ public class RunfilesTreeUpdater {
     }
 
     SymlinkTreeHelper helper =
-        new SymlinkTreeHelper(inputManifest, runfilesDirPath, /* filesetTree= */ false);
+        new SymlinkTreeHelper(
+            inputManifest, runfilesDirPath, /* filesetTree= */ false, tree.getWorkspaceName());
 
     switch (tree.getSymlinksMode()) {
       case SKIP:
-        helper.clearAndLinkManifest();
+        helper.clearRunfilesDirectory();
         break;
       case EXTERNAL:
         helper.createSymlinksUsingCommand(execRoot, binTools, env, outErr);

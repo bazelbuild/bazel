@@ -49,6 +49,9 @@ public interface RunfilesSupplier extends StarlarkValue {
 
     /** Returns whether the runfile symlinks should be materialized during the build. */
     boolean isBuildRunfileLinks();
+
+    /** Returns the name of the workspace that the build is occurring in. */
+    PathFragment getWorkspaceName();
   }
 
   /** Returns the runfiles trees to be materialized on the inputs of the action. */

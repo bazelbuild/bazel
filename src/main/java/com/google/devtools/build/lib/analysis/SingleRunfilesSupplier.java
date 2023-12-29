@@ -166,6 +166,11 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier, RunfilesT
     return buildRunfileLinks;
   }
 
+  @Override
+  public PathFragment getWorkspaceName() {
+    return runfiles.getSuffix();
+  }
+
   /** Softly caches the result of {@link Runfiles#getRunfilesInputs}. */
   private static final class RunfilesCacher implements Supplier<Map<PathFragment, Artifact>> {
 

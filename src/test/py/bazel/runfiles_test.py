@@ -427,5 +427,17 @@ class RunfilesTest(test_base.TestBase):
       ["run", ":test", "--nobuild_runfile_links", "--noenable_runfiles"], allow_failure=True)
     self.assertNotEqual(exit_code, 0)
 
+  def testTestsRunWithNoBuildRunfileLinksAndNoEnableRunfiles(self):
+    self.ScratchFile("MODULE.bazel")
+    self.ScratchFile("BUILD", [
+      "sh_test(",
+      "  name = 'test',",
+      "  srcs = ['test.sh'],",
+      ")",
+    ])
+    self.ScratchFile("test.sh", executable=True)
+    self.ScratchFile(".bazelrc", ["common --spawn_strategy=local"])
+    self.RunBazel(["test", ":test", "--nobuild_runfile_links", "--noenable_runfiles"])
+
 if __name__ == "__main__":
   absltest.main()

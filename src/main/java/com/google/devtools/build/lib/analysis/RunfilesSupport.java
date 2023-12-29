@@ -343,6 +343,7 @@ public final class RunfilesSupport implements RunfilesSupplier, RunfilesTree {
   }
 
   /** Returns the name of the workspace that the build is occurring in. */
+  @Override
   public PathFragment getWorkspaceName() {
     return runfiles.getSuffix();
   }

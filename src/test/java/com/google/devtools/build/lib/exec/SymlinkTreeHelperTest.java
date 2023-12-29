@@ -43,7 +43,11 @@ public final class SymlinkTreeHelperTest {
     BinTools binTools =
         BinTools.forUnitTesting(execRoot, ImmutableList.of(SymlinkTreeHelper.BUILD_RUNFILES));
     Command command =
-        new SymlinkTreeHelper(inputManifestPath, execRoot.getRelative("output/MANIFEST"), false)
+        new SymlinkTreeHelper(
+                inputManifestPath,
+                execRoot.getRelative("output/MANIFEST"),
+                false,
+                PathFragment.create("__main__"))
             .createCommand(execRoot, binTools, ImmutableMap.of());
     assertThat(command.getEnvironment()).isEmpty();
     assertThat(command.getWorkingDirectory()).isEqualTo(execRoot.getPathFile());

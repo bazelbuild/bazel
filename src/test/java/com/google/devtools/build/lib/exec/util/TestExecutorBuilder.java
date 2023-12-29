@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -71,7 +72,9 @@ public class TestExecutorBuilder {
     this.execRoot = execRoot;
     addContext(FileWriteActionContext.class, new FileWriteStrategy());
     addContext(TemplateExpansionContext.class, new LocalTemplateExpansionStrategy());
-    addContext(SymlinkTreeActionContext.class, new SymlinkTreeStrategy(null, binTools));
+    addContext(
+        SymlinkTreeActionContext.class,
+        new SymlinkTreeStrategy(null, binTools, PathFragment.create("__main__")));
     addContext(SpawnStrategyResolver.class, new SpawnStrategyResolver());
   }
 

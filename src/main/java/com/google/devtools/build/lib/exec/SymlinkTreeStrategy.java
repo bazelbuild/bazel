@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -56,10 +55,13 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
 
   private final OutputService outputService;
   private final BinTools binTools;
+  private final PathFragment workspaceName;
 
-  public SymlinkTreeStrategy(OutputService outputService, BinTools binTools) {
+  public SymlinkTreeStrategy(
+      OutputService outputService, BinTools binTools, PathFragment workspaceName) {
     this.outputService = outputService;
     this.binTools = binTools;
+    this.workspaceName = workspaceName;
   }
 
   @Override
@@ -97,15 +99,14 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
           }
 
           outputService.createSymlinkTree(
-              symlinks,
-              action.getOutputManifest().getExecPath().getParentDirectory());
+              symlinks, action.getOutputManifest().getExecPath().getParentDirectory());
 
           createOutput(action, actionExecutionContext, inputManifest);
         } else if (action.getRunfileSymlinksMode() == RunfileSymlinksMode.SKIP) {
           // Delete symlinks possibly left over by a previous invocation with a different mode.
           // This is required because only the output manifest is considered an action output, so
           // Skyframe does not clear the directory for us.
-          createSymlinkTreeHelper(action, actionExecutionContext).clearAndLinkManifest();
+          createSymlinkTreeHelper(action, actionExecutionContext).clearRunfilesDirectory();
         } else if (action.getRunfileSymlinksMode() == RunfileSymlinksMode.INTERNAL
             && !action.isFilesetTree()) {
           try {
@@ -161,12 +162,13 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
     }
   }
 
-  private static SymlinkTreeHelper createSymlinkTreeHelper(
+  private SymlinkTreeHelper createSymlinkTreeHelper(
       SymlinkTreeAction action, ActionExecutionContext actionExecutionContext) {
     return new SymlinkTreeHelper(
         actionExecutionContext.getInputPath(action.getInputManifest()),
         actionExecutionContext.getInputPath(action.getOutputManifest()).getParentDirectory(),
-        action.isFilesetTree());
+        action.isFilesetTree(),
+        workspaceName);
   }
 
   private static EnvironmentalExecException createLinkFailureException(
