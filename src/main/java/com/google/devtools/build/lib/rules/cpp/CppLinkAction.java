@@ -176,7 +176,6 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
   private final boolean isLtoIndexing;
 
   private final String ldExecutable;
-  private final String targetCpu;
 
   /**
    * Use {@link CppLinkActionBuilder} to create instances of this class. Also see there for the
@@ -199,8 +198,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
       ActionEnvironment env,
       ImmutableMap<String, String> toolchainEnv,
       ImmutableMap<String, String> executionRequirements,
-      String ldExecutable,
-      String targetCpu) {
+      String ldExecutable) {
     super(owner, inputs, outputs);
     this.mnemonic = getMnemonic(mnemonic, isLtoIndexing);
     this.outputLibrary = outputLibrary;
@@ -213,12 +211,6 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
     this.toolchainEnv = toolchainEnv;
     this.executionRequirements = executionRequirements;
     this.ldExecutable = ldExecutable;
-    this.targetCpu = targetCpu;
-  }
-
-  @VisibleForTesting
-  public String getTargetCpu() {
-    return targetCpu;
   }
 
   @Override
