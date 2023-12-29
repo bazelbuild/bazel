@@ -39,10 +39,9 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
-import com.google.devtools.build.lib.actions.SimpleSpawn.LocalResourcesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.CppLinkInfo;
@@ -65,7 +64,6 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -333,12 +331,12 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    LocalResourcesEstimator localResourcesEstimator =
-        new LocalResourcesEstimator(
-            actionExecutionContext, OS.getCurrent(), linkCommandLine.getLinkerInputArtifacts());
+    ResourceSetOrBuilder localResources = new LinkResourceSetBuilder();
 
-    Spawn spawn = createSpawn(actionExecutionContext, localResourcesEstimator);
     try {
+      int inputsCount = linkCommandLine.getLinkerInputArtifacts().memoizedFlattenAndGetSize();
+      ResourceSet resourceSet = localResources.buildResourceSet(OS.getCurrent(), inputsCount);
+      Spawn spawn = createSpawn(actionExecutionContext, resourceSet);
       ImmutableList<SpawnResult> spawnResults =
           actionExecutionContext
               .getContext(SpawnStrategyResolver.class)
@@ -349,7 +347,12 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
       SpawnResult result = spawnResults.get(0);
       Long consumedMemoryInKb = result.getMemoryInKb();
       if (consumedMemoryInKb != null) {
-        localResourcesEstimator.logMetrics(consumedMemoryInKb);
+        logger.atFine().log(
+            "Linker metrics: inputs_count=%d,inputs_mb=%.2f,estimated_mb=%.2f,consumed_mb=%.2f",
+            inputsCount,
+            0d, // Because inputs sizes weren't used, we don't compute them
+            resourceSet.getMemoryMb(),
+            ((double) consumedMemoryInKb) / 1024);
       }
 
       return ActionResult.create(spawnResults);
@@ -359,8 +362,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
   }
 
   private Spawn createSpawn(
-      ActionExecutionContext actionExecutionContext,
-      LocalResourcesEstimator localResourcesEstimator)
+      ActionExecutionContext actionExecutionContext, ResourceSet localResources)
       throws ActionExecutionException {
     try {
       ArtifactExpander actionContextExpander = actionExecutionContext.getArtifactExpander();
@@ -372,7 +374,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
           getExecutionInfo(),
           getInputs(),
           getOutputs(),
-          localResourcesEstimator);
+          localResources);
     } catch (CommandLineExpansionException e) {
       String message =
           String.format(
@@ -482,66 +484,13 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
     return (isLtoIndexing ? "LTO indexing " : "Linking ") + linkOutput.prettyPrint();
   }
 
-  /**
-   * Estimates resource consumption when this action is executed locally.
-   *
-   * <p>Because resource estimation for linking can be very costly (we need to inspect the size of
-   * the inputs, which means we have to expand a nested set and stat its files), we memoize those
-   * metrics. We do this to enable logging details about these computations after the linker has
-   * run, without having to re-do them.
-   */
+  /** Estimates resource consumption when this action is executed locally. */
   @VisibleForTesting
-  static class LocalResourcesEstimator implements LocalResourcesSupplier {
-    private final ActionExecutionContext actionExecutionContext;
-    private final OS os;
-    private final NestedSet<Artifact> inputs;
+  static class LinkResourceSetBuilder implements ResourceSetOrBuilder {
+    @Override
+    public ResourceSet buildResourceSet(OS os, int inputsCount) throws ExecException {
 
-    /** Container for all lazily-initialized details. */
-    private static class LazyData {
-      private final int inputsCount;
-      private final long inputsBytes;
-      private final ResourceSet resourceSet;
-
-      LazyData(int inputsCount, long inputsBytes, ResourceSet resourceSet) {
-        this.inputsCount = inputsCount;
-        this.inputsBytes = inputsBytes;
-        this.resourceSet = resourceSet;
-      }
-    }
-
-    private LazyData lazyData = null;
-
-    public LocalResourcesEstimator(
-        ActionExecutionContext actionExecutionContext, OS os, NestedSet<Artifact> inputs) {
-      this.actionExecutionContext = actionExecutionContext;
-      this.os = os;
-      this.inputs = inputs;
-    }
-
-    /** Performs costly computations required to predict linker resources consumption. */
-    private LazyData doCostlyEstimation() {
-      int inputsCount = 0;
-      long inputsBytes = 0;
-      for (Artifact input : inputs.toList()) {
-        inputsCount += 1;
-        try {
-          FileArtifactValue value =
-              actionExecutionContext.getInputMetadataProvider().getInputMetadata(input);
-          if (value != null) {
-            inputsBytes += value.getSize();
-          } else {
-            throw new IOException("no metadata");
-          }
-        } catch (IOException e) {
-          // TODO(https://github.com/bazelbuild/bazel/issues/17368): Propagate as ExecException when
-          // input sizes are used in the model.
-          logger.atWarning().log(
-              "Linker metrics: failed to get size of %s: %s (ignored)", input.getExecPath(), e);
-        }
-      }
-
-      // TODO(https://github.com/bazelbuild/bazel/issues/17368): Use inputBytes in the computations.
-      ResourceSet resourceSet;
+      final ResourceSet resourceSet;
       switch (os) {
         case DARWIN:
           resourceSet =
@@ -557,43 +506,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
               ResourceSet.createWithRamCpu(/* memoryMb= */ 1500 + inputsCount, /* cpu= */ 1);
           break;
       }
-
-      return new LazyData(inputsCount, inputsBytes, resourceSet);
-    }
-
-    @Override
-    public ResourceSet get() throws ExecException {
-      if (lazyData == null) {
-        lazyData = doCostlyEstimation();
-      }
-      return lazyData.resourceSet;
-    }
-
-    /**
-     * Emits a log entry with the linker resource prediction statistics.
-     *
-     * <p>This should only be called for spawns where we have actual linker consumption metrics so
-     * that we can compare those to the prediction. In practice, this means that this can only be
-     * called for locally-executed linkers.
-     *
-     * @param actualMemoryKb memory consumed by the linker in KB
-     */
-    public void logMetrics(long actualMemoryKb) {
-      if (lazyData == null) {
-        // We should never have to do this here because, today, the memory consumption numbers in
-        // actualMemoryKb are only available for locally-executed linkers, which means that get()
-        // has been called beforehand. But this does not necessarily have to be the case: we can
-        // imagine a remote spawn runner that does return consumed resources, at which point we
-        // would get here but get() would not have been called.
-        lazyData = doCostlyEstimation();
-      }
-
-      logger.atFine().log(
-          "Linker metrics: inputs_count=%d,inputs_mb=%.2f,estimated_mb=%.2f,consumed_mb=%.2f",
-          lazyData.inputsCount,
-          ((double) lazyData.inputsBytes) / 1024 / 1024,
-          lazyData.resourceSet.getMemoryMb(),
-          ((double) actualMemoryKb) / 1024);
+      return resourceSet;
     }
   }
 
