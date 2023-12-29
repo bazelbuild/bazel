@@ -82,19 +82,8 @@ public final class LinkCommandLine extends CommandLine {
     return paramFile;
   }
 
-  @Nullable
-  @VisibleForTesting
-  public FeatureConfiguration getFeatureConfiguration() {
-    return featureConfiguration;
-  }
-
   public String getActionName() {
     return actionName;
-  }
-
-  /** Returns the current type of link target set. */
-  public LinkTargetType getLinkTargetType() {
-    return linkTargetType;
   }
 
   /** Returns the "staticness" of the link. */
