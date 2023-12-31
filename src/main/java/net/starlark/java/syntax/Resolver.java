@@ -888,6 +888,9 @@ public final class Resolver extends NodeVisitor {
 
     boolean closesOverTopLevelValuesOnly =
         !seenOptional && freevars.stream().allMatch(b -> b.scope == Scope.DEEPLY_FREE);
+    if (syntax instanceof LambdaExpression && !closesOverTopLevelValuesOnly) {
+      System.err.println(name + " " + seenOptional + " " + freevars);
+    }
     return new Function(
         name,
         loc,
