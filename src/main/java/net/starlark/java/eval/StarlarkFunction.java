@@ -159,6 +159,10 @@ public final class StarlarkFunction implements StarlarkCallable {
     return module;
   }
 
+  public boolean closesOverTopLevelValuesOnly() {
+    return rfn.closesOverTopLevelValuesOnly();
+  }
+
   @Override
   public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
       throws EvalException, InterruptedException {
