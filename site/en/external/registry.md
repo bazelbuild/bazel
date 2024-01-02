@@ -21,7 +21,15 @@ An index registry must follow the format below:
 
 *   `/bazel_registry.json`: A JSON file containing metadata for the registry
     like:
-    *   `mirrors`: specifying the list of mirrors to use for source archives
+    *   `mirrors`: specifying the list of mirrors to use for source archives.
+        The mirrored URL is a concatenation of the mirror itself, and the
+        source URL of the module specified by its `source.json` file sans the
+        protocol. For example, if a module's source URL is
+        `https://foo.com/bar/baz`, and `mirrors` contains
+        `["https://mirror1.com/", "https://example.com/mirror2/"]`, then the
+        URLs Bazel will try in order are `https://mirror1.com/foo.com/bar/baz`,
+        `https://example.com/mirror2/foo.com/bar/baz`, and finally the original
+        source URL itself `https://foo.com/bar/baz`.
     *   `module_base_path`: specifying the base path for modules with
         `local_repository` type in the `source.json` file
 *   `/modules`: A directory containing a subdirectory for each module in this

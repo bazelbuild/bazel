@@ -74,7 +74,7 @@ bazelqueryguide
 │                   │   ├── Review.java
 │                   │   └── BUILD
 │                   └── Runner.java
-└── WORKSPACE
+└── MODULE.bazel
 ```
 
 Throughout this tutorial, unless directed otherwise, try not to look in the `BUILD` files to find the information you need and instead solely use the query function.

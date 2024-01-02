@@ -38,9 +38,13 @@ directory.
 
 The repository in which the current Bazel command is being run.
 
+The root of the main repository is also known as the
+<span id="#workspace-root">**workspace root**</span>.
+
 ### Workspace {:#workspace}
 
-The environment shared by all Bazel commands run in the same main repository.
+The environment shared by all Bazel commands run in the same main repository. It
+encompasses the main repo and the set of all defined external repos.
 
 Note that historically the concepts of "repository" and "workspace" have been
 conflated; the term "workspace" has often been used to refer to the main

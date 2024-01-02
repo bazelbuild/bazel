@@ -175,7 +175,7 @@ For your project to build, you need to check the following:
 1. The toolchains you want to use must exist. If using stock toolchains, the
    language owners should include instructions for how to register them. If
    writing your own custom toolchains, you need to [register](https://bazel.build/extending/toolchains#registering-building-toolchains) them in your
-   `WORKSPACE` or with [`--extra_toolchains`](https://bazel.build/reference/command-line-reference#flag--extra_toolchains).
+   `MODULE.bazel` file or with [`--extra_toolchains`](https://bazel.build/reference/command-line-reference#flag--extra_toolchains).
 
 1. `select()`s and [configuration transitions][Starlark transitions] must
   resolve properly. See [select()](#select) and [Transitions](#transitions).
@@ -374,8 +374,8 @@ When building `$ bazel build //:myproject --platforms=//:myplatform`, Bazel
 automatically selects a toolchain that can run on the build machine and
 build binaries for `//:myplatform`. This is known as *toolchain resolution*.
 
-The set of available toolchains can be registered in the `WORKSPACE` with
-[`register_toolchains`][register_toolchains Function] or at the
+The set of available toolchains can be registered in the `MODULE.bazel` file
+with [`register_toolchains`][register_toolchains Function] or at the
 command line with [`--extra_toolchains`][extra_toolchains Flag].
 
 For more information see [here][Toolchains].
@@ -419,7 +419,7 @@ contact [bazel-dev]{: .external}.
 [Platforms examples]: https://github.com/hlopko/bazel_platforms_examples
 [platform mappings design]: https://docs.google.com/document/d/1Vg_tPgiZbSrvXcJ403vZVAGlsWhH9BUDrAxMOYnO0Ls/edit
 [platform Rule]: /reference/be/platforms-and-toolchains#platform
-[register_toolchains Function]: /rules/lib/globals/workspace#register_toolchains
+[register_toolchains Function]: /rules/lib/globals/module#register_toolchains
 [Rust rules]: https://github.com/bazelbuild/rules_rust
 [select()]: /docs/configurable-attributes
 [select() Platforms]: /docs/configurable-attributes#platforms

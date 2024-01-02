@@ -916,9 +916,12 @@ def selecty_genrule(name, select_cmd):
 
 ### Why doesn't select() work with bind()? {:#faq-select-bind}
 
-Because [`bind()`](/reference/be/workspace#bind) is a WORKSPACE rule, not a BUILD rule.
+First of all, do not use `bind()`. It is deprecated in favor of `alias()`.
 
-Workspace rules do not have a specific configuration, and aren't evaluated in
+The technical answer is that [`bind()`](/reference/be/workspace#bind) is a repo
+rule, not a BUILD rule.
+
+Repo rules do not have a specific configuration, and aren't evaluated in
 the same way as BUILD rules. Therefore, a `select()` in a `bind()` can't
 actually evaluate to any specific branch.
 
@@ -956,6 +959,8 @@ alias(
 With this setup, you can pass `--define ssl_library=alternative`, and any target
 that depends on either `//:ssl` or `//external:ssl` will see the alternative
 located at `@alternative//:ssl`.
+
+But really, stop using `bind()`.
 
 ### Why doesn't my select() choose what I expect? {:#faq-select-choose-condition}
 
