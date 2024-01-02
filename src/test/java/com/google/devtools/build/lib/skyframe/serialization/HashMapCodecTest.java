@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.dumpStructure;
 
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester.VerificationFunction;
@@ -31,21 +32,32 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class HashMapCodecTest {
   @Test
+  @SuppressWarnings({"rawtypes", "unchecked"})
   public void smoke() throws Exception {
     HashMap<String, String> map1 = new HashMap<>();
     map1.put("a", "first");
     map1.put("b", null);
-    LinkedHashMap<String, String> map2 = new LinkedHashMap<>();
+
+    LinkedHashMap<String, Object> map2 = new LinkedHashMap<>();
     map2.put("c", null);
     map2.put("a", "second");
+    map2.put("d", map2); // This map contains itself.
+
     HashMap<String, String> emptyMap = new HashMap<>();
+
     List<Map<String, String>> deserializedMaps = new ArrayList<>();
     // Put in empty map twice to make sure codec doesn't return same empty object.
     new SerializationTester(map1, map2, emptyMap, emptyMap)
+        .makeMemoizing()
         .setVerificationFunction(
-            (VerificationFunction<Map<String, String>>)
+            (VerificationFunction<Map>)
                 (original, deserialized) -> {
-                  assertThat(deserialized).containsExactlyEntriesIn(original).inOrder();
+                  if (!(original instanceof LinkedHashMap)) {
+                    original = new LinkedHashMap(original);
+                  }
+                  // Compares the structure to avoid stack overflow when the equals operation
+                  // attempts to traverse the circular maps.
+                  assertThat(dumpStructure(original)).isEqualTo(dumpStructure(deserialized));
                   deserializedMaps.add(deserialized);
                 })
         .runTests();
