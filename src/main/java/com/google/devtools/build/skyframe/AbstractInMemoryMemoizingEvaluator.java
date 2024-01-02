@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
@@ -87,61 +88,97 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
     }
   }
 
-  @Override
-  public final void dumpDeps(PrintStream out, Predicate<String> filter)
+  /**
+   * @return true if finished successfully, false if thread was aborted
+   */
+  private boolean processValues(
+      Predicate<String> filter, BiConsumer<String, InMemoryNodeEntry> consumer)
       throws InterruptedException {
     for (InMemoryNodeEntry entry : getInMemoryGraph().getAllNodeEntries()) {
       // This can be very long running on large graphs so check for user abort requests.
       if (Thread.interrupted()) {
-        out.println("aborting");
-        throw new InterruptedException();
+        return false;
       }
 
       String canonicalizedKey = entry.getKey().getCanonicalName();
       if (!filter.test(canonicalizedKey) || !entry.isDone()) {
         continue;
       }
-      out.println(canonicalizedKey);
-      if (entry.keepsEdges()) {
-        GroupedDeps deps = GroupedDeps.decompress(entry.getCompressedDirectDepsForDoneEntry());
-        for (int i = 0; i < deps.numGroups(); i++) {
-          out.format("  Group %d:\n", i + 1);
-          for (SkyKey dep : deps.getDepGroup(i)) {
-            out.print("    ");
-            out.println(dep.getCanonicalName());
-          }
-        }
-      } else {
-        out.println("  (direct deps not stored)");
-      }
-      out.println();
+
+      consumer.accept(canonicalizedKey, entry);
+    }
+
+    return true;
+  }
+
+  @Override
+  public final void dumpValues(PrintStream out, Predicate<String> filter)
+      throws InterruptedException {
+    boolean interrupted =
+        !processValues(
+            filter,
+            (canonicalizedKey, entry) -> {
+              out.println(canonicalizedKey);
+              entry.getValue().debugPrint(out);
+              out.println();
+            });
+    if (interrupted) {
+      out.println("aborting");
+      throw new InterruptedException();
+    }
+  }
+
+  @Override
+  public final void dumpDeps(PrintStream out, Predicate<String> filter)
+      throws InterruptedException {
+    boolean interrupted =
+        !processValues(
+            filter,
+            (canonicalizedKey, entry) -> {
+              out.println(canonicalizedKey);
+              if (entry.keepsEdges()) {
+                GroupedDeps deps =
+                    GroupedDeps.decompress(entry.getCompressedDirectDepsForDoneEntry());
+                for (int i = 0; i < deps.numGroups(); i++) {
+                  out.format("  Group %d:\n", i + 1);
+                  for (SkyKey dep : deps.getDepGroup(i)) {
+                    out.print("    ");
+                    out.println(dep.getCanonicalName());
+                  }
+                }
+              } else {
+                out.println("  (direct deps not stored)");
+              }
+              out.println();
+            });
+    if (interrupted) {
+      out.println("aborting");
+      throw new InterruptedException();
     }
   }
 
   @Override
   public final void dumpRdeps(PrintStream out, Predicate<String> filter)
       throws InterruptedException {
-    for (InMemoryNodeEntry entry : getInMemoryGraph().getAllNodeEntries()) {
-      // This can be very long running on large graphs so check for user abort requests.
-      if (Thread.interrupted()) {
-        throw new InterruptedException();
-      }
-
-      String canonicalizedKey = entry.getKey().getCanonicalName();
-      if (!filter.test(canonicalizedKey) || !entry.isDone()) {
-        continue;
-      }
-      out.println(canonicalizedKey);
-      if (entry.keepsEdges()) {
-        Collection<SkyKey> rdeps = entry.getReverseDepsForDoneEntry();
-        for (SkyKey rdep : rdeps) {
-          out.print("    ");
-          out.println(rdep.getCanonicalName());
-        }
-      } else {
-        out.println("  (rdeps not stored)");
-      }
-      out.println();
+    boolean interrupted =
+        !processValues(
+            filter,
+            (canonicalizedKey, entry) -> {
+              out.println(canonicalizedKey);
+              if (entry.keepsEdges()) {
+                Collection<SkyKey> rdeps = entry.getReverseDepsForDoneEntry();
+                for (SkyKey rdep : rdeps) {
+                  out.print("    ");
+                  out.println(rdep.getCanonicalName());
+                }
+              } else {
+                out.println("  (rdeps not stored)");
+              }
+              out.println();
+            });
+    if (interrupted) {
+      out.println("aborting");
+      throw new InterruptedException();
     }
   }
 

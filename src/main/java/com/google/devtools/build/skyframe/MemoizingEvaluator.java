@@ -185,8 +185,17 @@ public interface MemoizingEvaluator {
 
   /**
    * Writes a detailed summary of the graph to the given output stream. For each key matching the
-   * given filter, prints the key name and deps are printed. The deps are printed in groups
-   * according to the dependency order registered in Skyframe.
+   * given filter, prints the key name and value.
+   *
+   * <p>Not necessarily thread-safe. Use only for debugging purposes.
+   */
+  @ThreadHostile
+  void dumpValues(PrintStream out, Predicate<String> filter) throws InterruptedException;
+
+  /**
+   * Writes a detailed summary of the graph to the given output stream. For each key matching the
+   * given filter, prints the key name and deps. The deps are printed in groups according to the
+   * dependency order registered in Skyframe.
    *
    * <p>Not necessarily thread-safe. Use only for debugging purposes.
    */
