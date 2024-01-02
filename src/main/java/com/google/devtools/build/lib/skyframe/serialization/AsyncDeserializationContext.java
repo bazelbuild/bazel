@@ -81,4 +81,18 @@ public interface AsyncDeserializationContext extends SerializationDependencyProv
    */
   void deserialize(CodedInputStream codedIn, Object obj, long offset, Runnable done)
       throws IOException, SerializationException;
+
+  /**
+   * Similar to the {@link #deserialize} with {@code done} callback above, but behaves differently
+   * under asynchrony.
+   *
+   * <p>Under asynchrony, it's common for child values to become available before they are fully
+   * formed. This method requires the requested child value to be <i>fully</i> formed before the
+   * {@code done} callback is called. It's used to deserialize sets or set-like containers, for
+   * example map keys, where inserting a partially formed value would be an error.
+   *
+   * <p>This is identical to the other {@link #deserialize} method under synchronous conditions.
+   */
+  void deserializeFully(CodedInputStream codedIn, Object obj, long offset, Runnable done)
+      throws IOException, SerializationException;
 }
