@@ -269,6 +269,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           treeDeleter,
           /* sandboxDebugPath= */ null,
           statisticsPath,
+          /* interactiveDebugArguments= */ null,
           spawn.getMnemonic()) {
         @Override
         public void createFileSystem() throws IOException, InterruptedException {

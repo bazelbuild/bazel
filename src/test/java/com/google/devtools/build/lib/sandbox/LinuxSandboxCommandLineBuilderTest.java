@@ -53,11 +53,10 @@ public final class LinuxSandboxCommandLineBuilderTest {
         assertThrows(
             IllegalStateException.class,
             () ->
-                LinuxSandboxCommandLineBuilder.commandLineBuilder(
-                        linuxSandboxPath, commandArguments)
+                LinuxSandboxCommandLineBuilder.commandLineBuilder(linuxSandboxPath)
                     .setUseFakeRoot(true)
                     .setUseFakeUsername(true)
-                    .build());
+                    .buildForCommand(commandArguments));
     assertThat(e).hasMessageThat().contains("exclusive");
   }
 
@@ -75,8 +74,8 @@ public final class LinuxSandboxCommandLineBuilderTest {
             .build();
 
     List<String> commandLine =
-        LinuxSandboxCommandLineBuilder.commandLineBuilder(linuxSandboxPath, commandArguments)
-            .build();
+        LinuxSandboxCommandLineBuilder.commandLineBuilder(linuxSandboxPath)
+            .buildForCommand(commandArguments);
 
     assertThat(commandLine).containsExactlyElementsIn(expectedCommandLine).inOrder();
   }
@@ -163,7 +162,7 @@ public final class LinuxSandboxCommandLineBuilderTest {
             .build();
 
     List<String> commandLine =
-        LinuxSandboxCommandLineBuilder.commandLineBuilder(linuxSandboxPath, commandArguments)
+        LinuxSandboxCommandLineBuilder.commandLineBuilder(linuxSandboxPath)
             .setWorkingDirectory(workingDirectory)
             .setStdoutPath(stdoutPath)
             .setStderrPath(stderrPath)
@@ -180,7 +179,7 @@ public final class LinuxSandboxCommandLineBuilderTest {
             .setSandboxDebugPath(sandboxDebugPath.getPathString())
             .setPersistentProcess(true)
             .setCgroupsDir(cgroupsDir)
-            .build();
+            .buildForCommand(commandArguments);
 
     assertThat(commandLine).containsExactlyElementsIn(expectedCommandLine).inOrder();
   }

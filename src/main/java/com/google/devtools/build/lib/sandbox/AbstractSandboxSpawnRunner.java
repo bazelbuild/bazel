@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.sandbox;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -59,7 +60,8 @@ import java.io.InputStream;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
-import javax.annotation.Nullable;
+import java.util.Optional;
+import java.util.stream.Stream;
 
 /** Abstract common ancestor for sandbox spawn runners implementing the common parts. */
 abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
@@ -224,7 +226,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       StringBuilder msg = new StringBuilder("Action failed to execute: java.io.IOException: ");
       msg.append(exceptionMsg);
       msg.append("\n");
-      if (sandboxDebugOutput != null) {
+      if (!sandboxDebugOutput.isEmpty()) {
         msg.append("Sandbox debug output:\n");
         msg.append(sandboxDebugOutput);
         msg.append("\n");
@@ -294,12 +296,12 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     }
 
     String sandboxDebugOutput = getSandboxDebugOutput(sandbox);
-    if (sandboxDebugOutput != null) {
+    if (!sandboxDebugOutput.isEmpty()) {
       reporter.handle(
           Event.of(
               EventKind.DEBUG,
               String.format(
-                  "Sandbox debug output for %s %s: %s",
+                  "Sandbox debug output for %s %s:\n%s",
                   originalSpawn.getMnemonic(),
                   originalSpawn.getTargetLabel(),
                   sandboxDebugOutput)));
@@ -334,18 +336,21 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     return spawnResultBuilder.build();
   }
 
-  @Nullable
   private String getSandboxDebugOutput(SandboxedSpawn sandbox) throws IOException {
+    Optional<String> sandboxDebugOutput = Optional.empty();
     Path sandboxDebugPath = sandbox.getSandboxDebugPath();
     if (sandboxDebugPath != null && sandboxDebugPath.exists()) {
       try (InputStream inputStream = sandboxDebugPath.getInputStream()) {
         String msg = new String(inputStream.readAllBytes(), UTF_8);
         if (!msg.isEmpty()) {
-          return msg;
+          sandboxDebugOutput = Optional.of(msg);
         }
       }
     }
-    return null;
+    Optional<String> interactiveDebugInstructions = sandbox.getInteractiveDebugInstructions();
+    return Stream.of(sandboxDebugOutput, interactiveDebugInstructions)
+        .flatMap(Optional::stream)
+        .collect(joining("\n"));
   }
 
   private boolean wasTimeout(Duration timeout, Duration wallTime) {

@@ -117,6 +117,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
           treeDeleter,
           /* sandboxDebugPath= */ null,
           statisticsPath,
+          /* interactiveDebugArguments= */ null,
           spawn.getMnemonic());
   }
 
