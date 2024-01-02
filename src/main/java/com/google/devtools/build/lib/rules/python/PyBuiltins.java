@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RepoMappingManifestAction;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.SourceManifestAction;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -133,25 +132,6 @@ public abstract class PyBuiltins implements StarlarkValue {
       parameters = {})
   public String getCurrentOsName() {
     return OS.getCurrent().getCanonicalName();
-  }
-
-  // TODO(b/69113360): Remove once par-generation is moved out of the py_binary rule itself.
-  @StarlarkMethod(
-      name = "new_runfiles_supplier",
-      doc = "Create a RunfilesSupplier, which can be passed to ctx.actions.run.input_manifests.",
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true, defaultValue = "unbound"),
-        @Param(name = "runfiles_dir", positional = false, named = true, defaultValue = "unbound"),
-        @Param(name = "runfiles", positional = false, named = true, defaultValue = "unbound"),
-      })
-  public Object addEnv(StarlarkRuleContext ruleContext, String runfilesStr, Runfiles runfiles)
-      throws EvalException {
-    return new SingleRunfilesSupplier(
-        PathFragment.create(runfilesStr),
-        runfiles,
-        /* repoMappingManifest= */ null,
-        ruleContext.getConfiguration().getRunfileSymlinksMode(),
-        ruleContext.getConfiguration().buildRunfileLinks());
   }
 
   // TODO(rlevasseur): Remove once Starlark exposes this directly, see
