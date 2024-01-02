@@ -842,7 +842,7 @@
           "hasNonDevUseExtension": true
         },
         {
-          "extensionBzlFile": ":extensions.bzl",
+          "extensionBzlFile": "@rules_jvm_external//:extensions.bzl",
           "extensionName": "maven",
           "usingModule": "rules_jvm_external@4.4.2",
           "location": {
@@ -991,7 +991,7 @@
     },
     "@@bazel_tools//tools/android:android_extensions.bzl%remote_android_tools_extensions": {
       "general": {
-        "bzlTransitiveDigest": "ulZbxLO9zZvRteRNbDJsuT0zmeMlrAkHd7kEKlpdkbY=",
+        "bzlTransitiveDigest": "nt3GdKdL/m8sLKAYiEZKGxmKBGhrgCw8kliD+uWNa1k=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -1075,7 +1075,7 @@
     },
     "@@bazel_tools//tools/test:extensions.bzl%remote_coverage_tools_extension": {
       "general": {
-        "bzlTransitiveDigest": "dSavvzz4Z4n0JlBCZevqTBn9fRwlL29Y3/kjd1rvGAQ=",
+        "bzlTransitiveDigest": "rVX8Q8OfuxOwM69Z7zbeB+RmI1KhYsH3IcJjNRTr4TI=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -1095,7 +1095,7 @@
     },
     "@@rules_java~7.3.1//java:extensions.bzl%toolchains": {
       "general": {
-        "bzlTransitiveDigest": "dE7hHxM351CfQ5Z9+woayMrI9kUcFoqXgL6t1yhXodE=",
+        "bzlTransitiveDigest": "jOzTUkLM+R4uf654cBevCsTLayAituIr5+nMxyALbx0=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -1635,7 +1635,7 @@
     },
     "@@rules_jvm_external~4.4.2//:extensions.bzl%maven": {
       "general": {
-        "bzlTransitiveDigest": "8bCMg1PvrC5kIZolTwRMdMG2stFYPJph2VrNUkWxiBw=",
+        "bzlTransitiveDigest": "NuzSZaa+/34uMyTrKhNi5d+4EDa9WKs8ZRmKyE7HAno=",
         "accumulatedFileDigests": {
           "@@rules_jvm_external~4.4.2//:rules_jvm_external_deps_install.json": "10442a5ae27d9ff4c2003e5ab71643bf0d8b48dcf968b4173fa274c3232a8c06"
         },
@@ -2722,7 +2722,7 @@
     },
     "@@rules_jvm_external~4.4.2//:non-module-deps.bzl%non_module_deps": {
       "general": {
-        "bzlTransitiveDigest": "ianytwKVaqmOgfIRGRP4Ra/4fOv9bVx66S9abA454wc=",
+        "bzlTransitiveDigest": "DpYY1SW07KgcJB4Fqz3G6AAtytLHr+qMVe+5M6VaATg=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2742,7 +2742,7 @@
     },
     "@@rules_python~0.22.1//python/extensions:python.bzl%python": {
       "general": {
-        "bzlTransitiveDigest": "5984r65oTDrHlsC2EzVYYzZuSysKJJHzbkPtXZaZq9Q=",
+        "bzlTransitiveDigest": "QmRj3Bq0t5JPLEWpF8RuTlwapu8FFqo8ixxZYd1ARXE=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2759,7 +2759,7 @@
     },
     "@@rules_python~0.22.1//python/extensions/private:internal_deps.bzl%internal_deps": {
       "general": {
-        "bzlTransitiveDigest": "BnJzAP4gt64l11dxPIXHUAtc4AYnunQFksKopy7uynE=",
+        "bzlTransitiveDigest": "0CEmx/HiORK8/pZhgoEY4mfEmFH2qskLYyt8N47M8PU=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {

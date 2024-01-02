@@ -22,19 +22,24 @@
 
 ### Setup
 
-To use these rules, load them in your `WORKSPACE` file as follows:
+To use these rules in a module extension, load them in your .bzl file and then call them from your
+extension's implementation function. For example, to use `http_archive`:
 
 ```python
-load(
-    "@bazel_tools//tools/build_defs/repo:http.bzl",
-    "http_archive",
-    "http_file",
-    "http_jar",
-)
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+def _my_extension_impl(mctx):
+  http_archive(name = "foo", urls = [...])
+
+my_extension = module_extension(implementation = _my_extension_impl)
 ```
 
-These rules are improved versions of the native http rules and will eventually
-replace the native rules.
+Alternatively, you can directly call these repo rules in your MODULE.bazel file with
+`use_repo_rule`:
+
+```python
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(name = "foo", urls = [...])
 """
 
 load(

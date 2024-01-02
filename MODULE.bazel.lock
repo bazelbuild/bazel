@@ -2228,12 +2228,12 @@
   "moduleExtensions": {
     "//:extensions.bzl%bazel_android_deps": {
       "general": {
-        "bzlTransitiveDigest": "DSeXJLRZhP/A/L6FhhbvcMg1auJWnRmHqERfXhXJwZY=",
+        "bzlTransitiveDigest": "cwYixuxjfQYzprSna8/1OKq650uvNPFoHEf/9zK9DpI=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "desugar_jdk_libs": {
-            "bzlFile": "@@//tools/build_defs/repo:http.bzl",
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
               "name": "_main~bazel_android_deps~desugar_jdk_libs",
@@ -2247,15 +2247,15 @@
     },
     "//:extensions.bzl%bazel_build_deps": {
       "general": {
-        "bzlTransitiveDigest": "DSeXJLRZhP/A/L6FhhbvcMg1auJWnRmHqERfXhXJwZY=",
+        "bzlTransitiveDigest": "cwYixuxjfQYzprSna8/1OKq650uvNPFoHEf/9zK9DpI=",
         "accumulatedFileDigests": {
-          "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "1557fcd70b473a22fd57a6bc68eca2d86395ed29ba2e1a197ce0e348a4efaa87",
+          "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "8ac177312e0696c6025e449f8d6cc8f0d83e0aa496846cf40d1d0f6517800598",
           "@@//:MODULE.bazel": "40a8230b8e83c355a617701c5c9ed2df3932ab037d3b4ad036dc056738bcf888"
         },
         "envVariables": {},
         "generatedRepoSpecs": {
           "openjdk_macos_aarch64_vanilla": {
-            "bzlFile": "@@//tools/build_defs/repo:http.bzl",
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
             "attributes": {
               "name": "_main~bazel_build_deps~openjdk_macos_aarch64_vanilla",
@@ -2291,7 +2291,7 @@
             }
           },
           "openjdk_linux_vanilla": {
-            "bzlFile": "@@//tools/build_defs/repo:http.bzl",
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
             "attributes": {
               "name": "_main~bazel_build_deps~openjdk_linux_vanilla",
@@ -2321,7 +2321,7 @@
             }
           },
           "openjdk_linux_s390x_vanilla": {
-            "bzlFile": "@@//tools/build_defs/repo:http.bzl",
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
             "attributes": {
               "name": "_main~bazel_build_deps~openjdk_linux_s390x_vanilla",
@@ -2382,7 +2382,7 @@
             }
           },
           "openjdk_win_arm64_vanilla": {
-            "bzlFile": "@@//tools/build_defs/repo:http.bzl",
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
             "attributes": {
               "name": "_main~bazel_build_deps~openjdk_win_arm64_vanilla",
@@ -2392,7 +2392,7 @@
             }
           },
           "openjdk_linux_ppc64le_vanilla": {
-            "bzlFile": "@@//tools/build_defs/repo:http.bzl",
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
             "attributes": {
               "name": "_main~bazel_build_deps~openjdk_linux_ppc64le_vanilla",
@@ -2402,7 +2402,7 @@
             }
           },
           "openjdk_macos_x86_64_vanilla": {
-            "bzlFile": "@@//tools/build_defs/repo:http.bzl",
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
             "attributes": {
               "name": "_main~bazel_build_deps~openjdk_macos_x86_64_vanilla",
@@ -2470,7 +2470,7 @@
             }
           },
           "openjdk_win_vanilla": {
-            "bzlFile": "@@//tools/build_defs/repo:http.bzl",
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
             "attributes": {
               "name": "_main~bazel_build_deps~openjdk_win_vanilla",
@@ -2480,7 +2480,7 @@
             }
           },
           "openjdk_linux_aarch64_vanilla": {
-            "bzlFile": "@@//tools/build_defs/repo:http.bzl",
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
             "attributes": {
               "name": "_main~bazel_build_deps~openjdk_linux_aarch64_vanilla",
@@ -2505,7 +2505,7 @@
     },
     "//:extensions.bzl%bazel_test_deps": {
       "general": {
-        "bzlTransitiveDigest": "DSeXJLRZhP/A/L6FhhbvcMg1auJWnRmHqERfXhXJwZY=",
+        "bzlTransitiveDigest": "cwYixuxjfQYzprSna8/1OKq650uvNPFoHEf/9zK9DpI=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2524,7 +2524,7 @@
             }
           },
           "bazelci_rules": {
-            "bzlFile": "@@//tools/build_defs/repo:http.bzl",
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
               "name": "_main~bazel_test_deps~bazelci_rules",
@@ -2555,7 +2555,7 @@
     },
     "//tools/android:android_extensions.bzl%remote_android_tools_extensions": {
       "general": {
-        "bzlTransitiveDigest": "ulZbxLO9zZvRteRNbDJsuT0zmeMlrAkHd7kEKlpdkbY=",
+        "bzlTransitiveDigest": "nt3GdKdL/m8sLKAYiEZKGxmKBGhrgCw8kliD+uWNa1k=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2582,7 +2582,7 @@
     },
     "//tools/test:extensions.bzl%remote_coverage_tools_extension": {
       "general": {
-        "bzlTransitiveDigest": "dSavvzz4Z4n0JlBCZevqTBn9fRwlL29Y3/kjd1rvGAQ=",
+        "bzlTransitiveDigest": "rVX8Q8OfuxOwM69Z7zbeB+RmI1KhYsH3IcJjNRTr4TI=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
