@@ -437,7 +437,11 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       Path mountPoint = entry.getKey();
       Path content = entry.getValue();
       if (mountPoint.startsWith(tmpPath)) {
-        Preconditions.checkState(!mountPoint.equals(tmpPath));
+        // sandboxTmp should be null if /tmp is an explicit mount point since useHermeticTmp()
+        // returns false in that case.
+        if (mountPoint.equals(tmpPath)) {
+          throw new IOException("Cannot mount /tmp explicitly with hermetic /tmp. Please file a bug at https://github.com/bazelbuild/bazel/issues/new/choose.");
+        }
         // We need to rewrite the mount point to be under the sandbox tmp directory, which will be
         // mounted onto /tmp as the final mount.
         mountPoint = sandboxTmp.getRelative(mountPoint.relativeTo(tmpPath));
