@@ -737,8 +737,7 @@ public class Package {
         /* associatedModuleName= */ Optional.empty(),
         /* associatedModuleVersion= */ Optional.empty(),
         noImplicitFileExport,
-        mainRepoMapping,
-        mainRepoMapping,
+        /* repositoryMapping= */ mainRepoMapping,
         /* cpuBoundSemaphore= */ null,
         packageOverheadEstimator,
         /* generatorMap= */ null,
@@ -760,10 +759,6 @@ public class Package {
             /* associatedModuleVersion= */ Optional.empty(),
             noImplicitFileExport,
             repoMapping,
-            // This mapping is *not* the main repository's mapping, but since it is only used to
-            // construct a query command in an error message and the package built here can't be
-            // seen by query, the particular value does not matter.
-            RepositoryMapping.ALWAYS_FALLBACK,
             /* cpuBoundSemaphore= */ null,
             PackageOverheadEstimator.NOOP_ESTIMATOR,
             /* generatorMap= */ null,
@@ -977,8 +972,6 @@ public class Package {
         Optional<String> associatedModuleVersion,
         boolean noImplicitFileExport,
         RepositoryMapping repositoryMapping,
-        // TODO(#19922): Spurious parameter, delete.
-        RepositoryMapping mainRepositoryMapping,
         @Nullable Semaphore cpuBoundSemaphore,
         PackageOverheadEstimator packageOverheadEstimator,
         @Nullable ImmutableMap<Location, String> generatorMap,

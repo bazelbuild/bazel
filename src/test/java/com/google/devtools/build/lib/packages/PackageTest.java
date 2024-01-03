@@ -167,8 +167,7 @@ public class PackageTest {
         Optional.empty(),
         Optional.empty(),
         /* noImplicitFileExport= */ true,
-        RepositoryMapping.ALWAYS_FALLBACK,
-        RepositoryMapping.ALWAYS_FALLBACK,
+        /* repositoryMapping= */ RepositoryMapping.ALWAYS_FALLBACK,
         /* cpuBoundSemaphore= */ null,
         PackageOverheadEstimator.NOOP_ESTIMATOR,
         /* generatorMap= */ null,
@@ -179,7 +178,7 @@ public class PackageTest {
   private static Rule addRule(Package.Builder pkgBuilder, Label label, RuleClass ruleClass)
       throws Exception {
     Rule rule = pkgBuilder.createRule(label, ruleClass, /* callstack= */ ImmutableList.of());
-    rule.populateOutputFiles(new StoredEventHandler(), pkgBuilder);
+    rule.populateOutputFiles(new StoredEventHandler(), pkgBuilder.getPackageIdentifier());
     pkgBuilder.addRule(rule);
     return rule;
   }

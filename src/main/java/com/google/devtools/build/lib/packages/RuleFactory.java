@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -56,8 +55,6 @@ public class RuleFactory {
       RuleClass ruleClass,
       BuildLangTypedAttributeValuesMap attributeValues,
       boolean failOnUnknownAttributes,
-      // TODO(#19922): elim eventHandler param, it's redundant with pkgBuilder
-      EventHandler eventHandler,
       ImmutableList<StarlarkThread.CallStackEntry> callstack)
       throws InvalidRuleException, InterruptedException {
     Preconditions.checkNotNull(ruleClass);
@@ -95,7 +92,7 @@ public class RuleFactory {
 
     try {
       return ruleClass.createRule(
-          pkgBuilder, label, attributes, failOnUnknownAttributes, eventHandler, callstack);
+          pkgBuilder, label, attributes, failOnUnknownAttributes, callstack);
     } catch (LabelSyntaxException | CannotPrecomputeDefaultsException e) {
       throw new RuleFactory.InvalidRuleException(ruleClass + " " + e.getMessage());
     }
@@ -126,17 +123,10 @@ public class RuleFactory {
       RuleClass ruleClass,
       BuildLangTypedAttributeValuesMap attributeValues,
       boolean failOnUnknownAttributes,
-      EventHandler eventHandler,
       ImmutableList<StarlarkThread.CallStackEntry> callstack)
       throws InvalidRuleException, NameConflictException, InterruptedException {
     Rule rule =
-        createRule(
-            pkgBuilder,
-            ruleClass,
-            attributeValues,
-            failOnUnknownAttributes,
-            eventHandler,
-            callstack);
+        createRule(pkgBuilder, ruleClass, attributeValues, failOnUnknownAttributes, callstack);
     pkgBuilder.addRule(rule);
     return rule;
   }
@@ -300,8 +290,6 @@ public class RuleFactory {
             thread
                 .getSemantics()
                 .getBool(BuildLanguageOptions.INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES),
-            // TODO(#19922): createAndAddRule() should get this from the builder arg directly.
-            pkgBuilder.getLocalEventHandler(),
             thread.getCallStack());
       } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {
         throw new EvalException(e);

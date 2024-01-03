@@ -915,11 +915,11 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * Collects the output files (both implicit and explicit). Must be called before the output
    * accessors methods can be used, and must be called only once.
    */
-  void populateOutputFiles(EventHandler eventHandler, Package.Builder pkgBuilder)
+  void populateOutputFiles(EventHandler eventHandler, PackageIdentifier pkgId)
       throws LabelSyntaxException, InterruptedException {
     populateOutputFilesInternal(
         eventHandler,
-        pkgBuilder.getPackageIdentifier(),
+        pkgId,
         ruleClass.getDefaultImplicitOutputsFunction(),
         /* checkLabels= */ true);
   }

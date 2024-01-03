@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
-import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
@@ -55,14 +54,7 @@ public final class WorkspaceFactoryHelper {
           LabelSyntaxException,
           InterruptedException {
     BuildLangTypedAttributeValuesMap attributeValues = new BuildLangTypedAttributeValuesMap(kwargs);
-    Rule rule =
-        RuleFactory.createRule(
-            pkgBuilder,
-            ruleClass,
-            attributeValues,
-            true,
-            pkgBuilder.getLocalEventHandler(),
-            callstack);
+    Rule rule = RuleFactory.createRule(pkgBuilder, ruleClass, attributeValues, true, callstack);
     overwriteRule(pkgBuilder, rule);
     for (Map.Entry<String, Label> entry :
         ruleClass.getExternalBindingsFunction().apply(rule).entrySet()) {
@@ -172,11 +164,9 @@ public final class WorkspaceFactoryHelper {
     if (actual != null) {
       attributes.put("actual", actual);
     }
-    StoredEventHandler handler = new StoredEventHandler();
     BuildLangTypedAttributeValuesMap attributeValues =
         new BuildLangTypedAttributeValuesMap(attributes);
-    Rule rule =
-        RuleFactory.createRule(pkg, bindRuleClass, attributeValues, true, handler, callstack);
+    Rule rule = RuleFactory.createRule(pkg, bindRuleClass, attributeValues, true, callstack);
     overwriteRule(pkg, rule);
   }
 

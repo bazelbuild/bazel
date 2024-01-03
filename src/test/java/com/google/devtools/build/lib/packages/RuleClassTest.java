@@ -259,8 +259,7 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         Optional.empty(),
         Optional.empty(),
         StarlarkSemantics.DEFAULT,
-        RepositoryMapping.ALWAYS_FALLBACK,
-        RepositoryMapping.ALWAYS_FALLBACK,
+        /* repositoryMapping= */ RepositoryMapping.ALWAYS_FALLBACK,
         /* cpuBoundSemaphore= */ null,
         /* generatorMap= */ null,
         /* configSettingVisibilityPolicy= */ null,
@@ -932,14 +931,16 @@ public final class RuleClassTest extends PackageLoadingTestCase {
     } catch (LabelSyntaxException e) {
       throw new IllegalArgumentException("Rule has illegal label", e);
     }
-    return ruleClass.createRule(
-        pkgBuilder,
-        ruleLabel,
-        new BuildLangTypedAttributeValuesMap(attributeValues),
-        true,
-        reporter,
-        ImmutableList.of(
-            StarlarkThread.callStackEntry(StarlarkThread.TOP_LEVEL, testRuleLocation)));
+    Rule rule =
+        ruleClass.createRule(
+            pkgBuilder,
+            ruleLabel,
+            new BuildLangTypedAttributeValuesMap(attributeValues),
+            true,
+            ImmutableList.of(
+                StarlarkThread.callStackEntry(StarlarkThread.TOP_LEVEL, testRuleLocation)));
+    pkgBuilder.getLocalEventHandler().replayOn(reporter);
+    return rule;
   }
 
   @Test

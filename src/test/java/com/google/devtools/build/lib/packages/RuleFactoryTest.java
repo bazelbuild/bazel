@@ -20,13 +20,11 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -64,8 +62,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
             Optional.empty(),
             Optional.empty(),
             StarlarkSemantics.DEFAULT,
-            RepositoryMapping.ALWAYS_FALLBACK,
-            RepositoryMapping.ALWAYS_FALLBACK,
+            /* repositoryMapping= */ RepositoryMapping.ALWAYS_FALLBACK,
             /* cpuBoundSemaphore= */ null,
             /* generatorMap= */ null,
             /* configSettingVisibilityPolicy= */ null,
@@ -95,7 +92,6 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
             true,
-            new Reporter(new EventBus()),
             DUMMY_STACK);
 
     assertThat(rule.getAssociatedRule()).isSameInstanceAs(rule);
@@ -155,7 +151,6 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
             true,
-            new Reporter(new EventBus()),
             DUMMY_STACK);
     assertThat(rule.containsErrors()).isFalse();
   }
@@ -179,7 +174,6 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
                     true,
-                    new Reporter(new EventBus()),
                     DUMMY_STACK));
     assertThat(e).hasMessageThat().contains("must be in the WORKSPACE file");
   }
@@ -203,7 +197,6 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
                     true,
-                    new Reporter(new EventBus()),
                     DUMMY_STACK));
     assertThat(e).hasMessageThat().contains("cannot be in the WORKSPACE file");
   }
@@ -239,7 +232,6 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
                     true,
-                    new Reporter(new EventBus()),
                     DUMMY_STACK));
     assertWithMessage(e.getMessage())
         .that(e.getMessage().contains("output file name can't be equal '.'"))

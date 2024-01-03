@@ -77,17 +77,20 @@ public final class BzlmodRepoRuleCreator {
     Rule rule;
     try {
       rule =
-          RuleFactory.createAndAddRule(
-              packageBuilder, ruleClass, attributeValues, true, eventHandler, callStack);
+          RuleFactory.createAndAddRule(packageBuilder, ruleClass, attributeValues, true, callStack);
+      if (rule.containsErrors()) {
+        throw Starlark.errorf(
+            "failed to instantiate '%s' from this module extension", ruleClass.getName());
+      }
+      packageBuilder.build();
     } catch (NameConflictException e) {
       // This literally cannot happen -- we just created the package!
       throw new IllegalStateException(e);
+    } finally {
+      // Make sure we propagate any errors reported by the rule,
+      // from the builder to the event handler.
+      packageBuilder.getLocalEventHandler().replayOn(eventHandler);
     }
-    if (rule.containsErrors()) {
-      throw Starlark.errorf(
-          "failed to instantiate '%s' from this module extension", ruleClass.getName());
-    }
-    packageBuilder.build();
     return rule;
   }
 }

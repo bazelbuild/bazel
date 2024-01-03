@@ -200,7 +200,7 @@ public class WorkspaceFactory {
                 rule.getLocation(),
                 rule.getInteriorCallStack());
         newRule.copyAttributesFrom(rule);
-        newRule.populateOutputFiles(NullEventHandler.INSTANCE, builder);
+        newRule.populateOutputFiles(NullEventHandler.INSTANCE, builder.getPackageIdentifier());
         if (rule.containsErrors()) {
           newRule.setContainsErrors();
         }
