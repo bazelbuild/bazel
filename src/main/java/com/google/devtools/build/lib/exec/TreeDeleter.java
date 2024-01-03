@@ -27,6 +27,8 @@ public interface TreeDeleter {
    * not be reported even if they happen. For example, if deletions are asynchronous, there is no
    * way to capture their errors.
    *
+   * <p>For asynchronous deleters the directory is moved before being deleted.
+   *
    * @param path the tree to be deleted
    * @throws IOException if there are problems deleting the tree
    */
