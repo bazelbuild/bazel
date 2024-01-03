@@ -151,6 +151,16 @@ public class CommonQueryOptions extends OptionsBase {
               + " will not be omitted.")
   public boolean incompatiblePackageGroupIncludesDoubleSlash;
 
+  @Option(
+      name = "experimental_explicit_aspects",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "aquery, cquery: whether to include aspect-generated actions in the output. "
+              + "query: no-op (aspects are always followed).")
+  public boolean explicitAspects;
+
   /** Return the current options as a set of QueryEnvironment settings. */
   public Set<Setting> toSettings() {
     Set<Setting> settings = EnumSet.noneOf(Setting.class);
@@ -165,6 +175,9 @@ public class CommonQueryOptions extends OptionsBase {
     }
     if (useAspects) {
       settings.add(Setting.INCLUDE_ASPECTS);
+    }
+    if (explicitAspects) {
+      settings.add(Setting.EXPLICIT_ASPECTS);
     }
     return settings;
   }

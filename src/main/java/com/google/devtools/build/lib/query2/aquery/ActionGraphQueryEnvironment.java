@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -70,8 +71,7 @@ public class ActionGraphQueryEnvironment
   private AqueryOptions aqueryOptions;
 
   private AqueryActionFilter actionFilters;
-  private final KeyExtractor<ConfiguredTargetValue, ConfiguredTargetKey>
-      configuredTargetKeyExtractor;
+  private final KeyExtractor<ConfiguredTargetValue, ActionLookupKey> configuredTargetKeyExtractor;
   private final ConfiguredTargetValueAccessor accessor;
 
   public ActionGraphQueryEnvironment(
@@ -187,8 +187,7 @@ public class ActionGraphQueryEnvironment
   }
 
   @Override
-  protected KeyExtractor<ConfiguredTargetValue, ConfiguredTargetKey>
-      getConfiguredTargetKeyExtractor() {
+  protected KeyExtractor<ConfiguredTargetValue, ActionLookupKey> getConfiguredTargetKeyExtractor() {
     return configuredTargetKeyExtractor;
   }
 
@@ -202,7 +201,7 @@ public class ActionGraphQueryEnvironment
   @Nullable
   private ConfiguredTargetValue createConfiguredTargetValueFromKey(ConfiguredTargetKey key)
       throws InterruptedException {
-    ConfiguredTargetValue value = getConfiguredTargetValue(key);
+    ConfiguredTargetValue value = (ConfiguredTargetValue) getConfiguredTargetValue(key);
     if (value == null
         || !Objects.equals(
             value.getConfiguredTarget().getConfigurationKey(), key.getConfigurationKey())) {
@@ -251,7 +250,7 @@ public class ActionGraphQueryEnvironment
   @Override
   protected ConfiguredTargetValue getValueFromKey(SkyKey key) throws InterruptedException {
     Preconditions.checkState(key instanceof ConfiguredTargetKey);
-    return getConfiguredTargetValue(key);
+    return (ConfiguredTargetValue) getConfiguredTargetValue(key);
   }
 
   @Nullable
