@@ -82,7 +82,8 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
           inputs,
           inputsToCreate,
           dirsToCreate,
-          sandboxExecRoot);
+          sandboxExecRoot,
+          treeDeleter);
     }
   }
 

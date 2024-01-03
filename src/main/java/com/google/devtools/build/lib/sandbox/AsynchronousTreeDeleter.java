@@ -26,6 +26,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 
 /**
@@ -39,11 +40,15 @@ import javax.annotation.Nullable;
 class AsynchronousTreeDeleter implements TreeDeleter {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
+  private final AtomicInteger trashCount = new AtomicInteger(0);
+
   /** Thread pool used to execute asynchronous tree deletions; null in synchronous mode. */
   @Nullable private ThreadPoolExecutor service;
 
+  private final Path trashBase;
+
   /** Constructs a new asynchronous tree deleter backed by just one thread. */
-  AsynchronousTreeDeleter() {
+  AsynchronousTreeDeleter(Path trashBase) {
     logger.atInfo().log("Starting async tree deletion pool with 1 thread");
 
     ThreadFactory threadFactory =
@@ -56,6 +61,8 @@ class AsynchronousTreeDeleter implements TreeDeleter {
     service =
         new ThreadPoolExecutor(
             1, 1, 0L, TimeUnit.SECONDS, new LinkedBlockingQueue<>(), threadFactory);
+
+    this.trashBase = trashBase;
   }
 
   /**
@@ -74,12 +81,14 @@ class AsynchronousTreeDeleter implements TreeDeleter {
   }
 
   @Override
-  public void deleteTree(Path path) {
+  public void deleteTree(Path path) throws IOException {
+    Path trashPath = trashBase.getRelative(Integer.toString(trashCount.getAndIncrement()));
+    path.renameTo(trashPath);
     checkNotNull(service, "Cannot call deleteTree after shutdown")
         .execute(
             () -> {
               try {
-                path.deleteTree();
+                trashPath.deleteTree();
               } catch (IOException e) {
                 logger.atWarning().withCause(e).log(
                     "Failed to delete tree %s asynchronously", path);
