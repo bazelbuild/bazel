@@ -259,29 +259,30 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         allowNetwork
             || Spawns.requiresNetwork(spawn, getSandboxOptions().defaultSandboxAllowNetwork);
 
-      return new SymlinkedSandboxedSpawn(
-          sandboxPath,
-          sandboxExecRoot,
-          commandLine,
-          environment,
-          inputs,
-          outputs,
-          writableDirs,
-          treeDeleter,
-          /* sandboxDebugPath= */ null,
-          statisticsPath,
-          spawn.getMnemonic()) {
-        @Override
-        public void createFileSystem() throws IOException, InterruptedException {
-          super.createFileSystem();
-          writeConfig(
-              sandboxConfigPath,
-              writableDirs,
-              getInaccessiblePaths(),
-              allowNetworkForThisSpawn,
-              statisticsPath);
-        }
-      };
+    return new SymlinkedSandboxedSpawn(
+        sandboxPath,
+        sandboxExecRoot,
+        commandLine,
+        environment,
+        inputs,
+        outputs,
+        writableDirs,
+        treeDeleter,
+        /* sandboxDebugPath= */ null,
+        statisticsPath,
+        /* interactiveDebugArguments= */ null,
+        spawn.getMnemonic()) {
+      @Override
+      public void createFileSystem() throws IOException, InterruptedException {
+        super.createFileSystem();
+        writeConfig(
+            sandboxConfigPath,
+            writableDirs,
+            getInaccessiblePaths(),
+            allowNetworkForThisSpawn,
+            statisticsPath);
+      }
+    };
   }
 
   private void writeConfig(

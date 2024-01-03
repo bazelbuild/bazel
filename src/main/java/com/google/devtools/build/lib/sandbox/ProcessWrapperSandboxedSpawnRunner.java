@@ -107,18 +107,19 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
             null);
     SandboxOutputs outputs = helpers.getOutputs(spawn);
 
-      return new SymlinkedSandboxedSpawn(
-          sandboxPath,
-          sandboxExecRoot,
-          commandLineBuilder.build(),
-          environment,
-          inputs,
-          outputs,
-          getWritableDirs(sandboxExecRoot, sandboxExecRoot, environment),
-          treeDeleter,
-          /* sandboxDebugPath= */ null,
-          statisticsPath,
-          spawn.getMnemonic());
+    return new SymlinkedSandboxedSpawn(
+        sandboxPath,
+        sandboxExecRoot,
+        commandLineBuilder.build(),
+        environment,
+        inputs,
+        outputs,
+        getWritableDirs(sandboxExecRoot, sandboxExecRoot, environment),
+        treeDeleter,
+        /* sandboxDebugPath= */ null,
+        statisticsPath,
+        /* interactiveDebugArguments= */ null,
+        spawn.getMnemonic());
   }
 
   @Override
