@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import java.util.List;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.ParserInput;
@@ -101,7 +100,7 @@ final class WorkspaceFactoryTestHelper {
   }
 
   String getParserError() {
-    List<Event> events = builder.getEvents();
+    ImmutableList<Event> events = builder.getLocalEventHandler().getEvents();
     assertThat(events.size()).isGreaterThan(0);
     return events.get(0).getMessage();
   }

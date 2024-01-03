@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.NullEventHandler;
-import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
@@ -110,7 +109,6 @@ public class WorkspaceFactory {
     predeclared.putAll(bindings); // (may shadow bindings in default environment)
     Module module = Module.withPredeclared(starlarkSemantics, predeclared);
 
-    StoredEventHandler localReporter = new StoredEventHandler();
     try {
       // compile
       new DotBazelFileSyntaxChecker("WORKSPACE files", /* canLoadBzl= */ true).check(file);
@@ -119,9 +117,8 @@ public class WorkspaceFactory {
       // create thread
       StarlarkThread thread = new StarlarkThread(mutability, starlarkSemantics);
       thread.setLoader(loadedModules::get);
-      thread.setPrintHandler(Event.makeDebugPrintHandler(localReporter));
+      thread.setPrintHandler(Event.makeDebugPrintHandler(builder.getLocalEventHandler()));
       thread.setThreadLocal(Package.Builder.class, builder);
-      builder.setLocalEventHandler(localReporter);
 
       // The workspace environment doesn't need the tools repository or the fragment map
       // because executing workspace rules happens before analysis and it doesn't need a
@@ -134,8 +131,11 @@ public class WorkspaceFactory {
       try {
         Starlark.execFileProgram(prog, module, thread);
       } catch (EvalException ex) {
-        localReporter.handle(
-            Package.error(null, ex.getMessageWithStack(), PackageLoading.Code.STARLARK_EVAL_ERROR));
+        builder
+            .getLocalEventHandler()
+            .handle(
+                Package.error(
+                    null, ex.getMessageWithStack(), PackageLoading.Code.STARLARK_EVAL_ERROR));
       }
 
       // Accumulate the global bindings created by this chunk of the WORKSPACE file,
@@ -146,7 +146,7 @@ public class WorkspaceFactory {
 
     } catch (SyntaxError.Exception ex) {
       // compilation failed
-      Event.replayEventsOn(localReporter, ex.errors());
+      Event.replayEventsOn(builder.getLocalEventHandler(), ex.errors());
       builder.setFailureDetailOverride(
           FailureDetails.FailureDetail.newBuilder()
               .setMessage(ex.getMessage())
@@ -157,9 +157,9 @@ public class WorkspaceFactory {
     }
 
     // cleanup (success or failure)
-    builder.addPosts(localReporter.getPosts());
-    builder.addEvents(localReporter.getEvents());
-    if (localReporter.hasErrors()) {
+    // TODO(bazel-team): Package.Builder should manage its own containsErrors bit based on whether
+    // its handler has errors, without our telling it to.
+    if (builder.getLocalEventHandler().hasErrors()) {
       builder.setContainsErrors();
     }
   }

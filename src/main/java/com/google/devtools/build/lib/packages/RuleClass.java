@@ -2117,6 +2117,7 @@ public class RuleClass implements RuleClassData {
       Label ruleLabel,
       AttributeValues<T> attributeValues,
       boolean failOnUnknownAttributes,
+      // TODO(#19922): elim eventHandler param, it's redundant with pkgBuilder
       EventHandler eventHandler,
       List<StarlarkThread.CallStackEntry> callstack)
       throws LabelSyntaxException, InterruptedException, CannotPrecomputeDefaultsException {

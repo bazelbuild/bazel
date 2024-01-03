@@ -56,6 +56,7 @@ public class RuleFactory {
       RuleClass ruleClass,
       BuildLangTypedAttributeValuesMap attributeValues,
       boolean failOnUnknownAttributes,
+      // TODO(#19922): elim eventHandler param, it's redundant with pkgBuilder
       EventHandler eventHandler,
       ImmutableList<StarlarkThread.CallStackEntry> callstack)
       throws InvalidRuleException, InterruptedException {

@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
@@ -450,10 +449,7 @@ public class WorkspaceFileFunction implements SkyFunction {
       throw new WorkspaceFileFunctionException(e, Transience.TRANSIENT);
     }
 
-    Event.replayEventsOn(env.getListener(), pkgBuilder.getEvents());
-    for (Postable postable : pkgBuilder.getPosts()) {
-      env.getListener().post(postable);
-    }
+    pkgBuilder.getLocalEventHandler().replayOn(env.getListener());
 
     return result;
   }

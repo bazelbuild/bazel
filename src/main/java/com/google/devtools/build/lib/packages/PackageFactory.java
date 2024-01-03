@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
@@ -401,14 +400,11 @@ public final class PackageFactory {
       throws InterruptedException {
     pkgBuilder.setLoads(loadedModules.values());
 
-    StoredEventHandler eventHandler = new StoredEventHandler();
-    pkgBuilder.setLocalEventHandler(eventHandler);
-
     try (Mutability mu = Mutability.create("package", pkgBuilder.getFilename())) {
       Module module = Module.withPredeclared(semantics, predeclared);
       StarlarkThread thread = new StarlarkThread(mu, semantics);
       thread.setLoader(loadedModules::get);
-      thread.setPrintHandler(Event.makeDebugPrintHandler(eventHandler));
+      thread.setPrintHandler(Event.makeDebugPrintHandler(pkgBuilder.getLocalEventHandler()));
 
       new BazelStarlarkContext(
               BazelStarlarkContext.Phase.LOADING,
@@ -428,8 +424,9 @@ public final class PackageFactory {
       try {
         Starlark.execFileProgram(buildFileProgram, module, thread);
       } catch (EvalException ex) {
-        eventHandler.handle(
-            Package.error(null, ex.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
+        pkgBuilder
+            .getLocalEventHandler()
+            .handle(Package.error(null, ex.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
         pkgBuilder.setContainsErrors();
       } catch (InterruptedException ex) {
         if (pkgBuilder.containsErrors()) {
@@ -444,9 +441,6 @@ public final class PackageFactory {
       }
       pkgBuilder.setComputationSteps(thread.getExecutedSteps());
     }
-
-    pkgBuilder.addPosts(eventHandler.getPosts());
-    pkgBuilder.addEvents(eventHandler.getEvents());
   }
 
   /**

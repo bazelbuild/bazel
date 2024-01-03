@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
@@ -42,8 +41,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -858,21 +855,19 @@ public class Package {
     // (which may change due to serialization). This is useful so that the serialized representation
     // is deterministic.
     private final TreeMap<String, String> makeEnv = new TreeMap<>();
-    private final List<Event> events = Lists.newArrayList();
-    private final List<Postable> posts = Lists.newArrayList();
-    // Assigned by setLocalEventHandler, but not necessarily in all contexts.
-    // TODO(#19922): Make non-nullable, init in constructor.
-    @Nullable private StoredEventHandler localEventHandler = null;
+
+    private final StoredEventHandler localEventHandler = new StoredEventHandler();
+
     @Nullable private String ioExceptionMessage = null;
     @Nullable private IOException ioException = null;
     @Nullable private DetailedExitCode ioExceptionDetailedExitCode = null;
     // TODO(#19922): Consider having separate containsErrors fields on Metadata and Package. In that
     // case, this field is replaced by the one on Metadata.
     private boolean containsErrors = false;
-    // A package's FailureDetail field derives from its Builder's events. During package
-    // deserialization, those events are unavailable, because those events aren't serialized [*].
-    // Its FailureDetail value is serialized, however. During deserialization, that value is
-    // assigned here, so that it can be assigned to the deserialized package.
+    // A package's FailureDetail field derives from the events on its Builder's event handler.
+    // During package deserialization, those events are unavailable, because those events aren't
+    // serialized [*]. Its FailureDetail value is serialized, however. During deserialization, that
+    // value is assigned here, so that it can be assigned to the deserialized package.
     //
     // Likewise, during workspace part assembly, errors from parent parts should propagate to their
     // children.
@@ -1124,46 +1119,8 @@ public class Package {
       return pkg.metadata.filename;
     }
 
-    /**
-     * Returns {@link Postable}s accumulated while building the package.
-     *
-     * <p>Should retrieved and reported as close to after {@link #build()} or {@link #finishBuild()}
-     * as possible - any earlier and the data may be incomplete.
-     */
-    public List<Postable> getPosts() {
-      return posts;
-    }
-
-    /**
-     * Returns {@link Event}s accumulated while building the package.
-     *
-     * <p>Should retrieved and reported as close to after {@link #build()} or {@link #finishBuild()}
-     * as possible - any earlier and the data may be incomplete.
-     */
-    public List<Event> getEvents() {
-      return events;
-    }
-
-    /** Associates a {@link StoredEventHandler} with this builder. */
-    // TODO(#19922): This is a temporary method resulting from migrating PackageContext.eventHandler
-    // to Package.Builder. The next step is to create the StoredEventHandler in Package.Builder's
-    // constructor, and use that to eliminate the separate `events` and `posts` fields.
-    @CanIgnoreReturnValue
-    Builder setLocalEventHandler(StoredEventHandler eventHandler) {
-      this.localEventHandler = eventHandler;
-      return this;
-    }
-
-    /**
-     * Returns the {@link ExtendedEventHandler} associated with this builder. Using this handler
-     * <i>should</i> be equivalent to calling {@link #addEvent} / {@link #addPosts}.
-     *
-     * <p>This field may be null in tests.
-     */
-    // TODO(#19922): The "should" in the above javadoc will be guaranteed by eliminating the
-    // separate `events` and `posts` fields. We'll also make this non-nullable.
-    @Nullable
-    public ExtendedEventHandler getLocalEventHandler() {
+    /** Returns the {@link StoredEventHandler} associated with this builder. */
+    public StoredEventHandler getLocalEventHandler() {
       return localEventHandler;
     }
 
@@ -1236,36 +1193,20 @@ public class Package {
      * #addEvent} or {@link #addEvents} should already have been called with an {@link Event} of
      * type {@link EventKind#ERROR} that includes a {@link FailureDetail}.
      */
+    // TODO(bazel-team): For simplicity it would be nice to replace this with
+    // getLocalEventHandler().hasErrors(), since that would prevent the kind of inconsistency where
+    // we have reported an ERROR event but not called setContainsErrors(), or vice versa.
     @CanIgnoreReturnValue
     public Builder setContainsErrors() {
+      // TODO(bazel-team): Maybe do Preconditions.checkState(localEventHandler.hasErrors()).
+      // Maybe even assert that it has a FailureDetail, though that's a linear scan unless we
+      // customize the event handler.
       containsErrors = true;
       return this;
     }
 
     public boolean containsErrors() {
       return containsErrors;
-    }
-
-    @CanIgnoreReturnValue
-    Builder addPosts(Iterable<Postable> posts) {
-      for (Postable post : posts) {
-        this.posts.add(post);
-      }
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    Builder addEvents(Iterable<Event> events) {
-      for (Event event : events) {
-        addEvent(event);
-      }
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addEvent(Event event) {
-      this.events.add(event);
-      return this;
     }
 
     void setFailureDetailOverride(FailureDetail failureDetail) {
@@ -1279,7 +1220,7 @@ public class Package {
       }
 
       List<Event> undetailedEvents = null;
-      for (Event event : this.events) {
+      for (Event event : localEventHandler.getEvents()) {
         if (event.getKind() != EventKind.ERROR) {
           continue;
         }
@@ -1782,7 +1723,9 @@ public class Package {
       for (EnvironmentGroup envGroup : ImmutableSet.copyOf(environmentGroups.values())) {
         List<Event> errors = envGroup.processMemberEnvironments(targets);
         if (!errors.isEmpty()) {
-          addEvents(errors);
+          Event.replayEventsOn(localEventHandler, errors);
+          // TODO(bazel-team): Can't we automatically infer containsError from the presence of
+          // ERRORs on our handler?
           setContainsErrors();
         }
       }

@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.io.FileSymlinkException;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
@@ -574,10 +573,7 @@ public class PackageFunction implements SkyFunction {
 
     Package pkg = pkgBuilder.finishBuild();
 
-    Event.replayEventsOn(env.getListener(), pkgBuilder.getEvents());
-    for (Postable post : pkgBuilder.getPosts()) {
-      env.getListener().post(post);
-    }
+    pkgBuilder.getLocalEventHandler().replayOn(env.getListener());
 
     try {
       packageFactory.afterDoneLoadingPackage(
@@ -903,7 +899,7 @@ public class PackageFunction implements SkyFunction {
     if (errMsg != null) {
       Event error =
           Package.error(target.getLocation(), errMsg, Code.LABEL_CROSSES_PACKAGE_BOUNDARY);
-      pkgBuilder.addEvent(error);
+      pkgBuilder.getLocalEventHandler().handle(error);
       return true;
     } else {
       return false;
@@ -1449,8 +1445,10 @@ public class PackageFunction implements SkyFunction {
       } else {
         // Execution not attempted due to static errors.
         for (SyntaxError err : compiled.errors) {
-          pkgBuilder.addEvent(
-              Package.error(err.location(), err.message(), PackageLoading.Code.SYNTAX_ERROR));
+          pkgBuilder
+              .getLocalEventHandler()
+              .handle(
+                  Package.error(err.location(), err.message(), PackageLoading.Code.SYNTAX_ERROR));
         }
         pkgBuilder.setContainsErrors();
       }
