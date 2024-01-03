@@ -383,8 +383,8 @@ public final class RemoteWorker {
     CommandResult cmdResult = null;
     Command cmd =
         new Command(
-            LinuxSandboxCommandLineBuilder.commandLineBuilder(sandboxPath, ImmutableList.of("true"))
-                .build()
+            LinuxSandboxCommandLineBuilder.commandLineBuilder(sandboxPath)
+                .buildForCommand(ImmutableList.of("true"))
                 .toArray(new String[0]),
             ImmutableMap.of(),
             sandboxPath.getParentDirectory().getPathFile());

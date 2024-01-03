@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.sandbox;
 import com.google.devtools.build.lib.util.DescribableExecutionUnit;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -61,4 +62,12 @@ interface SandboxedSpawn extends DescribableExecutionUnit {
 
   /** Deletes the sandbox directory. */
   void delete();
+
+  /**
+   * Returns user-facing instructions for starting an interactive sandboxed environment identical to
+   * the one in which this spawn is executed.
+   */
+  default Optional<String> getInteractiveDebugInstructions() {
+    return Optional.empty();
+  }
 }
