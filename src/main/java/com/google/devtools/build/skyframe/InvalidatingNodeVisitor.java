@@ -274,18 +274,18 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
               MIN_TIME_FOR_LOGGING)) {
         // To avoid contention and scheduling too many jobs for our #cpus, we start
         // DEFAULT_THREAD_COUNT jobs, each processing a chunk of the pending visitations.
-        int listSize = pendingList.size();
-        int numThreads = min(DEFAULT_THREAD_COUNT, listSize);
-        for (int i = 0; i < numThreads; i++) {
-          int index = i;
+        long listSize = pendingList.size();
+        long numThreads = min(DEFAULT_THREAD_COUNT, listSize);
+        for (long i = 0; i < numThreads; i++) {
+          // Use long multiplication to avoid possible overflow, as numThreads * listSize might be
+          // larger than max int.
+          int startIndex = (int) ((i * listSize) / numThreads);
+          int endIndex = (int) (((i + 1) * listSize) / numThreads);
           executor.execute(
               () ->
                   visit(
                       Collections2.transform(
-                          pendingList.subList(
-                              (index * listSize) / numThreads,
-                              ((index + 1) * listSize) / numThreads),
-                          Pair::getFirst),
+                          pendingList.subList(startIndex, endIndex), Pair::getFirst),
                       InvalidationType.DELETED));
         }
       }
