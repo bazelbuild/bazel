@@ -169,7 +169,10 @@ public class PackageTest {
             RepositoryMapping.ALWAYS_FALLBACK,
             RepositoryMapping.ALWAYS_FALLBACK,
             /* cpuBoundSemaphore= */ null,
-            PackageOverheadEstimator.NOOP_ESTIMATOR);
+            PackageOverheadEstimator.NOOP_ESTIMATOR,
+            /* generatorMap= */ null,
+            /* configSettingVisibilityPolicy= */ null,
+            /* globber= */ null);
     result.setFilename(
         RootedPath.toRootedPath(
             Root.fromPath(fileSystem.getPath("/irrelevantRoot")), PathFragment.create(name)));

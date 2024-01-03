@@ -739,7 +739,10 @@ public class Package {
             mainRepoMapping,
             mainRepoMapping,
             /* cpuBoundSemaphore= */ null,
-            packageOverheadEstimator)
+            packageOverheadEstimator,
+            /* generatorMap= */ null,
+            /* configSettingVisibilityPolicy= */ null,
+            /* globber= */ null)
         .setFilename(workspacePath);
   }
 
@@ -761,7 +764,10 @@ public class Package {
             // seen by query, the particular value does not matter.
             RepositoryMapping.ALWAYS_FALLBACK,
             /* cpuBoundSemaphore= */ null,
-            PackageOverheadEstimator.NOOP_ESTIMATOR)
+            PackageOverheadEstimator.NOOP_ESTIMATOR,
+            /* generatorMap= */ null,
+            /* configSettingVisibilityPolicy= */ null,
+            /* globber= */ null)
         .setFilename(moduleFilePath)
         .setLoads(ImmutableList.of());
   }
@@ -878,7 +884,7 @@ public class Package {
 
     // Used by glob(). Null for contexts where glob() is disallowed, including WORKSPACE files and
     // some tests.
-    @Nullable private Globber globber = null;
+    @Nullable private final Globber globber;
 
     // All targets added to the package. We use SnapshottableBiMap to help track insertion order of
     // Rule targets, for use by native.existing_rules().
@@ -923,7 +929,7 @@ public class Package {
 
     private final Interner<ImmutableList<?>> listInterner = new ThreadCompatibleInterner<>();
 
-    private ImmutableMap<Location, String> generatorMap = ImmutableMap.of();
+    private final ImmutableMap<Location, String> generatorMap;
 
     private final TestSuiteImplicitTestsAccumulator testSuiteImplicitTestsAccumulator =
         new TestSuiteImplicitTestsAccumulator();
@@ -932,14 +938,6 @@ public class Package {
     @Nullable
     String getGeneratorNameByLocation(Location loc) {
       return generatorMap.get(loc);
-    }
-
-    /** Sets the package's map of "generator_name" values keyed by the location of the call site. */
-    // TODO(#19922): Require this to be set before BUILD evaluation.
-    @CanIgnoreReturnValue
-    public Builder setGeneratorMap(ImmutableMap<Location, String> map) {
-      this.generatorMap = map;
-      return this;
     }
 
     /**
@@ -981,7 +979,12 @@ public class Package {
         // TODO(#19922): Spurious parameter, delete.
         RepositoryMapping mainRepositoryMapping,
         @Nullable Semaphore cpuBoundSemaphore,
-        PackageOverheadEstimator packageOverheadEstimator) {
+        PackageOverheadEstimator packageOverheadEstimator,
+        @Nullable ImmutableMap<Location, String> generatorMap,
+        // TODO(bazel-team): Config policy is an enum, what is null supposed to mean?
+        // Maybe convert null -> LEGACY_OFF, assuming that's the correct default.
+        @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
+        @Nullable Globber globber) {
       Metadata metadata = new Metadata();
       metadata.packageIdentifier = Preconditions.checkNotNull(id);
       metadata.workspaceName = Preconditions.checkNotNull(workspaceName);
@@ -989,6 +992,7 @@ public class Package {
       metadata.associatedModuleName = Preconditions.checkNotNull(associatedModuleName);
       metadata.associatedModuleVersion = Preconditions.checkNotNull(associatedModuleVersion);
       metadata.succinctTargetNotFoundErrors = packageSettings.succinctTargetNotFoundErrors();
+      metadata.configSettingVisibilityPolicy = configSettingVisibilityPolicy;
 
       this.pkg = new Package(metadata);
       this.precomputeTransitiveLoads = packageSettings.precomputeTransitiveLoads();
@@ -999,6 +1003,8 @@ public class Package {
       }
       this.cpuBoundSemaphore = cpuBoundSemaphore;
       this.packageOverheadEstimator = packageOverheadEstimator;
+      this.generatorMap = (generatorMap == null) ? ImmutableMap.of() : generatorMap;
+      this.globber = globber;
     }
 
     PackageIdentifier getPackageIdentifier() {
@@ -1146,14 +1152,6 @@ public class Package {
       return pkg.metadata.packageArgs;
     }
 
-    /** Sets visibility enforcement policy for <code>config_setting</code>. */
-    // TODO(#19922): Require this to be set before BUILD evaluation.
-    @CanIgnoreReturnValue
-    public Builder setConfigSettingVisibilityPolicy(ConfigSettingVisibilityPolicy policy) {
-      this.pkg.metadata.configSettingVisibilityPolicy = policy;
-      return this;
-    }
-
     /** Uses the workspace name from {@code //external} to set this package's workspace name. */
     // TODO(#19922): Seems like this is only used for WORKSPACE logic (`workspace()` callable), but
     // it clashes with the notion that, for BUILD files, the workspace name should be supplied to
@@ -1270,15 +1268,6 @@ public class Package {
           pkg.metadata.transitiveLoads == null,
           "Transitive loads already set: %s",
           pkg.metadata.transitiveLoads);
-    }
-
-    /** Sets the {@link Globber}. */
-    // TODO(#19922): Move this to Builder() constructor.
-    @CanIgnoreReturnValue
-    public Builder setGlobber(Globber globber) {
-      Preconditions.checkState(this.globber == null);
-      this.globber = globber;
-      return this;
     }
 
     /**
@@ -2009,7 +1998,7 @@ public class Package {
 
     private ConfigSettingVisibilityPolicy configSettingVisibilityPolicy;
 
-    /** Returns the visibility policy. */
+    /** Returns the visibility enforcement policy for {@code config_setting}. */
     public ConfigSettingVisibilityPolicy getConfigSettingVisibilityPolicy() {
       return configSettingVisibilityPolicy;
     }

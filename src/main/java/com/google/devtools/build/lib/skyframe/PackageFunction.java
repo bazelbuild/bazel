@@ -1415,10 +1415,11 @@ public class PackageFunction implements SkyFunction {
                   starlarkBuiltinsValue.starlarkSemantics,
                   repositoryMapping,
                   mainRepositoryMappingValue.getRepositoryMapping(),
-                  cpuBoundSemaphore.get())
-              .setFilename(buildFileRootedPath)
-              .setConfigSettingVisibilityPolicy(configSettingVisibilityPolicy)
-              .setGlobber(globber);
+                  cpuBoundSemaphore.get(),
+                  /* (Nullable) */ compiled.generatorMap,
+                  configSettingVisibilityPolicy,
+                  globber)
+              .setFilename(buildFileRootedPath);
 
       pkgBuilder
           .mergePackageArgsFrom(PackageArgs.builder().setDefaultVisibility(defaultVisibility))
@@ -1428,8 +1429,6 @@ public class PackageFunction implements SkyFunction {
 
       // OK to execute BUILD program?
       if (compiled.ok()) {
-        pkgBuilder.setGeneratorMap(compiled.generatorMap);
-
         packageFactory.executeBuildFile(
             pkgBuilder,
             compiled.prog,

@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
+import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -251,7 +252,10 @@ public final class PackageFactory {
       StarlarkSemantics starlarkSemantics,
       RepositoryMapping repositoryMapping,
       RepositoryMapping mainRepositoryMapping,
-      @Nullable Semaphore cpuBoundSemaphore) {
+      @Nullable Semaphore cpuBoundSemaphore,
+      @Nullable ImmutableMap<Location, String> generatorMap,
+      @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
+      @Nullable Globber globber) {
     return new Package.Builder(
         packageSettings,
         packageId,
@@ -262,7 +266,10 @@ public final class PackageFactory {
         repositoryMapping,
         mainRepositoryMapping,
         cpuBoundSemaphore,
-        packageOverheadEstimator);
+        packageOverheadEstimator,
+        generatorMap,
+        configSettingVisibilityPolicy,
+        globber);
   }
 
   /** Returns a new {@link NonSkyframeGlobber}. */

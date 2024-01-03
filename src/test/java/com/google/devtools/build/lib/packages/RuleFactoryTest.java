@@ -65,7 +65,10 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
             StarlarkSemantics.DEFAULT,
             RepositoryMapping.ALWAYS_FALLBACK,
             RepositoryMapping.ALWAYS_FALLBACK,
-            /* cpuBoundSemaphore= */ null)
+            /* cpuBoundSemaphore= */ null,
+            /* generatorMap= */ null,
+            /* configSettingVisibilityPolicy= */ null,
+            /* globber= */ null)
         .setFilename(RootedPath.toRootedPath(root, filename))
         .setLoads(ImmutableList.of());
   }
