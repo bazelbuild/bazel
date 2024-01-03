@@ -1,5 +1,6 @@
 # Packaging
 
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load("//src:release_archive.bzl", "release_archive")
 load(":embedded_tools.bzl", "srcsfile")
@@ -600,4 +601,9 @@ filegroup(
         "@bazel_tools_repo_cache//:files",
         "@workspace_repo_cache//:files",
     ],
+)
+
+bzl_library(
+    name = "build_defs_bzl",
+    srcs = ["build_defs.bzl"],
 )
