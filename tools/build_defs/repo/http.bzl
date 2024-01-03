@@ -40,6 +40,7 @@ Alternatively, you can directly call these repo rules in your MODULE.bazel file 
 ```python
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(name = "foo", urls = [...])
+```
 """
 
 load(
