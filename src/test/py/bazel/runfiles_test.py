@@ -339,6 +339,145 @@ class RunfilesTest(test_base.TestBase):
     self.assertEqual(stdout[0], "Hello, Bazel!")
     self.assertEqual(stdout[1], "Hello, World!")
 
+  def setUpRunfilesDirectoryIncrementalityTest(self):
+    self.ScratchFile("MODULE.bazel")
+    self.ScratchFile(
+        "BUILD",
+        [
+            "sh_test(",
+            "  name = 'test',",
+            "  srcs = ['test.sh'],",
+            "  data = ['data.txt'],",
+            ")",
+        ],
+    )
+    self.ScratchFile("data.txt")
+    self.ScratchFile("test.sh", ["[[ -f data.txt ]]"], executable=True)
+    self.ScratchFile(
+        ".bazelrc",
+        [
+            "startup --nowindows_enable_symlinks",
+            "common --spawn_strategy=local",
+        ],
+    )
+
+  def testRunfilesDirectoryIncrementalityEnableRunfilesFlippedOn(self):
+    self.setUpRunfilesDirectoryIncrementalityTest()
+
+    exit_code, _, _ = self.RunBazel(
+        ["test", ":test", "--noenable_runfiles"], allow_failure=True
+    )
+    self.assertEqual(exit_code, 3)
+    exit_code, _, _ = self.RunBazel(["test", ":test", "--enable_runfiles"])
+    self.assertEqual(exit_code, 0)
+
+  def testRunfilesDirectoryIncrementalityEnableRunfilesFlippedOff(self):
+    self.setUpRunfilesDirectoryIncrementalityTest()
+
+    exit_code, _, _ = self.RunBazel(["test", ":test", "--enable_runfiles"])
+    self.assertEqual(exit_code, 0)
+    exit_code, _, _ = self.RunBazel(
+        ["test", ":test", "--noenable_runfiles"], allow_failure=True
+    )
+    self.assertEqual(exit_code, 3)
+
+  def testRunfilesDirectoryIncrementalityNoBuildRunfileLinksEnableRunfilesFlippedOn(
+      self,
+  ):
+    self.setUpRunfilesDirectoryIncrementalityTest()
+
+    exit_code, _, _ = self.RunBazel(
+        ["test", ":test", "--nobuild_runfile_links", "--noenable_runfiles"],
+        allow_failure=True,
+    )
+    self.assertEqual(exit_code, 3)
+    exit_code, _, _ = self.RunBazel(
+        ["test", ":test", "--nobuild_runfile_links", "--enable_runfiles"]
+    )
+    self.assertEqual(exit_code, 0)
+
+  def testRunfilesDirectoryIncrementalityNoBuildRunfileLinksEnableRunfilesFlippedOff(
+      self,
+  ):
+    self.setUpRunfilesDirectoryIncrementalityTest()
+
+    exit_code, _, _ = self.RunBazel(
+        ["test", ":test", "--nobuild_runfile_links", "--enable_runfiles"]
+    )
+    self.assertEqual(exit_code, 0)
+    exit_code, _, _ = self.RunBazel(
+        ["test", ":test", "--nobuild_runfile_links", "--noenable_runfiles"],
+        allow_failure=True,
+    )
+    self.assertEqual(exit_code, 3)
+
+  def testRunfilesDirectoryIncrementalityEnableRunfilesFlippedOnRun(self):
+    self.setUpRunfilesDirectoryIncrementalityTest()
+
+    exit_code, _, _ = self.RunBazel(
+        ["run", ":test", "--noenable_runfiles"], allow_failure=True
+    )
+    self.assertNotEqual(exit_code, 0)
+    exit_code, _, _ = self.RunBazel(["run", ":test", "--enable_runfiles"])
+    self.assertEqual(exit_code, 0)
+
+  def testRunfilesDirectoryIncrementalityEnableRunfilesFlippedOffRun(self):
+    self.setUpRunfilesDirectoryIncrementalityTest()
+
+    exit_code, _, _ = self.RunBazel(["run", ":test", "--enable_runfiles"])
+    self.assertEqual(exit_code, 0)
+    exit_code, _, _ = self.RunBazel(
+        ["run", ":test", "--noenable_runfiles"], allow_failure=True
+    )
+    self.assertNotEqual(exit_code, 0)
+
+  def testRunfilesDirectoryIncrementalityNoBuildRunfileLinksEnableRunfilesFlippedOnRun(
+      self,
+  ):
+    self.setUpRunfilesDirectoryIncrementalityTest()
+
+    exit_code, _, _ = self.RunBazel(
+        ["run", ":test", "--nobuild_runfile_links", "--noenable_runfiles"],
+        allow_failure=True,
+    )
+    self.assertNotEqual(exit_code, 0)
+    exit_code, _, _ = self.RunBazel(
+        ["run", ":test", "--nobuild_runfile_links", "--enable_runfiles"]
+    )
+    self.assertEqual(exit_code, 0)
+
+  def testRunfilesDirectoryIncrementalityNoBuildRunfileLinksEnableRunfilesFlippedOffRun(
+      self,
+  ):
+    self.setUpRunfilesDirectoryIncrementalityTest()
+
+    exit_code, _, _ = self.RunBazel(
+        ["run", ":test", "--nobuild_runfile_links", "--enable_runfiles"]
+    )
+    self.assertEqual(exit_code, 0)
+    exit_code, _, _ = self.RunBazel(
+        ["run", ":test", "--nobuild_runfile_links", "--noenable_runfiles"],
+        allow_failure=True,
+    )
+    self.assertNotEqual(exit_code, 0)
+
+  def testTestsRunWithNoBuildRunfileLinksAndNoEnableRunfiles(self):
+    self.ScratchFile("MODULE.bazel")
+    self.ScratchFile(
+        "BUILD",
+        [
+            "sh_test(",
+            "  name = 'test',",
+            "  srcs = ['test.sh'],",
+            ")",
+        ],
+    )
+    self.ScratchFile("test.sh", executable=True)
+    self.ScratchFile(".bazelrc", ["common --spawn_strategy=local"])
+    self.RunBazel(
+        ["test", ":test", "--nobuild_runfile_links", "--noenable_runfiles"]
+    )
+
 
 if __name__ == "__main__":
   absltest.main()

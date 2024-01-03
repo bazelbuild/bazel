@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -62,7 +61,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.RunBuildCompleteEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.SymlinkTreeHelper;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.TestPolicy;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -91,7 +90,6 @@ import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OptionsUtils;
@@ -157,8 +155,6 @@ public class RunCommand implements BlazeCommand {
   private static final String MULTIPLE_TESTS_MESSAGE =
       "'run' only works with tests with one shard ('--test_sharding_strategy=disabled' is okay) "
           + "and without --runs_per_test";
-
-  private static final FileType RUNFILES_MANIFEST = FileType.of(".runfiles_manifest");
 
   private static final ImmutableList<String> ENV_VARIABLES_TO_CLEAR =
       ImmutableList.of(
@@ -468,6 +464,7 @@ public class RunCommand implements BlazeCommand {
     // target to run needs to be preserved, as it acts as the working directory.
     Path targetToRunRunfilesDir = null;
     RunfilesSupport targetToRunRunfilesSupport = null;
+    RunfilesTreeUpdater runfilesTreeUpdater = RunfilesTreeUpdater.forCommandEnvironment(env);
     for (ConfiguredTarget target : topLevelTargets) {
       FilesToRunProvider provider = target.getProvider(FilesToRunProvider.class);
       RunfilesSupport runfilesSupport = provider == null ? null : provider.getRunfilesSupport();
@@ -481,7 +478,8 @@ public class RunCommand implements BlazeCommand {
                 env,
                 runfilesSupport,
                 env.getSkyframeExecutor()
-                    .getConfiguration(env.getReporter(), target.getConfigurationKey()));
+                    .getConfiguration(env.getReporter(), target.getConfigurationKey()),
+                runfilesTreeUpdater);
         if (target == targetToRun) {
           targetToRunRunfilesDir = runfilesDir;
           targetToRunRunfilesSupport = runfilesSupport;
@@ -935,9 +933,9 @@ public class RunCommand implements BlazeCommand {
   private static Path ensureRunfilesBuilt(
       CommandEnvironment env,
       RunfilesSupport runfilesSupport,
-      BuildConfigurationValue configuration)
+      BuildConfigurationValue configuration,
+      RunfilesTreeUpdater runfilesTreeUpdater)
       throws RunfilesException, InterruptedException {
-    Artifact manifest = Preconditions.checkNotNull(runfilesSupport.getRunfilesManifest());
     PathFragment runfilesDir = runfilesSupport.getRunfilesDirectoryExecPath();
     Path workingDir = env.getExecRoot().getRelative(runfilesDir);
     // On Windows, runfiles tree is disabled.
@@ -962,22 +960,10 @@ public class RunCommand implements BlazeCommand {
           e);
     }
 
-    // When runfiles are not generated, getManifest() returns the
-    // .runfiles_manifest file, otherwise it returns the MANIFEST file. This is
-    // a handy way to check whether runfiles were built or not.
-    if (!RUNFILES_MANIFEST.matches(manifest.getFilename())) {
-      return workingDir;
-    }
-
-    SymlinkTreeHelper helper =
-        new SymlinkTreeHelper(manifest.getPath(), runfilesSupport.getRunfilesDirectory(), false);
     try {
-      helper.createSymlinksUsingCommand(
-          env.getExecRoot(),
-          env.getBlazeWorkspace().getBinTools(),
-          /* shellEnvironment= */ ImmutableMap.of(),
-          /* outErr= */ null);
-    } catch (EnvironmentalExecException e) {
+      runfilesTreeUpdater.updateRunfiles(
+          runfilesSupport, /* env= */ ImmutableMap.of(), /* outErr= */ null);
+    } catch (ExecException | IOException e) {
       throw new RunfilesException(
           "Failed to create runfiles symlinks: " + e.getMessage(),
           Code.RUNFILES_SYMLINKS_CREATION_FAILURE,

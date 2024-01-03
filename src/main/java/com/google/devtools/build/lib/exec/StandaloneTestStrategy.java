@@ -136,11 +136,8 @@ public class StandaloneTestStrategy extends TestStrategy {
             localResourcesSupplier);
     Path execRoot = actionExecutionContext.getExecRoot();
     ArtifactPathResolver pathResolver = actionExecutionContext.getPathResolver();
-    Path runfilesDir = pathResolver.convertPath(action.getExecutionSettings().getRunfilesDir());
     Path tmpDir = pathResolver.convertPath(tmpDirRoot.getChild(TestStrategy.getTmpDirName(action)));
-    Path workingDirectory = runfilesDir.getRelative(action.getRunfilesPrefix());
-    return new StandaloneTestRunnerSpawn(
-        action, actionExecutionContext, spawn, tmpDir, workingDirectory, execRoot);
+    return new StandaloneTestRunnerSpawn(action, actionExecutionContext, spawn, tmpDir, execRoot);
   }
 
   private static ImmutableList<Pair<String, Path>> renameOutputs(
@@ -556,7 +553,6 @@ public class StandaloneTestStrategy extends TestStrategy {
     private final ActionExecutionContext actionExecutionContext;
     private final Spawn spawn;
     private final Path tmpDir;
-    private final Path workingDirectory;
     private final Path execRoot;
 
     StandaloneTestRunnerSpawn(
@@ -564,13 +560,11 @@ public class StandaloneTestStrategy extends TestStrategy {
         ActionExecutionContext actionExecutionContext,
         Spawn spawn,
         Path tmpDir,
-        Path workingDirectory,
         Path execRoot) {
       this.testAction = testAction;
       this.actionExecutionContext = actionExecutionContext;
       this.spawn = spawn;
       this.tmpDir = tmpDir;
-      this.workingDirectory = workingDirectory;
       this.execRoot = execRoot;
     }
 
@@ -581,7 +575,7 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     @Override
     public TestAttemptResult execute() throws InterruptedException, IOException, ExecException {
-      prepareFileSystem(testAction, execRoot, tmpDir, workingDirectory);
+      prepareFileSystem(testAction, execRoot, tmpDir);
       return beginTestAttempt(testAction, spawn, actionExecutionContext, execRoot);
     }
 

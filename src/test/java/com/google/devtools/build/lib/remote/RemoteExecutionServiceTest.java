@@ -2500,6 +2500,11 @@ public class RemoteExecutionServiceTest {
           public boolean isBuildRunfileLinks() {
             return false;
           }
+
+          @Override
+          public String getWorkspaceName() {
+            return "__main__";
+          }
         };
     return new RunfilesSupplier() {
       @Override
