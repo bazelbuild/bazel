@@ -36,14 +36,25 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /**
- * Serves as the entrance {@link StateMachine} for {@link
- * com.google.devtools.build.lib.skyframe.GlobFunctionWithMultipleRecursiveFunctions}.
+ * Serves as the entrance {@link StateMachine} to compute a single glob. There are two ways to
+ * create {@link GlobComputationProducer}:
  *
- * <p>Gets all ignored package prefix patterns. Starts the {@link FragmentProducer}s chain which
- * recursively process each glob pattern fragment. Accepts and aggregates globbing matching {@link
- * PathFragment}s result.
+ * <ul>
+ *   <li>When each glob within a package is represented as an individual GLOB node, {@link
+ *       com.google.devtools.build.lib.skyframe.GlobFunctionWithRecursionInSingleFunction} creates
+ *       {@link GlobComputationProducer} to start the computation of each GLOB node.
+ *   <li>Glob computations within in a package are aggregated into a single GLOBS node. {@link
+ *       com.google.devtools.build.lib.skyframe.GlobsFunction} creates {@link GlobsProducer}, which
+ *       further creates {@link GlobComputationProducer} to compute each glob.
+ * </ul>
+ *
+ * <p>Ignored package prefix (IPP) patterns can be optionally passed in. {@link
+ * GlobComputationProducer} will query the IPP patterns in Skyframe if not provided. Then it starts
+ * the {@link FragmentProducer}s chain which recursively process each glob pattern fragment. Accepts
+ * and aggregates globbing matching {@link PathFragment}s result.
  */
 public class GlobComputationProducer
     implements StateMachine, Consumer<SkyValue>, FragmentProducer.ResultSink {
@@ -52,15 +63,15 @@ public class GlobComputationProducer
    * Propagates all glob matching {@link PathFragment}s or any {@link Exception}.
    *
    * <p>If any {@link GlobError} is accepted, the already discovered path fragments are still
-   * reported. However, {@link
-   * com.google.devtools.build.lib.skyframe.GlobFunctionWithRecursionInSingleFunction} throws the
-   * first discovered {@link GlobError} wrapped in a {@link
-   * com.google.devtools.build.lib.skyframe.GlobFunction.GlobFunctionException}.
+   * reported. However, {@link com.google.devtools.build.lib.skyframe.GlobFunction} and {@link
+   * com.google.devtools.build.lib.skyframe.GlobsFunction} throw the first discovered {@link
+   * GlobError} wrapped in a {@link com.google.devtools.build.lib.skyframe.GlobException}.
    *
    * <p>The already discovered path fragments should be considered as undefined. Since: (1) there is
    * no skyframe restart after glob computation throws an exception, so the discovered path
    * fragments can miss some matchings; (2) these discovered path fragments are not used to
-   * construct a {@link com.google.devtools.build.lib.skyframe.GlobValue}.
+   * construct a {@link com.google.devtools.build.lib.skyframe.GlobValue} or {@link
+   * com.google.devtools.build.lib.skyframe.GlobsValue}.
    */
   public interface ResultSink {
     void acceptPathFragmentsWithoutPackageFragment(ImmutableSet<PathFragment> pathFragments);
@@ -74,14 +85,16 @@ public class GlobComputationProducer
 
   // -------------------- Internal State --------------------
   private final ImmutableSet.Builder<PathFragment> pathFragmentsWithPackageFragment;
-  private ImmutableSet<PathFragment> ignorePackagePrefixPatterns = null;
+  private ImmutableSet<PathFragment> ignoredPackagePrefixPatterns;
   private final ConcurrentHashMap<String, Pattern> regexPatternCache;
 
   public GlobComputationProducer(
       GlobDescriptor globDescriptor,
+      @Nullable ImmutableSet<PathFragment> ignoredPackagePrefixPatterns,
       ConcurrentHashMap<String, Pattern> regexPatternCache,
       ResultSink resultSink) {
     this.globDescriptor = globDescriptor;
+    this.ignoredPackagePrefixPatterns = ignoredPackagePrefixPatterns;
     this.regexPatternCache = regexPatternCache;
     this.resultSink = resultSink;
     this.pathFragmentsWithPackageFragment = ImmutableSet.builder();
@@ -89,18 +102,21 @@ public class GlobComputationProducer
 
   @Override
   public StateMachine step(Tasks tasks) throws InterruptedException {
-    RepositoryName repositoryName = globDescriptor.getPackageId().getRepository();
-    tasks.lookUp(IgnoredPackagePrefixesValue.key(repositoryName), (Consumer<SkyValue>) this);
+    if (ignoredPackagePrefixPatterns == null) {
+      // Query ignorePatterPrefixPatterns in Skyframe if not provided.
+      RepositoryName repositoryName = globDescriptor.getPackageId().getRepository();
+      tasks.lookUp(IgnoredPackagePrefixesValue.key(repositoryName), (Consumer<SkyValue>) this);
+    }
     return this::createFragmentProducer;
   }
 
   @Override
   public void accept(SkyValue skyValue) {
-    this.ignorePackagePrefixPatterns = ((IgnoredPackagePrefixesValue) skyValue).getPatterns();
+    this.ignoredPackagePrefixPatterns = ((IgnoredPackagePrefixesValue) skyValue).getPatterns();
   }
 
   private StateMachine createFragmentProducer(Tasks tasks) {
-    Preconditions.checkNotNull(ignorePackagePrefixPatterns);
+    Preconditions.checkNotNull(ignoredPackagePrefixPatterns);
     ImmutableList<String> patterns =
         ImmutableList.copyOf(Splitter.on('/').split(globDescriptor.getPattern()));
     GlobDetail globDetail =
@@ -109,7 +125,7 @@ public class GlobComputationProducer
             globDescriptor.getPackageRoot(),
             patterns,
             /* containsMultipleDoubleStars= */ Collections.frequency(patterns, "**") > 1,
-            ignorePackagePrefixPatterns,
+            ignoredPackagePrefixPatterns,
             regexPatternCache,
             globDescriptor.globberOperation());
     Set<Pair<PathFragment, Integer>> visitedGlobSubTasks = null;

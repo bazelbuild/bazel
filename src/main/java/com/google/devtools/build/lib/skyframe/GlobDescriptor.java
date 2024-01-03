@@ -48,7 +48,7 @@ public final class GlobDescriptor implements SkyKey {
    * @param pattern a valid glob pattern
    * @param globberOperation type of Globber operation being tracked.
    */
-  static GlobDescriptor create(
+  public static GlobDescriptor create(
       PackageIdentifier packageId,
       Root packageRoot,
       PathFragment subdir,

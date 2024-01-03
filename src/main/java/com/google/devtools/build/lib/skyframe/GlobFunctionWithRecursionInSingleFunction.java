@@ -79,7 +79,9 @@ public class GlobFunctionWithRecursionInSingleFunction extends GlobFunction {
 
     if (state.globComputationDriver == null) {
       state.globComputationDriver =
-          new Driver(new GlobComputationProducer(glob, regexPatternCache, state));
+          new Driver(
+              new GlobComputationProducer(
+                  glob, /* ignoredPackagePrefixPatterns= */ null, regexPatternCache, state));
     }
 
     if (!state.globComputationDriver.drive(env)) {

@@ -229,6 +229,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:glob_descriptor",
         "//src/main/java/com/google/devtools/build/lib/skyframe:glob_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:glob_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:globs_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:globs_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:ignored_package_prefixes_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:incompatible_view_exception",
