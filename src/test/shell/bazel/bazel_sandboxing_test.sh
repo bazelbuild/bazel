@@ -423,6 +423,47 @@ EOF
   bazel --output_base="$tmp_output_base" shutdown
 }
 
+function test_tmpfs_path_under_tmp() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # Tests Linux-specific functionality
+    return 0
+  fi
+
+  create_workspace_with_default_repos WORKSPACE
+
+  sed -i.bak '/sandbox_tmpfs_path/d' $TEST_TMPDIR/bazelrc
+
+  local tmp_file=$(mktemp "/tmp/bazel_tmp.XXXXXXXX")
+  trap "rm $tmp_file" EXIT
+  echo BAD > "$tmp_file"
+
+  local tmpfs=$(mktemp -d "/tmp/bazel_tmpfs.XXXXXXXX")
+  trap "rm -fr $tmpfs" EXIT
+  echo BAD > "$tmpfs/data.txt"
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<EOF
+genrule(
+    name = "gen",
+    outs = ["gen.txt"],
+    cmd = """
+# Verify that /tmp is still hermetic and that the tmpfs under /tmp exists, but is empty.
+[[ ! -e "${tmp_file}" ]]
+[[ -d /tmp/tmpfs ]]
+[[ ! -e /tmp/tmpfs/data.txt ]]
+# Verify that the tmpfs on /etc exists and is empty.
+[[ -d /etc ]]
+[[ -z "\$\$(ls -A /etc)" ]]
+touch \$@
+""",
+)
+EOF
+
+  # This assumes the existence of /etc on the host system
+  bazel build --sandbox_tmpfs_path=/tmp/tmpfs --sandbox_tmpfs_path=/etc \
+    //pkg:gen || fail "build failed"
+}
+
 # The test shouldn't fail if the environment doesn't support running it.
 check_sandbox_allowed || exit 0
 
