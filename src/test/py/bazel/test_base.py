@@ -577,7 +577,7 @@ class TestBase(absltest.TestCase):
         ]
 
         if not allow_failure:
-          self.AssertExitCode(exit_code, 0, stderr_lines)
+          self.AssertExitCode(exit_code, 0, stderr_lines, stdout_lines)
 
         return exit_code, stdout_lines, stderr_lines
 
