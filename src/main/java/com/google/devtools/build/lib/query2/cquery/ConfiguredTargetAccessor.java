@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetNotFoundException;
 import com.google.devtools.build.lib.query2.engine.QueryException;
@@ -47,7 +48,7 @@ import java.util.List;
  *
  * <p>Incomplete; we'll implement getVisibility when needed.
  */
-public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget> {
+public class ConfiguredTargetAccessor implements TargetAccessor<CqueryNode> {
 
   private final WalkableGraph walkableGraph;
   private final ConfiguredTargetQueryEnvironment queryEnvironment;
@@ -74,56 +75,55 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
   }
 
   @Override
-  public String getTargetKind(ConfiguredTarget target) {
+  public String getTargetKind(CqueryNode target) {
     Target actualTarget = getTarget(target);
     return actualTarget.getTargetKind();
   }
 
   @Override
-  public String getLabel(ConfiguredTarget target) {
+  public String getLabel(CqueryNode target) {
     return target.getOriginalLabel().toString();
   }
 
   @Override
-  public String getPackage(ConfiguredTarget target) {
+  public String getPackage(CqueryNode target) {
     return target.getOriginalLabel().getPackageIdentifier().getPackageFragment().toString();
   }
 
   @Override
-  public boolean isRule(ConfiguredTarget target) {
+  public boolean isRule(CqueryNode target) {
     Target actualTarget = getTarget(target);
     return actualTarget instanceof Rule;
   }
 
   @Override
-  public boolean isTestRule(ConfiguredTarget target) {
+  public boolean isTestRule(CqueryNode target) {
     Target actualTarget = getTarget(target);
     return TargetUtils.isTestRule(actualTarget);
   }
 
   @Override
-  public boolean isTestSuite(ConfiguredTarget target) {
+  public boolean isTestSuite(CqueryNode target) {
     Target actualTarget = getTarget(target);
     return TargetUtils.isTestSuiteRule(actualTarget);
   }
 
   @Override
-  public List<ConfiguredTarget> getPrerequisites(
+  public List<CqueryNode> getPrerequisites(
       QueryExpression caller,
-      ConfiguredTarget keyedConfiguredTarget,
+      CqueryNode keyedConfiguredTarget,
       String attrName,
       String errorMsgPrefix)
       throws QueryException, InterruptedException {
     // Process aliases.
-    ConfiguredTarget actual = keyedConfiguredTarget.getActual();
+    CqueryNode actual = keyedConfiguredTarget.getActual();
 
     Preconditions.checkArgument(
         isRule(actual), "%s %s is not a rule configured target", errorMsgPrefix, getLabel(actual));
 
-    ImmutableListMultimap<Label, ConfiguredTarget> depsByLabel =
+    ImmutableListMultimap<Label, CqueryNode> depsByLabel =
         Multimaps.index(
-            queryEnvironment.getFwdDeps(ImmutableList.of(actual)),
-            ConfiguredTarget::getOriginalLabel);
+            queryEnvironment.getFwdDeps(ImmutableList.of(actual)), CqueryNode::getOriginalLabel);
 
     Rule rule = (Rule) getTarget(actual);
     ImmutableMap<Label, ConfigMatchingProvider> configConditions = actual.getConfigConditions();
@@ -141,39 +141,39 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
               errorMsgPrefix, rule.getRuleClass(), attrName),
           ConfigurableQuery.Code.ATTRIBUTE_MISSING);
     }
-    ImmutableList.Builder<ConfiguredTarget> toReturn = ImmutableList.builder();
+    ImmutableList.Builder<CqueryNode> toReturn = ImmutableList.builder();
     attributeMapper.visitLabels(attrName, label -> toReturn.addAll(depsByLabel.get(label)));
     return toReturn.build();
   }
 
   @Override
-  public List<String> getStringListAttr(ConfiguredTarget target, String attrName) {
+  public List<String> getStringListAttr(CqueryNode target, String attrName) {
     Target actualTarget = getTarget(target);
     return TargetUtils.getStringListAttr(actualTarget, attrName);
   }
 
   @Override
-  public String getStringAttr(ConfiguredTarget target, String attrName) {
+  public String getStringAttr(CqueryNode target, String attrName) {
     Target actualTarget = getTarget(target);
     return TargetUtils.getStringAttr(actualTarget, attrName);
   }
 
   @Override
-  public Iterable<String> getAttrAsString(ConfiguredTarget target, String attrName) {
+  public Iterable<String> getAttrAsString(CqueryNode target, String attrName) {
     Target actualTarget = getTarget(target);
     return TargetUtils.getAttrAsString(actualTarget, attrName);
   }
 
   @Override
-  public ImmutableSet<QueryVisibility<ConfiguredTarget>> getVisibility(
-      QueryExpression caller, ConfiguredTarget from) throws QueryException {
+  public ImmutableSet<QueryVisibility<CqueryNode>> getVisibility(
+      QueryExpression caller, CqueryNode from) throws QueryException {
     // TODO(bazel-team): implement this if needed.
     throw new QueryException(
         "visible() is not supported on configured targets",
         ConfigurableQuery.Code.VISIBLE_FUNCTION_NOT_SUPPORTED);
   }
 
-  public Target getTarget(ConfiguredTarget configuredTarget) {
+  public Target getTarget(CqueryNode configuredTarget) {
     // Dereference any aliases that might be present.
     Label label = configuredTarget.getOriginalLabel();
     try {
@@ -190,8 +190,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
   }
 
   /** Returns the rule that generates the given output file. */
-  RuleConfiguredTarget getGeneratingConfiguredTarget(ConfiguredTarget kct)
-      throws InterruptedException {
+  RuleConfiguredTarget getGeneratingConfiguredTarget(CqueryNode kct) throws InterruptedException {
     Preconditions.checkArgument(kct instanceof OutputFileConfiguredTarget);
     return (RuleConfiguredTarget)
         ((ConfiguredTargetValue)

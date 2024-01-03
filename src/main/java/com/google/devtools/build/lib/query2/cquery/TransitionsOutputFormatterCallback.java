@@ -17,7 +17,6 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.OptionsDiff;
@@ -32,6 +31,7 @@ import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.cquery.CqueryTransitionResolver.EvaluateException;
 import com.google.devtools.build.lib.query2.cquery.CqueryTransitionResolver.ResolvedTransition;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
@@ -63,7 +63,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<ConfiguredTarget> accessor,
+      TargetAccessor<CqueryNode> accessor,
       RuleClassProvider ruleClassProvider,
       LabelPrinter labelPrinter) {
     super(eventHandler, options, out, skyframeExecutor, accessor, /* uniquifyResults= */ false);
@@ -74,7 +74,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   @Override
-  public void processOutput(Iterable<ConfiguredTarget> partialResult) throws InterruptedException {
+  public void processOutput(Iterable<CqueryNode> partialResult) throws InterruptedException {
     CqueryOptions.Transitions verbosity = options.transitions;
     if (verbosity.equals(CqueryOptions.Transitions.NONE)) {
       eventHandler.handle(
@@ -85,7 +85,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
     }
     partialResult.forEach(
         kct -> partialResultMap.put(kct.getOriginalLabel(), accessor.getTarget(kct)));
-    for (ConfiguredTarget keyedConfiguredTarget : partialResult) {
+    for (CqueryNode keyedConfiguredTarget : partialResult) {
       Target target = partialResultMap.get(keyedConfiguredTarget.getOriginalLabel());
       BuildConfigurationValue config =
           getConfiguration(keyedConfiguredTarget.getConfigurationKey());
@@ -130,7 +130,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
     }
   }
 
-  private static String getRuleClassTransition(ConfiguredTarget ct, Target target) {
+  private static String getRuleClassTransition(CqueryNode ct, Target target) {
     String output = "";
     if (ct instanceof RuleConfiguredTarget) {
       TransitionFactory<RuleTransitionData> factory =

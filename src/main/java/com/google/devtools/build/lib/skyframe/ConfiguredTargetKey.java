@@ -20,9 +20,9 @@ import static com.google.devtools.build.lib.util.HashCodes.hashObjects;
 
 import com.google.common.base.MoreObjects;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
@@ -236,7 +236,7 @@ public class ConfiguredTargetKey implements ActionLookupKey {
   }
 
   /** Returns the {@link ConfiguredTargetKey} that owns {@code configuredTarget}. */
-  public static ConfiguredTargetKey fromConfiguredTarget(ConfiguredTarget configuredTarget) {
+  public static ConfiguredTargetKey fromConfiguredTarget(CqueryNode configuredTarget) {
     // If configuredTarget is a MergedConfiguredTarget unwraps it first. MergedConfiguredTarget is
     // ephemeral and does not have a directly corresponding entry in Skyframe.
     //
