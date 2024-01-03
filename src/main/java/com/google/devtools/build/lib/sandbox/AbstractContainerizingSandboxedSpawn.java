@@ -45,7 +45,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   final SandboxInputs inputs;
   final SandboxOutputs outputs;
   private final Set<Path> writableDirs;
-  private final TreeDeleter treeDeleter;
+  protected final TreeDeleter treeDeleter;
   @Nullable private final Path sandboxDebugPath;
   @Nullable private final Path statisticsPath;
   private final String mnemonic;
