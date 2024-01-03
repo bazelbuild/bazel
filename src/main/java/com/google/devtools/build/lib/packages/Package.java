@@ -730,20 +730,20 @@ public class Package {
       boolean noImplicitFileExport,
       PackageOverheadEstimator packageOverheadEstimator) {
     return new Builder(
-            helper,
-            LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
-            workspaceName,
-            /* associatedModuleName= */ Optional.empty(),
-            /* associatedModuleVersion= */ Optional.empty(),
-            noImplicitFileExport,
-            mainRepoMapping,
-            mainRepoMapping,
-            /* cpuBoundSemaphore= */ null,
-            packageOverheadEstimator,
-            /* generatorMap= */ null,
-            /* configSettingVisibilityPolicy= */ null,
-            /* globber= */ null)
-        .setFilename(workspacePath);
+        helper,
+        LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
+        /* filename= */ workspacePath,
+        workspaceName,
+        /* associatedModuleName= */ Optional.empty(),
+        /* associatedModuleVersion= */ Optional.empty(),
+        noImplicitFileExport,
+        mainRepoMapping,
+        mainRepoMapping,
+        /* cpuBoundSemaphore= */ null,
+        packageOverheadEstimator,
+        /* generatorMap= */ null,
+        /* configSettingVisibilityPolicy= */ null,
+        /* globber= */ null);
   }
 
   public static Builder newExternalPackageBuilderForBzlmod(
@@ -754,6 +754,7 @@ public class Package {
     return new Builder(
             PackageSettings.DEFAULTS,
             basePackageId,
+            /* filename= */ moduleFilePath,
             DUMMY_WORKSPACE_NAME_FOR_BZLMOD_PACKAGES,
             /* associatedModuleName= */ Optional.empty(),
             /* associatedModuleVersion= */ Optional.empty(),
@@ -768,7 +769,6 @@ public class Package {
             /* generatorMap= */ null,
             /* configSettingVisibilityPolicy= */ null,
             /* globber= */ null)
-        .setFilename(moduleFilePath)
         .setLoads(ImmutableList.of());
   }
 
@@ -971,6 +971,7 @@ public class Package {
     Builder(
         PackageSettings packageSettings,
         PackageIdentifier id,
+        RootedPath filename,
         String workspaceName,
         Optional<String> associatedModuleName,
         Optional<String> associatedModuleVersion,
@@ -987,6 +988,16 @@ public class Package {
         @Nullable Globber globber) {
       Metadata metadata = new Metadata();
       metadata.packageIdentifier = Preconditions.checkNotNull(id);
+
+      metadata.filename = filename;
+      metadata.packageDirectory = filename.asPath().getParentDirectory();
+      try {
+        metadata.buildFileLabel = Label.create(id, filename.getRootRelativePath().getBaseName());
+      } catch (LabelSyntaxException e) {
+        // This can't actually happen.
+        throw new AssertionError("Package BUILD file has an illegal name: " + filename, e);
+      }
+
       metadata.workspaceName = Preconditions.checkNotNull(workspaceName);
       metadata.repositoryMapping = Preconditions.checkNotNull(repositoryMapping);
       metadata.associatedModuleName = Preconditions.checkNotNull(associatedModuleName);
@@ -995,6 +1006,7 @@ public class Package {
       metadata.configSettingVisibilityPolicy = configSettingVisibilityPolicy;
 
       this.pkg = new Package(metadata);
+
       this.precomputeTransitiveLoads = packageSettings.precomputeTransitiveLoads();
       this.noImplicitFileExport = noImplicitFileExport;
       this.labelConverter = new LabelConverter(id, repositoryMapping);
@@ -1005,6 +1017,10 @@ public class Package {
       this.packageOverheadEstimator = packageOverheadEstimator;
       this.generatorMap = (generatorMap == null) ? ImmutableMap.of() : generatorMap;
       this.globber = globber;
+
+      // Add target for the BUILD file itself.
+      // (This may be overridden by an exports_file declaration.)
+      addInputFile(metadata.buildFileLabel, Location.fromFile(filename.asPath().toString()));
     }
 
     PackageIdentifier getPackageIdentifier() {
@@ -1084,22 +1100,6 @@ public class Package {
 
     Interner<ImmutableList<?>> getListInterner() {
       return listInterner;
-    }
-
-    /** Sets the name of this package's BUILD file. */
-    // TODO(#19922): Require this to be set before BUILD evaluation.
-    @CanIgnoreReturnValue
-    public Builder setFilename(RootedPath filename) {
-      pkg.metadata.filename = filename;
-      pkg.metadata.packageDirectory = filename.asPath().getParentDirectory();
-      try {
-        pkg.metadata.buildFileLabel = createLabel(filename.getRootRelativePath().getBaseName());
-        addInputFile(pkg.metadata.buildFileLabel, Location.fromFile(filename.asPath().toString()));
-      } catch (LabelSyntaxException e) {
-        // This can't actually happen.
-        throw new AssertionError("Package BUILD file has an illegal name: " + filename, e);
-      }
-      return this;
     }
 
     public Label getBuildFileLabel() {
@@ -1604,10 +1604,6 @@ public class Package {
 
     @CanIgnoreReturnValue
     private Builder beforeBuild(boolean discoverAssumedInputFiles) throws NoSuchPackageException {
-      // TODO(#19922): Won't have to check filename/buildFileLabel if we merge setFilename into the
-      // Builder constructor.
-      Preconditions.checkNotNull(pkg.metadata.filename);
-      Preconditions.checkNotNull(pkg.metadata.buildFileLabel);
       if (ioException != null) {
         throw new NoSuchPackageException(
             getPackageIdentifier(), ioExceptionMessage, ioException, ioExceptionDetailedExitCode);
@@ -1624,7 +1620,7 @@ public class Package {
         targets = ((SnapshottableBiMap<String, Target>) targets).getUnderlyingBiMap();
       }
 
-      // We create an InputFile corresponding to the BUILD file when setFilename is called. However,
+      // We create an InputFile corresponding to the BUILD file in Builder's constructor. However,
       // the visibility of this target may be overridden with an exports_files directive, so we wait
       // until now to obtain the current instance from the targets map.
       pkg.metadata.buildFile =

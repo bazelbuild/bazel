@@ -1406,20 +1406,19 @@ public class PackageFunction implements SkyFunction {
       // Create the package,
       // even if it will be empty because we cannot attempt execution.
       Package.Builder pkgBuilder =
-          packageFactory
-              .newPackageBuilder(
-                  packageId,
-                  workspaceName,
-                  repositoryMappingValue.getAssociatedModuleName(),
-                  repositoryMappingValue.getAssociatedModuleVersion(),
-                  starlarkBuiltinsValue.starlarkSemantics,
-                  repositoryMapping,
-                  mainRepositoryMappingValue.getRepositoryMapping(),
-                  cpuBoundSemaphore.get(),
-                  /* (Nullable) */ compiled.generatorMap,
-                  configSettingVisibilityPolicy,
-                  globber)
-              .setFilename(buildFileRootedPath);
+          packageFactory.newPackageBuilder(
+              packageId,
+              buildFileRootedPath,
+              workspaceName,
+              repositoryMappingValue.getAssociatedModuleName(),
+              repositoryMappingValue.getAssociatedModuleVersion(),
+              starlarkBuiltinsValue.starlarkSemantics,
+              repositoryMapping,
+              mainRepositoryMappingValue.getRepositoryMapping(),
+              cpuBoundSemaphore.get(),
+              /* (Nullable) */ compiled.generatorMap,
+              configSettingVisibilityPolicy,
+              globber);
 
       pkgBuilder
           .mergePackageArgsFrom(PackageArgs.builder().setDefaultVisibility(defaultVisibility))

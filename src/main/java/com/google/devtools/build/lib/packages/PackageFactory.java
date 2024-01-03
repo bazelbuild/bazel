@@ -246,6 +246,7 @@ public final class PackageFactory {
   // TODO(adonovan): refactor Rule{Class,Factory}Test not to need this.
   public Package.Builder newPackageBuilder(
       PackageIdentifier packageId,
+      RootedPath filename,
       String workspaceName,
       Optional<String> associatedModuleName,
       Optional<String> associatedModuleVersion,
@@ -259,6 +260,7 @@ public final class PackageFactory {
     return new Package.Builder(
         packageSettings,
         packageId,
+        filename,
         workspaceName,
         associatedModuleName,
         associatedModuleVersion,

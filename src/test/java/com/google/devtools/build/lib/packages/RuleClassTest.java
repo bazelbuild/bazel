@@ -252,20 +252,19 @@ public final class RuleClassTest extends PackageLoadingTestCase {
   }
 
   private Package.Builder createDummyPackageBuilder() {
-    return packageFactory
-        .newPackageBuilder(
-            PackageIdentifier.createInMainRepo(TEST_PACKAGE_NAME),
-            "TESTING",
-            Optional.empty(),
-            Optional.empty(),
-            StarlarkSemantics.DEFAULT,
-            RepositoryMapping.ALWAYS_FALLBACK,
-            RepositoryMapping.ALWAYS_FALLBACK,
-            /* cpuBoundSemaphore= */ null,
-            /* generatorMap= */ null,
-            /* configSettingVisibilityPolicy= */ null,
-            /* globber= */ null)
-        .setFilename(RootedPath.toRootedPath(root, testBuildfilePath));
+    return packageFactory.newPackageBuilder(
+        PackageIdentifier.createInMainRepo(TEST_PACKAGE_NAME),
+        RootedPath.toRootedPath(root, testBuildfilePath),
+        "TESTING",
+        Optional.empty(),
+        Optional.empty(),
+        StarlarkSemantics.DEFAULT,
+        RepositoryMapping.ALWAYS_FALLBACK,
+        RepositoryMapping.ALWAYS_FALLBACK,
+        /* cpuBoundSemaphore= */ null,
+        /* generatorMap= */ null,
+        /* configSettingVisibilityPolicy= */ null,
+        /* globber= */ null);
   }
 
   @Test

@@ -59,6 +59,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
     return packageFactory
         .newPackageBuilder(
             id,
+            RootedPath.toRootedPath(root, filename),
             "TESTING",
             Optional.empty(),
             Optional.empty(),
@@ -69,7 +70,6 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
             /* generatorMap= */ null,
             /* configSettingVisibilityPolicy= */ null,
             /* globber= */ null)
-        .setFilename(RootedPath.toRootedPath(root, filename))
         .setLoads(ImmutableList.of());
   }
 
