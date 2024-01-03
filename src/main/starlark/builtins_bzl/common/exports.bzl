@@ -98,11 +98,11 @@ exported_to_java = {
     "proto_common_experimental_filter_sources": proto_common_do_not_use.experimental_filter_sources,
     "link_multi_arch_static_library": linking_support.link_multi_arch_static_library,
     "get_cc_toolchain_provider": get_cc_toolchain_provider,
-    "cc_toolchain_build_variables": cc_helper.cc_toolchain_build_variables,
-    "apple_cc_toolchain_build_variables": objc_common.apple_cc_toolchain_build_variables,
+    "build_variables": cc_helper.build_variables,
     "j2objc_mapping_file_info_union": objc_common.j2objc_mapping_file_info_union,
     "j2objc_entry_class_info_union": objc_common.j2objc_entry_class_info_union,
     "init_cc_compilation_context": cc_compilation_helper.init_cc_compilation_context,
     "java_common": java_common,
     "get_build_info": get_java_build_info,
+    "get_toolchain_global_make_variables": cc_helper.get_toolchain_global_make_variables,
 }

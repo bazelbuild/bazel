@@ -630,8 +630,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     ImmutableSet<Artifact> additionalPrunableHeadersSet = additionalPrunableHeaders.toSet();
     return header ->
         additionalPrunableHeadersSet.contains(header)
-            || FileSystemUtils.startsWithAny(header.getExecPath(), ignoreDirs)
-            || isDeclaredIn(cppConfiguration, header);
+            || FileSystemUtils.startsWithAny(header.getExecPath(), ignoreDirs);
   }
 
   @Override
@@ -977,8 +976,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         allowedIncludes.contains(include)
         ||
         // Ignore headers from built-in include directories.
-        FileSystemUtils.startsWithAny(include.getExecPath(), ignoreDirs)
-        || isDeclaredIn(cppConfiguration(), include);
+        FileSystemUtils.startsWithAny(include.getExecPath(), ignoreDirs);
   }
 
   /**
@@ -1087,32 +1085,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         throw new ActionExecutionException(message, this, /*catastrophe=*/ false, code);
       }
     }
-  }
-
-  /**
-   * Returns true if an included artifact is declared in a set of allowed include directories. The
-   * simple case is that the artifact's parent directory is contained in the set, or is empty.
-   *
-   * <p>This check also supports a wildcard suffix of '**' for the cases where the calculations are
-   * inexact.
-   *
-   * <p>It also handles unseen non-nested-package subdirs by walking up the path looking for
-   * matches.
-   */
-  private static boolean isDeclaredIn(CppConfiguration cppConfiguration, Artifact input) {
-    // If it's a derived artifact, then it MUST be listed in "srcs" as checked above.
-    // We define derived here as being not source and not under the include link tree.
-    if (!input.isSourceArtifact()
-        && !input.getRoot().getExecPath().getBaseName().equals("include")) {
-      return false;
-    }
-    // Need to do dir/package matching: first try a quick exact lookup.
-    PathFragment includeDir = input.getRootRelativePath().getParentDirectory();
-    if (!cppConfiguration.validateTopLevelHeaderInclusions() && includeDir.isEmpty()) {
-      return true; // Legacy behavior nobody understands anymore.
-    }
-
-    return false;
   }
 
   /**
@@ -1278,8 +1250,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         mandatorySpawnInputs,
         additionalPrunableHeaders,
         builtInIncludeDirectories,
-        ccCompilationContext.getTransitiveCompilationPrerequisites(),
-        cppConfiguration().validateTopLevelHeaderInclusions());
+        ccCompilationContext.getTransitiveCompilationPrerequisites());
   }
 
   // Separated into a helper method so that it can be called from CppCompileActionTemplate.
@@ -1295,15 +1266,13 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       NestedSet<Artifact> mandatorySpawnInputs,
       NestedSet<Artifact> prunableHeaders,
       List<PathFragment> builtInIncludeDirectories,
-      NestedSet<Artifact> inputsForInvalidation,
-      boolean validateTopLevelHeaderInclusions)
+      NestedSet<Artifact> inputsForInvalidation)
       throws CommandLineExpansionException, InterruptedException {
     fp.addUUID(GUID);
     env.addTo(fp);
     fp.addStringMap(environmentVariables);
     fp.addStringMap(executionInfo);
     fp.addBytes(commandLineKey);
-    fp.addBoolean(validateTopLevelHeaderInclusions);
 
     actionKeyContext.addNestedSetToFingerprint(fp, declaredIncludeSrcs);
     fp.addInt(0); // mark the boundary between input types

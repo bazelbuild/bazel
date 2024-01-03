@@ -67,10 +67,14 @@ public final class DirectoryListingStateValue implements SkyValue {
       super(arg);
     }
 
-    @VisibleForSerialization
-    @AutoCodec.Instantiator
-    static Key create(RootedPath arg) {
+    private static Key create(RootedPath arg) {
       return interner.intern(new Key(arg));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     @Override

@@ -657,8 +657,7 @@ public class BuildViewTest extends BuildViewTestBase {
     assertThat(result.hasError()).isTrue();
     assertContainsEvent(
         "no such target '//x:z': target 'z' not declared in package 'x' defined by"
-            + " /workspace/x/BUILD (Tip: use `query \"//x:*\"` to see all the targets in that"
-            + " package) and referenced by '//y:y'");
+            + " /workspace/x/BUILD");
   }
 
   @Test
@@ -1066,9 +1065,9 @@ public class BuildViewTest extends BuildViewTestBase {
     assertContainsEvent("in cc_library rule //cycle:foo: cycle in dependency graph:");
     assertContainsEvent("in cc_library rule //cycle:bas: cycle in dependency graph:");
     assertContainsEvent(
-        "errors encountered while analyzing target '//cycle:foo': it will not be built");
+        "errors encountered while analyzing target '//cycle:foo', it will not be built");
     assertContainsEvent(
-        "errors encountered while analyzing target '//cycle:bat': it will not be built");
+        "errors encountered while analyzing target '//cycle:bat', it will not be built");
     // With interleaved loading and analysis, we can no longer distinguish loading-phase cycles
     // and analysis-phase cycles. This was previously reported as a loading-phase cycle, as it
     // happens with any configuration (cycle is hard-coded in the BUILD files). Also see the

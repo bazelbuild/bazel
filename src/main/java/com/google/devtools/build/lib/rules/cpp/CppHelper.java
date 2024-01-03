@@ -14,10 +14,8 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -131,44 +129,8 @@ public class CppHelper {
     return ImmutableList.of();
   }
 
-  @Nullable
-  private static CcToolchainProvider getToolchainUsingDefaultCcToolchainAttribute(
-      RuleContext ruleContext) throws RuleErrorException {
-    if (ruleContext.attributes().has(CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME)) {
-      return getToolchainUsingAttribute(
-          ruleContext, CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
-    } else if (ruleContext
-        .attributes()
-        .has(CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME_FOR_STARLARK)) {
-      return getToolchainUsingAttribute(
-          ruleContext, CcToolchainRule.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME_FOR_STARLARK);
-    }
-    return null;
-  }
-
-  private static CcToolchainProvider getToolchainUsingAttribute(
-      RuleContext ruleContext, String toolchainAttribute) throws RuleErrorException {
-    if (!ruleContext.isAttrDefined(toolchainAttribute, LABEL)) {
-      throw ruleContext.throwWithRuleError(
-          String.format(
-              "INTERNAL BLAZE ERROR: Tried to locate a cc_toolchain via the attribute %s, but it"
-                  + " is not defined",
-              toolchainAttribute));
-    }
-    TransitiveInfoCollection dep = ruleContext.getPrerequisite(toolchainAttribute);
-    return getToolchainFromLegacyToolchain(ruleContext, dep);
-  }
-
-  /** Returns C++ toolchain, using toolchain resolution or via default cc toolchain attribute */
+  /** Returns C++ toolchain, using toolchain resolution */
   public static CcToolchainProvider getToolchain(RuleContext ruleContext)
-      throws RuleErrorException {
-    if (useToolchainResolution(ruleContext)) {
-      return getToolchainFromPlatformConstraints(ruleContext);
-    }
-    return getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
-  }
-
-  private static CcToolchainProvider getToolchainFromPlatformConstraints(RuleContext ruleContext)
       throws RuleErrorException {
     ToolchainInfo toolchainInfo =
         ruleContext.getToolchainInfo(Label.parseCanonicalUnchecked("//tools/cpp:toolchain_type"));
@@ -189,15 +151,6 @@ public class CppHelper {
       throw ruleContext.throwWithRuleError(
           "Unexpected eval exception from toolchainInfo.getValue('cc')");
     }
-  }
-
-  private static CcToolchainProvider getToolchainFromLegacyToolchain(
-      RuleContext ruleContext, TransitiveInfoCollection dep) throws RuleErrorException {
-    // TODO(bazel-team): Consider checking this generally at the attribute level.
-    if ((dep == null) || (dep.get(CcToolchainProvider.PROVIDER) == null)) {
-      throw ruleContext.throwWithRuleError("The selected C++ toolchain is not a cc_toolchain rule");
-    }
-    return dep.get(CcToolchainProvider.PROVIDER);
   }
 
   /** Returns the directory where object files are created. */
@@ -325,7 +278,7 @@ public class CppHelper {
       CppConfiguration cppConfiguration,
       FeatureConfiguration featureConfiguration) {
     return cppConfiguration.forcePic()
-        || (toolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration)
+        || (CcToolchainProvider.usePicForDynamicLibraries(cppConfiguration, featureConfiguration)
             && (cppConfiguration.getCompilationMode() != CompilationMode.OPT
                 || featureConfiguration.isEnabled(CppRuleClasses.PREFER_PIC_FOR_OPT_BINARIES)));
   }
@@ -338,11 +291,7 @@ public class CppHelper {
       FeatureConfiguration featureConfiguration) {
     FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
     if (branchFdoProfile != null) {
-      // If the profile has a .afdo extension and was supplied to the build via the xbinary_fdo
-      // flag, then this is a safdo profile.
-      if (branchFdoProfile.isAutoFdo() && cppConfiguration.getXFdoProfileLabel() != null) {
-        return featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO) ? "SAFDO" : null;
-      }
+
       if (branchFdoProfile.isAutoFdo()) {
         return featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO) ? "AFDO" : null;
       }
@@ -391,7 +340,8 @@ public class CppHelper {
               ruleContext.getStarlarkThread(),
               cppConfiguration,
               ruleContext.getConfiguration().getOptions(),
-              ruleContext.getConfiguration().getOptions().get(CoreOptions.class).cpu);
+              ruleContext.getConfiguration().getOptions().get(CoreOptions.class).cpu,
+              toolchain.getBuildVarsFunc());
     } catch (EvalException e) {
       throw new RuleErrorException(e.getMessage());
     }
@@ -583,13 +533,5 @@ public class CppHelper {
       FeatureConfiguration featureConfiguration) {
     return toolchain.supportsInterfaceSharedLibraries(featureConfiguration)
         && cppConfiguration.getUseInterfaceSharedLibraries();
-  }
-
-  static boolean useToolchainResolution(RuleContext ruleContext) {
-    CppOptions cppOptions =
-        Preconditions.checkNotNull(
-            ruleContext.getConfiguration().getOptions().get(CppOptions.class));
-
-    return cppOptions.enableCcToolchainResolution;
   }
 }

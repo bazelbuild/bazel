@@ -260,25 +260,32 @@ java_library(
 
 java_library(
     name = "spawn_log_context",
-    srcs = ["SpawnLogContext.java"],
+    srcs = [
+        "CompactSpawnLogContext.java",
+        "ExpandedSpawnLogContext.java",
+        "SpawnLogContext.java",
+        "StableSort.java",
+    ],
     deps = [
-        ":execution_options",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/actions:runfiles_supplier",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:platform_utils",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:spawn_java_proto",
+        "//third_party:fastutil",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
         "//third_party/protobuf:protobuf_java_util",
-        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
 

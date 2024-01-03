@@ -342,7 +342,7 @@ public class CppLinkActionBuilder {
         toolchain,
         fdoContext,
         usePicForLtoBackendActions,
-        toolchain.shouldCreatePerObjectDebugInfo(featureConfiguration, cppConfiguration),
+        CcToolchainProvider.shouldCreatePerObjectDebugInfo(featureConfiguration, cppConfiguration),
         argv);
   }
 
@@ -775,7 +775,8 @@ public class CppLinkActionBuilder {
               ((RuleContext) actionConstructionContext).getStarlarkThread(),
               cppConfiguration,
               configuration.getOptions(),
-              configuration.getOptions().get(CoreOptions.class).cpu);
+              configuration.getOptions().get(CoreOptions.class).cpu,
+              toolchain.getBuildVarsFunc());
     } catch (EvalException e) {
       throw new RuleErrorException(e.getMessage());
     }
@@ -892,11 +893,6 @@ public class CppLinkActionBuilder {
     LinkCommandLine.Builder linkCommandLineBuilder =
         new LinkCommandLine.Builder()
             .setActionName(getActionName())
-            .setLinkerInputArtifacts(
-                NestedSetBuilder.<Artifact>stableOrder()
-                    .addTransitive(expandedLinkerArtifacts)
-                    .addTransitive(linkstampObjectArtifacts)
-                    .build())
             .setLinkTargetType(linkType)
             .setLinkingMode(linkingMode)
             .setToolchainLibrariesSolibDir(
@@ -912,10 +908,6 @@ public class CppLinkActionBuilder {
     if (shouldUseLinkDynamicLibraryTool()) {
       linkCommandLineBuilder.forceToolPath(
           toolchain.getLinkDynamicLibraryTool().getExecPathString());
-    }
-
-    if (!isLtoIndexing) {
-      linkCommandLineBuilder.setBuildInfoHeaderArtifacts(buildInfoHeaderArtifacts);
     }
 
     linkCommandLineBuilder.setBuildVariables(buildVariables);
@@ -1013,7 +1005,7 @@ public class CppLinkActionBuilder {
                 featureConfiguration,
                 cppConfiguration.forcePic()
                     || (linkType.isDynamicLibrary()
-                        && toolchain.usePicForDynamicLibraries(
+                        && CcToolchainProvider.usePicForDynamicLibraries(
                             cppConfiguration, featureConfiguration)),
                 Matcher.quoteReplacement(
                     isNativeDeps && cppConfiguration.shareNativeDeps()
@@ -1047,8 +1039,7 @@ public class CppLinkActionBuilder {
             Tool.LD,
             toolchain.getCcToolchainLabel(),
             toolchain.getToolchainIdentifier(),
-            ruleErrorConsumer),
-        toolchain.getTargetCpu());
+            ruleErrorConsumer));
   }
 
   /** We're doing 4-phased lto build, and this is the final link action (4-th phase). */

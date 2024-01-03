@@ -22,19 +22,24 @@
 
 ### Setup
 
-To use these rules, load them in your `WORKSPACE` file as follows:
+To use these rules in a module extension, load them in your .bzl file and then call them from your
+extension's implementation function. For example, to use `http_archive`:
 
 ```python
-load(
-    "@bazel_tools//tools/build_defs/repo:http.bzl",
-    "http_archive",
-    "http_file",
-    "http_jar",
-)
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+def _my_extension_impl(mctx):
+  http_archive(name = "foo", urls = [...])
+
+my_extension = module_extension(implementation = _my_extension_impl)
 ```
 
-These rules are improved versions of the native http rules and will eventually
-replace the native rules.
+Alternatively, you can directly call these repo rules in your MODULE.bazel file with
+`use_repo_rule`:
+
+```python
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(name = "foo", urls = [...])
 """
 
 load(
@@ -45,11 +50,9 @@ load(
 )
 load(
     ":utils.bzl",
+    "get_auth",
     "patch",
-    "read_netrc",
-    "read_user_netrc",
     "update_attrs",
-    "use_netrc",
     "workspace_and_buildfile",
 )
 
@@ -119,16 +122,6 @@ Authorization: Bearer RANDOM-TOKEN
 </pre>
 """
 
-def _get_auth(ctx, urls):
-    """Given the list of URLs obtain the correct auth dict."""
-    if ctx.attr.netrc:
-        netrc = read_netrc(ctx, ctx.attr.netrc)
-    elif "NETRC" in ctx.os.environ:
-        netrc = read_netrc(ctx, ctx.os.environ["NETRC"])
-    else:
-        netrc = read_user_netrc(ctx)
-    return use_netrc(netrc, urls, ctx.attr.auth_patterns)
-
 def _update_integrity_attr(ctx, attrs, download_info):
     # We don't need to override the integrity attribute if sha256 is already specified.
     integrity_override = {} if ctx.attr.sha256 else {"integrity": download_info.integrity}
@@ -140,7 +133,7 @@ def _http_archive_impl(ctx):
         fail("Only one of build_file and build_file_content can be provided.")
 
     all_urls = _get_all_urls(ctx)
-    auth = _get_auth(ctx, all_urls)
+    auth = get_auth(ctx, all_urls)
 
     download_info = ctx.download_and_extract(
         all_urls,
@@ -182,7 +175,7 @@ def _http_file_impl(ctx):
     if download_path in forbidden_files or not str(download_path).startswith(str(repo_root)):
         fail("'%s' cannot be used as downloaded_file_path in http_file" % ctx.attr.downloaded_file_path)
     all_urls = _get_all_urls(ctx)
-    auth = _get_auth(ctx, all_urls)
+    auth = get_auth(ctx, all_urls)
     download_info = ctx.download(
         all_urls,
         "file/" + downloaded_file_path,
@@ -219,7 +212,7 @@ filegroup(
 def _http_jar_impl(ctx):
     """Implementation of the http_jar rule."""
     all_urls = _get_all_urls(ctx)
-    auth = _get_auth(ctx, all_urls)
+    auth = get_auth(ctx, all_urls)
     downloaded_file_name = ctx.attr.downloaded_file_name
     download_info = ctx.download(
         all_urls,

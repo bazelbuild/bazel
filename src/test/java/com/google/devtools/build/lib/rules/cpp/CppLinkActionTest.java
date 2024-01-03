@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -27,7 +26,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -55,7 +53,7 @@ import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
-import com.google.devtools.build.lib.rules.cpp.CppLinkAction.LocalResourcesEstimator;
+import com.google.devtools.build.lib.rules.cpp.CppLinkAction.LinkResourceSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
@@ -784,14 +782,10 @@ public final class CppLinkActionTest extends BuildViewTestCase {
       RuleContext ruleContext, OS os, int inputsCount) throws Exception {
     InputMetadataProvider inputMetadataProvider = mock(InputMetadataProvider.class);
 
-    ActionExecutionContext actionExecutionContext = mock(ActionExecutionContext.class);
-    when(actionExecutionContext.getInputMetadataProvider()).thenReturn(inputMetadataProvider);
-
     NestedSet<Artifact> inputs = createInputs(ruleContext, inputsCount);
     try {
-      LocalResourcesEstimator estimator =
-          new LocalResourcesEstimator(actionExecutionContext, os, inputs);
-      return estimator.get();
+      LinkResourceSetBuilder estimator = new LinkResourceSetBuilder();
+      return estimator.buildResourceSet(os, inputsCount);
     } finally {
       for (Artifact input : inputs.toList()) {
         input.getPath().delete();

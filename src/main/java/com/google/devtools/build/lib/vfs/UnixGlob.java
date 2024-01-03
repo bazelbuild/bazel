@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -227,7 +228,7 @@ public final class UnixGlob {
     StringBuilder regexp = new StringBuilder();
     for (int i = 0, len = pattern.length(); i < len; i++) {
       char c = pattern.charAt(i);
-      switch(c) {
+      switch (c) {
         case '*':
           int toIncrement = 0;
           if (len > i + 1 && pattern.charAt(i + 1) == '*') {
@@ -737,13 +738,9 @@ public final class UnixGlob {
      */
     private void reallyGlob(Path base, boolean baseIsDir, int idx, GlobTaskContext context)
         throws IOException {
-      // Make sure that `patternParts` index is not out of bounds.
-      if (idx >= context.patternParts.length) {
-        throw new IllegalArgumentException(
-            String.format(
-                "non skyframe glob index runs out of bounds. glob pattern = %s; current base = %s;"
-                    + " index = %d",
-                String.join("/", context.patternParts), base, idx));
+      if (idx == context.patternParts.length) { // Base case.
+        maybeAddResult(context, base, baseIsDir);
+        return;
       }
 
       // Do an early readdir() call here if the pattern contains a wildcard (* or ?). The reason is
@@ -758,6 +755,16 @@ public final class UnixGlob {
         dents = context.syscalls.readdir(base);
       }
 
+      if (baseIsDir && !context.pathDiscriminator.shouldTraverseDirectory(base)) {
+        if (areAllRemainingPatternsDoubleStar(context, idx)) {
+          // For SUBPACKAGES, we encounter this when all remaining patterns in the glob expression
+          // are `**`s. In that case we should include the subpackage's PathFragment (relative to
+          // the package fragment) in the matching results.
+          maybeAddResult(context, base, baseIsDir);
+        }
+        return;
+      }
+
       if (!baseIsDir) {
         // Nothing to find here.
         return;
@@ -766,13 +773,7 @@ public final class UnixGlob {
       // ** is special: it can match nothing at all.
       // For example, x/** matches x, **/y matches y, and x/**/y matches x/y.
       if (isRecursivePattern(pattern)) {
-        if (idx + 1 == context.patternParts.length) {
-          // If ** is the last pattern, decide whether base is a matching result.
-          maybeAddResult(context, base, baseIsDir);
-        } else {
-          // If there are patterns trailing this **, enqueue the next Glob.
-          context.queueGlob(base, baseIsDir, idx + 1);
-        }
+        context.queueGlob(base, baseIsDir, idx + 1);
       }
 
       if (!patternContainsWildcard) {
@@ -783,7 +784,8 @@ public final class UnixGlob {
           // The file is a dangling symlink, fifo, does not exist, etc.
           return;
         }
-        processFileOrDirectory(child, status.isDirectory(), idx, context);
+
+        context.queueGlob(child, status.isDirectory(), idx + 1);
         return;
       }
 
@@ -811,6 +813,12 @@ public final class UnixGlob {
       }
     }
 
+    private static boolean areAllRemainingPatternsDoubleStar(
+        GlobTaskContext context, int startIdx) {
+      return Arrays.stream(context.patternParts, startIdx, context.patternParts.length)
+          .allMatch("**"::equals);
+    }
+
     /**
      * Process symlinks asynchronously. If we should used readdir(..., Symlinks.FOLLOW), that would
      * result in a sequential symlink resolution with many file system implementations. If the
@@ -834,18 +842,10 @@ public final class UnixGlob {
     private void processFileOrDirectory(
         Path path, boolean isDir, int idx, GlobTaskContext context) {
       boolean isRecursivePattern = isRecursivePattern(context.patternParts[idx]);
-      int nextIdx = idx + (isRecursivePattern ? 0 : 1);
-
-      if (isDir
-          && nextIdx < context.patternParts.length
-          && context.pathDiscriminator.shouldTraverseDirectory(path)) {
-        // Call queueGlob iff (1) path is a directory, (2) next index is in-bound and (3) no
-        // subpackage crossing exists.
-        context.queueGlob(path, /* baseIsDir= */ true, nextIdx);
+      if (isDir) {
+        context.queueGlob(path, /* baseIsDir= */ true, idx + (isRecursivePattern ? 0 : 1));
       } else if (idx + 1 == context.patternParts.length) {
-        // All glob patterns have been matched, so we should decide whether the path is a matching
-        // result.
-        maybeAddResult(context, path, isDir);
+        maybeAddResult(context, path, /* isDirectory= */ false);
       }
     }
   }

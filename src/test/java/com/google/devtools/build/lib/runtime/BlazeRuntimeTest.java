@@ -112,7 +112,8 @@ public class BlazeRuntimeTest {
             /* commandStartTime= */ 0L,
             /* commandExtensions= */ ImmutableList.of(),
             shutdownMessage::set,
-            NO_OP_COMMAND_EXTENSION_REPORTER);
+            NO_OP_COMMAND_EXTENSION_REPORTER,
+            /* attemptNumber= */ 1);
     runtime.beforeCommand(env, options.getOptions(CommonCommandOptions.class));
     DetailedExitCode oom =
         DetailedExitCode.of(
@@ -163,7 +164,8 @@ public class BlazeRuntimeTest {
             /* commandStartTime= */ 0L,
             /* commandExtensions= */ ImmutableList.of(),
             /* shutdownReasonConsumer= */ s -> {},
-            NO_OP_COMMAND_EXTENSION_REPORTER);
+            NO_OP_COMMAND_EXTENSION_REPORTER,
+            /* attemptNumber= */ 1);
     Any anyFoo = Any.pack(StringValue.of("foo"));
     Any anyBar = Any.pack(BytesValue.of(ByteString.copyFromUtf8("bar")));
     env.addResponseExtensions(ImmutableList.of(anyFoo, anyBar));

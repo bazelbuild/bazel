@@ -21,7 +21,6 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
-import com.google.devtools.build.lib.packages.Globber.Operation;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
@@ -340,7 +339,7 @@ public class GlobCacheTest {
 
   @Test
   public void testSubpackages_noWildcard() throws Exception {
-    assertThat(cache.globUnsorted(list("sub/sub.js"), list(), Operation.SUBPACKAGES, true))
+    assertThat(cache.globUnsorted(list("sub/sub.js"), list(), Globber.Operation.SUBPACKAGES, true))
         .isEmpty();
   }
 
@@ -348,6 +347,37 @@ public class GlobCacheTest {
   public void testSubpackages_simpleDoubleStar() throws Exception {
     assertThat(cache.globUnsorted(list("**"), list(), Globber.Operation.SUBPACKAGES, true))
         .containsExactly("sub");
+  }
+
+  @Test
+  public void testSubpackages_onlySub() throws Exception {
+    assertThat(cache.globUnsorted(list("sub"), list(), Globber.Operation.SUBPACKAGES, true))
+        .containsExactly("sub");
+  }
+
+  @Test
+  public void testSubpackages_singleStarsAfterSub() throws Exception {
+    assertThat(cache.globUnsorted(list("sub/*"), list(), Globber.Operation.SUBPACKAGES, true))
+        .isEmpty();
+  }
+
+  @Test
+  public void testSubpackages_doubleStarsAfterSub() throws Exception {
+    assertThat(cache.globUnsorted(list("sub/**"), list(), Globber.Operation.SUBPACKAGES, true))
+        .containsExactly("sub");
+  }
+
+  @Test
+  public void testSubpackages_twoDoubleStarsAfterSub() throws Exception {
+    // Both `**`s are considered to match no path fragments.
+    assertThat(cache.globUnsorted(list("sub/**/**"), list(), Globber.Operation.SUBPACKAGES, true))
+        .containsExactly("sub");
+  }
+
+  @Test
+  public void testSubpackages_doubleStarsAndOtherPathAfterSub() throws Exception {
+    assertThat(cache.globUnsorted(list("sub/**/foo"), list(), Globber.Operation.SUBPACKAGES, true))
+        .isEmpty();
   }
 
   @Test

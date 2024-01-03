@@ -52,7 +52,9 @@ java_library(
 
 java_library(
     name = "artifact_nested_set_key",
-    srcs = ["ArtifactNestedSetKey.java"],
+    srcs = [
+        "ArtifactNestedSetKey.java",
+    ],
     deps = [
         ":nestedset",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",

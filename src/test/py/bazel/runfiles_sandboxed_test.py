@@ -25,7 +25,7 @@ class RunfilesSandboxedTest(test_base.TestBase):
 
   def testRunfilesLibrariesFindRunfilesWithoutEnvvars(self):
     for s, t, exe in [
-        ("WORKSPACE.mock", "WORKSPACE", False),
+        ("MODULE.bazel.mock", "MODULE.bazel", False),
         ("bar/BUILD.mock", "bar/BUILD", False),
         ("bar/bar.py", "bar/bar.py", True),
         ("bar/bar-py-data.txt", "bar/bar-py-data.txt", False),

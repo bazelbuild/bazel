@@ -200,7 +200,7 @@ public class MockPlatformSupport {
         "toolchain(",
         "   name = 'toolchain_cc-compiler-k8',",
         "   toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
-        "   toolchain = '" + crosstoolLabel.getLocalTargetLabel("cc-compiler-k8-compiler") + "',",
+        "   toolchain = '" + crosstoolLabel.getSamePackageLabel("cc-compiler-k8-compiler") + "',",
         "   target_compatible_with = [':mock_value'],",
         ")");
   }
@@ -220,7 +220,7 @@ public class MockPlatformSupport {
         "toolchain(",
         "   name = 'toolchain_cc-compiler-ppc',",
         "   toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
-        "   toolchain = '" + crosstoolLabel.getLocalTargetLabel("cc-compiler-ppc-compiler") + "',",
+        "   toolchain = '" + crosstoolLabel.getSamePackageLabel("cc-compiler-ppc-compiler") + "',",
         "   target_compatible_with = [':mock_value'],",
         ")");
   }

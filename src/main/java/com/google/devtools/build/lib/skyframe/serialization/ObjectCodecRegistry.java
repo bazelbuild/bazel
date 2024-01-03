@@ -25,6 +25,7 @@ import com.google.common.io.ByteStreams;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
+import com.google.protobuf.MessageLite;
 import java.io.IOException;
 import java.io.Serializable;
 import java.security.DigestOutputStream;
@@ -456,7 +457,10 @@ public class ObjectCodecRegistry {
       if (type.isEnum()) {
         return createCodecDescriptorForEnum(tag, type);
       }
-      return new TypedCodecDescriptor<>(tag, new DynamicCodec(Class.forName(className)));
+      if (MessageLite.class.isAssignableFrom(type)) {
+        return createCodecDescriptorForProto(tag, type);
+      }
+      return new TypedCodecDescriptor<>(tag, new DynamicCodec(type));
     } catch (ReflectiveOperationException e) {
       new SerializationException("Could not create codec for type: " + className, e)
           .printStackTrace();
@@ -467,6 +471,12 @@ public class ObjectCodecRegistry {
   @SuppressWarnings({"unchecked", "rawtypes"})
   private static CodecDescriptor createCodecDescriptorForEnum(int tag, Class<?> enumType) {
     return new TypedCodecDescriptor(tag, new EnumCodec(enumType));
+  }
+
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  private static CodecDescriptor createCodecDescriptorForProto(int tag, Class<?> protoType) {
+    return new TypedCodecDescriptor(
+        tag, new MessageLiteCodec((Class<? extends MessageLite>) protoType));
   }
 
   private CodecDescriptor getDynamicCodecDescriptor(String className, @Nullable Class<?> type)

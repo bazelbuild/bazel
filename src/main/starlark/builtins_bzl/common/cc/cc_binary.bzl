@@ -81,7 +81,12 @@ def _create_intermediate_dwp_packagers(ctx, dwp_output, cc_toolchain, dwp_files,
                 current_packager = _new_dwp_action(ctx, cc_toolchain, dwp_files)
                 inputs_for_current_packager = 0
             current_packager["inputs"].append(dwo_file)
-            current_packager["arguments"].add(dwo_file)
+
+            # add_all expands all directories to their contained files, see
+            # https://bazel.build/rules/lib/builtins/Args#add_all. add doesn't
+            # do that, so using add_all on the one-item list here allows us to
+            # find dwo files in directories.
+            current_packager["arguments"].add_all([dwo_file])
             inputs_for_current_packager += 1
 
         packagers.append(current_packager)

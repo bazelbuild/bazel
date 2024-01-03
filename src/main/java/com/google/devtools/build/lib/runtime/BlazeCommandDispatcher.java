@@ -240,9 +240,11 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             retrievedShutdownReason, FailureDetails.Command.Code.PREVIOUSLY_SHUTDOWN);
       }
       BlazeCommandResult result;
+      int attemptNumber = 0;
       Set<UUID> attemptedCommandIds = new HashSet<>();
       BlazeCommandResult lastResult = null;
       while (true) {
+        attemptNumber += 1;
         try {
           result =
               execExclusively(
@@ -255,6 +257,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                   waitTimeInMs,
                   startupOptionsTaggedWithBazelRc,
                   commandExtensions,
+                  attemptNumber,
                   attemptedCommandIds,
                   lastResult,
                   commandExtensionReporter);
@@ -313,6 +316,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       long waitTimeInMs,
       Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
       List<Any> commandExtensions,
+      int attemptNumber,
       Set<UUID> attemptedCommandIds,
       @Nullable BlazeCommandResult lastResult,
       CommandExtensionReporter commandExtensionReporter)
@@ -343,7 +347,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             firstContactTime,
             commandExtensions,
             this::setShutdownReason,
-            commandExtensionReporter);
+            commandExtensionReporter,
+            attemptNumber);
 
     if (!attemptedCommandIds.isEmpty()) {
       if (attemptedCommandIds.contains(env.getCommandId())) {
@@ -413,9 +418,10 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     Reporter reporter = env.getReporter();
     OutErr.SystemPatcher systemOutErrPatcher = reporter.getOutErr().getSystemPatcher();
     try {
-      // Temporary: there are modules that output events during beforeCommand, but the reporter
-      // isn't setup yet. Add the stored event handler to catch those events.
+      // Both the call to env.decideKeepIncrementalState() and module.beforeCommand() may emit
+      // events, but the reporter isn't setup yet. Use a stored event handler to catch those events.
       reporter.addHandler(storedEventHandler);
+      env.decideKeepIncrementalState();
       for (BlazeModule module : runtime.getBlazeModules()) {
         try (SilentCloseable closeable = Profiler.instance().profile(module + ".beforeCommand")) {
           module.beforeCommand(env);

@@ -15,7 +15,6 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -68,13 +67,12 @@ public class CompoundEvaluationProgressReceiverBase implements EvaluationProgres
   @Override
   public void evaluated(
       SkyKey skyKey,
+      EvaluationState state,
       @Nullable SkyValue newValue,
       @Nullable ErrorInfo newError,
-      Supplier<EvaluationSuccessState> evaluationSuccessState,
-      EvaluationState state,
       @Nullable GroupedDeps directDeps) {
     for (EvaluationProgressReceiver receiver : receivers) {
-      receiver.evaluated(skyKey, newValue, newError, evaluationSuccessState, state, directDeps);
+      receiver.evaluated(skyKey, state, newValue, newError, directDeps);
     }
   }
 }

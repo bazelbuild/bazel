@@ -42,6 +42,7 @@ public interface Downloader {
    */
   void download(
       List<URL> urls,
+      Map<String, List<String>> headers,
       Credentials credentials,
       Optional<Checksum> checksum,
       String canonicalId,

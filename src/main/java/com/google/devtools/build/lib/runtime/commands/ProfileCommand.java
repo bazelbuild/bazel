@@ -64,7 +64,7 @@ public final class ProfileCommand implements BlazeCommand {
         converter = DumpConverter.class,
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.LOGGING,
-        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        effectTags = {OptionEffectTag.BAZEL_MONITORING},
         help =
             "output full profile data dump either in human-readable 'text' format or"
                 + " script-friendly 'raw' format.")

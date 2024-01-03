@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -187,16 +186,6 @@ public final class CcCommon implements StarlarkValue {
    */
   public List<Pair<Artifact, Label>> getHeaders() {
     return getHeaders(ruleContext);
-  }
-
-  public static void reportInvalidOptions(
-      RuleContext ruleContext, CppConfiguration cppConfiguration, CcToolchainProvider ccToolchain) {
-    if (cppConfiguration.getLibcTopLabel() != null && ccToolchain.getDefaultSysroot() == null) {
-      ruleContext.ruleError(
-          "The selected toolchain "
-              + ccToolchain.getToolchainIdentifier()
-              + " does not support setting --grte_top (it doesn't specify builtin_sysroot).");
-    }
   }
 
   /**
@@ -610,15 +599,10 @@ public final class CcCommon implements StarlarkValue {
 
     // Determine the original value of CC_FLAGS.
     String originalCcFlags = toolchainProvider.getLegacyCcFlagsMakeVariable();
-
-    // Ensure that Sysroot is set properly.
-    // TODO(b/129045294): We assume --incompatible_disable_genrule_cc_toolchain_dependency will
-    //   be flipped sooner than --incompatible_enable_cc_toolchain_resolution. Then this method
-    //   will be gone.
-    String sysrootCcFlags =
-        computeCcFlagForSysroot(
-            toolchainProvider.getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas(),
-            toolchainProvider);
+    String sysrootCcFlags = "";
+    if (toolchainProvider.getSysrootPathFragment() != null) {
+      sysrootCcFlags = SYSROOT_FLAG + toolchainProvider.getSysrootPathFragment();
+    }
 
     // Fetch additional flags from the FeatureConfiguration.
     List<String> featureConfigCcFlags =
@@ -643,30 +627,12 @@ public final class CcCommon implements StarlarkValue {
         .anyMatch(str -> str.contains(SYSROOT_FLAG));
   }
 
-  private static String computeCcFlagForSysroot(
-      CppConfiguration cppConfiguration, CcToolchainProvider toolchainProvider) {
-    PathFragment sysroot = toolchainProvider.getSysrootPathFragment(cppConfiguration);
-    String sysrootFlag = "";
-    if (sysroot != null) {
-      sysrootFlag = SYSROOT_FLAG + sysroot;
-    }
-
-    return sysrootFlag;
-  }
-
   private static List<String> computeCcFlagsFromFeatureConfig(
       RuleContext ruleContext, CcToolchainProvider toolchainProvider)
       throws RuleErrorException, InterruptedException {
     FeatureConfiguration featureConfiguration = null;
     CppConfiguration cppConfiguration;
-    if (toolchainProvider.requireCtxInConfigureFeatures()) {
-      // When --incompatible_require_ctx_in_configure_features is flipped, this whole method will go
-      // away. But I'm keeping it there so we can experiment with flags before they are flipped.
-      cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
-    } else {
-      cppConfiguration =
-          toolchainProvider.getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas();
-    }
+    cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     try {
       featureConfiguration =
           configureFeaturesOrThrowEvalException(
@@ -686,7 +652,8 @@ public final class CcCommon implements StarlarkValue {
                 ruleContext.getStarlarkThread(),
                 cppConfiguration,
                 ruleContext.getConfiguration().getOptions(),
-                ruleContext.getConfiguration().getOptions().get(CoreOptions.class).cpu);
+                ruleContext.getConfiguration().getOptions().get(CoreOptions.class).cpu,
+                toolchainProvider.getBuildVarsFunc());
       return CppHelper.getCommandLine(
           ruleContext, featureConfiguration, buildVariables, CppActionNames.CC_FLAGS_MAKE_VARIABLE);
 

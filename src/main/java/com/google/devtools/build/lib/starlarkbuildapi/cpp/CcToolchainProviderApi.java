@@ -289,19 +289,8 @@ public interface CcToolchainProviderApi<
   @StarlarkMethod(name = "get_crosstool_top_path", documented = false, useStarlarkThread = true)
   String getCrosstoolTopPathForStarlark(StarlarkThread thread) throws EvalException;
 
-  @StarlarkMethod(
-      name = "get_build_variables",
-      documented = false,
-      useStarlarkThread = true,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-        @Param(name = "cpp_configuration", positional = false, named = true)
-      })
-  CcToolchainVariablesT getBuildVariablesForStarlark(
-      StarlarkRuleContextT starlarkRuleContext,
-      CppConfigurationT cppConfiguration,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException;
+  @StarlarkMethod(name = "build_variables", documented = false, useStarlarkThread = true)
+  CcToolchainVariablesT getBuildVariablesForStarlark(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(name = "build_info_files", documented = false, useStarlarkThread = true)
   OutputGroupInfoT getCcBuildInfoTranslatorForStarlark(StarlarkThread thread) throws EvalException;

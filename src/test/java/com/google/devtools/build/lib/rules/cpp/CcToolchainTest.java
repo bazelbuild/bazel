@@ -556,7 +556,7 @@ public class CcToolchainTest extends BuildViewTestCase {
 
     useConfiguration("--cpu=k8");
 
-    ConfiguredTarget target = getConfiguredTarget("//a:a");
+    ConfiguredTarget target = getConfiguredTarget("//a:b");
     RuleContext ruleContext = getRuleContext(target);
     CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
     assertThat(
@@ -584,10 +584,6 @@ public class CcToolchainTest extends BuildViewTestCase {
         "cc_toolchain_config_rule(name = 'toolchain_config')",
         "filegroup(",
         "   name='empty')",
-        "cc_toolchain_suite(",
-        "    name = 'a',",
-        "    toolchains = { 'k8': ':b' },",
-        ")",
         "cc_toolchain(",
         "    name = 'b',",
         "    all_files = ':empty',",
@@ -677,7 +673,6 @@ public class CcToolchainTest extends BuildViewTestCase {
     scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
     scratch.file("libc1/BUILD", "filegroup(name = 'everything', srcs = ['header1.h'])");
     scratch.file("libc1/header1.h", "#define FOO 1");
-    useConfiguration("--noincompatible_enable_cc_toolchain_resolution");
     ConfiguredTarget target = getConfiguredTarget("//a:b");
     CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
 
@@ -749,28 +744,6 @@ public class CcToolchainTest extends BuildViewTestCase {
         "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
         getAnalysisMock().ccSupport().getMacroLoadStatement(loadMacro, "cc_toolchain"),
         getToolchainRule("a"));
-  }
-
-  @Test
-  public void setupTestCcToolchainSuiteLoadedThroughMacro() throws Exception {
-    setupTestCcToolchainSuiteLoadedThroughMacro(/* loadMacro= */ true);
-    assertThat(getConfiguredTarget("//a:a")).isNotNull();
-    assertNoEvents();
-  }
-
-  private void setupTestCcToolchainSuiteLoadedThroughMacro(boolean loadMacro) throws Exception {
-    scratch.file("a/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
-    scratch.file(
-        "a/BUILD",
-        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
-        getAnalysisMock()
-            .ccSupport()
-            .getMacroLoadStatement(loadMacro, "cc_toolchain", "cc_toolchain_suite"),
-        "cc_toolchain_suite(",
-        "    name = 'a',",
-        "    toolchains = { 'k8': ':b' },",
-        ")",
-        getToolchainRule("b"));
   }
 
   private static String getToolchainRule(String targetName) {

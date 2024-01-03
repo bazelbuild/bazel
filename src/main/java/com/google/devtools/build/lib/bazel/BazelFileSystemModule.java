@@ -75,6 +75,17 @@ public class BazelFileSystemModule extends BlazeModule {
 
     FileSystem fs;
     if (OS.getCurrent() == OS.WINDOWS) {
+      if (!JniLoader.isJniAvailable()) {
+        Throwable e = checkNotNull(JniLoader.getJniLoadError());
+        throw new AbruptExitException(
+            DetailedExitCode.of(
+                FailureDetail.newBuilder()
+                    .setMessage(Strings.nullToEmpty(e.getMessage()))
+                    .setFilesystem(
+                        Filesystem.newBuilder().setCode(Code.FILESYSTEM_JNI_NOT_AVAILABLE))
+                    .build()),
+            e);
+      }
       fs = new WindowsFileSystem(digestHashFunction, options.enableWindowsSymlinks);
     } else {
       if (JniLoader.isJniAvailable()) {

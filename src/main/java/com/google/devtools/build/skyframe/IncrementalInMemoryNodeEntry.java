@@ -88,29 +88,6 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
     return true;
   }
 
-  @Nullable
-  @Override
-  public SkyValue toValue() {
-    SkyValue lastBuildValue = value;
-    if (lastBuildValue == null) {
-      synchronized (this) {
-        if (value != null) {
-          lastBuildValue = value;
-        } else if (dirtyBuildingState != null) {
-          try {
-            lastBuildValue = dirtyBuildingState.getLastBuildValue();
-          } catch (InterruptedException e) {
-            throw new IllegalStateException("Interruption unexpected: " + this, e);
-          }
-        } else {
-          return null; // An evaluation was never started.
-        }
-      }
-    }
-
-    return lastBuildValue != null ? ValueWithMetadata.justValue(lastBuildValue) : null;
-  }
-
   @Override
   public Iterable<SkyKey> getDirectDeps() {
     return GroupedDeps.compressedToIterable(getCompressedDirectDepsForDoneEntry());
@@ -258,9 +235,9 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
     if (isDone()) {
       ReverseDepsUtility.removeReverseDep(this, reverseDep);
     } else {
-      // Removing a reverse dep from an in-flight node is rare -- it should only happen when this
-      // node is about to be cleaned from the graph.
-      appendToReverseDepOperations(reverseDep, Op.REMOVE_OLD);
+      // Removing a reverse dep from an in-flight node is rare -- it should only happen when there
+      // is a cycle or this node is about to be cleaned from the graph.
+      appendToReverseDepOperations(reverseDep, Op.REMOVE);
     }
   }
 
@@ -268,11 +245,6 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
   public synchronized void removeReverseDepsFromDoneEntryDueToDeletion(Set<SkyKey> deletedKeys) {
     checkState(isDone(), this);
     ReverseDepsUtility.removeReverseDepsMatching(this, deletedKeys);
-  }
-
-  @Override
-  public synchronized void removeInProgressReverseDep(SkyKey reverseDep) {
-    appendToReverseDepOperations(reverseDep, Op.REMOVE);
   }
 
   @Override
@@ -316,6 +288,9 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
     checkNotNull(dirtyType, this);
 
     if (isDone()) {
+      if (dirtyType == DirtyType.REWIND && getErrorInfo() != null) {
+        return null; // Rewinding errors is no-op.
+      }
       GroupedDeps directDeps = GroupedDeps.decompress(getCompressedDirectDepsForDoneEntry());
       checkState(
           dirtyType != DirtyType.DIRTY || !directDeps.isEmpty(),

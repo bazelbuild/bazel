@@ -60,6 +60,7 @@ public class WorkerModule extends BlazeModule {
   public void beforeCommand(CommandEnvironment env) {
     this.env = env;
     env.getEventBus().register(this);
+    WorkerProcessMetricsCollector.instance().beforeCommand();
     WorkerMultiplexerManager.beforeCommand(env.getReporter());
   }
 
@@ -68,7 +69,6 @@ public class WorkerModule extends BlazeModule {
     if (workerPool != null) {
       WorkerOptions options = event.getOptionsProvider().getOptions(WorkerOptions.class);
       workerFactory.setReporter(options.workerVerbose ? env.getReporter() : null);
-      workerFactory.setEventBus(env.getEventBus());
       shutdownPool(
           "Clean command is running, shutting down worker pool...",
           /* alwaysLog= */ false,
@@ -86,7 +86,6 @@ public class WorkerModule extends BlazeModule {
     WorkerOptions options = checkNotNull(event.request().getOptions(WorkerOptions.class));
     if (workerFactory != null) {
       workerFactory.setReporter(options.workerVerbose ? env.getReporter() : null);
-      workerFactory.setEventBus(env.getEventBus());
     }
     Path workerDir =
         env.getOutputBase().getRelative(env.getRuntime().getProductName() + "-workers");
@@ -143,7 +142,6 @@ public class WorkerModule extends BlazeModule {
           options.workerVerbose);
       workerFactory = newWorkerFactory;
       workerFactory.setReporter(options.workerVerbose ? env.getReporter() : null);
-      workerFactory.setEventBus(env.getEventBus());
     }
 
     WorkerPoolConfig newConfig =
@@ -167,11 +165,9 @@ public class WorkerModule extends BlazeModule {
     // Start collecting after a pool is defined
     workerLifecycleManager = new WorkerLifecycleManager(workerPool, options);
     workerLifecycleManager.setReporter(env.getReporter());
-    workerLifecycleManager.setEventBus(env.getEventBus());
     workerLifecycleManager.setDaemon(true);
     workerLifecycleManager.start();
 
-    workerPool.setEventBus(env.getEventBus());
     // Reset the pool at the beginning of each build.
     workerPool.reset();
   }
@@ -237,10 +233,6 @@ public class WorkerModule extends BlazeModule {
 
     if (this.workerFactory != null) {
       this.workerFactory.setReporter(null);
-      this.workerFactory.setEventBus(null);
-    }
-    if (this.workerPool != null) {
-      this.workerPool.setEventBus(null);
     }
     WorkerMultiplexerManager.afterCommand();
   }

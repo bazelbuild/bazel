@@ -10,7 +10,6 @@ filegroup(
     srcs = glob(["*"]) + [
         "//src/test/java/com/google/devtools/build/lib/bazel/bzlmod:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel/debug:srcs",
-        "//src/test/java/com/google/devtools/build/lib/bazel/execlog:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel/repository:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel/rules:srcs",
     ],

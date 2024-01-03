@@ -133,6 +133,29 @@ abstract class AbstractInMemoryNodeEntry<D extends DirtyBuildingState>
 
   @Override
   @Nullable
+  public final SkyValue toValue() {
+    SkyValue lastBuildValue = value;
+    if (lastBuildValue == null) {
+      synchronized (this) {
+        if (value != null) {
+          lastBuildValue = value;
+        } else if (dirtyBuildingState != null) {
+          try {
+            lastBuildValue = dirtyBuildingState.getLastBuildValue();
+          } catch (InterruptedException e) {
+            throw new IllegalStateException("Interruption unexpected: " + this, e);
+          }
+        } else {
+          return null; // An evaluation was never started.
+        }
+      }
+    }
+
+    return lastBuildValue != null ? ValueWithMetadata.justValue(lastBuildValue) : null;
+  }
+
+  @Override
+  @Nullable
   public final synchronized ErrorInfo getErrorInfo() {
     checkState(isDone(), "no errors until done. NodeEntry: %s", this);
     return ValueWithMetadata.getMaybeErrorInfo(value);

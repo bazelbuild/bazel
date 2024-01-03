@@ -102,8 +102,9 @@ public class WorkerProcessMetricsCollector {
         // with a more specific reason why it is killed, then we allow such an update.
         if (workerMetric.getActionsExecuted() > 0) {
           workerMetric.getStatus().maybeUpdateStatus(WorkerProcessStatus.Status.KILLED_UNKNOWN);
-          workerMetrics.add(workerMetric);
         }
+        // We want to add the worker metric even if it is not measurable.
+        workerMetrics.add(workerMetric);
         continue;
       }
 
@@ -125,7 +126,7 @@ public class WorkerProcessMetricsCollector {
     wpm.incrementActionsExecuted();
   }
 
-  private static final int MAX_PUBLISHED_WORKER_METRICS = 50;
+  public static final int MAX_PUBLISHED_WORKER_METRICS = 50;
 
   /** Returns a prioritized and limited list of WorkerMetrics to be published to the BEP. */
   public ImmutableList<WorkerMetrics> getPublishedWorkerMetrics() {
@@ -137,6 +138,15 @@ public class WorkerProcessMetricsCollector {
         .collect(toImmutableList());
   }
 
+  public static ImmutableList<WorkerMetrics> limitWorkerMetricsToPublish(
+      ImmutableList<WorkerMetrics> metrics, int limit) {
+    return metrics.stream()
+        .sorted(new WorkerMetricsPublishComparator())
+        .limit(limit)
+        .sorted(Comparator.comparingInt(m -> m.getWorkerIdsList().get(0)))
+        .collect(toImmutableList());
+  }
+
   /**
    * Because we log all worker processes that have been alive at any point during the build, the
    * size of this list might grow out of hand if there is some issue with the build (e.g.
@@ -144,7 +154,8 @@ public class WorkerProcessMetricsCollector {
    * Prioritize WorkerStatuses ALIVE, then KILLED_DUE_TO_MEMORY_PRESSURE, then all remaining worker
    * statuses. (2) Then prioritize by decreasing memory usage and (3) limit to a fixed number.
    */
-  private static class WorkerMetricsPublishComparator implements Comparator<WorkerMetrics> {
+  @VisibleForTesting
+  public static class WorkerMetricsPublishComparator implements Comparator<WorkerMetrics> {
 
     private int getWorkerStatusPriority(WorkerMetrics.WorkerStatus status) {
       // Lower value is prioritized.
@@ -221,6 +232,11 @@ public class WorkerProcessMetricsCollector {
       }
     }
     processIdToWorkerProcessMetrics.keySet().removeAll(pidsToRemove);
+  }
+
+  /** To reset states in each WorkerProcessMetric before each command where applicable. */
+  public void beforeCommand() {
+    processIdToWorkerProcessMetrics.values().forEach(m -> m.onBeforeCommand());
   }
 
   // TODO(b/238416583) Add deregister function

@@ -341,6 +341,12 @@ EOF
     echo "testenv.sh: Using shared install base at $TEST_INSTALL_BASE."
     echo "startup --install_base=$TEST_INSTALL_BASE" >> $TEST_TMPDIR/bazelrc
   fi
+
+  if is_darwin; then
+    echo "Add flags to prefer ipv6 network"
+    echo "startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true" >> $TEST_TMPDIR/bazelrc
+    echo "build --jvmopt=-Djava.net.preferIPv6Addresses" >> $TEST_TMPDIR/bazelrc
+  fi
 }
 
 function setup_android_sdk_support() {
@@ -409,6 +415,51 @@ android_ndk_repository(
     name = "androidndk",
     path = "$ANDROID_NDK",
 )
+EOF
+  mkdir -p test_android_platforms
+  cat > test_android_platforms/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+platform(
+    name = "x86",
+    constraint_values = [
+        "@platforms//os:android",
+        "@platforms//cpu:x86_32",
+    ],
+)
+
+platform(
+    name = "x86_64",
+    constraint_values = [
+        "@platforms//os:android",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+platform(
+    name = "armeabi-v7a",
+    constraint_values = [
+        "@platforms//os:android",
+        "@platforms//cpu:armv7",
+    ],
+)
+
+platform(
+    name = "arm64-v8a",
+    constraint_values =
+        [
+            "@platforms//cpu:arm64",
+            "@platforms//os:android",
+        ],
+)
+EOF
+  add_to_bazelrc "build --platform_mappings=test_android_platforms/mappings"
+  cat > test_android_platforms/mappings <<EOF
+platforms:
+  //test_android_platforms:armeabi-v7a
+    --cpu=armeabi-v7a
+flags:
+  --cpu=armeabi-v7a
+    //test_android_platforms:armeabi-v7a
 EOF
 }
 
@@ -617,7 +668,9 @@ EOF
 
 # Set up a lockfile to avoid accessing BCR for tests with a clean workspace.
 function write_default_lockfile() {
-  cp -f $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) ${1:-MODULE.bazel.lock}
+  module_lockfile=${1:-MODULE.bazel.lock}
+  touch "$(dirname ${module_lockfile})/MODULE.bazel"
+  cp -f $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) ${module_lockfile}
 }
 
 workspaces=()
@@ -699,7 +752,7 @@ function cleanup() {
 # Simples assert to make the tests more readable
 #
 function assert_build() {
-  bazel build -s --verbose_failures $* || fail "Failed to build $*"
+  bazel build --verbose_failures $* || fail "Failed to build $*"
 }
 
 function assert_build_output() {

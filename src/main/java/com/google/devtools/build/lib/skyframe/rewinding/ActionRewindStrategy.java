@@ -155,7 +155,7 @@ public final class ActionRewindStrategy {
           addArtifactDepsAndGetNewlyVisitedActions(rewindGraph, lostArtifact, actionMap);
 
       for (ArtifactNestedSetKey nestedSetKey : nestedSetKeys.get(lostArtifact)) {
-        addNestedSetToRewindGraph(rewindGraph, failedKey, lostArtifact, artifactKey, nestedSetKey);
+        addNestedSetToRewindGraph(rewindGraph, failedKey, lostArtifact, nestedSetKey);
       }
       // Note that artifactKey must be rewound. We do this after
       // addArtifactDepsAndGetNewlyVisitedActions so that it can track if actions are already known
@@ -175,6 +175,42 @@ public final class ActionRewindStrategy {
             lostInputRecordsThisAction.subList(
                 0, Math.min(lostInputRecordsCount, MAX_LOST_INPUTS_RECORDED))));
     return new RewindPlan(Reset.of(rewindGraph), depsToRewind.build());
+  }
+
+  /**
+   * Creates a {@link Reset} to recover from undone indirect inputs that are unavailable due to
+   * unsuccessful rewinding.
+   *
+   * <p>Undone direct dependencies are handled by Skyframe (see {@link
+   * com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviouslyRequestedDeps}). This
+   * method only exists for artifacts whose {@link Artifact#key} is <em>not</em> a direct dependency
+   * of {@code failedKey} because the artifact is behind an {@link ArtifactNestedSetKey}.
+   *
+   * <p>Used when an indirect dependency {@link Artifact#key} was rewound and completed with an
+   * error, but intermediate nested set nodes were never rewound, resulting in an inconsistent state
+   * where successful nodes depend on a node in error.
+   *
+   * <p>The returned {@link Reset} contains the {@link Artifact#key}, but that is expected to
+   * already be in error, and attempting to rewind an error is no-op.
+   */
+  public static Reset patchNestedSetGraphToPropagateError(
+      ActionLookupData failedKey,
+      ImmutableList<Artifact> undoneInputs,
+      ImmutableSet<SkyKey> failedActionDeps) {
+    MutableGraph<SkyKey> rewindGraph = Reset.newRewindGraphFor(failedKey);
+    Multimap<Artifact, ArtifactNestedSetKey> nestedSetKeys = expandNestedSetKeys(failedActionDeps);
+    for (Artifact input : undoneInputs) {
+      Collection<ArtifactNestedSetKey> containingNestedSets = nestedSetKeys.get(input);
+      checkState(
+          !containingNestedSets.isEmpty(),
+          "Cannot find input %s under any nested set deps of %s",
+          input,
+          failedKey);
+      for (ArtifactNestedSetKey nestedSetKey : containingNestedSets) {
+        addNestedSetToRewindGraph(rewindGraph, failedKey, input, nestedSetKey);
+      }
+    }
+    return Reset.of(rewindGraph);
   }
 
   /**
@@ -736,14 +772,13 @@ public final class ActionRewindStrategy {
   private static void addNestedSetToRewindGraph(
       MutableGraph<SkyKey> rewindGraph,
       ActionLookupData failedKey,
-      DerivedArtifact lostArtifact,
-      SkyKey lostArtifactKey,
+      Artifact lostArtifact,
       ArtifactNestedSetKey directDep) {
     SkyKey current = failedKey;
     for (ArtifactNestedSetKey key : directDep.findPathToArtifact(lostArtifact)) {
       rewindGraph.putEdge(current, key);
       current = key;
     }
-    rewindGraph.putEdge(current, lostArtifactKey);
+    rewindGraph.putEdge(current, Artifact.key(lostArtifact));
   }
 }

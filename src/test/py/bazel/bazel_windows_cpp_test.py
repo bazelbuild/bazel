@@ -744,26 +744,6 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 1, stderr)
     self.assertIn('this_is_an_error', ''.join(stdout))
 
-  def testBuildWithClangClByCompilerFlag(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
-    self.ScratchFile('BUILD', [
-        'cc_binary(',
-        '  name = "main",',
-        '  srcs = ["main.cc"],',
-        ')',
-    ])
-    self.ScratchFile('main.cc', [
-        'int main() {',
-        '  return 0;',
-        '}',
-    ])
-    exit_code, _, stderr = self.RunBazel([
-        'build', '-s', '--compiler=clang-cl',
-        '--incompatible_enable_cc_toolchain_resolution=false', '//:main'
-    ])
-    self.AssertExitCode(exit_code, 0, stderr)
-    self.assertIn('clang-cl.exe', ''.join(stderr))
-
   def testBuildWithClangClByToolchainResolution(self):
     self.DisableBzlmod()
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE', [
@@ -795,10 +775,7 @@ class BazelWindowsCppTest(test_base.TestBase):
         '  return 0;',
         '}',
     ])
-    exit_code, _, stderr = self.RunBazel([
-        'build', '-s', '--incompatible_enable_cc_toolchain_resolution=true',
-        '//:main'
-    ])
+    exit_code, _, stderr = self.RunBazel(['build', '-s', '//:main'])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('clang-cl.exe', ''.join(stderr))
 
@@ -888,6 +865,13 @@ class BazelWindowsCppTest(test_base.TestBase):
   def testBuild32BitCppBinaryWithMsvcCL(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [
+        'platform(',
+        '  name = "windows_32",',
+        '  constraint_values = [',
+        '    "@platforms//cpu:x86_32",',
+        '    "@platforms//os:windows",',
+        '  ]',
+        ')',
         'cc_binary(',
         '  name = "main",',
         '  srcs = ["main.cc"],',
@@ -898,16 +882,22 @@ class BazelWindowsCppTest(test_base.TestBase):
         '  return 0;',
         '}',
     ])
-    exit_code, _, stderr = self.RunBazel([
-        'build', '-s', '--cpu=x64_x86_windows',
-        '--noincompatible_enable_cc_toolchain_resolution', '//:main'
-    ])
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '-s', '--platforms=//:windows_32', '//:main']
+    )
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('x86\\cl.exe', '\n'.join(stderr))
 
   def testBuildArmCppBinaryWithMsvcCL(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [
+        'platform(',
+        '  name = "windows_arm",',
+        '  constraint_values = [',
+        '    "@platforms//cpu:arm",',
+        '    "@platforms//os:windows",',
+        '  ]',
+        ')',
         'cc_binary(',
         '  name = "main",',
         '  srcs = ["main.cc"],',
@@ -918,16 +908,22 @@ class BazelWindowsCppTest(test_base.TestBase):
         '  return 0;',
         '}',
     ])
-    exit_code, _, stderr = self.RunBazel([
-        'build', '-s', '--cpu=x64_arm_windows',
-        '--noincompatible_enable_cc_toolchain_resolution', '//:main'
-    ])
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '-s', '--platforms=//:windows_arm', '//:main']
+    )
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('arm\\cl.exe', '\n'.join(stderr))
 
   def testBuildArm64CppBinaryWithMsvcCLAndCpuX64Arm64Windows(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [
+        'platform(',
+        '  name = "windows_arm64",',
+        '  constraint_values = [',
+        '    "@platforms//cpu:arm64",',
+        '    "@platforms//os:windows",',
+        '  ]',
+        ')',
         'cc_binary(',
         '  name = "main",',
         '  srcs = ["main.cc"],',
@@ -938,16 +934,23 @@ class BazelWindowsCppTest(test_base.TestBase):
         '  return 0;',
         '}',
     ])
-    exit_code, _, stderr = self.RunBazel([
-        'build', '-s', '--cpu=x64_arm64_windows',
-        '--noincompatible_enable_cc_toolchain_resolution', '//:main'
-    ])
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '-s', '--platforms=//:windows_arm64', '//:main']
+    )
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('arm64\\cl.exe', '\n'.join(stderr))
 
   def testBuildCppBinaryWithMingwGCC(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [
+        'platform(',
+        '    name = "x64_windows-mingw-gcc",',
+        '    constraint_values = [',
+        '        "@platforms//cpu:x86_64",',
+        '        "@platforms//os:windows",',
+        '        "@bazel_tools//tools/cpp:mingw",',
+        '    ],',
+        ')',
         'cc_binary(',
         '  name = "main",',
         '  srcs = ["main.cc"],',
@@ -962,7 +965,9 @@ class BazelWindowsCppTest(test_base.TestBase):
     # Test build without debug and optimize modes.
     exit_code, _, stderr = self.RunBazel([
         'build', '-s', '--compiler=mingw-gcc',
-        '--noincompatible_enable_cc_toolchain_resolution', '//:main'
+        '--extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_mingw',
+        '--extra_execution_platforms=//:x64_windows-mingw-gcc',
+        '//:main',
     ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('mingw64\\bin\\gcc', '\n'.join(stderr))
@@ -974,8 +979,9 @@ class BazelWindowsCppTest(test_base.TestBase):
     # Test build in debug mode.
     exit_code, _, stderr = self.RunBazel([
         'build', '-s', '--compiler=mingw-gcc',
-        '--noincompatible_enable_cc_toolchain_resolution', '-c', 'dbg',
-        '//:main'
+        '--extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_mingw',
+        '--extra_execution_platforms=//:x64_windows-mingw-gcc',
+        '-c', 'dbg', '//:main',
     ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('mingw64\\bin\\gcc', '\n'.join(stderr))
@@ -987,8 +993,9 @@ class BazelWindowsCppTest(test_base.TestBase):
     # Test build in optimize mode.
     exit_code, _, stderr = self.RunBazel([
         'build', '-s', '--compiler=mingw-gcc',
-        '--noincompatible_enable_cc_toolchain_resolution', '-c', 'opt',
-        '//:main'
+        '--extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_mingw',
+        '--extra_execution_platforms=//:x64_windows-mingw-gcc',
+        '-c', 'opt', '//:main',
     ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('mingw64\\bin\\gcc', '\n'.join(stderr))
@@ -1000,6 +1007,14 @@ class BazelWindowsCppTest(test_base.TestBase):
   def testBuildCppBinaryWithMsysGCC(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [
+        'platform(',
+        '    name = "x64_windows-msys-gcc",',
+        '    constraint_values = [',
+        '        "@platforms//cpu:x86_64",',
+        '        "@platforms//os:windows",',
+        '        "@bazel_tools//tools/cpp:msys",',
+        '    ],',
+        ')',
         'cc_binary(',
         '  name = "main",',
         '  srcs = ["main.cc"],',
@@ -1017,7 +1032,9 @@ class BazelWindowsCppTest(test_base.TestBase):
     # Test build without debug and optimize modes.
     exit_code, _, stderr = self.RunBazel([
         'build', '-s', '--compiler=msys-gcc',
-        '--noincompatible_enable_cc_toolchain_resolution', '//:main'
+        '--extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_msys',
+        '--extra_execution_platforms=//:x64_windows-msys-gcc',
+        '//:main',
     ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('usr\\bin\\gcc', '\n'.join(stderr))
@@ -1031,8 +1048,9 @@ class BazelWindowsCppTest(test_base.TestBase):
     # Test build in debug mode.
     exit_code, _, stderr = self.RunBazel([
         'build', '-s', '--compiler=msys-gcc',
-        '--noincompatible_enable_cc_toolchain_resolution', '-c', 'dbg',
-        '//:main'
+        '--extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_msys',
+        '--extra_execution_platforms=//:x64_windows-msys-gcc',
+        '-c', 'dbg', '//:main',
     ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('usr\\bin\\gcc', '\n'.join(stderr))
@@ -1045,8 +1063,9 @@ class BazelWindowsCppTest(test_base.TestBase):
     # Test build in optimize mode.
     exit_code, _, stderr = self.RunBazel([
         'build', '-s', '--compiler=msys-gcc',
-        '--noincompatible_enable_cc_toolchain_resolution', '-c', 'opt',
-        '//:main'
+        '--extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_msys',
+        '--extra_execution_platforms=//:x64_windows-msys-gcc',
+        '-c', 'opt', '//:main',
     ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('usr\\bin\\gcc', '\n'.join(stderr))
@@ -1059,6 +1078,13 @@ class BazelWindowsCppTest(test_base.TestBase):
   def testBuildArm64CppBinaryWithMsvcCLAndCpuArm64Windows(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [
+        'platform(',
+        '  name = "windows_arm64",',
+        '  constraint_values = [',
+        '    "@platforms//cpu:arm64",',
+        '    "@platforms//os:windows",',
+        '  ]',
+        ')',
         'cc_binary(',
         '  name = "main",',
         '  srcs = ["main.cc"],',
@@ -1069,10 +1095,9 @@ class BazelWindowsCppTest(test_base.TestBase):
         '  return 0;',
         '}',
     ])
-    exit_code, _, stderr = self.RunBazel([
-        'build', '-s', '--cpu=arm64_windows',
-        '--noincompatible_enable_cc_toolchain_resolution', '//:main'
-    ])
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '-s', '--platforms=//:windows_arm64', '//:main']
+    )
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('arm64\\cl.exe', ''.join(stderr))
 
@@ -1102,12 +1127,17 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.ScratchFile(
         'BUILD',
         [
+            'platform(',
+            '    name = "x64_windows-msvc",',
+            '    constraint_values = [',
+            '        "@platforms//cpu:x86_64",',
+            '        "@platforms//os:windows",',
+            '        "@bazel_tools//tools/cpp:msvc",',
+            '    ],',
+            ')',
             'config_setting(',
-            '    name = "msvc_compiler",',
-            (
-                '    flag_values = {"@bazel_tools//tools/cpp:compiler":'
-                ' "msvc-cl"},'
-            ),
+            '  name = "msvc_compiler",',
+            '  flag_values = {"@bazel_tools//tools/cpp:compiler": "msvc-cl"},',
             ')',
             'cc_binary(',
             '    name = "main",',
@@ -1117,7 +1147,12 @@ class BazelWindowsCppTest(test_base.TestBase):
     )
     self.ScratchFile('main.cc', ['int main() { return 0; }'])
 
-    exit_code, _, stderr = self.RunBazel(['build', '//:main'])
+    exit_code, _, stderr = self.RunBazel([
+        'build',
+        '--extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows-clang-cl',
+        '--extra_execution_platforms=//:x64_windows-msvc',
+        '//:main',
+    ])
     self.AssertExitCode(exit_code, 0, stderr)
 
   def testCompilerSettingClangCl(self):
@@ -1134,11 +1169,8 @@ class BazelWindowsCppTest(test_base.TestBase):
             '    ],',
             ')',
             'config_setting(',
-            '    name = "clang_cl_compiler",',
-            (
-                '    flag_values = {"@bazel_tools//tools/cpp:compiler":'
-                ' "clang-cl"},'
-            ),
+            '  name = "clang_cl_compiler",',
+            '  flag_values = {"@bazel_tools//tools/cpp:compiler": "clang-cl"},',
             ')',
             'cc_binary(',
             '    name = "main",',
@@ -1150,7 +1182,6 @@ class BazelWindowsCppTest(test_base.TestBase):
 
     exit_code, _, stderr = self.RunBazel([
         'build',
-        '--incompatible_enable_cc_toolchain_resolution',
         '--extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows-clang-cl',
         '--extra_execution_platforms=//:x64_windows-clang-cl',
         '//:main',
@@ -1171,11 +1202,8 @@ class BazelWindowsCppTest(test_base.TestBase):
             '    ],',
             ')',
             'config_setting(',
-            '    name = "mingw_gcc_compiler",',
-            (
-                '    flag_values = {"@bazel_tools//tools/cpp:compiler":'
-                ' "mingw-gcc"},'
-            ),
+            ' name = "mingw_gcc_compiler",',
+            ' flag_values = {"@bazel_tools//tools/cpp:compiler": "mingw-gcc"},',
             ')',
             'cc_binary(',
             '    name = "main",',
@@ -1187,7 +1215,6 @@ class BazelWindowsCppTest(test_base.TestBase):
 
     exit_code, _, stderr = self.RunBazel([
         'build',
-        '--incompatible_enable_cc_toolchain_resolution',
         '--extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_mingw',
         '--extra_execution_platforms=//:x64_windows-mingw-gcc',
         '//:main',

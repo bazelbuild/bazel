@@ -255,10 +255,14 @@ public class ConfigRuleClasses {
           <a href="https://bazel.build/docs/configurable-attributes#platforms">
           Configurable Build Attributes</a> for details.
 
-          <p>In the case where two <code>config_setting</code>s both match in the same
-          <code>select</code>, this attribute is not considered for the purpose of determining
-          whether one of the <code>config_setting</code>s is a specialization of the other. In other
-          words, one <code>config_setting</code> cannot match a platform more strongly than another.
+          <p>If two <code>config_setting</code>s match in the same <code>select</code> and one has
+          all the same flags and <code>constraint_setting</code>s as the other plus additional ones,
+          the one with more settings is chosen. This is known as "specialization". For example,
+          a <code>config_setting</code> matching <code>x86</code> and <code>Linux</code> specializes
+          a <code>config_setting</code> matching <code>x86</code>.
+
+          <p>If two <code>config_setting</code>s match and both have <code>constraint_value</code>s
+          not present in the other, this is an error.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr(CONSTRAINT_VALUES_ATTRIBUTE, LABEL_LIST)

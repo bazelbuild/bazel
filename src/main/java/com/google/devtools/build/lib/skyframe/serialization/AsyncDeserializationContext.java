@@ -70,4 +70,45 @@ public interface AsyncDeserializationContext extends SerializationDependencyProv
    */
   void deserialize(CodedInputStream codedIn, Object obj, long offset)
       throws IOException, SerializationException;
+
+  /**
+   * Similar to the {@code offset} based {@link #deserialize} above, but includes a {@code done}
+   * callback.
+   *
+   * <p>The {@code done} callback is called once the assignment is complete, which is useful for
+   * container codecs that perform reference counting. The {@code done} callback is always called,
+   * even if the deserialized value is null.
+   */
+  void deserialize(CodedInputStream codedIn, Object obj, long offset, Runnable done)
+      throws IOException, SerializationException;
+
+  /**
+   * Similar to {@link #deserialize}, but requires child values to be complete before they are
+   * consumed.
+   *
+   * <p>Under asynchrony, it's common for child values to become available before they are fully
+   * formed. This method requires the requested child value to be <i>fully</i> formed. It's used to
+   * deserialize sets or set-like containers, for example map keys, where inserting a partially
+   * formed value would be an error.
+   *
+   * <p>Note, however, that most codecs cannot directly observe when this method causes a child
+   * value to be set. In {@link DeferredObjectCodec}s, this first happens when its supplier is
+   * invoked. So in practice, the <i>fully</i> deserialized condition here only causes the {@link
+   * DeferredObjectCodec}'s supplier to be called after all the {@code deserializeFully} children
+   * are fully deserialized. The effect might be observed from {@code setter} or {@code done}
+   * callbacks, but there are no obvious practical applications.
+   *
+   * <p>This is identical to the other {@link #deserialize} method under synchronous conditions.
+   */
+  void deserializeFully(CodedInputStream codedIn, Object obj, long offset)
+      throws IOException, SerializationException;
+
+  /**
+   * Similar to the {@link #deserializeFully} method above, but provides a {@code done} callback.
+   *
+   * @param done a callback invoked by the context after the requested value is set that the codec
+   *     can use for reference counting
+   */
+  void deserializeFully(CodedInputStream codedIn, Object obj, long offset, Runnable done)
+      throws IOException, SerializationException;
 }

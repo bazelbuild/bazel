@@ -271,9 +271,6 @@ public class JavaRuntimeTest extends BuildViewTestCase {
         "            cfg = ht,",
         "            mandatory = True,",
         "        ),",
-        "        '_allowlist_function_transition': attr.label(",
-        "            default = '//tools/allowlists/function_transition_allowlist',",
-        "        ),",
         "    },",
         "    implementation = _r,",
         ")");

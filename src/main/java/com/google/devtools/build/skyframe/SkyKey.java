@@ -33,6 +33,12 @@ import javax.annotation.Nullable;
  * {@link #argument} in order to reduce the cost of wrapper objects.
  */
 public interface SkyKey extends Serializable {
+
+  /** Returns the canonical representation of the key as a string. */
+  default String getCanonicalName() {
+    return String.format("%s:%s\n", functionName(), argument().toString().replace('\n', '_'));
+  }
+
   SkyFunctionName functionName();
 
   default Object argument() {

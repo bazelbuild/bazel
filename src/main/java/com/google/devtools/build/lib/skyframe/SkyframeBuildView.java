@@ -1399,49 +1399,42 @@ public final class SkyframeBuildView {
     @Override
     public void evaluated(
         SkyKey skyKey,
+        EvaluationState state,
         @Nullable SkyValue newValue,
         @Nullable ErrorInfo newError,
-        Supplier<EvaluationSuccessState> evaluationSuccessState,
-        EvaluationState state,
         @Nullable GroupedDeps directDeps) {
       // We tolerate any action lookup keys here, although we only expect configured targets,
       // aspects, and the workspace status value.
       if (!(skyKey instanceof ActionLookupKey)) {
         return;
       }
-      switch (state) {
-        case BUILT:
-          if (!evaluationSuccessState.get().succeeded()) {
+      if (!state.changed()) {
+        // ActionLookupValue subclasses don't implement equality, so must have been marked clean.
+        dirtiedActionLookupKeys.remove(skyKey);
+      } else if (state.succeeded()) {
+        boolean isConfiguredTarget = skyKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET);
+        if (isConfiguredTarget) {
+          ConfiguredTargetKey configuredTargetKey = (ConfiguredTargetKey) skyKey;
+          ConfiguredTargetValue configuredTargetValue = (ConfiguredTargetValue) newValue;
+          if (!Objects.equals(
+              configuredTargetKey.getConfigurationKey(),
+              configuredTargetValue.getConfiguredTarget().getConfigurationKey())) {
+            // The node entry performs delegation and doesn't own the value. Skips it to avoid
+            // overcounting.
             return;
           }
-          boolean isConfiguredTarget = skyKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET);
+          configuredTargetCount.incrementAndGet();
+        }
+        configuredObjectCount.incrementAndGet();
+        if (newValue instanceof ActionLookupValue) {
+          // During multithreaded operation, this is only set to true, so no concurrency issues.
+          someActionLookupValueEvaluated = true;
+          int numActions = ((ActionLookupValue) newValue).getNumActions();
+          actionCount.addAndGet(numActions);
           if (isConfiguredTarget) {
-            ConfiguredTargetKey configuredTargetKey = (ConfiguredTargetKey) skyKey;
-            ConfiguredTargetValue configuredTargetValue = (ConfiguredTargetValue) newValue;
-            if (!Objects.equals(
-                configuredTargetKey.getConfigurationKey(),
-                configuredTargetValue.getConfiguredTarget().getConfigurationKey())) {
-              // The node entry performs delegation and doesn't own the value. Skips it to avoid
-              // overcounting.
-              return;
-            }
-            configuredTargetCount.incrementAndGet();
+            configuredTargetActionCount.addAndGet(numActions);
           }
-          configuredObjectCount.incrementAndGet();
-          if (newValue instanceof ActionLookupValue) {
-            // During multithreaded operation, this is only set to true, so no concurrency issues.
-            someActionLookupValueEvaluated = true;
-            int numActions = ((ActionLookupValue) newValue).getNumActions();
-            actionCount.addAndGet(numActions);
-            if (isConfiguredTarget) {
-              configuredTargetActionCount.addAndGet(numActions);
-            }
-          }
-          break;
-        case CLEAN:
-          // If the action lookup value did not need to be rebuilt, then it wasn't truly invalid.
-          dirtiedActionLookupKeys.remove(skyKey);
-          break;
+        }
       }
     }
 

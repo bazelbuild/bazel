@@ -153,9 +153,9 @@ public abstract class JavaCompilationInfoProvider
     return Depset.of(String.class, getJavacOpts());
   }
 
-  @Override
+  @VisibleForTesting
   public ImmutableList<String> getJavacOptsList() {
-    return JavaCompilationHelper.internJavacOpts(JavaHelper.tokenizeJavaOptions(getJavacOpts()));
+    return JavaHelper.tokenizeJavaOptions(getJavacOpts());
   }
 
   @Nullable

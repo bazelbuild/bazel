@@ -22,8 +22,6 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.skyframe.ExecutionPhaseSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -69,8 +67,8 @@ public final class ArtifactNestedSetKey implements ExecutionPhaseSkyKey {
    * Returns a list of this key's direct dependencies, including {@link Artifact#key} for leaves and
    * {@link ArtifactNestedSetKey} for non-leaves.
    */
-  public List<SkyKey> getDirectDepKeys() {
-    List<SkyKey> depKeys = new ArrayList<>(children.length);
+  public ImmutableList<SkyKey> getDirectDepKeys() {
+    ImmutableList.Builder<SkyKey> depKeys = ImmutableList.builderWithExpectedSize(children.length);
     for (Object child : children) {
       if (child instanceof Artifact) {
         depKeys.add(Artifact.key((Artifact) child));
@@ -78,7 +76,16 @@ public final class ArtifactNestedSetKey implements ExecutionPhaseSkyKey {
         depKeys.add(createInternal((Object[]) child));
       }
     }
-    return depKeys;
+    return depKeys.build();
+  }
+
+  /** Applies a consumer function to the direct artifacts of this nested set. */
+  public void applyToDirectArtifacts(DirectArtifactConsumer function) throws InterruptedException {
+    for (Object child : children) {
+      if (child instanceof Artifact) {
+        function.accept((Artifact) child);
+      }
+    }
   }
 
   @Override
@@ -174,5 +181,11 @@ public final class ArtifactNestedSetKey implements ExecutionPhaseSkyKey {
   @Override
   public String toString() {
     return String.format("ArtifactNestedSetKey[%s]@%s", children.length, hashCode());
+  }
+
+  /** A consumer to be applied to each direct artifact. */
+  @FunctionalInterface
+  public interface DirectArtifactConsumer {
+    void accept(Artifact artifact) throws InterruptedException;
   }
 }

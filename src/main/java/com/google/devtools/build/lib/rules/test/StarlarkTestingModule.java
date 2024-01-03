@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.LabelConverter;
-import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.starlarkbuildapi.test.TestingModuleApi;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.regex.Pattern;
@@ -68,11 +68,11 @@ public class StarlarkTestingModule implements TestingModuleApi {
       Object attrValuesApi,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
-    PackageContext pkgContext = thread.getThreadLocal(PackageContext.class);
+    Package.Builder pkgBuilder = thread.getThreadLocal(Package.Builder.class);
     RuleDefinitionEnvironment ruleDefinitionEnvironment =
         thread.getThreadLocal(RuleDefinitionEnvironment.class);
     // TODO(b/236456122): Refactor this check into a standard helper / error message
-    if (pkgContext == null || ruleDefinitionEnvironment == null) {
+    if (pkgBuilder == null || ruleDefinitionEnvironment == null) {
       throw Starlark.errorf("analysis_test can only be called in a BUILD thread");
     }
 
@@ -113,7 +113,7 @@ public class StarlarkTestingModule implements TestingModuleApi {
     // TODO(b/291752414): Fix.
     Label dummyBzlFile = Label.createUnvalidated(PackageIdentifier.EMPTY_PACKAGE_ID, "dummy_label");
     Fingerprint fingerprint = new Fingerprint();
-    fingerprint.addString(pkgContext.getLabel().getPackageName());
+    fingerprint.addString(pkgBuilder.getBuildFileLabel().getPackageName());
     fingerprint.addString(name);
     byte[] transitiveDigestToUse = fingerprint.digestAndReset();
 
@@ -164,7 +164,7 @@ public class StarlarkTestingModule implements TestingModuleApi {
     // evaluation in BzlLoadFunction#execAndExport.
     StoredEventHandler handler = new StoredEventHandler();
     starlarkRuleFunction.export(
-        handler, pkgContext.getLabel(), name + "_test"); // export in BUILD thread
+        handler, pkgBuilder.getBuildFileLabel(), name + "_test"); // export in BUILD thread
     if (handler.hasErrors()) {
       StringBuilder errors =
           handler.getEvents().stream()

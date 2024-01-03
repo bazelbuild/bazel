@@ -44,6 +44,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -131,12 +132,18 @@ public class EagerInvalidatorTest {
 
   // Convenience method for eval-ing a single value.
   protected SkyValue eval(boolean keepGoing, SkyKey key) throws InterruptedException {
-    SkyKey[] keys = { key };
+    SkyKey[] keys = {key};
     return eval(keepGoing, keys).get(key);
   }
 
   protected <T extends SkyValue> EvaluationResult<T> eval(boolean keepGoing, SkyKey... keys)
-    throws InterruptedException {
+      throws InterruptedException {
+    return eval(keepGoing, GraphInconsistencyReceiver.THROWING, keys);
+  }
+
+  protected <T extends SkyValue> EvaluationResult<T> eval(
+      boolean keepGoing, GraphInconsistencyReceiver inconsistencyReceiver, SkyKey... keys)
+      throws InterruptedException {
     Reporter reporter = new Reporter(new EventBus());
     ParallelEvaluator evaluator =
         new ParallelEvaluator(
@@ -150,7 +157,7 @@ public class EagerInvalidatorTest {
             ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
             keepGoing,
             new DirtyAndInflightTrackingProgressReceiver(EvaluationProgressReceiver.NULL),
-            GraphInconsistencyReceiver.THROWING,
+            inconsistencyReceiver,
             AbstractQueueVisitor.create(
                 "test-pool", 200, ParallelEvaluatorErrorClassifier.instance()),
             new SimpleCycleDetector(),
@@ -160,7 +167,7 @@ public class EagerInvalidatorTest {
     return evaluator.eval(ImmutableList.copyOf(keys));
   }
 
-  private void invalidateWithoutError(
+  void invalidateWithoutError(
       DirtyAndInflightTrackingProgressReceiver progressReceiver, SkyKey... keys)
       throws InterruptedException {
     invalidate(graph, progressReceiver, keys);
@@ -648,6 +655,76 @@ public class EagerInvalidatorTest {
     @Override
     protected boolean reverseDepsPresent() {
       return false;
+    }
+
+    /**
+     * Regression test for b/316606228.
+     *
+     * <p>Evaluation of {@code top1} is interrupted after it was already signaled by {@code dep},
+     * but meanwhile {@code dep} was rewound by {@code top2}, and never gets a chance to complete.
+     */
+    @Test
+    public void interruptDuringRewind_parentAlreadySignaled() throws Exception {
+      graph = new InMemoryGraphImpl();
+      SkyKey top1 = skyKey("top1");
+      SkyKey top2 = skyKey("top2");
+      SkyKey dep = skyKey("dep");
+      CountDownLatch depDoneObservedByTop1 = new CountDownLatch(1);
+      CountDownLatch top2Reset = new CountDownLatch(1);
+      tester
+          .getOrCreate(top1)
+          .setBuilder(
+              (skyKey, env) -> {
+                if (env.getValue(dep) == null) {
+                  return null;
+                }
+                depDoneObservedByTop1.countDown();
+                top2Reset.await();
+                throw new InterruptedException();
+              });
+      tester
+          .getOrCreate(top2)
+          .setBuilder(
+              new SkyFunction() {
+                private boolean alreadyReset = false;
+
+                @Nullable
+                @Override
+                public SkyValue compute(SkyKey skyKey, Environment env)
+                    throws InterruptedException {
+                  if (alreadyReset) {
+                    top2Reset.countDown();
+                    throw new InterruptedException();
+                  }
+                  if (env.getValue(dep) == null) {
+                    return null;
+                  }
+                  depDoneObservedByTop1.await();
+                  alreadyReset = true;
+                  var rewindGraph = Reset.newRewindGraphFor(top2);
+                  rewindGraph.putEdge(top2, dep);
+                  return Reset.of(rewindGraph);
+                }
+              });
+      tester.getOrCreate(dep).setConstantValue(new StringValue("depVal"));
+
+      assertThrows(
+          InterruptedException.class,
+          () ->
+              eval(
+                  /* keepGoing= */ false,
+                  // Tolerate inconsistencies.
+                  (key, otherKeys, inconsistency) -> {},
+                  top1,
+                  top2));
+
+      // Split invalidation into two calls to guarantee that top1 is visited before dep. In
+      // practice, deletion is done in a single parallel traversal, but the crash from b/316606228
+      // only reproduces when visiting in this order.
+      invalidateWithoutError(
+          new DirtyAndInflightTrackingProgressReceiver(EvaluationProgressReceiver.NULL), top1);
+      invalidateWithoutError(
+          new DirtyAndInflightTrackingProgressReceiver(EvaluationProgressReceiver.NULL), dep);
     }
 
     @Test

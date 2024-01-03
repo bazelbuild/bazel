@@ -106,7 +106,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
 
     // Get the toolchains from the user-supplied WORKSPACE file.
     ImmutableList<TargetPattern> userRegisteredWorkspaceToolchains =
-        getWorkspaceToolchains(env, /* userRegistered= */ true);
+        getWorkspaceToolchains(starlarkSemantics, env, /* userRegistered= */ true);
     if (userRegisteredWorkspaceToolchains == null) {
       return null;
     }
@@ -122,7 +122,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
 
     // Get the toolchains from the Bazel-supplied WORKSPACE suffix.
     ImmutableList<TargetPattern> workspaceSuffixToolchains =
-        getWorkspaceToolchains(env, /* userRegistered= */ false);
+        getWorkspaceToolchains(starlarkSemantics, env, /* userRegistered= */ false);
     if (workspaceSuffixToolchains == null) {
       return null;
     }
@@ -160,7 +160,11 @@ public class RegisteredToolchainsFunction implements SkyFunction {
   @Nullable
   @VisibleForTesting
   public static ImmutableList<TargetPattern> getWorkspaceToolchains(
-      Environment env, boolean userRegistered) throws InterruptedException {
+      StarlarkSemantics semantics, Environment env, boolean userRegistered)
+      throws InterruptedException {
+    if (!semantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE)) {
+      return ImmutableList.of();
+    }
     PackageValue externalPackageValue =
         (PackageValue) env.getValue(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
     if (externalPackageValue == null) {

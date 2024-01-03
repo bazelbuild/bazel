@@ -61,6 +61,7 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
       };
   private static final NestedSet<Reportable> NO_EVENTS =
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+
   @TestParameter boolean isPartialReevaluation;
   protected final V initialVersion = getInitialVersion();
 
@@ -187,6 +188,7 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
     assertThat(entry.isDone()).isTrue();
     assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.DONE);
     assertThat(entry.getValue()).isNull();
+    assertThat(entry.toValue()).isNull();
     assertThat(entry.getErrorInfo()).isEqualTo(errorInfo);
   }
 
@@ -266,6 +268,11 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
     @Override
     public int hashCode() {
       return value;
+    }
+
+    @Override
+    public String toString() {
+      return "IntegerValue{" + value + "}";
     }
   }
 
@@ -441,11 +448,14 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
         .addReverseDepAndCheckIfDone(resetParent)
         .isEqualTo(DependencyState.NEEDS_SCHEDULING);
     entry.markRebuilding();
+
     // Node completes.
-    assertThat(setValue(entry, new IntegerValue(1), /* errorInfo= */ null, initialVersion))
+    SkyValue oldValue = new IntegerValue(1);
+    assertThat(setValue(entry, oldValue, /* errorInfo= */ null, initialVersion))
         .containsExactly(resetParent);
     assertThat(entry.isDirty()).isFalse();
     assertThat(entry.isDone()).isTrue();
+
     // Rewinding initiated.
     entry.markDirty(DirtyType.REWIND);
     assertThat(entry.isDirty()).isTrue();
@@ -453,6 +463,8 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
     assertThat(entry.isDone()).isFalse();
     assertThat(entry.getTemporaryDirectDeps() instanceof GroupedDeps.WithHashSet)
         .isEqualTo(isPartialReevaluation);
+    assertThat(entry.toValue()).isEqualTo(oldValue);
+
     // Parent declares dep again after resetting.
     var dependencyState =
         entry.keepsEdges()
@@ -465,10 +477,77 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
     assertThat(entry.getTemporaryDirectDeps()).isEmpty();
     entry.markRebuilding();
     assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.REBUILDING);
+
     // Rewound evaluation completes. The parent that initiated rewinding is signalled.
-    assertThat(setValue(entry, new IntegerValue(2), /* errorInfo= */ null, initialVersion))
+    SkyValue newValue = new IntegerValue(2);
+    assertThat(setValue(entry, newValue, /* errorInfo= */ null, initialVersion))
         .containsExactly(resetParent);
-    assertThat(entry.getValue()).isEqualTo(new IntegerValue(2));
+    assertThat(entry.getValue()).isEqualTo(newValue);
+    assertThat(entry.toValue()).isEqualTo(newValue);
+    assertThat(entry.getVersion()).isEqualTo(initialVersion);
+  }
+
+  @Test
+  public void resetAfterRewind() throws InterruptedException {
+    InMemoryNodeEntry entry = createEntry();
+    // Rdep that will eventually rewind the entry.
+    SkyKey resetParent = key("resetParent");
+    assertThatNodeEntry(entry)
+        .addReverseDepAndCheckIfDone(resetParent)
+        .isEqualTo(DependencyState.NEEDS_SCHEDULING);
+    entry.markRebuilding();
+
+    // One dep declared.
+    SkyKey dep = key("dep");
+    entry.addSingletonTemporaryDirectDep(dep);
+    entry.signalDep(initialVersion, dep);
+
+    // Node completes.
+    SkyValue oldValue = new IntegerValue(1);
+    assertThat(setValue(entry, oldValue, /* errorInfo= */ null, initialVersion))
+        .containsExactly(resetParent);
+    assertThat(entry.isDirty()).isFalse();
+    assertThat(entry.isDone()).isTrue();
+
+    // Rewinding initiated.
+    entry.markDirty(DirtyType.REWIND);
+    assertThat(entry.isDirty()).isTrue();
+    assertThat(entry.isChanged()).isTrue();
+    assertThat(entry.isDone()).isFalse();
+    assertThat(entry.getTemporaryDirectDeps() instanceof GroupedDeps.WithHashSet)
+        .isEqualTo(isPartialReevaluation);
+    assertThat(entry.toValue()).isEqualTo(oldValue);
+
+    // Parent declares dep again after resetting.
+    var dependencyState =
+        entry.keepsEdges()
+            ? entry.checkIfDoneForDirtyReverseDep(resetParent)
+            : entry.addReverseDepAndCheckIfDone(resetParent);
+    assertThat(dependencyState).isEqualTo(DependencyState.NEEDS_SCHEDULING);
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.NEEDS_REBUILDING);
+    assertThat(entry.isReadyToEvaluate()).isTrue();
+    assertThat(entry.hasUnsignaledDeps()).isFalse();
+    assertThat(entry.getTemporaryDirectDeps()).isEmpty();
+    entry.markRebuilding();
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.REBUILDING);
+
+    // Dep declared again, then there's a reset.
+    entry.addSingletonTemporaryDirectDep(dep);
+    entry.signalDep(initialVersion, dep);
+    entry.resetEvaluationFromScratch();
+    assertThat(entry.toValue()).isEqualTo(oldValue);
+
+    // Dep declared again post-reset.
+    entry.addSingletonTemporaryDirectDep(dep);
+    entry.signalDep(initialVersion, dep);
+    assertThat(entry.toValue()).isEqualTo(oldValue);
+
+    // Rewound evaluation completes. The parent that initiated rewinding is signalled.
+    SkyValue newValue = new IntegerValue(2);
+    assertThat(setValue(entry, newValue, /* errorInfo= */ null, initialVersion))
+        .containsExactly(resetParent);
+    assertThat(entry.getValue()).isEqualTo(newValue);
+    assertThat(entry.toValue()).isEqualTo(newValue);
     assertThat(entry.getVersion()).isEqualTo(initialVersion);
   }
 
@@ -486,6 +565,27 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
     assertThat(entry.isChanged()).isTrue();
     assertThat(entry.isDone()).isFalse();
     assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.NEEDS_REBUILDING);
+  }
+
+  @Test
+  public void rewindErrorfulNode_toleratedButNoOp(@TestParameter Transience transience)
+      throws InterruptedException {
+    InMemoryNodeEntry entry = createEntry();
+    entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
+    entry.markRebuilding();
+
+    ReifiedSkyFunctionException exception =
+        new ReifiedSkyFunctionException(
+            new GenericFunctionException(new SomeErrorException("oops"), transience));
+    ErrorInfo errorInfo = ErrorInfo.fromException(exception, transience == Transience.TRANSIENT);
+    assertThat(setValue(entry, /* value= */ null, errorInfo, initialVersion)).isEmpty();
+
+    assertThat(entry.markDirty(DirtyType.REWIND)).isNull();
+    assertThat(entry.isDone()).isTrue();
+    assertThat(entry.getLifecycleState()).isEqualTo(LifecycleState.DONE);
+    assertThat(entry.getValue()).isNull();
+    assertThat(entry.toValue()).isNull();
+    assertThat(entry.getErrorInfo()).isEqualTo(errorInfo);
   }
 
   @CanIgnoreReturnValue

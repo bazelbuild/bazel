@@ -401,8 +401,6 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
         "    implementation = _split_deps_rule_impl,",
         "    attrs = {",
         "        'dep': attr.label(cfg = split_transition),",
-        "        '_allowlist_function_transition': attr.label(",
-        "            default = '//tools/allowlists/function_transition_allowlist')",
         "    })");
     scratch.file(
         "a/BUILD",
@@ -463,8 +461,6 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
         "    cfg = my_transition,",
         "    attrs = {",
         "        'myattr': attr.string(),",
-        "        '_allowlist_function_transition': attr.label(",
-        "            default = '//tools/allowlists/function_transition_allowlist')",
         "    }",
         ")");
     scratch.file(

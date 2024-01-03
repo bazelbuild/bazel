@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RepoMappingManifestAction;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.SourceManifestAction;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -135,25 +134,6 @@ public abstract class PyBuiltins implements StarlarkValue {
     return OS.getCurrent().getCanonicalName();
   }
 
-  // TODO(b/69113360): Remove once par-generation is moved out of the py_binary rule itself.
-  @StarlarkMethod(
-      name = "new_runfiles_supplier",
-      doc = "Create a RunfilesSupplier, which can be passed to ctx.actions.run.input_manifests.",
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true, defaultValue = "unbound"),
-        @Param(name = "runfiles_dir", positional = false, named = true, defaultValue = "unbound"),
-        @Param(name = "runfiles", positional = false, named = true, defaultValue = "unbound"),
-      })
-  public Object addEnv(StarlarkRuleContext ruleContext, String runfilesStr, Runfiles runfiles)
-      throws EvalException {
-    return new SingleRunfilesSupplier(
-        PathFragment.create(runfilesStr),
-        runfiles,
-        /* repoMappingManifest= */ null,
-        ruleContext.getConfiguration().getRunfileSymlinksMode(),
-        ruleContext.getConfiguration().buildRunfileLinks());
-  }
-
   // TODO(rlevasseur): Remove once Starlark exposes this directly, see
   // https://github.com/bazelbuild/bazel/issues/15164
   @StarlarkMethod(
@@ -179,14 +159,14 @@ public abstract class PyBuiltins implements StarlarkValue {
     ActionExecutionMetadata action = (ActionExecutionMetadata) actionUnchecked;
 
     Dict.Builder<String, Dict<String, StarlarkValue>> inputManifest = Dict.builder();
-    for (var outerEntry : action.getRunfilesSupplier().getMappings().entrySet()) {
+    for (var outerEntry : action.getRunfilesSupplier().getRunfilesTrees()) {
       Dict.Builder<String, StarlarkValue> runfilesMap = Dict.builder();
-      for (var innerEntry : outerEntry.getValue().entrySet()) {
+      for (var innerEntry : outerEntry.getMapping().entrySet()) {
         Artifact value = innerEntry.getValue();
         // NOTE: value may be null. This happens for Runfiles.empty_filenames entries.
         runfilesMap.put(innerEntry.getKey().getPathString(), value == null ? Starlark.NONE : value);
       }
-      inputManifest.put(outerEntry.getKey().getPathString(), runfilesMap.buildImmutable());
+      inputManifest.put(outerEntry.getExecPath().getPathString(), runfilesMap.buildImmutable());
     }
     return inputManifest.buildImmutable();
   }
@@ -244,12 +224,13 @@ public abstract class PyBuiltins implements StarlarkValue {
       ImmutableList<Artifact> artifacts;
       // This logic is basically a copy of how LocationExpander.java treats the data attribute.
       var filesToRun = current.getProvider(FilesToRunProvider.class);
+      var filesToBuild = current.getProvider(FileProvider.class).getFilesToBuild();
       if (filesToRun == null) {
-        artifacts = current.getProvider(FileProvider.class).getFilesToBuild().toList();
+        artifacts = filesToBuild.toList();
       } else {
-        Artifact executable = filesToRun == null ? null : filesToRun.getExecutable();
+        Artifact executable = filesToRun.getExecutable();
         if (executable == null) {
-          artifacts = filesToRun.getFilesToRun().toList();
+          artifacts = filesToBuild.toList();
         } else {
           artifacts = ImmutableList.of(executable);
         }

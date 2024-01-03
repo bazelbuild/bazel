@@ -270,8 +270,9 @@ public final class SkyframeErrorProcessor {
       } else {
         assertValidAnalysisException(errorInfo, errorKey, result.getWalkableGraph(), keepEdges);
       }
-      Exception cause = errorInfo.getException();
-      Preconditions.checkState(cause != null || !errorInfo.getCycleInfo().isEmpty(), errorInfo);
+      Exception nullableCause = errorInfo.getException();
+      Preconditions.checkState(
+          nullableCause != null || !errorInfo.getCycleInfo().isEmpty(), errorInfo);
 
       if (inBuildViewTest && !isValidErrorKeyType(errorKey.argument())) {
         // This means that we are in a BuildViewTestCase.
@@ -308,15 +309,15 @@ public final class SkyframeErrorProcessor {
           label,
           individualErrorProcessingResult);
 
-      boolean isExecutionException = isExecutionException(cause);
+      boolean isExecutionException = isExecutionException(nullableCause);
       if (keepGoing) {
         aggregatingResultBuilder.aggregateSingleResult(individualErrorProcessingResult);
-        logOrPrintWarnings(isExecutionException, label, eventHandler, cause);
+        logOrPrintWarningsKeepGoing(isExecutionException, label, eventHandler, nullableCause);
       } else {
         noKeepGoingAnalysisExceptionAspect =
             throwOrReturnAspectAnalysisException(
                 result,
-                cause,
+                nullableCause,
                 bugReporter,
                 errorKey,
                 isExecutionException,
@@ -391,7 +392,7 @@ public final class SkyframeErrorProcessor {
    */
   private static ViewCreationFailedException throwOrReturnAspectAnalysisException(
       EvaluationResult<? extends SkyValue> result,
-      Exception cause,
+      @Nullable Exception cause,
       BugReporter bugReporter,
       SkyKey errorKey,
       boolean isExecutionException,
@@ -399,6 +400,8 @@ public final class SkyframeErrorProcessor {
       throws BuildFailedException, TestExecException, ViewCreationFailedException {
     // If the error is execution-related: straightaway rethrow. No further steps required.
     if (isExecutionException) {
+      // cause is not null for execution exceptions.
+      Preconditions.checkNotNull(cause);
       rethrow(cause, bugReporter, result);
     }
     // If a --nokeep_going build found a cycle, that means there were no other errors thrown
@@ -569,11 +572,11 @@ public final class SkyframeErrorProcessor {
     return createDetailedExecutionExitCode(message, UNKNOWN_EXECUTION);
   }
 
-  private static void logOrPrintWarnings(
+  private static void logOrPrintWarningsKeepGoing(
       boolean isExecutionException,
       @Nullable Label topLevelLabel,
       ExtendedEventHandler eventHandler,
-      Exception cause) {
+      @Nullable Exception cause) {
     // For execution exceptions, we don't print any extra warning.
     if (isExecutionException) {
       if (isExecutionCauseWorthLogging(cause)) {
@@ -582,11 +585,13 @@ public final class SkyframeErrorProcessor {
       }
       return;
     }
-    eventHandler.handle(
-        Event.warn(
-            String.format(
-                "errors encountered while analyzing target '%s': it will not be built",
-                topLevelLabel)));
+    var message =
+        String.format(
+            "errors encountered while analyzing target '%s', it will not be built.", topLevelLabel);
+    if (cause != null) {
+      message += String.format("\n%s", cause.getMessage());
+    }
+    eventHandler.handle(Event.warn(message));
   }
 
   private static boolean isExecutionCauseWorthLogging(Throwable cause) {
@@ -777,7 +782,7 @@ public final class SkyframeErrorProcessor {
     return null;
   }
 
-  private static boolean isExecutionException(Throwable cause) {
+  private static boolean isExecutionException(@Nullable Throwable cause) {
     return cause instanceof ActionExecutionException
         || cause instanceof InputFileErrorException
         || cause instanceof TestExecException

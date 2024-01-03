@@ -416,7 +416,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
     cxx_opts = split_escaped(get_env_var(
         repository_ctx,
         "BAZEL_CXXOPTS",
-        "-std=c++14",
+        "-std=c++17",
         False,
     ), ":")
 

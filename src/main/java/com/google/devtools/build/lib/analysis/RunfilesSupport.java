@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
@@ -75,7 +76,7 @@ import javax.annotation.Nullable;
  * which will run an executable should depend on this Middleman Artifact.
  */
 @Immutable
-public final class RunfilesSupport implements RunfilesSupplier {
+public final class RunfilesSupport implements RunfilesSupplier, RunfilesTree {
   private static final String RUNFILES_DIR_EXT = ".runfiles";
   private static final String INPUT_MANIFEST_EXT = ".runfiles_manifest";
   private static final String OUTPUT_MANIFEST_BASENAME = "MANIFEST";
@@ -203,25 +204,29 @@ public final class RunfilesSupport implements RunfilesSupplier {
   }
 
   @Override
-  @Nullable
-  public RunfileSymlinksMode getRunfileSymlinksMode(PathFragment runfilesDir) {
-    if (runfilesDir.equals(getRunfilesDirectoryExecPath())) {
-      return runfileSymlinksMode;
-    }
-    return null;
-  }
-
-  /**
-   * Same as {@link #isBuildRunfileLinks(PathFragment)} with {@link #getRunfilesDirectoryExecPath}
-   * as the implied argument.
-   */
-  public boolean isBuildRunfileLinks() {
-    return buildRunfileLinks;
+  public NestedSet<Artifact> getArtifacts() {
+    return runfiles.getAllArtifacts();
   }
 
   @Override
-  public boolean isBuildRunfileLinks(PathFragment runfilesDir) {
-    return buildRunfileLinks && runfilesDir.equals(getRunfilesDirectoryExecPath());
+  public PathFragment getExecPath() {
+    return getRunfilesDirectoryExecPath();
+  }
+
+  @Override
+  public Map<PathFragment, Artifact> getMapping() {
+    return runfiles.getRunfilesInputs(
+        /* eventHandler= */ null, /* location= */ null, repoMappingManifest);
+  }
+
+  @Override
+  public RunfileSymlinksMode getSymlinksMode() {
+    return runfileSymlinksMode;
+  }
+
+  @Override
+  public boolean isBuildRunfileLinks() {
+    return buildRunfileLinks;
   }
 
   public Runfiles getRunfiles() {
@@ -537,32 +542,8 @@ public final class RunfilesSupport implements RunfilesSupplier {
   }
 
   @Override
-  public NestedSet<Artifact> getAllArtifacts() {
-    return runfiles.getAllArtifacts();
+  public ImmutableList<RunfilesTree> getRunfilesTrees() {
+    return ImmutableList.of(this);
   }
 
-  @Override
-  public ImmutableSet<PathFragment> getRunfilesDirs() {
-    return ImmutableSet.of(getRunfilesDirectoryExecPath());
-  }
-
-  @Override
-  public ImmutableMap<PathFragment, Map<PathFragment, Artifact>> getMappings() {
-    return ImmutableMap.of(
-        getRunfilesDirectoryExecPath(),
-        runfiles.getRunfilesInputs(
-            /* eventHandler= */ null, /* location= */ null, repoMappingManifest));
-  }
-
-  @Override
-  public RunfilesSupplier withOverriddenRunfilesDir(PathFragment newRunfilesDir) {
-    return newRunfilesDir.equals(getRunfilesDirectoryExecPath())
-        ? this
-        : new SingleRunfilesSupplier(
-            newRunfilesDir,
-            runfiles,
-            repoMappingManifest,
-            runfileSymlinksMode,
-            buildRunfileLinks);
-  }
 }

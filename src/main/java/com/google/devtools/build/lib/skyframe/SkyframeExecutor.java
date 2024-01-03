@@ -417,6 +417,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   // Reset after each build.
   @Nullable private IncrementalArtifactConflictFinder incrementalArtifactConflictFinder;
+
+  private ConsumedArtifactsTracker consumedArtifactsTracker;
   // end: Skymeld-only
 
   private RuleContextConstraintSemantics ruleContextConstraintSemantics;
@@ -594,7 +596,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         SkyFunctions.STARLARK_BUILTINS,
         new StarlarkBuiltinsFunction(ruleClassProvider.getBazelStarlarkEnvironment()));
     map.put(SkyFunctions.BZL_LOAD, newBzlLoadFunction(ruleClassProvider));
-    GlobFunction globFunction = new GlobFunction();
+    GlobFunction globFunction = newGlobFunction();
     map.put(SkyFunctions.GLOB, globFunction);
     this.globFunction = globFunction;
     map.put(SkyFunctions.TARGET_PATTERN, new TargetPatternFunction());
@@ -733,7 +735,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         SkyFunctions.PLATFORM_MAPPING,
         new PlatformMappingFunction(ruleClassProvider.getFragmentRegistry().getOptionsClasses()));
-    map.put(SkyFunctions.ARTIFACT_NESTED_SET, ArtifactNestedSetFunction.createInstance());
+    map.put(
+        SkyFunctions.ARTIFACT_NESTED_SET,
+        new ArtifactNestedSetFunction(this::getConsumedArtifactsTracker));
     BuildDriverFunction buildDriverFunction =
         new BuildDriverFunction(
             new TransitiveActionLookupValuesHelper() {
@@ -770,14 +774,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return new ActionExecutionFunction(
         actionRewindStrategy,
         skyframeActionExecutor,
+        () -> memoizingEvaluator,
         directories,
         tsgm::get,
         bugReporter,
+        this::getConsumedArtifactsTracker,
         this::clearingNestedSetAfterActionExecution);
   }
 
   protected SkyFunction newCollectPackagesUnderDirectoryFunction(BlazeDirectories directories) {
     return new CollectPackagesUnderDirectoryFunction(directories);
+  }
+
+  protected GlobFunction newGlobFunction() {
+    return GlobFunction.create(/* recursionInSingleFunction= */ true);
   }
 
   @Nullable
@@ -960,7 +970,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     analysisCacheInvalidated = true;
     skyframeBuildView.clearInvalidatedActionLookupKeys();
     skyframeBuildView.clearLegacyData();
-    ArtifactNestedSetFunction.getInstance().resetArtifactNestedSetFunctionMaps();
   }
 
   /** Used with dump --rules. */
@@ -1469,6 +1478,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   boolean isMergedSkyframeAnalysisExecution() {
     return mergedSkyframeAnalysisExecutionSupplier != null
         && mergedSkyframeAnalysisExecutionSupplier.get();
+  }
+
+  @Nullable
+  ConsumedArtifactsTracker getConsumedArtifactsTracker() {
+    return consumedArtifactsTracker;
+  }
+
+  public void initializeConsumedArtifactsTracker() {
+    consumedArtifactsTracker = new ConsumedArtifactsTracker(this::getEvaluator);
   }
 
   /** Sets the eventBus to use for posting events. */
@@ -2099,6 +2117,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     cleanUpAfterSingleEvaluationWithActionExecution(eventHandler);
     statusReporterRef.get().unregisterFromEventBus();
     setActionExecutionProgressReportingObjects(null, null, null);
+    consumedArtifactsTracker = null;
   }
 
   /**
@@ -2206,6 +2225,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   public IncrementalArtifactConflictFinder getIncrementalArtifactConflictFinder() {
     return incrementalArtifactConflictFinder;
+  }
+
+  /** Whether an artifact is consumed in this build. */
+  @Nullable
+  public EphemeralCheckIfOutputConsumed getEphemeralCheckIfOutputConsumed() {
+    return consumedArtifactsTracker;
   }
 
   /**
@@ -2877,10 +2902,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     @Override
     public void evaluated(
         SkyKey skyKey,
+        EvaluationState state,
         @Nullable SkyValue newValue,
         @Nullable ErrorInfo newError,
-        Supplier<EvaluationSuccessState> evaluationSuccessState,
-        EvaluationState state,
         @Nullable GroupedDeps directDeps) {
       if (heuristicallyDropNodes) {
         Object argument = skyKey.argument();
@@ -2915,7 +2939,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         }
       }
 
-      if (EvaluationState.BUILT.equals(state)) {
+      if (state.changed()) {
         skyKeyStateReceiver.evaluated(skyKey);
       }
       if (ignoreInvalidations) {
@@ -2923,10 +2947,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       }
       skyframeBuildView
           .getProgressReceiver()
-          .evaluated(skyKey, newValue, newError, evaluationSuccessState, state, directDeps);
+          .evaluated(skyKey, state, newValue, newError, directDeps);
       if (executionProgressReceiver != null) {
-        executionProgressReceiver.evaluated(
-            skyKey, newValue, newError, evaluationSuccessState, state, directDeps);
+        executionProgressReceiver.evaluated(skyKey, state, newValue, newError, directDeps);
       }
 
       // After a PACKAGE node is evaluated, all targets and the labels associated with this package
@@ -3636,7 +3659,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     /** Called when {@code key}'s associated {@link SkyFunction#compute} has finished. */
     default void computationEnded(SkyKey key) {}
 
-    /** Called when {@code key} has been evaluated and has a value. */
+    /** Called when {@code key} has been evaluated and has a new value. */
     default void evaluated(SkyKey key) {}
 
     default ThreadStateReceiver makeThreadStateReceiver(SkyKey key) {

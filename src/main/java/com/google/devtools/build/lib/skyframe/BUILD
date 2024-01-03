@@ -115,6 +115,7 @@ java_library(
         ":configured_target_key",
         ":configured_target_progress_receiver",
         ":configured_value_creation_exception",
+        ":consumed_artifacts_tracker",
         ":containing_package_lookup_function",
         ":containing_package_lookup_value",
         ":coverage_report_value",
@@ -124,6 +125,7 @@ java_library(
         ":diff_awareness_manager",
         ":directory_listing_function",
         ":directory_listing_state_value",
+        ":ephemeral_check_if_output_consumed",
         ":exclusive_test_build_driver_value",
         ":execution_finished_event",
         ":file_function",
@@ -135,6 +137,7 @@ java_library(
         ":ignored_package_prefixes_function",
         ":ignored_package_prefixes_value",
         ":incremental_artifact_conflict_finder",
+        ":invalid_glob_pattern_exception",
         ":loading_phase_started_event",
         ":local_repository_lookup_value",
         ":map_as_package_roots",
@@ -700,6 +703,7 @@ java_library(
     deps = [
         ":artifact_function",
         ":artifact_nested_set_value",
+        ":consumed_artifacts_tracker",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset:artifact_nested_set_key",
@@ -1109,6 +1113,18 @@ java_library(
 )
 
 java_library(
+    name = "consumed_artifacts_tracker",
+    srcs = ["ConsumedArtifactsTracker.java"],
+    deps = [
+        ":ephemeral_check_if_output_consumed",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "containing_package_lookup_function",
     srcs = ["ContainingPackageLookupFunction.java"],
     deps = [
@@ -1395,6 +1411,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/packages:globber",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -1405,11 +1422,28 @@ java_library(
 )
 
 java_library(
+    name = "glob_exception",
+    srcs = ["GlobException.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/io:file_symlink_infinite_expansion_exception",
+        "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
+        "//src/main/java/com/google/devtools/build/lib/packages/producers",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "glob_function",
-    srcs = ["GlobFunction.java"],
+    srcs = [
+        "GlobFunction.java",
+        "GlobFunctionWithMultipleRecursiveFunctions.java",
+        "GlobFunctionWithRecursionInSingleFunction.java",
+    ],
     deps = [
         ":directory_listing_value",
         ":glob_descriptor",
+        ":glob_exception",
         ":glob_value",
         ":ignored_package_prefixes_value",
         ":package_lookup_value",
@@ -1420,6 +1454,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/io:file_symlink_infinite_expansion_uniqueness_function",
         "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
         "//src/main/java/com/google/devtools/build/lib/packages:globber",
+        "//src/main/java/com/google/devtools/build/lib/packages/producers",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
@@ -1430,14 +1465,45 @@ java_library(
 )
 
 java_library(
+    name = "globs_function",
+    srcs = ["GlobsFunction.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+    ],
+)
+
+java_library(
     name = "glob_value",
-    srcs = ["GlobValue.java"],
+    srcs = [
+        "GlobValue.java",
+        "GlobValueWithImmutableSet.java",
+        "GlobValueWithNestedSet.java",
+    ],
     deps = [
         ":glob_descriptor",
+        ":invalid_glob_pattern_exception",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/packages:globber",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "globs_value",
+    srcs = ["GlobsValue.java"],
+    deps = [
+        ":invalid_glob_pattern_exception",
+        ":sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages:globber",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -1501,6 +1567,14 @@ java_library(
     deps = [
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "invalid_glob_pattern_exception",
+    srcs = ["InvalidGlobPatternException.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
     ],
 )
 

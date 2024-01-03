@@ -20,8 +20,15 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.analysis.LicensesProvider;
+import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
+import com.google.devtools.build.lib.analysis.LicensesProviderImpl;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
@@ -30,12 +37,17 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
+import com.google.devtools.build.lib.rules.objc.XcodeConfigInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.util.Pair;
@@ -62,6 +74,11 @@ public class CcStarlarkInternal implements StarlarkValue {
   public static final String NAME = "cc_internal";
 
   @Nullable
+  private static <T> T nullIfNone(Object object, Class<T> type) {
+    return object != Starlark.NONE ? type.cast(object) : null;
+  }
+
+  @Nullable
   private PathFragment getPathfragmentOrNone(Object o) {
     String pathString = CcModule.convertFromNoneable(o, null);
     if (pathString == null) {
@@ -77,20 +94,6 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
-      name = "construct_cc_toolchain_attributes_info",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-        @Param(name = "is_apple", positional = false, named = true),
-        @Param(name = "build_vars_func", positional = false, named = true),
-      })
-  public CcToolchainAttributesProvider constructCcToolchainAttributesInfo(
-      StarlarkRuleContext ruleContext, boolean isApple, Object buildVarsFunc) throws EvalException {
-    return new CcToolchainAttributesProvider(
-        ruleContext.getRuleContext(), isApple, (StarlarkFunction) buildVarsFunc);
-  }
-
-  @StarlarkMethod(
       name = "construct_toolchain_provider",
       documented = false,
       parameters = {
@@ -98,7 +101,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "cpp_config", positional = false, named = true),
         @Param(name = "toolchain_features", positional = false, named = true),
         @Param(name = "tools_directory", positional = false, named = true),
-        @Param(name = "attributes", positional = false, named = true),
         @Param(
             name = "static_runtime_link_inputs",
             positional = false,
@@ -118,10 +120,8 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "runtime_solib_dir", positional = false, named = true),
         @Param(name = "cc_compilation_context", positional = false, named = true),
         @Param(name = "builtin_include_files", positional = false, named = true),
-        @Param(name = "target_builtin_include_files", positional = false, named = true),
         @Param(name = "builtin_include_directories", positional = false, named = true),
         @Param(name = "sysroot", positional = false, named = true),
-        @Param(name = "target_sysroot", positional = false, named = true),
         @Param(name = "fdo_context", positional = false, named = true),
         @Param(name = "is_tool_configuration", positional = false, named = true),
         @Param(name = "tool_paths", positional = false, named = true),
@@ -141,22 +141,39 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "ld", positional = false, named = true),
         @Param(name = "gcov", positional = false, named = true),
         @Param(name = "vars", positional = false, named = true),
+        @Param(name = "xcode_config_info", positional = false, named = true),
+        @Param(name = "all_files", positional = false, named = true),
+        @Param(name = "all_files_including_libc", positional = false, named = true),
+        @Param(name = "compiler_files", positional = false, named = true),
+        @Param(name = "compiler_files_without_includes", positional = false, named = true),
+        @Param(name = "strip_files", positional = false, named = true),
+        @Param(name = "objcopy_files", positional = false, named = true),
+        @Param(name = "as_files", positional = false, named = true),
+        @Param(name = "ar_files", positional = false, named = true),
+        @Param(name = "linker_files", positional = false, named = true),
+        @Param(name = "if_so_builder", positional = false, named = true),
+        @Param(name = "dwp_files", positional = false, named = true),
+        @Param(name = "coverage_files", positional = false, named = true),
+        @Param(name = "supports_param_files", positional = false, named = true),
+        @Param(name = "supports_header_parsing", positional = false, named = true),
+        @Param(name = "link_dynamic_library_tool", positional = false, named = true),
+        @Param(name = "grep_includes", positional = false, named = true),
+        @Param(name = "licenses_provider", positional = false, named = true),
+        @Param(name = "allowlist_for_layering_check", positional = false, named = true),
+        @Param(name = "build_info_files", positional = false, named = true),
       })
   public CcToolchainProvider getCcToolchainProvider(
       StarlarkRuleContext ruleContext,
       Object cppConfigurationObject,
       CcToolchainFeatures toolchainFeatures,
       String toolsDirectoryStr,
-      CcToolchainAttributesProvider attributes,
       Object staticRuntimeLinkInputsObject,
       Object dynamicRuntimeLinkInputsObject,
       String dynamicRuntimeSolibDirStr,
       CcCompilationContext ccCompilationContext,
       Sequence<?> builtinIncludeFiles,
-      Sequence<?> targetBuiltinIncludeFiles,
       Sequence<?> builtInIncludeDirectoriesStr,
       Object sysrootObject,
-      Object targetSysrootObject,
       FdoContext fdoContext,
       boolean isToolConfiguration,
       Dict<?, ?> toolPathsDict,
@@ -175,8 +192,28 @@ public class CcStarlarkInternal implements StarlarkValue {
       String stripExecutable,
       String ldExecutable,
       String gcovExecutable,
-      Object vars)
-      throws EvalException {
+      Object vars,
+      Object xcodeConfigInfoObject,
+      Depset allFiles,
+      Depset allFilesIncludingLibc,
+      Depset compilerFiles,
+      Depset compilerFilesWithoutIncludes,
+      Depset stripFiles,
+      Depset objcopyFiles,
+      Depset asFiles,
+      Depset arFiles,
+      Depset fullInputsForLink,
+      Artifact ifsoBuilder,
+      Depset dwpFiles,
+      Depset coverageFiles,
+      Boolean supportsParamFiles,
+      Boolean supportsHeaderParsing,
+      Artifact linkDynamicLibraryTool,
+      Object grepIncludesObject,
+      Object licensesProviderObject,
+      PackageSpecificationProvider allowlistForLayeringCheck,
+      OutputGroupInfo buildInfoFiles)
+      throws EvalException, InterruptedException {
     CppConfiguration cppConfiguration = CcModule.convertFromNoneable(cppConfigurationObject, null);
     PathFragment toolsDirectory = PathFragment.create(toolsDirectoryStr);
     NestedSet<Artifact> staticRuntimeLinkInputsSet = null;
@@ -200,77 +237,92 @@ public class CcStarlarkInternal implements StarlarkValue {
             .map(PathFragment::create)
             .collect(toImmutableList());
     PathFragment sysroot = getPathfragmentOrNone(sysrootObject);
-    PathFragment targetSysroot = getPathfragmentOrNone(targetSysrootObject);
     Dict<String, String> additionalMakeVariables =
         Dict.cast(additionalMakeVariablesDict, String.class, String.class, "tool_paths");
     PathFragment defaultSysroot = getPathfragmentOrNone(defaultSysrootObject);
     PathFragment runtimeSysroot = getPathfragmentOrNone(runtimeSysrootObject);
-
-    return new CcToolchainProvider(
-        /* cppConfiguration= */ cppConfiguration,
-        /* toolchainFeatures= */ toolchainFeatures,
-        /* crosstoolTopPathFragment= */ toolsDirectory,
-        /* allFiles= */ attributes.getAllFiles(),
-        /* allFilesIncludingLibc= */ attributes.getFullInputsForCrosstool(),
-        /* compilerFiles= */ attributes.getCompilerFiles(),
-        /* compilerFilesWithoutIncludes= */ attributes.getCompilerFilesWithoutIncludes(),
-        /* stripFiles= */ attributes.getStripFiles(),
-        /* objcopyFiles= */ attributes.getObjcopyFiles(),
-        /* asFiles= */ attributes.getAsFiles(),
-        /* arFiles= */ attributes.getArFiles(),
-        /* linkerFiles= */ attributes.getFullInputsForLink(),
-        /* interfaceSoBuilder= */ attributes.getIfsoBuilder(),
-        /* dwpFiles= */ attributes.getDwpFiles(),
-        /* coverageFiles= */ attributes.getCoverage(),
-        /* staticRuntimeLinkInputs= */ staticRuntimeLinkInputsSet,
-        /* dynamicRuntimeLinkInputs= */ dynamicRuntimeLinkInputsSet,
-        /* dynamicRuntimeSolibDir= */ dynamicRuntimeSolibDir,
-        /* ccCompilationContext= */ ccCompilationContext,
-        /* supportsParamFiles= */ attributes.isSupportsParamFiles(),
-        /* supportsHeaderParsing= */ attributes.isSupportsHeaderParsing(),
-        /* buildVariables= */ (CcToolchainVariables) vars,
-        /* builtinIncludeFiles= */ Sequence.cast(
-                builtinIncludeFiles, Artifact.class, "builtin_include_files")
-            .getImmutableList(),
-        /* targetBuiltinIncludeFiles= */ Sequence.cast(
-                targetBuiltinIncludeFiles, Artifact.class, "target_builtin_include_files")
-            .getImmutableList(),
-        /* linkDynamicLibraryTool= */ attributes.getLinkDynamicLibraryTool(),
-        /* grepIncludes= */ attributes.getGrepIncludes(),
-        /* builtInIncludeDirectories= */ builtInIncludeDirectories,
-        /* sysroot= */ sysroot,
-        /* targetSysroot= */ targetSysroot,
-        /* fdoContext= */ fdoContext,
-        /* isToolConfiguration= */ isToolConfiguration,
-        /* licensesProvider= */ attributes.getLicensesProvider(),
-        /* toolPaths= */ ImmutableMap.copyOf(
-            Dict.cast(toolPathsDict, String.class, String.class, "tool_paths")),
-        /* toolchainIdentifier= */ toolchainConfigInfo.getToolchainIdentifier(),
-        /* compiler= */ toolchainConfigInfo.getCompiler(),
-        /* abiGlibcVersion= */ toolchainConfigInfo.getAbiLibcVersion(),
-        /* targetCpu= */ toolchainConfigInfo.getTargetCpu(),
-        /* targetOS= */ toolchainConfigInfo.getCcTargetOs(),
-        /* defaultSysroot= */ defaultSysroot,
-        /* runtimeSysroot= */ runtimeSysroot,
-        /* targetLibc= */ toolchainConfigInfo.getTargetLibc(),
-        /* ccToolchainLabel= */ ruleContext.getRuleContext().getLabel(),
-        /* solibDirectory= */ solibDirectory,
-        /* abi= */ toolchainConfigInfo.getAbiVersion(),
-        /* targetSystemName= */ toolchainConfigInfo.getTargetSystemName(),
-        /* additionalMakeVariables= */ ImmutableMap.copyOf(additionalMakeVariables),
-        /* legacyCcFlagsMakeVariable= */ legacyCcFlagsMakeVariable,
-        /* allowlistForLayeringCheck= */ attributes.getAllowlistForLayeringCheck(),
-        /* objcopyExecutable= */ objcopyExecutable,
-        /* compilerExecutable= */ compilerExecutable,
-        /* preprocessorExecutable= */ preprocessorExecutable,
-        /* nmExecutable= */ nmExecutable,
-        /* objdumpExecutable= */ objdumpExecutable,
-        /* arExecutable= */ arExecutable,
-        /* stripExecutable= */ stripExecutable,
-        /* ldExecutable= */ ldExecutable,
-        /* gcovExecutable= */ gcovExecutable,
-        /* ccToolchainBuildVariablesFunc */ attributes.getCcToolchainBuildVariablesFunc(),
-        /* ccBuildInfoTranslator */ attributes.getCcBuildInfoTranslator());
+    StarlarkFunction buildFunc;
+    try {
+      buildFunc =
+          (StarlarkFunction)
+              ruleContext.getRuleContext().getStarlarkDefinedBuiltin("build_variables");
+    } catch (RuleErrorException e) {
+      throw new EvalException(e);
+    }
+    XcodeConfigInfo xcodeConfigInfo = null;
+    if (xcodeConfigInfoObject != Starlark.NONE) {
+      xcodeConfigInfo = (XcodeConfigInfo) xcodeConfigInfoObject;
+    }
+    try {
+      return new CcToolchainProvider(
+          /* cppConfiguration= */ cppConfiguration,
+          /* toolchainFeatures= */ toolchainFeatures,
+          /* crosstoolTopPathFragment= */ toolsDirectory,
+          /* allFiles= */ allFiles.getSet(Artifact.class),
+          /* allFilesIncludingLibc= */ allFilesIncludingLibc.getSet(Artifact.class),
+          /* compilerFiles= */ compilerFiles.getSet(Artifact.class),
+          /* compilerFilesWithoutIncludes= */ compilerFilesWithoutIncludes.getSet(Artifact.class),
+          /* stripFiles= */ stripFiles.getSet(Artifact.class),
+          /* objcopyFiles= */ objcopyFiles.getSet(Artifact.class),
+          /* asFiles= */ asFiles.getSet(Artifact.class),
+          /* arFiles= */ arFiles.getSet(Artifact.class),
+          /* linkerFiles= */ fullInputsForLink.getSet(Artifact.class),
+          /* interfaceSoBuilder= */ ifsoBuilder,
+          /* dwpFiles= */ dwpFiles.getSet(Artifact.class),
+          /* coverageFiles= */ coverageFiles.getSet(Artifact.class),
+          /* staticRuntimeLinkInputs= */ staticRuntimeLinkInputsSet,
+          /* dynamicRuntimeLinkInputs= */ dynamicRuntimeLinkInputsSet,
+          /* dynamicRuntimeSolibDir= */ dynamicRuntimeSolibDir,
+          /* ccCompilationContext= */ ccCompilationContext,
+          /* supportsParamFiles= */ supportsParamFiles,
+          /* supportsHeaderParsing= */ supportsHeaderParsing,
+          /* buildVariables= */ (CcToolchainVariables) vars,
+          /* builtinIncludeFiles= */ Sequence.cast(
+                  builtinIncludeFiles, Artifact.class, "builtin_include_files")
+              .getImmutableList(),
+          /* linkDynamicLibraryTool= */ linkDynamicLibraryTool,
+          /* grepIncludes= */ grepIncludesObject == Starlark.NONE
+              ? null
+              : (Artifact) grepIncludesObject,
+          /* builtInIncludeDirectories= */ builtInIncludeDirectories,
+          /* sysroot= */ sysroot,
+          /* fdoContext= */ fdoContext,
+          /* isToolConfiguration= */ isToolConfiguration,
+          /* licensesProvider= */ licensesProviderObject == Starlark.NONE
+              ? null
+              : (LicensesProvider) licensesProviderObject,
+          /* toolPaths= */ ImmutableMap.copyOf(
+              Dict.cast(toolPathsDict, String.class, String.class, "tool_paths")),
+          /* toolchainIdentifier= */ toolchainConfigInfo.getToolchainIdentifier(),
+          /* compiler= */ toolchainConfigInfo.getCompiler(),
+          /* abiGlibcVersion= */ toolchainConfigInfo.getAbiLibcVersion(),
+          /* targetCpu= */ toolchainConfigInfo.getTargetCpu(),
+          /* targetOS= */ toolchainConfigInfo.getCcTargetOs(),
+          /* defaultSysroot= */ defaultSysroot,
+          /* runtimeSysroot= */ runtimeSysroot,
+          /* targetLibc= */ toolchainConfigInfo.getTargetLibc(),
+          /* ccToolchainLabel= */ ruleContext.getRuleContext().getLabel(),
+          /* solibDirectory= */ solibDirectory,
+          /* abi= */ toolchainConfigInfo.getAbiVersion(),
+          /* targetSystemName= */ toolchainConfigInfo.getTargetSystemName(),
+          /* additionalMakeVariables= */ ImmutableMap.copyOf(additionalMakeVariables),
+          /* legacyCcFlagsMakeVariable= */ legacyCcFlagsMakeVariable,
+          /* allowlistForLayeringCheck= */ allowlistForLayeringCheck,
+          /* objcopyExecutable= */ objcopyExecutable,
+          /* compilerExecutable= */ compilerExecutable,
+          /* preprocessorExecutable= */ preprocessorExecutable,
+          /* nmExecutable= */ nmExecutable,
+          /* objdumpExecutable= */ objdumpExecutable,
+          /* arExecutable= */ arExecutable,
+          /* stripExecutable= */ stripExecutable,
+          /* ldExecutable= */ ldExecutable,
+          /* gcovExecutable= */ gcovExecutable,
+          /* ccToolchainVariablesBuilderFunc= */ buildFunc,
+          /* xcodeConfigInfo= */ xcodeConfigInfo,
+          /* ccBuildInfoTranslator= */ buildInfoFiles);
+    } catch (TypeException e) {
+      throw new EvalException(e);
+    }
   }
 
   @StarlarkMethod(
@@ -311,27 +363,68 @@ public class CcStarlarkInternal implements StarlarkValue {
       documented = false,
       parameters = {
         @Param(name = "ctx", positional = false, named = true),
-        @Param(name = "attributes", positional = false, named = true),
         @Param(name = "configuration", positional = false, named = true),
         @Param(name = "cpp_config", positional = false, named = true),
         @Param(name = "tool_paths", positional = false, named = true),
+        @Param(name = "fdo_prefetch_provider", positional = false, named = true),
+        @Param(name = "propeller_optimize_provider", positional = false, named = true),
+        @Param(name = "mem_prof_profile_provider", positional = false, named = true),
+        @Param(name = "fdo_optimize_provider", positional = false, named = true),
+        @Param(name = "fdo_profile_provider", positional = false, named = true),
+        @Param(name = "x_fdo_profile_provider", positional = false, named = true),
+        @Param(name = "cs_fdo_profile_provider", positional = false, named = true),
+        @Param(name = "all_files", positional = false, named = true),
+        @Param(name = "zipper", positional = false, named = true),
+        @Param(name = "cc_toolchain_config_info", positional = false, named = true),
+        @Param(name = "fdo_optimize_artifacts", positional = false, named = true),
+        @Param(name = "fdo_optimize_label", positional = false, named = true),
       },
       allowReturnNones = true)
   @Nullable
   public FdoContext fdoContext(
       StarlarkRuleContext ruleContext,
-      CcToolchainAttributesProvider attributes,
       BuildConfigurationValue configuration,
       CppConfiguration cppConfiguration,
-      Dict<?, ?> toolPathsDict)
+      Dict<?, ?> toolPathsDict,
+      Object fdoPrefetchProvider,
+      Object propellerOptimizeProvider,
+      Object memProfProfileProvider,
+      Object fdoOptimizeProvider,
+      Object fdoProfileProvider,
+      Object xFdoProfileProvider,
+      Object csFdoProfileProvider,
+      Object allFilesObject,
+      Object zipper,
+      CcToolchainConfigInfo ccToolchainConfigInfo,
+      Sequence<?> fdoOptimizeArtifacts,
+      Object fdoOptimizeLabel)
       throws EvalException, InterruptedException {
+    NestedSet<Artifact> allFiles = null;
+
+    try {
+      allFiles = ((Depset) allFilesObject).getSet(Artifact.class);
+    } catch (TypeException e) {
+      throw new EvalException(e);
+    }
     try {
       return FdoHelper.getFdoContext(
           ruleContext.getRuleContext(),
-          attributes,
           configuration,
           cppConfiguration,
-          castDict(toolPathsDict));
+          castDict(toolPathsDict),
+          nullIfNone(fdoPrefetchProvider, FdoPrefetchHintsProvider.class),
+          nullIfNone(propellerOptimizeProvider, PropellerOptimizeProvider.class),
+          nullIfNone(memProfProfileProvider, MemProfProfileProvider.class),
+          nullIfNone(fdoOptimizeProvider, FdoProfileProvider.class),
+          nullIfNone(fdoProfileProvider, FdoProfileProvider.class),
+          nullIfNone(xFdoProfileProvider, FdoProfileProvider.class),
+          nullIfNone(csFdoProfileProvider, FdoProfileProvider.class),
+          allFiles,
+          nullIfNone(zipper, Artifact.class),
+          ccToolchainConfigInfo,
+          Sequence.cast(fdoOptimizeArtifacts, Artifact.class, "fdo_optimize_artifacts")
+              .getImmutableList(),
+          nullIfNone(fdoOptimizeLabel, Label.class));
     } catch (RuleErrorException e) {
       throw new EvalException(e);
     }
@@ -624,5 +717,64 @@ public class CcStarlarkInternal implements StarlarkValue {
                 moduleMapHomeIsCwd,
                 generateSubmodules,
                 withoutExternDependencies));
+  }
+
+  @StarlarkMethod(
+      name = "apple_config_if_available",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true),
+      },
+      allowReturnNones = true)
+  @Nullable
+  public AppleConfiguration getAppleConfigIfAvailable(StarlarkRuleContext ruleContext) {
+    return ruleContext.getRuleContext().getConfiguration().getFragment(AppleConfiguration.class);
+  }
+
+  private static final StarlarkProvider buildSettingInfo =
+      StarlarkProvider.builder(Location.BUILTIN)
+          .setExported(
+              new StarlarkProvider.Key(
+                  Label.parseCanonicalUnchecked(
+                      "//third_party/bazel_skylib/rules:common_settings.bzl"),
+                  "BuildSettingInfo"))
+          .build();
+
+  @StarlarkMethod(name = "BuildSettingInfo", documented = false, structField = true)
+  public StarlarkProvider buildSettingInfo() throws EvalException {
+    return buildSettingInfo;
+  }
+
+  @StarlarkMethod(
+      name = "escape_label",
+      documented = false,
+      parameters = {
+        @Param(name = "label", positional = false, named = true),
+      })
+  public String escapeLabel(Label label) {
+    return Actions.escapeLabel(label);
+  }
+
+  @StarlarkMethod(
+      name = "licenses",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true),
+      },
+      allowReturnNones = true)
+  @Nullable
+  public LicensesProvider getLicenses(StarlarkRuleContext starlarkRuleContext) {
+    RuleContext ruleContext = starlarkRuleContext.getRuleContext();
+    final License outputLicense =
+        ruleContext.getRule().getToolOutputLicense(ruleContext.attributes());
+    if (outputLicense != null && !outputLicense.equals(License.NO_LICENSE)) {
+      final NestedSet<TargetLicense> license =
+          NestedSetBuilder.create(
+              Order.STABLE_ORDER, new TargetLicense(ruleContext.getLabel(), outputLicense));
+      return new LicensesProviderImpl(
+          license, new TargetLicense(ruleContext.getLabel(), outputLicense));
+    } else {
+      return null;
+    }
   }
 }

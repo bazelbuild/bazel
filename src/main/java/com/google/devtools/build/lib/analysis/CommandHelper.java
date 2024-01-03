@@ -171,8 +171,16 @@ public final class CommandHelper {
           continue;
         }
 
-        NestedSet<Artifact> files = tool.getFilesToRun();
-        resolvedToolsBuilder.addTransitive(files);
+        if (tool.getRunfilesSupport() != null) {
+          resolvedToolsBuilder.add(tool.getRunfilesSupport().getRunfilesMiddleman());
+
+          // It's that getExecutable() returns an artifact that is not in getFilesToBuild(). It is
+          // not nice, but it happens (see test_executable_without_default_files)
+          resolvedToolsBuilder.add(tool.getRunfilesSupport().getExecutable());
+        }
+
+        NestedSet<Artifact> filesToBuild = dep.getProvider(FileProvider.class).getFilesToBuild();
+        resolvedToolsBuilder.addTransitive(filesToBuild);
 
         Label label = AliasProvider.getDependencyLabel(dep);
         Artifact executableArtifact = tool.getExecutable();
@@ -183,7 +191,7 @@ public final class CommandHelper {
           toolsRunfilesBuilder.add(tool.getRunfilesSupplier());
         } else {
           // Map all depArtifacts to the respective label using the multimaps.
-          mapGet(tempLabelMap, label).addAll(files.toList());
+          mapGet(tempLabelMap, label).addAll(filesToBuild.toList());
         }
       }
     }

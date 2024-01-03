@@ -711,12 +711,6 @@ public interface JavaCommonApi<
       throws EvalException, RuleErrorException;
 
   @StarlarkMethod(
-      name = "intern_javac_opts",
-      parameters = {@Param(name = "javac_opts")},
-      documented = false)
-  Sequence<String> internJavacOpts(Object javacOpts) throws EvalException, RuleErrorException;
-
-  @StarlarkMethod(
       name = "incompatible_disable_non_executable_java_binary",
       useStarlarkThread = true,
       documented = false)

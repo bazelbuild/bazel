@@ -118,6 +118,10 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 
 /** Deserializes {@link DataKey}, {@link DataValue} entries from compiled resource files. */
+// Intentionally used fully-qualified names to avoid Bazel CI class import issues. Certain code
+// blocks are currently only used in google. This can be removed once ide_common is updated on Bazel
+// CI.
+@SuppressWarnings("UnnecessarilyFullyQualified")
 public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer {
   private static final Logger logger =
       Logger.getLogger(AndroidCompiledDataDeserializer.class.getName());
@@ -247,6 +251,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
           .put(480, Density.XXHIGH)
           .put(640, Density.XXXHIGH)
           .buildOrThrow();
+
 
   private final boolean includeFileContentsForValidation;
 
@@ -510,6 +515,7 @@ public class AndroidCompiledDataDeserializer implements AndroidDataDeserializer 
     if (protoConfig.getSdkVersion() > 0) {
       configuration.setVersionQualifier(new VersionQualifier(protoConfig.getSdkVersion()));
     }
+
 
     return Arrays.stream(configuration.getQualifiers())
         .map(ResourceQualifier::getFolderSegment)

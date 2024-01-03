@@ -116,7 +116,8 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     // Get the registered execution platforms from the WORKSPACE.
     // The WORKSPACE suffixes don't register any execution platforms, so we can register all
     // platforms in WORKSPACE before those in non-root Bazel modules.
-    ImmutableList<TargetPattern> workspaceExecutionPlatforms = getWorkspaceExecutionPlatforms(env);
+    ImmutableList<TargetPattern> workspaceExecutionPlatforms =
+        getWorkspaceExecutionPlatforms(starlarkSemantics, env);
     if (workspaceExecutionPlatforms == null) {
       return null;
     }
@@ -161,8 +162,11 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
    */
   @Nullable
   @VisibleForTesting
-  public static ImmutableList<TargetPattern> getWorkspaceExecutionPlatforms(Environment env)
-      throws InterruptedException {
+  public static ImmutableList<TargetPattern> getWorkspaceExecutionPlatforms(
+      StarlarkSemantics semantics, Environment env) throws InterruptedException {
+    if (!semantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE)) {
+      return ImmutableList.of();
+    }
     PackageValue externalPackageValue =
         (PackageValue) env.getValue(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
     if (externalPackageValue == null) {

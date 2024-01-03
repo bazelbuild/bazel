@@ -128,6 +128,7 @@ public class ConsistencyTest {
         "--experimental_bzl_visibility=" + rand.nextBoolean(),
         "--experimental_enable_android_migration_apis=" + rand.nextBoolean(),
         "--enable_bzlmod=" + rand.nextBoolean(),
+        "--enable_workspace=" + rand.nextBoolean(),
         "--experimental_isolated_extension_usages=" + rand.nextBoolean(),
         "--experimental_google_legacy_api=" + rand.nextBoolean(),
         "--experimental_platforms_api=" + rand.nextBoolean(),
@@ -141,6 +142,7 @@ public class ConsistencyTest {
         "--incompatible_disallow_empty_glob=" + rand.nextBoolean(),
         "--incompatible_disallow_struct_provider_syntax=" + rand.nextBoolean(),
         "--incompatible_do_not_split_linking_cmdline=" + rand.nextBoolean(),
+        "--incompatible_enable_deprecated_label_apis=" + rand.nextBoolean(),
         "--incompatible_java_common_parameters=" + rand.nextBoolean(),
         "--incompatible_merge_fixed_and_default_shell_env=" + rand.nextBoolean(),
         "--incompatible_no_attr_license=" + rand.nextBoolean(),
@@ -173,6 +175,7 @@ public class ConsistencyTest {
         .setBool(
             BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, rand.nextBoolean())
         .setBool(BuildLanguageOptions.ENABLE_BZLMOD, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.ENABLE_WORKSPACE, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_PLATFORMS_API, rand.nextBoolean())
@@ -190,6 +193,7 @@ public class ConsistencyTest {
         .setBool(
             BuildLanguageOptions.INCOMPATIBLE_DISALLOW_STRUCT_PROVIDER_SYNTAX, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE, rand.nextBoolean())
+        .setBool(BuildLanguageOptions.INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_JAVA_COMMON_PARAMETERS, rand.nextBoolean())
         .setBool(
             BuildLanguageOptions.INCOMPATIBLE_MERGE_FIXED_AND_DEFAULT_SHELL_ENV, rand.nextBoolean())

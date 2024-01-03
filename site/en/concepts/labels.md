@@ -5,18 +5,35 @@ Book: /_book.yaml
 
 {% include "_buttons.html" %}
 
-All targets belong to exactly one package. The name of a target is
-called its _label_.  Every label uniquely identifies a target. A
-typical label in canonical form looks like:
+A **label** is an identifier for a target. A typical label in its full canonical
+form looks like:
+
+```none
+@@myrepo//my/app/main:app_binary
+```
+
+The first part of the label is the repository name, `@@myrepo`. The double-`@`
+syntax signifies that this is a [*canonical* repo
+name](/external/overview#canonical-repo-name), which is unique within
+the workspace. Labels with canonical repo names unambiguously identify a target
+no matter which context they appear in.
+
+Often the canonical repo name is an arcane string that looks like
+`@@rules_java~7.1.0~toolchains~local_jdk`. What is much more commonly seen is
+labels with an [*apparent* repo name](/external/overview#apparent-repo-name),
+which looks like:
 
 ```
 @myrepo//my/app/main:app_binary
 ```
 
-The first part of the label is the repository name, `@myrepo//`.
+The only difference is the repo name being prefixed with one `@` instead of two.
+This refers to a repo with the apparent name `myrepo`, which could be different
+based on the context this label appears in.
+
 In the typical case that a label refers to the same repository from which
-it is used, the repository identifier may be abbreviated as `//`.
-So, inside `@myrepo` this label is usually written as
+it is used, the repo name part may be omitted.  So, inside `@@myrepo` the first
+label is usually written as
 
 ```
 //my/app/main:app_binary
@@ -26,9 +43,9 @@ The second part of the label is the un-qualified package name
 `my/app/main`, the path to the package
 relative to the repository root.  Together, the repository name and the
 un-qualified package name form the fully-qualified package name
-`@myrepo//my/app/main`. When the label refers to the same
+`@@myrepo//my/app/main`. When the label refers to the same
 package it is used in, the package name (and optionally, the colon)
-may be omitted.  So, inside `@myrepo//my/app/main`,
+may be omitted.  So, inside `@@myrepo//my/app/main`,
 this label may be written either of the following ways:
 
 ```
@@ -56,14 +73,14 @@ this file is in the `my/app/main/testdata` subdirectory of the repository:
 //my/app/main:testdata/input.txt
 ```
 
-Strings like `//my/app` and `@some_repo//my/app` have two meanings depending on
+Strings like `//my/app` and `@@some_repo//my/app` have two meanings depending on
 the context in which they are used: when Bazel expects a label, they mean
-`//my/app:app` and `@some_repo//my/app:app`, respectively. But, when Bazel
+`//my/app:app` and `@@some_repo//my/app:app`, respectively. But, when Bazel
 expects a package (e.g. in `package_group` specifications), they reference the
 package that contains that label.
 
 A common mistake in `BUILD` files is using `//my/app` to refer to a package, or
-to *all* the targets in a package--it does not.  Remember, it is
+to *all* targets in a package--it does not.  Remember, it is
 equivalent to `//my/app:app`, so it names the `app` target in the `my/app`
 package of the current repository.
 
@@ -89,9 +106,9 @@ are two ways (one wrong, one correct) to refer to this file within
 
 
 
-Labels starting with `@//` are references to the main
+Labels starting with `@@//` are references to the main
 repository, which will still work even from external repositories.
-Therefore `@//a/b/c` is different from
+Therefore `@@//a/b/c` is different from
 `//a/b/c` when referenced from an external repository.
 The former refers back to the main repository, while the latter
 looks for `//a/b/c` in the external repository itself.

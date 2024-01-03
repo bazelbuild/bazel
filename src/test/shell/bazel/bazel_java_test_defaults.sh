@@ -243,7 +243,7 @@ EOF
 function test_executable_java_binary_compiles_for_platform_without_cc_toolchain() {
   cat > MODULE.bazel <<'EOF'
 # This version should always be at most as high as the version in MODULE.tools.
-bazel_dep(name = "rules_java", version = "7.3.1")
+bazel_dep(name = "rules_java", version = "7.3.2")
 java_toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
 use_repo(java_toolchains, "remotejdk17_linux")
 register_toolchains(

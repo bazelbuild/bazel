@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -844,45 +843,6 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     assertContainsEvent(
         "Invalid transition output '//command_line_option:incompatible_merge_genfiles_directory'. "
             + "Cannot transition on --experimental_* or --incompatible_* options");
-  }
-
-  @Test
-  public void testAllowIncompatibleEnableCcToolchainResolution() throws Exception {
-    scratch.file(
-        "test/starlark/my_rule.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def transition_func(settings, attr):",
-        "  return {'//command_line_option:incompatible_enable_cc_toolchain_resolution': True}",
-        "my_transition = transition(implementation = transition_func,",
-        "  inputs = ['//command_line_option:incompatible_enable_cc_toolchain_resolution'], ",
-        "  outputs = ['//command_line_option:incompatible_enable_cc_toolchain_resolution'])",
-        "def impl(ctx): ",
-        "  return MyInfo(dep = ctx.attr.dep)",
-        "my_rule = rule(",
-        "  implementation = impl,",
-        "  attrs = {",
-        "    'dep':  attr.label(cfg = my_transition),",
-        "  })");
-
-    scratch.file(
-        "test/starlark/BUILD",
-        "load('//test/starlark:my_rule.bzl', 'my_rule')",
-        "my_rule(name = 'test', dep = ':main1')",
-        "genrule(name = 'main1', outs = ['out.txt'], cmd = 'echo true > $@')");
-    // Actually using cc_binary instead of genrule would require also mocking up
-    // platforms-based toolchain resolution as well and this is tested elsewhere.
-
-    ConfiguredTarget target = getConfiguredTarget("//test/starlark:test");
-    @SuppressWarnings("unchecked")
-    List<ConfiguredTarget> dep =
-        (List<ConfiguredTarget>) getMyInfoFromTarget(target).getValue("dep");
-    assertThat(dep).hasSize(1);
-
-    assertThat(
-            getConfiguration(Iterables.getOnlyElement(dep))
-                .getFragment(CppConfiguration.class)
-                .enableCcToolchainResolution())
-        .isTrue();
   }
 
   @Test

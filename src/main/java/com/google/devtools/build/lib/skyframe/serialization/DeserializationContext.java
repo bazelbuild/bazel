@@ -66,16 +66,6 @@ public class DeserializationContext implements AsyncDeserializationContext {
     return deserializeInternal(codedIn, /*customMemoizationStrategy=*/ null);
   }
 
-  @Override
-  public void deserialize(CodedInputStream codedIn, Object obj, long offset)
-      throws IOException, SerializationException {
-    Object value = deserializeInternal(codedIn, /* customMemoizationStrategy= */ null);
-    if (value == null) {
-      return;
-    }
-    unsafe().putObject(obj, offset, value);
-  }
-
   /**
    * Deserializes into {@code obj} using {@code setter}.
    *
@@ -89,6 +79,37 @@ public class DeserializationContext implements AsyncDeserializationContext {
       return;
     }
     setter.set(obj, value);
+  }
+
+  @Override
+  public void deserialize(CodedInputStream codedIn, Object obj, long offset)
+      throws IOException, SerializationException {
+    Object value = deserializeInternal(codedIn, /* customMemoizationStrategy= */ null);
+    if (value == null) {
+      return;
+    }
+    unsafe().putObject(obj, offset, value);
+  }
+
+  @Override
+  public void deserialize(CodedInputStream codedIn, Object obj, long offset, Runnable done)
+      throws IOException, SerializationException {
+    deserialize(codedIn, obj, offset);
+    done.run();
+  }
+
+  @Override
+  public void deserializeFully(CodedInputStream codedIn, Object obj, long offset)
+      throws IOException, SerializationException {
+    // This method is identical to the call below in the synchronous implementation.
+    deserialize(codedIn, obj, offset);
+  }
+
+  @Override
+  public void deserializeFully(CodedInputStream codedIn, Object obj, long offset, Runnable done)
+      throws IOException, SerializationException {
+    // This method is identical to the call below in the synchronous implementation.
+    deserialize(codedIn, obj, offset, done);
   }
 
   @Nullable

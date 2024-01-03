@@ -1004,7 +1004,6 @@ def _root_rule_impl(ctx):
 root_rule = rule(
     _root_rule_impl,
     attrs = {
-        "_allowlist_function_transition": attr.label(default = "//tools/allowlists/function_transition_allowlist"),
         "deps": attr.label_list(cfg = _dep_transition),
     },
 )
@@ -1383,7 +1382,7 @@ function test_external_repo_scope() {
   local -r dir=$FUNCNAME
 
   mkdir -p $dir/repo
-  touch $dir/repo/WORKSPACE
+  touch $dir/repo/REPO.bazel
   cat > $dir/repo/BUILD <<EOF
 sh_library(name='maple', deps=[':japanese'])
 sh_library(name='japanese')

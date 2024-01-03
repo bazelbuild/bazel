@@ -19,7 +19,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
@@ -49,7 +48,6 @@ final class WorkerLifecycleManager extends Thread {
   private final WorkerOptions options;
 
   private Reporter reporter;
-  private EventBus eventBus;
 
   public WorkerLifecycleManager(WorkerPool workerPool, WorkerOptions options) {
     this.workerPool = workerPool;
@@ -58,10 +56,6 @@ final class WorkerLifecycleManager extends Thread {
 
   public void setReporter(Reporter reporter) {
     this.reporter = reporter;
-  }
-
-  public void setEventBus(EventBus eventBus) {
-    this.eventBus = eventBus;
   }
 
   @Override
@@ -144,19 +138,10 @@ final class WorkerLifecycleManager extends Thread {
         //  handle here (resulting in errors in execution), perhaps we want to wait till the worker
         //  is returned before killing it.
         ph.get().destroyForcibly();
-        boolean wasKilled =
-            l.getStatus()
-                .maybeUpdateStatus(WorkerProcessStatus.Status.KILLED_DUE_TO_MEMORY_PRESSURE);
+        l.getStatus().maybeUpdateStatus(WorkerProcessStatus.Status.KILLED_DUE_TO_MEMORY_PRESSURE);
         // We want to always report this as this is a potential source of build failure.
         if (this.reporter != null) {
           reporter.handle(Event.warn(msg));
-        }
-        if (eventBus != null && wasKilled) {
-          l.getWorkerIds()
-              .forEach(
-                  workerId ->
-                      eventBus.post(
-                          new WorkerEvictedEvent(workerId, l.getWorkerKeyHash(), l.getMnemonic())));
         }
       }
     }
@@ -234,17 +219,6 @@ final class WorkerLifecycleManager extends Thread {
       }
 
       emptyEvictionWasLogged = candidates.isEmpty();
-    }
-
-    if (eventBus != null) {
-      for (WorkerProcessMetrics metric : workerProcessMetrics) {
-        for (Integer workerId : metric.getWorkerIds()) {
-          if (evictedWorkers.contains(workerId)) {
-            eventBus.post(
-                new WorkerEvictedEvent(workerId, metric.getWorkerKeyHash(), metric.getMnemonic()));
-          }
-        }
-      }
     }
 
     // TODO(b/300067854): Shrinking of the worker pool happens on worker keys that are active at the

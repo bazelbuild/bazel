@@ -150,7 +150,8 @@ public abstract class CcModule
                   "", "rust/private"),
               BuiltinRestriction.allowlistEntry("build_bazel_rules_android", ""),
               BuiltinRestriction.allowlistEntry("rules_android", ""),
-              BuiltinRestriction.allowlistEntry("rules_rust", "rust/private"));
+              BuiltinRestriction.allowlistEntry("rules_rust", "rust/private"),
+              BuiltinRestriction.allowlistEntry("", "third_party/gpus/cuda"));
 
   // TODO(bazel-team): This only makes sense for the parameter in cc_common.compile()
   //  additional_include_scanning_roots which is technical debt and should go away.
@@ -194,15 +195,10 @@ public abstract class CcModule
     final CppConfiguration cppConfiguration;
     final BuildOptions buildOptions;
     if (ruleContext == null) {
-      if (toolchain.requireCtxInConfigureFeatures()) {
-        throw Starlark.errorf(
-            "Incompatible flag --incompatible_require_ctx_in_configure_features has been flipped, "
-                + "and the mandatory parameter 'ctx' of cc_common.configure_features is missing. "
-                + "Please add 'ctx' as a named parameter. See "
-                + "https://github.com/bazelbuild/bazel/issues/7793 for details.");
-      }
-      cppConfiguration = toolchain.getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas();
-      buildOptions = null;
+      throw Starlark.errorf(
+          "Mandatory parameter 'ctx' of cc_common.configure_features is missing. "
+              + "Please add 'ctx' as a named parameter. See "
+              + "https://github.com/bazelbuild/bazel/issues/7793 for details.");
     } else {
       if (!ruleContext.getRuleContext().isLegalFragment(CppConfiguration.class)) {
         throw Starlark.errorf(
@@ -1924,13 +1920,6 @@ public abstract class CcModule
   }
 
   @Override
-  public boolean isCcToolchainResolutionEnabled(
-      StarlarkRuleContext starlarkRuleContext, StarlarkThread thread) throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    return CppHelper.useToolchainResolution(starlarkRuleContext.getRuleContext());
-  }
-
-  @Override
   public Tuple createLinkingContextFromCompilationOutputs(
       StarlarkActionFactory starlarkActionFactoryApi,
       FeatureConfigurationForStarlark starlarkFeatureConfiguration,
@@ -2551,7 +2540,7 @@ public abstract class CcModule
             TargetUtils.getExecutionInfo(
                 actions.getRuleContext().getRule(),
                 actions.getRuleContext().isAllowTagsPropagation()),
-            /* shouldProcessHeaders= */ ccToolchainProvider.shouldProcessHeaders(
+            /* shouldProcessHeaders= */ CcToolchainProvider.shouldProcessHeaders(
                 featureConfiguration.getFeatureConfiguration(),
                 configuration.getFragment(CppConfiguration.class)));
     boolean tuple =

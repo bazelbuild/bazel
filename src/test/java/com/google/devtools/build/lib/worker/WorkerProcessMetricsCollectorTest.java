@@ -16,17 +16,17 @@ package com.google.devtools.build.lib.worker;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics.WorkerStatus;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.metrics.PsInfoCollector;
+import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector.WorkerMetricsPublishComparator;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import java.time.Instant;
 import org.junit.Before;
@@ -52,14 +52,17 @@ public class WorkerProcessMetricsCollectorTest {
   private static final int WORKER_ID_2 = 2;
   private static final int WORKER_ID_3 = 3;
   private static final int WORKER_ID_4 = 4;
+  private static final int WORKER_ID_5 = 5;
   private static final long PROCESS_ID_1 = 100L;
   private static final long PROCESS_ID_2 = 200L;
   private static final long PROCESS_ID_3 = 300L;
   private static final long PROCESS_ID_4 = 400L;
+  private static final long PROCESS_ID_5 = 500L;
   private static final int WORKER_KEY_HASH_1 = 1;
   private static final int WORKER_KEY_HASH_2 = 2;
   private static final int WORKER_KEY_HASH_3 = 3;
   private static final int WORKER_KEY_HASH_4 = 4;
+  private static final int WORKER_KEY_HASH_5 = 5;
   private static final String JAVAC_MNEMONIC = "Javac";
   private static final String CPP_COMPILE_MNEMONIC = "CppCompile";
   private static final String PROTO_MNEMONIC = "Proto";
@@ -283,32 +286,40 @@ public class WorkerProcessMetricsCollectorTest {
     spyCollector.registerWorker(
         WORKER_ID_4,
         PROCESS_ID_4,
-        s4,
+        /* status= */ s4,
         PROTO_MNEMONIC,
         /* isMultiplex= */ true,
         /* isSandboxed= */ true,
         WORKER_KEY_HASH_4);
     WorkerProcessMetricsCollector.instance().onWorkerFinishExecution(PROCESS_ID_4);
     s4.maybeUpdateStatus(Status.KILLED_DUE_TO_MEMORY_PRESSURE);
+    // Worker 5 simulates a non-measurable worker that has executed an action, but was not killed.
+    WorkerProcessStatus s5 = new WorkerProcessStatus();
+    spyCollector.registerWorker(
+        WORKER_ID_5,
+        PROCESS_ID_5,
+        /* status= */ s5,
+        PROTO_MNEMONIC,
+        /* isMultiplex= */ true,
+        /* isSandboxed= */ true,
+        WORKER_KEY_HASH_5);
+    WorkerProcessMetricsCollector.instance().onWorkerFinishExecution(PROCESS_ID_5);
 
     ImmutableMap<Long, Integer> memoryUsageMap =
         ImmutableMap.of(
             PROCESS_ID_1, 1234,
             PROCESS_ID_2, 2345);
-    ImmutableSet<Long> expectedPids =
-        ImmutableSet.of(PROCESS_ID_1, PROCESS_ID_2, PROCESS_ID_3, PROCESS_ID_4);
     Instant collectionTime = DEFAULT_CLOCK_START_INSTANT.plusSeconds(10);
     PsInfoCollector.ResourceSnapshot resourceSnapshot =
         PsInfoCollector.ResourceSnapshot.create(memoryUsageMap, collectionTime);
-    doReturn(resourceSnapshot).when(spyCollector).collectMemoryUsageByPid(any(), eq(expectedPids));
+    doReturn(resourceSnapshot).when(spyCollector).collectMemoryUsageByPid(any(), any());
     clock.setTime(collectionTime.toEpochMilli());
 
     ImmutableList<WorkerProcessMetrics> metrics = spyCollector.collectMetrics();
 
-    // Since pid 3 is the only non-measurable process with no actions executed, we only expect
-    // WorkerProcessMetrics from pid 1, 2 and 4.
+    // All workers measurable or non-measurable should be reported.
     assertThat(metrics.stream().flatMap(m -> m.getWorkerIds().stream()).collect(toImmutableSet()))
-        .containsExactly(WORKER_ID_1, WORKER_ID_2, WORKER_ID_4);
+        .containsExactly(WORKER_ID_1, WORKER_ID_2, WORKER_ID_3, WORKER_ID_4, WORKER_ID_5);
     assertWorkerMetricContains(
         metrics.stream().filter(wm -> wm.getWorkerIds().contains(WORKER_ID_1)).findFirst().get(),
         ImmutableList.of(WORKER_ID_1),
@@ -334,9 +345,19 @@ public class WorkerProcessMetricsCollectorTest {
         /* expectedLastCallTime= */ DEFAULT_CLOCK_START_INSTANT,
         /* expectedCollectedTime= */ collectionTime);
     // Worker 3's metrics should not be included since it is both non-measurable and did not execute
-    // any actions.
-    assertThat(metrics.stream().filter(wm -> wm.getWorkerIds().contains(WORKER_ID_3)).findFirst())
-        .isEmpty();
+    // any actions. It's status shouldn't be unknown because it is possible that
+    assertWorkerMetricContains(
+        metrics.stream().filter(wm -> wm.getWorkerIds().contains(WORKER_ID_3)).findFirst().get(),
+        ImmutableList.of(WORKER_ID_3),
+        PROCESS_ID_3,
+        PROTO_MNEMONIC,
+        /* expectedIsMultiplex= */ true,
+        /* expectedIsSandboxed= */ true,
+        WORKER_KEY_HASH_3,
+        /* expectedActionsExecuted= */ 0,
+        /* expectedIsMeasurable= */ false,
+        /* expectedLastCallTime= */ DEFAULT_CLOCK_START_INSTANT,
+        /* expectedCollectedTime= */ null);
     assertWorkerMetricContains(
         metrics.stream().filter(wm -> wm.getWorkerIds().contains(WORKER_ID_4)).findFirst().get(),
         ImmutableList.of(WORKER_ID_4),
@@ -349,6 +370,80 @@ public class WorkerProcessMetricsCollectorTest {
         /* expectedIsMeasurable= */ false,
         /* expectedLastCallTime= */ DEFAULT_CLOCK_START_INSTANT,
         /* expectedCollectedTime= */ null);
+    assertWorkerMetricContains(
+        metrics.stream().filter(wm -> wm.getWorkerIds().contains(WORKER_ID_5)).findFirst().get(),
+        ImmutableList.of(WORKER_ID_5),
+        PROCESS_ID_5,
+        PROTO_MNEMONIC,
+        /* expectedIsMultiplex= */ true,
+        /* expectedIsSandboxed= */ true,
+        WORKER_KEY_HASH_5,
+        /* expectedActionsExecuted= */ 1,
+        /* expectedIsMeasurable= */ false,
+        /* expectedLastCallTime= */ DEFAULT_CLOCK_START_INSTANT,
+        /* expectedCollectedTime= */ null);
+    // Worker 5's status should have been updated to killed_unknown, because it had executed actions
+    // but is now non-measurable.
+    assertThat(s5.get()).isEqualTo(Status.KILLED_UNKNOWN);
+  }
+
+  @Test
+  public void testWorkerMetricsPublishComparator_compare() {
+    WorkerMetrics alive1 = newWorkerMetrics(1, WorkerStatus.ALIVE, 100);
+    WorkerMetrics alive2 = newWorkerMetrics(2, WorkerStatus.ALIVE, 200);
+    WorkerMetrics evicted1 = newWorkerMetrics(3, WorkerStatus.KILLED_DUE_TO_MEMORY_PRESSURE, 100);
+    WorkerMetrics evicted2 = newWorkerMetrics(4, WorkerStatus.KILLED_DUE_TO_MEMORY_PRESSURE, 200);
+    WorkerMetrics others1 = newWorkerMetrics(5, WorkerStatus.KILLED_UNKNOWN, 100);
+    WorkerMetrics others2 =
+        newWorkerMetrics(6, WorkerStatus.KILLED_DUE_TO_USER_EXEC_EXCEPTION, 200);
+
+    WorkerMetricsPublishComparator comparator = new WorkerMetricsPublishComparator();
+    // WorkerMetrics of the same status priority should be compared by their memory usage (higher
+    // gets prioritized).
+    assertThat(comparator.compare(alive1, alive2)).isEqualTo(1);
+    assertThat(comparator.compare(evicted1, evicted2)).isEqualTo(1);
+    assertThat(comparator.compare(others1, others2)).isEqualTo(1);
+
+    // WorkerMetrics should be first compared by their status priorities rather than their memory
+    // usage.
+    assertThat(comparator.compare(alive1, evicted2)).isEqualTo(-1);
+    assertThat(comparator.compare(evicted1, others2)).isEqualTo(-1);
+    assertThat(comparator.compare(others2, alive1)).isEqualTo(1);
+  }
+
+  @Test
+  public void testLimitWorkerMetricsToPublish() {
+    WorkerMetrics alive1 = newWorkerMetrics(1, WorkerStatus.ALIVE, 200);
+    WorkerMetrics alive2 = newWorkerMetrics(2, WorkerStatus.ALIVE, 100);
+    WorkerMetrics evicted3 = newWorkerMetrics(3, WorkerStatus.KILLED_DUE_TO_MEMORY_PRESSURE, 100);
+    WorkerMetrics evicted4 = newWorkerMetrics(4, WorkerStatus.KILLED_DUE_TO_MEMORY_PRESSURE, 200);
+    WorkerMetrics others5 = newWorkerMetrics(5, WorkerStatus.KILLED_UNKNOWN, 200);
+    WorkerMetrics others6 =
+        newWorkerMetrics(6, WorkerStatus.KILLED_DUE_TO_USER_EXEC_EXCEPTION, 100);
+
+    // Based on prioritization and then sorted by worker id.
+    assertThat(
+            WorkerProcessMetricsCollector.limitWorkerMetricsToPublish(
+                ImmutableList.of(alive1, alive2, evicted3, evicted4, others5, others6), 3))
+        .containsExactly(alive1, alive2, evicted4);
+    assertThat(
+            WorkerProcessMetricsCollector.limitWorkerMetricsToPublish(
+                ImmutableList.of(alive1, evicted4, others5, others6), 3))
+        .containsExactly(alive1, evicted4, others5);
+    // If under the limit, it should just report everything.
+    assertThat(
+            WorkerProcessMetricsCollector.limitWorkerMetricsToPublish(
+                ImmutableList.of(alive1, alive2, evicted4, others6), 10))
+        .containsExactly(alive1, alive2, evicted4, others6);
+  }
+
+  private WorkerMetrics newWorkerMetrics(int id, WorkerStatus status, int memoryInKb) {
+    return WorkerMetrics.newBuilder()
+        .addWorkerIds(id)
+        .setWorkerStatus(status)
+        .addWorkerStats(
+            WorkerMetrics.WorkerStats.newBuilder().setWorkerMemoryInKb(memoryInKb).build())
+        .build();
   }
 
   private static final long DEFAULT_CLOCK_START_TIME = 0L;

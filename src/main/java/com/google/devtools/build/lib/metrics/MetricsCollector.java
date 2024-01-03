@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.metrics;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
@@ -38,6 +41,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.PackageMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TargetMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TimingMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerPoolMetrics;
 import com.google.devtools.build.lib.buildtool.BuildPrecompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
@@ -57,12 +61,9 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.SpawnStats;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
-import com.google.devtools.build.lib.worker.WorkerCreatedEvent;
-import com.google.devtools.build.lib.worker.WorkerDestroyedEvent;
-import com.google.devtools.build.lib.worker.WorkerEvictedEvent;
+import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus;
-import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.util.Durations;
@@ -83,8 +84,6 @@ class MetricsCollector {
   private final boolean recordMetricsForAllMnemonics;
   // For ActionSummary.
   private final ConcurrentHashMap<String, ActionStats> actionStatsMap = new ConcurrentHashMap<>();
-  // Mapping from worker pool hash, to statistics which we collect during a build.
-  private final HashMap<Integer, WorkerPoolStats> workerPoolStats = new HashMap<>();
 
   // For CumulativeMetrics.
   private final AtomicInteger numAnalyses;
@@ -195,44 +194,6 @@ class MetricsCollector {
     timingMetrics.setExecutionPhaseTimeInMs(event.getTimeInMs());
   }
 
-  @Subscribe
-  public void onWorkerDestroyed(WorkerDestroyedEvent event) {
-    synchronized (this) {
-      WorkerPoolStats stats =
-          getWorkerPoolStatsOrInsert(event.getWorkerPoolHash(), event.getMnemonic());
-
-      stats.incrementDestroyedCount(event.getStatus());
-    }
-  }
-
-  @Subscribe
-  public void onWorkerCreated(WorkerCreatedEvent event) {
-    synchronized (this) {
-      WorkerPoolStats stats =
-          getWorkerPoolStatsOrInsert(event.getWorkerPoolHash(), event.getMnemonic());
-
-      stats.incrementCreatedCount();
-    }
-  }
-
-  @Subscribe
-  public void onWorkerEvicted(WorkerEvictedEvent event) {
-    synchronized (this) {
-      WorkerPoolStats stats =
-          getWorkerPoolStatsOrInsert(event.getWorkerPoolHash(), event.getMnemonic());
-
-      stats.incrementEvictedCount();
-    }
-  }
-
-  private WorkerPoolStats getWorkerPoolStatsOrInsert(int workerPoolHash, String mnemonic) {
-    WorkerPoolStats stats =
-        workerPoolStats.computeIfAbsent(
-            workerPoolHash, (Integer k) -> new WorkerPoolStats(mnemonic));
-
-    return stats;
-  }
-
   @SuppressWarnings("unused")
   @Subscribe
   @AllowConcurrentEvents
@@ -300,6 +261,17 @@ class MetricsCollector {
   }
 
   private BuildMetrics createBuildMetrics() {
+    ImmutableList<WorkerProcessMetrics> workerProcessMetrics =
+        WorkerProcessMetricsCollector.instance().collectMetrics();
+    // Restrict the number of WorkerMetrics that we report based on a predefined prioritization so
+    // that we don't spam the BEP in the event that something like a kill-create cycle happens.
+    ImmutableList<WorkerMetrics> workerMetrics =
+        WorkerProcessMetricsCollector.limitWorkerMetricsToPublish(
+            workerProcessMetrics.stream()
+                .map(WorkerProcessMetrics::toProto)
+                .collect(toImmutableList()),
+            WorkerProcessMetricsCollector.MAX_PUBLISHED_WORKER_METRICS);
+
     BuildMetrics.Builder buildMetrics =
         BuildMetrics.newBuilder()
             .setActionSummary(finishActionSummary())
@@ -310,9 +282,8 @@ class MetricsCollector {
             .setCumulativeMetrics(createCumulativeMetrics())
             .setArtifactMetrics(artifactMetrics.build())
             .setBuildGraphMetrics(buildGraphMetrics.build())
-            .addAllWorkerMetrics(
-                WorkerProcessMetricsCollector.instance().getPublishedWorkerMetrics())
-            .setWorkerPoolMetrics(createWorkerPoolMetrics());
+            .addAllWorkerMetrics(workerMetrics)
+            .setWorkerPoolMetrics(createWorkerPoolMetrics(workerProcessMetrics));
 
     NetworkMetrics networkMetrics = NetworkMetricsCollector.instance().collectMetrics();
     if (networkMetrics != null) {
@@ -424,15 +395,22 @@ class MetricsCollector {
     return timingMetrics.build();
   }
 
-  private WorkerPoolMetrics createWorkerPoolMetrics() {
-    WorkerPoolMetrics.Builder metricsBuilder = WorkerPoolMetrics.newBuilder();
-
-    workerPoolStats.forEach(
-        (workerPoolHash, poolStats) ->
-            metricsBuilder.addWorkerPoolStats(
-                poolStats.toProtoBuilder().setHash(workerPoolHash).build()));
-
-    return metricsBuilder.build();
+  /** Creates the WorkerPoolMetrics by aggregating the collected WorkerProcessMetrics. */
+  static WorkerPoolMetrics createWorkerPoolMetrics(
+      ImmutableList<WorkerProcessMetrics> collectedWorkerProcessMetrics) {
+    HashMap<Integer, WorkerPoolStats> aggregatedPoolStats = new HashMap<>();
+    for (WorkerProcessMetrics wpm : collectedWorkerProcessMetrics) {
+      WorkerPoolStats poolStats =
+          aggregatedPoolStats.computeIfAbsent(
+              wpm.getWorkerKeyHash(), (hash) -> new WorkerPoolStats(wpm.getMnemonic(), hash));
+      poolStats.update(wpm);
+    }
+    return WorkerPoolMetrics.newBuilder()
+        .addAllWorkerPoolStats(
+            aggregatedPoolStats.values().stream()
+                .map(WorkerPoolStats::build)
+                .collect(toImmutableList()))
+        .build();
   }
 
   private static class WorkerPoolStats {
@@ -442,43 +420,64 @@ class MetricsCollector {
     private int userExecExceptionDestroyedCount;
     private int ioExceptionDestroyedCount;
     private int interruptedExceptionDestroyedCount;
+    private int unknownDestroyedCount;
+    private int aliveCount;
     private final String mnemonic;
 
-    WorkerPoolStats(String mnemonic) {
+    private final int hash;
+
+    WorkerPoolStats(String mnemonic, int hash) {
       this.mnemonic = mnemonic;
+      this.hash = hash;
     }
 
-    void incrementCreatedCount() {
-      createdCount++;
-    }
-
-    void incrementDestroyedCount(WorkerProcessStatus status) {
-      // TODO(b/310640400): We ignore KILLED_DUE_TO_MEMORY_PRESSURE for now since that's already
-      //  accounted for by WorkerEvictedEvent. An evicted worker is destroyed, so it doesn't make
-      //  sense that we treat it differently from WorkerDestroyedEvent.
-      if (status.get() == Status.KILLED_DUE_TO_USER_EXEC_EXCEPTION) {
-        userExecExceptionDestroyedCount++;
-      } else if (status.get() == Status.KILLED_DUE_TO_IO_EXCEPTION) {
-        ioExceptionDestroyedCount++;
-      } else if (status.get() == Status.KILLED_DUE_TO_INTERRUPTED_EXCEPTION) {
-        interruptedExceptionDestroyedCount++;
+    void update(WorkerProcessMetrics wpm) {
+      int numWorkers = wpm.getWorkerIds().size();
+      if (wpm.isNewlyCreated()) {
+        createdCount += numWorkers;
       }
-      destroyedCount++;
+      WorkerProcessStatus status = wpm.getStatus();
+      if (status.isKilled()) {
+        switch (status.get()) {
+            // If the process is killed due to a specific reason, we attribute the cause to all
+            // workers of that process (plural in the case of multiplex workers).
+          case KILLED_UNKNOWN:
+            unknownDestroyedCount += numWorkers;
+            break;
+          case KILLED_DUE_TO_INTERRUPTED_EXCEPTION:
+            interruptedExceptionDestroyedCount += numWorkers;
+            break;
+          case KILLED_DUE_TO_IO_EXCEPTION:
+            ioExceptionDestroyedCount += numWorkers;
+            break;
+          case KILLED_DUE_TO_MEMORY_PRESSURE:
+            evictedCount += numWorkers;
+            break;
+          case KILLED_DUE_TO_USER_EXEC_EXCEPTION:
+            userExecExceptionDestroyedCount += numWorkers;
+            break;
+          default:
+            break;
+        }
+        destroyedCount += numWorkers;
+      } else {
+        aliveCount += numWorkers;
+      }
     }
 
-    void incrementEvictedCount() {
-      evictedCount++;
-    }
-
-    public WorkerPoolMetrics.WorkerPoolStats.Builder toProtoBuilder() {
+    public WorkerPoolMetrics.WorkerPoolStats build() {
       return WorkerPoolMetrics.WorkerPoolStats.newBuilder()
           .setMnemonic(mnemonic)
+          .setHash(hash)
           .setCreatedCount(createdCount)
           .setDestroyedCount(destroyedCount)
           .setEvictedCount(evictedCount)
           .setUserExecExceptionDestroyedCount(userExecExceptionDestroyedCount)
           .setIoExceptionDestroyedCount(ioExceptionDestroyedCount)
-          .setInterruptedExceptionDestroyedCount(interruptedExceptionDestroyedCount);
+          .setInterruptedExceptionDestroyedCount(interruptedExceptionDestroyedCount)
+          .setUnknownDestroyedCount(unknownDestroyedCount)
+          .setAliveCount(aliveCount)
+          .build();
     }
   }
 

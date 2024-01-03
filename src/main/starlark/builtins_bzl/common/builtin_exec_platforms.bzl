@@ -254,6 +254,7 @@ bazel_fragments["CoreOptions"] = fragment(
         "//command_line_option:archived_tree_artifact_mnemonics_filter",
         "//command_line_option:allow_unresolved_symlinks",
         "//command_line_option:experimental_exec_config",
+        "//command_line_option:experimental_propagate_custom_flag",
     ],
     inputs = ["//command_line_option:features"],
     outputs = [
@@ -394,6 +395,7 @@ bazel_fragments["ObjcCommandLineOptions"] = fragment(
         "//command_line_option:incompatible_avoid_hardcoded_objc_compilation_flags",
         "//command_line_option:incompatible_disallow_sdk_frameworks_attributes",
         "//command_line_option:incompatible_objc_alwayslink_by_default",
+        "//command_line_option:incompatible_strip_executable_safely",
     ],
 )
 

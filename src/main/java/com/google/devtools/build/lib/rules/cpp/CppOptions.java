@@ -108,13 +108,11 @@ public class CppOptions extends FragmentOptions {
       name = "crosstool_top",
       defaultValue = "@bazel_tools//tools/cpp:toolchain",
       converter = LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.CHANGES_INPUTS,
-        OptionEffectTag.AFFECTS_OUTPUTS
+        OptionEffectTag.NO_OP,
       },
-      help = "The label of the crosstool package to be used for compiling C++ code.")
+      help = "No-op flag. Will be removed in a future release.")
   public Label crosstoolTop;
 
   @Option(
@@ -130,9 +128,7 @@ public class CppOptions extends FragmentOptions {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
-      help =
-          "The C++ compiler to use for host compilation. It is ignored if --host_crosstool_top "
-              + "is not set.")
+      help = "No-op flag. Will be removed in a future release.")
   public String hostCppCompiler;
 
   // This is different from --platform_suffix in that that one is designed to facilitate the
@@ -596,16 +592,9 @@ public class CppOptions extends FragmentOptions {
       name = "host_crosstool_top",
       defaultValue = "null",
       converter = LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.CHANGES_INPUTS,
-        OptionEffectTag.AFFECTS_OUTPUTS
-      },
-      help =
-          "By default, the --crosstool_top and --compiler options are also used "
-              + "for the exec configuration. If this flag is provided, Bazel uses the default libc "
-              + "and compiler for the given crosstool_top.")
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.NO_OP},
+      help = "No-op flag. Will be removed in a future release.")
   public Label hostCrosstoolTop;
 
   @Option(
@@ -820,22 +809,18 @@ public class CppOptions extends FragmentOptions {
       name = "incompatible_require_ctx_in_configure_features",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If true, Bazel will require 'ctx' parameter in to cc_common.configure_features "
-              + "(see https://github.com/bazelbuild/bazel/issues/7793 for more information).")
+      help = "This flag is a noop and scheduled for removal.")
   public boolean requireCtxInConfigureFeatures;
 
   @Option(
       name = "incompatible_validate_top_level_header_inclusions",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If true, Bazel will also validate top level directory header inclusions "
-              + "(see https://github.com/bazelbuild/bazel/issues/10047 for more information).")
+      help = "This flag is a noop and scheduled for removal.")
   public boolean validateTopLevelHeaderInclusions;
 
   @Option(
@@ -864,8 +849,8 @@ public class CppOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If true, cc rules use toolchain resolution to find the cc_toolchain.")
-  public boolean enableCcToolchainResolution;
+      help = "No-op flag. Will be removed in a future release.")
+  public boolean enableCcToolchainResolutionNoOp;
 
   @Option(
       name = "experimental_save_feature_state",
@@ -1088,14 +1073,6 @@ public class CppOptions extends FragmentOptions {
     if (targetLibcTopLabel != null
         && targetLibcTopLabel.getName().equals(TARGET_LIBC_TOP_NOT_YET_SET)) {
       newOptions.targetLibcTopLabel = libcTopLabel;
-      changed = true;
-    }
-    if (hostCrosstoolTop == null) {
-      // Default to the initial target crosstoolTop.
-      newOptions.hostCrosstoolTop = crosstoolTop;
-      // Reset this, also, to maintain the invariant that host_compiler is ignored if
-      // host_crosstool_top is unset.
-      newOptions.hostCppCompiler = cppCompiler;
       changed = true;
     }
     if (changed) {

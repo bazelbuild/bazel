@@ -16,14 +16,14 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Predicates;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
-import com.google.common.collect.FluentIterable;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -59,7 +59,6 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
-import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
@@ -76,6 +75,7 @@ import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -100,6 +100,8 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -148,9 +150,16 @@ public final class ActionExecutionFunction implements SkyFunction {
 
   private final ActionRewindStrategy actionRewindStrategy;
   private final SkyframeActionExecutor skyframeActionExecutor;
+
+  // Direct access to the MemoizingEvaluator should typically not be allowed in SkyFunctions. We
+  // allow it here as an optimization for accessing inputs that are under an ArtifactNestedSet node
+  // without adding a direct Skyframe edge on the input or its generating action.
+  private final Supplier<MemoizingEvaluator> evaluator;
+
   private final BlazeDirectories directories;
   private final Supplier<TimestampGranularityMonitor> tsgm;
   private final BugReporter bugReporter;
+  private final Supplier<ConsumedArtifactsTracker> consumedArtifactsTrackerSupplier;
 
   // TODO(b/314282963): Remove this after the rollout.
   private final Supplier<Boolean> clearNestedSetAfterActionExecution;
@@ -158,33 +167,44 @@ public final class ActionExecutionFunction implements SkyFunction {
   public ActionExecutionFunction(
       ActionRewindStrategy actionRewindStrategy,
       SkyframeActionExecutor skyframeActionExecutor,
+      Supplier<MemoizingEvaluator> evaluator,
       BlazeDirectories directories,
       Supplier<TimestampGranularityMonitor> tsgm,
       BugReporter bugReporter,
+      Supplier<ConsumedArtifactsTracker> consumedArtifactsTrackerSupplier,
       Supplier<Boolean> clearNestedSetAfterActionExecution) {
     this.actionRewindStrategy = checkNotNull(actionRewindStrategy);
     this.skyframeActionExecutor = checkNotNull(skyframeActionExecutor);
+    this.evaluator = checkNotNull(evaluator);
     this.directories = checkNotNull(directories);
     this.tsgm = checkNotNull(tsgm);
     this.bugReporter = checkNotNull(bugReporter);
     this.clearNestedSetAfterActionExecution = clearNestedSetAfterActionExecution;
+    this.consumedArtifactsTrackerSupplier = consumedArtifactsTrackerSupplier;
   }
 
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws ActionExecutionFunctionException, InterruptedException {
+    ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
     try {
-      return computeInternal(skyKey, env);
+      return computeInternal(actionLookupData, env);
     } catch (ActionExecutionFunctionException e) {
       skyframeActionExecutor.recordExecutionError();
       throw e;
+    } catch (UndoneInputsException e) {
+      checkState(
+          skyframeActionExecutor.rewindingEnabled(),
+          "Unexpected undone inputs: %s",
+          e.undoneInputs);
+      return ActionRewindStrategy.patchNestedSetGraphToPropagateError(
+          actionLookupData, e.undoneInputs, e.inputDepKeys);
     }
   }
 
   @Nullable
-  private SkyValue computeInternal(SkyKey skyKey, Environment env)
-      throws ActionExecutionFunctionException, InterruptedException {
-    ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
+  private SkyValue computeInternal(ActionLookupData actionLookupData, Environment env)
+      throws ActionExecutionFunctionException, InterruptedException, UndoneInputsException {
     Action action = ActionUtils.getActionForLookupData(env, actionLookupData);
     if (action == null) {
       return null;
@@ -237,14 +257,6 @@ public final class ActionExecutionFunction implements SkyFunction {
       env = new ProgressEventSuppressingEnvironment(env);
     }
 
-    if (action.discoversInputs()) {
-      // If this action previously failed due to a lost input found during input discovery, ensure
-      // that the input is regenerated before attempting discovery again.
-      if (declareDepsOnLostDiscoveredInputsIfAny(env, action)) {
-        return null;
-      }
-    }
-
     InputDiscoveryState state;
     if (action.discoversInputs()) {
       state = env.getState(InputDiscoveryState::new);
@@ -259,7 +271,6 @@ public final class ActionExecutionFunction implements SkyFunction {
       } catch (AlreadyReportedActionExecutionException e) {
         throw new ActionExecutionFunctionException(e);
       }
-      state.requestedArtifactNestedSetKeys = null;
       if (state.allInputs == null) {
         // Missing deps.
         return null;
@@ -280,13 +291,20 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
 
     if (!state.hasArtifactData()) {
-      Iterable<SkyKey> depKeys =
-          getInputDepKeys(allInputs, action.getSchedulingDependencies(), state);
-      SkyframeLookupResult inputDeps = env.getValuesAndExceptions(depKeys);
+      ImmutableSet<SkyKey> inputDepKeys =
+          getInputDepKeys(
+              action,
+              consumedArtifactsTrackerSupplier.get(),
+              allInputs,
+              action.getSchedulingDependencies(),
+              state);
+
+      SkyframeLookupResult inputDepsResult = env.getValuesAndExceptions(inputDepKeys);
       if (previousExecution == null) {
         // Do we actually need to find our metadata?
         try {
-          checkedInputs = checkInputs(env, action, inputDeps, allInputs, depKeys, actionLookupData);
+          checkedInputs =
+              checkInputs(env, action, inputDepsResult, allInputs, inputDepKeys, actionLookupData);
         } catch (ActionExecutionException e) {
           throw new ActionExecutionFunctionException(e);
         }
@@ -353,7 +371,12 @@ public final class ActionExecutionFunction implements SkyFunction {
           actionStartTime,
           env,
           allInputs,
-          getInputDepKeys(allInputs, action.getSchedulingDependencies(), state),
+          getInputDepKeys(
+              action,
+              /* consumedArtifactsTracker= */ null,
+              allInputs,
+              action.getSchedulingDependencies(),
+              state),
           state);
     } catch (ActionExecutionException e) {
       // In this case we do not report the error to the action reporter because we have already
@@ -375,70 +398,91 @@ public final class ActionExecutionFunction implements SkyFunction {
       action.getInputs().clearMemo();
       allInputs.clearMemo();
     }
+    // After the action execution is finalized, unregister the outputs from the consumed set to save
+    // memory.
+    // Note: This can theoretically lead to infinite action rewinding if we're unlucky enough.
+    // Consider an action foo whose outputs A and B are needed by 2 separate actions consumerA and
+    // consumerB. If these 2 actions trigger rewinding alternately, at the correct timing, e.g.:
+    // 1. consumerA requests for A. A is registered. foo produces only A since B isn't registered. A
+    // is de-registered. consumerA isn't executed yet.
+    // 2. consumerB requests for B. B is registered. foo is rewound and produces only B since A
+    // isn't registered. B is de-registered. consumerB isn't executed yet.
+    // 3. Before consumerA enters execution, A falls out of the CAS. consumerA sees that A is
+    // missing and triggers rewinding for A. Repeat step (1).
+    // 4. Before consumerB enters execution, B falls out of the CAS. consumerB sees that B is
+    // missing and triggers rewinding for B. Repeat step (2).
+    if (consumedArtifactsTrackerSupplier.get() != null) {
+      consumedArtifactsTrackerSupplier
+          .get()
+          .unregisterOutputsAfterExecutionDone(action.getOutputs());
+    }
+
     return result;
   }
 
-  private static Iterable<SkyKey> getInputDepKeys(
+  private static ImmutableSet<SkyKey> getInputDepKeys(
+      Action action,
+      ConsumedArtifactsTracker consumedArtifactsTracker,
       NestedSet<Artifact> allInputs,
       NestedSet<Artifact> schedulingDependencies,
-      InputDiscoveryState state) {
+      InputDiscoveryState state)
+      throws InterruptedException {
+    ImmutableSet.Builder<SkyKey> result = ImmutableSet.builder();
+
+    // Register the action's inputs and scheduling deps as "consumed" in the build.
+    // As a general rule, we do it before requesting for the evaluation of these artifacts. This
+    // would provide a good estimate of which outputs are consumed.
+    //
+    // The exception to this rule is middleman actions: it's possible that the output of a
+    // middleman action is only reachable via middleman actions in the action graph. In that case,
+    // we don't want to store any of the underlying artifacts, until we've discovered that there's
+    // a non-middleman action in its path.
+    if (!state.checkedForConsumedArtifactRegistration && consumedArtifactsTracker != null) {
+      // Special case: middleman actions.
+      // Delay registering the artifacts under this middleman action until we know that the
+      // middleman artifact itself is consumed by other non-middleman actions.
+      if (action.getActionType().isMiddleman()) {
+        consumedArtifactsTracker.skipRegisteringArtifactsUnderMiddleman(action.getPrimaryOutput());
+        // Skip the ArtifactNestedSetFunction altogether for this special case. Any artifact
+        // requested via ArtifactNestedSetFunction would be registered as consumed.
+        return result
+            .addAll(Artifact.keys(allInputs.toList()))
+            .addAll(Artifact.keys(schedulingDependencies.toList()))
+            .build();
+      } else {
+        // Only registering the leaves here, since the Artifacts under non-leaves will be registered
+        // in ArtifactNestedSetFunction. Similarly for the non-singleton Scheduling Dependencies.
+        for (Artifact input : allInputs.getLeaves()) {
+          consumedArtifactsTracker.registerConsumedArtifact(input);
+        }
+        if (schedulingDependencies.isSingleton()) {
+          consumedArtifactsTracker.registerConsumedArtifact(schedulingDependencies.getSingleton());
+        }
+      }
+      state.checkedForConsumedArtifactRegistration = true;
+    }
+
     // We "unwrap" the NestedSet and evaluate the first layer of direct Artifacts here in order to
     // save memory:
     // - This top layer costs 1 extra ArtifactNestedSetKey node.
     // - It's uncommon that 2 actions share the exact same set of inputs
     //   => the top layer offers little in terms of reusability.
     // More details: b/143205147.
-    FluentIterable<SkyKey> result = FluentIterable.from(Artifact.keys(allInputs.getLeaves()));
+    for (Artifact leaf : allInputs.getLeaves()) {
+      result.add(Artifact.key(leaf));
+    }
+
     if (schedulingDependencies.isSingleton()) {
-      result = result.append(Artifact.key(schedulingDependencies.getSingleton()));
+      result.add(Artifact.key(schedulingDependencies.getSingleton()));
+    } else if (!schedulingDependencies.isEmpty()) {
+      result.add(ArtifactNestedSetKey.create(schedulingDependencies));
     }
 
-    if (state.requestedArtifactNestedSetKeys == null) {
-      state.requestedArtifactNestedSetKeys = CompactHashSet.create();
-      for (NestedSet<Artifact> nonLeaf : allInputs.getNonLeaves()) {
-        state.requestedArtifactNestedSetKeys.add(ArtifactNestedSetKey.create(nonLeaf));
-      }
-
-      if (!schedulingDependencies.isEmpty() && !schedulingDependencies.isSingleton()) {
-        state.requestedArtifactNestedSetKeys.add(
-            ArtifactNestedSetKey.create(schedulingDependencies));
-      }
+    for (NestedSet<Artifact> nonLeaf : allInputs.getNonLeaves()) {
+      result.add(ArtifactNestedSetKey.create(nonLeaf));
     }
 
-    return result.append(state.requestedArtifactNestedSetKeys);
-  }
-
-  private boolean declareDepsOnLostDiscoveredInputsIfAny(Environment env, Action action)
-      throws InterruptedException, ActionExecutionFunctionException {
-    ImmutableList<SkyKey> previouslyLostDiscoveredInputs =
-        skyframeActionExecutor.getLostDiscoveredInputs(action);
-    if (previouslyLostDiscoveredInputs != null) {
-      SkyframeLookupResult lostInputValues =
-          env.getValuesAndExceptions(previouslyLostDiscoveredInputs);
-      if (env.valuesMissing()) {
-        return true;
-      }
-      for (SkyKey lostInputKey : previouslyLostDiscoveredInputs) {
-        try {
-          SkyValue value =
-              lostInputValues.getOrThrow(
-                  lostInputKey, MissingInputFileException.class, ActionExecutionException.class);
-          if (value == null) {
-            return true;
-          }
-        } catch (MissingInputFileException e) {
-          // MissingInputFileException comes from problems with source artifact construction.
-          // Rewinding never invalidates source artifacts.
-          throw new IllegalStateException(
-              "MissingInputFileException unexpected from rewound generated discovered input. key="
-                  + lostInputKey,
-              e);
-        } catch (ActionExecutionException e) {
-          throw new ActionExecutionFunctionException(e);
-        }
-      }
-    }
-    return false;
+    return result.build();
   }
 
   /**
@@ -452,84 +496,86 @@ public final class ActionExecutionFunction implements SkyFunction {
       long actionStartTimeNanos,
       Environment env,
       NestedSet<Artifact> allInputs,
-      Iterable<SkyKey> depKeys,
+      ImmutableSet<SkyKey> inputDepKeys,
       InputDiscoveryState state)
-      throws InterruptedException, ActionExecutionFunctionException {
+      throws InterruptedException, ActionExecutionFunctionException, UndoneInputsException {
     checkState(
         e.isPrimaryAction(actionLookupData),
-        "non-primary action handling lost inputs exception: %s %s",
+        "Non-primary action handling lost inputs exception: %s %s",
         actionLookupData,
         e);
+
+    // Collect the set of direct deps of this action which may be responsible for the lost inputs,
+    // some of which may be discovered.
+    // TODO: b/315059768 - We can likely just use inputDepKeys. Confirm this and simplify.
+    ImmutableSet<SkyKey> failedActionDeps;
+    if (e.isFromInputDiscovery()) {
+      // Lost inputs found during input discovery are necessarily ordinary derived artifacts. Their
+      // keys may not be direct deps yet, so to ensure that when this action is restarted the lost
+      // inputs' generating actions are requested, they're added to SkyframeActionExecutor's
+      // lostDiscoveredInputsMap. Also, lost inputs from input discovery may come from nested sets,
+      // which may be directly represented in skyframe. To ensure that applicable nested set nodes
+      // are rewound, this action's deps are also considered when computing the rewind plan.
+      failedActionDeps =
+          ImmutableSet.<SkyKey>builder()
+              .addAll(inputDepKeys)
+              .addAll(
+                  Collections2.transform(
+                      e.getLostInputs().values(), input -> Artifact.key((Artifact) input)))
+              .build();
+    } else if (state.discoveredInputs != null) {
+      failedActionDeps =
+          ImmutableSet.<SkyKey>builder()
+              .addAll(inputDepKeys)
+              .addAll(Artifact.keys(state.discoveredInputs.toList()))
+              .build();
+    } else {
+      failedActionDeps = inputDepKeys;
+    }
+
     RewindPlan rewindPlan = null;
     try {
       ActionInputDepOwners inputDepOwners =
-          createAugmentedInputDepOwners(e, action, env, allInputs, actionLookupData);
-
-      // Collect the set of direct deps of this action which may be responsible for the lost inputs,
-      // some of which may be discovered.
-      ImmutableList<SkyKey> lostDiscoveredInputs = ImmutableList.of();
-      ImmutableSet<SkyKey> failedActionDeps;
-      if (e.isFromInputDiscovery()) {
-        // Lost inputs found during input discovery are necessarily ordinary derived artifacts.
-        // Their keys may not be direct deps yet, so to ensure that when this action is restarted
-        // the lost inputs' generating actions are requested, they're added to
-        // SkyframeActionExecutor's lostDiscoveredInputsMap. Also, lost inputs from input discovery
-        // may come from nested sets, which may be directly represented in skyframe. To ensure that
-        // applicable nested set nodes are rewound, this action's deps are also considered when
-        // computing the rewind plan.
-        lostDiscoveredInputs =
-            e.getLostInputs().values().stream()
-                .map(input -> Artifact.key((Artifact) input))
-                .collect(toImmutableList());
-        failedActionDeps =
-            ImmutableSet.<SkyKey>builder().addAll(depKeys).addAll(lostDiscoveredInputs).build();
-      } else if (state.discoveredInputs != null) {
-        failedActionDeps =
-            ImmutableSet.<SkyKey>builder()
-                .addAll(depKeys)
-                .addAll(Lists.transform(state.discoveredInputs.toList(), Artifact::key))
-                .build();
-      } else {
-        failedActionDeps = ImmutableSet.copyOf(depKeys);
-      }
-
-      try {
-        rewindPlan =
-            actionRewindStrategy.getRewindPlan(
-                actionLookupData, action, failedActionDeps, e, inputDepOwners, env);
-      } catch (ActionExecutionException rewindingFailedException) {
-        // This ensures coalesced shared actions aren't orphaned.
-        skyframeActionExecutor.prepareForRewinding(
-            actionLookupData, action, lostDiscoveredInputs, /* depsToRewind= */ ImmutableList.of());
-        throw new ActionExecutionFunctionException(
-            new AlreadyReportedActionExecutionException(
-                skyframeActionExecutor.processAndGetExceptionToThrow(
-                    env.getListener(),
-                    e.getPrimaryOutputPath(),
-                    action,
-                    rewindingFailedException,
-                    e.getFileOutErr(),
-                    ActionExecutedEvent.ErrorTiming.AFTER_EXECUTION)));
-      }
-
-      if (e.isActionStartedEventAlreadyEmitted()) {
-        env.getListener()
-            .post(new ActionRewoundEvent(actionStartTimeNanos, BlazeClock.nanoTime(), action));
-      }
+          createAugmentedInputDepOwners(e, action, inputDepKeys, env, allInputs, actionLookupData);
+      rewindPlan =
+          actionRewindStrategy.getRewindPlan(
+              actionLookupData, action, failedActionDeps, e, inputDepOwners, env);
+    } catch (ActionExecutionException rewindingFailedException) {
+      // This ensures coalesced shared actions aren't orphaned.
       skyframeActionExecutor.prepareForRewinding(
-          actionLookupData, action, lostDiscoveredInputs, rewindPlan.getDepsToRewind());
-      return rewindPlan.getReset();
+          actionLookupData, action, /* depsToRewind= */ ImmutableList.of());
+      throw new ActionExecutionFunctionException(
+          new AlreadyReportedActionExecutionException(
+              skyframeActionExecutor.processAndGetExceptionToThrow(
+                  env.getListener(),
+                  e.getPrimaryOutputPath(),
+                  action,
+                  rewindingFailedException,
+                  e.getFileOutErr(),
+                  ActionExecutedEvent.ErrorTiming.AFTER_EXECUTION)));
+    } catch (UndoneInputsException undoneInputsException) {
+      // Obsolete the ActionExecutionState so that after rewinding, we will check inputs again and
+      // discover the propagated exception.
+      skyframeActionExecutor.prepareForRewinding(
+          actionLookupData, action, /* depsToRewind= */ ImmutableList.of());
+      throw undoneInputsException;
     } finally {
-      if (rewindPlan == null && e.isActionStartedEventAlreadyEmitted()) {
-        // Rewinding was unsuccessful. SkyframeActionExecutor's ActionRunner didn't emit an
-        // ActionCompletionEvent because it hoped rewinding would fix things. Because it won't, this
-        // must emit one to compensate.
-        env.getListener()
-            .post(
-                new ActionCompletionEvent(
-                    actionStartTimeNanos, BlazeClock.nanoTime(), action, actionLookupData));
+      if (e.isActionStartedEventAlreadyEmitted()) {
+        Postable event =
+            rewindPlan != null
+                ? new ActionRewoundEvent(actionStartTimeNanos, BlazeClock.nanoTime(), action)
+                // Rewinding was unsuccessful. SkyframeActionExecutor's ActionRunner didn't emit an
+                // ActionCompletionEvent because it hoped rewinding would fix things. Because it
+                // won't, this must emit one to compensate.
+                : new ActionCompletionEvent(
+                    actionStartTimeNanos, BlazeClock.nanoTime(), action, actionLookupData);
+        env.getListener().post(event);
       }
     }
+
+    skyframeActionExecutor.prepareForRewinding(
+        actionLookupData, action, rewindPlan.getDepsToRewind());
+    return rewindPlan.getReset();
   }
 
   /**
@@ -543,11 +589,11 @@ public final class ActionExecutionFunction implements SkyFunction {
   private ActionInputDepOwners createAugmentedInputDepOwners(
       LostInputsActionExecutionException e,
       Action action,
+      ImmutableSet<SkyKey> inputDepKeys,
       Environment env,
       NestedSet<Artifact> allInputs,
       ActionLookupData actionLookupDataForError)
-      throws InterruptedException {
-
+      throws InterruptedException, UndoneInputsException {
     Set<ActionInput> lostInputsAndOwnersSoFar = new HashSet<>();
     ActionInputDepOwners owners = e.getOwners();
     for (ActionInput lostInput : e.getLostInputs().values()) {
@@ -561,6 +607,7 @@ public final class ActionExecutionFunction implements SkyFunction {
           getInputDepOwners(
               env,
               action,
+              inputDepKeys,
               allInputs,
               lostInputsAndOwnersSoFar,
               actionLookupDataForError);
@@ -1083,20 +1130,20 @@ public final class ActionExecutionFunction implements SkyFunction {
   private CheckInputResults checkInputs(
       Environment env,
       Action action,
-      SkyframeLookupResult inputDeps,
+      SkyframeLookupResult inputDepsResult,
       NestedSet<Artifact> allInputs,
-      Iterable<SkyKey> requestedSkyKeys,
+      ImmutableSet<SkyKey> inputDepKeys,
       ActionLookupData actionLookupDataForError)
-      throws ActionExecutionException, InterruptedException {
+      throws ActionExecutionException, InterruptedException, UndoneInputsException {
     return accumulateInputs(
         env,
         action,
-        inputDeps,
+        inputDepsResult,
         allInputs,
-        requestedSkyKeys,
+        inputDepKeys,
         sizeHint -> new ActionInputMap(bugReporter, sizeHint),
         CheckInputResults::new,
-        /*allowValuesMissingEarlyReturn=*/ true,
+        /* allowValuesMissingEarlyReturn= */ true,
         actionLookupDataForError);
   }
 
@@ -1106,10 +1153,11 @@ public final class ActionExecutionFunction implements SkyFunction {
   private ActionInputDepOwnerMap getInputDepOwners(
       Environment env,
       Action action,
+      ImmutableSet<SkyKey> inputDepKeys,
       NestedSet<Artifact> allInputs,
       Collection<ActionInput> lostInputs,
       ActionLookupData actionLookupDataForError)
-      throws ActionExecutionException, InterruptedException {
+      throws ActionExecutionException, InterruptedException, UndoneInputsException {
     // The rewinding strategy should be calculated with whatever information is available, instead
     // of returning null if there are missing dependencies, so this uses false for
     // allowValuesMissingEarlyReturn. (Lost inputs coinciding with missing dependencies is possible
@@ -1117,16 +1165,16 @@ public final class ActionExecutionFunction implements SkyFunction {
     return accumulateInputs(
         env,
         action,
-        /*inputDeps=*/ null,
+        /* inputDepsResult= */ null,
         allInputs,
-        /*requestedSkyKeys=*/ null,
+        inputDepKeys,
         ignoredInputDepsSize -> new ActionInputDepOwnerMap(lostInputs),
         (actionInputMapSink,
             expandedArtifacts,
             archivedArtifacts,
             filesetsInsideRunfiles,
             topLevelFilesets) -> actionInputMapSink,
-        /*allowValuesMissingEarlyReturn=*/ false,
+        /* allowValuesMissingEarlyReturn= */ false,
         actionLookupDataForError);
   }
 
@@ -1171,28 +1219,26 @@ public final class ActionExecutionFunction implements SkyFunction {
    * May return {@code null} if {@code allowValuesMissingEarlyReturn} and {@code
    * env.valuesMissing()} are true and no inputs result in {@link ActionExecutionException}s.
    *
-   * <p>If {@code inputDeps} (and therefore {@code requestedSkyKeys}) is null, assumes that deps
-   * have already been checked for exceptions and inserted into the {@link
-   * ArtifactNestedSetFunction} cache, so those steps are skipped. (This codepath currently only
-   * used for action rewinding.)
+   * <p>If {@code inputDepsResult} is null (only the case for rewinding), assumes that deps have
+   * already been checked for exceptions, so skips this step.
    */
   @Nullable
   private <S extends ActionInputMapSink, R> R accumulateInputs(
       Environment env,
       Action action,
-      @Nullable SkyframeLookupResult inputDeps,
+      @Nullable SkyframeLookupResult inputDepsResult,
       NestedSet<Artifact> allInputs,
-      @Nullable Iterable<SkyKey> requestedSkyKeys,
+      ImmutableSet<SkyKey> inputDepKeys,
       IntFunction<S> actionInputMapSinkFactory,
       AccumulateInputResultsFactory<S, R> accumulateInputResultsFactory,
       boolean allowValuesMissingEarlyReturn,
       ActionLookupData actionLookupDataForError)
-      throws ActionExecutionException, InterruptedException {
+      throws ActionExecutionException, InterruptedException, UndoneInputsException {
     Predicate<Artifact> isMandatoryInput = makeMandatoryInputPredicate(action);
     ActionExecutionFunctionExceptionHandler actionExecutionFunctionExceptionHandler = null;
     boolean hasMissingInputs = false;
 
-    if (inputDeps != null) {
+    if (inputDepsResult != null) {
       actionExecutionFunctionExceptionHandler =
           new ActionExecutionFunctionExceptionHandler(
               Suppliers.memoize(
@@ -1213,16 +1259,20 @@ public final class ActionExecutionFunction implements SkyFunction {
                         });
                     return skyKeyToArtifactSet;
                   }),
-              inputDeps,
+              inputDepsResult,
               action,
               isMandatoryInput,
-              requestedSkyKeys);
+              inputDepKeys);
       hasMissingInputs =
           actionExecutionFunctionExceptionHandler.accumulateAndMaybeThrowExceptions();
     }
 
-    if (env.valuesMissing() && allowValuesMissingEarlyReturn) {
-      return null;
+    if (env.valuesMissing()) {
+      if (allowValuesMissingEarlyReturn) {
+        return null;
+      }
+      logger.atWarning().atMostEvery(1, MINUTES).log(
+          "Values missing while handling lost inputs for %s", action.describe());
     }
 
     ImmutableList<Artifact> allInputsList = allInputs.toList();
@@ -1238,12 +1288,15 @@ public final class ActionExecutionFunction implements SkyFunction {
         Maps.newHashMapWithExpectedSize(128);
     Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts =
         Maps.newHashMapWithExpectedSize(128);
+    List<Artifact> undoneInputs = new ArrayList<>(0);
 
     for (Artifact input : allInputsList) {
       SkyValue value =
           getAndCheckInputSkyValue(
+              env,
               action,
               input,
+              inputDepKeys,
               isMandatoryInput,
               actionExecutionFunctionExceptionHandler,
               actionLookupDataForError);
@@ -1259,7 +1312,17 @@ public final class ActionExecutionFunction implements SkyFunction {
             value,
             env,
             skyframeActionExecutor.requiresTreeMetadataWhenTreeFileIsInput());
+      } else if (!hasMissingInputs && input.hasKnownGeneratingAction()) {
+        // Derived inputs are mandatory, but we did not detect any missing inputs. This is only
+        // possible for indirect inputs (beneath an ArtifactNestedSetKey) when, between the time the
+        // associated direct dependency ArtifactNestedSetKey completes successfully and the call to
+        // lookupInput, the input's key was rewound and completed with an error.
+        undoneInputs.add(input);
       }
+    }
+
+    if (!undoneInputs.isEmpty()) {
+      throw new UndoneInputsException(ImmutableList.copyOf(undoneInputs), inputDepKeys);
     }
 
     // If there were no errors, we don't go through the scheduling dependencies because the only
@@ -1273,8 +1336,10 @@ public final class ActionExecutionFunction implements SkyFunction {
       for (Artifact input : action.getSchedulingDependencies().getLeaves()) {
         Verify.verify(seen.add(input));
         getAndCheckInputSkyValue(
+            env,
             action,
             input,
+            inputDepKeys,
             isMandatoryInput,
             actionExecutionFunctionExceptionHandler,
             actionLookupDataForError);
@@ -1284,8 +1349,10 @@ public final class ActionExecutionFunction implements SkyFunction {
         for (Artifact input : nonLeaf.toList()) {
           if (seen.add(input)) {
             getAndCheckInputSkyValue(
+                env,
                 action,
                 input,
+                inputDepKeys,
                 isMandatoryInput,
                 actionExecutionFunctionExceptionHandler,
                 actionLookupDataForError);
@@ -1310,15 +1377,18 @@ public final class ActionExecutionFunction implements SkyFunction {
 
   @CanIgnoreReturnValue
   @Nullable
-  private static SkyValue getAndCheckInputSkyValue(
+  private SkyValue getAndCheckInputSkyValue(
+      Environment env,
       Action action,
       Artifact input,
+      ImmutableSet<SkyKey> inputDepKeys,
       Predicate<Artifact> isMandatoryInput,
       ActionExecutionFunctionExceptionHandler actionExecutionFunctionExceptionHandler,
-      ActionLookupData actionLookupDataForError) {
-    SkyValue value = ArtifactNestedSetFunction.getInstance().getValueForKey(Artifact.key(input));
+      ActionLookupData actionLookupDataForError)
+      throws InterruptedException {
+    SkyValue value = lookupInput(input, inputDepKeys, env);
     if (value == null) {
-      if (isMandatoryInput.test(input)) {
+      if (isMandatoryInput.test(input) && !skyframeActionExecutor.rewindingEnabled()) {
         StringBuilder errorMessage = new StringBuilder();
         ImmutableSet<Artifact> outputs = ImmutableSet.copyOf(action.getOutputs());
         NestedSet<Artifact> nestedInputs = action.getInputs();
@@ -1376,6 +1446,32 @@ public final class ActionExecutionFunction implements SkyFunction {
       }
     }
     return value;
+  }
+
+  /**
+   * Looks up the value for an input without adding additional Skyframe dependencies.
+   *
+   * <p>If the input's {@link Artifact#key} is already a direct dependency, looks up its value in
+   * the {@link Environment}. Otherwise, the input is assumed to be beneath an already-requested
+   * {@link ArtifactNestedSetKey}, and {@link
+   * MemoizingEvaluator#getExistingEntryAtCurrentlyEvaluatingVersion} is used.
+   */
+  @Nullable
+  private SkyValue lookupInput(Artifact input, ImmutableSet<SkyKey> inputDepKeys, Environment env)
+      throws InterruptedException {
+    SkyKey key = Artifact.key(input);
+    if (inputDepKeys.contains(key)) {
+      return env.getLookupHandleForPreviouslyRequestedDeps().get(key);
+    }
+    NodeEntry entry = evaluator.get().getExistingEntryAtCurrentlyEvaluatingVersion(key);
+    if (entry == null) {
+      return null;
+    }
+    // Use toValue() so that in case the input's generating action was rewound, we still get some
+    // value. It might end up being a lost input when we execute the consuming action, but it may be
+    // available if its generating action was rewound due to losing a different output. In the rare
+    // case that rewinding completed with an error, this will return null.
+    return entry.toValue();
   }
 
   private static <T> boolean findPathToKey(
@@ -1453,12 +1549,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     boolean preparedInputDiscovery = false;
     boolean actionInputCollectedEventSent = false;
 
-    /**
-     * Stores the ArtifactNestedSetKeys created from the inputs of this actions. Objective: avoid
-     * creating a new ArtifactNestedSetKey for the same NestedSet each time we run
-     * ActionExecutionFunction for the same action. This is wiped everytime allInputs is updated.
-     */
-    CompactHashSet<SkyKey> requestedArtifactNestedSetKeys = null;
+    boolean checkedForConsumedArtifactRegistration = false;
 
     boolean hasCollectedInputs() {
       return allInputs != null;
@@ -1523,28 +1614,47 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
   }
 
+  /**
+   * Thrown when all direct dependencies are available but {@link #lookupInput} returns {@code null}
+   * for one or more generated inputs.
+   *
+   * <p>This is only possible for indirect inputs (beneath an {@link ArtifactNestedSetKey}) when,
+   * between the time the associated direct dependency {@link ArtifactNestedSetKey} is observed to
+   * be done and the call to {@link #lookupInput}, the input's {@link Artifact#key} was rewound and
+   * completed with an error.
+   */
+  private static final class UndoneInputsException extends Exception {
+    private final ImmutableList<Artifact> undoneInputs;
+    private final ImmutableSet<SkyKey> inputDepKeys;
+
+    UndoneInputsException(ImmutableList<Artifact> undoneInputs, ImmutableSet<SkyKey> inputDepKeys) {
+      this.undoneInputs = undoneInputs;
+      this.inputDepKeys = inputDepKeys;
+    }
+  }
+
   /** Helper subclass for the error-handling logic for ActionExecutionFunction#accumulateInputs. */
   private final class ActionExecutionFunctionExceptionHandler {
     private final Supplier<SetMultimap<SkyKey, Artifact>> skyKeyToDerivedArtifactSetForExceptions;
-    private final SkyframeLookupResult inputDeps;
+    private final SkyframeLookupResult inputDepsResult;
     private final Action action;
     private final Predicate<Artifact> isMandatoryInput;
-    private final Iterable<SkyKey> requestedSkyKeys;
+    private final ImmutableSet<SkyKey> inputDepKeys;
     private final List<LabelCause> missingArtifactCauses = Lists.newArrayListWithCapacity(0);
     private final List<NestedSet<Cause>> transitiveCauses = Lists.newArrayListWithCapacity(0);
     private ActionExecutionException firstActionExecutionException;
 
     ActionExecutionFunctionExceptionHandler(
         Supplier<SetMultimap<SkyKey, Artifact>> skyKeyToDerivedArtifactSetForExceptions,
-        SkyframeLookupResult inputDeps,
+        SkyframeLookupResult inputDepsResult,
         Action action,
         Predicate<Artifact> isMandatoryInput,
-        Iterable<SkyKey> requestedSkyKeys) {
+        ImmutableSet<SkyKey> inputDepKeys) {
       this.skyKeyToDerivedArtifactSetForExceptions = skyKeyToDerivedArtifactSetForExceptions;
-      this.inputDeps = inputDeps;
+      this.inputDepsResult = inputDepsResult;
       this.action = action;
       this.isMandatoryInput = isMandatoryInput;
-      this.requestedSkyKeys = requestedSkyKeys;
+      this.inputDepKeys = inputDepKeys;
     }
 
     /**
@@ -1554,20 +1664,15 @@ public final class ActionExecutionFunction implements SkyFunction {
      * <p>Also updates ArtifactNestedSetFunction#skyKeyToSkyValue if an Artifact's value is
      * non-null.
      *
-     * @throws ActionExecutionException if the eval of any mandatory artifact threw an exception.
-     *     This may not be the most complete exception because it may lack missing input file causes
-     *     that did not throw exceptions, but were present as "missing file artifact values" in the
-     *     global {@link ArtifactNestedSetFunction#artifactSkyKeyToSkyValue} map. Unfortunately,
-     *     that map is not trustworthy in the exceptional case, since it may not have been populated
-     *     with all data from this build before an exception shut the build down.
+     * @throws ActionExecutionException if the eval of any mandatory artifact threw an exception
      * @return true if there is at least one input artifact that is missing
      */
     boolean accumulateAndMaybeThrowExceptions() throws ActionExecutionException {
       boolean someInputsMissing = false;
-      for (SkyKey key : requestedSkyKeys) {
+      for (SkyKey key : inputDepKeys) {
         try {
           SkyValue value =
-              inputDeps.getOrThrow(
+              inputDepsResult.getOrThrow(
                   key,
                   SourceArtifactException.class,
                   ActionExecutionException.class,
@@ -1585,8 +1690,6 @@ public final class ActionExecutionFunction implements SkyFunction {
           if (value instanceof MissingArtifactValue) {
             someInputsMissing = true;
           }
-
-          ArtifactNestedSetFunction.getInstance().updateValueForKey(key, value);
         } catch (SourceArtifactException e) {
           handleSourceArtifactExceptionFromSkykey(key, e);
         } catch (ActionExecutionException e) {

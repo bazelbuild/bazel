@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import java.util.Set;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -30,7 +29,7 @@ public class DirtyAndInflightTrackingProgressReceiver implements InflightTrackin
   protected final EvaluationProgressReceiver progressReceiver;
   private final Set<SkyKey> dirtyKeys = Sets.newConcurrentHashSet();
   private Set<SkyKey> inflightKeys = Sets.newConcurrentHashSet();
-  private Set<SkyKey> rewindingKeys = Sets.newConcurrentHashSet();
+  private Set<SkyKey> unsuccessfullyRewoundKeys = Sets.newConcurrentHashSet();
 
   public DirtyAndInflightTrackingProgressReceiver(EvaluationProgressReceiver progressReceiver) {
     this.progressReceiver = checkNotNull(progressReceiver);
@@ -70,8 +69,10 @@ public class DirtyAndInflightTrackingProgressReceiver implements InflightTrackin
     if (newlyEnqueued) {
       // All nodes enqueued for evaluation will be either verified clean, re-evaluated, or cleaned
       // up after being in-flight when an error happens in nokeep_going mode or in the event of an
-      // interrupt. In any of these cases, they won't be dirty anymore.
-      removeFromDirtySet(skyKey);
+      // interrupt. In any of these cases, they won't be dirty anymore. Note that we don't remove
+      // from unsuccessfullyRewoundKeys here - that is only done when the key completes
+      // successfully.
+      dirtyKeys.remove(skyKey);
       if (!afterError) {
         // Only tell the external listener the node was enqueued if no there was neither an error
         // or interrupt.
@@ -102,18 +103,22 @@ public class DirtyAndInflightTrackingProgressReceiver implements InflightTrackin
   @Override
   public final void evaluated(
       SkyKey skyKey,
+      EvaluationState state,
       @Nullable SkyValue newValue,
       @Nullable ErrorInfo newError,
-      Supplier<EvaluationSuccessState> evaluationSuccessState,
-      EvaluationState state,
       @Nullable GroupedDeps directDeps) {
-    progressReceiver.evaluated(
-        skyKey, newValue, newError, evaluationSuccessState, state, directDeps);
+    progressReceiver.evaluated(skyKey, state, newValue, newError, directDeps);
 
     // This key was either built or marked clean, so we can remove it from both the dirty and
     // inflight nodes.
     inflightKeys.remove(skyKey);
-    removeFromDirtySet(skyKey);
+
+    if (state.succeeded()) {
+      removeFromDirtySet(skyKey);
+    } else {
+      // Leave unsuccessful keys in unsuccessfullyRewoundKeys. Only remove them from dirtyKeys.
+      dirtyKeys.remove(skyKey);
+    }
   }
 
   /** Returns if the key is enqueued for evaluation. */
@@ -135,12 +140,20 @@ public class DirtyAndInflightTrackingProgressReceiver implements InflightTrackin
   }
 
   /**
-   * Returns the set of all keys that were {@linkplain DirtyType#REWIND rewound} but not yet
-   * enqueued, and resets the set to empty.
+   * Returns the set of all keys that were {@linkplain DirtyType#REWIND rewound} but did not
+   * complete successfully, and resets the set to empty.
+   *
+   * <p>The returned set includes keys that were rewound and were either:
+   *
+   * <ul>
+   *   <li>not yet enqueued
+   *   <li>enqueued but not evaluated
+   *   <li>evaluated to an error
+   * </ul>
    */
-  public final Set<SkyKey> getAndClearRewindingKeys() {
-    Set<SkyKey> keys = rewindingKeys;
-    rewindingKeys = Sets.newConcurrentHashSet();
+  public final Set<SkyKey> getAndClearUnsuccessfullyRewoundKeys() {
+    Set<SkyKey> keys = unsuccessfullyRewoundKeys;
+    unsuccessfullyRewoundKeys = Sets.newConcurrentHashSet();
     return keys;
   }
 
@@ -155,7 +168,7 @@ public class DirtyAndInflightTrackingProgressReceiver implements InflightTrackin
 
   private void addToDirtySet(SkyKey skyKey, DirtyType dirtyType) {
     if (dirtyType == DirtyType.REWIND) {
-      rewindingKeys.add(skyKey);
+      unsuccessfullyRewoundKeys.add(skyKey);
     } else {
       dirtyKeys.add(skyKey);
     }
@@ -166,7 +179,7 @@ public class DirtyAndInflightTrackingProgressReceiver implements InflightTrackin
     // called after successful NodeEntry#markDirty calls, i.e. a call that transitioned the node
     // from done to dirty.
     if (!dirtyKeys.remove(skyKey)) {
-      rewindingKeys.remove(skyKey);
+      unsuccessfullyRewoundKeys.remove(skyKey);
     }
   }
 }

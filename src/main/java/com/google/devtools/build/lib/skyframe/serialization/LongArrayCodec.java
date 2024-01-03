@@ -18,15 +18,16 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 
-class LongArrayCodec implements ObjectCodec<long[]> {
+class LongArrayCodec extends LeafObjectCodec<long[]> {
   @Override
   public Class<? extends long[]> getEncodedClass() {
     return long[].class;
   }
 
   @Override
-  public void serialize(SerializationContext context, long[] obj, CodedOutputStream codedOut)
-      throws SerializationException, IOException {
+  public void serialize(
+      SerializationDependencyProvider dependencies, long[] obj, CodedOutputStream codedOut)
+      throws IOException {
     codedOut.writeInt32NoTag(obj.length);
     for (long l : obj) {
       codedOut.writeInt64NoTag(l);
@@ -34,8 +35,8 @@ class LongArrayCodec implements ObjectCodec<long[]> {
   }
 
   @Override
-  public long[] deserialize(DeserializationContext context, CodedInputStream codedIn)
-      throws SerializationException, IOException {
+  public long[] deserialize(SerializationDependencyProvider dependencies, CodedInputStream codedIn)
+      throws IOException {
     long[] result = new long[codedIn.readInt32()];
     for (int i = 0; i < result.length; i++) {
       result[i] = codedIn.readInt64();

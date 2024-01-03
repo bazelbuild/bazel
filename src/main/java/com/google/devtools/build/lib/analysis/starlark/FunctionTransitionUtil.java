@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.common.base.Predicates.not;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.COMMAND_LINE_OPTION_PREFIX;
 import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
@@ -159,9 +161,21 @@ public final class FunctionTransitionUtil {
     BuildOptions.Builder defaultBuilder = BuildOptions.builder();
     // Get the defaults:
     fromOptions.getNativeOptions().forEach(o -> defaultBuilder.addFragmentOptions(o.getDefault()));
-    // Propagate Starlark options from the source config:
-    // TODO(b/288258583) don't automatically propagate Starlark options.
-    defaultBuilder.addStarlarkOptions(fromOptions.getStarlarkOptions());
+    // Propagate Starlark options from the source config if allowed.
+    if (fromOptions.get(CoreOptions.class).excludeStarlarkFlagsFromExecConfig) {
+      ImmutableMap<Label, Object> starlarkOptions =
+          fromOptions.getStarlarkOptions().entrySet().stream()
+              .filter(
+                  (starlarkFlag) ->
+                      fromOptions
+                          .get(CoreOptions.class)
+                          .customFlagsToPropagate
+                          .contains(starlarkFlag.getKey().toString()))
+              .collect(toImmutableMap(Map.Entry::getKey, (e) -> e.getValue()));
+      defaultBuilder.addStarlarkOptions(starlarkOptions);
+    } else {
+      defaultBuilder.addStarlarkOptions(fromOptions.getStarlarkOptions());
+    }
     // Hard-code TestConfiguration for now, which clones the source options.
     // TODO(b/295936652): handle this directly in Starlark. This has two complications:
     //  1: --trim_test_configuration means the flags may not exist. Starlark logic needs to handle
@@ -171,11 +185,21 @@ public final class FunctionTransitionUtil {
       defaultBuilder.removeFragmentOptions(TestOptions.class);
       defaultBuilder.addFragmentOptions(fromOptions.get(TestOptions.class));
     }
-    // Propagate --define values from the source config:
-    // TODO(b/288258583) don't automatically propagate --defines.
     BuildOptions ans = defaultBuilder.build();
-    ans.get(CoreOptions.class).commandLineBuildVariables =
-        fromOptions.get(CoreOptions.class).commandLineBuildVariables;
+    if (fromOptions.get(CoreOptions.class).excludeDefinesFromExecConfig) {
+      ans.get(CoreOptions.class).commandLineBuildVariables =
+          fromOptions.get(CoreOptions.class).commandLineBuildVariables.stream()
+              .filter(
+                  (define) ->
+                      fromOptions
+                          .get(CoreOptions.class)
+                          .customFlagsToPropagate
+                          .contains(define.getKey()))
+              .collect(toImmutableList());
+    } else {
+      ans.get(CoreOptions.class).commandLineBuildVariables =
+          fromOptions.get(CoreOptions.class).commandLineBuildVariables;
+    }
     return ans;
   }
 

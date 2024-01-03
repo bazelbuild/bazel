@@ -110,6 +110,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   @Override
   public void download(
       List<URL> urls,
+      Map<String, List<String>> headers,
       Credentials credentials,
       Optional<Checksum> checksum,
       String canonicalId,
@@ -154,7 +155,15 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       eventHandler.handle(
           Event.warn("Remote Cache: " + Utils.grpcAwareErrorMessage(e, verboseFailures)));
       fallbackDownloader.download(
-          urls, credentials, checksum, canonicalId, destination, eventHandler, clientEnv, type);
+          urls,
+          headers,
+          credentials,
+          checksum,
+          canonicalId,
+          destination,
+          eventHandler,
+          clientEnv,
+          type);
     }
   }
 

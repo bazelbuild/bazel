@@ -14,10 +14,9 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.strings;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.protobuf.CodedInputStream;
@@ -30,10 +29,20 @@ import java.util.Arrays;
  * JDK9+, where a String can be represented as a byte array together with a single byte (0 or 1) for
  * Latin-1 or UTF16 encoding.
  */
-@VisibleForTesting
-public final class UnsafeStringCodec implements ObjectCodec<String> {
+public final class UnsafeStringCodec extends LeafObjectCodec<String> {
+  /**
+   * An instance to use for delegation by other codecs.
+   *
+   * <p>The default constructor is left intact to allow the usual codec registration mechanisms to
+   * work.
+   */
+  private static final UnsafeStringCodec INSTANCE = new UnsafeStringCodec();
 
   private final StringUnsafe stringUnsafe = StringUnsafe.getInstance();
+
+  public static UnsafeStringCodec stringCodec() {
+    return INSTANCE;
+  }
 
   @Override
   public Class<String> getEncodedClass() {
@@ -50,7 +59,8 @@ public final class UnsafeStringCodec implements ObjectCodec<String> {
   }
 
   @Override
-  public void serialize(SerializationContext context, String obj, CodedOutputStream codedOut)
+  public void serialize(
+      SerializationDependencyProvider dependencies, String obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
     byte coder = stringUnsafe.getCoder(obj);
     byte[] value = stringUnsafe.getByteArray(obj);
@@ -68,7 +78,7 @@ public final class UnsafeStringCodec implements ObjectCodec<String> {
   }
 
   @Override
-  public String deserialize(DeserializationContext context, CodedInputStream codedIn)
+  public String deserialize(SerializationDependencyProvider dependencies, CodedInputStream codedIn)
       throws SerializationException, IOException {
     int length = codedIn.readInt32();
     byte coder;

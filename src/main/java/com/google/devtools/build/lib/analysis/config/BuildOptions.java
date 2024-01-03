@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
@@ -27,9 +28,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -465,7 +465,7 @@ public final class BuildOptions implements Cloneable {
   }
 
   @SuppressWarnings("unused") // Used reflectively.
-  private static final class Codec implements ObjectCodec<BuildOptions> {
+  private static final class Codec extends LeafObjectCodec<BuildOptions> {
 
     @Override
     public Class<BuildOptions> getEncodedClass() {
@@ -474,19 +474,23 @@ public final class BuildOptions implements Cloneable {
 
     @Override
     public void serialize(
-        SerializationContext context, BuildOptions options, CodedOutputStream codedOut)
+        SerializationDependencyProvider dependencies,
+        BuildOptions options,
+        CodedOutputStream codedOut)
         throws SerializationException, IOException {
-      if (!context.getDependency(OptionsChecksumCache.class).prime(options)) {
+      if (!dependencies.getDependency(OptionsChecksumCache.class).prime(options)) {
         throw new SerializationException("Failed to prime cache for " + options.checksum());
       }
-      codedOut.writeStringNoTag(options.checksum());
+      stringCodec().serialize(dependencies, options.checksum(), codedOut);
     }
 
     @Override
-    public BuildOptions deserialize(DeserializationContext context, CodedInputStream codedIn)
+    public BuildOptions deserialize(
+        SerializationDependencyProvider dependencies, CodedInputStream codedIn)
         throws SerializationException, IOException {
-      String checksum = codedIn.readString();
-      BuildOptions result = context.getDependency(OptionsChecksumCache.class).getOptions(checksum);
+      String checksum = stringCodec().deserialize(dependencies, codedIn);
+      BuildOptions result =
+          dependencies.getDependency(OptionsChecksumCache.class).getOptions(checksum);
       if (result == null) {
         throw new SerializationException("No options instance for " + checksum);
       }

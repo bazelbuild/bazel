@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.vfs.FileStatus;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -99,18 +98,6 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
             TestingRepositoryFunction.getTargetPath(
                 TestingRepositoryFunction.getPathAttr(rule), rootDirectory))
         .isEqualTo(PathFragment.create("/a/b/c"));
-  }
-
-  @Test
-  public void testGenerateWorkspaceFile() throws Exception {
-    Rule rule = scratchRule("external", "abc", "local_repository(",
-        "    name = 'abc',",
-        "    path = '/a/b/c',",
-        ")");
-    RepositoryFunction.createWorkspaceFile(rootDirectory, rule.getTargetKind(), rule.getName());
-    String workspaceContent = new String(
-        FileSystemUtils.readContentAsLatin1(rootDirectory.getRelative("WORKSPACE")));
-    assertThat(workspaceContent).contains("workspace(name = \"abc\")");
   }
 
   private static void assertMarkerFileEscaping(String testCase) {

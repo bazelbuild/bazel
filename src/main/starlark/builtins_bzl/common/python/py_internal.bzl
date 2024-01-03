@@ -119,6 +119,9 @@ def _linking_context_extra_link_time_libraries(linking_context, *args, **kwargs)
 def _linking_context_linkstamps(linking_context, *args, **kwargs):
     return linking_context.linkstamps(*args, **kwargs)
 
+def _linkstamp_file(linkstamp, *args, **kwargs):
+    return linkstamp.file(*args, **kwargs)
+
 def _make_runfiles_respect_legacy_external_runfiles(*args, **kwargs):
     return _py_builtins.make_runfiles_respect_legacy_external_runfiles(*args, **kwargs)
 
@@ -174,6 +177,7 @@ py_internal = struct(
     link = _link,
     linking_context_extra_link_time_libraries = _linking_context_extra_link_time_libraries,
     linking_context_linkstamps = _linking_context_linkstamps,
+    linkstamp_file = _linkstamp_file,
     make_runfiles_respect_legacy_external_runfiles = _make_runfiles_respect_legacy_external_runfiles,
     merge_debug_context = _merge_debug_context,
     merge_linking_contexts = _merge_linking_contexts,

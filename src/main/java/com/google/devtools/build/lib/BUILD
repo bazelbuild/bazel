@@ -61,6 +61,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/network:srcs",
         "//src/main/java/com/google/devtools/build/lib/packages:srcs",
         "//src/main/java/com/google/devtools/build/lib/packages/metrics:srcs",
+        "//src/main/java/com/google/devtools/build/lib/packages/producers:srcs",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics:srcs",
         "//src/main/java/com/google/devtools/build/lib/pkgcache:srcs",
         "//src/main/java/com/google/devtools/build/lib/platform:srcs",
@@ -524,6 +525,7 @@ genrule(
     srcs = [
         ":docs_embedded_in_sources",
         "//src/main/java/com/google/devtools/build/docgen:bazel_link_map",
+        "//src/main/starlark/docgen:gen_be_proto_stardoc_proto",
     ],
     outs = ["build-encyclopedia.zip"],
     cmd = (
@@ -533,6 +535,7 @@ genrule(
         " --provider=com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider" +
         " --input_root=$$PWD" +
         " --input_dir=$$PWD/src/main/java/com/google/devtools/build/lib" +
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_proto_stardoc_proto)" +
         " --output_dir=$(@D)/be" +
         " --create_toc=true &&" +
         "zip -qj $@ $(@D)/be/*"
@@ -614,6 +617,7 @@ genrule(
     name = "gen_api_proto",
     srcs = [
         "//src/main/java/com/google/devtools/build/docgen:bazel_link_map",
+        "//src/main/starlark/docgen:gen_be_proto_stardoc_proto",
     ],
     outs = ["builtin.pb"],
     cmd = (
@@ -622,7 +626,8 @@ genrule(
         " --link_map_path=$(location //src/main/java/com/google/devtools/build/docgen:bazel_link_map) " +
         " --provider=com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider" +
         " --input_root=$$PWD" +
-        " --input_dir=$$PWD/src/main/java/com/google/devtools/build/lib"
+        " --input_dir=$$PWD/src/main/java/com/google/devtools/build/lib" +
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_proto_stardoc_proto)"
     ),
     tools = [
         "//src/main/java/com/google/devtools/build/docgen:api_exporter",

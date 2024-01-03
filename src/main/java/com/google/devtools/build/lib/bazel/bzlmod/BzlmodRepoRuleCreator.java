@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleFactory;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.Map;
@@ -66,7 +67,7 @@ public final class BzlmodRepoRuleCreator {
             RootedPath.toRootedPath(
                 Root.fromPath(directories.getWorkspace()),
                 LabelConstants.MODULE_DOT_BAZEL_FILE_NAME),
-            semantics,
+            semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
             basePackageId,
             repoMapping);
     BuildLangTypedAttributeValuesMap attributeValues =

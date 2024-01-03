@@ -88,6 +88,41 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public String starlarkExecConfig;
 
   @Option(
+      name = "experimental_propagate_custom_flag",
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Which custom flags (starlark flags or defines) to propagate to the exec transition, by"
+              + " key. e.g. if '--define=a=b' should be propagated, set"
+              + " `--experimental_propagate_custom_flag=a`")
+  public List<String> customFlagsToPropagate;
+
+  @Option(
+      name = "experimental_exclude_defines_from_exec_config",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If true, don't propagate '--define's to the exec transition at default; only propagate"
+              + " defines specified by `--experimental_propagate_custom_flag`.")
+  public boolean excludeDefinesFromExecConfig;
+
+  @Option(
+      name = "experimental_exclude_starlark_flags_from_exec_config",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "If true, don't propagate starlark flags to the exec transition at default; only"
+              + " propagate starlark flags specified in `--experimental_propagate_custom_flag`.")
+  public boolean excludeStarlarkFlagsFromExecConfig;
+
+  @Option(
       name = "experimental_platform_in_output_dir",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,

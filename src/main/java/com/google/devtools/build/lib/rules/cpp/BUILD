@@ -101,6 +101,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/rules:alias",
         "//src/main/java/com/google/devtools/build/lib/rules/apple",
+        "//src/main/java/com/google/devtools/build/lib/rules/objc:xcode_config_info",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",

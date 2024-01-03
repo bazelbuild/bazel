@@ -16,6 +16,7 @@ package net.starlark.java.eval;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import java.io.Serializable;
 import java.util.AbstractCollection;
 import java.util.Arrays;
 import java.util.Collection;
@@ -172,9 +173,12 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
    * This can be used to create a {@link StarlarkList} while deferring an expensive computation
    * until the list is actually accessed.
    */
-  public static <T> StarlarkList<T> lazyImmutable(Supplier<ImmutableList<T>> supplier) {
+  public static <T> StarlarkList<T> lazyImmutable(SerializableListSupplier<T> supplier) {
     return new LazyImmutableStarlarkList<>(supplier);
   }
+
+  /** An associated convenience type for LazyImmutableStarlarkLists */
+  public interface SerializableListSupplier<T> extends Supplier<ImmutableList<T>>, Serializable {}
 
   /**
    * Returns a {@code StarlarkList} with the given items and the {@link Mutability}. If {@code
@@ -475,7 +479,7 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
         cursor = i + 1;
         return next;
       } catch (IndexOutOfBoundsException e) {
-        throw new NoSuchElementException();
+        throw new NoSuchElementException(e.getMessage());
       }
     }
   }

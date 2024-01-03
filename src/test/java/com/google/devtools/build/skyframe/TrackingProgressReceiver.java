@@ -18,7 +18,6 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** A testing utility to keep track of evaluation. */
@@ -69,15 +68,14 @@ public class TrackingProgressReceiver implements EvaluationProgressReceiver {
   @Override
   public void evaluated(
       SkyKey skyKey,
+      EvaluationState state,
       @Nullable SkyValue value,
       @Nullable ErrorInfo error,
-      Supplier<EvaluationSuccessState> evaluationSuccessState,
-      EvaluationState state,
       @Nullable GroupedDeps directDeps) {
     evaluated.add(skyKey);
-    if (checkEvaluationResults && evaluationSuccessState.get().succeeded()) {
+    if (checkEvaluationResults && state.succeeded()) {
       deleted.remove(skyKey);
-      if (state.equals(EvaluationState.CLEAN)) {
+      if (!state.changed()) {
         dirty.remove(skyKey);
       }
     }

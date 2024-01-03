@@ -26,11 +26,13 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.starlark.RepoFetchingSkyKeyComputeState.Signal;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -44,6 +46,7 @@ import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.util.CPU;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
@@ -282,6 +285,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       // it possible to return null and not block but it doesn't seem to be easy with Starlark
       // structure as it is.
       Object result;
+      boolean fetchSuccessful = false;
       try (SilentCloseable c =
           Profiler.instance()
               .profile(ProfilerTask.STARLARK_REPOSITORY_FN, () -> rule.getLabel().toString())) {
@@ -291,7 +295,19 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
                 function,
                 /*args=*/ ImmutableList.of(starlarkRepositoryContext),
                 /*kwargs=*/ ImmutableMap.of());
+        fetchSuccessful = true;
+      } finally {
+        if (starlarkRepositoryContext.ensureNoPendingAsyncTasks(
+            env.getListener(), fetchSuccessful)) {
+          if (fetchSuccessful) {
+            throw new RepositoryFunctionException(
+                new EvalException(
+                    "Pending asynchronous work after repository rule finished running"),
+                Transience.PERSISTENT);
+          }
+        }
       }
+
       RepositoryResolvedEvent resolved =
           new RepositoryResolvedEvent(
               rule, starlarkRepositoryContext.getAttr(), outputDirectory, result);
@@ -337,8 +353,16 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
           new IOException(rule + " must create a directory"), Transience.TRANSIENT);
     }
 
-    if (!WorkspaceFileHelper.doesWorkspaceFileExistUnder(outputDirectory)) {
-      createWorkspaceFile(outputDirectory, rule.getTargetKind(), rule.getName());
+    if (!WorkspaceFileHelper.isValidRepoRoot(outputDirectory)) {
+      try {
+        FileSystemUtils.createEmptyFile(outputDirectory.getRelative(LabelConstants.REPO_FILE_NAME));
+        if (starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE)) {
+          FileSystemUtils.createEmptyFile(
+              outputDirectory.getRelative(LabelConstants.WORKSPACE_FILE_NAME));
+        }
+      } catch (IOException e) {
+        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+      }
     }
 
     return RepositoryDirectoryValue.builder().setPath(outputDirectory);

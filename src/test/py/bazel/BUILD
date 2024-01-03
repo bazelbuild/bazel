@@ -164,6 +164,9 @@ py_test(
     timeout = "long",
     srcs = ["runfiles_test.py"],
     data = glob(["testdata/runfiles_test/**"]),
+    tags = [
+        "requires-network",
+    ],
     deps = [
         ":test_base",
     ],
@@ -177,6 +180,7 @@ py_test(
     tags = [
         # Windows does not support sandboxing yet.
         "no_windows",
+        "requires-network",
     ],
     deps = [":test_base"],
 )

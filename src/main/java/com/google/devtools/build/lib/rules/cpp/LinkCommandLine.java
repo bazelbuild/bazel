@@ -22,10 +22,6 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.PathMapper;
-import com.google.devtools.build.lib.collect.CollectionUtils;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -49,8 +45,6 @@ public final class LinkCommandLine extends CommandLine {
   private final CcToolchainVariables variables;
   // The feature config can be null for tests.
   @Nullable private final FeatureConfiguration featureConfiguration;
-  private final ImmutableList<Artifact> buildInfoHeaderArtifacts;
-  private final NestedSet<Artifact> linkerInputArtifacts;
   private final LinkTargetType linkTargetType;
   private final Link.LinkingMode linkingMode;
   @Nullable private final PathFragment toolchainLibrariesSolibDir;
@@ -62,8 +56,6 @@ public final class LinkCommandLine extends CommandLine {
   private LinkCommandLine(
       String actionName,
       String forcedToolPath,
-      ImmutableList<Artifact> buildInfoHeaderArtifacts,
-      NestedSet<Artifact> linkerInputArtifacts,
       LinkTargetType linkTargetType,
       Link.LinkingMode linkingMode,
       @Nullable PathFragment toolchainLibrariesSolibDir,
@@ -77,8 +69,6 @@ public final class LinkCommandLine extends CommandLine {
     this.forcedToolPath = forcedToolPath;
     this.variables = variables;
     this.featureConfiguration = featureConfiguration;
-    this.buildInfoHeaderArtifacts = Preconditions.checkNotNull(buildInfoHeaderArtifacts);
-    this.linkerInputArtifacts = Preconditions.checkNotNull(linkerInputArtifacts);
     this.linkTargetType = Preconditions.checkNotNull(linkTargetType);
     this.linkingMode = Preconditions.checkNotNull(linkingMode);
     this.toolchainLibrariesSolibDir = toolchainLibrariesSolibDir;
@@ -92,29 +82,8 @@ public final class LinkCommandLine extends CommandLine {
     return paramFile;
   }
 
-  /** See {@link CppLinkAction#getBuildInfoHeaderArtifacts()} */
-  public ImmutableList<Artifact> getBuildInfoHeaderArtifacts() {
-    return buildInfoHeaderArtifacts;
-  }
-
-  /** Returns the (ordered, immutable) list of paths to the linker's input files. */
-  public NestedSet<Artifact> getLinkerInputArtifacts() {
-    return linkerInputArtifacts;
-  }
-
-  @Nullable
-  @VisibleForTesting
-  public FeatureConfiguration getFeatureConfiguration() {
-    return featureConfiguration;
-  }
-
   public String getActionName() {
     return actionName;
-  }
-
-  /** Returns the current type of link target set. */
-  public LinkTargetType getLinkTargetType() {
-    return linkTargetType;
   }
 
   /** Returns the "staticness" of the link. */
@@ -386,9 +355,6 @@ public final class LinkCommandLine extends CommandLine {
   public static final class Builder {
 
     private String forcedToolPath;
-    private ImmutableList<Artifact> buildInfoHeaderArtifacts = ImmutableList.of();
-    private NestedSet<Artifact> linkerInputArtifacts =
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     @Nullable private LinkTargetType linkTargetType;
     private Link.LinkingMode linkingMode = Link.LinkingMode.STATIC;
     @Nullable private PathFragment toolchainLibrariesSolibDir;
@@ -400,12 +366,6 @@ public final class LinkCommandLine extends CommandLine {
     private String actionName;
 
     public LinkCommandLine build() {
-      if (linkTargetType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER) {
-        Preconditions.checkArgument(
-            buildInfoHeaderArtifacts.isEmpty(),
-            "build info headers may only be present on dynamic library or executable links");
-      }
-
       if (variables == null) {
         variables = CcToolchainVariables.EMPTY;
       }
@@ -413,8 +373,6 @@ public final class LinkCommandLine extends CommandLine {
       return new LinkCommandLine(
           actionName,
           forcedToolPath,
-          buildInfoHeaderArtifacts,
-          linkerInputArtifacts,
           linkTargetType,
           linkingMode,
           toolchainLibrariesSolibDir,
@@ -453,17 +411,6 @@ public final class LinkCommandLine extends CommandLine {
     }
 
     /**
-     * Sets a list of linker input artifacts. These get turned into linker options depending on the
-     * staticness and the target type. This call makes an immutable copy of the inputs, if the
-     * provided Iterable isn't already immutable (see {@link CollectionUtils#makeImmutable}).
-     */
-    @CanIgnoreReturnValue
-    public Builder setLinkerInputArtifacts(NestedSet<Artifact> linkerInputArtifacts) {
-      this.linkerInputArtifacts = linkerInputArtifacts;
-      return this;
-    }
-
-    /**
      * Sets how static the link is supposed to be. For static target types (see {@link
      * LinkTargetType#linkerOrArchiver()}}), the {@link #build} method throws an exception if this
      * is not {@link LinkingMode#STATIC}. The default setting is {@link LinkingMode#STATIC}.
@@ -471,17 +418,6 @@ public final class LinkCommandLine extends CommandLine {
     @CanIgnoreReturnValue
     public Builder setLinkingMode(Link.LinkingMode linkingMode) {
       this.linkingMode = linkingMode;
-      return this;
-    }
-
-    /**
-     * The build info header artifacts are generated header files that are used for link stamping.
-     * The {@link #build} method throws an exception if the build info header artifacts are
-     * non-empty for a static link (see {@link LinkTargetType#linkerOrArchiver()}}).
-     */
-    @CanIgnoreReturnValue
-    public Builder setBuildInfoHeaderArtifacts(ImmutableList<Artifact> buildInfoHeaderArtifacts) {
-      this.buildInfoHeaderArtifacts = buildInfoHeaderArtifacts;
       return this;
     }
 

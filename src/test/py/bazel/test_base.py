@@ -136,7 +136,10 @@ class TestBase(absltest.TestCase):
         if TestBase.IsDarwin():
           # For reducing SSD usage on our physical Mac machines.
           f.write('common --experimental_repository_cache_hardlinks\n')
-      f.write('common --enable_bzlmod\n')
+      if TestBase.IsDarwin():
+        # Prefer ipv6 network on macOS
+        f.write('startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true\n')
+        f.write('build --jvmopt=-Djava.net.preferIPv6Addresses\n')
     self.CopyFile(
         self.Rlocation('io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock'),
         'MODULE.bazel.lock',
@@ -209,13 +212,24 @@ class TestBase(absltest.TestCase):
         self.fail('File "%s" does contain "%s"' % (file_path, entry))
 
   def CreateWorkspaceWithDefaultRepos(self, path, lines=None):
+    """Creates a `WORKSPACE` file with default repos and register C++ toolchains."""
     rule_definition = [
         'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")'
     ]
     rule_definition.extend(self.GetDefaultRepoRules())
     if lines:
       rule_definition.extend(lines)
+    rule_definition.extend([
+        'register_toolchains(',
+        '  "@local_config_cc//:all",',
+        ')',
+    ])
     self.ScratchFile(path, rule_definition)
+    self.ScratchFile(
+        path.replace('WORKSPACE.bazel', 'MODULE.bazel').replace(
+            'WORKSPACE', 'MODULE.bazel'
+        )
+    )
 
   def GetDefaultRepoRules(self):
     with open(

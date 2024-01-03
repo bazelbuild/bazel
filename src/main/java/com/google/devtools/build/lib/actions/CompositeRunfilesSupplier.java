@@ -14,41 +14,51 @@
 
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Map;
-import javax.annotation.Nullable;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /** A {@link RunfilesSupplier} implementation for composing multiple instances. */
 public final class CompositeRunfilesSupplier implements RunfilesSupplier {
-
-  private final ImmutableList<RunfilesSupplier> suppliers;
-  private NestedSet<Artifact> allArtifacts;
+  private final ImmutableList<RunfilesTree> runfilesTrees;
 
   /**
    * Create a composite {@link RunfilesSupplier} from a collection of suppliers. Suppliers earlier
    * in the collection take precedence over later suppliers.
    */
   public static RunfilesSupplier fromSuppliers(Collection<RunfilesSupplier> suppliers) {
-    ImmutableList<RunfilesSupplier> finalSuppliers =
+    ImmutableList<RunfilesSupplier> nonEmptySuppliers =
         suppliers.stream()
             .filter((s) -> s != EmptyRunfilesSupplier.INSTANCE)
-            .collect(ImmutableList.toImmutableList());
-    if (finalSuppliers.isEmpty()) {
+            .collect(toImmutableList());
+
+    if (nonEmptySuppliers.isEmpty()) {
       return EmptyRunfilesSupplier.INSTANCE;
     }
-    if (finalSuppliers.size() == 1) {
-      return finalSuppliers.get(0);
+
+    if (nonEmptySuppliers.size() == 1) {
+      return Iterables.getOnlyElement(nonEmptySuppliers);
     }
-    return new CompositeRunfilesSupplier(finalSuppliers);
+
+    Set<PathFragment> execPaths = new HashSet<>();
+    List<RunfilesTree> trees = new ArrayList<>();
+
+    for (RunfilesSupplier supplier : nonEmptySuppliers) {
+      for (RunfilesTree tree : supplier.getRunfilesTrees()) {
+        if (execPaths.add(tree.getExecPath())) {
+          trees.add(tree);
+        }
+      }
+    }
+
+    return new CompositeRunfilesSupplier(ImmutableList.copyOf(trees));
   }
 
   /**
@@ -61,67 +71,13 @@ public final class CompositeRunfilesSupplier implements RunfilesSupplier {
   /**
    * Create an instance combining all of {@code suppliers}, with earlier elements taking precedence.
    */
-  private CompositeRunfilesSupplier(ImmutableList<RunfilesSupplier> suppliers) {
-    this.suppliers = suppliers;
+  private CompositeRunfilesSupplier(ImmutableList<RunfilesTree> runfilesTrees) {
+    this.runfilesTrees = runfilesTrees;
   }
 
   @Override
-  public NestedSet<Artifact> getAllArtifacts() {
-    if (allArtifacts == null) {
-      allArtifacts =
-          NestedSetBuilder.fromNestedSets(
-                  Iterables.transform(suppliers, RunfilesSupplier::getAllArtifacts))
-              .build();
-    }
-
-    return allArtifacts;
+  public ImmutableList<RunfilesTree> getRunfilesTrees() {
+    return runfilesTrees;
   }
 
-  @Override
-  public ImmutableSet<PathFragment> getRunfilesDirs() {
-    ImmutableSet.Builder<PathFragment> result = ImmutableSet.builder();
-    for (RunfilesSupplier supplier : suppliers) {
-      result.addAll(supplier.getRunfilesDirs());
-    }
-    return result.build();
-  }
-
-  @Override
-  public ImmutableMap<PathFragment, Map<PathFragment, Artifact>> getMappings() {
-    Map<PathFragment, Map<PathFragment, Artifact>> result = Maps.newHashMap();
-    for (RunfilesSupplier supplier : suppliers) {
-      Map<PathFragment, Map<PathFragment, Artifact>> mappings = supplier.getMappings();
-      for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> entry : mappings.entrySet()) {
-        result.putIfAbsent(entry.getKey(), entry.getValue());
-      }
-    }
-    return ImmutableMap.copyOf(result);
-  }
-
-  @Override
-  @Nullable
-  public RunfileSymlinksMode getRunfileSymlinksMode(PathFragment runfilesDir) {
-    for (RunfilesSupplier supplier : suppliers) {
-      RunfileSymlinksMode mode = supplier.getRunfileSymlinksMode(runfilesDir);
-      if (mode != null) {
-        return mode;
-      }
-    }
-    return null;
-  }
-
-  @Override
-  public boolean isBuildRunfileLinks(PathFragment runfilesDir) {
-    for (RunfilesSupplier supplier : suppliers) {
-      if (supplier.isBuildRunfileLinks(runfilesDir)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  @Override
-  public RunfilesSupplier withOverriddenRunfilesDir(PathFragment newRunfilesDir) {
-    throw new UnsupportedOperationException();
-  }
 }

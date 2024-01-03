@@ -85,10 +85,6 @@ JavaCompilationInfo = provider(
         "javac_options": """Depset of options to the java compiler. To get the
             exact list of options passed to javac in the correct order, use the
             tokenize_javacopts utility in rules_java""",
-        "javac_options_list": """A list of options to java compiler. This exists
-            temporarily for migration purposes. javac_options will return a depset
-            in the future, and this method will be dropped once all usages have
-            been updated to handle depsets.""",
         "compilation_classpath": "Compilation classpath for this Java target.",
         "runtime_classpath": "Run-time classpath for this Java target.",
     },
@@ -478,7 +474,6 @@ def java_info_for_compilation(
         result.update(
             compilation_info = JavaCompilationInfo(
                 javac_options = compilation_info.javac_options,
-                javac_options_list = _java_common_internal.intern_javac_opts(compilation_info.javac_options_list),
                 boot_classpath = compilation_info.boot_classpath,
                 compilation_classpath = compilation_info.compilation_classpath,
                 runtime_classpath = compilation_info.runtime_classpath,

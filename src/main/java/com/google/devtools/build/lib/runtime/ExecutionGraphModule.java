@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
 import com.google.devtools.build.lib.actions.ExecutionGraph;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.actions.SharedActionEvent;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
@@ -55,6 +56,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochConverter;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.runtime.BuildEventArtifactUploaderFactory.InvalidPackagePathSymlinkException;
 import com.google.devtools.build.lib.server.FailureDetails.BuildReport;
@@ -585,11 +587,16 @@ public class ExecutionGraphModule extends BlazeModule {
         outputToNode.put(primaryOutput, currentAttempt);
       }
 
+      NestedSetBuilder<Artifact> runfilesArtifactsBuilder = NestedSetBuilder.stableOrder();
+      for (RunfilesTree runfilesTree : runfilesSupplier.getRunfilesTrees()) {
+        runfilesArtifactsBuilder.addTransitive(runfilesTree.getArtifacts());
+      }
+
       // Don't store duplicate deps. This saves some storage space, and uses less memory when the
       // action dump is parsed. Using a TreeSet is not slower than a HashSet, and it seems that
       // keeping the deps ordered compresses better. See cl/377153712.
       Set<Integer> deps = new TreeSet<>();
-      for (Artifact runfilesInput : runfilesSupplier.getAllArtifacts().toList()) {
+      for (Artifact runfilesInput : runfilesArtifactsBuilder.build().toList()) {
         NodeInfo dep = outputToNode.get(runfilesInput);
         if (dep != null) {
           deps.add(dep.index);

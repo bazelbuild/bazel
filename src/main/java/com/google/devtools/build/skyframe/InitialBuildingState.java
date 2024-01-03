@@ -18,7 +18,7 @@ import javax.annotation.Nullable;
 
 /**
  * {@link DirtyBuildingState} for a node on its initial build or a {@link
- * NonIncrementalInMemoryNodeEntry} being {@linkplain NodeEntry#forceRebuild force rebuilt}.
+ * NonIncrementalInMemoryNodeEntry} that was {@linkplain DirtyType#REWIND rewound}.
  */
 class InitialBuildingState extends DirtyBuildingState {
 
@@ -39,7 +39,7 @@ class InitialBuildingState extends DirtyBuildingState {
 
   @Nullable
   @Override
-  public final SkyValue getLastBuildValue() {
+  public SkyValue getLastBuildValue() {
     return null;
   }
 

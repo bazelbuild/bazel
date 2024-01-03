@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -2473,37 +2474,37 @@ public class RemoteExecutionServiceTest {
   }
 
   private RunfilesSupplier createRunfilesSupplier(String root, Collection<Artifact> artifacts) {
+    RunfilesTree tree =
+        new RunfilesTree() {
+          @Override
+          public PathFragment getExecPath() {
+            return PathFragment.create(root);
+          }
+
+          @Override
+          public Map<PathFragment, Artifact> getMapping() {
+            return artifacts.stream().collect(toImmutableMap(Artifact::getExecPath, a -> a));
+          }
+
+          @Override
+          public NestedSet<Artifact> getArtifacts() {
+            return NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts);
+          }
+
+          @Override
+          public RunfileSymlinksMode getSymlinksMode() {
+            return RunfileSymlinksMode.SKIP;
+          }
+
+          @Override
+          public boolean isBuildRunfileLinks() {
+            return false;
+          }
+        };
     return new RunfilesSupplier() {
       @Override
-      public NestedSet<Artifact> getAllArtifacts() {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public ImmutableSet<PathFragment> getRunfilesDirs() {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public ImmutableMap<PathFragment, Map<PathFragment, Artifact>> getMappings() {
-        return ImmutableMap.of(
-            PathFragment.create(root),
-            artifacts.stream().collect(toImmutableMap(Artifact::getExecPath, a -> a)));
-      }
-
-      @Override
-      public RunfileSymlinksMode getRunfileSymlinksMode(PathFragment runfilesDir) {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public boolean isBuildRunfileLinks(PathFragment runfilesDir) {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public RunfilesSupplier withOverriddenRunfilesDir(PathFragment newRunfilesDir) {
-        throw new UnsupportedOperationException();
+      public ImmutableList<RunfilesTree> getRunfilesTrees() {
+        return ImmutableList.of(tree);
       }
     };
   }

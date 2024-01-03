@@ -107,7 +107,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
@@ -510,12 +509,11 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     @Override
     public void evaluated(
         SkyKey skyKey,
+        EvaluationState state,
         @Nullable SkyValue newValue,
         @Nullable ErrorInfo newError,
-        Supplier<EvaluationSuccessState> evaluationSuccessState,
-        EvaluationState state,
         @Nullable GroupedDeps directDeps) {
-      if (evaluationSuccessState.get().succeeded()) {
+      if (state.succeeded()) {
         evaluations.add(skyKey);
       }
     }

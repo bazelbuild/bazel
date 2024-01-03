@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -118,6 +119,7 @@ public class CommandEnvironment {
   private final BuildResultListener buildResultListener;
   private final CommandLinePathFactory commandLinePathFactory;
   private final CommandExtensionReporter commandExtensionReporter;
+  private final int attemptNumber;
 
   private boolean mergedAnalysisAndExecution;
 
@@ -190,7 +192,10 @@ public class CommandEnvironment {
       long commandStartTime,
       List<Any> commandExtensions,
       Consumer<String> shutdownReasonConsumer,
-      CommandExtensionReporter commandExtensionReporter) {
+      CommandExtensionReporter commandExtensionReporter,
+      int attemptNumber) {
+    checkArgument(attemptNumber >= 1);
+
     this.runtime = runtime;
     this.workspace = workspace;
     this.directories = workspace.getDirectories();
@@ -205,6 +210,7 @@ public class CommandEnvironment {
     this.commandExtensionReporter = commandExtensionReporter;
     this.blazeModuleEnvironment = new BlazeModuleEnvironment();
     this.timestampGranularityMonitor = new TimestampGranularityMonitor(runtime.getClock());
+    this.attemptNumber = attemptNumber;
     // Record the command's starting time again, for use by
     // TimestampGranularityMonitor.waitForTimestampGranularity().
     // This should be done as close as possible to the start of
@@ -763,7 +769,30 @@ public class CommandEnvironment {
   }
 
   /**
+   * Calls {@link SkyframeExecutor#decideKeepIncrementalState} with this command's options.
+   *
+   * <p>Must be called prior to {@link BlazeModule#beforeCommand} so that modules can use the result
+   * of {@link SkyframeExecutor#tracksStateForIncrementality}.
+   */
+  public void decideKeepIncrementalState() {
+    SkyframeExecutor skyframeExecutor = getSkyframeExecutor();
+    skyframeExecutor.setActive(false);
+    var commonOptions = options.getOptions(CommonCommandOptions.class);
+    var analysisOptions = options.getOptions(AnalysisOptions.class);
+    skyframeExecutor.decideKeepIncrementalState(
+        runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).batch,
+        commonOptions.keepStateAfterBuild,
+        commonOptions.trackIncrementalState,
+        commonOptions.heuristicallyDropNodes,
+        analysisOptions != null && analysisOptions.discardAnalysisCache,
+        reporter);
+  }
+
+  /**
    * Hook method called by the BlazeCommandDispatcher prior to the dispatch of each command.
+   *
+   * <p>Both {@link #decideKeepIncrementalState} and {@link BlazeModule#beforeCommand} on each
+   * module should have already been called before this.
    *
    * @throws AbruptExitException if this command is unsuitable to be run as specified
    */
@@ -797,17 +826,6 @@ public class CommandEnvironment {
     skyframeExecutor.setOutputService(outputService);
     skyframeExecutor.noteCommandStart();
 
-    // Fail fast in the case where a Blaze command forgets to install the package path correctly.
-    skyframeExecutor.setActive(false);
-    // Let skyframe figure out how much incremental state it will be keeping.
-    AnalysisOptions viewOptions = options.getOptions(AnalysisOptions.class);
-    skyframeExecutor.decideKeepIncrementalState(
-        runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).batch,
-        commonOptions.keepStateAfterBuild,
-        commonOptions.trackIncrementalState,
-        commonOptions.heuristicallyDropNodes,
-        viewOptions != null && viewOptions.discardAnalysisCache,
-        reporter);
     var executionOptions = options.getOptions(ExecutionOptions.class);
     skyframeExecutor.setClearNestedSetAfterActionExecution(
         executionOptions != null && executionOptions.clearNestedSetAfterActionExecution);
@@ -925,5 +943,14 @@ public class CommandEnvironment {
   @SuppressWarnings("unused")
   void gotBuildInfo(BuildInfoEvent event) {
     buildInfoPosted = true;
+  }
+
+  /**
+   * Returns the number of the invocation attempt, starting at 1 and increasing by 1 for each new
+   * attempt. Can be used to determine if there is a build retry by {@code
+   * --experimental_remote_cache_eviction_retries}.
+   */
+  public int getAttemptNumber() {
+    return attemptNumber;
   }
 }

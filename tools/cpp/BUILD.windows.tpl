@@ -73,7 +73,9 @@ cc_toolchain_suite(
         "x64_arm64_windows|msvc-cl": ":cc-compiler-arm64_windows",
         "arm64_windows|msvc-cl": ":cc-compiler-arm64_windows",
         "x64_windows|msys-gcc": ":cc-compiler-x64_windows_msys",
+        "x64_x86_windows|msys-gcc": ":cc-compiler-x64_x86_windows_msys",
         "x64_windows|mingw-gcc": ":cc-compiler-x64_windows_mingw",
+        "x64_x86_windows|mingw-gcc": ":cc-compiler-x64_x86_windows_mingw",
         "x64_windows|clang-cl": ":cc-compiler-x64_windows-clang-cl",
         "x64_windows_msys": ":cc-compiler-x64_windows_msys",
         "x64_windows": ":cc-compiler-x64_windows",
@@ -114,8 +116,6 @@ cc_toolchain_config(
     cxx_builtin_include_directories = [%{cxx_builtin_include_directories}],
     tool_paths = {%{tool_paths}},
     tool_bin_path = "%{tool_bin_path}",
-    dbg_mode_debug_flag = "%{dbg_mode_debug_flag_x64}",
-    fastbuild_mode_debug_flag = "%{fastbuild_mode_debug_flag_x64}",
 )
 
 toolchain(
@@ -130,6 +130,52 @@ toolchain(
         "@platforms//os:windows",
     ],
     toolchain = ":cc-compiler-x64_windows_msys",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
+
+cc_toolchain(
+    name = "cc-compiler-x64_x86_windows_msys",
+    toolchain_identifier = "msys_x64_x86",
+    toolchain_config = ":msys_x64_x86",
+    all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":mingw_compiler_files",
+    compiler_files = ":mingw_compiler_files",
+    dwp_files = ":empty",
+    linker_files = ":empty",
+    objcopy_files = ":empty",
+    strip_files = ":empty",
+    supports_param_files = 1,
+)
+
+cc_toolchain_config(
+    name = "msys_x64_x86",
+    cpu = "x64_x86_windows",
+    compiler = "msys-gcc",
+    host_system_name = "local",
+    target_system_name = "local",
+    target_libc = "msys",
+    abi_version = "local",
+    abi_libc_version = "local",
+    cxx_builtin_include_directories = [%{cxx_builtin_include_directories}],
+    tool_paths = {%{tool_paths}},
+    tool_bin_path = "%{tool_bin_path}",
+    default_compile_flags = ["-m32"],
+    default_link_flags = ["-m32"],
+)
+
+toolchain(
+    name = "cc-toolchain-x64_x86_windows_msys",
+    exec_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:windows",
+        "@bazel_tools//tools/cpp:msys",
+    ],
+    target_compatible_with = [
+        "@platforms//cpu:x86_32",
+        "@platforms//os:windows",
+    ],
+    toolchain = ":cc-compiler-x64_x86_windows_msys",
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
 )
 
@@ -160,8 +206,6 @@ cc_toolchain_config(
     tool_bin_path = "%{mingw_tool_bin_path}",
     cxx_builtin_include_directories = [%{mingw_cxx_builtin_include_directories}],
     tool_paths = {%{mingw_tool_paths}},
-    dbg_mode_debug_flag = "%{dbg_mode_debug_flag_x64}",
-    fastbuild_mode_debug_flag = "%{fastbuild_mode_debug_flag_x64}",
 )
 
 toolchain(
@@ -176,6 +220,52 @@ toolchain(
         "@platforms//os:windows",
     ],
     toolchain = ":cc-compiler-x64_windows_mingw",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
+
+cc_toolchain(
+    name = "cc-compiler-x64_x86_windows_mingw",
+    toolchain_identifier = "msys_x64_x86_mingw",
+    toolchain_config = ":msys_x64_x86_mingw",
+    all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":mingw_compiler_files",
+    compiler_files = ":mingw_compiler_files",
+    dwp_files = ":empty",
+    linker_files = ":empty",
+    objcopy_files = ":empty",
+    strip_files = ":empty",
+    supports_param_files = 0,
+)
+
+cc_toolchain_config(
+    name = "msys_x64_x86_mingw",
+    cpu = "x64_x86_windows",
+    compiler = "mingw-gcc",
+    host_system_name = "local",
+    target_system_name = "local",
+    target_libc = "mingw",
+    abi_version = "local",
+    abi_libc_version = "local",
+    tool_bin_path = "%{mingw_tool_bin_path}",
+    cxx_builtin_include_directories = [%{mingw_cxx_builtin_include_directories}],
+    tool_paths = {%{mingw_tool_paths}},
+    default_compile_flags = ["-m32"],
+    default_link_flags = ["-m32"],
+)
+
+toolchain(
+    name = "cc-toolchain-x64_x86_windows_mingw",
+    exec_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:windows",
+        "@bazel_tools//tools/cpp:mingw",
+    ],
+    target_compatible_with = [
+        "@platforms//cpu:x86_32",
+        "@platforms//os:windows",
+    ],
+    toolchain = ":cc-compiler-x64_x86_windows_mingw",
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
 )
 

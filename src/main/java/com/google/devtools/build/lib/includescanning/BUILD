@@ -42,6 +42,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:ephemeral_check_if_output_consumed",
         "//src/main/java/com/google/devtools/build/lib/skyframe:glob_descriptor",
         "//src/main/java/com/google/devtools/build/lib/skyframe:glob_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:invalid_glob_pattern_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:mutable_supplier",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",

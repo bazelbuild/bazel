@@ -60,10 +60,23 @@ public class AutoRegistry {
           "java.lang.invoke.SerializedLambda",
           "java.time.Instant",
           "com.google.common.base.Predicates$InPredicate",
+          // Implementation class for com.google.common.base.Optional.
+          "com.google.common.base.Present",
+          "com.google.common.collect.ImmutableEntry",
           // Sadly, these builders are serialized as part of StarlarkCustomCommandLine$Builder,
           // which apparently can be preserved through analysis. We may investigate if this actually
           // has performance/correctness implications.
-          "com.google.common.collect.ImmutableList$Builder");
+          "com.google.common.collect.ImmutableList$Builder",
+          "java.util.concurrent.atomic.AtomicReference",
+          "java.util.concurrent.atomic.AtomicReferenceArray",
+          // These list types are internal to the Java Collections API but persisted in Skyframe.
+          "java.util.Arrays$ArrayList",
+          "java.util.AbstractMap$SimpleEntry",
+          "java.util.AbstractMap$SimpleImmutableEntry",
+          "java.util.Collections$SingletonList",
+          "java.util.Collections$UnmodifiableList",
+          "java.util.Collections$UnmodifiableRandomAccessList",
+          "java.util.Optional");
 
   private static final ImmutableList<Object> REFERENCE_CONSTANTS_TO_REGISTER =
       ImmutableList.of(

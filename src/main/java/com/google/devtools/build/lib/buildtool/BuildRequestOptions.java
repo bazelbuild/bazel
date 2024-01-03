@@ -69,7 +69,7 @@ public class BuildRequestOptions extends OptionsBase {
 
   @Option(
       name = "experimental_use_semaphore_for_jobs",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
       help = "If set to true, additionally use semaphore to limit number of concurrent jobs.")
@@ -343,9 +343,7 @@ public class BuildRequestOptions extends OptionsBase {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EXECUTION},
-      help =
-          "Whether to use action rewinding to recover from lost inputs. Ignored unless"
-              + " prerequisites for rewinding are met (no incrementality, no action cache).")
+      help = "Whether to use action rewinding to recover from lost inputs.")
   public boolean rewindLostInputs;
 
   @Option(

@@ -217,7 +217,8 @@ public class BlazeRuntimeWrapper {
                 /* commandStartTime= */ 0L,
                 extensions.stream().map(Any::pack).collect(toImmutableList()),
                 this.crashMessages::add,
-                NO_OP_COMMAND_EXTENSION_REPORTER);
+                NO_OP_COMMAND_EXTENSION_REPORTER,
+                /* attemptNumber= */ 1);
     return env;
   }
 
@@ -355,6 +356,8 @@ public class BlazeRuntimeWrapper {
       StoredEventHandler storedEventHandler = new StoredEventHandler();
       reporter.addHandler(storedEventHandler);
 
+      env.decideKeepIncrementalState();
+
       // This cannot go into newCommand, because we hook up the EventCollectionApparatus as a
       // module, and after that ran, further changes to the apparatus aren't reflected on the
       // reporter.
@@ -368,7 +371,8 @@ public class BlazeRuntimeWrapper {
         eventBus.register(subscriber);
       }
 
-      // Replay events from beforeCommand, just as BlazeCommandDispatcher does.
+      // Replay events from decideKeepIncrementalState and beforeCommand, just as
+      // BlazeCommandDispatcher does.
       storedEventHandler.replayOn(reporter);
 
       env.beforeCommand(InvocationPolicy.getDefaultInstance());

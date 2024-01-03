@@ -50,10 +50,14 @@ public abstract class BazelFetchAllValue implements SkyValue {
       super(arg);
     }
 
-    @VisibleForSerialization
-    @AutoCodec.Instantiator
-    static BazelFetchAllValue.Key create(Boolean arg) {
+    private static BazelFetchAllValue.Key create(Boolean arg) {
       return interner.intern(new BazelFetchAllValue.Key(arg));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     @Override

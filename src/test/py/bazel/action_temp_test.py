@@ -156,7 +156,7 @@ class ActionTempTest(test_base.TestBase):
           'fi',
       ]
 
-    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('MODULE.bazel')
     self.ScratchFile('foo/' + toolname, toolsrc, executable=True)
     self.ScratchFile(
         'foo/foo.bzl',

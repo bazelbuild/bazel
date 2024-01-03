@@ -19,22 +19,22 @@ import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 
 /** Codec for {@link Double}. */
-public class DoubleCodec implements ObjectCodec<Double> {
-
+public class DoubleCodec extends LeafObjectCodec<Double> {
   @Override
   public Class<? extends Double> getEncodedClass() {
     return Double.class;
   }
 
   @Override
-  public void serialize(SerializationContext context, Double value, CodedOutputStream codedOut)
-      throws SerializationException, IOException {
+  public void serialize(
+      SerializationDependencyProvider dependencies, Double value, CodedOutputStream codedOut)
+      throws IOException {
     codedOut.writeDoubleNoTag(value);
   }
 
   @Override
-  public Double deserialize(DeserializationContext context, CodedInputStream codedIn)
-      throws SerializationException, IOException {
+  public Double deserialize(SerializationDependencyProvider dependencies, CodedInputStream codedIn)
+      throws IOException {
     return codedIn.readDouble();
   }
 }

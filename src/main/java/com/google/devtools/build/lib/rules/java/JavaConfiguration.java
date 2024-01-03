@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaConfigurationApi;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -113,6 +114,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean multiReleaseDeployJars;
   private final boolean disallowJavaImportExports;
   private final boolean disallowJavaImportEmptyJars;
+  private final boolean autoCreateDeployJarForJavaTests;
 
   // TODO(dmarting): remove once we have a proper solution for #2539
   private final boolean useLegacyBazelJavaTest;
@@ -153,7 +155,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.multiReleaseDeployJars = javaOptions.multiReleaseDeployJars;
     this.disallowJavaImportExports = javaOptions.disallowJavaImportExports;
     this.disallowJavaImportEmptyJars = javaOptions.disallowJavaImportEmptyJars;
-
+    this.autoCreateDeployJarForJavaTests = javaOptions.autoCreateDeployJarForJavaTests;
     Map<String, Label> optimizers = javaOptions.bytecodeOptimizers;
     if (optimizers.size() != 1) {
       throw new InvalidConfigurationException(
@@ -546,4 +548,9 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return experimentalEnableJspecify;
   }
 
+  @Override
+  public boolean autoCreateJavaTestDeployJars(StarlarkThread thread) throws EvalException {
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    return autoCreateDeployJarForJavaTests;
+  }
 }

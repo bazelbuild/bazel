@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpl;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpls;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpls.GnuLibStdCppStlImpl;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpls.LibCppStlImpl;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
@@ -88,14 +89,12 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
       String ruleName, String defaultCrosstool, List<CrosstoolStlPair> crosstools) {
 
     String buildFileTemplate = getTemplate("android_ndk_build_file_template.txt");
-    String ccToolchainSuiteTemplate = getTemplate("android_ndk_cc_toolchain_suite_template.txt");
     String ccToolchainTemplate = getTemplate("android_ndk_cc_toolchain_template.txt");
     String stlFilegroupTemplate = getTemplate("android_ndk_stl_filegroup_template.txt");
     String vulkanValidationLayersTemplate =
         getTemplate("android_ndk_vulkan_validation_layers_template.txt");
     String miscLibrariesTemplate = getTemplate("android_ndk_misc_libraries_template.txt");
 
-    StringBuilder ccToolchainSuites = new StringBuilder();
     StringBuilder ccToolchainRules = new StringBuilder();
     StringBuilder stlFilegroups = new StringBuilder();
     StringBuilder vulkanValidationLayers = new StringBuilder();
@@ -115,14 +114,6 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
                 toolchain.getCompiler(),
                 toolchain.getToolchainIdentifier()));
       }
-
-      String toolchainName = createToolchainName(crosstoolStlPair.stlImpl.getName());
-
-      ccToolchainSuites.append(
-          ccToolchainSuiteTemplate
-              .replace("%toolchainName%", toolchainName)
-              .replace("%toolchainMap%", toolchainMap.toString().trim())
-              .replace("%crosstoolReleaseProto%", crosstool.toString()));
 
       // Create the cc_toolchain rules
       for (CToolchain toolchain : crosstool.getToolchainList()) {
@@ -153,7 +144,6 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
     return buildFileTemplate
         .replace("%ruleName%", ruleName)
         .replace("%defaultCrosstool%", "//:toolchain-" + defaultCrosstool)
-        .replace("%ccToolchainSuites%", ccToolchainSuites)
         .replace("%ccToolchainRules%", ccToolchainRules)
         .replace("%stlFilegroups%", stlFilegroups)
         .replace("%vulkanValidationLayers%", vulkanValidationLayers)
@@ -281,7 +271,12 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
     if (environ == null) {
       return null;
     }
-    prepareLocalRepositorySymlinkTree(rule, outputDirectory);
+    try {
+      outputDirectory.createDirectoryAndParents();
+      FileSystemUtils.createEmptyFile(outputDirectory.getRelative(LabelConstants.REPO_FILE_NAME));
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
     WorkspaceAttributeMapper attributes = WorkspaceAttributeMapper.of(rule);
     PathFragment pathFragment;
     String userDefinedPath = null;

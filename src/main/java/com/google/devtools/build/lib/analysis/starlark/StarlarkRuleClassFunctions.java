@@ -75,8 +75,8 @@ import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithCallback;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithMap;
 import com.google.devtools.build.lib.packages.LabelConverter;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
-import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -1037,8 +1037,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       if (ruleClass == null) {
         throw new EvalException("Invalid rule class hasn't been exported by a bzl file");
       }
-      PackageContext pkgContext = thread.getThreadLocal(PackageContext.class);
-      if (pkgContext == null) {
+      Package.Builder pkgBuilder = thread.getThreadLocal(Package.Builder.class);
+      if (pkgBuilder == null) {
         throw new EvalException(
             "Cannot instantiate a rule when loading a .bzl file. "
                 + "Rules may be instantiated only in a BUILD thread.");
@@ -1086,7 +1086,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                             currentRuleClass.getName(),
                             attr,
                             value,
-                            pkgContext.getBuilder().getLabelConverter());
+                            pkgBuilder.getLabelConverter());
                 initializerKwargs.put(attr.getName(), reifiedValue);
               }
             }
@@ -1141,13 +1141,15 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           new BuildLangTypedAttributeValuesMap(kwargs);
       try {
         RuleFactory.createAndAddRule(
-            pkgContext.getBuilder(),
+            pkgBuilder,
             ruleClass,
             attributeValues,
             thread
                 .getSemantics()
                 .getBool(BuildLanguageOptions.INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES),
-            pkgContext.getEventHandler(),
+            // TODO(#19922): Delete this arg once it's definitely redundant (when the builder owns
+            // its eventHandler).
+            pkgBuilder.getLocalEventHandler(),
             thread.getCallStack());
       } catch (InvalidRuleException | NameConflictException e) {
         throw new EvalException(e);

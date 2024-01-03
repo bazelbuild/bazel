@@ -2354,8 +2354,8 @@ genrule(
   cmd = "cp $< $@",
 )
 EOF
-
-  bazel build --repository_disable_download //:it || fail "Failed to build"
+  # for some reason --repository_disable_download fails with bzlmod trying to download @platforms.
+  bazel build --repository_disable_download --noenable_bzlmod //:it || fail "Failed to build"
 }
 
 function test_no_restarts_fetching_with_worker_thread() {
@@ -2406,6 +2406,203 @@ EOF
 
   FOO=bar bazel build @foo//:bar >& $TEST_log \
     || fail "Expected build to succeed"
+}
+
+
+function test_cred_helper_overrides_starlark_headers() {
+  if "$is_windows"; then
+    # Skip on Windows: credential helper is a Python script.
+    return
+  fi
+
+  setup_credential_helper
+
+  filename="cred_helper_starlark.txt"
+  echo $filename > $filename
+  sha256="$(sha256sum $filename | head -c 64)"
+  serve_file_header_dump $filename credhelper_headers.json
+
+  setup_starlark_repository
+
+  cat > test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.file("BUILD")
+  repository_ctx.download(
+    url = "http://127.0.0.1:$nc_port/$filename",
+    output = "test.txt",
+    sha256 = "$sha256",
+    headers = {
+      "Authorization": ["should be overidden"],
+      "X-Custom-Token": ["foo"]
+    }
+  )
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+
+  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" @foo//:all || fail "expected bazel to succeed"
+
+  headers="${TEST_TMPDIR}/credhelper_headers.json"
+  assert_contains '"Authorization": "Bearer TOKEN"' "$headers"
+  assert_contains '"X-Custom-Token": "foo"' "$headers"
+  assert_not_contains "should be overidden" "$headers"
+}
+
+function test_netrc_overrides_starlark_headers() {
+  filename="netrc_headers.txt"
+  echo $filename > $filename
+  sha256="$(sha256sum $filename | head -c 64)"
+  serve_file_header_dump $filename netrc_headers.json
+
+  setup_starlark_repository
+
+  cat > .netrc <<EOF
+machine 127.0.0.1
+login foo
+password bar
+EOF
+
+  cat > test.bzl <<EOF
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "read_netrc", "use_netrc")
+
+def _impl(repository_ctx):
+  url = "http://127.0.0.1:$nc_port/$filename"
+  netrc = read_netrc(repository_ctx, repository_ctx.attr.netrc)
+  auth = use_netrc(netrc, [url], {})
+  repository_ctx.file("BUILD")
+  repository_ctx.download(
+    url = url,
+    output = "$filename",
+    sha256 = "$sha256",
+    headers = {
+      "Authorization": ["should be overidden"],
+      "X-Custom-Token": ["foo"]
+    },
+    auth = auth
+  )
+
+repo = repository_rule(implementation=_impl, attrs = {"netrc": attr.label(default = ":.netrc")})
+EOF
+
+
+  bazel build @foo//:all || fail "expected bazel to succeed"
+
+  headers="${TEST_TMPDIR}/netrc_headers.json"
+  assert_contains '"Authorization": "Basic Zm9vOmJhcg=="' "$headers"
+  assert_contains '"X-Custom-Token": "foo"' "$headers"
+  assert_not_contains "should be overidden" "$headers"
+}
+
+
+function test_starlark_headers_override_default_headers() {
+
+  filename="default_headers.txt"
+  echo $filename > $filename
+  sha256="$(sha256sum $filename | head -c 64)"
+  serve_file_header_dump $filename default_headers.json
+
+  setup_starlark_repository
+
+  cat > test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.file("BUILD")
+  repository_ctx.download(
+    url = "http://127.0.0.1:$nc_port/$filename",
+    output = "$filename",
+    sha256 = "$sha256",
+    headers = {
+      "Accept": ["application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json"],
+    }
+  )
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:all || fail "expected bazel to succeed"
+
+  headers="${TEST_TMPDIR}/default_headers.json"
+  assert_contains '"Accept": "application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json"' "$headers"
+  assert_not_contains '"Accept": "text/html, image/gif, image/jpeg, */*"' "$headers"
+}
+
+function test_invalid_starlark_headers() {
+
+  filename="invalid_headers.txt"
+  echo $filename > $filename
+  sha256="$(sha256sum $filename | head -c 64)"
+  serve_file_header_dump $filename invalid_headers.json
+
+  setup_starlark_repository
+
+  cat > test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.file("BUILD")
+  repository_ctx.download(
+    url = "http://127.0.0.1:$nc_port/$filename",
+    output = "$filename",
+    sha256 = "$sha256",
+    headers = {
+      "Accept": 1,
+    }
+  )
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:all >& $TEST_log && fail "expected bazel to fail" || :
+  expect_log "headers argument must be a dict whose keys are string and whose values are either string or sequence of string"
+}
+
+function test_string_starlark_headers() {
+
+  filename="string_headers.txt"
+  echo $filename > $filename
+  sha256="$(sha256sum $filename | head -c 64)"
+  serve_file_header_dump $filename string_headers.json
+
+  setup_starlark_repository
+
+  cat > test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.file("BUILD")
+  repository_ctx.download(
+    url = "http://127.0.0.1:$nc_port/$filename",
+    output = "$filename",
+    sha256 = "$sha256",
+    headers = {
+      "Accept": "application/text",
+    }
+  )
+
+repo = repository_rule(implementation=_impl)
+EOF
+
+  bazel build @foo//:all || fail "expected bazel to succeed"
+  headers="${TEST_TMPDIR}/string_headers.json"
+  assert_contains '"Accept": "application/text"' "$headers"
+}
+
+function test_repo_boundary_files() {
+  create_new_workspace
+  cat > MODULE.bazel <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  rctx.file("BUILD", "filegroup(name='r', srcs=glob(['*']))")
+r = repository_rule(_r)
+EOF
+
+  bazel query --noenable_workspace --output=build @r > output || fail "expected bazel to succeed"
+  assert_contains 'REPO.bazel' output
+  assert_not_contains 'WORKSPACE' output
+
+  bazel query --enable_workspace --output=build @r > output || fail "expected bazel to succeed"
+  assert_contains 'REPO.bazel' output
+  assert_contains 'WORKSPACE' output
 }
 
 run_suite "local repository tests"

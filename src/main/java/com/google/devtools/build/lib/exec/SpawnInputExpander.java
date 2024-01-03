@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -36,6 +35,7 @@ import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -130,14 +130,11 @@ public class SpawnInputExpander {
       PathMapper pathMapper,
       PathFragment baseDirectory)
       throws IOException, ForbiddenActionInputException {
-    Map<PathFragment, Map<PathFragment, Artifact>> rootsAndMappings =
-        runfilesSupplier.getMappings();
-    for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> rootAndMappings :
-        rootsAndMappings.entrySet()) {
+    for (RunfilesTree runfilesTree : runfilesSupplier.getRunfilesTrees()) {
       addSingleRunfilesTreeToInputs(
           inputMap,
-          rootAndMappings.getKey(),
-          rootAndMappings.getValue(),
+          runfilesTree.getExecPath(),
+          runfilesTree.getMapping(),
           inputMetadataProvider,
           artifactExpander,
           pathMapper,
@@ -424,12 +421,9 @@ public class SpawnInputExpander {
       PathMapper pathMapper,
       InputVisitor visitor)
       throws IOException, ForbiddenActionInputException {
-    ImmutableMap<PathFragment, Map<PathFragment, Artifact>> rootsAndMappings =
-        runfilesSupplier.getMappings();
-    for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> rootAndMappings :
-        rootsAndMappings.entrySet()) {
-      PathFragment root = rootAndMappings.getKey();
-      Map<PathFragment, Artifact> mappings = rootAndMappings.getValue();
+    for (RunfilesTree runfilesTree : runfilesSupplier.getRunfilesTrees()) {
+      PathFragment root = runfilesTree.getExecPath();
+      Map<PathFragment, Artifact> mappings = runfilesTree.getMapping();
       visitor.visit(
           // Cache key for the sub-mapping containing this runfiles tree.
           ImmutableList.of(root, baseDirectory, pathMapper.cacheKey()),

@@ -34,6 +34,7 @@ public class BuiltinCommandModule extends BlazeModule {
         new CleanCommand(),
         new CoverageCommand(),
         new DumpCommand(),
+        new FocusCommand(),
         new HelpCommand(),
         new InfoCommand(),
         new PrintActionCommand(),

@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
-import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -292,15 +291,16 @@ public class RuleFactory {
       }
       BazelStarlarkContext.checkLoadingOrWorkspacePhase(thread, ruleClass.getName());
       try {
-        PackageContext context = PackageFactory.getContext(thread);
+        Package.Builder pkgBuilder = PackageFactory.getContext(thread);
         RuleFactory.createAndAddRule(
-            context.pkgBuilder,
+            pkgBuilder,
             ruleClass,
             new BuildLangTypedAttributeValuesMap(kwargs),
             thread
                 .getSemantics()
                 .getBool(BuildLanguageOptions.INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES),
-            context.eventHandler,
+            // TODO(#19922): createAndAddRule() should get this from the builder arg directly.
+            pkgBuilder.getLocalEventHandler(),
             thread.getCallStack());
       } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {
         throw new EvalException(e);

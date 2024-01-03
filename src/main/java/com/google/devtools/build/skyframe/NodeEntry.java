@@ -127,6 +127,10 @@ public interface NodeEntry {
      * <p>A node dirtied with {@code REWIND} is re-evaluated during the evaluation phase if it is
      * requested, regardless of the state of its dependencies. Even if it re-evaluates to the same
      * value, dirty parents are re-evaluated.
+     *
+     * <p>Rewinding is tolerated but no-op if the node is already dirty or is done with an
+     * {@linkplain #getErrorInfo() error} (regardless of the error's {@link
+     * com.google.devtools.build.skyframe.SkyFunctionException.Transience}).
      */
     REWIND
   }
@@ -155,10 +159,10 @@ public interface NodeEntry {
    * !P.isChanged()}. Otherwise, this will throw {@link IllegalStateException}.
    *
    * <p>{@code markDirty(DirtyType.REWIND)} may be called at any time (even multiple times
-   * concurrently), although it only has an effect if the node {@link #isDone}.
+   * concurrently), although it only has an effect if the node {@link #isDone} with no error.
    *
-   * @return if the node was done, a {@link MarkedDirtyResult} which may include the node's reverse
-   *     deps; otherwise {@code null}
+   * @return if the node transitioned from done to dirty as a result of this call, a {@link
+   *     MarkedDirtyResult} which may include the node's reverse deps; otherwise {@code null}
    */
   @Nullable
   @ThreadSafe
@@ -245,7 +249,7 @@ public interface NodeEntry {
   @ThreadSafe
   boolean hasAtLeastOneDep() throws InterruptedException;
 
-  /** Removes a reverse dependency. */
+  /** Removes a reverse dependency, which must be present. */
   @ThreadSafe
   void removeReverseDep(SkyKey reverseDep) throws InterruptedException;
 
@@ -256,16 +260,6 @@ public interface NodeEntry {
    */
   @ThreadSafe
   void removeReverseDepsFromDoneEntryDueToDeletion(Set<SkyKey> deletedKeys);
-
-  /**
-   * Removes a reverse dependency.
-   *
-   * <p>May only be called if this entry is not done (i.e. {@link #isDone} is false) and {@code
-   * reverseDep} was added/confirmed during this evaluation (by {@link #addReverseDepAndCheckIfDone}
-   * or {@link #checkIfDoneForDirtyReverseDep}).
-   */
-  @ThreadSafe
-  void removeInProgressReverseDep(SkyKey reverseDep);
 
   /**
    * Returns a copy of the set of reverse dependencies. Note that this introduces a potential
@@ -290,8 +284,14 @@ public interface NodeEntry {
   @Nullable
   SkyValue getValueMaybeWithMetadata() throws InterruptedException;
 
-  /** Returns the value, even if dirty or changed. Returns null otherwise. */
+  /**
+   * Returns the last known value of this node, even if it was {@linkplain #markDirty marked dirty}.
+   *
+   * <p>Unlike {@link #getValue}, this method may be called at any point in the node's lifecycle.
+   * Returns {@code null} if this node was never built or has no value because it is in error.
+   */
   @ThreadSafe
+  @Nullable
   SkyValue toValue() throws InterruptedException;
 
   /**

@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
@@ -42,7 +43,6 @@ import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidDevice;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidDeviceScriptFixture;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidHostServiceFixture;
-import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidInstrumentationTestRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidLocalTestRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSdkRule;
@@ -76,7 +76,6 @@ import com.google.devtools.build.lib.rules.android.AndroidHostServiceFixtureRule
 import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider;
 import com.google.devtools.build.lib.rules.android.AndroidIdlProvider;
 import com.google.devtools.build.lib.rules.android.AndroidInstrumentationInfo;
-import com.google.devtools.build.lib.rules.android.AndroidInstrumentationTestBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryAarInfo;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryResourceClassJarProvider;
@@ -110,9 +109,7 @@ import com.google.devtools.build.lib.rules.objc.BazelObjcStarlarkInternal;
 import com.google.devtools.build.lib.rules.objc.ObjcStarlarkInternal;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.proto.BazelProtoCommon;
-import com.google.devtools.build.lib.rules.proto.BazelProtoLibraryRule;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
-import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainRule;
 import com.google.devtools.build.lib.rules.python.PyRuleClasses.Py3Symlink;
 import com.google.devtools.build.lib.rules.python.PyRuntimeRule;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
@@ -318,14 +315,12 @@ public class BazelRuleClassProvider {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
           builder.addConfigurationFragment(ProtoConfiguration.class);
-          builder.addRuleDefinition(new BazelProtoLibraryRule());
-          builder.addRuleDefinition(new ProtoLangToolchainRule());
+          builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("proto_library") {});
+          builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("proto_lang_toolchain") {});
 
           ProtoBootstrap bootstrap =
               new ProtoBootstrap(
-                  BazelProtoCommon.INSTANCE,
-                  new StarlarkAspectStub(),
-                  new ProviderStub());
+                  BazelProtoCommon.INSTANCE, new StarlarkAspectStub(), new ProviderStub());
           builder.addStarlarkBootstrap(bootstrap);
         }
 
@@ -394,8 +389,6 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new AndroidDeviceRule(BazelAndroidDevice.class));
           builder.addRuleDefinition(new AndroidLocalTestBaseRule());
           builder.addRuleDefinition(new BazelAndroidLocalTestRule());
-          builder.addRuleDefinition(new AndroidInstrumentationTestBaseRule());
-          builder.addRuleDefinition(new BazelAndroidInstrumentationTestRule());
           builder.addRuleDefinition(
               new AndroidDeviceScriptFixtureRule(BazelAndroidDeviceScriptFixture.class));
           builder.addRuleDefinition(

@@ -179,6 +179,7 @@ java_library(
         "FileHandlerQuerier.java",
         "Fingerprint.java",
         "JavaSleeper.java",
+        "LatestObjectMetricExporter.java",
         "LogHandlerQuerier.java",
         "LoggingUtil.java",
         "LongArrayList.java",
