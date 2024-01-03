@@ -14,10 +14,10 @@
 package com.google.devtools.build.lib.query2.cquery;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.testutil.AbstractQueryTest.QueryHelper;
 import com.google.devtools.build.lib.query2.testutil.PostAnalysisQueryHelper;
@@ -32,7 +32,7 @@ import java.util.Collection;
  * AnalysisTestCase} must be run manually. @BeforeClass and @AfterClass are completely ignored for
  * now.
  */
-public class ConfiguredTargetQueryHelper extends PostAnalysisQueryHelper<ConfiguredTarget> {
+public class ConfiguredTargetQueryHelper extends PostAnalysisQueryHelper<CqueryNode> {
   @Override
   protected ConfiguredTargetQueryEnvironment getPostAnalysisQueryEnvironment(
       WalkableGraph walkableGraph,
@@ -56,7 +56,7 @@ public class ConfiguredTargetQueryHelper extends PostAnalysisQueryHelper<Configu
   }
 
   @Override
-  public String getLabel(ConfiguredTarget target) {
+  public String getLabel(CqueryNode target) {
     return target.getOriginalLabel().toString();
   }
 }

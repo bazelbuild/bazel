@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.LabelPrinter;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -95,7 +97,7 @@ public final class AspectKeyCreator {
    * aspects and its {@code baseKeys} list will be empty.
    */
   @AutoCodec
-  public abstract static class AspectKey extends AspectBaseKey {
+  public abstract static class AspectKey extends AspectBaseKey implements CqueryNode {
     private static final SkyKeyInterner<AspectKey> interner = SkyKey.newInterner();
 
     private final AspectDescriptor aspectDescriptor;
@@ -146,6 +148,11 @@ public final class AspectKeyCreator {
     public abstract String getDescription();
 
     @Override
+    public String getDescription(LabelPrinter labelPrinter) {
+      return getDescription();
+    }
+
+    @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.ASPECT;
     }
@@ -163,6 +170,16 @@ public final class AspectKeyCreator {
     @Override
     public Label getLabel() {
       return getBaseConfiguredTargetKey().getLabel();
+    }
+
+    @Override
+    public SkyKeyInterner<AspectKey> getSkyKeyInterner() {
+      return interner;
+    }
+
+    @Override
+    public ActionLookupKey getLookupKey() {
+      return this;
     }
 
     public AspectClass getAspectClass() {
@@ -215,11 +232,15 @@ public final class AspectKeyCreator {
           getLabel(), aspectDescriptor.getAspectClass().getName(), baseKeysString);
     }
 
-    @Override
-    public String toString() {
+    public String getAspectLabel() {
       return (getBaseKeys().isEmpty() ? getLabel() : getBaseKeys().toString())
           + "#"
-          + aspectDescriptor
+          + aspectDescriptor;
+    }
+
+    @Override
+    public String toString() {
+      return getAspectLabel()
           + " "
           + getBaseConfiguredTargetKey()
           + " "
@@ -237,11 +258,6 @@ public final class AspectKeyCreator {
               .build(),
           newBaseKeys,
           aspectDescriptor);
-    }
-
-    @Override
-    public SkyKeyInterner<AspectKey> getSkyKeyInterner() {
-      return interner;
     }
 
     static class SimpleAspectKey extends AspectKey {
@@ -282,7 +298,10 @@ public final class AspectKeyCreator {
 
       @Override
       public String getDescription() {
-        return String.format("%s on top of %s", getAspectClass().getName(), baseKeys);
+        return String.format(
+            "%s on top of %s",
+            getAspectClass().getName(),
+            baseKeys.stream().map(AspectKey::getDescription).collect(toImmutableList()));
       }
     }
   }

@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Configuration;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.CqueryResult;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.CqueryResultOrBuilder;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -38,6 +37,7 @@ import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions.Transitions;
 import com.google.devtools.build.lib.query2.cquery.CqueryTransitionResolver.EvaluateException;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
@@ -132,14 +132,14 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
 
   private final Map<Label, Target> partialResultMap;
   private final LabelPrinter labelPrinter;
-  private ConfiguredTarget currentTarget;
+  private CqueryNode currentTarget;
 
   ProtoOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<ConfiguredTarget> accessor,
+      TargetAccessor<CqueryNode> accessor,
       AspectResolver resolver,
       OutputType outputType,
       RuleClassProvider ruleClassProvider,
@@ -238,7 +238,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   @Override
-  public void processOutput(Iterable<ConfiguredTarget> partialResult)
+  public void processOutput(Iterable<CqueryNode> partialResult)
       throws InterruptedException, IOException {
     partialResult.forEach(
         kct -> partialResultMap.put(kct.getOriginalLabel(), accessor.getTarget(kct)));
@@ -253,7 +253,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
 
     ConfiguredProtoOutputFormatter formatter = new ConfiguredProtoOutputFormatter();
     formatter.setOptions(options, resolver, skyframeExecutor.getDigestFunction().getHashFunction());
-    for (ConfiguredTarget keyedConfiguredTarget : partialResult) {
+    for (CqueryNode keyedConfiguredTarget : partialResult) {
       AnalysisProtosV2.ConfiguredTarget.Builder builder =
           AnalysisProtosV2.ConfiguredTarget.newBuilder();
 
