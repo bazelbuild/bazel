@@ -11,38 +11,49 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import static com.google.devtools.build.lib.skyframe.serialization.ArrayProcessor.deserializeObjectArrayFully;
+
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /** {@link ObjectCodec} for {@link ImmutableSet} and other sets that should be immutable. */
-@SuppressWarnings("rawtypes") // Intentional erasure of ImmutableSet.
-final class ImmutableSetRuntimeCodec implements ObjectCodec<Set> {
-  @SuppressWarnings("unchecked")
-  private static final Class<Set> LINKED_HASH_MULTIMAP_CLASS =
+@SuppressWarnings({"rawtypes", "unchecked"})
+final class ImmutableSetCodec extends DeferredObjectCodec<Set> {
+  // Conversion of the types below to ImmutableSet is sound because the underlying types are hidden
+  // and only referenceable as the Set type.
+
+  @VisibleForTesting
+  static final Class<Set> MULTIMAP_VALUE_SET_CLASS =
       (Class<Set>) LinkedHashMultimap.create(ImmutableMultimap.of("a", "b")).get("a").getClass();
 
-  @SuppressWarnings("unchecked")
   private static final Class<Set> SINGLETON_SET_CLASS =
       (Class<Set>) Collections.singleton("a").getClass();
 
-  @SuppressWarnings("unchecked")
   private static final Class<Set> SUBSET_CLASS =
       (Class<Set>) Iterables.getOnlyElement(Sets.powerSet(ImmutableSet.of())).getClass();
 
-  @SuppressWarnings("unchecked")
-  private static final Class<Set> EMPTY_SET_CLASS = (Class<Set>) Collections.emptySet().getClass();
+  /**
+   * Defines a reference constant for {@link Collections#emptySet}.
+   *
+   * <p>This is done here because we can't add the annotation to the JDK code.
+   */
+  @SuppressWarnings({"EmptySet", "ConstantCaseForConstants"})
+  @SerializationConstant
+  static final Set EMPTY_SET = Collections.emptySet();
 
   @Override
   public Class<ImmutableSet> getEncodedClass() {
@@ -51,8 +62,7 @@ final class ImmutableSetRuntimeCodec implements ObjectCodec<Set> {
 
   @Override
   public ImmutableList<Class<? extends Set>> additionalEncodedClasses() {
-    return ImmutableList.of(
-        LINKED_HASH_MULTIMAP_CLASS, SINGLETON_SET_CLASS, EMPTY_SET_CLASS, SUBSET_CLASS);
+    return ImmutableList.of(MULTIMAP_VALUE_SET_CLASS, SINGLETON_SET_CLASS, SUBSET_CLASS);
   }
 
   @Override
@@ -64,17 +74,27 @@ final class ImmutableSetRuntimeCodec implements ObjectCodec<Set> {
     }
   }
 
-  @SuppressWarnings("unchecked") // Adding object to untyped builder.
   @Override
-  public ImmutableSet deserialize(DeserializationContext context, CodedInputStream codedIn)
+  public Supplier<Set> deserializeDeferred(
+      AsyncDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     int size = codedIn.readInt32();
-    ImmutableSet.Builder builder = ImmutableSet.builderWithExpectedSize(size);
-    for (int i = 0; i < size; i++) {
-      // Don't inline so builder knows this is an object, not an array.
-      Object item = context.deserialize(codedIn);
-      builder.add(item);
+
+    ElementBuffer buffer = new ElementBuffer(size);
+    deserializeObjectArrayFully(context, codedIn, buffer.elements, size);
+    return buffer;
+  }
+
+  private static class ElementBuffer implements Supplier<Set> {
+    private final Object[] elements;
+
+    private ElementBuffer(int size) {
+      this.elements = new Object[size];
     }
-    return builder.build();
+
+    @Override
+    public ImmutableSet get() {
+      return ImmutableSet.builderWithExpectedSize(elements.length).add(elements).build();
+    }
   }
 }
