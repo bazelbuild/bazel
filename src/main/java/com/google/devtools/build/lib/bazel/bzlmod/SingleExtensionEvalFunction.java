@@ -32,6 +32,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionEvalFunction.DiffRecorder.DiffFoundEarlyExitException;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule.RepositoryRuleFunction;
@@ -255,11 +256,42 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       throw new SingleExtensionEvalFunctionException(e, Transience.PERSISTENT);
     }
 
-    LockedExtensionDiffDetector diffDetector = new LockedExtensionDiffDetector(/* recordDiffMessages= */
+    DiffRecorder diffRecorder = new DiffRecorder(/* recordMessages= */
         lockfileMode.equals(LockfileMode.ERROR));
-    diffDetector.detectDiffs(extensionId, env, extension, lockedExtension,
-        usagesValue.getExtensionUsages(), lockedExtensionUsages);
-    if (!diffDetector.anyDiffsDetected()) {
+    try {
+      // Put faster diff detections earlier, so that we can short-circuit in UPDATE mode.
+      if (!Arrays.equals(extension.getBzlTransitiveDigest(),
+          lockedExtension.getBzlTransitiveDigest())) {
+        diffRecorder.record(
+            "The implementation of the extension '"
+                + extensionId
+                + "' or one of its transitive .bzl files has changed");
+      }
+      if (!extension.getEnvVars().equals(lockedExtension.getEnvVariables())) {
+        diffRecorder.record(
+            "The environment variables the extension '"
+                + extensionId
+                + "' depends on (or their values) have changed");
+      }
+      // Check extension data in lockfile is still valid, disregarding usage information that is not
+      // relevant for the evaluation of the extension.
+      if (!ModuleExtensionUsage.trimForEvaluation(usagesValue.getExtensionUsages())
+          .equals(ModuleExtensionUsage.trimForEvaluation(lockedExtensionUsages))) {
+        diffRecorder.record("The usages of the extension '" + extensionId + "' have changed");
+      }
+      if (didRepoMappingsChange(env, lockedExtension.getRecordedRepoMappingEntries())) {
+        diffRecorder.record(
+            "The repo mappings of certain repos used by the extension '" + extensionId
+                + "' have changed");
+      }
+      if (didFilesChange(env, lockedExtension.getAccumulatedFileDigests())) {
+        diffRecorder.record(
+            "One or more files the extension '" + extensionId + "' is using have changed");
+      }
+    } catch (DiffFoundEarlyExitException ignored) {
+      // ignored
+    }
+    if (!diffRecorder.anyDiffsDetected()) {
       return validateAndCreateSingleExtensionEvalValue(
           lockedExtension.getGeneratedRepoSpecs(),
           lockedExtension.getModuleExtensionMetadata(),
@@ -273,69 +305,29 @@ public class SingleExtensionEvalFunction implements SkyFunction {
               Code.BAD_MODULE,
               "MODULE.bazel.lock is no longer up-to-date because: %s. "
                   + "Please run `bazel mod deps --lockfile_mode=update` to update your lockfile.",
-              diffDetector.getRecordedDiffMessages()),
+              diffRecorder.getRecordedDiffMessages()),
           Transience.PERSISTENT);
     }
     return null;
   }
 
-  private static final class LockedExtensionDiffDetector {
+  private static final class DiffRecorder {
     private boolean diffDetected = false;
     private final ImmutableList.Builder<String> diffMessages;
 
-    LockedExtensionDiffDetector(boolean recordDiffs) {
-      diffMessages = recordDiffs ? ImmutableList.builder() : null;
+    DiffRecorder(boolean recordMessages) {
+      diffMessages = recordMessages ? ImmutableList.builder() : null;
     }
 
     static class DiffFoundEarlyExitException extends Exception {
     }
 
-    private void reportDiff(String message) throws DiffFoundEarlyExitException {
+    private void record(String message) throws DiffFoundEarlyExitException {
       diffDetected = true;
       if (diffMessages != null) {
         diffMessages.add(message);
       } else {
         throw new DiffFoundEarlyExitException();
-      }
-    }
-
-    public void detectDiffs(ModuleExtensionId extensionId, Environment env,
-        RunnableExtension extension,
-        LockFileModuleExtension lockedExtension,
-        ImmutableMap<ModuleKey, ModuleExtensionUsage> extensionUsages,
-        ImmutableMap<ModuleKey, ModuleExtensionUsage> lockedExtensionUsages)
-        throws InterruptedException, NeedsSkyframeRestartException {
-      try {
-        // Put faster diff detections earlier, so that we can short-circuit in UPDATE mode.
-        if (!Arrays.equals(extension.getBzlTransitiveDigest(),
-            lockedExtension.getBzlTransitiveDigest())) {
-          reportDiff(
-              "The implementation of the extension '"
-                  + extensionId
-                  + "' or one of its transitive .bzl files has changed");
-        }
-        if (!extension.getEnvVars().equals(lockedExtension.getEnvVariables())) {
-          reportDiff(
-              "The environment variables the extension '"
-                  + extensionId
-                  + "' depends on (or their values) have changed");
-        }
-        // Check extension data in lockfile is still valid, disregarding usage information that is not
-        // relevant for the evaluation of the extension.
-        if (!ModuleExtensionUsage.trimForEvaluation(extensionUsages)
-            .equals(ModuleExtensionUsage.trimForEvaluation(lockedExtensionUsages))) {
-          reportDiff("The usages of the extension '" + extensionId + "' have changed");
-        }
-        if (didRepoMappingsChange(env, lockedExtension.getRecordedRepoMappingEntries())) {
-          reportDiff("The repo mapping of certain repos used by the extension '" + extensionId
-              + "' have changed");
-        }
-        if (didFilesChange(env, lockedExtension.getAccumulatedFileDigests())) {
-          reportDiff(
-              "One or more files the extension '" + extensionId + "' is using have changed");
-        }
-      } catch (DiffFoundEarlyExitException ignored) {
-        // ignored
       }
     }
 
@@ -358,7 +350,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       // This shouldn't really happen, since the RepositoryMappingValues of any recorded repos
       // should have already been requested by the time we load the .bzl for the extension. And this
       // method is only called if the transitive .bzl digest hasn't changed.
-      // However, we pretend to restart Skyframe anyway because we're good citizens.
+      // However, we pretend it could happen anyway because we're good citizens.
       throw new NeedsSkyframeRestartException();
     }
     for (Table.Cell<RepositoryName, String, RepositoryName> cell : recordedRepoMappings.cellSet()) {

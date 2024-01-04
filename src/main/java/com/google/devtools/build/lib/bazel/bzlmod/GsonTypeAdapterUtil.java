@@ -303,7 +303,8 @@ public final class GsonTypeAdapterUtil {
 
   /**
    * Converts Guava tables into a JSON array of 3-tuples (one per cell). Each 3-tuple is a JSON
-   * array itself (rowKey, columnKey, value).
+   * array itself (rowKey, columnKey, value). For example, a JSON snippet could be: {@code
+   * [ ["row1", "col1", "value1"], ["row2", "col2", "value2"], ... ]}
    */
   public static final TypeAdapterFactory IMMUTABLE_TABLE =
       new TypeAdapterFactory() {

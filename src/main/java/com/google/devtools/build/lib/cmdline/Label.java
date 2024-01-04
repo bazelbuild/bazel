@@ -224,7 +224,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
     }
   }
 
-  public static Label parseWithPackageContextRecordingRepoMapping(String raw,
+  public static Label parseWithPackageContext(String raw,
       PackageContext packageContext, @Nullable RepoMappingRecorder repoMappingRecorder)
       throws LabelSyntaxException {
     Parts parts = Parts.parse(raw);
