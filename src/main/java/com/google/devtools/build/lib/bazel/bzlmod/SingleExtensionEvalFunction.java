@@ -32,7 +32,6 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionEvalFunction.DiffRecorder.DiffFoundEarlyExitException;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule.RepositoryRuleFunction;
@@ -311,15 +310,14 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     return null;
   }
 
+  private static final class DiffFoundEarlyExitException extends Exception {}
+
   private static final class DiffRecorder {
     private boolean diffDetected = false;
     private final ImmutableList.Builder<String> diffMessages;
 
     DiffRecorder(boolean recordMessages) {
       diffMessages = recordMessages ? ImmutableList.builder() : null;
-    }
-
-    static class DiffFoundEarlyExitException extends Exception {
     }
 
     private void record(String message) throws DiffFoundEarlyExitException {
