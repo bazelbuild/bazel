@@ -46,7 +46,6 @@ public final class LinkCommandLine extends CommandLine {
   // The feature config can be null for tests.
   @Nullable private final FeatureConfiguration featureConfiguration;
   private final LinkTargetType linkTargetType;
-  private final Link.LinkingMode linkingMode;
   @Nullable private final PathFragment toolchainLibrariesSolibDir;
   private final boolean nativeDeps;
   private final boolean useTestOnlyFlags;
@@ -57,7 +56,6 @@ public final class LinkCommandLine extends CommandLine {
       String actionName,
       String forcedToolPath,
       LinkTargetType linkTargetType,
-      Link.LinkingMode linkingMode,
       @Nullable PathFragment toolchainLibrariesSolibDir,
       boolean nativeDeps,
       boolean useTestOnlyFlags,
@@ -70,7 +68,6 @@ public final class LinkCommandLine extends CommandLine {
     this.variables = variables;
     this.featureConfiguration = featureConfiguration;
     this.linkTargetType = Preconditions.checkNotNull(linkTargetType);
-    this.linkingMode = Preconditions.checkNotNull(linkingMode);
     this.toolchainLibrariesSolibDir = toolchainLibrariesSolibDir;
     this.nativeDeps = nativeDeps;
     this.useTestOnlyFlags = useTestOnlyFlags;
@@ -84,11 +81,6 @@ public final class LinkCommandLine extends CommandLine {
 
   public String getActionName() {
     return actionName;
-  }
-
-  /** Returns the "staticness" of the link. */
-  public Link.LinkingMode getLinkingMode() {
-    return linkingMode;
   }
 
   /** Returns the path to the linker. */
@@ -356,7 +348,6 @@ public final class LinkCommandLine extends CommandLine {
 
     private String forcedToolPath;
     @Nullable private LinkTargetType linkTargetType;
-    private Link.LinkingMode linkingMode = Link.LinkingMode.STATIC;
     @Nullable private PathFragment toolchainLibrariesSolibDir;
     private boolean nativeDeps;
     private boolean useTestOnlyFlags;
@@ -374,7 +365,6 @@ public final class LinkCommandLine extends CommandLine {
           actionName,
           forcedToolPath,
           linkTargetType,
-          linkingMode,
           toolchainLibrariesSolibDir,
           nativeDeps,
           useTestOnlyFlags,
@@ -407,17 +397,6 @@ public final class LinkCommandLine extends CommandLine {
     public Builder setLinkTargetType(LinkTargetType linkTargetType) {
       Preconditions.checkArgument(linkTargetType != LinkTargetType.INTERFACE_DYNAMIC_LIBRARY);
       this.linkTargetType = linkTargetType;
-      return this;
-    }
-
-    /**
-     * Sets how static the link is supposed to be. For static target types (see {@link
-     * LinkTargetType#linkerOrArchiver()}}), the {@link #build} method throws an exception if this
-     * is not {@link LinkingMode#STATIC}. The default setting is {@link LinkingMode#STATIC}.
-     */
-    @CanIgnoreReturnValue
-    public Builder setLinkingMode(Link.LinkingMode linkingMode) {
-      this.linkingMode = linkingMode;
       return this;
     }
 

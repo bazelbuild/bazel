@@ -894,7 +894,6 @@ public class CppLinkActionBuilder {
         new LinkCommandLine.Builder()
             .setActionName(getActionName())
             .setLinkTargetType(linkType)
-            .setLinkingMode(linkingMode)
             .setToolchainLibrariesSolibDir(
                 linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER
                     ? null

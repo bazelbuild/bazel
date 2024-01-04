@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLin
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
-import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -157,7 +156,6 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
         minimalConfiguration()
             .forceToolPath("foo/bar/gcc")
             .setLinkTargetType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
-            .setLinkingMode(LinkingMode.STATIC)
             .build();
     List<String> argv = linkConfig.getRawLinkArgv();
     for (String arg : argv) {
@@ -180,7 +178,6 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
             .forceToolPath("foo/bar/gcc")
             .setActionName(LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName())
             .setLinkTargetType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
-            .setLinkingMode(LinkingMode.STATIC)
             .build();
     String commandLine = Joiner.on(" ").join(linkConfig.getRawLinkArgv());
     assertThat(commandLine).matches(".*foo -Wl,-whole-archive bar -Wl,-no-whole-archive.*");
@@ -198,7 +195,6 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
         minimalConfiguration(variables)
             .setActionName(LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName())
             .setLinkTargetType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
-            .setLinkingMode(LinkingMode.STATIC)
             .build();
     assertThat(linkConfig.getRawLinkArgv()).containsAtLeast("-Lfoo", "-Lbar").inOrder();
   }
@@ -214,7 +210,6 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
         minimalConfiguration(variables)
             .setActionName(LinkTargetType.STATIC_LIBRARY.getActionName())
             .setLinkTargetType(LinkTargetType.STATIC_LIBRARY)
-            .setLinkingMode(Link.LinkingMode.STATIC)
             .build();
     assertThat(linkConfig.getRawLinkArgv()).contains("@foo/bar.param");
   }
@@ -230,7 +225,6 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
         minimalConfiguration(variables)
             .setActionName(LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName())
             .setLinkTargetType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
-            .setLinkingMode(Link.LinkingMode.STATIC)
             .build();
     assertThat(linkConfig.getRawLinkArgv()).contains("@foo/bar.param");
   }
@@ -245,7 +239,6 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
         minimalConfiguration(variables)
             .setActionName(targetType.getActionName())
             .setLinkTargetType(targetType)
-            .setLinkingMode(LinkingMode.STATIC)
             .build();
     return linkConfig.arguments();
   }
@@ -421,7 +414,6 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
             .forceToolPath("foo/bar/gcc")
             .setActionName(LinkTargetType.STATIC_LIBRARY.getActionName())
             .setLinkTargetType(LinkTargetType.STATIC_LIBRARY)
-            .setLinkingMode(Link.LinkingMode.STATIC)
             .setParamFile(paramFile)
             .build();
 
