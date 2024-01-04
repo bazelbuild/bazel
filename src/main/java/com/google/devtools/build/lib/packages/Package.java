@@ -1553,15 +1553,8 @@ public class Package {
      */
     void addRuleUnchecked(Rule rule) {
       Preconditions.checkArgument(rule.getPackage() == pkg);
-      // Now, modify the package:
       for (OutputFile outputFile : rule.getOutputFiles()) {
         targets.put(outputFile.getName(), outputFile);
-        PathFragment outputFileFragment = PathFragment.create(outputFile.getName());
-        int segmentCount = outputFileFragment.segmentCount();
-        for (int i = 1; i < segmentCount; i++) {
-          String prefix = outputFileFragment.subFragment(0, i).toString();
-          outputFilePrefixes.putIfAbsent(prefix, outputFile);
-        }
       }
       targets.put(rule.getName(), rule);
       if (rule.containsErrors()) {
