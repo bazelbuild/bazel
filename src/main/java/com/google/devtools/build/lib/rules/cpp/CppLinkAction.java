@@ -399,7 +399,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
     info.setLinkStaticness(linkCommandLine.getLinkingMode().name());
     info.addAllLinkStamp(Artifact.toExecPaths(getLinkstampObjects()));
     info.addAllBuildInfoHeaderArtifact(Artifact.toExecPaths(getBuildInfoHeaderArtifacts()));
-    info.addAllLinkOpt(linkCommandLine.getRawLinkArgv(null));
+    info.addAllLinkOpt(linkCommandLine.arguments());
 
     try {
       return super.getExtraActionInfo(actionKeyContext)

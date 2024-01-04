@@ -1079,13 +1079,13 @@ public final class CppLinkActionTest extends BuildViewTestCase {
 
     // Should only reference the tree artifact.
     verifyArguments(
-        linkAction.getLinkCommandLineForTesting().getRawLinkArgv(),
+        linkAction.getLinkCommandLineForTesting().arguments(),
         treeArtifactsPaths,
         treeFileArtifactsPaths);
 
     // Should only reference tree file artifacts.
     verifyArguments(
-        linkAction.getLinkCommandLineForTesting().getRawLinkArgv(expander),
+        linkAction.getLinkCommandLineForTesting().arguments(expander, null),
         treeFileArtifactsPaths,
         treeArtifactsPaths);
   }
@@ -1166,7 +1166,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
             .setLibraryIdentifier("foo")
             .build();
 
-    List<String> argv = linkAction.getLinkCommandLineForTesting().getRawLinkArgv();
+    List<String> argv = linkAction.getLinkCommandLineForTesting().arguments();
     assertThat(argv).doesNotContain("-pie");
     assertThat(argv).contains("-other");
   }
@@ -1188,7 +1188,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
             .addLinkopts(ImmutableList.of("-pie", "-other", "-pie"))
             .build();
 
-    List<String> argv = linkAction.getLinkCommandLineForTesting().getRawLinkArgv();
+    List<String> argv = linkAction.getLinkCommandLineForTesting().arguments();
     assertThat(argv).contains("-pie");
     assertThat(argv).contains("-other");
   }
@@ -1218,7 +1218,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
             .addLinkopts(ImmutableList.of("FakeLinkopt1", "FakeLinkopt2"))
             .build();
 
-    List<String> argv = linkAction.getLinkCommandLineForTesting().getRawLinkArgv();
+    List<String> argv = linkAction.getLinkCommandLineForTesting().arguments();
     int lastLinkerInputIndex =
         Ints.max(
             argv.indexOf("FakeLinkerInput1"), argv.indexOf("FakeLinkerInput2"),

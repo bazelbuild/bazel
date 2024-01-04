@@ -289,23 +289,12 @@ public final class LinkCommandLine extends CommandLine {
 
   /**
    * Returns a raw link command for the given link invocation, including both command and arguments
-   * (argv). The version that uses the expander is preferred, but that one can't be used during
-   * analysis.
-   *
-   * @return raw link command line.
-   */
-  public List<String> getRawLinkArgv() throws CommandLineExpansionException {
-    return getRawLinkArgv(null);
-  }
-
-  /**
-   * Returns a raw link command for the given link invocation, including both command and arguments
    * (argv).
    *
    * @param expander ArtifactExpander for expanding TreeArtifacts.
    * @return raw link command line.
    */
-  public List<String> getRawLinkArgv(@Nullable ArtifactExpander expander)
+  private List<String> getRawLinkArgv(@Nullable ArtifactExpander expander)
       throws CommandLineExpansionException {
     return getRawLinkArgv(
         expander, forcedToolPath, featureConfiguration, actionName, linkTargetType, variables);
