@@ -23,9 +23,12 @@ import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFact
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableTable;
+import com.google.common.collect.Table;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -40,8 +43,10 @@ import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import java.io.IOException;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
@@ -92,7 +97,7 @@ public final class GsonTypeAdapterUtil {
       };
 
   public static final TypeAdapter<Label> LABEL_TYPE_ADAPTER =
-      new TypeAdapter<Label>() {
+      new TypeAdapter<>() {
         @Override
         public void write(JsonWriter jsonWriter, Label label) throws IOException {
           jsonWriter.value(label.getUnambiguousCanonicalForm());
@@ -101,6 +106,19 @@ public final class GsonTypeAdapterUtil {
         @Override
         public Label read(JsonReader jsonReader) throws IOException {
           return Label.parseCanonicalUnchecked(jsonReader.nextString());
+        }
+      };
+
+  public static final TypeAdapter<RepositoryName> REPOSITORY_NAME_TYPE_ADAPTER =
+      new TypeAdapter<>() {
+        @Override
+        public void write(JsonWriter jsonWriter, RepositoryName repoName) throws IOException {
+          jsonWriter.value(repoName.getName());
+        }
+
+        @Override
+        public RepositoryName read(JsonReader jsonReader) throws IOException {
+          return RepositoryName.createUnvalidated(jsonReader.nextString());
         }
       };
 
@@ -284,6 +302,68 @@ public final class GsonTypeAdapterUtil {
   }
 
   /**
+   * Converts Guava tables into a JSON array of 3-tuples (one per cell). Each 3-tuple is a JSON
+   * array itself (rowKey, columnKey, value).
+   */
+  public static final TypeAdapterFactory IMMUTABLE_TABLE =
+      new TypeAdapterFactory() {
+        @Nullable
+        @Override
+        @SuppressWarnings("unchecked")
+        public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> typeToken) {
+          if (typeToken.getRawType() != ImmutableTable.class) {
+            return null;
+          }
+          Type type = typeToken.getType();
+          if (!(type instanceof ParameterizedType)) {
+            return null;
+          }
+          Type[] typeArgs = ((ParameterizedType) typeToken.getType()).getActualTypeArguments();
+          if (typeArgs.length != 3) {
+            return null;
+          }
+          var typeArgAdapters = Arrays.stream(typeArgs)
+              .map(t -> (TypeAdapter<Object>) gson.getAdapter(TypeToken.get(t)))
+              .collect(Collectors.toList());
+          if (typeArgAdapters.contains(null)) {
+            return null;
+          }
+          return (TypeAdapter<T>) new TypeAdapter<ImmutableTable<Object, Object, Object>>() {
+            @Override
+            public void write(JsonWriter jsonWriter, ImmutableTable<Object, Object, Object> t)
+                throws IOException {
+              jsonWriter.beginArray();
+              for (Table.Cell<Object, Object, Object> cell : t.cellSet()) {
+                jsonWriter.beginArray();
+                typeArgAdapters.get(0).write(jsonWriter, cell.getRowKey());
+                typeArgAdapters.get(1).write(jsonWriter, cell.getColumnKey());
+                typeArgAdapters.get(2).write(jsonWriter, cell.getValue());
+                jsonWriter.endArray();
+              }
+              jsonWriter.endArray();
+            }
+
+            @Override
+            public ImmutableTable<Object, Object, Object> read(JsonReader jsonReader)
+                throws IOException {
+              var builder = ImmutableTable.builder();
+              jsonReader.beginArray();
+              while (jsonReader.peek() != JsonToken.END_ARRAY) {
+                jsonReader.beginArray();
+                builder.put(
+                    typeArgAdapters.get(0).read(jsonReader),
+                    typeArgAdapters.get(1).read(jsonReader),
+                    typeArgAdapters.get(2).read(jsonReader));
+                jsonReader.endArray();
+              }
+              jsonReader.endArray();
+              return builder.buildOrThrow();
+            }
+          };
+        }
+      };
+
+  /**
    * A variant of {@link Location} that converts the absolute path to the root module file to a
    * constant and back.
    */
@@ -371,8 +451,10 @@ public final class GsonTypeAdapterUtil {
         .registerTypeAdapterFactory(IMMUTABLE_BIMAP)
         .registerTypeAdapterFactory(IMMUTABLE_SET)
         .registerTypeAdapterFactory(OPTIONAL)
+        .registerTypeAdapterFactory(IMMUTABLE_TABLE)
         .registerTypeAdapterFactory(new LocationTypeAdapterFactory(moduleFilePath))
         .registerTypeAdapter(Label.class, LABEL_TYPE_ADAPTER)
+        .registerTypeAdapter(RepositoryName.class, REPOSITORY_NAME_TYPE_ADAPTER)
         .registerTypeAdapter(Version.class, VERSION_TYPE_ADAPTER)
         .registerTypeAdapter(ModuleKey.class, MODULE_KEY_TYPE_ADAPTER)
         .registerTypeAdapter(ModuleExtensionId.class, MODULE_EXTENSION_ID_TYPE_ADAPTER)
