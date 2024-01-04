@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
-import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -125,33 +124,26 @@ public final class LinkCommandLine extends CommandLine {
    */
   @VisibleForTesting
   final Pair<List<String>, List<String>> splitCommandline() throws CommandLineExpansionException {
-    return splitCommandline(paramFile, getRawLinkArgv(null), linkTargetType);
+    return splitCommandline(paramFile, getRawLinkArgv(null));
   }
 
   @VisibleForTesting
   final Pair<List<String>, List<String>> splitCommandline(@Nullable ArtifactExpander expander)
       throws CommandLineExpansionException {
-    return splitCommandline(paramFile, getRawLinkArgv(expander), linkTargetType);
+    return splitCommandline(paramFile, getRawLinkArgv(expander));
   }
 
   private static Pair<List<String>, List<String>> splitCommandline(
-      Artifact paramFile, List<String> args, LinkTargetType linkTargetType) {
+      Artifact paramFile, List<String> args) {
     Preconditions.checkNotNull(paramFile);
-    if (linkTargetType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER) {
-      // Ar link commands can also generate huge command lines.
-      List<String> paramFileArgs = new ArrayList<>();
-      List<String> commandlineArgs = new ArrayList<>();
-      extractArgumentsForStaticLinkParamFile(args, commandlineArgs, paramFileArgs);
-      return Pair.of(commandlineArgs, paramFileArgs);
-    } else {
-      // Gcc link commands tend to generate humongous commandlines for some targets, which may
-      // not fit on some remote execution machines. To work around this we will employ the help of
-      // a parameter file and pass any linker options through it.
-      List<String> paramFileArgs = new ArrayList<>();
-      List<String> commandlineArgs = new ArrayList<>();
-      extractArgumentsForDynamicLinkParamFile(args, commandlineArgs, paramFileArgs);
-      return Pair.of(commandlineArgs, paramFileArgs);
-    }
+
+    // Gcc and Ar link commands tend to generate humongous commandlines for some targets, which may
+    // not fit on some remote execution machines. To work around this we will employ the help of
+    // a parameter file and pass any linker options through it.
+    List<String> paramFileArgs = new ArrayList<>();
+    List<String> commandlineArgs = new ArrayList<>();
+    extractArguments(args, commandlineArgs, paramFileArgs);
+    return Pair.of(commandlineArgs, paramFileArgs);
   }
 
   public CommandLine getCommandLineForStarlark() {
@@ -209,7 +201,7 @@ public final class LinkCommandLine extends CommandLine {
       List<String> argv =
           getRawLinkArgv(
               null, forcedToolPath, featureConfiguration, actionName, linkTargetType, variables);
-      return splitCommandline(paramsFile, argv, linkTargetType).getSecond();
+      return splitCommandline(paramsFile, argv).getSecond();
     }
 
     @Override
@@ -223,7 +215,7 @@ public final class LinkCommandLine extends CommandLine {
               actionName,
               linkTargetType,
               variables);
-      return splitCommandline(paramsFile, argv, linkTargetType).getSecond();
+      return splitCommandline(paramsFile, argv).getSecond();
     }
   }
 
@@ -234,25 +226,9 @@ public final class LinkCommandLine extends CommandLine {
         paramFile, linkTargetType, forcedToolPath, featureConfiguration, actionName, variables);
   }
 
-  private static void extractArgumentsForStaticLinkParamFile(
+  private static void extractArguments(
       List<String> args, List<String> commandlineArgs, List<String> paramFileArgs) {
     commandlineArgs.add(args.get(0)); // ar command, must not be moved!
-    int argsSize = args.size();
-    for (int i = 1; i < argsSize; i++) {
-      String arg = args.get(i);
-      if (isLikelyParamFile(arg)) {
-        commandlineArgs.add(arg); // params file, keep it in the command line
-      } else {
-        paramFileArgs.add(arg); // the rest goes to the params file
-      }
-    }
-  }
-
-  private static void extractArgumentsForDynamicLinkParamFile(
-      List<String> args, List<String> commandlineArgs, List<String> paramFileArgs) {
-    // Note, that it is not important that all linker arguments are extracted so that
-    // they can be moved into a parameter file, but the vast majority should.
-    commandlineArgs.add(args.get(0)); // gcc command, must not be moved!
     int argsSize = args.size();
     for (int i = 1; i < argsSize; i++) {
       String arg = args.get(i);
