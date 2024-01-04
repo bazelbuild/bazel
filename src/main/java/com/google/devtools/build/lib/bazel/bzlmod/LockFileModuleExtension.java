@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import java.util.Optional;
@@ -32,7 +34,8 @@ public abstract class LockFileModuleExtension implements Postable {
 
   public static Builder builder() {
     return new AutoValue_LockFileModuleExtension.Builder()
-        .setModuleExtensionMetadata(Optional.empty());
+        .setModuleExtensionMetadata(Optional.empty())
+        .setRecordedRepoMappingEntries(ImmutableTable.of());
   }
 
   @SuppressWarnings("mutable")
@@ -45,6 +48,9 @@ public abstract class LockFileModuleExtension implements Postable {
   public abstract ImmutableMap<String, RepoSpec> getGeneratedRepoSpecs();
 
   public abstract Optional<ModuleExtensionMetadata> getModuleExtensionMetadata();
+
+  public abstract ImmutableTable<RepositoryName, String, RepositoryName>
+      getRecordedRepoMappingEntries();
 
   public abstract Builder toBuilder();
 
@@ -61,6 +67,9 @@ public abstract class LockFileModuleExtension implements Postable {
     public abstract Builder setGeneratedRepoSpecs(ImmutableMap<String, RepoSpec> value);
 
     public abstract Builder setModuleExtensionMetadata(Optional<ModuleExtensionMetadata> value);
+
+    public abstract Builder setRecordedRepoMappingEntries(
+        ImmutableTable<RepositoryName, String, RepositoryName> value);
 
     public abstract LockFileModuleExtension build();
   }
