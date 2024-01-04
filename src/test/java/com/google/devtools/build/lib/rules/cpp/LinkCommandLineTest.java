@@ -145,7 +145,7 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
             .setActionName(LinkTargetType.EXECUTABLE.getActionName())
             .setLinkTargetType(LinkTargetType.EXECUTABLE)
             .build();
-    List<String> rawLinkArgv = linkConfig.getRawLinkArgv();
+    List<String> rawLinkArgv = linkConfig.arguments();
     assertThat(linkConfig.arguments()).isEqualTo(rawLinkArgv);
   }
 
@@ -157,7 +157,7 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
             .forceToolPath("foo/bar/gcc")
             .setLinkTargetType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
             .build();
-    List<String> argv = linkConfig.getRawLinkArgv();
+    List<String> argv = linkConfig.arguments();
     for (String arg : argv) {
       assertThat(arg).doesNotContain("print-symbol-counts");
     }
@@ -179,7 +179,7 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
             .setActionName(LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName())
             .setLinkTargetType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
             .build();
-    String commandLine = Joiner.on(" ").join(linkConfig.getRawLinkArgv());
+    String commandLine = Joiner.on(" ").join(linkConfig.arguments());
     assertThat(commandLine).matches(".*foo -Wl,-whole-archive bar -Wl,-no-whole-archive.*");
   }
 
@@ -196,7 +196,7 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
             .setActionName(LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName())
             .setLinkTargetType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
             .build();
-    assertThat(linkConfig.getRawLinkArgv()).containsAtLeast("-Lfoo", "-Lbar").inOrder();
+    assertThat(linkConfig.arguments()).containsAtLeast("-Lfoo", "-Lbar").inOrder();
   }
 
   @Test
@@ -211,7 +211,7 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
             .setActionName(LinkTargetType.STATIC_LIBRARY.getActionName())
             .setLinkTargetType(LinkTargetType.STATIC_LIBRARY)
             .build();
-    assertThat(linkConfig.getRawLinkArgv()).contains("@foo/bar.param");
+    assertThat(linkConfig.arguments()).contains("@foo/bar.param");
   }
 
   @Test
@@ -226,7 +226,7 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
             .setActionName(LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName())
             .setLinkTargetType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
             .build();
-    assertThat(linkConfig.getRawLinkArgv()).contains("@foo/bar.param");
+    assertThat(linkConfig.arguments()).contains("@foo/bar.param");
   }
 
   private List<String> basicArgv(LinkTargetType targetType) throws Exception {
@@ -328,7 +328,7 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
             .setActionName(LinkTargetType.STATIC_LIBRARY.getActionName())
             .setLinkTargetType(LinkTargetType.STATIC_LIBRARY)
             .build();
-    List<String> result = linkConfig.getRawLinkArgv();
+    List<String> result = linkConfig.arguments();
     assertThat(result).isEqualTo(Arrays.asList("foo/bar/ar", "rcsD", "a/FakeOutput"));
   }
 
@@ -420,7 +420,7 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
     // Should only reference the tree artifact.
     verifyArguments(
         linkConfig.arguments(null, PathMapper.NOOP), treeArtifactsPaths, treeFileArtifactsPaths);
-    verifyArguments(linkConfig.getRawLinkArgv(null), treeArtifactsPaths, treeFileArtifactsPaths);
+    verifyArguments(linkConfig.arguments(), treeArtifactsPaths, treeFileArtifactsPaths);
     verifyArguments(
         linkConfig.paramCmdLine().arguments(null, PathMapper.NOOP),
         treeArtifactsPaths,
@@ -432,7 +432,7 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
         treeFileArtifactsPaths,
         treeArtifactsPaths);
     verifyArguments(
-        linkConfig.getRawLinkArgv(expander), treeFileArtifactsPaths, treeArtifactsPaths);
+        linkConfig.arguments(expander, null), treeFileArtifactsPaths, treeArtifactsPaths);
     verifyArguments(
         linkConfig.paramCmdLine().arguments(expander, PathMapper.NOOP),
         treeFileArtifactsPaths,

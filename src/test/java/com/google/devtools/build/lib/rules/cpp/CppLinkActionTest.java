@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
-import static org.mockito.Mockito.mock;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -32,7 +31,6 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
-import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -780,8 +778,6 @@ public final class CppLinkActionTest extends BuildViewTestCase {
 
   private ResourceSet estimateResourceConsumptionLocal(
       RuleContext ruleContext, OS os, int inputsCount) throws Exception {
-    InputMetadataProvider inputMetadataProvider = mock(InputMetadataProvider.class);
-
     NestedSet<Artifact> inputs = createInputs(ruleContext, inputsCount);
     try {
       LinkResourceSetBuilder estimator = new LinkResourceSetBuilder();
@@ -1064,13 +1060,13 @@ public final class CppLinkActionTest extends BuildViewTestCase {
 
     // Should only reference the tree artifact.
     verifyArguments(
-        linkAction.getLinkCommandLineForTesting().getRawLinkArgv(),
+        linkAction.getLinkCommandLineForTesting().arguments(),
         treeArtifactsPaths,
         treeFileArtifactsPaths);
 
     // Should only reference tree file artifacts.
     verifyArguments(
-        linkAction.getLinkCommandLineForTesting().getRawLinkArgv(expander),
+        linkAction.getLinkCommandLineForTesting().arguments(expander, null),
         treeFileArtifactsPaths,
         treeArtifactsPaths);
   }
@@ -1151,7 +1147,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
             .setLibraryIdentifier("foo")
             .build();
 
-    List<String> argv = linkAction.getLinkCommandLineForTesting().getRawLinkArgv();
+    List<String> argv = linkAction.getLinkCommandLineForTesting().arguments();
     assertThat(argv).doesNotContain("-pie");
     assertThat(argv).contains("-other");
   }
@@ -1173,7 +1169,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
             .addLinkopts(ImmutableList.of("-pie", "-other", "-pie"))
             .build();
 
-    List<String> argv = linkAction.getLinkCommandLineForTesting().getRawLinkArgv();
+    List<String> argv = linkAction.getLinkCommandLineForTesting().arguments();
     assertThat(argv).contains("-pie");
     assertThat(argv).contains("-other");
   }
@@ -1203,7 +1199,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
             .addLinkopts(ImmutableList.of("FakeLinkopt1", "FakeLinkopt2"))
             .build();
 
-    List<String> argv = linkAction.getLinkCommandLineForTesting().getRawLinkArgv();
+    List<String> argv = linkAction.getLinkCommandLineForTesting().arguments();
     int lastLinkerInputIndex =
         Ints.max(
             argv.indexOf("FakeLinkerInput1"), argv.indexOf("FakeLinkerInput2"),

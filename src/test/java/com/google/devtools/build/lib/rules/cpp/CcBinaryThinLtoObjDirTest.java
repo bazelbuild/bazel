@@ -278,9 +278,9 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     assertThat(ActionsTestUtil.getFirstArtifactEndingWith(linkAction.getInputs(), "linkstamp.o"))
         .isNotNull();
 
-    List<String> commandLine = linkAction.getLinkCommandLineForTesting().getRawLinkArgv();
-    String prefix = getTargetConfiguration().getOutputDirectory(RepositoryName.MAIN)
-        .getExecPathString();
+    List<String> commandLine = linkAction.getLinkCommandLineForTesting().arguments();
+    String prefix =
+        getTargetConfiguration().getOutputDirectory(RepositoryName.MAIN).getExecPathString();
     assertThat(commandLine)
         .containsAtLeast(
             prefix + "/bin/pkg/bin.lto.merged.o",
@@ -421,9 +421,9 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     CppLinkAction linkAction = getLinkAction();
     String rootExecPath = getRootExecPath();
 
-    List<String> commandLine = linkAction.getLinkCommandLineForTesting().getRawLinkArgv();
-    String prefix = getTargetConfiguration().getOutputDirectory(RepositoryName.MAIN)
-        .getExecPathString();
+    List<String> commandLine = linkAction.getLinkCommandLineForTesting().arguments();
+    String prefix =
+        getTargetConfiguration().getOutputDirectory(RepositoryName.MAIN).getExecPathString();
 
     assertThat(commandLine).contains("-Wl,@" + prefix + "/bin/pkg/bin-lto-final.params");
 
@@ -1821,7 +1821,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     assertThat(ActionsTestUtil.baseArtifactNames(linkAction.getInputs()))
         .contains("ld_profile.txt");
 
-    List<String> commandLine = linkAction.getLinkCommandLineForTesting().getRawLinkArgv();
+    List<String> commandLine = linkAction.getLinkCommandLineForTesting().arguments();
     assertThat(commandLine.toString())
         .containsMatch("-Wl,--symbol-ordering-file=.*/ld_profile.txt");
 
@@ -1968,7 +1968,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
         (CppLinkAction) getPredecessorByInputName(genruleAction, "pkg/gen_lib");
     assertThat(ActionsTestUtil.baseArtifactNames(hostLinkAction.getInputs()))
         .doesNotContain("ld_profile.txt");
-    assertThat(hostLinkAction.getLinkCommandLineForTesting().getRawLinkArgv().toString())
+    assertThat(hostLinkAction.getLinkCommandLineForTesting().arguments().toString())
         .doesNotContainMatch("-Wl,--symbol-ordering-file=.*/ld_profile.txt");
 
     // The hostLinkAction inputs has a different root from the backendAction.
@@ -1988,7 +1988,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     assertThat(hostIndexAction).isNotNull();
     assertThat(ActionsTestUtil.baseArtifactNames(hostIndexAction.getInputs()))
         .doesNotContain("ld_profile.txt");
-    assertThat(hostIndexAction.getLinkCommandLineForTesting().getRawLinkArgv().toString())
+    assertThat(hostIndexAction.getLinkCommandLineForTesting().arguments().toString())
         .doesNotContainMatch("-Wl,--symbol-ordering-file=.*/ld_profile.txt");
 
     CppCompileAction hostBitcodeAction =
@@ -2026,7 +2026,7 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
 
-    List<String> commandLine = linkAction.getLinkCommandLineForTesting().getRawLinkArgv();
+    List<String> commandLine = linkAction.getLinkCommandLineForTesting().arguments();
     assertThat(commandLine.toString())
         .containsMatch("-Wl,--symbol-ordering-file=.*/ld_profile.txt");
 
