@@ -107,6 +107,17 @@ public abstract class RepositoryMappingValue implements SkyValue {
         getAssociatedModuleVersion());
   }
 
+  /**
+   * Replaces the inner {@link #getRepositoryMapping() repository mapping} with one returned by
+   * calling its {@link RepositoryMapping#withCachedInverseMap} method.
+   */
+  public final RepositoryMappingValue withCachedInverseMap() {
+    return new AutoValue_RepositoryMappingValue(
+        getRepositoryMapping().withCachedInverseMap(),
+        getAssociatedModuleName(),
+        getAssociatedModuleVersion());
+  }
+
   /** Returns the {@link Key} for {@link RepositoryMappingValue}s. */
   public static Key key(RepositoryName repositoryName) {
     return RepositoryMappingValue.Key.create(
