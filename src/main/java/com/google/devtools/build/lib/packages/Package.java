@@ -887,14 +887,37 @@ public class Package {
         new SnapshottableBiMap<>(target -> target instanceof Rule);
     private final Map<Label, EnvironmentGroup> environmentGroups = new HashMap<>();
 
+    private enum NameConflictCheckingPolicy {
+      UNKNOWN,
+      DISABLED,
+      ENABLED;
+    }
+
+    /**
+     * Whether to do validation checks for name clashes between targets and between output file
+     * prefixes. This should only be disabled for data that has already been validated, e.g. in
+     * package deserialization.
+     */
+    private NameConflictCheckingPolicy nameConflictCheckingPolicy =
+        NameConflictCheckingPolicy.UNKNOWN;
+
     /**
      * Stores labels for each rule so that we don't have to call the costly {@link Rule#getLabels}
      * twice (once for {@link #checkForInputOutputConflicts} and once for {@link #beforeBuild}).
      *
-     * <p>Remains {@code null} when rules are added via {@link #addRuleUnchecked}, which occurs with
-     * package deserialization. Set back to {@code null} after building.
+     * <p>This field is null if name conflict checking is disabled. It is also null after the
+     * package is built.
      */
-    @Nullable private Map<Rule, List<Label>> ruleLabels = null;
+    @Nullable private Map<Rule, List<Label>> ruleLabels = new HashMap<>();
+
+    /**
+     * The collection of the prefixes of every output file. Maps each prefix to an arbitrary output
+     * file having that prefix. Used for error reporting.
+     *
+     * <p>This field is null if name conflict checking is disabled. It is also null after the
+     * package is built.
+     */
+    @Nullable private Map<String, OutputFile> outputFilePrefixes = new HashMap<>();
 
     private final List<TargetPattern> registeredExecutionPlatforms = new ArrayList<>();
     private final List<TargetPattern> registeredToolchains = new ArrayList<>();
@@ -911,16 +934,6 @@ public class Package {
 
     /** True iff the "package" function has already been called in this package. */
     private boolean packageFunctionUsed;
-
-    /**
-     * The collection of the prefixes of every output file. Maps every prefix to an output file
-     * whose prefix it is.
-     *
-     * <p>This is needed to make the output file prefix conflict check be reasonably fast. However,
-     * since it can potentially take a lot of memory and is useless after the package has been
-     * loaded, it isn't passed to the package itself.
-     */
-    private final Map<String, OutputFile> outputFilePrefixes = new HashMap<>();
 
     private final Interner<ImmutableList<?>> listInterner = new ThreadCompatibleInterner<>();
 
@@ -1306,9 +1319,13 @@ public class Package {
      * Replaces a target in the {@link Package} under construction with a new target with the same
      * name and belonging to the same package.
      *
+     * <p>Requires that {@link #disableNameConflictChecking} was not called.
+     *
      * <p>A hack needed for {@link WorkspaceFactoryHelper}.
      */
     void replaceTarget(Target newTarget) {
+      ensureNameConflictChecking();
+
       Preconditions.checkArgument(
           targets.containsKey(newTarget.getName()),
           "No existing target with name '%s' in the targets map",
@@ -1319,7 +1336,7 @@ public class Package {
           newTarget.getPackage(),
           pkg);
       Target oldTarget = targets.put(newTarget.getName(), newTarget);
-      if (newTarget instanceof Rule && ruleLabels != null) {
+      if (newTarget instanceof Rule) {
         List<Label> ruleLabelsForOldTarget = ruleLabels.remove(oldTarget);
         if (ruleLabelsForOldTarget != null) {
           ruleLabels.put((Rule) newTarget, ruleLabelsForOldTarget);
@@ -1547,11 +1564,30 @@ public class Package {
     }
 
     /**
-     * Same as {@link #addRule}, except with no name conflict checks.
+     * Turns off conflict checking for name clashes between targets, or between output file
+     * prefixes.
      *
-     * <p>Don't call this function unless you know what you're doing.
+     * <p>This should only be done for data that has already been validated, e.g. during package
+     * deserialization. Do not call this unless you know what you're doing.
+     *
+     * <p>This method must be called prior to {@link #addRuleUnchecked}. It may not be called,
+     * neither before nor after, a call to {@link #addRule} or {@link #replaceTarget}.
      */
-    void addRuleUnchecked(Rule rule) {
+    @CanIgnoreReturnValue
+    Builder disableNameConflictChecking() {
+      Preconditions.checkState(nameConflictCheckingPolicy == NameConflictCheckingPolicy.UNKNOWN);
+      this.nameConflictCheckingPolicy = NameConflictCheckingPolicy.DISABLED;
+      this.ruleLabels = null;
+      this.outputFilePrefixes = null;
+      return this;
+    }
+
+    private void ensureNameConflictChecking() {
+      Preconditions.checkState(nameConflictCheckingPolicy != NameConflictCheckingPolicy.DISABLED);
+      this.nameConflictCheckingPolicy = NameConflictCheckingPolicy.ENABLED;
+    }
+
+    private void addRuleInternal(Rule rule) {
       Preconditions.checkArgument(rule.getPackage() == pkg);
       for (OutputFile outputFile : rule.getOutputFiles()) {
         targets.put(outputFile.getName(), outputFile);
@@ -1562,13 +1598,25 @@ public class Package {
       }
     }
 
+    /**
+     * Adds a rule without certain validation checks. Requires that {@link
+     * #disableNameConflictChecking} was already called.
+     */
+    void addRuleUnchecked(Rule rule) {
+      Preconditions.checkState(nameConflictCheckingPolicy == NameConflictCheckingPolicy.DISABLED);
+      addRuleInternal(rule);
+    }
+
+    /**
+     * Adds a rule, subject to the usual validation checks. Requires that {@link
+     * #disableNameConflictChecking} was not called.
+     */
     void addRule(Rule rule) throws NameConflictException {
+      ensureNameConflictChecking();
+
       List<Label> labels = rule.getLabels();
       checkForConflicts(rule, labels);
-      addRuleUnchecked(rule);
-      if (ruleLabels == null) {
-        ruleLabels = new HashMap<>();
-      }
+      addRuleInternal(rule);
       ruleLabels.put(rule, labels);
     }
 
@@ -1629,15 +1677,7 @@ public class Package {
           // All labels mentioned by a rule that refer to an unknown target in the current package
           // are assumed to be InputFiles, so let's create them. We add them to a temporary map
           // to avoid concurrent modification to this.targets while iterating (via getRules()).
-          List<Label> labels = null;
-          if (ruleLabels != null) {
-            // Can theoretically be absent from the map if the caller used both addRule() and
-            // addRuleUnchecked() on the same Builder.
-            labels = ruleLabels.get(rule);
-          }
-          if (labels == null) {
-            labels = rule.getLabels();
-          }
+          List<Label> labels = (ruleLabels != null) ? ruleLabels.get(rule) : rule.getLabels();
           for (Label label : labels) {
             if (label.getPackageIdentifier().equals(pkg.getPackageIdentifier())
                 && !targets.containsKey(label.getName())
@@ -1688,6 +1728,7 @@ public class Package {
         rule.freeze();
       }
       ruleLabels = null;
+      outputFilePrefixes = null;
       targets = Maps.unmodifiableBiMap(targets);
 
       // Now all targets have been loaded, so we validate the group's member environments.
@@ -1743,6 +1784,8 @@ public class Package {
      * </ul>
      */
     private void checkForConflicts(Rule rule, List<Label> labels) throws NameConflictException {
+      Preconditions.checkNotNull(outputFilePrefixes); // ensured by addRule's precondition
+
       String name = rule.getName();
       Target existing = targets.get(name);
       if (existing != null) {
