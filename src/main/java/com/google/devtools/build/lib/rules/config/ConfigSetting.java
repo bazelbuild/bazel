@@ -497,10 +497,14 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
         } else if (target.satisfies(BuildSettingProvider.REQUIRE_BUILD_SETTING_PROVIDER)) {
           // build setting
           BuildSettingProvider provider = target.getProvider(BuildSettingProvider.class);
-          Object configurationValue =
-              optionDetails.getOptionValue(specifiedLabel) != null
-                  ? optionDetails.getOptionValue(specifiedLabel)
-                  : provider.getDefaultValue();
+
+          Object configurationValue;
+          if (optionDetails.getOptionValue(provider.getLabel()) != null) {
+            configurationValue = optionDetails.getOptionValue(provider.getLabel());
+          } else {
+            configurationValue = provider.getDefaultValue();
+          }
+
           Object convertedSpecifiedValue;
           try {
             // We don't need to supply a base package or repo mapping for the conversion here,
