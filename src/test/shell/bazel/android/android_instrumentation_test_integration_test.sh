@@ -34,7 +34,7 @@ source "${CURRENT_DIR}/../../integration_test_setup.sh" \
 # (bazelbuild/continuous-integration#578).
 add_to_bazelrc "build --incompatible_use_python_toolchains=false"
 
-resolve_android_toolchains "$1"
+resolve_android_toolchains
 
 function setup_android_instrumentation_test_env() {
   mkdir -p java/com/bin/res/values
