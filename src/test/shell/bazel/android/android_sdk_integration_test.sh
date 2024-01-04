@@ -33,7 +33,7 @@ fail_if_no_android_sdk
 source "${CURRENT_DIR}/../../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-resolve_android_toolchains "$1"
+resolve_android_toolchains
 
 function test_android_sdk_repository_path_from_environment() {
   create_new_workspace

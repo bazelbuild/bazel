@@ -117,6 +117,35 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
   }
 
   @Test
+  public void withSelectThroughAlias() throws Exception {
+    writeRulesBzl("flag");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'my_rule', 'simple_rule')",
+        "simple_rule(name = 'default', value = 'default_value')",
+        "simple_rule(name = 'command_line', value = 'command_line_value')",
+        "label_flag(name = 'my_label_flag', build_setting_default = ':default')",
+        "alias(name = 'my_label_flag_alias', actual = ':my_label_flag')",
+        "config_setting(",
+        "    name = 'is_default_label',",
+        "    flag_values = {':my_label_flag_alias': '//test:default'}",
+        ")",
+        "simple_rule(name = 'selector', value = select({':is_default_label': 'valid'}))");
+
+    useConfiguration();
+    getConfiguredTarget("//test:selector");
+    assertNoEvents();
+
+    reporter.removeHandler(failFastHandler);
+    useConfiguration(
+        ImmutableMap.of(
+            "//test:my_label_flag", Label.parseCanonicalUnchecked("//test:command_line")));
+    getConfiguredTarget("//test:selector");
+    assertContainsEvent(
+        "configurable attribute \"value\" in //test:selector doesn't match this configuration");
+  }
+
+  @Test
   public void withSelect() throws Exception {
     writeRulesBzl("flag");
     scratch.file(

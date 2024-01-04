@@ -38,7 +38,7 @@ fail_if_no_android_sdk
 source "$(rlocation io_bazel/src/test/shell/integration_test_setup.sh)" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-resolve_android_toolchains "$1"
+resolve_android_toolchains
 
 function test_library_desugar_lib_builds() {
   # TODO(b/299338002): Move this to the main desugarer test suite.
