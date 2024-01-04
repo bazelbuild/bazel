@@ -319,8 +319,8 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     return createForNormalFile(digest, /* proxy= */ null, /* size= */ 0);
   }
 
-  private static String bytesToString(byte[] bytes) {
-    return "0x" + BaseEncoding.base16().omitPadding().encode(bytes);
+  private static String bytesToString(@Nullable byte[] bytes) {
+    return bytes == null ? "null" : "0x" + BaseEncoding.base16().omitPadding().encode(bytes);
   }
 
   private static final class DirectoryArtifactValue extends FileArtifactValue {
@@ -541,7 +541,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public String toString() {
       return MoreObjects.toStringHelper(this)
-          .add("digest", BaseEncoding.base16().lowerCase().encode(digest))
+          .add("digest", bytesToString(digest))
           .add("size", size)
           .add("proxy", proxy)
           .toString();
