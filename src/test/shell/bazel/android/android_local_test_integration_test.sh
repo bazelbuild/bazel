@@ -34,7 +34,7 @@ fail_if_no_android_sdk
 source "${CURRENT_DIR}/../../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-resolve_android_toolchains "$1"
+resolve_android_toolchains
 
 function setup_android_local_test_env() {
   mkdir -p java/com/bin/res/values
