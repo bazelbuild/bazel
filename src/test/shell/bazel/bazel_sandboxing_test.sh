@@ -316,21 +316,84 @@ function test_add_mount_pair_tmp_source() {
 
   sed -i.bak '/sandbox_tmpfs_path/d' $TEST_TMPDIR/bazelrc
 
+  local mounted=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
+  trap "rm -fr $mounted" EXIT
+  echo GOOD > "$mounted/data.txt"
+
   mkdir -p pkg
-  cat > pkg/BUILD <<'EOF'
+  cat > pkg/BUILD <<EOF
 genrule(
     name = "gen",
     outs = ["gen.txt"],
-    cmd = "cp /etc/data.txt $@",
+    # Verify that /tmp is still hermetic.
+    cmd = """[ ! -e "${mounted}/data.txt" ] && cp /etc/data.txt \$@""",
 )
 EOF
+
+  # This assumes the existence of /etc on the host system
+  bazel build --sandbox_add_mount_pair="$mounted:/etc" //pkg:gen || fail "build failed"
+  assert_contains GOOD bazel-bin/pkg/gen.txt
+}
+
+function test_add_mount_pair_tmp_target() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # Tests Linux-specific functionality
+    return 0
+  fi
+
+  create_workspace_with_default_repos WORKSPACE
+
+  sed -i.bak '/sandbox_tmpfs_path/d' $TEST_TMPDIR/bazelrc
+
+  local source_dir=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
+  trap "rm -fr $source_dir" EXIT
+  echo BAD > "$source_dir/data.txt"
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<EOF
+genrule(
+    name = "gen",
+    outs = ["gen.txt"],
+    # Verify that /tmp is still hermetic.
+    cmd = """[ ! -e "${source_dir}/data.txt" ] && ls "$source_dir" > \$@""",
+)
+EOF
+
+
+  # This assumes the existence of /etc on the host system
+  bazel build --sandbox_add_mount_pair="/etc:$source_dir" //pkg:gen || fail "build failed"
+  assert_contains passwd bazel-bin/pkg/gen.txt
+}
+
+function test_add_mount_pair_tmp_target_and_source() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # Tests Linux-specific functionality
+    return 0
+  fi
+
+  create_workspace_with_default_repos WORKSPACE
+
+  sed -i.bak '/sandbox_tmpfs_path/d' $TEST_TMPDIR/bazelrc
 
   local mounted=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
   trap "rm -fr $mounted" EXIT
   echo GOOD > "$mounted/data.txt"
 
-  # This assumes the existence of /etc on the host system
-  bazel build --sandbox_add_mount_pair="$mounted:/etc" //pkg:gen || fail "build failed"
+  local tmp_file=$(mktemp "/tmp/bazel_tmp.XXXXXXXX")
+  trap "rm $tmp_file" EXIT
+  echo BAD > "$tmp_file"
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<EOF
+genrule(
+    name = "gen",
+    outs = ["gen.txt"],
+    # Verify that /tmp is still hermetic.
+    cmd = """[ ! -e "${tmp_file}" ] && cp "$mounted/data.txt" \$@""",
+)
+EOF
+
+  bazel build --sandbox_add_mount_pair="$mounted" //pkg:gen || fail "build failed"
   assert_contains GOOD bazel-bin/pkg/gen.txt
 }
 
