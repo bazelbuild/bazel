@@ -323,10 +323,10 @@ public final class GsonTypeAdapterUtil {
           if (typeArgs.length != 3) {
             return null;
           }
-          var typeArgAdapters = Arrays.stream(typeArgs)
-              .map(t -> (TypeAdapter<Object>) gson.getAdapter(TypeToken.get(t)))
-              .collect(Collectors.toList());
-          if (typeArgAdapters.contains(null)) {
+          var rowTypeAdapter = (TypeAdapter<Object>) gson.getAdapter(TypeToken.get(typeArgs[0]));
+          var colTypeAdapter = (TypeAdapter<Object>) gson.getAdapter(TypeToken.get(typeArgs[1]));
+          var valTypeAdapter = (TypeAdapter<Object>) gson.getAdapter(TypeToken.get(typeArgs[2]));
+          if (rowTypeAdapter == null || colTypeAdapter == null || valTypeAdapter == null) {
             return null;
           }
           return (TypeAdapter<T>) new TypeAdapter<ImmutableTable<Object, Object, Object>>() {
@@ -336,9 +336,9 @@ public final class GsonTypeAdapterUtil {
               jsonWriter.beginArray();
               for (Table.Cell<Object, Object, Object> cell : t.cellSet()) {
                 jsonWriter.beginArray();
-                typeArgAdapters.get(0).write(jsonWriter, cell.getRowKey());
-                typeArgAdapters.get(1).write(jsonWriter, cell.getColumnKey());
-                typeArgAdapters.get(2).write(jsonWriter, cell.getValue());
+                rowTypeAdapter.write(jsonWriter, cell.getRowKey());
+                colTypeAdapter.write(jsonWriter, cell.getColumnKey());
+                valTypeAdapter.write(jsonWriter, cell.getValue());
                 jsonWriter.endArray();
               }
               jsonWriter.endArray();
@@ -351,10 +351,8 @@ public final class GsonTypeAdapterUtil {
               jsonReader.beginArray();
               while (jsonReader.peek() != JsonToken.END_ARRAY) {
                 jsonReader.beginArray();
-                builder.put(
-                    typeArgAdapters.get(0).read(jsonReader),
-                    typeArgAdapters.get(1).read(jsonReader),
-                    typeArgAdapters.get(2).read(jsonReader));
+                builder.put(rowTypeAdapter.read(jsonReader), colTypeAdapter.read(jsonReader),
+                    valTypeAdapter.read(jsonReader));
                 jsonReader.endArray();
               }
               jsonReader.endArray();
