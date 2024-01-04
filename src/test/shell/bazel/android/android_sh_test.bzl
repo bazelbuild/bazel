@@ -30,7 +30,7 @@ CHECK_FOR_ANDROID_SDK = select(
 )
 
 def android_sh_test(create_test_with_released_tools = True, **kwargs):
-    """Creates versions of the test with and without platforms and head android tools.
+    """Creates versions of the test with and without head android tools.
 
     Args:
         create_test_with_released_tools: Whether to create a version of the test with the released
@@ -47,16 +47,7 @@ def android_sh_test(create_test_with_released_tools = True, **kwargs):
         # Test with released android_tools version.
         native.sh_test(
             name = name,
-            args = ["--without_platforms"],
             data = data,
-            **kwargs
-        )
-
-        # Test with platform-based toolchain resolution.
-        native.sh_test(
-            name = name + "_with_platforms",
-            data = data,
-            args = ["--with_platforms"],
             **kwargs
         )
 
@@ -64,7 +55,6 @@ def android_sh_test(create_test_with_released_tools = True, **kwargs):
     # as the test itself.
     native.sh_test(
         name = name + "_with_head_android_tools",
-        args = ["--without_platforms"],
         data = data + [
             "//tools/android/runtime_deps:android_tools.tar",
         ],
