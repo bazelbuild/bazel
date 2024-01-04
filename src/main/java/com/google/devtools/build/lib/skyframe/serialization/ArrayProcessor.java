@@ -19,12 +19,13 @@ import static com.google.devtools.build.lib.skyframe.serialization.CodecHelpers.
 import static com.google.devtools.build.lib.skyframe.serialization.CodecHelpers.writeChar;
 import static com.google.devtools.build.lib.skyframe.serialization.CodecHelpers.writeShort;
 import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
+import static sun.misc.Unsafe.ARRAY_OBJECT_BASE_OFFSET;
+import static sun.misc.Unsafe.ARRAY_OBJECT_INDEX_SCALE;
 
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Array;
-import sun.misc.Unsafe;
 
 /**
  * Stateless class that encodes and decodes arrays that may be multi-dimensional.
@@ -161,7 +162,11 @@ public abstract class ArrayProcessor {
         unsafe().putObject(obj, offset, arr);
         for (int i = 0; i < length; ++i) {
           deserialize(
-              context, codedIn, componentType, arr, OBJECT_ARR_OFFSET + OBJECT_ARR_SCALE * i);
+              context,
+              codedIn,
+              componentType,
+              arr,
+              ARRAY_OBJECT_BASE_OFFSET + ARRAY_OBJECT_INDEX_SCALE * i);
         }
         return;
       }
@@ -418,7 +423,11 @@ public abstract class ArrayProcessor {
           if (componentType.isArray()) {
             for (int i = 0; i < length; ++i) {
               deserialize(
-                  context, codedIn, componentType, arr, OBJECT_ARR_OFFSET + OBJECT_ARR_SCALE * i);
+                  context,
+                  codedIn,
+                  componentType,
+                  arr,
+                  ARRAY_OBJECT_BASE_OFFSET + ARRAY_OBJECT_INDEX_SCALE * i);
             }
             return;
           }
@@ -441,10 +450,16 @@ public abstract class ArrayProcessor {
       AsyncDeserializationContext context, CodedInputStream codedIn, Object arr, int length)
       throws IOException, SerializationException {
     for (int i = 0; i < length; ++i) {
-      context.deserialize(codedIn, arr, OBJECT_ARR_OFFSET + OBJECT_ARR_SCALE * i);
+      context.deserialize(codedIn, arr, ARRAY_OBJECT_BASE_OFFSET + ARRAY_OBJECT_INDEX_SCALE * i);
     }
   }
 
-  private static final int OBJECT_ARR_OFFSET = Unsafe.ARRAY_OBJECT_BASE_OFFSET;
-  private static final int OBJECT_ARR_SCALE = Unsafe.ARRAY_OBJECT_INDEX_SCALE;
+  public static void deserializeObjectArrayFully(
+      AsyncDeserializationContext context, CodedInputStream codedIn, Object arr, int length)
+      throws IOException, SerializationException {
+    for (int i = 0; i < length; ++i) {
+      context.deserializeFully(
+          codedIn, arr, ARRAY_OBJECT_BASE_OFFSET + ARRAY_OBJECT_INDEX_SCALE * i);
+    }
+  }
 }
