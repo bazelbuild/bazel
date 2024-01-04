@@ -290,7 +290,7 @@ java_library(
     ],
 )
 
-java_library(
+java_11_library(
     name = "exit_code",
     srcs = [
         "ExitCode.java",
