@@ -1277,7 +1277,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     // environment across .bzl files. Hence, we opt for stack inspection.
     BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrFail(thread, "Label()");
     try {
-      return Label.parseWithPackageContext((String) input, moduleContext.packageContext());
+      return Label.parseWithPackageContext(
+          (String) input,
+          moduleContext.packageContext(),
+          thread.getThreadLocal(Label.RepoMappingRecorder.class));
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("invalid label in Label(): %s", e.getMessage());
     }

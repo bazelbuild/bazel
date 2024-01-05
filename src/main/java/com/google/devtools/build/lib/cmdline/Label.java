@@ -14,11 +14,15 @@
 package com.google.devtools.build.lib.cmdline;
 
 import static com.google.devtools.build.lib.cmdline.LabelParser.validateAndProcessTargetName;
+import static java.util.Comparator.naturalOrder;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
+import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableTable;
+import com.google.common.collect.Table;
 import com.google.common.util.concurrent.Striped;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.CommandLineItem;
@@ -34,6 +38,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import javax.annotation.Nullable;
@@ -193,7 +198,23 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    */
   public static Label parseWithPackageContext(String raw, PackageContext packageContext)
       throws LabelSyntaxException {
+    return parseWithPackageContextInternal(Parts.parse(raw), packageContext);
+  }
+
+  public static Label parseWithPackageContext(
+      String raw, PackageContext packageContext, @Nullable RepoMappingRecorder repoMappingRecorder)
+      throws LabelSyntaxException {
     Parts parts = Parts.parse(raw);
+    Label parsed = parseWithPackageContextInternal(parts, packageContext);
+    if (repoMappingRecorder != null && parts.repo() != null && !parts.repoIsCanonical()) {
+      repoMappingRecorder.entries.put(
+          packageContext.currentRepo(), parts.repo(), parsed.getRepository());
+    }
+    return parsed;
+  }
+
+  private static Label parseWithPackageContextInternal(Parts parts, PackageContext packageContext)
+      throws LabelSyntaxException {
     parts.checkPkgDoesNotEndWithTripleDots();
     // pkg is either absolute or empty
     if (!parts.pkg().isEmpty()) {
@@ -203,6 +224,20 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
     PathFragment pkgFragment =
         parts.pkgIsAbsolute() ? PathFragment.create(parts.pkg()) : packageContext.packageFragment();
     return createUnvalidated(PackageIdentifier.create(repoName, pkgFragment), parts.target());
+  }
+
+  /** Records repo mapping entries used by {@link #parseWithPackageContext}. */
+  public static final class RepoMappingRecorder {
+    /** {@code <fromRepo, apparentRepoName, canonicalRepoName> } */
+    Table<RepositoryName, String, RepositoryName> entries = HashBasedTable.create();
+
+    public ImmutableTable<RepositoryName, String, RepositoryName> recordedEntries() {
+      return ImmutableTable.<RepositoryName, String, RepositoryName>builder()
+          .orderRowsBy(Comparator.comparing(RepositoryName::getName))
+          .orderColumnsBy(naturalOrder())
+          .putAll(entries)
+          .buildOrThrow();
+    }
   }
 
   /**
