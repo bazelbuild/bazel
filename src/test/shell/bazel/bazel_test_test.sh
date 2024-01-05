@@ -1038,4 +1038,23 @@ EOF
       //:x  &> $TEST_log || fail "expected success"
 }
 
+function test_append_stderr_to_test_log() {
+  cat <<'EOF' > BUILD
+sh_test(
+    name = 'x',
+    srcs = ['x.sh'],
+)
+EOF
+  cat <<'EOF' > x.sh
+#!/bin/sh
+echo foo > /dev/stderr
+EOF
+  chmod +x x.sh
+
+  bazel test //:x  &> $TEST_log || fail "expected success"
+
+  cat bazel-testlogs/x/test.log > $TEST_log
+  expect_log "foo"
+}
+
 run_suite "bazel test tests"
