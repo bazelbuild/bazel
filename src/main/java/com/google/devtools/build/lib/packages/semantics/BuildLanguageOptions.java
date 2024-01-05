@@ -655,7 +655,7 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_objc_provider_remove_linking_info",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -929,7 +929,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String INCOMPATIBLE_MERGE_FIXED_AND_DEFAULT_SHELL_ENV =
       "+experimental_merge_fixed_and_default_shell_env";
   public static final String INCOMPATIBLE_OBJC_PROVIDER_REMOVE_LINKING_INFO =
-      "-incompatible_objc_provider_remove_linking_info";
+      "+incompatible_objc_provider_remove_linking_info";
   public static final String INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION =
       "+incompatible_disable_objc_library_transition";
   public static final String INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES =
