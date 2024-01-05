@@ -32,7 +32,7 @@ public abstract class DeferredObjectCodec<T> implements ObjectCodec<T> {
 
   /** Implementation that adapts this codec for synchronous use. */
   @Override
-  public T deserialize(DeserializationContext context, CodedInputStream codedIn)
+  public final T deserialize(DeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     return deserializeDeferred(context, codedIn).get();
   }
@@ -46,7 +46,7 @@ public abstract class DeferredObjectCodec<T> implements ObjectCodec<T> {
    *
    * <p>Note that {@link Supplier} is invoked when all child instances have been provided, but that
    * may include partially formed child-instances. Use {@link
-   * AsyncDeserializationContext#deserializeFully} if the child-instances must be fully formed.
+   * FlatDeserializationContext#deserializeFully} if the child-instances must be fully formed.
    */
   public abstract Supplier<T> deserializeDeferred(
       AsyncDeserializationContext context, CodedInputStream codedIn)
