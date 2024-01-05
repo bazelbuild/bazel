@@ -4592,8 +4592,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     getConfiguredTarget("//p:my_test_target");
 
     ev.assertContainsError(
-        "Error in analysis_test: my_test_target_test rule 'my_test_target' in package 'p' conflicts"
-            + " with existing my_test_target_test rule");
+        "Error in analysis_test: my_test_target_test rule 'my_test_target' conflicts with existing"
+            + " my_test_target_test rule");
   }
 
   // Regression test for b/291752414 (Digest for Starlark-defined rules is wrong for analysis_test).

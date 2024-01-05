@@ -245,8 +245,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         "x = 1//0"); // not reached
     Package pkg = loadPackage("duplicaterulename");
     assertContainsEvent(
-        "cc_library rule 'spellcheck_proto' in package 'duplicaterulename' conflicts with"
-            + " existing proto_library rule");
+        "cc_library rule 'spellcheck_proto' conflicts with" + " existing proto_library rule");
     assertDoesNotContainEvent("division by zero");
     assertThat(pkg.containsErrors()).isTrue();
   }
@@ -325,8 +324,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         "cc_library(name = 'dup_proto',",
         "           srcs = ['dup.pb.cc', 'dup.pb.h'])");
     Package pkg = loadPackage("dup");
-    assertContainsEvent(
-        "cc_library rule 'dup_proto' in package 'dup' conflicts with existing proto_library rule");
+    assertContainsEvent("cc_library rule 'dup_proto' conflicts with existing proto_library rule");
     assertThat(pkg.containsErrors()).isTrue();
 
     Rule dupProto = pkg.getRule("dup_proto");

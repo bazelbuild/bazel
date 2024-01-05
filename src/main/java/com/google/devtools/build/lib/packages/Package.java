@@ -1863,10 +1863,6 @@ public class Package {
       String subject = String.format("%s '%s'", added.getTargetKind(), added.getName());
       if (added instanceof OutputFile) {
         subject += " in rule '" + ((OutputFile) added).getGeneratingRule().getName() + "'";
-      } else {
-        // TODO(#19922): This case is unnecessary. The package name context information should be
-        // added elsewhere.
-        subject += " in package '" + added.getLabel().getPackageName() + "'";
       }
 
       String object =
