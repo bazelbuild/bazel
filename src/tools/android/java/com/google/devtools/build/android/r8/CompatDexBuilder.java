@@ -22,7 +22,7 @@ import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.D8;
 import com.android.tools.r8.D8Command;
-import com.android.tools.r8.DexFilePerClassFileConsumer;
+import com.android.tools.r8.DexIndexedConsumer;
 import com.android.tools.r8.Diagnostic;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.SyntheticInfoConsumer;
@@ -111,17 +111,14 @@ public class CompatDexBuilder {
     }
   }
 
-  private static class DexConsumer implements DexFilePerClassFileConsumer {
+  private static class DexConsumer implements DexIndexedConsumer {
 
     final ContextConsumer contextConsumer = new ContextConsumer();
     byte[] bytes;
 
     @Override
     public synchronized void accept(
-        String primaryClassDescriptor,
-        ByteDataView data,
-        Set<String> descriptors,
-        DiagnosticsHandler handler) {
+        int fileIndex, ByteDataView data, Set<String> descriptors, DiagnosticsHandler handler) {
       verify(bytes == null, "Should not have been populated until now");
       bytes = data.copyByteData();
     }
