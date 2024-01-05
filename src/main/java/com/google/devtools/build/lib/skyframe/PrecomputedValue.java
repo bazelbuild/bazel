@@ -192,9 +192,14 @@ public final class PrecomputedValue implements SkyValue {
       super(arg);
     }
 
-    @AutoCodec.Instantiator
     public static Key create(String arg) {
       return interner.intern(new Key(arg));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     @Override
@@ -218,10 +223,14 @@ public final class PrecomputedValue implements SkyValue {
       super(arg);
     }
 
-    @AutoCodec.Instantiator
-    @VisibleForSerialization
-    static UnshareableKey create(String arg) {
+    private static UnshareableKey create(String arg) {
       return interner.intern(new UnshareableKey(arg));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static UnshareableKey intern(UnshareableKey unshareableKey) {
+      return interner.intern(unshareableKey);
     }
 
     @Override
