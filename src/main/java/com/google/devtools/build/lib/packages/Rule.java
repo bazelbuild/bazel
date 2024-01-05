@@ -860,7 +860,9 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return false;
   }
 
-  /** Returns a new list containing all direct dependencies (all types). */
+  /**
+   * Returns a new list containing all direct dependencies (all types except outputs and nodeps).
+   */
   public List<Label> getLabels() {
     List<Label> labels = new ArrayList<>();
     AggregatingAttributeMapper.of(this).visitAllLabels((attribute, label) -> labels.add(label));

@@ -915,7 +915,7 @@ public class Package {
      * file having that prefix. Used for error reporting.
      *
      * <p>This field is null if name conflict checking is disabled. It is also null after the
-     * package is built.
+     * package is built. The content of the map is manipulated only in {@link #checkForConflicts}.
      */
     @Nullable private Map<String, OutputFile> outputFilePrefixes = new HashMap<>();
 
@@ -1472,11 +1472,7 @@ public class Package {
               repoRootMeansCurrentRepo,
               eventHandler,
               location);
-      Target existing = targets.get(group.getName());
-      if (existing != null) {
-        throw nameConflict(group, existing);
-      }
-
+      checkNameConflict(group);
       targets.put(group.getName(), group);
 
       if (group.containsErrors()) {
@@ -1526,12 +1522,9 @@ public class Package {
 
       EnvironmentGroup group =
           new EnvironmentGroup(createLabel(name), pkg, environments, defaults, location);
-      Target existing = targets.get(group.getName());
-      if (existing != null) {
-        throw nameConflict(group, existing);
-      }
-
+      checkNameConflict(group);
       targets.put(group.getName(), group);
+
       // Invariant: once group is inserted into targets, it must also:
       // (a) be inserted into environmentGroups, or
       // (b) have its group.processMemberEnvironments called.
@@ -1587,6 +1580,10 @@ public class Package {
       this.nameConflictCheckingPolicy = NameConflictCheckingPolicy.ENABLED;
     }
 
+    /**
+     * Adds a rule and its outputs to the targets map, and propagates the error bit from the rule to
+     * the package.
+     */
     private void addRuleInternal(Rule rule) {
       Preconditions.checkArgument(rule.getPackage() == pkg);
       for (OutputFile outputFile : rule.getOutputFiles()) {
@@ -1775,40 +1772,49 @@ public class Package {
     }
 
     /**
-     * Precondition check for addRule. We must maintain these invariants of the package:
+     * Precondition check for {@link #addRule}. Verifies that:
      *
      * <ul>
-     *   <li>Each name refers to at most one target.
-     *   <li>No rule with errors is inserted into the package.
-     *   <li>The generating rule of every output file in the package must itself be in the package.
+     *   <li>The added rule's name, and the names of its output files, are not the same as the name
+     *       of any target already declared in the package.
+     *   <li>The added rule's output files list does not contain the same name twice.
+     *   <li>The added rule does not have an input file and an output file that share the same name.
+     *   <li>For each of the added rule's output files, no directory prefix of that file matches the
+     *       name of another output file in the package; and conversely, the file is not itself a
+     *       prefix for another output file. (This check statefully mutates the {@code
+     *       outputFilePrefixes} field.)
      * </ul>
      */
+    // TODO(bazel-team): We verify that all prefixes of output files are distinct from other output
+    // file names, but not that they're distinct from other target names in the package. What
+    // happens if you define an input file "abc" and output file "abc/xyz"?
     private void checkForConflicts(Rule rule, List<Label> labels) throws NameConflictException {
       Preconditions.checkNotNull(outputFilePrefixes); // ensured by addRule's precondition
 
-      String name = rule.getName();
-      Target existing = targets.get(name);
-      if (existing != null) {
-        throw nameConflict(rule, existing);
-      }
+      // Check the name of the new rule itself.
+      String ruleName = rule.getName();
+      checkNameConflict(rule);
 
       ImmutableList<OutputFile> outputFiles = rule.getOutputFiles();
       Map<String, OutputFile> outputFilesByName =
           Maps.newHashMapWithExpectedSize(outputFiles.size());
 
+      // Check the new rule's output files, both for direct conflicts and prefix conflicts.
       for (OutputFile outputFile : outputFiles) {
         String outputFileName = outputFile.getName();
+        // Check for duplicate within a single rule. (Can't use checkNameConflict since this rule's
+        // outputs aren't in the target map yet.)
         if (outputFilesByName.put(outputFileName, outputFile) != null) {
-          throw duplicateOutputFile(outputFile, outputFile); // Duplicate within a single rule.
+          throw nameConflict(outputFile, outputFile); // Duplicate within a single rule.
         }
-        existing = targets.get(outputFileName);
-        if (existing != null) {
-          throw duplicateOutputFile(outputFile, existing);
-        }
+        // Check for conflict with any other already added target.
+        checkNameConflict(outputFile);
+        // TODO(bazel-team): We also need to check for a conflict between an output file and its own
+        // rule, which is not yet in the targets map.
 
         // Check if this output file is the prefix of an already existing one.
         if (outputFilePrefixes.containsKey(outputFileName)) {
-          throw conflictingOutputFile(outputFile, outputFilePrefixes.get(outputFileName));
+          throw overlappingOutputFilePrefixes(outputFile, outputFilePrefixes.get(outputFileName));
         }
 
         // Check if a prefix of this output file matches an already existing one.
@@ -1817,76 +1823,70 @@ public class Package {
         for (int i = 1; i < segmentCount; i++) {
           String prefix = outputFileFragment.subFragment(0, i).toString();
           if (outputFilesByName.containsKey(prefix)) {
-            throw conflictingOutputFile(outputFile, outputFilesByName.get(prefix));
+            throw overlappingOutputFilePrefixes(outputFile, outputFilesByName.get(prefix));
           }
           if (targets.get(prefix) instanceof OutputFile) {
-            throw conflictingOutputFile(outputFile, (OutputFile) targets.get(prefix));
+            throw overlappingOutputFilePrefixes(outputFile, (OutputFile) targets.get(prefix));
           }
 
+          // Store in persistent map, for checking when adding future rules.
           outputFilePrefixes.putIfAbsent(prefix, outputFile);
         }
       }
 
-      checkForInputOutputConflicts(rule, labels, outputFilesByName.keySet());
-    }
-
-    /**
-     * A utility method that checks for conflicts between input file names and output file names for
-     * a rule from a build file.
-     *
-     * @param rule the rule whose inputs and outputs are to be checked for conflicts.
-     * @param labels the rules {@linkplain Rule#getLabels labels}.
-     * @param outputFiles a set containing the names of output files to be generated by the rule.
-     * @throws NameConflictException if a conflict is found.
-     */
-    private static void checkForInputOutputConflicts(
-        Rule rule, List<Label> labels, Set<String> outputFiles) throws NameConflictException {
+      // Check for the same file appearing as both an input and output of the new rule.
       PackageIdentifier packageIdentifier = rule.getLabel().getPackageIdentifier();
       for (Label inputLabel : labels) {
         if (packageIdentifier.equals(inputLabel.getPackageIdentifier())
-            && outputFiles.contains(inputLabel.getName())) {
-          throw inputOutputNameConflict(rule, inputLabel.getName());
+            && outputFilesByName.containsKey(inputLabel.getName())) {
+          throw new NameConflictException(
+              String.format(
+                  "rule '%s' has file '%s' as both an input and an output",
+                  ruleName, inputLabel.getName()));
         }
       }
     }
 
-    /** An output file conflicts with another output file or the BUILD file. */
-    private static NameConflictException duplicateOutputFile(
-        OutputFile duplicate, Target existing) {
-      return new NameConflictException(
-          duplicate.getTargetKind()
-              + " '"
-              + duplicate.getName()
-              + "' in rule '"
-              + duplicate.getGeneratingRule().getName()
-              + "' "
-              + conflictsWith(existing));
+    /**
+     * Throws {@link NameConflictException} if a target with the given target's name is already
+     * present in the package.
+     */
+    private void checkNameConflict(Target added) throws NameConflictException {
+      Target existing = targets.get(added.getName());
+      if (existing != null) {
+        throw nameConflict(added, existing);
+      }
     }
 
-    /** The package contains two targets with the same name. */
-    private static NameConflictException nameConflict(Target duplicate, Target existing) {
+    /** Returns a {@link NameConflictException} about two targets having the same name. */
+    private static NameConflictException nameConflict(Target added, Target existing) {
+      String subject = String.format("%s '%s'", added.getTargetKind(), added.getName());
+      if (added instanceof OutputFile) {
+        subject += " in rule '" + ((OutputFile) added).getGeneratingRule().getName() + "'";
+      } else {
+        // TODO(#19922): This case is unnecessary. The package name context information should be
+        // added elsewhere.
+        subject += " in package '" + added.getLabel().getPackageName() + "'";
+      }
+
+      String object =
+          existing instanceof OutputFile
+              ? String.format(
+                  "generated file from rule '%s'",
+                  ((OutputFile) existing).getGeneratingRule().getName())
+              : existing.getTargetKind();
+
       return new NameConflictException(
-          duplicate.getTargetKind()
-              + " '"
-              + duplicate.getName()
-              + "' in package '"
-              + duplicate.getLabel().getPackageName()
-              + "' "
-              + conflictsWith(existing));
+          String.format(
+              "%s conflicts with existing %s, defined at %s",
+              subject, object, existing.getLocation()));
     }
 
-    /** A a rule has a input/output name conflict. */
-    private static NameConflictException inputOutputNameConflict(
-        Rule rule, String conflictingName) {
-      return new NameConflictException(
-          "rule '"
-              + rule.getName()
-              + "' has file '"
-              + conflictingName
-              + "' as both an input and an output");
-    }
-
-    private static NameConflictException conflictingOutputFile(
+    /**
+     * Returns a {@link NameConflictException} about two output files clashing (i.e., due to one
+     * being a prefix of the other)
+     */
+    private static NameConflictException overlappingOutputFilePrefixes(
         OutputFile added, OutputFile existing) {
       if (added.getGeneratingRule() == existing.getGeneratingRule()) {
         return new NameConflictException(
@@ -1902,20 +1902,6 @@ public class Package {
                 existing.getName(),
                 existing.getGeneratingRule().getName()));
       }
-    }
-
-    /** Utility function for generating exception messages. */
-    private static String conflictsWith(Target target) {
-      String message = "conflicts with existing ";
-      if (target instanceof OutputFile) {
-        message +=
-            "generated file from rule '"
-                + ((OutputFile) target).getGeneratingRule().getName()
-                + "'";
-      } else {
-        message += target.getTargetKind();
-      }
-      return message + ", defined at " + target.getLocation();
     }
 
     @Nullable
