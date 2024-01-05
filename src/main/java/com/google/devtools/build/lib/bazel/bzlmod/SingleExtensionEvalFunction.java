@@ -620,7 +620,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       // Instiantiate the repos one by one.
       for (InnateExtensionRepo repo : repos) {
         Object exported = repo.loadedBzl().getModule().getGlobal(repo.ruleName());
-        if (!(exported instanceof RepositoryRuleFunction)) {
+        if (exported == null) {
           ImmutableSet<String> exportedRepoRules =
               repo.loadedBzl().getModule().getGlobals().entrySet().stream()
                   .filter(e -> e.getValue() instanceof RepositoryRuleFunction)
@@ -635,6 +635,17 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                   repo.ruleName(),
                   repo.tag().getLocation(),
                   SpellChecker.didYouMean(repo.ruleName(), exportedRepoRules)),
+              Transience.PERSISTENT);
+        } else if (!(exported instanceof RepositoryRuleFunction)) {
+          throw new SingleExtensionEvalFunctionException(
+              ExternalDepsException.withMessage(
+                  Code.BAD_MODULE,
+                  "%s exports a value called %s of type %s, yet a repository_rule is requested"
+                      + " at %s",
+                  repo.bzlLabel(),
+                  repo.ruleName(),
+                  Starlark.type(exported),
+                  repo.tag().getLocation()),
               Transience.PERSISTENT);
         }
         RepositoryRuleFunction repoRule = (RepositoryRuleFunction) exported;
