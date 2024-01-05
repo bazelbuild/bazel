@@ -459,10 +459,7 @@ public final class SpawnActionTest extends BuildViewTestCase {
             .setProgressMessage("Progress for %{label}: %{input} -> %{output}")
             .build(nullOwnerWithTargetConfig(), targetConfig);
     assertThat(action.getProgressMessage())
-        .isEqualTo(
-            "Progress for //null/action:owner: some/input -> "
-                + getAnalysisMock().getProductName()
-                + "-out/k8-fastbuild/bin/some/output");
+        .isEqualTo("Progress for //null/action:owner: some/input -> some/output");
   }
 
   /**
