@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuil
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -211,7 +210,7 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
             .setActionName(LinkTargetType.STATIC_LIBRARY.getActionName())
             .setLinkTargetType(LinkTargetType.STATIC_LIBRARY)
             .build();
-    assertThat(linkConfig.arguments()).contains("@foo/bar.param");
+    assertThat(linkConfig.getCommandLine(null)).contains("@foo/bar.param");
   }
 
   @Test
@@ -226,7 +225,7 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
             .setActionName(LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName())
             .setLinkTargetType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
             .build();
-    assertThat(linkConfig.arguments()).contains("@foo/bar.param");
+    assertThat(linkConfig.getCommandLine(null)).contains("@foo/bar.param");
   }
 
   private List<String> basicArgv(LinkTargetType targetType) throws Exception {
@@ -288,9 +287,12 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
             .forceToolPath("foo/bar/ar")
             .setParamFile(paramFile)
             .build();
-    Pair<List<String>, List<String>> result = linkConfig.splitCommandline();
-    assertThat(result.first).isEqualTo(Arrays.asList("foo/bar/ar", "@some/file.params"));
-    assertThat(result.second).isEqualTo(Arrays.asList("rcsD", "a/FakeOutput"));
+    assertThat(linkConfig.getCommandLine(null))
+        .containsExactly("foo/bar/ar", "@some/file.params")
+        .inOrder();
+    assertThat(linkConfig.getParamCommandLine(null))
+        .containsExactly("rcsD", "a/FakeOutput")
+        .inOrder();
   }
 
   @Test
@@ -311,9 +313,12 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
             .forceToolPath("foo/bar/linker")
             .setParamFile(paramFile)
             .build();
-    Pair<List<String>, List<String>> result = linkConfig.splitCommandline();
-    assertThat(result.first).containsExactly("foo/bar/linker", "@some/file.params").inOrder();
-    assertThat(result.second).containsExactly("-shared", "-o", "a/FakeOutput", "").inOrder();
+    assertThat(linkConfig.getCommandLine(null))
+        .containsExactly("foo/bar/linker", "@some/file.params")
+        .inOrder();
+    assertThat(linkConfig.getParamCommandLine(null))
+        .containsExactly("-shared", "-o", "a/FakeOutput", "")
+        .inOrder();
   }
 
   @Test
@@ -354,10 +359,13 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
             .forceToolPath("foo/bar/ar")
             .setParamFile(paramFile)
             .build();
-    Pair<List<String>, List<String>> result = linkConfig.splitCommandline();
 
-    assertThat(result.first).isEqualTo(Arrays.asList("foo/bar/ar", "@some/file.params"));
-    assertThat(result.second).isEqualTo(Arrays.asList("rcsD", "a/FakeOutput", "foo.o", "bar.o"));
+    assertThat(linkConfig.getCommandLine(null))
+        .containsExactly("foo/bar/ar", "@some/file.params")
+        .inOrder();
+    assertThat(linkConfig.getParamCommandLine(null))
+        .containsExactly("rcsD", "a/FakeOutput", "foo.o", "bar.o")
+        .inOrder();
   }
 
   private SpecialArtifact createTreeArtifact(String name) {
