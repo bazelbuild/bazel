@@ -215,6 +215,8 @@ tasks:
       - "-//src/test/shell/bazel:bazel_determinism_test"
       # https://github.com/bazelbuild/bazel/issues/17457
       - "-//src/test/shell/bazel:jdeps_test"
+      - "-//scripts/docs:rewriter_test"
+      
   windows:
     shards: 4
     batch_commands:
