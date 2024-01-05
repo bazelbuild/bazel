@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -407,6 +408,26 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     commandManager.interruptInflightCommands();
   }
 
+  private Server bindIpv6WithRetries(InetSocketAddress address, int maxRetries) throws IOException {
+    Server server = null;
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        server =
+            NettyServerBuilder.forAddress(address)
+                .addService(this)
+                .directExecutor()
+                .build()
+                .start();
+        break;
+      } catch (IOException e) {
+        if (attempt == maxRetries) {
+          throw e;
+        }
+      }
+    }
+    return server;
+  }
+
   @Override
   public void serve() throws AbruptExitException {
     Preconditions.checkState(!serving);
@@ -422,8 +443,10 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       if (Epoll.isAvailable() && !Socket.isIPv6Preferred()) {
         throw new IOException("ipv6 is not preferred on the system.");
       }
-      server =
-          NettyServerBuilder.forAddress(address).addService(this).directExecutor().build().start();
+      // For some strange reasons, Bazel server sometimes fails to bind to IPv6 localhost when
+      // running in macOS sandbox-exec with internet blocked. Retrying seems to help.
+      // See https://github.com/bazelbuild/bazel/issues/20743
+      server = bindIpv6WithRetries(address, OS.getCurrent() == OS.DARWIN ? 3 : 1);
     } catch (IOException ipv6Exception) {
       address = new InetSocketAddress("127.0.0.1", port);
       try {
