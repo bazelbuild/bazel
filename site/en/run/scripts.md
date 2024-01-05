@@ -56,10 +56,10 @@ Bazel execution can result in following exit codes:
 -   `35` - Reserved for Google-internal use.
 -   `36` - Local Environmental Issue, suspected permanent.
 -   `37` - Unhandled Exception / Internal Bazel Error.
--   `38` - Reserved for Google-internal use.
+-   `38` - Transient error publishing results to the Build Event Service.
 -   `39` - Blobs required by Bazel are evicted from Remote Cache.
 -   `41-44` - Reserved for Google-internal use.
--   `45` - Error publishing results to the Build Event Service.
+-   `45` - Persistent error publishing results to the Build Event Service.
 -   `47` - Reserved for Google-internal use.
 -   `49` - Reserved for Google-internal use.
 
