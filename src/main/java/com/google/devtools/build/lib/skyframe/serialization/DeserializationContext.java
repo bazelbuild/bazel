@@ -106,6 +106,13 @@ public class DeserializationContext implements AsyncDeserializationContext {
   }
 
   @Override
+  public void deserializeFully(CodedInputStream codedIn, Object obj, FieldSetter setter)
+      throws IOException, SerializationException {
+    // This method is identical to the call below in the synchronous implementation.
+    deserialize(codedIn, obj, setter);
+  }
+
+  @Override
   public void deserializeFully(CodedInputStream codedIn, Object obj, long offset, Runnable done)
       throws IOException, SerializationException {
     // This method is identical to the call below in the synchronous implementation.
