@@ -17,11 +17,13 @@ package com.google.devtools.build.lib.cmdline;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyKey.SkyKeyInterner;
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -41,9 +43,14 @@ public final class PackageIdentifier implements SkyKey, Comparable<PackageIdenti
     return create(RepositoryName.create(repository), pkgName);
   }
 
-  @AutoCodec.Instantiator
   public static PackageIdentifier create(RepositoryName repository, PathFragment pkgName) {
     return interner.intern(new PackageIdentifier(repository, pkgName));
+  }
+
+  @VisibleForSerialization
+  @AutoCodec.Interner
+  static PackageIdentifier intern(PackageIdentifier packageIdentifier) {
+    return interner.intern(packageIdentifier);
   }
 
   /** Creates {@code PackageIdentifier} from a known-valid string. */
