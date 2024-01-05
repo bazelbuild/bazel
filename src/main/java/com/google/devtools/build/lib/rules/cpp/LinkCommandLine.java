@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.rules.cpp.LinkBuildVariables.LINKER_PARAM_FILE;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -124,7 +127,15 @@ public final class LinkCommandLine extends CommandLine {
 
   /** Returns the path to the linker. */
   public String getLinkerPathString() {
-    return featureConfiguration.getToolPathForAction(linkTargetType.getActionName());
+    if (forcedToolPath != null) {
+      return forcedToolPath;
+    } else {
+      Preconditions.checkArgument(
+          featureConfiguration.actionIsConfigured(actionName),
+          "Expected action_config for '%s' to be configured",
+          actionName);
+      return featureConfiguration.getToolPathForAction(linkTargetType.getActionName());
+    }
   }
 
   /**
@@ -157,195 +168,84 @@ public final class LinkCommandLine extends CommandLine {
     return this.variables;
   }
 
-  /**
-   * Splits the link command-line into a part to be written to a parameter file, and the remaining
-   * actual command line to be executed (which references the parameter file). Should only be used
-   * if getParamFile() is not null.
-   */
-  @VisibleForTesting
-  final Pair<List<String>, List<String>> splitCommandline() throws CommandLineExpansionException {
-    return splitCommandline(paramFile, getRawLinkArgv(null));
-  }
-
-  @VisibleForTesting
-  final Pair<List<String>, List<String>> splitCommandline(@Nullable ArtifactExpander expander)
-      throws CommandLineExpansionException {
-    return splitCommandline(paramFile, getRawLinkArgv(expander));
-  }
-
-  private static Pair<List<String>, List<String>> splitCommandline(
-      Artifact paramFile, List<String> args) {
+  /** Returns just the .params file portion of the command-line as a {@link CommandLine}. */
+  CommandLine paramCmdLine() {
     Preconditions.checkNotNull(paramFile);
-
-    // Gcc and Ar link commands tend to generate humongous commandlines for some targets, which may
-    // not fit on some remote execution machines. To work around this we will employ the help of
-    // a parameter file and pass any linker options through it.
-    List<String> paramFileArgs = new ArrayList<>();
-    List<String> commandlineArgs = new ArrayList<>();
-    extractArguments(args, commandlineArgs, paramFileArgs);
-    return Pair.of(commandlineArgs, paramFileArgs);
-  }
-
-  public CommandLine getCommandLineForStarlark() {
     return new CommandLine() {
       @Override
       public Iterable<String> arguments() throws CommandLineExpansionException {
-        return arguments(/* artifactExpander= */ null, PathMapper.NOOP);
+        return getParamCommandLine(null);
       }
 
       @Override
-      public ImmutableList<String> arguments(
-          ArtifactExpander artifactExpander, PathMapper pathMapper)
+      public List<String> arguments(ArtifactExpander expander, PathMapper pathMapper)
           throws CommandLineExpansionException {
-        if (paramFile == null) {
-          return ImmutableList.copyOf(getRawLinkArgv(artifactExpander));
-        } else {
-          return ImmutableList.<String>builder()
-              .add(getLinkerPathString())
-              .addAll(splitCommandline(artifactExpander).getSecond())
-              .build();
-        }
+        return getParamCommandLine(expander);
       }
     };
   }
 
-  /**
-   * A {@link CommandLine} implementation that returns the command line args pertaining to the
-   * .params file.
-   */
-  private static class ParamFileCommandLine extends CommandLine {
-    private final Artifact paramsFile;
-    private final LinkTargetType linkTargetType;
-    private final String forcedToolPath;
-    private final FeatureConfiguration featureConfiguration;
-    private final String actionName;
-    private final CcToolchainVariables variables;
-
-    ParamFileCommandLine(
-        Artifact paramsFile,
-        LinkTargetType linkTargetType,
-        String forcedToolPath,
-        FeatureConfiguration featureConfiguration,
-        String actionName,
-        CcToolchainVariables variables) {
-      this.paramsFile = paramsFile;
-      this.linkTargetType = linkTargetType;
-      this.forcedToolPath = forcedToolPath;
-      this.featureConfiguration = featureConfiguration;
-      this.actionName = actionName;
-      this.variables = variables;
-    }
-
-    @Override
-    public Iterable<String> arguments() throws CommandLineExpansionException {
-      List<String> argv =
-          getRawLinkArgv(
-              null, forcedToolPath, featureConfiguration, actionName, linkTargetType, variables);
-      return splitCommandline(paramsFile, argv).getSecond();
-    }
-
-    @Override
-    public Iterable<String> arguments(ArtifactExpander expander, PathMapper pathMapper)
-        throws CommandLineExpansionException {
-      List<String> argv =
-          getRawLinkArgv(
-              expander,
-              forcedToolPath,
-              featureConfiguration,
-              actionName,
-              linkTargetType,
-              variables);
-      return splitCommandline(paramsFile, argv).getSecond();
-    }
-  }
-
-  /** Returns just the .params file portion of the command-line as a {@link CommandLine}. */
-  CommandLine paramCmdLine() {
-    Preconditions.checkNotNull(paramFile);
-    return new ParamFileCommandLine(
-        paramFile, linkTargetType, forcedToolPath, featureConfiguration, actionName, variables);
-  }
-
-  private static void extractArguments(
-      List<String> args, List<String> commandlineArgs, List<String> paramFileArgs) {
-    commandlineArgs.add(args.get(0)); // ar command, must not be moved!
-    int argsSize = args.size();
-    for (int i = 1; i < argsSize; i++) {
-      String arg = args.get(i);
-      if (isLikelyParamFile(arg)) {
-        commandlineArgs.add(arg); // params file, keep it in the command line
-      } else {
-        paramFileArgs.add(arg); // the rest goes to the params file
-      }
-    }
-  }
-
-  private static boolean isLikelyParamFile(String arg) {
-    return arg.startsWith("@")
-        && !arg.startsWith("@rpath")
-        && !arg.startsWith("@loader_path")
-        && !arg.startsWith("@executable_path");
-  }
-
-  /**
-   * Returns a raw link command for the given link invocation, including both command and arguments
-   * (argv).
-   *
-   * @param expander ArtifactExpander for expanding TreeArtifacts.
-   * @return raw link command line.
-   */
-  private List<String> getRawLinkArgv(@Nullable ArtifactExpander expander)
+  public List<String> getCommandLine(@Nullable ArtifactExpander expander)
       throws CommandLineExpansionException {
-    return getRawLinkArgv(
-        expander, forcedToolPath, featureConfiguration, actionName, linkTargetType, variables);
-  }
-
-  private static List<String> getRawLinkArgv(
-      @Nullable ArtifactExpander expander,
-      String forcedToolPath,
-      FeatureConfiguration featureConfiguration,
-      String actionName,
-      LinkTargetType linkTargetType,
-      CcToolchainVariables variables)
-      throws CommandLineExpansionException {
+    // Try to shorten the command line by use of a parameter file.
+    // This makes the output with --subcommands (et al) more readable.
     List<String> argv = new ArrayList<>();
-    if (forcedToolPath != null) {
-      argv.add(forcedToolPath);
-    } else {
-      Preconditions.checkArgument(
-          featureConfiguration.actionIsConfigured(actionName),
-          String.format("Expected action_config for '%s' to be configured", actionName));
-      argv.add(featureConfiguration.getToolPathForAction(linkTargetType.getActionName()));
-    }
+    argv.add(getLinkerPathString());
     try {
-      argv.addAll(featureConfiguration.getCommandLine(actionName, variables, expander));
+      if (paramFile != null) {
+        // Retrieve only reference to linker_param_file from the command line.
+        String linkerParamFile =
+            variables
+                .getVariable(LINKER_PARAM_FILE.getVariableName())
+                .getStringValue(LINKER_PARAM_FILE.getVariableName());
+        argv.addAll(
+            featureConfiguration.getCommandLine(actionName, variables, expander).stream()
+                .filter(s -> s.contains(linkerParamFile))
+                .collect(toImmutableList()));
+      } else {
+        argv.addAll(featureConfiguration.getCommandLine(actionName, variables, expander));
+      }
     } catch (ExpansionException e) {
       throw new CommandLineExpansionException(e.getMessage());
     }
     return argv;
   }
 
-  List<String> getCommandLine(@Nullable ArtifactExpander expander)
+  public List<String> getParamCommandLine(@Nullable ArtifactExpander expander)
       throws CommandLineExpansionException {
-    // Try to shorten the command line by use of a parameter file.
-    // This makes the output with --subcommands (et al) more readable.
-    if (paramFile != null) {
-      Pair<List<String>, List<String>> split = splitCommandline(expander);
-      return split.first;
-    } else {
-      return getRawLinkArgv(expander);
+    List<String> argv = new ArrayList<>();
+    try {
+      if (variables.isAvailable(LINKER_PARAM_FILE.getVariableName())) {
+        // Filter out linker_param_file
+        String linkerParamFile =
+            variables
+                .getVariable(LINKER_PARAM_FILE.getVariableName())
+                .getStringValue(LINKER_PARAM_FILE.getVariableName());
+        argv.addAll(
+            featureConfiguration.getCommandLine(actionName, variables, expander).stream()
+                .filter(s -> !s.contains(linkerParamFile))
+                .collect(toImmutableList()));
+      } else {
+        argv.addAll(featureConfiguration.getCommandLine(actionName, variables, expander));
+      }
+    } catch (ExpansionException e) {
+      throw new CommandLineExpansionException(e.getMessage());
     }
+    return argv;
   }
 
   @Override
   public List<String> arguments() throws CommandLineExpansionException {
-    return getRawLinkArgv(null);
+    return arguments(null, null);
   }
 
   @Override
   public List<String> arguments(ArtifactExpander artifactExpander, PathMapper pathMapper)
       throws CommandLineExpansionException {
-    return getRawLinkArgv(artifactExpander);
+    return ImmutableList.<String>builder()
+        .add(getLinkerPathString())
+        .addAll(getParamCommandLine(artifactExpander))
+        .build();
   }
 
   /** A builder for a {@link LinkCommandLine}. */
