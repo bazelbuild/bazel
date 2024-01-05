@@ -114,8 +114,13 @@ public class Package {
   /** Sentinel value for package overhead being empty. */
   private static final long PACKAGE_OVERHEAD_UNSET = -1;
 
-  /** Common superclass for all name-conflict exceptions. */
-  public static class NameConflictException extends Exception {
+  /**
+   * An exception used when a target's name conflicts with other targets in the package.
+   *
+   * <p>This could be an exact match, or in the case of output files, a prefix clash (one output
+   * file is a prefix of another).
+   */
+  public static final class NameConflictException extends Exception {
     private NameConflictException(String message) {
       super(message);
     }
@@ -895,8 +900,13 @@ public class Package {
 
     /**
      * Whether to do validation checks for name clashes between targets and between output file
-     * prefixes. This should only be disabled for data that has already been validated, e.g. in
-     * package deserialization.
+     * prefixes.
+     *
+     * <p>This should only be disabled for data that has already been validated, e.g. in package
+     * deserialization.
+     *
+     * <p>Even disabling this does not turn off *all* checking, just some of the more expensive
+     * ones. Do not rely on being able to violate these checks.
      */
     private NameConflictCheckingPolicy nameConflictCheckingPolicy =
         NameConflictCheckingPolicy.UNKNOWN;
@@ -1026,7 +1036,9 @@ public class Package {
 
       // Add target for the BUILD file itself.
       // (This may be overridden by an exports_file declaration.)
-      addInputFile(metadata.buildFileLabel, Location.fromFile(filename.asPath().toString()));
+      addInputFile(
+          new InputFile(
+              pkg, metadata.buildFileLabel, Location.fromFile(filename.asPath().toString())));
     }
 
     PackageIdentifier getPackageIdentifier() {
@@ -1376,42 +1388,39 @@ public class Package {
       return Package.getTargets(targets, Rule.class);
     }
 
-    /** An input file name conflicts with an existing package member. */
-    static class GeneratedLabelConflict extends NameConflictException {
-      private GeneratedLabelConflict(String message) {
-        super(message);
-      }
-    }
-
     /**
-     * Creates an input file target in this package with the specified name.
+     * Creates an input file target in this package with the specified name, if it does not yet
+     * exist.
+     *
+     * <p>This operation is idempotent.
      *
      * @param targetName name of the input file. This must be a valid target name as defined by
      *     {@link com.google.devtools.build.lib.cmdline.LabelValidator#validateTargetName}.
-     * @return the newly-created InputFile, or the old one if it already existed.
-     * @throws GeneratedLabelConflict if the name was already taken by a Rule or an OutputFile
-     *     target.
+     * @return the newly-created {@code InputFile}, or the old one if it already existed.
+     * @throws NameConflictException if the name was already taken by another target that is not an
+     *     input file
      * @throws IllegalArgumentException if the name is not a valid label
      */
-    InputFile createInputFile(String targetName, Location location) throws GeneratedLabelConflict {
+    InputFile createInputFile(String targetName, Location location) throws NameConflictException {
       Target existing = targets.get(targetName);
-      if (existing == null) {
-        try {
-          return addInputFile(createLabel(targetName), location);
-        } catch (LabelSyntaxException e) {
+
+      if (existing instanceof InputFile) {
+        return (InputFile) existing; // idempotent
+      }
+
+      InputFile inputFile;
+      try {
+        inputFile = new InputFile(pkg, createLabel(targetName), location);
+      } catch (LabelSyntaxException e) {
           throw new IllegalArgumentException(
               "FileTarget in package " + pkg.getName() + " has illegal name: " + targetName, e);
-        }
-      } else if (existing instanceof InputFile) {
-        return (InputFile) existing; // idempotent
+      }
+
+      if (existing == null) {
+        addInputFile(inputFile);
+        return inputFile;
       } else {
-        throw new GeneratedLabelConflict(
-            "generated label '//"
-                + pkg.getName()
-                + ":"
-                + targetName
-                + "' conflicts with existing "
-                + existing.getTargetKind());
+        throw nameConflict(inputFile, existing);
       }
     }
 
@@ -1761,14 +1770,14 @@ public class Package {
       return finishBuild();
     }
 
-    private InputFile addInputFile(Label label, Location location) {
-      return addInputFile(new InputFile(pkg, label, location));
-    }
-
-    private InputFile addInputFile(InputFile inputFile) {
+    /**
+     * Adds an input file to this package.
+     *
+     * <p>There must not already be a target with the same name (i.e., this is not idempotent).
+     */
+    private void addInputFile(InputFile inputFile) {
       Target prev = targets.put(inputFile.getLabel().getName(), inputFile);
       Preconditions.checkState(prev == null);
-      return inputFile;
     }
 
     /**

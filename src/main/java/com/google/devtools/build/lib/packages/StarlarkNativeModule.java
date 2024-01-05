@@ -598,7 +598,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
         }
 
         pkgBuilder.setVisibilityAndLicense(inputFile, visibility, license);
-      } catch (Package.Builder.GeneratedLabelConflict e) {
+      } catch (Package.NameConflictException e) {
         throw Starlark.errorf("%s", e.getMessage());
       }
     }

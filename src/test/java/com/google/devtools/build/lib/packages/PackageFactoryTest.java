@@ -1010,7 +1010,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   @Test
   public void testGenruleExportConflict() throws Exception {
     expectEvalError(
-        "generated label '//pkg:a.cc' conflicts with existing generated file",
+        "source file 'a.cc' conflicts with existing generated file from rule 'foo'",
         "genrule(name = 'foo',",
         "    outs = ['a.cc'],",
         "    cmd = '')",
