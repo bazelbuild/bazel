@@ -184,7 +184,7 @@ public final class RunfilesSupport implements RunfilesSupplier, RunfilesTree {
     this.actionEnvironment = actionEnvironment;
   }
 
-  /** Returns the executable owning this RunfilesSupport. Only use from Starlark. */
+  /** Returns the executable owning this RunfilesSupport. */
   public Artifact getExecutable() {
     return owningExecutable;
   }
