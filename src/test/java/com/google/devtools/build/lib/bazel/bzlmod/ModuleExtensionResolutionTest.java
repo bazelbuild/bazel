@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -66,7 +65,6 @@ import com.google.devtools.build.lib.skyframe.FileStateFunction;
 import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesFunction;
 import com.google.devtools.build.lib.skyframe.LocalRepositoryLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
-import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageValue;
@@ -98,7 +96,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
@@ -203,21 +200,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                 .put(
                     SkyFunctions.STARLARK_BUILTINS,
                     new StarlarkBuiltinsFunction(ruleClassProvider.getBazelStarlarkEnvironment()))
-                .put(
-                    SkyFunctions.PACKAGE,
-                    new PackageFunction(
-                        /* packageFactory= */ null,
-                        /* pkgLocator= */ null,
-                        /* showLoadingProgress= */ null,
-                        /* numPackagesSuccessfullyLoaded= */ new AtomicInteger(),
-                        /* bzlLoadFunctionForInlining= */ null,
-                        /* packageProgress= */ null,
-                        PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException
-                            .INSTANCE,
-                        /* shouldUseRepoDotBazel= */ true,
-                        GlobbingStrategy.SKYFRAME_HYBRID,
-                        ignored -> ThreadStateReceiver.NULL_INSTANCE,
-                        /* cpuBoundSemaphore= */ new AtomicReference<>()))
+                .put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build())
                 .put(
                     SkyFunctions.PACKAGE_LOOKUP,
                     new PackageLookupFunction(

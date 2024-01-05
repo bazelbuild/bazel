@@ -47,6 +47,7 @@ java_library(
         "HighWaterMarkLimiter.java",
         "LocalRepositoryLookupFunction.java",
         "PackageFunction.java",
+        "PackageFunctionWithMultipleGlobDeps.java",
         "PrepareDepsOfPatternFunction.java",
         "SequencedSkyframeExecutor.java",
         "SequencedSkyframeExecutorFactory.java",

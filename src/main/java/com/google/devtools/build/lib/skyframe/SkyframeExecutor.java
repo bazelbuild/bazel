@@ -616,18 +616,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.RECURSIVE_PKG, new RecursivePkgFunction(directories));
     map.put(
         SkyFunctions.PACKAGE,
-        new PackageFunction(
-            pkgFactory,
-            packageManager,
-            showLoadingProgress,
-            numPackagesSuccessfullyLoaded,
-            bzlLoadFunctionForInliningPackageAndWorkspaceNodes,
-            packageProgress,
-            actionOnIOExceptionReadingBuildFile,
-            shouldUseRepoDotBazel,
-            getGlobbingStrategy(),
-            skyKeyStateReceiver::makeThreadStateReceiver,
-            cpuBoundSemaphore));
+        PackageFunction.newBuilder()
+            .setPackageFactory(pkgFactory)
+            .setPackageLocator(packageManager)
+            .setShowLoadingProgress(showLoadingProgress)
+            .setNumPackagesSuccessfullyLoaded(numPackagesSuccessfullyLoaded)
+            .setBzlLoadFunctionForInlining(bzlLoadFunctionForInliningPackageAndWorkspaceNodes)
+            .setPackageProgress(packageProgress)
+            .setActionOnIOExceptionReadingBuildFile(actionOnIOExceptionReadingBuildFile)
+            .setShouldUseRepoDotBazel(shouldUseRepoDotBazel)
+            .setGlobbingStrategy(getGlobbingStrategy())
+            .setThreadStateReceiverFactoryForMetrics(skyKeyStateReceiver::makeThreadStateReceiver)
+            .setCpuBoundSemaphore(cpuBoundSemaphore)
+            .build());
     map.put(SkyFunctions.PACKAGE_ERROR, new PackageErrorFunction());
     map.put(SkyFunctions.PACKAGE_ERROR_MESSAGE, new PackageErrorMessageFunction());
     map.put(SkyFunctions.TARGET_PATTERN_ERROR, new TargetPatternErrorFunction());
