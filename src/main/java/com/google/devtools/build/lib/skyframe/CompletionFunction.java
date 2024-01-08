@@ -205,8 +205,7 @@ public final class CompletionFunction<
                 input,
                 artifactValue,
                 env,
-                currentConsumer,
-                skyframeActionExecutor.requiresTreeMetadataWhenTreeFileIsInput());
+                currentConsumer);
             if (!allArtifactsAreImportant && importantArtifactSet.contains(input)) {
               // Calling #addToMap a second time with `input` and `artifactValue` will perform no-op
               // updates to the secondary collections passed in (eg. expandedArtifacts,
@@ -220,8 +219,7 @@ public final class CompletionFunction<
                   topLevelFilesets,
                   input,
                   artifactValue,
-                  env,
-                  skyframeActionExecutor.requiresTreeMetadataWhenTreeFileIsInput());
+                  env);
             }
           }
         }
