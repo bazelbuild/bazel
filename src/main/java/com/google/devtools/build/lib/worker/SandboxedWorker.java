@@ -181,7 +181,7 @@ final class SandboxedWorker extends SingleplexWorker {
       // Mostly tests require network, and some blaze run commands, but no workers.
       LinuxSandboxCommandLineBuilder commandLineBuilder =
           LinuxSandboxCommandLineBuilder.commandLineBuilder(
-                  this.hardenedSandboxOptions.sandboxBinary(), args)
+                  this.hardenedSandboxOptions.sandboxBinary())
               .setWritableFilesAndDirectories(getWritableDirs(workDir))
               .setTmpfsDirectories(ImmutableSet.copyOf(this.hardenedSandboxOptions.tmpfsPath()))
               .setPersistentProcess(true)
@@ -202,7 +202,7 @@ final class SandboxedWorker extends SingleplexWorker {
         commandLineBuilder.setUseFakeUsername(true);
       }
 
-      args = commandLineBuilder.build();
+      args = commandLineBuilder.buildForCommand(args);
     }
     return createProcessBuilder(args).start();
   }
