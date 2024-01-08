@@ -106,10 +106,9 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       throws InterruptedException {
     LocalExecutionOptions options = cmdEnv.getOptions().getOptions(LocalExecutionOptions.class);
     ImmutableList<String> linuxSandboxArgv =
-        LinuxSandboxCommandLineBuilder.commandLineBuilder(
-                linuxSandbox, ImmutableList.of("/bin/true"))
+        LinuxSandboxCommandLineBuilder.commandLineBuilder(linuxSandbox)
             .setTimeout(options.getLocalSigkillGraceSeconds())
-            .build();
+            .buildForCommand(ImmutableList.of("/bin/true"));
     ImmutableMap<String, String> env = ImmutableMap.of();
     Path execRoot = cmdEnv.getExecRoot();
     File cwd = execRoot.getPathFile();
@@ -281,6 +280,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     SandboxInputs inputs =
         helpers.processInputFiles(
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
+            context.getInputMetadataProvider(),
             execRoot,
             withinSandboxExecRoot,
             packageRoots,
@@ -309,7 +309,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     boolean createNetworkNamespace =
         !(allowNetwork || Spawns.requiresNetwork(spawn, sandboxOptions.defaultSandboxAllowNetwork));
     LinuxSandboxCommandLineBuilder commandLineBuilder =
-        LinuxSandboxCommandLineBuilder.commandLineBuilder(linuxSandbox, spawn.getArguments())
+        LinuxSandboxCommandLineBuilder.commandLineBuilder(linuxSandbox)
             .addExecutionInfo(spawn.getExecutionInfo())
             .setWritableFilesAndDirectories(writableDirs)
             .setTmpfsDirectories(ImmutableSet.copyOf(getSandboxOptions().sandboxTmpfsPath))
@@ -354,7 +354,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       return new HardlinkedSandboxedSpawn(
           sandboxPath,
           sandboxExecRoot,
-          commandLineBuilder.build(),
+          commandLineBuilder.buildForCommand(spawn.getArguments()),
           environment,
           inputs,
           outputs,
@@ -368,7 +368,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       return new SymlinkedSandboxedSpawn(
           sandboxPath,
           sandboxExecRoot,
-          commandLineBuilder.build(),
+          commandLineBuilder.buildForCommand(spawn.getArguments()),
           environment,
           inputs,
           outputs,
@@ -376,6 +376,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           treeDeleter,
           sandboxDebugPath,
           statisticsPath,
+          makeInteractiveDebugArguments(commandLineBuilder, sandboxOptions),
           spawn.getMnemonic());
     }
   }
@@ -537,5 +538,14 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     }
 
     super.cleanupSandboxBase(sandboxBase, treeDeleter);
+  }
+
+  @Nullable
+  private ImmutableList<String> makeInteractiveDebugArguments(
+      LinuxSandboxCommandLineBuilder commandLineBuilder, SandboxOptions sandboxOptions) {
+    if (!sandboxOptions.sandboxDebug) {
+      return null;
+    }
+    return commandLineBuilder.buildForCommand(ImmutableList.of("/bin/sh", "-i"));
   }
 }
