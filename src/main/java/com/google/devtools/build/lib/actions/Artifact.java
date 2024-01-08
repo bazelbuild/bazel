@@ -59,6 +59,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -1544,21 +1545,20 @@ public abstract class Artifact
   /**
    * Adds an artifact to a collection, expanding it once if it's a middleman or tree artifact.
    *
-   * <p>A middleman artifact is never added to the collection. If {@code keepEmptyTreeArtifacts} is
-   * true, a tree artifact will be added to the collection when it expands into zero file artifacts.
-   * Otherwise, only the file artifacts the tree artifact expands into will be added.
+   * <p>The middleman or tree artifact is never added to the output collection. If a tree artifact
+   * expands into zero file artifacts, it is added to emptyTreeArtifacts.
    */
   static void addExpandedArtifact(
       Artifact artifact,
       Collection<? super Artifact> output,
       ArtifactExpander artifactExpander,
-      boolean keepEmptyTreeArtifacts) {
+      Set<Artifact> emptyTreeArtifacts) {
     if (artifact.isMiddlemanArtifact() || artifact.isTreeArtifact()) {
       List<Artifact> expandedArtifacts = new ArrayList<>();
       artifactExpander.expand(artifact, expandedArtifacts);
       output.addAll(expandedArtifacts);
-      if (keepEmptyTreeArtifacts && artifact.isTreeArtifact() && expandedArtifacts.isEmpty()) {
-        output.add(artifact);
+      if (artifact.isTreeArtifact() && expandedArtifacts.isEmpty()) {
+        emptyTreeArtifacts.add(artifact);
       }
     } else {
       output.add(artifact);

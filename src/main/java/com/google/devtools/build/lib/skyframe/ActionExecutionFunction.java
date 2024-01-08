@@ -1310,8 +1310,7 @@ public final class ActionExecutionFunction implements SkyFunction {
             topLevelFilesets,
             input,
             value,
-            env,
-            skyframeActionExecutor.requiresTreeMetadataWhenTreeFileIsInput());
+            env);
       } else if (!hasMissingInputs && input.hasKnownGeneratingAction()) {
         // Derived inputs are mandatory, but we did not detect any missing inputs. This is only
         // possible for indirect inputs (beneath an ArtifactNestedSetKey) when, between the time the
