@@ -313,7 +313,7 @@ public class CompatDx {
 
     @Option(
         name = "min-sdk-version",
-        defaultValue = "13", // Same as Constants.MIN_API_LEVEL.
+        defaultValue = "19", // Same as Constants.MIN_API_LEVEL.
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
         allowMultiple = false,
