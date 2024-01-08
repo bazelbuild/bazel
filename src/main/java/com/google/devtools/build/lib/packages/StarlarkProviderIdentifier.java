@@ -29,7 +29,6 @@ public abstract class StarlarkProviderIdentifier {
       BlazeInterners.newWeakInterner();
 
   /** Creates an id for a declared provider with a given key ({@see StarlarkProvider}). */
-  @AutoCodec.Instantiator
   public static StarlarkProviderIdentifier forKey(Provider.Key key) {
     return interner.intern(new KeyedIdentifier(key));
   }
