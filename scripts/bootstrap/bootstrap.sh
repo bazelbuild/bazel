@@ -20,7 +20,7 @@
 #   EMBED_LABEL: the label to embed in tools using --embed_label (optional)
 #   BAZELRC: the rc file to use
 
-: ${BAZELRC:="/dev/null"}
+: ${BAZELRC:=".bazelrc"}
 : ${EMBED_LABEL:=""}
 : ${SOURCE_DATE_EPOCH:=""}
 
