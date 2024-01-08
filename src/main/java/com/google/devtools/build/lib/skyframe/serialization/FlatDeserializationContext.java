@@ -25,14 +25,14 @@ import java.io.IOException;
  */
 public interface FlatDeserializationContext extends SerializationDependencyProvider {
   /** Defines a way to set a field in a given object. */
-  interface FieldSetter {
+  interface FieldSetter<T> {
     /**
      * Sets a field of {@code obj}.
      *
      * @param target the object that accepts the field value.
      * @param fieldValue the non-null field value.
      */
-    void set(Object target, Object fieldValue) throws SerializationException;
+    void set(T target, Object fieldValue) throws SerializationException;
   }
 
   /**
@@ -75,7 +75,7 @@ public interface FlatDeserializationContext extends SerializationDependencyProvi
    * <p>As with other methods in this class, the setting occurs only after the child object is fully
    * deserialized. The setter is not called if the child is null.
    */
-  void deserializeFully(CodedInputStream codedIn, Object obj, FieldSetter setter)
+  <T> void deserializeFully(CodedInputStream codedIn, T obj, FieldSetter<? super T> setter)
       throws IOException, SerializationException;
 
   /**

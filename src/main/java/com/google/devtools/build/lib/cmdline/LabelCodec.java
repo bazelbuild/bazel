@@ -71,7 +71,7 @@ final class LabelCodec extends InterningObjectCodec<Label> {
     return Label.getLabelInterner().intern(label);
   }
 
-  private static void setName(Object label, Object name) {
+  private static void setName(Label label, Object name) {
     unsafe().putObject(label, NAME_OFFSET, Label.internIfConstantName((String) name));
   }
 }

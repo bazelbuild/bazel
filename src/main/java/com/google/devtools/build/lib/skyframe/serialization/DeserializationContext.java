@@ -72,7 +72,7 @@ public class DeserializationContext implements AsyncDeserializationContext {
    * <p>This allows custom processing of the deserialized object.
    */
   @Override
-  public void deserialize(CodedInputStream codedIn, Object obj, FieldSetter setter)
+  public <T> void deserialize(CodedInputStream codedIn, T obj, FieldSetter<? super T> setter)
       throws IOException, SerializationException {
     Object value = deserializeInternal(codedIn, /* customMemoizationStrategy= */ null);
     if (value == null) {
@@ -106,7 +106,7 @@ public class DeserializationContext implements AsyncDeserializationContext {
   }
 
   @Override
-  public void deserializeFully(CodedInputStream codedIn, Object obj, FieldSetter setter)
+  public <T> void deserializeFully(CodedInputStream codedIn, T obj, FieldSetter<? super T> setter)
       throws IOException, SerializationException {
     // This method is identical to the call below in the synchronous implementation.
     deserialize(codedIn, obj, setter);

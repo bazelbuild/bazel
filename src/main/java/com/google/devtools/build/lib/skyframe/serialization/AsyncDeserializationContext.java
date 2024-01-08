@@ -46,7 +46,7 @@ public interface AsyncDeserializationContext extends FlatDeserializationContext 
    *
    * <p>No value is written when the resulting value is null.
    */
-  void deserialize(CodedInputStream codedIn, Object obj, FieldSetter setter)
+  <T> void deserialize(CodedInputStream codedIn, T obj, FieldSetter<? super T> setter)
       throws IOException, SerializationException;
 
   /**

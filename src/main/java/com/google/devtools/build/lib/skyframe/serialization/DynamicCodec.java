@@ -267,7 +267,7 @@ public final class DynamicCodec extends AsyncObjectCodec<Object> {
     }
   }
 
-  private static final class ObjectHandler implements FieldHandler, FieldSetter {
+  private static final class ObjectHandler implements FieldHandler, FieldSetter<Object> {
     private final Class<?> type;
     private final long offset;
 
@@ -286,7 +286,7 @@ public final class DynamicCodec extends AsyncObjectCodec<Object> {
     public void deserialize(
         AsyncDeserializationContext context, CodedInputStream codedIn, Object obj)
         throws IOException, SerializationException {
-      context.deserialize(codedIn, obj, (FieldSetter) this);
+      context.deserialize(codedIn, obj, (FieldSetter<Object>) this);
     }
 
     @Override
