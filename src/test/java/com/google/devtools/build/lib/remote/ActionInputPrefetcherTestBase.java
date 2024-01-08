@@ -71,7 +71,6 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -760,7 +759,7 @@ public abstract class ActionInputPrefetcherTestBase {
         prefetcher.prefetchFiles(
             action, ImmutableList.of(a1), interruptedMetadataSupplier, Priority.MEDIUM);
 
-    assertThrows(CancellationException.class, future::get);
+    assertThrows(InterruptedException.class, () -> getFromFuture(future));
   }
 
   @Test
