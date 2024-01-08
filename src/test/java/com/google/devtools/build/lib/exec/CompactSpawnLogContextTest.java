@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.exec;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
+import com.github.luben.zstd.ZstdInputStream;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -129,7 +130,7 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
     HashMap<Integer, ExecLogEntry> entryMap = new HashMap<>();
 
     ArrayList<SpawnExec> actual = new ArrayList<>();
-    try (InputStream in = logPath.getInputStream()) {
+    try (InputStream in = new ZstdInputStream(logPath.getInputStream())) {
       while (in.available() > 0) {
         ExecLogEntry e = ExecLogEntry.parseDelimitedFrom(in);
         entryMap.put(e.getId(), e);
