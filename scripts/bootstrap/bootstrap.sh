@@ -20,7 +20,7 @@
 #   EMBED_LABEL: the label to embed in tools using --embed_label (optional)
 #   BAZELRC: the rc file to use
 
-: ${BAZELRC:=".bazelrc"}
+: ${BAZELRC:="/dev/null"}
 : ${EMBED_LABEL:=""}
 : ${SOURCE_DATE_EPOCH:=""}
 
@@ -31,12 +31,19 @@ fi
 
 : ${JAVA_VERSION:="11"}
 
+CXX_OPT="-std=c++17"
+if [ "${PLATFORM}" = "windows" ]; then
+  CXX_OPT="/std=c++17"
+fi
+
 _BAZEL_ARGS="--spawn_strategy=standalone \
       --nojava_header_compilation \
       --strategy=Javac=worker --worker_quit_after_build --ignore_unsupported_sandboxing \
       --compilation_mode=opt \
       --distdir=derived/distdir \
       --extra_toolchains=//scripts/bootstrap:bootstrap_toolchain_definition \
+      --cxxopt=${CXX_OPT} \
+      --host_cxxopt=${CXX_OPT} \
       ${DIST_BOOTSTRAP_ARGS:-} \
       ${EXTRA_BAZEL_ARGS:-}"
 
