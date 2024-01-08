@@ -37,14 +37,15 @@ public class PyTestConfiguredTargetTest extends PyExecutableConfiguredTargetTest
     // The default mock environment doesn't have platform_mappings (which map --cpu to a platform),
     // nor does it have Apple platforms defined, so we have to set one up ourselves.
     mockToolsConfig.create(
-        "mockplatforms/BUILD",
+        "platforms/BUILD",
         "platform(",
-        "    name='macos',",
-        String.format(
-            "    constraint_values=['%sos:macos'],", TestConstants.CONSTRAINTS_PACKAGE_ROOT),
-        ")",
-        "");
-    useConfiguration("--cpu=darwin_x86_64", "--platforms=//mockplatforms:macos");
+        "  name = 'darwin_x86_64',",
+        "  constraint_values = [",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:macos',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
+        "  ],",
+        ")");
+    useConfiguration("--cpu=darwin_x86_64", "--platforms=//platforms:darwin_x86_64");
     scratch.file(
         "pkg/BUILD", //
         getPyLoad("py_test"),
