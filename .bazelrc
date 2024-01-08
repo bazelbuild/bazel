@@ -33,6 +33,14 @@ build:windows_arm64 --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_win
 # Enable Bzlmod
 build:bzlmod --experimental_enable_bzlmod
 
+# Enable modern C++ features
+build:linux --cxxopt=-std=c++17
+build:linux --host_cxxopt=-std=c++17
+build:macos --cxxopt=-std=c++17
+build:macos --host_cxxopt=-std=c++17
+build:windows --cxxopt=/std:c++17
+build:windows --host_cxxopt=/std:c++17
+
 # Enable Java 11 language features (https://github.com/bazelbuild/bazel/issues/14592)
 build --java_language_version=11
 build --tool_java_language_version=11
