@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.exec.SpawnLogContext.getEnvironmentV
 import static com.google.devtools.build.lib.exec.SpawnLogContext.getPlatform;
 import static com.google.devtools.build.lib.exec.SpawnLogContext.getSpawnMetricsProto;
 
+import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -46,6 +47,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayDeque;
@@ -96,9 +98,10 @@ public class CompactSpawnLogContext implements SpawnLogContext {
   }
 
   private static MessageOutputStream<ExecLogEntry> getOutputStream(Path path) throws IOException {
-    // Use an AsynchronousMessageOutputStream so that writes occur in a separate thread.
-    // This ensures concurrent writes don't tear and avoids blocking execution.
-    return new AsynchronousMessageOutputStream<>(path);
+    // Use an AsynchronousMessageOutputStream so that compression and I/O occur in a separate
+    // thread. This ensures concurrent writes don't tear and avoids blocking execution.
+    return new AsynchronousMessageOutputStream<>(
+        path.toString(), new ZstdOutputStream(new BufferedOutputStream(path.getOutputStream())));
   }
 
   @Override
