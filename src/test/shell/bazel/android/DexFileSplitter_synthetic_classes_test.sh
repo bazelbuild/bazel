@@ -33,7 +33,7 @@ source "${CURRENT_DIR}/android_helper.sh" \
   || { echo "android_helper.sh not found!" >&2; exit 1; }
 fail_if_no_android_sdk
 
-resolve_android_toolchains "$1"
+resolve_android_toolchains
 
 function create_test_app() {
 

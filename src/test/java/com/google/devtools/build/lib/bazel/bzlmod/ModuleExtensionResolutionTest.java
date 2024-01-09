@@ -363,7 +363,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "use_repo(ext2, 'bar')",
         "ext3 = use_extension('@//:defs.bzl', 'ext')",
         "ext3.tag(name='quz', data='qu')",
-        "use_repo(ext3, 'quz')");
+        "use_repo(ext3, 'quz')",
+        "ext4 = use_extension('defs.bzl', 'ext')",
+        "ext4.tag(name='qor', data='qo')",
+        "use_repo(ext4, 'qor')");
     scratch.file(
         workspaceRoot.getRelative("defs.bzl").getPathString(),
         "load('@data_repo//:defs.bzl','data_repo')",
@@ -379,7 +382,8 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "load('@foo//:data.bzl', foo_data='data')",
         "load('@bar//:data.bzl', bar_data='data')",
         "load('@quz//:data.bzl', quz_data='data')",
-        "data = 'foo:'+foo_data+' bar:'+bar_data+' quz:'+quz_data");
+        "load('@qor//:data.bzl', qor_data='data')",
+        "data = 'foo:'+foo_data+' bar:'+bar_data+' quz:'+quz_data+' qor:'+qor_data");
 
     SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
     EvaluationResult<BzlLoadValue> result =
@@ -387,7 +391,8 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     if (result.hasError()) {
       throw result.getError().getException();
     }
-    assertThat(result.get(skyKey).getModule().getGlobal("data")).isEqualTo("foo:fu bar:ba quz:qu");
+    assertThat(result.get(skyKey).getModule().getGlobal("data"))
+        .isEqualTo("foo:fu bar:ba quz:qu qor:qo");
   }
 
   @Test
@@ -2448,7 +2453,35 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "load('@data//:data.bzl', self_data='data')",
         "data=self_data");
     scratch.file(
-        workspaceRoot.getRelative("repo.bzl").getPathString(), "data_repo = 3  # not a repo rule");
+        workspaceRoot.getRelative("repo.bzl").getPathString(),
+        "# not a repo rule",
+        "def data_repo(name):",
+        "    pass");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<BzlLoadValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getException())
+        .hasMessageThat()
+        .contains(
+            "//:repo.bzl exports a value called data_repo of type function, yet a repository_rule"
+                + " is requested at /ws/MODULE.bazel");
+  }
+
+  @Test
+  public void innate_noSuchValue() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "data_repo = use_repo_rule('//:repo.bzl', 'data_repo')",
+        "data_repo(name='data', data='get up at 6am.')");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@data//:data.bzl', self_data='data')",
+        "data=self_data");
+    scratch.file(workspaceRoot.getRelative("repo.bzl").getPathString(), "");
 
     SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
     reporter.removeHandler(failFastHandler);

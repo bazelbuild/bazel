@@ -76,8 +76,8 @@ public final class CommandUsingLinuxSandboxTest {
     ImmutableList<String> commandArguments = ImmutableList.of("echo", "sleep furiously");
 
     List<String> fullCommandLine =
-        LinuxSandboxCommandLineBuilder.commandLineBuilder(getLinuxSandboxPath(), commandArguments)
-            .build();
+        LinuxSandboxCommandLineBuilder.commandLineBuilder(getLinuxSandboxPath())
+            .buildForCommand(commandArguments);
 
     Command command = new Command(fullCommandLine.toArray(new String[0]));
     CommandResult commandResult = command.execute();
@@ -98,9 +98,9 @@ public final class CommandUsingLinuxSandboxTest {
     Path statisticsFilePath = outputDir.getRelative("stats.out");
 
     List<String> fullCommandLine =
-        LinuxSandboxCommandLineBuilder.commandLineBuilder(getLinuxSandboxPath(), commandArguments)
+        LinuxSandboxCommandLineBuilder.commandLineBuilder(getLinuxSandboxPath())
             .setStatisticsPath(statisticsFilePath)
-            .build();
+            .buildForCommand(commandArguments);
 
     ExecutionStatisticsTestUtil.executeCommandAndCheckStatisticsAboutCpuTimeSpent(
         userTimeToSpend, systemTimeToSpend, fullCommandLine, statisticsFilePath);
