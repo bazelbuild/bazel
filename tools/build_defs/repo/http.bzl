@@ -198,8 +198,6 @@ def _http_file_impl(ctx):
     return _update_integrity_attr(ctx, _http_file_attrs, download_info)
 
 _HTTP_JAR_BUILD = """\
-load("{rules_java_defs}", "java_import")
-
 package(default_visibility = ["//visibility:public"])
 
 java_import(
@@ -232,7 +230,6 @@ def _http_jar_impl(ctx):
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
     ctx.file("jar/BUILD", _HTTP_JAR_BUILD.format(
         file_name = downloaded_file_name,
-        rules_java_defs = str(Label("@rules_java//java:defs.bzl")),
     ))
 
     return _update_integrity_attr(ctx, _http_jar_attrs, download_info)
