@@ -115,6 +115,7 @@ class WindowsFileMtime : public IFileMtime {
 
   bool IsUntampered(const Path& path) override;
   bool SetToNow(const Path& path) override;
+  bool SetToNowIfPossible(const Path& path) override;
   bool SetToDistantFuture(const Path& path) override;
 
  private:
@@ -177,6 +178,19 @@ bool WindowsFileMtime::IsUntampered(const Path& path) {
 
 bool WindowsFileMtime::SetToNow(const Path& path) {
   return Set(path, GetNow());
+}
+
+bool WindowsFileMtime::SetToNowIfPossible(const Path& path) {
+  bool okay = this->SetToNow(path);
+  if (!okay) {
+    // `SetToNow` is backed by `CreateFileW` + `SetFileTime`; the former can
+    // return `ERROR_ACCESS_DENIED` if there's a permissions issue:
+    if (GetLastError() == ERROR_ACCESS_DENIED) {
+      okay = true;
+    }
+  }
+
+  return okay;
 }
 
 bool WindowsFileMtime::SetToDistantFuture(const Path& path) {
