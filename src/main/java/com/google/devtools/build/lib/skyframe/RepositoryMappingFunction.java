@@ -32,6 +32,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.io.IOException;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -178,7 +179,7 @@ public class RepositoryMappingFunction implements SkyFunction {
       return computeFromWorkspace(repositoryName, externalPackageValue, rootModuleRepoMapping);
     }
 
-    throw new RepositoryMappingFunctionException();
+    return RepositoryMappingValue.NOT_FOUND_VALUE;
   }
 
   /**
