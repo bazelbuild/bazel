@@ -71,6 +71,8 @@ public class BuildConfigurationKeyProducer implements StateMachine {
       Collection<String> transitionKeys = entry.getValue();
       tasks.lookUp(
           PlatformMappingValue.Key.create(entry.getKey().orElse(null)),
+          // No need to consider error handling: this flag cannot be changed and so errors were
+          // detected and handled in SkyframeExecutor.createBuildConfigurationKey.
           rawValue -> {
             var value = (PlatformMappingValue) rawValue;
             // Maps the value from all transition keys with the same platform mappings path.

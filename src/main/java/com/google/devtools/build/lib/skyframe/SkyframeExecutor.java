@@ -1852,6 +1852,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         PlatformMappingValue.Key.create(platformMappingPath);
     EvaluationResult<SkyValue> evaluationResult =
         evaluateSkyKeys(eventHandler, ImmutableSet.of(platformMappingKey));
+    // Handle all possible errors with the platform mapping by reporting them to the user.
     if (evaluationResult.hasError()) {
       throw new InvalidConfigurationException(
           Code.PLATFORM_MAPPING_EVALUATION_FAILURE, evaluationResult.getError().getException());

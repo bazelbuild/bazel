@@ -115,15 +115,14 @@ public final class PlatformMappingFunction implements SkyFunction {
                             + " '%s' but that path refers to a directory, not a file",
                         workspaceRelativeMappingPath, root),
                     Code.PLATFORM_MAPPINGS_FILE_IS_DIRECTORY),
-                Location.BUILTIN),
-            SkyFunctionException.Transience.PERSISTENT);
+                Location.BUILTIN));
       }
 
       List<String> lines;
       try {
         lines = FileSystemUtils.readLines(fileValue.realRootedPath().asPath(), UTF_8);
       } catch (IOException e) {
-        throw new PlatformMappingException(e, SkyFunctionException.Transience.TRANSIENT);
+        throw new PlatformMappingException(e);
       }
 
       Mappings parsed = parse(env, lines, mainRepoContext);
@@ -147,8 +146,7 @@ public final class PlatformMappingFunction implements SkyFunction {
                         + "package path roots, '%s'",
                     workspaceRelativeMappingPath, pathEntries),
                 Code.PLATFORM_MAPPINGS_FILE_NOT_FOUND),
-            Location.BUILTIN),
-        SkyFunctionException.Transience.PERSISTENT);
+            Location.BUILTIN));
   }
 
   private static FailureDetail createFailureDetail(String message, Code detailedCode) {
@@ -161,8 +159,20 @@ public final class PlatformMappingFunction implements SkyFunction {
   @VisibleForTesting
   static final class PlatformMappingException extends SkyFunctionException {
 
-    PlatformMappingException(Exception cause, Transience transience) {
-      super(cause, transience);
+    PlatformMappingException(OptionsParsingException cause) {
+      super(cause, Transience.PERSISTENT);
+    }
+
+    PlatformMappingException(MissingInputFileException cause) {
+      super(cause, Transience.PERSISTENT);
+    }
+
+    PlatformMappingException(IOException cause) {
+      super(cause, Transience.TRANSIENT);
+    }
+
+    PlatformMappingException(PlatformMappingParsingException cause) {
+      super(cause, Transience.PERSISTENT);
     }
   }
 
@@ -280,7 +290,7 @@ public final class PlatformMappingFunction implements SkyFunction {
       return NativeAndStarlarkFlags.create(
           nativeFlags.build(), fakeNativeParser.getStarlarkOptions());
     } catch (OptionsParsingException e) {
-      throw new PlatformMappingException(e, Transience.PERSISTENT);
+      throw new PlatformMappingException(e);
     }
   }
 
@@ -368,9 +378,7 @@ public final class PlatformMappingFunction implements SkyFunction {
   }
 
   private static PlatformMappingException parsingException(String message, Exception cause) {
-    return new PlatformMappingException(
-        new PlatformMappingParsingException(message, cause),
-        SkyFunctionException.Transience.PERSISTENT);
+    return new PlatformMappingException(new PlatformMappingParsingException(message, cause));
   }
 
   /**
