@@ -740,6 +740,12 @@ public class StandaloneTestStrategy extends TestStrategy {
               .getOutputMetadataStore()
               .getTreeArtifactChildren(
                   (SpecialArtifact) testAction.getCoverageDirectoryTreeArtifact());
+      ImmutableSet<ActionInput> coverageSpawnMetadata =
+          ImmutableSet.<ActionInput>builder()
+              .addAll(expandedCoverageDir)
+              .add(testAction.getCoverageDirectoryTreeArtifact())
+              .build();
+
       Spawn coveragePostProcessingSpawn =
           createCoveragePostProcessingSpawn(
               actionExecutionContext,
@@ -759,7 +765,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       ActionExecutionContext coverageActionExecutionContext =
           actionExecutionContext
               .withFileOutErr(coverageOutErr)
-              .withOutputsAsInputs(expandedCoverageDir);
+              .withOutputsAsInputs(coverageSpawnMetadata);
 
       writeOutFile(coverageOutErr.getErrorPath(), coverageOutErr.getOutputPath());
       appendCoverageLog(coverageOutErr, fileOutErr);
