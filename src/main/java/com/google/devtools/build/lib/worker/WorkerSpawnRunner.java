@@ -176,8 +176,10 @@ final class WorkerSpawnRunner implements SpawnRunner {
                 String.format(
                     "%s worker %s", spawn.getMnemonic(), spawn.getResourceOwner().describe()))) {
 
-      runfilesTreeUpdater.updateRunfiles(
-          spawn.getRunfilesSupplier(), spawn.getEnvironment(), context.getFileOutErr());
+      try (var s = Profiler.instance().profile("updateRunfiles")) {
+        runfilesTreeUpdater.updateRunfiles(
+            spawn.getRunfilesSupplier(), spawn.getEnvironment(), context.getFileOutErr());
+      }
 
       InputMetadataProvider inputFileCache = context.getInputMetadataProvider();
 
