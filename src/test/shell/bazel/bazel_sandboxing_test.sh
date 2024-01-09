@@ -334,6 +334,95 @@ EOF
   assert_contains GOOD bazel-bin/pkg/gen.txt
 }
 
+function test_symlink_with_output_base_under_tmp() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # Tests Linux-specific functionality
+    return 0
+  fi
+
+  create_workspace_with_default_repos WORKSPACE
+
+  sed -i.bak '/sandbox_tmpfs_path/d' $TEST_TMPDIR/bazelrc
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+load(":r.bzl", "symlink_rule")
+
+genrule(name="r1", srcs=[], outs=[":r1"], cmd="echo CONTENT > $@")
+symlink_rule(name="r2", input=":r1")
+genrule(name="r3", srcs=[":r2"], outs=[":r3"], cmd="cp $< $@")
+EOF
+
+  cat > pkg/r.bzl <<'EOF'
+def _symlink_impl(ctx):
+  output = ctx.actions.declare_file(ctx.label.name)
+  ctx.actions.symlink(output = output, target_file = ctx.file.input)
+  return [DefaultInfo(files = depset([output]))]
+
+symlink_rule = rule(
+  implementation = _symlink_impl,
+  attrs = {"input": attr.label(allow_single_file=True)})
+EOF
+
+  local tmp_output_base=$(mktemp -d "/tmp/bazel_output_base.XXXXXXXX")
+  trap "chmod -R u+w $tmp_output_base && rm -fr $tmp_output_base" EXIT
+
+  bazel --output_base="$tmp_output_base" build //pkg:r3
+  assert_contains CONTENT bazel-bin/pkg/r3
+  bazel --output_base="$tmp_output_base" shutdown
+}
+
+function test_symlink_to_directory_with_output_base_under_tmp() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # Tests Linux-specific functionality
+    return 0
+  fi
+
+  create_workspace_with_default_repos WORKSPACE
+
+  sed -i.bak '/sandbox_tmpfs_path/d' $TEST_TMPDIR/bazelrc
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+load(":r.bzl", "symlink_rule", "tree_rule")
+
+tree_rule(name="t1")
+symlink_rule(name="t2", input=":t1")
+genrule(name="t3", srcs=[":t2"], outs=[":t3"], cmd=";\n".join(
+    ["cat $(location :t2)/{a/a,b/b} > $@"]))
+EOF
+
+  cat > pkg/r.bzl <<'EOF'
+def _symlink_impl(ctx):
+  output = ctx.actions.declare_directory(ctx.label.name)
+  ctx.actions.symlink(output = output, target_file = ctx.file.input)
+  return [DefaultInfo(files = depset([output]))]
+
+symlink_rule = rule(
+  implementation = _symlink_impl,
+  attrs = {"input": attr.label(allow_single_file=True)})
+
+def _tree_impl(ctx):
+  output = ctx.actions.declare_directory(ctx.label.name)
+  ctx.actions.run_shell(
+    outputs = [output],
+    command = "export TREE=%s && mkdir $TREE/a $TREE/b && echo -n A > $TREE/a/a && echo -n B > $TREE/b/b" % output.path)
+  return [DefaultInfo(files = depset([output]))]
+
+tree_rule = rule(
+  implementation = _tree_impl,
+  attrs = {})
+
+EOF
+
+  local tmp_output_base=$(mktemp -d "/tmp/bazel_output_base.XXXXXXXX")
+  trap "chmod -R u+w $tmp_output_base && rm -fr $tmp_output_base" EXIT
+
+  bazel --output_base="$tmp_output_base" build //pkg:t3
+  assert_contains AB bazel-bin/pkg/t3
+  bazel --output_base="$tmp_output_base" shutdown
+}
+
 # The test shouldn't fail if the environment doesn't support running it.
 check_sandbox_allowed || exit 0
 
