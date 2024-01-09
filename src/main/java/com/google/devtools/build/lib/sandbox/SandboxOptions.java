@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.RamResourceConverter;
 import com.google.devtools.build.lib.util.ResourceConverter;
@@ -371,12 +370,9 @@ public class SandboxOptions extends OptionsBase {
   public int memoryLimitMb;
 
   /** Converter for the number of threads used for asynchronous tree deletion. */
-  public static final class AsyncTreeDeletesConverter extends ResourceConverter {
+  public static final class AsyncTreeDeletesConverter extends ResourceConverter.IntegerConverter {
     public AsyncTreeDeletesConverter() {
-      super(
-          () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage()),
-          0,
-          Integer.MAX_VALUE);
+      super(/* auto= */ HOST_CPUS_SUPPLIER, /* minValue= */ 0, /* maxValue= */ Integer.MAX_VALUE);
     }
   }
 }

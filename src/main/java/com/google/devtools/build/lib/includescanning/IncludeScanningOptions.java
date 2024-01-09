@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.includescanning;
 
-import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -30,13 +29,9 @@ public class IncludeScanningOptions extends OptionsBase {
    * Converter for scanning parallelism threads: Takes {@value #FLAG_SYNTAX} 0 disables scanning
    * parallelism.
    */
-  public static class ParallelismConverter extends ResourceConverter {
+  public static class ParallelismConverter extends ResourceConverter.IntegerConverter {
     public ParallelismConverter() throws OptionsParsingException {
-      super(
-          /* autoSupplier= */ () ->
-              (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage()),
-          /* minValue= */ 0,
-          /* maxValue= */ Integer.MAX_VALUE);
+      super(/* auto= */ HOST_CPUS_SUPPLIER, /* minValue= */ 0, /* maxValue= */ Integer.MAX_VALUE);
     }
   }
 
