@@ -363,7 +363,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "use_repo(ext2, 'bar')",
         "ext3 = use_extension('@//:defs.bzl', 'ext')",
         "ext3.tag(name='quz', data='qu')",
-        "use_repo(ext3, 'quz')");
+        "use_repo(ext3, 'quz')",
+        "ext4 = use_extension('defs.bzl', 'ext')",
+        "ext4.tag(name='qor', data='qo')",
+        "use_repo(ext4, 'qor')");
     scratch.file(
         workspaceRoot.getRelative("defs.bzl").getPathString(),
         "load('@data_repo//:defs.bzl','data_repo')",
@@ -379,7 +382,8 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "load('@foo//:data.bzl', foo_data='data')",
         "load('@bar//:data.bzl', bar_data='data')",
         "load('@quz//:data.bzl', quz_data='data')",
-        "data = 'foo:'+foo_data+' bar:'+bar_data+' quz:'+quz_data");
+        "load('@qor//:data.bzl', qor_data='data')",
+        "data = 'foo:'+foo_data+' bar:'+bar_data+' quz:'+quz_data+' qor:'+qor_data");
 
     SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
     EvaluationResult<BzlLoadValue> result =
@@ -387,7 +391,8 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     if (result.hasError()) {
       throw result.getError().getException();
     }
-    assertThat(result.get(skyKey).getModule().getGlobal("data")).isEqualTo("foo:fu bar:ba quz:qu");
+    assertThat(result.get(skyKey).getModule().getGlobal("data"))
+        .isEqualTo("foo:fu bar:ba quz:qu qor:qo");
   }
 
   @Test
