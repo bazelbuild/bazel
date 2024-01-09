@@ -13,20 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.producers;
 
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Multimaps;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 /**
  * Creates the needed {@link BuildConfigurationKey} instances for the given options.
@@ -36,7 +34,8 @@ import java.util.Optional;
  * <p>The output preserves the iteration order of the input.
  */
 // Logic here must be kept in sync with SkyframeExecutor.createBuildConfigurationKey.
-public class BuildConfigurationKeyProducer implements StateMachine {
+public class BuildConfigurationKeyProducer implements StateMachine, Consumer<SkyValue> {
+
   /** Interface for clients to accept results of this computation. */
   public interface ResultSink {
 
@@ -52,7 +51,9 @@ public class BuildConfigurationKeyProducer implements StateMachine {
   private final Map<String, BuildOptions> options;
 
   // -------------------- Internal State --------------------
-  private final Map<String, PlatformMappingValue> platformMappingValues = new HashMap<>();
+  // There is only ever a single PlatformMappingValue in use, as the `--platform_mappings` flag
+  // can not be changed in a transition.
+  private PlatformMappingValue platformMappingValue;
 
   public BuildConfigurationKeyProducer(
       ResultSink sink, StateMachine runAfter, Map<String, BuildOptions> options) {
@@ -63,25 +64,26 @@ public class BuildConfigurationKeyProducer implements StateMachine {
 
   @Override
   public StateMachine step(Tasks tasks) {
-    // Deduplicates the platform mapping paths and collates the transition keys.
-    ImmutableListMultimap<Optional<PathFragment>, String> index =
-        Multimaps.index(
-            options.keySet(), transitionKey -> getPlatformMappingsPath(options.get(transitionKey)));
-    for (Map.Entry<Optional<PathFragment>, Collection<String>> entry : index.asMap().entrySet()) {
-      Collection<String> transitionKeys = entry.getValue();
-      tasks.lookUp(
-          PlatformMappingValue.Key.create(entry.getKey().orElse(null)),
-          // No need to consider error handling: this flag cannot be changed and so errors were
-          // detected and handled in SkyframeExecutor.createBuildConfigurationKey.
-          rawValue -> {
-            var value = (PlatformMappingValue) rawValue;
-            // Maps the value from all transition keys with the same platform mappings path.
-            for (String key : transitionKeys) {
-              platformMappingValues.put(key, value);
-            }
-          });
-    }
+    // Use any configuration, since all configurations will have the same platform mapping.
+    Optional<PathFragment> platformMappingsPath =
+        options.values().stream()
+            .filter(opts -> opts.contains(PlatformOptions.class))
+            .filter(opts -> opts.get(PlatformOptions.class).platformMappings != null)
+            .map(opts -> opts.get(PlatformOptions.class).platformMappings)
+            .findAny();
+    PlatformMappingValue.Key platformMappingValueKey =
+        PlatformMappingValue.Key.create(platformMappingsPath.orElse(null));
+    // No need to consider error handling: this flag cannot be changed and so errors were
+    // detected and handled in SkyframeExecutor.createBuildConfigurationKey.
+    tasks.lookUp(platformMappingValueKey, this);
     return this::applyMappings;
+  }
+
+  @Override
+  public void accept(SkyValue skyValue) {
+    if (skyValue instanceof PlatformMappingValue) {
+      this.platformMappingValue = (PlatformMappingValue) skyValue;
+    }
   }
 
   private StateMachine applyMappings(Tasks tasks) {
@@ -91,8 +93,7 @@ public class BuildConfigurationKeyProducer implements StateMachine {
       String transitionKey = entry.getKey();
       BuildConfigurationKey newConfigurationKey;
       try {
-        PlatformMappingValue mappingValue = platformMappingValues.get(transitionKey);
-        BuildOptions mappedOptions = mappingValue.map(entry.getValue());
+        BuildOptions mappedOptions = this.platformMappingValue.map(entry.getValue());
         newConfigurationKey = BuildConfigurationKey.create(mappedOptions);
       } catch (OptionsParsingException e) {
         sink.acceptTransitionError(e);
@@ -102,11 +103,5 @@ public class BuildConfigurationKeyProducer implements StateMachine {
     }
     sink.acceptTransitionedConfigurations(result.buildOrThrow());
     return runAfter;
-  }
-
-  private static Optional<PathFragment> getPlatformMappingsPath(BuildOptions fromOptions) {
-    return fromOptions.hasNoConfig()
-        ? Optional.empty()
-        : Optional.ofNullable(fromOptions.get(PlatformOptions.class).platformMappings);
   }
 }
