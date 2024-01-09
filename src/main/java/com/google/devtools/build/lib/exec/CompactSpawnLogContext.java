@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.exec.SpawnLogContext.computeDigest;
 import static com.google.devtools.build.lib.exec.SpawnLogContext.getEnvironmentVariables;
 import static com.google.devtools.build.lib.exec.SpawnLogContext.getPlatform;
 import static com.google.devtools.build.lib.exec.SpawnLogContext.getSpawnMetricsProto;
+import static com.google.devtools.build.lib.exec.SpawnLogContext.isInputDirectory;
 
 import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.collect.ImmutableList;
@@ -274,7 +275,7 @@ public class CompactSpawnLogContext implements SpawnLogContext {
               continue;
             }
             Path path = fileSystem.getPath(execRoot.getRelative(input.getExecPath()));
-            if (path.isDirectory()) {
+            if (isInputDirectory(input, inputMetadataProvider)) {
               builder.addDirectoryIds(logDirectory(input, path, inputMetadataProvider));
             } else {
               builder.addFileIds(logFile(input, path, inputMetadataProvider));
@@ -373,7 +374,7 @@ public class CompactSpawnLogContext implements SpawnLogContext {
 
             Path path = fileSystem.getPath(execRoot.getRelative(input.getExecPath()));
 
-            if (path.isDirectory()) {
+            if (isInputDirectory(input, inputMetadataProvider)) {
               builder.addAllFiles(expandDirectory(path, runfilesPath, inputMetadataProvider));
               continue;
             }
