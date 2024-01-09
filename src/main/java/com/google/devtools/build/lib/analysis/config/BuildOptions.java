@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.OptionDefinition;
@@ -464,8 +465,20 @@ public final class BuildOptions implements Cloneable {
     private Builder() {}
   }
 
-  @SuppressWarnings("unused") // Used reflectively.
-  private static final class Codec extends LeafObjectCodec<BuildOptions> {
+  /**
+   * Codec for {@link BuildOptions}.
+   *
+   * <p>This codec works by serializing the {@link BuildOptions#checksum} only. This works due to
+   * the assumption that anytime a value containing a particular configuration is deserialized, it
+   * was previously requested using the same configuration key, thus priming the cache.
+   */
+  @VisibleForSerialization
+  public static final class Codec extends LeafObjectCodec<BuildOptions> {
+    private static final Codec INSTANCE = new Codec();
+
+    public static Codec buildOptionsCodec() {
+      return INSTANCE;
+    }
 
     @Override
     public Class<BuildOptions> getEncodedClass() {
