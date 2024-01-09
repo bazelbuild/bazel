@@ -185,9 +185,6 @@ public abstract class PackageArgs {
       case "licenses":
         builder.setLicense(BuildType.LICENSE.convert(rawValue, what, labelConverter));
         break;
-      case "distribs":
-        builder.setDistribs(BuildType.DISTRIBUTIONS.convert(rawValue, what, labelConverter));
-        break;
       case "default_compatible_with":
         builder.setDefaultCompatibleWith(
             throwIfHasDupes(BuildType.LABEL_LIST.convert(rawValue, what, labelConverter), name));
