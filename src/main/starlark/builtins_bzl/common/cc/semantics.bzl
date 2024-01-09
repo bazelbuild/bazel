@@ -86,35 +86,7 @@ def _get_coverage_attrs():
     }
 
 def _get_coverage_env(ctx):
-    runfiles = ctx.runfiles()
-    test_env = {}
-    if ctx.configuration.coverage_enabled:
-        # Bazel’s coverage runner
-        # (https://github.com/bazelbuild/bazel/blob/3.0.0/tools/test/collect_coverage.sh)
-        # needs a binary called “lcov_merge.”  Its location is passed in the
-        # LCOV_MERGER environmental variable.  For builtin rules, this variable
-        # is set automatically based on a magic “$lcov_merger” or
-        # “:lcov_merger” attribute, but it’s not possible to create such
-        # attributes in Starlark.  Therefore we specify the variable ourselves.
-        # Note that the coverage runner runs in the runfiles root instead of
-        # the execution root, therefore we use “path” instead of “short_path.”
-        test_env["LCOV_MERGER"] = ctx.executable._lcov_merger.path
-
-        # C/C++ coverage instrumentation needs another binary that wraps gcov;
-        # see
-        # https://github.com/bazelbuild/bazel/blob/5.0.0/tools/test/collect_coverage.sh#L199.
-        # This is normally set from a hidden “$collect_cc_coverage” attribute;
-        # see
-        # https://github.com/bazelbuild/bazel/blob/5.0.0/src/main/java/com/google/devtools/build/lib/analysis/test/TestActionBuilder.java#L253-L258.
-        test_env["CC_CODE_COVERAGE_SCRIPT"] = ctx.executable._collect_cc_coverage.path
-
-        # The test runfiles need all applicable runfiles for the tools above.
-        runfiles = runfiles.merge_all([
-            ctx.attr._lcov_merger[DefaultInfo].default_runfiles,
-            ctx.attr._collect_cc_coverage[DefaultInfo].default_runfiles,
-        ])
-
-    return runfiles, test_env
+    return ctx.runfiles(), {}
 
 def _get_cc_runtimes(ctx, is_library):
     if is_library:
