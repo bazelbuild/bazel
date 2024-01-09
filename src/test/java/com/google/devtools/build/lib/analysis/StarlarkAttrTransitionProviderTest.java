@@ -810,8 +810,8 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test/starlark:test");
     assertContainsEvent(
-        "transition output '//command_line_option:foobarbaz' "
-            + "does not correspond to a valid setting");
+        "transition outputs [//command_line_option:foobarbaz] "
+            + "do not correspond to valid settings");
   }
 
   @Test
@@ -955,8 +955,8 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test/starlark:test");
     assertContainsEvent(
-        "transition output '//command_line_option:foobarbaz' "
-            + "does not correspond to a valid setting");
+        "transition outputs [//command_line_option:foobarbaz] "
+            + "do not correspond to valid settings");
   }
 
   @Test

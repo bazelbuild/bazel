@@ -55,9 +55,13 @@ public enum OptionMetadataTag {
    *
    * <p>These should be in category {@link OptionDocumentationCategory.UNDOCUMENTED}.
    */
-  INTERNAL(4);
+  INTERNAL(4),
 
   // reserved TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES(5)
+  // reserved EXPLICIT_IN_OUTPUT_PATH(6)
+
+  /** Options which are IMMUTABLE cannot be changed in (non-exec) Starlark transitions. */
+  IMMUTABLE(7);
 
   private final int value;
 

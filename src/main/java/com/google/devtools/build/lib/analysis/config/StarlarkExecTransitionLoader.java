@@ -102,7 +102,20 @@ public final class StarlarkExecTransitionLoader {
           flagName, userRef, parsedRef.starlarkSymbolName() + " is not a Starlark transition");
     }
     return Optional.of(
-        new StarlarkAttributeTransitionProvider((StarlarkDefinedConfigTransition) transition));
+        new StarlarkExecTransitionProvider((StarlarkDefinedConfigTransition) transition));
+  }
+
+  /** A marker class to distinguish the exec transition from other starlark transitions. */
+  static class StarlarkExecTransitionProvider extends StarlarkAttributeTransitionProvider {
+    StarlarkExecTransitionProvider(StarlarkDefinedConfigTransition execTransition) {
+      super(execTransition);
+    }
+
+    @Override
+    public boolean allowImmutableFlagChanges() {
+      // The exec transition must be allowed to change otherwise immutable flags.
+      return true;
+    }
   }
 
   /**

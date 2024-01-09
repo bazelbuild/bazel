@@ -93,6 +93,10 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
     return TransitionType.RULE;
   }
 
+  public boolean allowImmutableFlagChanges() {
+    return false;
+  }
+
   private FunctionPatchTransition createTransition(
       Rule rule, ImmutableMap<Label, ConfigMatchingProvider> configConditions, String configHash) {
     LinkedHashMap<String, Object> attributes = new LinkedHashMap<>();
@@ -198,7 +202,12 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
       // we just use the original BuildOptions and trust the transition's enforcement logic.
       BuildOptions buildOptions = buildOptionsView.underlying();
       Map<String, BuildOptions> result =
-          applyAndValidate(buildOptions, starlarkDefinedConfigTransition, attrObject, eventHandler);
+          applyAndValidate(
+              buildOptions,
+              starlarkDefinedConfigTransition,
+              allowImmutableFlagChanges(),
+              attrObject,
+              eventHandler);
       if (result == null) {
         return buildOptions.clone();
       }
