@@ -716,7 +716,7 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "separate_aspect_deps",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
@@ -941,7 +941,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String INCOMPATIBLE_DISABLE_TARGET_DEFAULT_PROVIDER_FIELDS =
       "-incompatible_disable_target_default_provider_fields";
   public static final String EXPERIMENTAL_RULE_EXTENSION_API = "-experimental_rule_extension_api";
-  public static final String SEPARATE_ASPECT_DEPS = "-separate_aspect_deps";
+  public static final String SEPARATE_ASPECT_DEPS = "+separate_aspect_deps";
   public static final String INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS =
       "+incompatible_enable_deprecated_label_apis";
 
