@@ -44,8 +44,8 @@ public class WorkerOptions extends OptionsBase {
    */
   public static class MultiResourceConverter extends Converter.Contextless<Entry<String, Integer>> {
 
-    static final ResourceConverter valueConverter =
-        new ResourceConverter(() -> 0, 0, Integer.MAX_VALUE);
+    static final ResourceConverter.IntegerConverter valueConverter =
+        new ResourceConverter.IntegerConverter(() -> 0, 0, Integer.MAX_VALUE);
 
     @Override
     public Map.Entry<String, Integer> convert(String input) throws OptionsParsingException {

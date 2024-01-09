@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.util.CpuResourceConverter;
 import com.google.devtools.build.lib.util.RegexFilter;
+import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -106,7 +107,7 @@ public class AnalysisOptions extends OptionsBase {
 
   @Option(
       name = "experimental_skyframe_cpu_heavy_skykeys_thread_pool_size",
-      defaultValue = "HOST_CPUS",
+      defaultValue = ResourceConverter.HOST_CPUS_KEYWORD,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {
@@ -114,16 +115,21 @@ public class AnalysisOptions extends OptionsBase {
         OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION
       },
       help =
-          "If set to a positive value (e.g. \"HOST_CPUS*1.5\"), Skyframe will run the"
-              + " loading/analysis phase with 2 separate thread pools: 1 with <value> threads"
-              + " (ideally close to HOST_CPUS) reserved for CPU-heavy SkyKeys, and 1 \"standard\""
+          "If set to a positive value (e.g. \""
+              + ResourceConverter.HOST_CPUS_KEYWORD
+              + "*1.5\"),"
+              + " Skyframe will run the loading/analysis phase with 2 separate thread pools:"
+              + " 1 with <value> threads (ideally close to "
+              + ResourceConverter.HOST_CPUS_KEYWORD
+              + ")"
+              + " reserved for CPU-heavy SkyKeys, and 1 \"standard\""
               + " thread pool (whose size is controlled by --loading_phase_threads) for the rest.",
       converter = CpuResourceConverter.class)
   public int cpuHeavySkyKeysThreadPoolSize;
 
   @Option(
       name = "experimental_oom_sensitive_skyfunctions_semaphore_size",
-      defaultValue = "HOST_CPUS",
+      defaultValue = ResourceConverter.HOST_CPUS_KEYWORD,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {
@@ -133,7 +139,9 @@ public class AnalysisOptions extends OptionsBase {
       help =
           "Sets the size of the semaphore used to prevent SkyFunctions with large peak memory"
               + " requirement from OOM-ing blaze. A value of 0 indicates that no semaphore should"
-              + " be used. Example value: \"HOST_CPUS*0.5\".",
+              + " be used. Example value: \""
+              + ResourceConverter.HOST_CPUS_KEYWORD
+              + "*0.5\".",
       converter = CpuResourceConverter.class)
   public int oomSensitiveSkyFunctionsSemaphoreSize;
 }
