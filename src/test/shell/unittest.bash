@@ -290,12 +290,11 @@ __show_stack() {
 }
 
 # Usage: expect_log <regexp> [error-message]
-# Asserts that $TEST_log matches regexp.  Prints the contents of
-# $TEST_log and the specified (optional) error message otherwise, and
-# returns non-zero.
+# Asserts that $TEST_log matches regexp.  On failure prints the specified
+# (optional) error message, and returns non-zero.
 function expect_log() {
     local pattern=$1
-    local message=${2:-Expected regexp "$pattern" not found}
+    local message=${2:-"Expected regexp '$pattern' not found"}
     grep -sq -- "$pattern" $TEST_log && return 0
 
     fail "$message"
@@ -303,11 +302,11 @@ function expect_log() {
 }
 
 # Usage: expect_log_warn <regexp> [error-message]
-# Warns if $TEST_log does not match regexp.  Prints the contents of
-# $TEST_log and the specified (optional) error message on mismatch.
+# Warns if $TEST_log does not match regexp.  On failure prints the specified
+# (optional) warning message, and returns non-zero.
 function expect_log_warn() {
     local pattern=$1
-    local message=${2:-Expected regexp "$pattern" not found}
+    local message=${2:-"Expected regexp '$pattern' not found"}
     grep -sq -- "$pattern" $TEST_log && return 0
 
     warn "$message"
@@ -316,22 +315,22 @@ function expect_log_warn() {
 
 # Usage: expect_log_once <regexp> [error-message]
 # Asserts that $TEST_log contains one line matching <regexp>.
-# Prints the contents of $TEST_log and the specified (optional)
-# error message otherwise, and returns non-zero.
+# On failure prints the specified (optional) error message, and returns
+# non-zero.
 function expect_log_once() {
     local pattern=$1
-    local message=${2:-Expected regexp "$pattern" not found exactly once}
+    local message=${2:-"Expected regexp '$pattern' not found exactly once"}
     expect_log_n "$pattern" 1 "$message"
 }
 
 # Usage: expect_log_n <regexp> <count> [error-message]
 # Asserts that $TEST_log contains <count> lines matching <regexp>.
-# Prints the contents of $TEST_log and the specified (optional)
-# error message otherwise, and returns non-zero.
+# On failure prints the specified (optional) error message, and returns
+# non-zero.
 function expect_log_n() {
     local pattern=$1
     local expectednum=${2:-1}
-    local message=${3:-Expected regexp "$pattern" not found exactly $expectednum times}
+    local message=${3:-"Expected regexp '$pattern' not found exactly $expectednum times"}
     local count=$(grep -sc -- "$pattern" $TEST_log)
     (( count == expectednum )) && return 0
     fail "$message"
@@ -339,12 +338,12 @@ function expect_log_n() {
 }
 
 # Usage: expect_not_log <regexp> [error-message]
-# Asserts that $TEST_log does not match regexp.  Prints the contents
-# of $TEST_log and the specified (optional) error message otherwise, and
-# returns non-zero.
+# Asserts that $TEST_log does not match regexp.
+# On failure prints the specified (optional) error message, and returns
+# non-zero.
 function expect_not_log() {
     local pattern=$1
-    local message=${2:-Unexpected regexp "$pattern" found}
+    local message=${2:-"Unexpected regexp '$pattern' found"}
     grep -sq -- "$pattern" $TEST_log || return 0
 
     fail "$message"
@@ -365,12 +364,12 @@ function expect_query_targets() {
 
 # Usage: expect_log_with_timeout <regexp> <timeout> [error-message]
 # Waits for the given regexp in the $TEST_log for up to timeout seconds.
-# Prints the contents of $TEST_log and the specified (optional)
-# error message otherwise, and returns non-zero.
+# On failure prints the specified (optional) error message, and returns
+# non-zero.
 function expect_log_with_timeout() {
     local pattern=$1
     local timeout=$2
-    local message=${3:-Regexp "$pattern" not found in "$timeout" seconds}
+    local message=${3:-"Regexp '$pattern' not found in $timeout seconds"}
     local count=0
     while (( count < timeout )); do
       grep -sq -- "$pattern" "$TEST_log" && return 0
@@ -465,28 +464,26 @@ function assert_not_equals() {
 }
 
 # Usage: assert_contains <regexp> <file> [error-message]
-# Asserts that file matches regexp.  Prints the contents of
-# file and the specified (optional) error message otherwise, and
-# returns non-zero.
+# Asserts that file matches regexp.  On failure copies the file to undeclared
+# outputs, prints the specified (optional) error message, and returns non-zero.
 function assert_contains() {
     local pattern=$1
     local file=$2
-    local message=${3:-Expected regexp "$pattern" not found in "$file"}
+    local message=${3:-"Expected regexp '$pattern' not found in '$file'"}
     grep -sq -- "$pattern" "$file" && return 0
 
-    cat "$file" >&2
-    fail "$message"
+    fail "$message" $(__copy_to_undeclared_outputs "$2")
     return 1
 }
 
 # Usage: assert_not_contains <regexp> <file> [error-message]
-# Asserts that file does not match regexp.  Prints the contents of
-# file and the specified (optional) error message otherwise, and
-# returns non-zero.
+# Asserts that file does not match regexp.  On failure copies the file to
+# undeclared outputs, prints the specified (optional) error message, and returns
+# non-zero.
 function assert_not_contains() {
     local pattern=$1
     local file=$2
-    local message=${3:-Expected regexp "$pattern" found in "$file"}
+    local message=${3:-"Expected regexp '$pattern' found in '$file'"}
 
     if [[ -f "$file" ]]; then
       grep -sq -- "$pattern" "$file" || return 0
@@ -495,8 +492,7 @@ function assert_not_contains() {
       return 1
     fi
 
-    cat "$file" >&2
-    fail "$message"
+    fail "$message" $(__copy_to_undeclared_outputs "$2")
     return 1
 }
 
@@ -504,7 +500,7 @@ function assert_contains_n() {
     local pattern=$1
     local expectednum=${2:-1}
     local file=$3
-    local message=${4:-Expected regexp "$pattern" not found exactly $expectednum times}
+    local message=${4:-"Expected regexp '$pattern' not found exactly $expectednum times in '$file'"}
     local count
     if [[ -f "$file" ]]; then
       count=$(grep -sc -- "$pattern" "$file")
@@ -514,9 +510,20 @@ function assert_contains_n() {
     fi
     (( count == expectednum )) && return 0
 
-    cat "$file" >&2
-    fail "$message"
+    fail "$message" $(__copy_to_undeclared_outputs "$2")
     return 1
+}
+
+# Copies $1 to undeclared outputs with a unique path and logs the mapping
+# between the original file and the new file.
+function __copy_to_undeclared_outputs() {
+  local name=$(basename "$1")
+  local uuid=$(uuidgen)
+  local testdir="${TEST_UNDECLARED_OUTPUTS_DIR}/${TEST_name}/${uuid}"
+  mkdir -p "$testdir"
+  local newname="${testdir}/${name}"
+  cp "$1" "$newname"
+  echo "Copied '$1' to '$newname'"
 }
 
 # Updates the global variables TESTS if
