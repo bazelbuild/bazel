@@ -17,6 +17,7 @@ import static com.google.devtools.build.lib.exec.SpawnLogContext.computeDigest;
 import static com.google.devtools.build.lib.exec.SpawnLogContext.getEnvironmentVariables;
 import static com.google.devtools.build.lib.exec.SpawnLogContext.getPlatform;
 import static com.google.devtools.build.lib.exec.SpawnLogContext.getSpawnMetricsProto;
+import static com.google.devtools.build.lib.exec.SpawnLogContext.isInputDirectory;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
@@ -168,7 +169,7 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
 
           Path contentPath = fileSystem.getPath(execRoot.getRelative(input.getExecPathString()));
 
-          if (contentPath.isDirectory()) {
+          if (isInputDirectory(input, inputMetadataProvider)) {
             listDirectoryContents(
                 displayPath, contentPath, builder::addInputs, inputMetadataProvider, isTool);
             continue;
