@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NETNS_WITH_LOOPBACK;
 import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NO_NETNS;
 
@@ -61,6 +62,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
@@ -390,7 +393,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   protected ImmutableSet<Path> getWritableDirs(
       Path sandboxExecRoot, Path withinSandboxExecRoot, Map<String, String> env)
       throws IOException {
-    ImmutableSet.Builder<Path> writableDirs = ImmutableSet.builder();
+    Set<Path> writableDirs = new TreeSet<>();
     writableDirs.addAll(super.getWritableDirs(sandboxExecRoot, withinSandboxExecRoot, env));
     if (getSandboxOptions().memoryLimitMb > 0) {
       CgroupsInfo cgroupsInfo = CgroupsInfo.getInstance();
@@ -400,7 +403,23 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     writableDirs.add(fs.getPath("/dev/shm").resolveSymbolicLinks());
     writableDirs.add(fs.getPath("/tmp"));
 
-    return writableDirs.build();
+    if (sandboxExecRoot.equals(withinSandboxExecRoot)) {
+      return ImmutableSet.copyOf(writableDirs);
+    }
+
+    // If a writable directory is under the sandbox exec root, transform it so that its path will
+    // be the one that it will be available at after processing the bind mounts (this is how the
+    // sandbox interprets the corresponding arguments)
+    //
+    // Notably, this is usually the case for $TEST_TMPDIR because its default value is under the
+    // execroot.
+    return writableDirs.stream()
+        .map(
+            d ->
+                d.startsWith(sandboxExecRoot)
+                    ? withinSandboxExecRoot.getRelative(d.relativeTo(sandboxExecRoot))
+                    : d)
+        .collect(toImmutableSet());
   }
 
   private ImmutableList<BindMount> getBindMounts(
