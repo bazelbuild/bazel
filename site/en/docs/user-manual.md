@@ -325,7 +325,7 @@ This option specifies the version of Java sources. For example:
 
 compiles and allows only constructs compatible with Java 8 specification.
 Default value is 11. -->
-Possible values are: 8,  9, 10, 11, 14, and 15  and may be extended by
+Possible values are: 8, 9, 10, 11, 14, 15, and 21 and may be extended by
 registering custom Java toolchains using `default_java_toolchain`.
 
 #### `--tool_java_language_version={{ "<var>" }}version{{ "</var>" }}` {:#tool-java-language-version}
