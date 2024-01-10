@@ -3744,22 +3744,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     invalidateTransientErrors();
   }
 
-  /** Returns a dynamic configuration constructed from the given build options. */
-  @VisibleForTesting
-  public BuildConfigurationValue getConfigurationForTesting(
-      ExtendedEventHandler eventHandler, BuildOptions options)
-      throws InterruptedException, InvalidConfigurationException {
-    BuildConfigurationKey buildConfigurationKey =
-        createBuildConfigurationKey(eventHandler, options);
-    return (BuildConfigurationValue)
-        evaluate(
-                ImmutableList.of(buildConfigurationKey),
-                /* keepGoing= */ false,
-                /* numThreads= */ DEFAULT_THREAD_COUNT,
-                eventHandler)
-            .get(buildConfigurationKey);
-  }
-
   /** Returns a particular configured target. */
   @VisibleForTesting
   @Nullable
