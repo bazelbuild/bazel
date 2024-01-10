@@ -212,7 +212,7 @@ public class CompatDexBuilder {
     List<String> flags = new ArrayList<>();
     String input = null;
     String output = null;
-    int minSdkVersionFlag = Constants.MIN_API_LEVEL;
+    String minSdkVersionFlag = Constants.MIN_API_LEVEL;
     int numberOfThreads = min(8, Runtime.getRuntime().availableProcessors());
     boolean noLocals = false;
 
@@ -256,7 +256,7 @@ public class CompatDexBuilder {
           noLocals = true;
           break;
         case "--min_sdk_version":
-          minSdkVersionFlag = Integer.parseInt(flags.get(++i));
+          minSdkVersionFlag = flags.get(++i);
           break;
         default:
           throw new OptionsParsingException("Unsupported option: " + flag);
@@ -292,7 +292,7 @@ public class CompatDexBuilder {
           }
         }
 
-        final int minSdkVersion = minSdkVersionFlag;
+        final int minSdkVersion = Integer.parseInt(minSdkVersionFlag);
         List<Future<DexConsumer>> futures = new ArrayList<>(toDex.size());
         for (ZipEntry classEntry : toDex) {
           futures.add(
