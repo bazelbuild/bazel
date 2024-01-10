@@ -671,7 +671,6 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   public abstract static class LibraryToLinkValue extends VariableValueAdapter {
     public static final String OBJECT_FILES_FIELD_NAME = "object_files";
     public static final String NAME_FIELD_NAME = "name";
-
     public static final String PATH_FIELD_NAME = "path";
     public static final String TYPE_FIELD_NAME = "type";
     public static final String IS_WHOLE_ARCHIVE_FIELD_NAME = "is_whole_archive";
@@ -811,6 +810,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
     private static final class ForVersionedDynamicLibrary extends LibraryToLinkValueWithName {
       private String path;
+
       private ForVersionedDynamicLibrary(String name, String path) {
         super(name);
         this.path = path;

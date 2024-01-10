@@ -814,20 +814,20 @@ def _impl(ctx):
     is_linux = ctx.attr.target_libc != "macosx"
     if is_linux:
         versioned_library_flag_group = flag_group(
-                                            flags = ["-l:%{libraries_to_link.name}"],
-                                            expand_if_equal = variable_with_value(
-                                                name = "libraries_to_link.type",
-                                                value = "versioned_dynamic_library",
-                                            ),
-                                        )
+            flags = ["-l:%{libraries_to_link.name}"],
+            expand_if_equal = variable_with_value(
+                name = "libraries_to_link.type",
+                value = "versioned_dynamic_library",
+            ),
+        )
     else:
         versioned_library_flag_group = flag_group(
-                                            flags = ["%{libraries_to_link.path}"],
-                                            expand_if_equal = variable_with_value(
-                                                name = "libraries_to_link.type",
-                                                value = "versioned_dynamic_library",
-                                            ),
-                                        )
+            flags = ["%{libraries_to_link.path}"],
+            expand_if_equal = variable_with_value(
+                name = "libraries_to_link.type",
+                value = "versioned_dynamic_library",
+            ),
+        )
 
     libraries_to_link_feature = feature(
         name = "libraries_to_link",
