@@ -1655,24 +1655,19 @@ public final class SkyframeActionExecutor {
 
   private boolean checkForUnsoundDirectoryOutput(
       Action action, Artifact output, FileArtifactValue metadata) {
-    boolean success = true;
-    if (!output.isDirectory() && !output.isSymlink() && metadata.getType().isDirectory()) {
-      boolean asError = options.getOptions(CoreOptions.class).disallowUnsoundDirectoryOutputs;
-      String ownerString = action.getOwner().getLabel().toString();
-      reporter.handle(
-          Event.of(
-                  asError ? EventKind.ERROR : EventKind.WARNING,
-                  action.getOwner().getLocation(),
-                  String.format(
-                      "output '%s' of %s is a directory; "
-                          + "dependency checking of directories is unsound",
-                      output.prettyPrint(), ownerString))
-              .withTag(ownerString));
-      if (asError) {
-        success = false;
-      }
+    if (output.isDirectory() || output.isSymlink() || !metadata.getType().isDirectory()) {
+      return true;
     }
-    return success;
+    String ownerString = action.getOwner().getLabel().toString();
+    reporter.handle(
+        Event.of(
+                EventKind.ERROR,
+                action.getOwner().getLocation(),
+                String.format(
+                    "output '%s' of %s is a directory but was not declared as such",
+                    output.prettyPrint(), ownerString))
+            .withTag(ownerString));
+    return false;
   }
 
   /**

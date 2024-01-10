@@ -44,6 +44,15 @@ public final class BazelRulesModule extends BlazeModule {
   @SuppressWarnings("deprecation") // These fields have no JavaDoc by design
   public static class BuildGraveyardOptions extends OptionsBase {
     @Option(
+        name = "incompatible_disallow_unsound_directory_outputs",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+        help = "Deprecated. No-op.")
+    public boolean disallowUnsoundDirectoryOutputs;
+
+    @Option(
         name = "experimental_use_scheduling_middlemen",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

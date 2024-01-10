@@ -238,7 +238,6 @@ bazel_fragments["CoreOptions"] = fragment(
         "//command_line_option:incompatible_check_testonly_for_output_files",
         "//command_line_option:incompatible_auto_exec_groups",
         "//command_line_option:experimental_writable_outputs",
-        "//command_line_option:incompatible_disallow_unsound_directory_outputs",
         "//command_line_option:build_runfile_manifests",
         "//command_line_option:build_runfile_links",
         "//command_line_option:legacy_external_runfiles",
