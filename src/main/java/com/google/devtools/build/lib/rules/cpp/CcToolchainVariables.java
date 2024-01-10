@@ -716,18 +716,12 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
         return new StringValue(getTypeName());
       } else if (IS_WHOLE_ARCHIVE_FIELD_NAME.equals(field)) {
         return new IntegerValue(getIsWholeArchive() ? 1 : 0);
-      } else if (PATH_FIELD_NAME.equals(field)) {
-        return new StringValue(getPath());
       }
       return null;
     }
 
     protected boolean getIsWholeArchive() {
       return false;
-    }
-
-    protected String getPath() {
-      return null;
     }
 
     protected abstract String getTypeName();
@@ -817,9 +811,34 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       }
 
       @Override
-      protected String getPath() {
-        return path;
+      public VariableValue getFieldValue(
+          String variableName,
+          String field,
+          @Nullable ArtifactExpander expander,
+          boolean throwOnMissingVariable) {
+        if (PATH_FIELD_NAME.equals(field)) {
+          return new StringValue(path);
+        }
+        return super.getFieldValue(variableName, field, expander, throwOnMissingVariable);
       }
+
+      @Override
+      public boolean equals(Object obj) {
+        if (!(obj instanceof ForVersionedDynamicLibrary)) {
+          return false;
+        }
+        if (this == obj) {
+          return true;
+        }
+        ForVersionedDynamicLibrary other = (ForVersionedDynamicLibrary) obj;
+        return this.path.equals(other.path) && super.equals(other);
+      }
+
+      @Override
+      public int hashCode() {
+        return 31 * super.hashCode() + path.hashCode();
+      }
+
       @Override
       protected String getTypeName() {
         return "versioned_dynamic_library";
