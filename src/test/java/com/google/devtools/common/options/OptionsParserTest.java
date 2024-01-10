@@ -2589,6 +2589,40 @@ public final class OptionsParserTest {
     assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
   }
 
+  public static class ExpandingOptions extends OptionsBase {
+    @Option(
+        name = "foo",
+        category = "one",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        expansion = {"--nobar"},
+        defaultValue = "null")
+    public Void foo;
+  }
+
+  public static class ExpandingOptionsFallback extends OptionsBase {
+    @Option(
+        name = "bar",
+        category = "one",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "true")
+    public boolean bar;
+  }
+
+  @Test
+  public void fallbackOptions_expansionToNegativeBooleanFlag() throws OptionsParsingException {
+    OpaqueOptionsData fallbackData =
+        OptionsParser.getFallbackOptionsData(
+            ImmutableList.of(ExpandingOptions.class, ExpandingOptionsFallback.class));
+    OptionsParser parser = OptionsParser.builder().optionsClasses(ExpandingOptions.class).build();
+    parser.parseWithSourceFunction(
+        PriorityCategory.RC_FILE, o -> ".bazelrc", ImmutableList.of("--foo"), fallbackData);
+
+    assertThat(parser.getOptions(ExpandingOptions.class)).isNotNull();
+    assertThat(parser.getOptions(ExpandingOptionsFallback.class)).isNull();
+  }
+
   private static OptionInstanceOrigin createInvocationPolicyOrigin() {
     return createInvocationPolicyOrigin(/*implicitDependent=*/ null, /*expandedFrom=*/ null);
   }
