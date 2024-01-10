@@ -614,7 +614,8 @@ public class LibrariesToLinkCollector {
       librariesToLink.addValue(LibraryToLinkValue.forDynamicLibrary(libName));
     } else if (CppFileTypes.SHARED_LIBRARY.matches(name)
         || CppFileTypes.VERSIONED_SHARED_LIBRARY.matches(name)) {
-      librariesToLink.addValue(LibraryToLinkValue.forVersionedDynamicLibrary(name));
+      librariesToLink.addValue(
+          LibraryToLinkValue.forVersionedDynamicLibrary(name, inputArtifact.getExecPathString()));
     } else {
       // Interface shared objects have a non-standard extension
       // that the linker won't be able to find.  So use the
