@@ -198,7 +198,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   private PathMetadata readPathMetadata(Path path, LocalFile file) throws IOException {
     DigestUtil digestUtil = new DigestUtil(xattrProvider, path.getFileSystem().getDigestFunction());
 
-    if (shouldUploadFilename(path.getPathString())) {
+    if (!shouldUploadFilename(path.getPathString())) {
       return new PathMetadata(
               path,
               /* digest= */ null,
