@@ -92,9 +92,24 @@ final class InterningObjectCodecGenerator extends CodecGenerator {
   }
 
   @Override
-  MethodSpec.Builder initializeConstructor(boolean hasFields) {
+  MethodSpec.Builder initializeConstructor(TypeElement encodedType, int fieldCount) {
     MethodSpec.Builder constructor = MethodSpec.constructorBuilder();
-    if (hasFields) {
+
+    TypeName typeName = getErasure(encodedType, env);
+    constructor.addStatement(
+        "int runtimeFieldCount = $T.getSerializableFieldCount($T.class)",
+        RuntimeHelpers.class,
+        typeName);
+    constructor
+        .beginControlFlow("if (runtimeFieldCount != $L)", fieldCount)
+        .addStatement(
+            "throw new IllegalStateException(\"$T's AutoCodec expected $L fields, but there were"
+                + " \" + runtimeFieldCount + \" serializable fields at runtime. See"
+                + " b/319301818 for explanation and workaround.\")",
+            typeName,
+            fieldCount)
+        .endControlFlow();
+    if (fieldCount > 0) {
       constructor.beginControlFlow("try");
     }
     return constructor;
