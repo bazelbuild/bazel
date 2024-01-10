@@ -31,7 +31,7 @@ public class CommandFailureUtilsTest {
 
   @Test
   public void describeCommandFailure() throws Exception {
-    String target = "//foo:bar";
+    Label target = Label.parseCanonicalUnchecked("//foo:bar");
     String[] args = new String[3];
     args[0] = "/bin/sh";
     args[1] = "-c";
@@ -51,7 +51,7 @@ public class CommandFailureUtilsTest {
             cwd,
             "cfg12345",
             target,
-            executionPlatform.label().toString());
+            executionPlatform.label());
     assertThat(message)
         .isEqualTo(
             "sh failed: error executing Mnemonic command (from target //foo:bar) "
@@ -60,7 +60,7 @@ public class CommandFailureUtilsTest {
 
   @Test
   public void describeCommandFailure_verbose() throws Exception {
-    String target = "//foo:bar";
+    Label target = Label.parseCanonicalUnchecked("//foo:bar");
     String[] args = new String[3];
     args[0] = "/bin/sh";
     args[1] = "-c";
@@ -80,7 +80,7 @@ public class CommandFailureUtilsTest {
             cwd,
             "cfg12345",
             target,
-            executionPlatform.label().toString());
+            executionPlatform.label());
     assertThat(message)
         .isEqualTo(
             "sh failed: error executing Mnemonic command (from target //foo:bar) \n"
@@ -94,7 +94,7 @@ public class CommandFailureUtilsTest {
 
   @Test
   public void describeCommandFailure_longMessage() throws Exception {
-    String target = "//foo:bar";
+    Label target = Label.parseCanonicalUnchecked("//foo:bar");
     String[] args = new String[40];
     args[0] = "some_command";
     for (int i = 1; i < args.length; i++) {
@@ -117,7 +117,7 @@ public class CommandFailureUtilsTest {
             cwd,
             "cfg12345",
             target,
-            executionPlatform.label().toString());
+            executionPlatform.label());
     assertThat(message)
         .isEqualTo(
             "some_command failed: error executing Mnemonic command (from target //foo:bar) "
@@ -130,7 +130,7 @@ public class CommandFailureUtilsTest {
 
   @Test
   public void describeCommandFailure_longMessage_verbose() throws Exception {
-    String target = "//foo:bar";
+    Label target = Label.parseCanonicalUnchecked("//foo:bar");
     String[] args = new String[40];
     args[0] = "some_command";
     for (int i = 1; i < args.length; i++) {
@@ -153,7 +153,7 @@ public class CommandFailureUtilsTest {
             cwd,
             "cfg12345",
             target,
-            executionPlatform.label().toString());
+            executionPlatform.label());
     assertThat(message)
         .isEqualTo(
             "some_command failed: error executing Mnemonic command (from target //foo:bar) \n"
@@ -172,7 +172,7 @@ public class CommandFailureUtilsTest {
 
   @Test
   public void describeCommandFailure_singleSkippedArgument() throws Exception {
-    String target = "//foo:bar";
+    Label target = Label.parseCanonicalUnchecked("//foo:bar");
     String[] args = new String[35]; // Long enough to make us skip 1 argument below.
     args[0] = "some_command";
     for (int i = 1; i < args.length; i++) {
@@ -191,7 +191,7 @@ public class CommandFailureUtilsTest {
             cwd,
             "cfg12345",
             target,
-            executionPlatform.label().toString());
+            executionPlatform.label());
     assertThat(message)
         .isEqualTo(
             "some_command failed: error executing Mnemonic command (from target //foo:bar)"
@@ -230,7 +230,7 @@ public class CommandFailureUtilsTest {
             envToClear,
             cwd,
             "cfg12345",
-            executionPlatform.label().toString());
+            executionPlatform.label());
 
     assertThat(message)
         .isEqualTo(
