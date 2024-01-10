@@ -8,3 +8,8 @@ starlark_doc_extract(
     name = "gen_be_proto_stardoc_proto",
     src = "proto.bzl",
 )
+
+starlark_doc_extract(
+    name = "gen_be_java_stardoc_proto",
+    src = "java.bzl",
+)
