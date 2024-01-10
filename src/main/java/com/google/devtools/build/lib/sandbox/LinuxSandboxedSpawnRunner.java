@@ -389,10 +389,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       throws IOException {
     Set<Path> writableDirs = new TreeSet<>();
     writableDirs.addAll(super.getWritableDirs(sandboxExecRoot, withinSandboxExecRoot, env));
-    if (getSandboxOptions().memoryLimitMb > 0) {
-      CgroupsInfo cgroupsInfo = CgroupsInfo.getInstance();
-      writableDirs.add(fileSystem.getPath(cgroupsInfo.getMountPoint().getAbsolutePath()));
-    }
     FileSystem fs = sandboxExecRoot.getFileSystem();
     writableDirs.add(fs.getPath("/dev/shm").resolveSymbolicLinks());
     writableDirs.add(fs.getPath("/tmp"));
