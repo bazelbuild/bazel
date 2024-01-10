@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -356,13 +357,14 @@ public final class TestActionBuilder {
     if (shardRuns > 1 || runsPerTest > 1) {
       // When creating multiple test actions, cache the runfiles mappings across test actions. This
       // saves a lot of garbage when shard_count and/or runs_per_test is high.
+      RunfilesTree runfilesTree = runfilesSupport.getRunfilesTree();
       testRunfilesSupplier =
           SingleRunfilesSupplier.createCaching(
-              runfilesSupport.getRunfilesDirectoryExecPath(),
+              runfilesTree.getExecPath(),
               runfilesSupport.getRunfiles(),
               runfilesSupport.getRepoMappingManifest(),
-              runfilesSupport.getRunfileSymlinksMode(),
-              runfilesSupport.isBuildRunfileLinks());
+              runfilesTree.getSymlinksMode(),
+              runfilesTree.isBuildRunfileLinks());
     } else {
       testRunfilesSupplier = runfilesSupport;
     }

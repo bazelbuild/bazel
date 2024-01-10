@@ -936,7 +936,7 @@ public class RunCommand implements BlazeCommand {
       BuildConfigurationValue configuration,
       RunfilesTreeUpdater runfilesTreeUpdater)
       throws RunfilesException, InterruptedException {
-    PathFragment runfilesDir = runfilesSupport.getRunfilesDirectoryExecPath();
+    PathFragment runfilesDir = runfilesSupport.getRunfilesTree().getExecPath();
     Path workingDir = env.getExecRoot().getRelative(runfilesDir);
     // On Windows, runfiles tree is disabled.
     // Workspace name directory doesn't exist, so don't add it.
@@ -951,7 +951,7 @@ public class RunCommand implements BlazeCommand {
     try {
       runfilesSupport
           .getRunfilesDirectory()
-          .getRelative(runfilesSupport.getWorkspaceName())
+          .getRelative(runfilesSupport.getRunfilesTree().getWorkspaceName())
           .createDirectoryAndParents();
     } catch (IOException e) {
       throw new RunfilesException(
