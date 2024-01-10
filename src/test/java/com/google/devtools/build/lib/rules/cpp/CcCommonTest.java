@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -710,7 +711,17 @@ public class CcCommonTest extends BuildViewTestCase {
   @Test
   public void testCcLibraryWithDashStaticOnDarwin() throws Exception {
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "darwin_x86_64");
-    useConfiguration("--cpu=darwin_x86_64");
+    mockToolsConfig.create(
+        "platforms/BUILD",
+        "platform(",
+        "  name = 'darwin_x86_64',",
+        "  constraint_values = [",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:macos',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
+        "  ],",
+        ")");
+    useConfiguration("--cpu=darwin_x86_64", "--platforms=//platforms:darwin_x86_64");
+
     checkError(
         "badlib",
         "lib_with_dash_static",

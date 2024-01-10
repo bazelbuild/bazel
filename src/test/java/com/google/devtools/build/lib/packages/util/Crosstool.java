@@ -300,12 +300,24 @@ public final class Crosstool {
 
     public String getToolchainTargetConstraints() {
       ImmutableList<String> constraints = this.toolchainTargetConstraints;
-      if (constraints.isEmpty() && getTargetCpu().equals("k8")) {
-        // Use default constraints
-        constraints =
-            ImmutableList.of(
-                TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64",
-                TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux");
+      if (constraints.isEmpty()) {
+        if (getTargetCpu().equals("k8")) {
+          // Use default constraints
+          constraints =
+              ImmutableList.of(
+                  TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64",
+                  TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux");
+        } else if (getTargetCpu().equals("darwin_x86_64")) {
+          constraints =
+              ImmutableList.of(
+                  TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64",
+                  TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:macos");
+        } else if (getTargetCpu().equals("darwin_arm64")) {
+          constraints =
+              ImmutableList.of(
+                  TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm64",
+                  TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:macos");
+        }
       }
       return formatConstraints("target", constraints);
     }
@@ -684,15 +696,14 @@ public final class Crosstool {
           "    toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type'",
           ")");
       crosstoolBuild.add(toolchainConfig.getCcToolchainConfigRule());
-      // Add the newly-created toolchain to the WORKSPACE.
-      config.append(
-          "WORKSPACE",
-          "register_toolchains('//" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL_DIR + ":all')");
     }
 
     config.overwrite(
         MockObjcSupport.DEFAULT_OSX_CROSSTOOL_DIR + "/BUILD",
         Joiner.on("\n").join(crosstoolBuild.build()));
+    config.append(
+        "WORKSPACE",
+        "register_toolchains('//" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL_DIR + ":all')");
     config.overwrite(crosstoolTop + "/cc_toolchain_config.bzl", ccToolchainConfigFileContents);
   }
 }

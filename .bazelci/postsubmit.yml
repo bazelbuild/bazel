@@ -221,12 +221,6 @@ tasks:
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
       - "-//src/test/shell/bazel/android:aapt_integration_test"
       - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
-      # Disable recently regressed tests: https://github.com/bazelbuild/bazel/issues/20437
-      - "-//src/test/java/com/google/devtools/build/lib/rules/cpp:CppSysrootTest"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/cpp:CcImportConfiguredTargetTest"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/objc:BazelJ2ObjcLibraryTest"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/cpp:CcToolchainTest"
     include_json_profile:
       - build
       - test
@@ -286,12 +280,6 @@ tasks:
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
       - "-//src/test/shell/bazel/android:aapt_integration_test"
       - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
-      # Disable recently regressed tests: https://github.com/bazelbuild/bazel/issues/20437
-      - "-//src/test/java/com/google/devtools/build/lib/rules/cpp:CppSysrootTest"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/cpp:CcImportConfiguredTargetTest"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/objc:BazelJ2ObjcLibraryTest"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/cpp:CcToolchainTest"
       # https://github.com/bazelbuild/bazel/issues/17411
       - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:PatchApiBlackBoxTest"
       # https://github.com/bazelbuild/bazel/issues/17447
