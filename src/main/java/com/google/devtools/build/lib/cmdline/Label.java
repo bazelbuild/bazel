@@ -231,6 +231,10 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
     /** {@code <fromRepo, apparentRepoName, canonicalRepoName> } */
     Table<RepositoryName, String, RepositoryName> entries = HashBasedTable.create();
 
+    public void mergeEntries(Table<RepositoryName, String, RepositoryName> entries) {
+      this.entries.putAll(entries);
+    }
+
     public ImmutableTable<RepositoryName, String, RepositoryName> recordedEntries() {
       return ImmutableTable.<RepositoryName, String, RepositoryName>builder()
           .orderRowsBy(Comparator.comparing(RepositoryName::getName))
