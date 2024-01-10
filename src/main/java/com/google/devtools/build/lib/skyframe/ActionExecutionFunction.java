@@ -1246,8 +1246,7 @@ public final class ActionExecutionFunction implements SkyFunction {
             topLevelFilesets,
             input,
             value,
-            env,
-            skyframeActionExecutor.requiresTreeMetadataWhenTreeFileIsInput());
+            env);
       }
     }
 
