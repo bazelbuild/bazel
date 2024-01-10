@@ -671,6 +671,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   public abstract static class LibraryToLinkValue extends VariableValueAdapter {
     public static final String OBJECT_FILES_FIELD_NAME = "object_files";
     public static final String NAME_FIELD_NAME = "name";
+
+    public static final String PATH_FIELD_NAME = "path";
     public static final String TYPE_FIELD_NAME = "type";
     public static final String IS_WHOLE_ARCHIVE_FIELD_NAME = "is_whole_archive";
 
@@ -680,8 +682,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       return new ForDynamicLibrary(name);
     }
 
-    public static LibraryToLinkValue forVersionedDynamicLibrary(String name) {
-      return new ForVersionedDynamicLibrary(name);
+    public static LibraryToLinkValue forVersionedDynamicLibrary(String name, String path) {
+      return new ForVersionedDynamicLibrary(name, path);
     }
 
     public static LibraryToLinkValue forInterfaceLibrary(String name) {
@@ -715,12 +717,18 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
         return new StringValue(getTypeName());
       } else if (IS_WHOLE_ARCHIVE_FIELD_NAME.equals(field)) {
         return new IntegerValue(getIsWholeArchive() ? 1 : 0);
+      } else if (PATH_FIELD_NAME.equals(field)) {
+        return new StringValue(getPath());
       }
       return null;
     }
 
     protected boolean getIsWholeArchive() {
       return false;
+    }
+
+    protected String getPath() {
+      return null;
     }
 
     protected abstract String getTypeName();
@@ -802,10 +810,16 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     private static final class ForVersionedDynamicLibrary extends LibraryToLinkValueWithName {
-      private ForVersionedDynamicLibrary(String name) {
+      private String path;
+      private ForVersionedDynamicLibrary(String name, String path) {
         super(name);
+        this.path = path;
       }
 
+      @Override
+      protected String getPath() {
+        return path;
+      }
       @Override
       protected String getTypeName() {
         return "versioned_dynamic_library";
