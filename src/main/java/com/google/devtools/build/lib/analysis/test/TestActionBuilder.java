@@ -294,11 +294,7 @@ public final class TestActionBuilder {
         if (lcovFilesToRun != null) {
           extraTestEnv.put(LCOV_MERGER, lcovFilesToRun.getExecutable().getExecPathString());
           inputsBuilder.addTransitive(lcovFilesToRun.getFilesToRun());
-
           lcovMergerFilesToRun.addTransitive(lcovFilesToRun.getFilesToRun());
-          if (lcovFilesToRun.getRunfilesSupport() != null) {
-            lcovMergerFilesToRun.add(lcovFilesToRun.getRunfilesSupport().getRunfilesMiddleman());
-          }
           lcovMergerRunfilesSupplier = lcovFilesToRun.getRunfilesSupplier();
         } else {
           NestedSet<Artifact> filesToBuild =
