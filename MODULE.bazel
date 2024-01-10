@@ -281,6 +281,15 @@ use_repo(
 cc_configure = use_extension("@bazel_tools//tools/cpp:cc_configure.bzl", "cc_configure_extension")
 use_repo(cc_configure, "local_config_cc")
 
+gvm = use_extension("@rules_graalvm//:extensions.bzl", "graalvm")
+gvm.graalvm(
+    name = "graalvm",
+    distribution = "ce",
+    java_version = "20",
+    version = "20.0.2",
+)
+use_repo(gvm, "graalvm_toolchains")
+
 # =========================================
 # Other Bazel testing dependencies
 # =========================================
@@ -299,17 +308,6 @@ use_repo(bazel_rbe_deps, "rbe_ubuntu2004_java11")
 remote_coverage_tools_extension = use_extension("//tools/test:extensions.bzl", "remote_coverage_tools_extension")
 use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
 
-gvm = use_extension("@rules_graalvm//:extensions.bzl", "graalvm")
-gvm.graalvm(
-    name = "graalvm",
-    distribution = "ce",
-    java_version = "20",
-    version = "20.0.2",
-)
-use_repo(gvm, "graalvm_toolchains")
-
-register_toolchains("@graalvm_toolchains//:gvm")
-
 # =========================================
 # Register platforms & toolchains
 # =========================================
@@ -321,6 +319,8 @@ register_toolchains("@bazel_tools//tools/python:autodetecting_toolchain")
 register_toolchains("@local_config_winsdk//:all")
 
 register_toolchains("//src/main/res:empty_rc_toolchain")
+
+register_toolchains("@graalvm_toolchains//:gvm")
 
 # =========================================
 # Android tools dependencies

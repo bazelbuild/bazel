@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "f6641578eaa9690d1685ac61b35622a2c9c65ab421288b76c50c7b701263e1ad",
+  "moduleFileHash": "7e00b434061feab70b94deee240eb765c14046a07988b8b6f1eb5d7596b4a4f5",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -27,10 +27,10 @@
         "//:default_host_platform"
       ],
       "toolchainsToRegister": [
-        "@graalvm_toolchains//:gvm",
         "@bazel_tools//tools/python:autodetecting_toolchain",
         "@local_config_winsdk//:all",
-        "//src/main/res:empty_rc_toolchain"
+        "//src/main/res:empty_rc_toolchain",
+        "@graalvm_toolchains//:gvm"
       ],
       "extensionUsages": [
         {
@@ -488,65 +488,12 @@
           "hasNonDevUseExtension": true
         },
         {
-          "extensionBzlFile": "@io_bazel//:extensions.bzl",
-          "extensionName": "bazel_test_deps",
-          "usingModule": "<root>",
-          "location": {
-            "file": "@@//:MODULE.bazel",
-            "line": 288,
-            "column": 32
-          },
-          "imports": {
-            "bazelci_rules": "bazelci_rules",
-            "local_bazel_source_list": "local_bazel_source_list",
-            "local_config_winsdk": "local_config_winsdk"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@io_bazel//:rbe_extension.bzl",
-          "extensionName": "bazel_rbe_deps",
-          "usingModule": "<root>",
-          "location": {
-            "file": "@@//:MODULE.bazel",
-            "line": 296,
-            "column": 31
-          },
-          "imports": {
-            "rbe_ubuntu2004_java11": "rbe_ubuntu2004_java11"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@io_bazel//tools/test:extensions.bzl",
-          "extensionName": "remote_coverage_tools_extension",
-          "usingModule": "<root>",
-          "location": {
-            "file": "@@//:MODULE.bazel",
-            "line": 299,
-            "column": 48
-          },
-          "imports": {
-            "remote_coverage_tools": "remote_coverage_tools"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
           "extensionBzlFile": "@rules_graalvm//:extensions.bzl",
           "extensionName": "graalvm",
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 302,
+            "line": 284,
             "column": 20
           },
           "imports": {
@@ -565,11 +512,64 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 303,
+                "line": 285,
                 "column": 12
               }
             }
           ],
+          "hasDevUseExtension": false,
+          "hasNonDevUseExtension": true
+        },
+        {
+          "extensionBzlFile": "@io_bazel//:extensions.bzl",
+          "extensionName": "bazel_test_deps",
+          "usingModule": "<root>",
+          "location": {
+            "file": "@@//:MODULE.bazel",
+            "line": 297,
+            "column": 32
+          },
+          "imports": {
+            "bazelci_rules": "bazelci_rules",
+            "local_bazel_source_list": "local_bazel_source_list",
+            "local_config_winsdk": "local_config_winsdk"
+          },
+          "devImports": [],
+          "tags": [],
+          "hasDevUseExtension": false,
+          "hasNonDevUseExtension": true
+        },
+        {
+          "extensionBzlFile": "@io_bazel//:rbe_extension.bzl",
+          "extensionName": "bazel_rbe_deps",
+          "usingModule": "<root>",
+          "location": {
+            "file": "@@//:MODULE.bazel",
+            "line": 305,
+            "column": 31
+          },
+          "imports": {
+            "rbe_ubuntu2004_java11": "rbe_ubuntu2004_java11"
+          },
+          "devImports": [],
+          "tags": [],
+          "hasDevUseExtension": false,
+          "hasNonDevUseExtension": true
+        },
+        {
+          "extensionBzlFile": "@io_bazel//tools/test:extensions.bzl",
+          "extensionName": "remote_coverage_tools_extension",
+          "usingModule": "<root>",
+          "location": {
+            "file": "@@//:MODULE.bazel",
+            "line": 308,
+            "column": 48
+          },
+          "imports": {
+            "remote_coverage_tools": "remote_coverage_tools"
+          },
+          "devImports": [],
+          "tags": [],
           "hasDevUseExtension": false,
           "hasNonDevUseExtension": true
         },
@@ -2250,7 +2250,7 @@
         "bzlTransitiveDigest": "uLzmPag+drHdv4SHM6VTDi4HKycGdoUKF422fH5bqrg=",
         "accumulatedFileDigests": {
           "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "38e96ee0c3217da5ada5c377da7df10d9ff874e53bf6a2f85052d61303761483",
-          "@@//:MODULE.bazel": "f6641578eaa9690d1685ac61b35622a2c9c65ab421288b76c50c7b701263e1ad"
+          "@@//:MODULE.bazel": "7e00b434061feab70b94deee240eb765c14046a07988b8b6f1eb5d7596b4a4f5"
         },
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2671,8 +2671,8 @@
             "ruleClassName": "http_jar",
             "attributes": {
               "name": "bazel_tools~remote_android_tools_extensions~android_gmaven_r8",
-              "sha256": "80c39a28bb66b64efc232d68ae554d59fe3838808738b4fe584884691cb1e5a3",
-              "url": "https://maven.google.com/com/android/tools/r8/8.2.33/r8-8.2.33.jar"
+              "sha256": "57a696749695a09381a87bc2f08c3a8ed06a717a5caa3ef878a3077e0d3af19d",
+              "url": "https://maven.google.com/com/android/tools/r8/8.1.56/r8-8.1.56.jar"
             }
           }
         }
@@ -3785,7 +3785,7 @@
             "ruleClassName": "_toolchain_config",
             "attributes": {
               "name": "rules_graalvm~0.10.3~graalvm~graalvm_toolchains",
-              "build_file": "\nconfig_setting(\n    name = \"prefix_version_setting\",\n    values = {\"java_runtime_version\": \"graalvm_20\"},\n    visibility = [\"//visibility:private\"],\n)\nconfig_setting(\n    name = \"version_setting\",\n    values = {\"java_runtime_version\": \"20\"},\n    visibility = [\"//visibility:private\"],\n)\nalias(\n    name = \"version_or_prefix_version_setting\",\n    actual = select({\n        \":version_setting\": \":version_setting\",\n        \"//conditions:default\": \":prefix_version_setting\",\n    }),\n    visibility = [\"//visibility:private\"],\n)\nalias(\n    name = \"toolchain_gvm\",\n    actual = \"gvm\",\n    visibility = [\"//visibility:public\"],\n)\ntoolchain(\n    name = \"gvm\",\n    exec_compatible_with = [\n        \n    ],\n    target_compatible_with = [\n        \n    ],\n    toolchain = \"@graalvm//:gvm\",\n    toolchain_type = \"@rules_graalvm//graalvm/toolchain\",\n    visibility = [\"//visibility:public\"],\n)\ntoolchain(\n    name = \"toolchain\",\n    target_compatible_with = [],\n    target_settings = [\":version_or_prefix_version_setting\"],\n    toolchain_type = \"@bazel_tools//tools/jdk:runtime_toolchain_type\",\n    toolchain = \"@graalvm//:jdk\",\n    visibility = [\"//visibility:public\"],\n)\n\n"
+              "build_file": "\nconfig_setting(\n    name = \"prefix_version_setting\",\n    values = {\"java_runtime_version\": \"graalvm_20\"},\n    visibility = [\"//visibility:private\"],\n)\nconfig_setting(\n    name = \"version_setting\",\n    values = {\"java_runtime_version\": \"20\"},\n    visibility = [\"//visibility:private\"],\n)\nalias(\n    name = \"version_or_prefix_version_setting\",\n    actual = select({\n        \":version_setting\": \":version_setting\",\n        \"//conditions:default\": \":prefix_version_setting\",\n    }),\n    visibility = [\"//visibility:private\"],\n)\nalias(\n    name = \"toolchain_gvm\",\n    actual = \"gvm\",\n    visibility = [\"//visibility:public\"],\n)\ntoolchain(\n    name = \"gvm\",\n    exec_compatible_with = [\n        \n    ],\n    target_compatible_with = [\n        \n    ],\n    toolchain = \"@graalvm//:gvm\",\n    toolchain_type = \"@rules_graalvm//graalvm/toolchain\",\n    visibility = [\"//visibility:public\"],\n)\ntoolchain(\n    name = \"toolchain\",\n    target_compatible_with = [],\n    target_settings = [\":version_or_prefix_version_setting\"],\n    toolchain_type = \"@bazel_tools//tools/jdk:runtime_toolchain_type\",\n    toolchain = \"@graalvm//:jdk\",\n    visibility = [\"//visibility:public\"],\n)\n\ntoolchain(\n    name = \"bootstrap_runtime_toolchain\",\n    # These constraints are not required for correctness, but prevent fetches of remote JDK for\n    # different architectures. As every Java compilation toolchain depends on a bootstrap runtime in\n    # the same configuration, this constraint will not result in toolchain resolution failures.\n    exec_compatible_with = [],\n    target_settings = [\":version_or_prefix_version_setting\"],\n    toolchain_type = \"@bazel_tools//tools/jdk:bootstrap_runtime_toolchain_type\",\n    toolchain = \"@graalvm//:jdk\",\n    visibility = [\"//visibility:public\"],\n)\n\n"
             }
           },
           "graalvm": {
