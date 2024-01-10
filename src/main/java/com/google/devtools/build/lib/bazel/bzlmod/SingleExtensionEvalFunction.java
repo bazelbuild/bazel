@@ -348,21 +348,23 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                 .map(RepositoryMappingValue::key)
                 .collect(toImmutableSet()));
     if (env.valuesMissing()) {
-      // This shouldn't really happen, since the RepositoryMappingValues of any recorded repos
-      // should have already been requested by the time we load the .bzl for the extension. And this
-      // method is only called if the transitive .bzl digest hasn't changed.
-      // However, we pretend it could happen anyway because we're good citizens.
+      // This likely means that one of the 'source repos' in the recorded mapping entries is no
+      // longer there.
       throw new NeedsSkyframeRestartException();
     }
     for (Table.Cell<RepositoryName, String, RepositoryName> cell : recordedRepoMappings.cellSet()) {
       RepositoryMappingValue repoMappingValue =
           (RepositoryMappingValue) result.get(RepositoryMappingValue.key(cell.getRowKey()));
       if (repoMappingValue == null) {
-        // Again, this shouldn't happen. But anyway.
         throw new NeedsSkyframeRestartException();
       }
-      if (!cell.getValue()
-          .equals(repoMappingValue.getRepositoryMapping().get(cell.getColumnKey()))) {
+      // Very importantly, `repoMappingValue` here could be for a repo that's no longer existent in
+      // the dep graph. See
+      // bazel_lockfile_test.testExtensionRepoMappingChange_sourceRepoNoLongerExistent for a test
+      // case.
+      if (repoMappingValue.equals(RepositoryMappingValue.NOT_FOUND_VALUE)
+          || !cell.getValue()
+              .equals(repoMappingValue.getRepositoryMapping().get(cell.getColumnKey()))) {
         // Wee woo wee woo -- diff detected!
         return true;
       }
@@ -817,20 +819,19 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     if (envVars == null) {
       return null;
     }
-    return new RegularRunnableExtension(
-        BazelModuleContext.of(bzlLoadValue.getModule()), extension, envVars);
+    return new RegularRunnableExtension(bzlLoadValue, extension, envVars);
   }
 
   private final class RegularRunnableExtension implements RunnableExtension {
-    private final BazelModuleContext bazelModuleContext;
+    private final BzlLoadValue bzlLoadValue;
     private final ModuleExtension extension;
     private final ImmutableMap<String, String> envVars;
 
     RegularRunnableExtension(
-        BazelModuleContext bazelModuleContext,
+        BzlLoadValue bzlLoadValue,
         ModuleExtension extension,
         ImmutableMap<String, String> envVars) {
-      this.bazelModuleContext = bazelModuleContext;
+      this.bzlLoadValue = bzlLoadValue;
       this.extension = extension;
       this.envVars = envVars;
     }
@@ -849,7 +850,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
 
     @Override
     public byte[] getBzlTransitiveDigest() {
-      return bazelModuleContext.bzlTransitiveDigest();
+      return BazelModuleContext.of(bzlLoadValue.getModule()).bzlTransitiveDigest();
     }
 
     @Nullable
@@ -864,12 +865,13 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           new ModuleExtensionEvalStarlarkThreadContext(
               usagesValue.getExtensionUniqueName() + "~",
               extensionId.getBzlFileLabel().getPackageIdentifier(),
-              bazelModuleContext.repoMapping(),
+              BazelModuleContext.of(bzlLoadValue.getModule()).repoMapping(),
               directories,
               env.getListener());
       ModuleExtensionContext moduleContext;
       Optional<ModuleExtensionMetadata> moduleExtensionMetadata;
       var repoMappingRecorder = new Label.RepoMappingRecorder();
+      repoMappingRecorder.mergeEntries(bzlLoadValue.getRecordedRepoMappings());
       try (Mutability mu =
           Mutability.create("module extension", usagesValue.getExtensionUniqueName())) {
         StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);

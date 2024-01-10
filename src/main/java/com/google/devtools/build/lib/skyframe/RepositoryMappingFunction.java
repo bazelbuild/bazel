@@ -178,7 +178,7 @@ public class RepositoryMappingFunction implements SkyFunction {
       return computeFromWorkspace(repositoryName, externalPackageValue, rootModuleRepoMapping);
     }
 
-    throw new RepositoryMappingFunctionException();
+    return RepositoryMappingValue.NOT_FOUND_VALUE;
   }
 
   /**
