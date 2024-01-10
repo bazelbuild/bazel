@@ -30,6 +30,9 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleFormatter;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.repository.ExternalPackageException;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.repository.ExternalRuleNotFoundException;
@@ -115,10 +118,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, RepositoryFunctionException {
-    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
-    if (starlarkSemantics == null) {
-      return null;
-    }
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
     if (!repositoryName.isVisible()) {
       return new NoRepositoryDirectoryValue(
@@ -127,16 +126,105 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
               repositoryName.getName(), repositoryName.getOwnerRepoDisplayString()));
     }
 
-    Path repoRoot =
-        RepositoryFunction.getExternalRepositoryDirectory(directories)
-            .getRelative(repositoryName.getName());
-    Map<RepositoryName, PathFragment> overrides = REPOSITORY_OVERRIDES.get(env);
-    if (Preconditions.checkNotNull(overrides).containsKey(repositoryName)) {
-      DigestWriter.clearMarkerFile(directories, repositoryName);
-      return setupOverride(overrides.get(repositoryName), env, repoRoot, repositoryName.getName());
-    }
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.REPOSITORY_FETCH, repositoryName.toString())) {
+      StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+      if (starlarkSemantics == null) {
+        return null;
+      }
+      Path repoRoot =
+          RepositoryFunction.getExternalRepositoryDirectory(directories)
+              .getRelative(repositoryName.getName());
+      Map<RepositoryName, PathFragment> overrides = REPOSITORY_OVERRIDES.get(env);
+      if (Preconditions.checkNotNull(overrides).containsKey(repositoryName)) {
+        DigestWriter.clearMarkerFile(directories, repositoryName);
+        return setupOverride(
+            overrides.get(repositoryName), env, repoRoot, repositoryName.getName());
+      }
 
-    Rule rule = null;
+      Rule rule = getRepositoryRule(env, repositoryName, starlarkSemantics);
+      if (env.valuesMissing()) {
+        return null;
+      }
+
+      if (rule == null) {
+        return new NoRepositoryDirectoryValue(
+            String.format("Repository '%s' is not defined", repositoryName.getCanonicalForm()));
+      }
+
+      RepositoryFunction handler = getHandler(rule);
+      if (handler == null) {
+        // If we refer to a non repository rule then the repository does not exist.
+        return new NoRepositoryDirectoryValue(
+            String.format("'%s' is not a repository rule", repositoryName.getCanonicalForm()));
+      }
+
+      DigestWriter digestWriter = new DigestWriter(directories, repositoryName, rule);
+      if (shouldUseCachedRepos(env, handler, repoRoot, rule)) {
+        // Make sure marker file is up-to-date; correctly describes the current repository state
+        byte[] markerHash = digestWriter.areRepositoryAndMarkerFileConsistent(handler, env);
+        if (env.valuesMissing()) {
+          return null;
+        }
+        if (markerHash != null) {
+          return RepositoryDirectoryValue.builder().setPath(repoRoot).setDigest(markerHash).build();
+        }
+      }
+
+      /* At this point: This is a force fetch, a local repository, OR The repository cache is old or
+      didn't exist. In any of those cases, we initiate the fetching process UNLESS this is offline
+      mode (fetching is disabled) */
+      if (isFetch.get()) {
+        // Fetching a repository is a long-running operation that can easily be interrupted. If it
+        // is and the marker file exists on disk, a new call of this method may treat this
+        // repository as valid even though it is in an inconsistent state. Clear the marker file and
+        // only recreate it after fetching is done to prevent this scenario.
+        DigestWriter.clearMarkerFile(directories, repositoryName);
+        RepositoryDirectoryValue.Builder builder =
+            fetchRepository(skyKey, repoRoot, env, digestWriter.getMarkerData(), handler, rule);
+        if (builder == null) {
+          return null;
+        }
+        // No new Skyframe dependencies must be added between calling the repository implementation
+        // and writing the marker file because if they aren't computed, it would cause a Skyframe
+        // restart thus calling the possibly very slow (networking, decompression...) fetch()
+        // operation again. So we write the marker file here immediately.
+        byte[] digest = digestWriter.writeMarkerFile();
+        return builder.setDigest(digest).build();
+      }
+
+      if (!repoRoot.exists()) {
+        // The repository isn't on the file system, there is nothing we can do.
+        throw new RepositoryFunctionException(
+            new IOException(
+                "to fix, run\n\tbazel fetch //...\nExternal repository "
+                    + repositoryName
+                    + " not found and fetching repositories is disabled."),
+            Transience.TRANSIENT);
+      }
+
+      // Try to build with whatever is on the file system and emit a warning.
+      env.getListener()
+          .handle(
+              Event.warn(
+                  rule.getLocation(),
+                  String.format(
+                      "External repository '%s' is not up-to-date and fetching is disabled. To"
+                          + " update, run the build without the '--nofetch' command line option.",
+                      rule.getName())));
+
+      return RepositoryDirectoryValue.builder()
+          .setPath(repoRoot)
+          .setFetchingDelayed()
+          .setDigest(new Fingerprint().digestAndReset())
+          .build();
+    }
+  }
+
+  @Nullable
+  private Rule getRepositoryRule(
+      Environment env, RepositoryName repositoryName, StarlarkSemantics starlarkSemantics)
+      throws InterruptedException, RepositoryFunctionException {
     if (starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
       // Tries to get a repository rule instance from Bzlmod generated repos.
       SkyKey key = BzlmodRepoRuleValue.key(repositoryName);
@@ -145,90 +233,20 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         return null;
       }
       if (value != BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE) {
-        rule = value.getRule();
+        return value.getRule();
       }
     }
 
-    if (rule == null && starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE)) {
+    if (starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE)) {
       // fallback to look up the repository in the WORKSPACE file.
       try {
-        rule = getRepoRuleFromWorkspace(repositoryName, env);
-        if (env.valuesMissing()) {
-          return null;
-        }
+        return getRepoRuleFromWorkspace(repositoryName, env);
       } catch (NoSuchRepositoryException e) {
-        rule = null;
-      }
-    }
-    if (rule == null) {
-      return new NoRepositoryDirectoryValue(
-          String.format("Repository '%s' is not defined", repositoryName.getCanonicalForm()));
-    }
-
-    RepositoryFunction handler = getHandler(rule);
-    if (handler == null) {
-      // If we refer to a non repository rule then the repository does not exist.
-      return new NoRepositoryDirectoryValue(
-          String.format("'%s' is not a repository rule", repositoryName.getCanonicalForm()));
-    }
-
-    DigestWriter digestWriter = new DigestWriter(directories, repositoryName, rule);
-    if (shouldUseCachedRepos(env, handler, repoRoot, rule)) {
-      // Make sure marker file is up-to-date; correctly describes the current repository state
-      byte[] markerHash = digestWriter.areRepositoryAndMarkerFileConsistent(handler, env);
-      if (env.valuesMissing()) {
         return null;
       }
-      if (markerHash != null) {
-        return RepositoryDirectoryValue.builder().setPath(repoRoot).setDigest(markerHash).build();
-      }
     }
 
-    /* At this point: This is a force fetch, a local repository, OR The repository cache is old or
-    didn't exist. In any of those cases, we initiate the fetching process UNLESS this is offline
-    mode (fetching is disabled) */
-    if (isFetch.get()) {
-      // Fetching a repository is a long-running operation that can easily be interrupted. If it is
-      // and the marker file exists on disk, a new call of this method may treat this repository as
-      // valid even though it is in an inconsistent state. Clear the marker file and only recreate
-      // it after fetching is done to prevent this scenario.
-      DigestWriter.clearMarkerFile(directories, repositoryName);
-      RepositoryDirectoryValue.Builder builder =
-          fetchRepository(skyKey, repoRoot, env, digestWriter.getMarkerData(), handler, rule);
-      if (builder == null) {
-        return null;
-      }
-      // No new Skyframe dependencies must be added between calling the repository implementation
-      // and writing the marker file because if they aren't computed, it would cause a Skyframe
-      // restart thus calling the possibly very slow (networking, decompression...) fetch()
-      // operation again. So we write the marker file here immediately.
-      byte[] digest = digestWriter.writeMarkerFile();
-      return builder.setDigest(digest).build();
-    }
-
-    if (!repoRoot.exists()) {
-      // The repository isn't on the file system, there is nothing we can do.
-      throw new RepositoryFunctionException(
-          new IOException(
-              "to fix, run\n\tbazel fetch //...\nExternal repository "
-                  + repositoryName
-                  + " not found and fetching repositories is disabled."),
-          Transience.TRANSIENT);
-    }
-
-    // Try to build with whatever is on the file system and emit a warning.
-    env.getListener()
-        .handle(Event.warn(rule.getLocation(),
-            String.format(
-                "External repository '%s' is not up-to-date and fetching is disabled. To update, "
-                    + "run the build without the '--nofetch' command line option.",
-                rule.getName())));
-
-    return RepositoryDirectoryValue.builder()
-        .setPath(repoRoot)
-        .setFetchingDelayed()
-        .setDigest(new Fingerprint().digestAndReset())
-        .build();
+    return null;
   }
 
   @Nullable
