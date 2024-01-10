@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.devtools.build.lib.actions.MiddlemanType.RUNFILES_MIDDLEMAN;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
@@ -147,11 +146,9 @@ public final class ArtifactFunction implements SkyFunction {
             artifactDependencies.actionLookupValue.getAction(generatingActionKey.getActionIndex()),
             "Null middleman action? %s",
             artifactDependencies);
+
     FileArtifactValue individualMetadata = actionValue.getExistingFileArtifactValue(artifact);
-    if (isAggregatingValue(action)) {
-      return createRunfilesArtifactValue(artifact, action, individualMetadata, env);
-    }
-    return individualMetadata;
+    return createRunfilesArtifactValue(artifact, action, individualMetadata, env);
   }
 
   private static void mkdirForTreeArtifact(
@@ -392,15 +389,6 @@ public final class ArtifactFunction implements SkyFunction {
 
     return new RunfilesArtifactValue(
         value, files.build(), fileValues.build(), trees.build(), treeValues.build());
-  }
-
-  /**
-   * Returns whether this value needs to contain the data of all its inputs. Currently, only tests
-   * to see if the action is a runfiles middleman action. However, may include Fileset artifacts in
-   * the future.
-   */
-  private static boolean isAggregatingValue(ActionAnalysisMetadata action) {
-    return action.getActionType() == RUNFILES_MIDDLEMAN;
   }
 
   @Override
