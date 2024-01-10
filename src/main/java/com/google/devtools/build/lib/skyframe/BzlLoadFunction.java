@@ -762,6 +762,7 @@ public class BzlLoadFunction implements SkyFunction {
     if (repoMapping == null) {
       return null;
     }
+    Label.RepoMappingRecorder repoMappingRecorder = new Label.RepoMappingRecorder();
     ImmutableList<Pair<String, Location>> programLoads = getLoadsFromProgram(prog);
     ImmutableList<Label> loadLabels =
         getLoadLabels(
@@ -770,7 +771,8 @@ public class BzlLoadFunction implements SkyFunction {
             pkg,
             repoMapping,
             key.isSclDialect(),
-            isSclFlagEnabled);
+            isSclFlagEnabled,
+            repoMappingRecorder);
     if (loadLabels == null) {
       throw new BzlLoadFailedException(
           String.format(
@@ -821,6 +823,7 @@ public class BzlLoadFunction implements SkyFunction {
       BzlLoadValue v = loadValues.get(i++);
       loadMap.put(load.first, v.getModule()); // dups ok
       fp.addBytes(v.getTransitiveDigest());
+      repoMappingRecorder.mergeEntries(v.getRecordedRepoMappings());
     }
 
     // Retrieve predeclared symbols and complete the digest computation.
@@ -862,7 +865,14 @@ public class BzlLoadFunction implements SkyFunction {
     // caching BzlLoadValues. Note that executing the code mutates the Module and
     // BzlInitThreadContext.
     executeBzlFile(
-        prog, label, module, loadMap, context, builtins.starlarkSemantics, env.getListener());
+        prog,
+        label,
+        module,
+        loadMap,
+        context,
+        builtins.starlarkSemantics,
+        env.getListener(),
+        repoMappingRecorder);
 
     BzlVisibility bzlVisibility = context.getBzlVisibility();
     if (bzlVisibility == null) {
@@ -871,7 +881,8 @@ public class BzlLoadFunction implements SkyFunction {
     // We save load visibility in the BzlLoadValue rather than the BazelModuleContext because
     // visibility doesn't need to be introspected by any Starlark builtin methods, and because the
     // alternative would mean mutating or overwriting the BazelModuleContext after evaluation.
-    return new BzlLoadValue(module, transitiveDigest, bzlVisibility);
+    return new BzlLoadValue(
+        module, transitiveDigest, bzlVisibility, repoMappingRecorder.recordedEntries());
   }
 
   @Nullable
@@ -1058,7 +1069,8 @@ public class BzlLoadFunction implements SkyFunction {
       PackageIdentifier base,
       RepositoryMapping repoMapping,
       boolean withinSclDialect,
-      boolean isSclFlagEnabled) {
+      boolean isSclFlagEnabled,
+      @Nullable Label.RepoMappingRecorder repoMappingRecorder) {
     boolean ok = true;
 
     ImmutableList.Builder<Label> loadLabels = ImmutableList.builderWithExpectedSize(loads.size());
@@ -1071,7 +1083,8 @@ public class BzlLoadFunction implements SkyFunction {
           throw new LabelSyntaxException("in .scl files, load labels must begin with \"//\"");
         }
         Label label =
-            Label.parseWithPackageContext(unparsedLabel, PackageContext.of(base, repoMapping));
+            Label.parseWithPackageContext(
+                unparsedLabel, PackageContext.of(base, repoMapping), repoMappingRecorder);
         checkValidLoadLabel(
             label,
             /* fromBuiltinsRepo= */ StarlarkBuiltinsValue.isBuiltinsRepo(base.getRepository()),
@@ -1106,7 +1119,8 @@ public class BzlLoadFunction implements SkyFunction {
         repoMapping,
         /* withinSclDialect= */ false,
         /* isSclFlagEnabled= */ starlarkSemantics.getBool(
-            BuildLanguageOptions.EXPERIMENTAL_ENABLE_SCL_DIALECT));
+            BuildLanguageOptions.EXPERIMENTAL_ENABLE_SCL_DIALECT),
+        /* repoMappingRecorder= */ null);
   }
 
   /** Extracts load statements from compiled program (see {@link #getLoadLabels}). */
@@ -1337,11 +1351,15 @@ public class BzlLoadFunction implements SkyFunction {
       Map<String, Module> loadedModules,
       BzlInitThreadContext context,
       StarlarkSemantics starlarkSemantics,
-      ExtendedEventHandler skyframeEventHandler)
+      ExtendedEventHandler skyframeEventHandler,
+      Label.RepoMappingRecorder repoMappingRecorder)
       throws BzlLoadFailedException, InterruptedException {
     try (Mutability mu = Mutability.create("loading", label)) {
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
       thread.setLoader(loadedModules::get);
+      // This is needed so that any calls to `Label()` will have its used repo mapping entries
+      // recorded. See #20721 for more details.
+      thread.setThreadLocal(Label.RepoMappingRecorder.class, repoMappingRecorder);
 
       // Wrap the skyframe event handler to listen for starlark errors.
       AtomicBoolean sawStarlarkError = new AtomicBoolean(false);
