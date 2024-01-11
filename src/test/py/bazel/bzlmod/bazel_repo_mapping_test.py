@@ -42,7 +42,7 @@ class BazelRepoMappingTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'build --enable_bzlmod',
+            'build --noenable_workspace',
             'build --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
@@ -54,10 +54,6 @@ class BazelRepoMappingTest(test_base.TestBase):
             'build --lockfile_mode=update',
         ],
     )
-    self.ScratchFile('WORKSPACE')
-    # The existence of WORKSPACE.bzlmod prevents WORKSPACE prefixes or suffixes
-    # from being used; this allows us to test built-in modules actually work
-    self.ScratchFile('WORKSPACE.bzlmod')
 
   def testRunfilesRepoMappingManifest(self):
     self.main_registry.setModuleBasePath('projects')
@@ -66,8 +62,6 @@ class BazelRepoMappingTest(test_base.TestBase):
     # Set up a "bare_rule" module that contains the "bare_test" rule which
     # passes runfiles along
     self.main_registry.createLocalPathModule('bare_rule', '1.0', 'bare_rule')
-    projects_dir.joinpath('bare_rule').mkdir(exist_ok=True)
-    scratchFile(projects_dir.joinpath('bare_rule', 'WORKSPACE'))
     scratchFile(projects_dir.joinpath('bare_rule', 'BUILD'))
     # The working directory of a test is the subdirectory of the runfiles
     # directory corresponding to the main repository.
@@ -108,7 +102,6 @@ class BazelRepoMappingTest(test_base.TestBase):
             'bazel_dep(name="bare_rule",version="1.0")',
         ],
     )
-    self.ScratchFile('WORKSPACE')
     self.ScratchFile('WORKSPACE.bzlmod', ['workspace(name="me_ws")'])
     self.ScratchFile(
         'BUILD',
@@ -135,8 +128,6 @@ class BazelRepoMappingTest(test_base.TestBase):
         ('quux1', 'bare_test(name="quux")'),
         ('quux2', 'bare_test(name="quux")'),
     ]:
-      projects_dir.joinpath(dir_name).mkdir(exist_ok=True)
-      scratchFile(projects_dir.joinpath(dir_name, 'WORKSPACE'))
       scratchFile(
           projects_dir.joinpath(dir_name, 'BUILD'),
           [
@@ -154,7 +145,9 @@ class BazelRepoMappingTest(test_base.TestBase):
     bazel_command = 'build' if self.IsWindows() else 'test'
 
     # Finally we get to build stuff!
-    self.RunBazel([bazel_command, '//:me', '--test_output=errors'])
+    self.RunBazel(
+        [bazel_command, '--enable_workspace', '//:me', '--test_output=errors']
+    )
 
     paths = ['bazel-bin/me.repo_mapping']
     if not self.IsWindows():
@@ -173,7 +166,12 @@ quux~2.0,quux,quux~2.0""",
     with open(self.Path('bazel-bin/me.runfiles_manifest')) as f:
       self.assertIn('_repo_mapping ', f.read())
 
-    self.RunBazel([bazel_command, '@bar//:bar', '--test_output=errors'])
+    self.RunBazel([
+        bazel_command,
+        '--enable_workspace',
+        '@bar//:bar',
+        '--test_output=errors',
+    ])
 
     paths = ['bazel-bin/external/bar~2.0/bar.repo_mapping']
     if not self.IsWindows():
@@ -196,8 +194,6 @@ quux~2.0,quux,quux~2.0""",
     projects_dir = self.main_registry.projects
 
     self.main_registry.createLocalPathModule('data', '1.0', 'data')
-    projects_dir.joinpath('data').mkdir(exist_ok=True)
-    scratchFile(projects_dir.joinpath('data', 'WORKSPACE'))
     scratchFile(projects_dir.joinpath('data', 'foo.txt'), ['hello'])
     scratchFile(
         projects_dir.joinpath('data', 'BUILD'), ['exports_files(["foo.txt"])']
@@ -206,8 +202,6 @@ quux~2.0,quux,quux~2.0""",
     self.main_registry.createLocalPathModule(
         'test', '1.0', 'test', {'data': '1.0'}
     )
-    projects_dir.joinpath('test').mkdir(exist_ok=True)
-    scratchFile(projects_dir.joinpath('test', 'WORKSPACE'))
     scratchFile(
         projects_dir.joinpath('test', 'BUILD'),
         [
@@ -241,7 +235,6 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
     os.chmod(test_script, 0o755)
 
     self.ScratchFile('MODULE.bazel', ['bazel_dep(name="test",version="1.0")'])
-    self.ScratchFile('WORKSPACE')
 
     # Run sandboxed on Linux and macOS.
     self.RunBazel(
@@ -263,8 +256,6 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
     projects_dir = self.main_registry.projects
 
     self.main_registry.createLocalPathModule('data', '1.0', 'data')
-    projects_dir.joinpath('data').mkdir(exist_ok=True)
-    scratchFile(projects_dir.joinpath('data', 'WORKSPACE'))
     scratchFile(projects_dir.joinpath('data', 'foo.txt'), ['hello'])
     scratchFile(
         projects_dir.joinpath('data', 'BUILD'), ['exports_files(["foo.txt"])']
@@ -273,8 +264,6 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
     self.main_registry.createLocalPathModule(
         'test', '1.0', 'test', {'data': '1.0'}
     )
-    projects_dir.joinpath('test').mkdir(exist_ok=True)
-    scratchFile(projects_dir.joinpath('test', 'WORKSPACE'))
     scratchFile(
         projects_dir.joinpath('test', 'BUILD'),
         [
@@ -308,7 +297,6 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
     )
 
     self.ScratchFile('MODULE.bazel', ['bazel_dep(name="test",version="1.0")'])
-    self.ScratchFile('WORKSPACE')
 
     # Run sandboxed on Linux and macOS.
     self.RunBazel(['test', '@test//:test', '--test_output=errors'])
@@ -320,8 +308,6 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
     projects_dir = self.main_registry.projects
 
     self.main_registry.createLocalPathModule('data', '1.0', 'data')
-    projects_dir.joinpath('data').mkdir(exist_ok=True)
-    scratchFile(projects_dir.joinpath('data', 'WORKSPACE'))
     scratchFile(projects_dir.joinpath('data', 'foo.txt'), ['hello'])
     scratchFile(
         projects_dir.joinpath('data', 'BUILD'), ['exports_files(["foo.txt"])']
@@ -330,8 +316,6 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
     self.main_registry.createLocalPathModule(
         'test', '1.0', 'test', {'data': '1.0'}
     )
-    projects_dir.joinpath('test').mkdir(exist_ok=True)
-    scratchFile(projects_dir.joinpath('test', 'WORKSPACE'))
     scratchFile(
         projects_dir.joinpath('test', 'BUILD'),
         [
@@ -376,7 +360,6 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
     )
 
     self.ScratchFile('MODULE.bazel', ['bazel_dep(name="test",version="1.0")'])
-    self.ScratchFile('WORKSPACE')
 
     # Run sandboxed on Linux and macOS.
     self.RunBazel(

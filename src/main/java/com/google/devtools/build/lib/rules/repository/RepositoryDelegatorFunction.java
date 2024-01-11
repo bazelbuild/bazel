@@ -237,12 +237,16 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       }
     }
 
-    // fallback to look up the repository in the WORKSPACE file.
-    try {
-      return getRepoRuleFromWorkspace(repositoryName, env);
-    } catch (NoSuchRepositoryException e) {
-      return null;
+    if (starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE)) {
+      // fallback to look up the repository in the WORKSPACE file.
+      try {
+        return getRepoRuleFromWorkspace(repositoryName, env);
+      } catch (NoSuchRepositoryException e) {
+        return null;
+      }
     }
+
+    return null;
   }
 
   @Nullable
@@ -428,47 +432,15 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           Transience.PERSISTENT);
     }
 
-    // Check that the repository contains a WORKSPACE file.
-    // Note that we need to do this here since we're not creating a WORKSPACE file ourselves, but
-    // entrusting the entire contents of the repo root to this target directory.
-    FileValue workspaceFileValue = getWorkspaceFile(targetDirRootedPath, env);
-    if (workspaceFileValue == null) {
-      return null;
-    }
-
-    if (!workspaceFileValue.exists()) {
+    // Check that the directory contains a repo boundary file.
+    // Note that we need to do this here since we're not creating a repo boundary file ourselves,
+    // but entrusting the entire contents of the repo root to this target directory.
+    if (!WorkspaceFileHelper.isValidRepoRoot(destination)) {
       throw new RepositoryFunctionException(
-          new IOException("No WORKSPACE file found in " + source), Transience.PERSISTENT);
+          new IOException("No MODULE.bazel, REPO.bazel, or WORKSPACE file found in " + destination),
+          Transience.PERSISTENT);
     }
     return RepositoryDirectoryValue.builder().setPath(source);
-  }
-
-  @Nullable
-  private static FileValue getWorkspaceFile(RootedPath directory, Environment env)
-      throws RepositoryFunctionException, InterruptedException {
-    RootedPath workspaceRootedFile;
-    try {
-      workspaceRootedFile = WorkspaceFileHelper.getWorkspaceRootedFile(directory, env);
-      if (workspaceRootedFile == null) {
-        return null;
-      }
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(
-          new IOException(
-              "Could not determine workspace file (\"WORKSPACE.bazel\" or \"WORKSPACE\"): "
-                  + e.getMessage()),
-          Transience.PERSISTENT);
-    }
-    SkyKey workspaceFileKey = FileValue.key(workspaceRootedFile);
-    FileValue value;
-    try {
-      value = (FileValue) env.getValueOrThrow(workspaceFileKey, IOException.class);
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(
-          new IOException("Could not access " + workspaceRootedFile + ": " + e.getMessage()),
-          Transience.PERSISTENT);
-    }
-    return value;
   }
 
   // Escape a value for the marker file

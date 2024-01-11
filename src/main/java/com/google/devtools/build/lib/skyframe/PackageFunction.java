@@ -333,6 +333,15 @@ public class PackageFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
+    if (!starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE)) {
+      throw PackageFunctionException.builder()
+          .setType(PackageFunctionException.Type.NO_SUCH_PACKAGE)
+          .setTransience(Transience.PERSISTENT)
+          .setPackageIdentifier(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)
+          .setMessage("the WORKSPACE file is disabled via --noenable_workspace")
+          .setPackageLoadingCode(PackageLoading.Code.WORKSPACE_FILE_ERROR)
+          .build();
+    }
 
     SkyKey workspaceKey = ExternalPackageFunction.key();
     PackageValue workspace = null;

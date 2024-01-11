@@ -84,6 +84,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -413,12 +414,14 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
       ImmutableList<TargetPattern> userRegisteredToolchains =
-          RegisteredToolchainsFunction.getWorkspaceToolchains(env, /* userRegistered= */ true);
+          RegisteredToolchainsFunction.getWorkspaceToolchains(
+              StarlarkSemantics.DEFAULT, env, /* userRegistered= */ true);
       if (userRegisteredToolchains == null) {
         return null;
       }
       ImmutableList<TargetPattern> workspaceSuffixRegisteredToolchains =
-          RegisteredToolchainsFunction.getWorkspaceToolchains(env, /* userRegistered= */ false);
+          RegisteredToolchainsFunction.getWorkspaceToolchains(
+              StarlarkSemantics.DEFAULT, env, /* userRegistered= */ false);
       if (workspaceSuffixRegisteredToolchains == null) {
         return null;
       }
@@ -451,7 +454,8 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
       List<TargetPattern> registeredExecutionPlatforms =
-          RegisteredExecutionPlatformsFunction.getWorkspaceExecutionPlatforms(env);
+          RegisteredExecutionPlatformsFunction.getWorkspaceExecutionPlatforms(
+              StarlarkSemantics.DEFAULT, env);
       if (registeredExecutionPlatforms == null) {
         return null;
       }

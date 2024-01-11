@@ -43,7 +43,7 @@ class BazelLockfileTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'build --enable_bzlmod',
+            'build --noenable_workspace',
             'build --experimental_isolated_extension_usages',
             'build --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
@@ -56,10 +56,6 @@ class BazelLockfileTest(test_base.TestBase):
             'build --lockfile_mode=update',
         ],
     )
-    self.ScratchFile('WORKSPACE')
-    # The existence of WORKSPACE.bzlmod prevents WORKSPACE prefixes or suffixes
-    # from being used; this allows us to test built-in modules actually work
-    self.ScratchFile('WORKSPACE.bzlmod')
     # TODO(pcloudy): investigate why this is needed, MODULE.bazel.lock is not
     # deterministic?
     os.remove(self.Path('MODULE.bazel.lock'))
@@ -223,7 +219,6 @@ class BazelLockfileTest(test_base.TestBase):
     )
     self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
     self.ScratchFile('bar/MODULE.bazel', ['module(name="bar")'])
-    self.ScratchFile('bar/WORKSPACE', [])
     self.ScratchFile('bar/BUILD', ['filegroup(name = "hello from bar")'])
     self.RunBazel(
         [
@@ -271,7 +266,6 @@ class BazelLockfileTest(test_base.TestBase):
         'extension.bzl',
         [
             'def _repo_rule_impl(ctx):',
-            '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
             'repo_rule = repository_rule(implementation=_repo_rule_impl)',
@@ -326,7 +320,6 @@ class BazelLockfileTest(test_base.TestBase):
         'extension.bzl',
         [
             'def _repo_rule_impl(ctx):',
-            '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
             'repo_rule = repository_rule(implementation=_repo_rule_impl)',
@@ -374,7 +367,6 @@ class BazelLockfileTest(test_base.TestBase):
         'extension.bzl',
         [
             'def _repo_rule_impl(ctx):',
-            '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
             'repo_rule = repository_rule(implementation=_repo_rule_impl)',
@@ -446,7 +438,6 @@ class BazelLockfileTest(test_base.TestBase):
         'extension.bzl',
         [
             'def _repo_rule_impl(ctx):',
-            '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             'repo_rule = repository_rule(implementation=_repo_rule_impl)',
             'def _ext_a_impl(ctx):',
@@ -482,7 +473,6 @@ class BazelLockfileTest(test_base.TestBase):
         'extension.bzl',
         [
             'def _repo_rule_impl(ctx):',
-            '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
             'repo_rule = repository_rule(implementation = _repo_rule_impl)',
             'def _mod_ext_impl(ctx):',
@@ -510,7 +500,6 @@ class BazelLockfileTest(test_base.TestBase):
         'extension.bzl',
         [
             'def _repo_rule_impl(ctx):',
-            '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
             'repo_rule = repository_rule(implementation = _repo_rule_impl)',
             'def _mod_ext_impl(ctx):',
@@ -541,7 +530,6 @@ class BazelLockfileTest(test_base.TestBase):
         'extension.bzl',
         [
             'def _repo_rule_impl(ctx):',
-            '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
             'repo_rule = repository_rule(implementation = _repo_rule_impl)',
             'def _mod_ext_impl(ctx):',
@@ -559,7 +547,6 @@ class BazelLockfileTest(test_base.TestBase):
         'extension.bzl',
         [
             'def _repo_rule_impl(ctx):',
-            '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\\"lalo\\")")',
             'repo_rule = repository_rule(implementation = _repo_rule_impl)',
             'def _mod_ext_impl(ctx):',
@@ -601,7 +588,6 @@ class BazelLockfileTest(test_base.TestBase):
         'extension.bzl',
         [
             'def _repo_rule_impl(ctx):',
-            '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             'repo_rule = repository_rule(implementation=_repo_rule_impl)',
             'def _ext_impl(ctx):',
@@ -640,7 +626,6 @@ class BazelLockfileTest(test_base.TestBase):
         'extension.bzl',
         [
             'def _repo_rule_impl(ctx):',
-            '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
             'repo_rule = repository_rule(implementation=_repo_rule_impl)',
@@ -700,7 +685,6 @@ class BazelLockfileTest(test_base.TestBase):
         'extension.bzl',
         [
             'def _repo_rule_impl(ctx):',
-            '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
             'repo_rule = repository_rule(implementation = _repo_rule_impl)',
             'def _module_ext_impl(ctx):',
@@ -742,7 +726,6 @@ class BazelLockfileTest(test_base.TestBase):
         'extension.bzl',
         [
             'def _repo_rule_impl(ctx):',
-            '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
             'repo_rule = repository_rule(implementation = _repo_rule_impl)',
             'def _module_ext_impl(ctx):',
@@ -786,7 +769,6 @@ class BazelLockfileTest(test_base.TestBase):
         'extension.bzl',
         [
             'def _repo_rule_impl(ctx):',
-            '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
             'repo_rule = repository_rule(implementation=_repo_rule_impl)',
@@ -870,7 +852,6 @@ class BazelLockfileTest(test_base.TestBase):
         'extension.bzl',
         [
             'def _repo_rule_impl(ctx):',
-            '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
             'repo_rule = repository_rule(implementation=_repo_rule_impl)',
@@ -992,7 +973,6 @@ class BazelLockfileTest(test_base.TestBase):
         'extension.bzl',
         [
             'def _repo_rule_impl(ctx):',
-            '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
             'repo_rule = repository_rule(implementation=_repo_rule_impl)',
@@ -1034,7 +1014,6 @@ class BazelLockfileTest(test_base.TestBase):
         'extension.bzl',
         [
             'def _repo_rule_impl(ctx):',
-            '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             'repo_rule = repository_rule(implementation=_repo_rule_impl)',
             '',
@@ -1069,7 +1048,6 @@ class BazelLockfileTest(test_base.TestBase):
         'extension.bzl',
         [
             'def _repo_rule_impl(ctx):',
-            '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             'repo_rule = repository_rule(implementation=_repo_rule_impl)',
             '',
@@ -1102,7 +1080,6 @@ class BazelLockfileTest(test_base.TestBase):
         'extension.bzl',
         [
             'def _repo_rule_impl(ctx):',
-            '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             'repo_rule = repository_rule(implementation=_repo_rule_impl)',
             '',
@@ -1146,7 +1123,6 @@ class BazelLockfileTest(test_base.TestBase):
         'extension.bzl',
         [
             'def _repo_rule_impl(ctx):',
-            '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "exports_files([\\"data.txt\\"])")',
             '    ctx.file("data.txt", ctx.attr.value)',
             '    print(ctx.attr.value)',
@@ -1365,7 +1341,6 @@ class BazelLockfileTest(test_base.TestBase):
         'extension.bzl',
         [
             'def _repo_rule_impl(ctx):',
-            '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "exports_files([\\"data.txt\\"])")',
             '    ctx.file("data.txt", ctx.attr.value)',
             '    print(ctx.attr.value)',

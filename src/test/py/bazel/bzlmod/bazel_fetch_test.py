@@ -34,7 +34,7 @@ class BazelFetchTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'common --enable_bzlmod',
+            'common --noenable_workspace',
             'common --experimental_isolated_extension_usages',
             'common --registry=' + self.main_registry.getURL(),
             'common --verbose_failures',
@@ -44,21 +44,16 @@ class BazelFetchTest(test_base.TestBase):
             'common --lockfile_mode=update',
         ],
     )
-    self.ScratchFile('WORKSPACE')
-    # The existence of WORKSPACE.bzlmod prevents WORKSPACE prefixes or suffixes
-    # from being used; this allows us to test built-in modules actually work
-    self.ScratchFile('WORKSPACE.bzlmod')
+    self.ScratchFile('MODULE.bazel')
     self.generatBuiltinModules()
 
   def generatBuiltinModules(self):
     self.ScratchFile('platforms_mock/BUILD')
-    self.ScratchFile('platforms_mock/WORKSPACE')
     self.ScratchFile(
         'platforms_mock/MODULE.bazel', ['module(name="local_config_platform")']
     )
 
     self.ScratchFile('tools_mock/BUILD')
-    self.ScratchFile('tools_mock/WORKSPACE')
     self.ScratchFile('tools_mock/MODULE.bazel', ['module(name="bazel_tools")'])
     self.ScratchFile('tools_mock/tools/build_defs/repo/BUILD')
     self.CopyFile(
@@ -94,7 +89,6 @@ class BazelFetchTest(test_base.TestBase):
         'extension.bzl',
         [
             'def _repo_rule_impl(ctx):',
-            '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD")',
             'repo_rule = repository_rule(implementation=_repo_rule_impl)',
             '',
@@ -132,7 +126,6 @@ class BazelFetchTest(test_base.TestBase):
         'extension.bzl',
         [
             'def _repo_rule_impl(ctx):',
-            '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD")',
             'repo_rule = repository_rule(implementation=_repo_rule_impl)',
             'repo_rule2 = repository_rule(implementation=_repo_rule_impl, ',
@@ -243,7 +236,6 @@ class BazelFetchTest(test_base.TestBase):
             'def _repo_rule_impl(ctx):',
             '    file_content = ctx.read("' + file_path + '").strip()',
             '    print(file_content)',
-            '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD")',
             'repo_rule = repository_rule(implementation=_repo_rule_impl)',
             '',
