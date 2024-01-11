@@ -131,8 +131,10 @@ public class LocalSpawnRunner implements SpawnRunner {
     SpawnMetrics.Builder spawnMetrics = SpawnMetrics.Builder.forLocalExec();
     Stopwatch totalTimeStopwatch = Stopwatch.createStarted();
     Stopwatch setupTimeStopwatch = Stopwatch.createStarted();
-    runfilesTreeUpdater.updateRunfiles(
-        spawn.getRunfilesSupplier(), spawn.getEnvironment(), context.getFileOutErr());
+    try (var s = Profiler.instance().profile("updateRunfiles")) {
+      runfilesTreeUpdater.updateRunfiles(
+          spawn.getRunfilesSupplier(), spawn.getEnvironment(), context.getFileOutErr());
+    }
     if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
       context.prefetchInputsAndWait();
     }

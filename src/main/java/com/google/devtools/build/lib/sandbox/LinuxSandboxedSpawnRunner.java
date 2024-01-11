@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NETNS_WITH_LOOPBACK;
 import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NO_NETNS;
 
@@ -61,6 +62,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
@@ -106,10 +109,9 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       throws InterruptedException {
     LocalExecutionOptions options = cmdEnv.getOptions().getOptions(LocalExecutionOptions.class);
     ImmutableList<String> linuxSandboxArgv =
-        LinuxSandboxCommandLineBuilder.commandLineBuilder(
-                linuxSandbox, ImmutableList.of("/bin/true"))
+        LinuxSandboxCommandLineBuilder.commandLineBuilder(linuxSandbox)
             .setTimeout(options.getLocalSigkillGraceSeconds())
-            .build();
+            .buildForCommand(ImmutableList.of("/bin/true"));
     ImmutableMap<String, String> env = ImmutableMap.of();
     Path execRoot = cmdEnv.getExecRoot();
     File cwd = execRoot.getPathFile();
@@ -281,6 +283,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     SandboxInputs inputs =
         helpers.processInputFiles(
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
+            context.getInputMetadataProvider(),
             execRoot,
             withinSandboxExecRoot,
             packageRoots,
@@ -309,7 +312,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     boolean createNetworkNamespace =
         !(allowNetwork || Spawns.requiresNetwork(spawn, sandboxOptions.defaultSandboxAllowNetwork));
     LinuxSandboxCommandLineBuilder commandLineBuilder =
-        LinuxSandboxCommandLineBuilder.commandLineBuilder(linuxSandbox, spawn.getArguments())
+        LinuxSandboxCommandLineBuilder.commandLineBuilder(linuxSandbox)
             .addExecutionInfo(spawn.getExecutionInfo())
             .setWritableFilesAndDirectories(writableDirs)
             .setTmpfsDirectories(ImmutableSet.copyOf(getSandboxOptions().sandboxTmpfsPath))
@@ -354,7 +357,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       return new HardlinkedSandboxedSpawn(
           sandboxPath,
           sandboxExecRoot,
-          commandLineBuilder.build(),
+          commandLineBuilder.buildForCommand(spawn.getArguments()),
           environment,
           inputs,
           outputs,
@@ -368,7 +371,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       return new SymlinkedSandboxedSpawn(
           sandboxPath,
           sandboxExecRoot,
-          commandLineBuilder.build(),
+          commandLineBuilder.buildForCommand(spawn.getArguments()),
           environment,
           inputs,
           outputs,
@@ -376,6 +379,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           treeDeleter,
           sandboxDebugPath,
           statisticsPath,
+          makeInteractiveDebugArguments(commandLineBuilder, sandboxOptions),
           spawn.getMnemonic());
     }
   }
@@ -389,7 +393,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   protected ImmutableSet<Path> getWritableDirs(
       Path sandboxExecRoot, Path withinSandboxExecRoot, Map<String, String> env)
       throws IOException {
-    ImmutableSet.Builder<Path> writableDirs = ImmutableSet.builder();
+    Set<Path> writableDirs = new TreeSet<>();
     writableDirs.addAll(super.getWritableDirs(sandboxExecRoot, withinSandboxExecRoot, env));
     if (getSandboxOptions().memoryLimitMb > 0) {
       CgroupsInfo cgroupsInfo = CgroupsInfo.getInstance();
@@ -399,7 +403,23 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     writableDirs.add(fs.getPath("/dev/shm").resolveSymbolicLinks());
     writableDirs.add(fs.getPath("/tmp"));
 
-    return writableDirs.build();
+    if (sandboxExecRoot.equals(withinSandboxExecRoot)) {
+      return ImmutableSet.copyOf(writableDirs);
+    }
+
+    // If a writable directory is under the sandbox exec root, transform it so that its path will
+    // be the one that it will be available at after processing the bind mounts (this is how the
+    // sandbox interprets the corresponding arguments)
+    //
+    // Notably, this is usually the case for $TEST_TMPDIR because its default value is under the
+    // execroot.
+    return writableDirs.stream()
+        .map(
+            d ->
+                d.startsWith(sandboxExecRoot)
+                    ? withinSandboxExecRoot.getRelative(d.relativeTo(sandboxExecRoot))
+                    : d)
+        .collect(toImmutableSet());
   }
 
   private ImmutableList<BindMount> getBindMounts(
@@ -537,5 +557,14 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     }
 
     super.cleanupSandboxBase(sandboxBase, treeDeleter);
+  }
+
+  @Nullable
+  private ImmutableList<String> makeInteractiveDebugArguments(
+      LinuxSandboxCommandLineBuilder commandLineBuilder, SandboxOptions sandboxOptions) {
+    if (!sandboxOptions.sandboxDebug) {
+      return null;
+    }
+    return commandLineBuilder.buildForCommand(ImmutableList.of("/bin/sh", "-i"));
   }
 }

@@ -38,7 +38,7 @@ fail_if_no_android_ndk
 source "${CURRENT_DIR}/../../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-resolve_android_toolchains $1
+resolve_android_toolchains
 
 function create_android_binary() {
   mkdir -p java/bazel

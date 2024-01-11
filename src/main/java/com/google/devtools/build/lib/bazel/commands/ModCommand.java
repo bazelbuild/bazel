@@ -278,7 +278,7 @@ public final class ModCommand implements BlazeCommand {
                           baseModule.getUnusedDeps()));
             } catch (InvalidArgumentException | OptionsParsingException e) {
               throw new InvalidArgumentException(
-                  String.format("In extension argument: %s %s", arg, e.getMessage()),
+                  String.format("In extension argument %s: %s", arg, e.getMessage()),
                   Code.INVALID_ARGUMENTS,
                   e);
             }
@@ -494,13 +494,10 @@ public final class ModCommand implements BlazeCommand {
 
   private static BlazeCommandResult reportAndCreateFailureResult(
       CommandEnvironment env, String message, Code detailedCode) {
-    if (message.charAt(message.length() - 1) != '.') {
-      message = message.concat(".");
-    }
     String fullMessage =
         String.format(
-            message.concat(" Type '%s help mod' for syntax and help."),
-            env.getRuntime().getProductName());
+            "%s%s Type '%s help mod' for syntax and help.",
+            message, message.endsWith(".") ? "" : ".", env.getRuntime().getProductName());
     env.getReporter().handle(Event.error(fullMessage));
     return createFailureResult(fullMessage, detailedCode);
   }
