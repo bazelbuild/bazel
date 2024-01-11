@@ -213,6 +213,6 @@ public final class WorkerKey {
         /* environmentVariablesToClear= */ null,
         execRoot.getPathString(),
         /* configurationChecksum= */ null,
-        /* executionPlatformAsLabelString= */ null);
+        /* executionPlatformLabel= */ null);
   }
 }

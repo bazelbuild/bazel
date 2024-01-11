@@ -494,9 +494,6 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       if (executable) {
         outputPath.getPath().setExecutable(true);
       }
-    } catch (InterruptedException e) {
-      throw new RepositoryFunctionException(
-          new IOException("thread interrupted"), Transience.TRANSIENT);
     } catch (IOException e) {
       if (allowFail) {
         return StarlarkInfo.create(
@@ -692,10 +689,6 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
               env.getListener(),
               envVariables,
               getIdentifyingStringForLogging());
-    } catch (InterruptedException e) {
-      env.getListener().post(w);
-      throw new RepositoryFunctionException(
-          new IOException("thread interrupted"), Transience.TRANSIENT);
     } catch (IOException e) {
       env.getListener().post(w);
       if (allowFail) {
