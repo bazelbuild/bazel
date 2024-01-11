@@ -131,9 +131,13 @@ final class ActionInputMapHelper {
         SpecialArtifact treeArtifact = key.getParent();
         TreeArtifactValue treeArtifactValue =
             ((ActionExecutionValue) value).getTreeArtifactValue(treeArtifact);
-        inputMap.putTreeArtifact(treeArtifact, treeArtifactValue, /* depOwner= */ treeArtifact);
-        addArchivedTreeArtifactMaybe(
-            treeArtifact, treeArtifactValue, archivedTreeArtifacts, inputMap, key);
+        expandTreeArtifactAndPopulateArtifactData(
+            treeArtifact,
+            treeArtifactValue,
+            expandedArtifacts,
+            archivedTreeArtifacts,
+            inputMap,
+            treeArtifact);
         consumer.accumulate(treeArtifactValue);
       }
       FileArtifactValue metadata = ((ActionExecutionValue) value).getExistingFileArtifactValue(key);
