@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static java.util.concurrent.TimeUnit.MINUTES;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
@@ -1143,7 +1142,7 @@ public final class ActionExecutionFunction implements SkyFunction {
         inputDepKeys,
         sizeHint -> new ActionInputMap(bugReporter, sizeHint),
         CheckInputResults::new,
-        /* allowValuesMissingEarlyReturn= */ true,
+        /* returnEarlyIfValuesMissing= */ true,
         actionLookupDataForError);
   }
 
@@ -1158,10 +1157,6 @@ public final class ActionExecutionFunction implements SkyFunction {
       Collection<ActionInput> lostInputs,
       ActionLookupData actionLookupDataForError)
       throws ActionExecutionException, InterruptedException, UndoneInputsException {
-    // The rewinding strategy should be calculated with whatever information is available, instead
-    // of returning null if there are missing dependencies, so this uses false for
-    // allowValuesMissingEarlyReturn. (Lost inputs coinciding with missing dependencies is possible
-    // with, at least, action file systems and include scanning.)
     return accumulateInputs(
         env,
         action,
@@ -1174,7 +1169,12 @@ public final class ActionExecutionFunction implements SkyFunction {
             archivedArtifacts,
             filesetsInsideRunfiles,
             topLevelFilesets) -> actionInputMapSink,
-        /* allowValuesMissingEarlyReturn= */ false,
+        // The rewinding strategy should be calculated with whatever information is available,
+        // instead of returning null if there are missing dependencies, so this uses false for
+        // returnEarlyIfValuesMissing. Lost inputs coinciding with missing dependencies is
+        // possible during include scanning, see the test case
+        // generatedHeaderRequestedWhileDirty_coincidesWithLostInput.
+        /* returnEarlyIfValuesMissing= */ false,
         actionLookupDataForError);
   }
 
@@ -1216,8 +1216,8 @@ public final class ActionExecutionFunction implements SkyFunction {
   }
 
   /**
-   * May return {@code null} if {@code allowValuesMissingEarlyReturn} and {@code
-   * env.valuesMissing()} are true and no inputs result in {@link ActionExecutionException}s.
+   * May return {@code null} if {@code returnEarlyIfValuesMissing} and {@link
+   * Environment#valuesMissing} are true and no inputs result in {@link ActionExecutionException}s.
    *
    * <p>If {@code inputDepsResult} is null (only the case for rewinding), assumes that deps have
    * already been checked for exceptions, so skips this step.
@@ -1231,7 +1231,7 @@ public final class ActionExecutionFunction implements SkyFunction {
       ImmutableSet<SkyKey> inputDepKeys,
       IntFunction<S> actionInputMapSinkFactory,
       AccumulateInputResultsFactory<S, R> accumulateInputResultsFactory,
-      boolean allowValuesMissingEarlyReturn,
+      boolean returnEarlyIfValuesMissing,
       ActionLookupData actionLookupDataForError)
       throws ActionExecutionException, InterruptedException, UndoneInputsException {
     Predicate<Artifact> isMandatoryInput = makeMandatoryInputPredicate(action);
@@ -1267,12 +1267,8 @@ public final class ActionExecutionFunction implements SkyFunction {
           actionExecutionFunctionExceptionHandler.accumulateAndMaybeThrowExceptions();
     }
 
-    if (env.valuesMissing()) {
-      if (allowValuesMissingEarlyReturn) {
-        return null;
-      }
-      logger.atWarning().atMostEvery(1, MINUTES).log(
-          "Values missing while handling lost inputs for %s", action.describe());
+    if (returnEarlyIfValuesMissing && env.valuesMissing()) {
+      return null;
     }
 
     ImmutableList<Artifact> allInputsList = allInputs.toList();
