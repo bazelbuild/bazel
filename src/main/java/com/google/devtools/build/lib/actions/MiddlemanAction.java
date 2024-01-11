@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -33,25 +34,23 @@ import javax.annotation.Nullable;
 @Immutable
 public final class MiddlemanAction extends AbstractAction {
   public static final String MIDDLEMAN_MNEMONIC = "Middleman";
-  private final String description;
-  private final MiddlemanType middlemanType;
 
-  private MiddlemanAction(
+  /** The runfiles tree this middleman stands for. */
+  private final RunfilesTree runfilesTree;
+
+  public MiddlemanAction(
       ActionOwner owner,
+      RunfilesTree runfilesTree,
       NestedSet<Artifact> inputs,
-      ImmutableSet<Artifact> outputs,
-      String description,
-      MiddlemanType middlemanType) {
+      ImmutableSet<Artifact> outputs) {
     super(owner, inputs, outputs);
-    Preconditions.checkNotNull(middlemanType);
+
+    this.runfilesTree = runfilesTree;
     Preconditions.checkArgument(Iterables.getOnlyElement(outputs).isMiddlemanArtifact(), outputs);
-    Preconditions.checkNotNull(description);
-    this.description = description;
-    this.middlemanType = middlemanType;
   }
 
   @Override
-  public final ActionResult execute(ActionExecutionContext actionExecutionContext) {
+  public ActionResult execute(ActionExecutionContext actionExecutionContext) {
     throw new IllegalStateException("MiddlemanAction should never be executed");
   }
 
@@ -70,7 +69,7 @@ public final class MiddlemanAction extends AbstractAction {
    */
   @Override
   public MiddlemanType getActionType() {
-    return middlemanType;
+    return MiddlemanType.RUNFILES_MIDDLEMAN;
   }
 
   @Nullable
@@ -81,7 +80,7 @@ public final class MiddlemanAction extends AbstractAction {
 
   @Override
   public String prettyPrint() {
-    return description + " for " + Label.print(getOwner().getLabel());
+    return "runfiles for " + Label.print(getOwner().getLabel());
   }
 
   @Override
@@ -105,19 +104,5 @@ public final class MiddlemanAction extends AbstractAction {
   public ImmutableMap<String, String> getExecProperties() {
     // Middleman actions do not execute actual actions, and therefore have no execution properties.
     return ImmutableMap.of();
-  }
-
-  /** Creates a new middleman action. */
-  public static Action create(
-      ActionRegistry env,
-      ActionOwner owner,
-      NestedSet<Artifact> inputs,
-      Artifact stampFile,
-      String purpose,
-      MiddlemanType middlemanType) {
-    MiddlemanAction action =
-        new MiddlemanAction(owner, inputs, ImmutableSet.of(stampFile), purpose, middlemanType);
-    env.registerAction(action);
-    return action;
   }
 }

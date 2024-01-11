@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
@@ -210,7 +209,7 @@ public final class RunfilesSupport implements RunfilesSupplier {
 
     Artifact runfilesMiddleman =
         createRunfilesMiddleman(
-            ruleContext, owningExecutable, runfiles, runfilesManifest, repoMappingManifest);
+            ruleContext, owningExecutable, runfilesTree, runfilesManifest, repoMappingManifest);
 
     return new RunfilesSupport(
         runfilesTree,
@@ -346,26 +345,19 @@ public final class RunfilesSupport implements RunfilesSupplier {
   private static Artifact createRunfilesMiddleman(
       ActionConstructionContext context,
       Artifact owningExecutable,
-      Runfiles runfiles,
+      RunfilesTree runfilesTree,
       @Nullable Artifact runfilesManifest,
       Artifact repoMappingManifest) {
-    NestedSetBuilder<Artifact> deps = NestedSetBuilder.stableOrder();
-    deps.addTransitive(runfiles.getAllArtifacts());
-    if (runfilesManifest != null) {
-      deps.add(runfilesManifest);
-    }
-    if (repoMappingManifest != null) {
-      deps.add(repoMappingManifest);
-    }
     return context
         .getAnalysisEnvironment()
         .getMiddlemanFactory()
         .createRunfilesMiddleman(
             context.getActionOwner(),
             owningExecutable,
-            deps.build(),
-            context.getMiddlemanDirectory(),
-            "runfiles");
+            runfilesTree,
+            runfilesManifest,
+            repoMappingManifest,
+            context.getMiddlemanDirectory());
   }
 
   /**
