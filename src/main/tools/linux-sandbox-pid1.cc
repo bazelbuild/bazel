@@ -271,15 +271,6 @@ static void SetupUtsNamespace() {
 }
 
 static void MountFilesystems() {
-  for (const std::string &tmpfs_dir : opt.tmpfs_dirs) {
-    PRINT_DEBUG("tmpfs: %s", tmpfs_dir.c_str());
-    if (mount("tmpfs", tmpfs_dir.c_str(), "tmpfs",
-              MS_NOSUID | MS_NODEV | MS_NOATIME, nullptr) < 0) {
-      DIE("mount(tmpfs, %s, tmpfs, MS_NOSUID | MS_NODEV | MS_NOATIME, nullptr)",
-          tmpfs_dir.c_str());
-    }
-  }
-
   // An attempt to mount the sandbox in tmpfs will always fail, so this block is
   // slightly redundant with the next mount() check, but dumping the mount()
   // syscall is incredibly cryptic, so we explicitly check against and warn
@@ -304,6 +295,15 @@ static void MountFilesystems() {
               nullptr) < 0) {
       DIE("mount(%s, %s, nullptr, MS_BIND | MS_REC, nullptr)", source.c_str(),
           target.c_str());
+    }
+  }
+
+  for (const std::string &tmpfs_dir : opt.tmpfs_dirs) {
+    PRINT_DEBUG("tmpfs: %s", tmpfs_dir.c_str());
+    if (mount("tmpfs", tmpfs_dir.c_str(), "tmpfs",
+              MS_NOSUID | MS_NODEV | MS_NOATIME, nullptr) < 0) {
+      DIE("mount(tmpfs, %s, tmpfs, MS_NOSUID | MS_NODEV | MS_NOATIME, nullptr)",
+          tmpfs_dir.c_str());
     }
   }
 
