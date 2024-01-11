@@ -350,10 +350,6 @@ public final class SkyframeActionExecutor {
         .test(action.getMnemonic());
   }
 
-  boolean requiresTreeMetadataWhenTreeFileIsInput() {
-    return actionInputPrefetcher.requiresTreeMetadataWhenTreeFileIsInput();
-  }
-
   boolean publishTargetSummaries() {
     return options.getOptions(BuildEventProtocolOptions.class).publishTargetSummary;
   }
