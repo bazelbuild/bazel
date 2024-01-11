@@ -524,9 +524,12 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           parent,
           parent.resourceSetOrBuilder);
       NestedSetBuilder<ActionInput> inputsBuilder = NestedSetBuilder.stableOrder();
-      addNonFilesetInputs(inputsBuilder, inputs, filesetMappings);
+      for (Artifact input : inputs.toList()) {
+        if (!input.isFileset()) {
+          inputsBuilder.add(input);
+        }
+      }
       inputsBuilder.addAll(additionalInputs);
-
       this.inputs = inputsBuilder.build();
       this.filesetMappings = filesetMappings;
       this.pathMapper = pathMapper;
@@ -540,23 +543,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         effectiveEnvironment = parent.getEffectiveEnvironment(env);
       }
       this.reportOutputs = reportOutputs;
-    }
-
-    private static void addNonFilesetInputs(
-        NestedSetBuilder<ActionInput> builder,
-        NestedSet<Artifact> inputs,
-        Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings) {
-      if (filesetMappings.isEmpty()) {
-        // Keep the original nested set intact. This aids callers that exploit the nested set
-        // structure to perform optimizations (see SpawnInputExpander#walkInputs and its callers).
-        builder.addTransitive(inputs);
-        return;
-      }
-      for (Artifact input : inputs.toList()) {
-        if (!input.isFileset()) {
-          builder.add(input);
-        }
-      }
     }
 
     @Override
