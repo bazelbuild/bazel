@@ -301,6 +301,7 @@ java_library(
     srcs = [
         "ActionInput.java",
         "Artifact.java",
+        "ArtifactCodecs.java",
         "ArtifactFactory.java",
         "ArtifactPathResolver.java",
         "ArtifactPrefixConflictException.java",
