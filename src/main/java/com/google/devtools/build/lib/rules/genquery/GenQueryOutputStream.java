@@ -43,6 +43,8 @@ class GenQueryOutputStream extends OutputStream {
    */
   private static final int COMPRESSION_THRESHOLD = 1 << 20;
 
+  private static final int GZIP_BYTES_BUFFER = 8192;
+
   /**
    * Encapsulates the output of a {@link GenQuery}'s query. CPU and memory overhead of individual
    * methods depends on the underlying content and settings.
@@ -83,7 +85,7 @@ class GenQueryOutputStream extends OutputStream {
   GenQueryOutputStream(boolean compressedOutputRequested) throws IOException {
     this.compressedOutputRequested = compressedOutputRequested;
     if (compressedOutputRequested) {
-      this.out = new GZIPOutputStream(bytesOut);
+      this.out = new GZIPOutputStream(bytesOut, GZIP_BYTES_BUFFER);
       this.outputWasCompressed = true;
     } else {
       this.out = bytesOut;
@@ -138,7 +140,7 @@ class GenQueryOutputStream extends OutputStream {
     }
 
     ByteString.Output compressedBytesOut = ByteString.newOutput();
-    GZIPOutputStream gzipOut = new GZIPOutputStream(compressedBytesOut);
+    GZIPOutputStream gzipOut = new GZIPOutputStream(compressedBytesOut, GZIP_BYTES_BUFFER);
     bytesOut.writeTo(gzipOut);
     bytesOut = compressedBytesOut;
     out = gzipOut;
