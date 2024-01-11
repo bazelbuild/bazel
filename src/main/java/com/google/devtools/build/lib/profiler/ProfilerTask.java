@@ -98,6 +98,7 @@ public enum ProfilerTask {
   PRESSURE_STALL_MEMORY("Memory pressure stall level"),
   CONFLICT_CHECK("Conflict checking"),
   DYNAMIC_LOCK("Acquiring dynamic execution output lock", Threshold.FIFTY_MILLIS),
+  REPOSITORY_FETCH("Fetching repository"),
   UNKNOWN("Unknown event");
 
   private static class Threshold {
