@@ -47,7 +47,8 @@ import java.util.concurrent.Semaphore;
  * file to disk.
  */
 public class HttpDownloader implements Downloader {
-  private static final int MAX_PARALLEL_DOWNLOADS = 8;
+  static final int MAX_PARALLEL_DOWNLOADS = 8;
+
   private static final Semaphore SEMAPHORE = new Semaphore(MAX_PARALLEL_DOWNLOADS, true);
   private static final Clock CLOCK = new JavaClock();
   private static final Sleeper SLEEPER = new JavaSleeper();
