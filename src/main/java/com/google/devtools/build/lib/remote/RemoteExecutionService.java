@@ -1613,7 +1613,7 @@ public class RemoteExecutionService {
       }
     }
     var inputFiles = spawn.getInputFiles();
-    for (ActionInput inputFile : inputFiles.getLeaves()) {
+    for (ActionInput inputFile : inputFiles.toList()) {
       if (spawnScrubber.shouldOmitInput(inputFile)) {
         return true;
       }
