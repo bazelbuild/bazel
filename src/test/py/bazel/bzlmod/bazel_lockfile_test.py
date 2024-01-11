@@ -1689,12 +1689,14 @@ class BazelLockfileTest(test_base.TestBase):
     projects_dir = self.main_registry.projects
 
     self.main_registry.createLocalPathModule('foo', '1.0', 'foo1')
+    scratchFile(projects_dir.joinpath('foo1', 'WORKSPACE'))
     scratchFile(projects_dir.joinpath('foo1', 'BUILD'))
     scratchFile(
         projects_dir.joinpath('foo1', 'defs.bzl'),
         ['constant=Label("//:BUILD")'],
     )
     self.main_registry.createLocalPathModule('foo', '2.0', 'foo2')
+    scratchFile(projects_dir.joinpath('foo2', 'WORKSPACE'))
     scratchFile(projects_dir.joinpath('foo2', 'BUILD'))
     # Exactly the same as foo1!
     scratchFile(
@@ -1767,6 +1769,7 @@ class BazelLockfileTest(test_base.TestBase):
     self.main_registry.createLocalPathModule(
         'foo', '1.0', 'foo', {'bar': '1.0'}
     )
+    scratchFile(projects_dir.joinpath('foo', 'WORKSPACE'))
     scratchFile(projects_dir.joinpath('foo', 'BUILD'))
     scratchFile(
         projects_dir.joinpath('foo', 'defs.bzl'),
@@ -1775,6 +1778,7 @@ class BazelLockfileTest(test_base.TestBase):
     self.main_registry.createLocalPathModule(
         'bar', '1.0', 'bar1', {'quux': '1.0'}
     )
+    scratchFile(projects_dir.joinpath('bar1', 'WORKSPACE'))
     scratchFile(projects_dir.joinpath('bar1', 'BUILD'))
     scratchFile(
         projects_dir.joinpath('bar1', 'defs.bzl'),
@@ -1783,6 +1787,7 @@ class BazelLockfileTest(test_base.TestBase):
     self.main_registry.createLocalPathModule(
         'bar', '2.0', 'bar2', {'quux': '1.0'}
     )
+    scratchFile(projects_dir.joinpath('bar2', 'WORKSPACE'))
     scratchFile(projects_dir.joinpath('bar2', 'BUILD'))
     # Exactly the same as bar2!
     scratchFile(
