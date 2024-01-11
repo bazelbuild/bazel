@@ -141,12 +141,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
       return this;
     }
 
-    @CanIgnoreReturnValue
-    public FlagBuilder without(Flag flag) {
-      flags.remove(flag);
-      return this;
-    }
-
     public boolean contains(Flag flag) {
       return flags.contains(flag);
     }
@@ -374,10 +368,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     } else {
       return null;
     }
-  }
-
-  protected BuildConfigurationValue getBuildConfiguration() {
-    return universeConfig;
   }
 
   /**
