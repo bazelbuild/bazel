@@ -91,6 +91,7 @@ def _attributes(ctx, is_apple):
     latebound_libc = _latebound_libc(ctx, "libc_top", "_libc_top")
     latebound_target_libc = _latebound_libc(ctx, "libc_top", "_target_libc_top")
 
+    all_files = _files(ctx, "all_files")
     return struct(
         supports_param_files = ctx.attr.supports_param_files,
         runtime_solib_dir_base = "_solib__" + cc_internal.escape_label(label = ctx.label),
@@ -103,7 +104,7 @@ def _attributes(ctx, is_apple):
         static_runtime_lib = ctx.attr.static_runtime_lib,
         dynamic_runtime_lib = ctx.attr.dynamic_runtime_lib,
         supports_header_parsing = ctx.attr.supports_header_parsing,
-        all_files = _files(ctx, "all_files"),
+        all_files = all_files,
         compiler_files = _files(ctx, "compiler_files"),
         strip_files = _files(ctx, "strip_files"),
         objcopy_files = _files(ctx, "objcopy_files"),
@@ -128,7 +129,7 @@ def _attributes(ctx, is_apple):
             is_apple,
         ),
         cc_toolchain_label = ctx.label,
-        coverage_files = _files(ctx, "coverage_files"),
+        coverage_files = _files(ctx, "coverage_files") or all_files,
         compiler_files_without_includes = _files(ctx, "compiler_files_without_includes"),
         libc = _files(ctx, latebound_libc),
         target_libc = _files(ctx, latebound_target_libc),
