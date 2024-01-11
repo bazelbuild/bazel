@@ -72,6 +72,9 @@ An index registry must follow the format below:
                 By default, the archive type is determined from the file extension of the URL. If the file has
                 no extension, you can explicitly specify one of the following: `"zip"`, `"jar"`, `"war"`, `"aar"`,
                 `"tar"`, `"tar.gz"`, `"tgz"`, `"tar.xz"`, `"txz"`, `"tar.zst"`, `"tzst"`, `tar.bz2`, `"ar"`, or `"deb"`.
+        *   The type can be changed to use a git repository, with these fields:
+            *   `type`: `git_repository`
+            *   The fields described at https://bazel.build/rules/lib/repo/git
         *   The type can be changed to use a local path, representing a
             `local_repository` repo, with these fields:
             *   `type`: `local_path`

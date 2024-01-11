@@ -127,6 +127,8 @@ public class IndexRegistry implements Registry {
     int patchStrip;
     String path;
     String archiveType;
+    URL remote;
+    String commit;
   }
 
   /**
@@ -177,8 +179,10 @@ public class IndexRegistry implements Registry {
       case "local_path":
         return createLocalPathRepoSpec(
             sourceJson, getBazelRegistryJson(eventHandler), key, repoName);
+      case "git_repository":
+        return createGitRepoSpec(sourceJson, getBazelRegistryJson(eventHandler), key, repoName);
       default:
-        throw new IOException(String.format("Invalid source type for module %s", key));
+        throw new IOException(String.format("Invalid source type \"%s\" for module %s", type, key));
     }
   }
 
@@ -290,6 +294,40 @@ public class IndexRegistry implements Registry {
         .setRemotePatches(remotePatches.buildOrThrow())
         .setRemotePatchStrip(sourceJson.get().patchStrip)
         .setArchiveType(sourceJson.get().archiveType)
+        .build();
+  }
+
+  private RepoSpec createGitRepoSpec(
+      Optional<SourceJson> sourceJson,
+      Optional<BazelRegistryJson> bazelRegistryJson,
+      ModuleKey key,
+      RepositoryName repoName)
+      throws IOException {
+    URL remoteRepoUrl = sourceJson.get().remote;
+    if (remoteRepoUrl == null) {
+      throw new IOException(String.format("Missing git remote URL for module %s", key));
+    }
+
+    String gitCommitHash = sourceJson.get().commit;
+    if (gitCommitHash == null) {
+      throw new IOException(String.format("Missing git commit hash for module %s", key));
+    }
+
+    // Workaround Java URL "feature" which converts:
+    //    file:///<path-to-file>
+    //    which is correctly handled by git clone.
+    // to:
+    //    file:/<path-to-file>
+    //    which causes git clone to fail.
+    String remote = remoteRepoUrl.toString();
+    if (remote.startsWith("file:/") && !remote.startsWith("file:///")) {
+      remote = remote.replace("file:/", "file:///");
+    }
+
+    return new GitRepoSpecBuilder()
+        .setRepoName(repoName.getName())
+        .setRemote(remote)
+        .setCommit(gitCommitHash)
         .build();
   }
 

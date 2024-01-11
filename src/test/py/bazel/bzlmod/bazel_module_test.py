@@ -16,6 +16,8 @@
 
 import os
 import pathlib
+import shutil
+import subprocess
 import tempfile
 from absl.testing import absltest
 from src.test.py.bazel import test_base
@@ -296,7 +298,9 @@ class BazelModuleTest(test_base.TestBase):
     self.main_registry.generateCcSource(dep_name, dep_version)
     self.main_registry.createLocalPathModule(dep_name, dep_version,
                                              dep_name + '/' + dep_version)
+    self.writeCcProjectFiles(dep_name, dep_version)
 
+  def writeCcProjectFiles(self, dep_name, dep_version):
     self.ScratchFile('main.cc', [
         '#include "%s.h"' % dep_name,
         'int main() {',
@@ -314,6 +318,25 @@ class BazelModuleTest(test_base.TestBase):
         ')',
     ])
 
+  def setUpProjectWithGitRegistryModule(self, dep_name, dep_version):
+    src_dir = self.main_registry.generateCcSource(dep_name, dep_version)
+
+    # Move the src_dir to a temp dir and make that temp dir a git repo.
+    repo_dir = os.path.join(self.registries_work_dir, 'git_repo', dep_name)
+    os.makedirs(repo_dir)
+    shutil.move(src_dir, repo_dir)
+    repo_dir = os.path.join(repo_dir, os.path.basename(src_dir))
+    subprocess.check_output(['git', 'init'], cwd=repo_dir)
+    subprocess.check_output(['git', 'add', '--all'], cwd=repo_dir)
+    subprocess.check_output(['git', 'commit', '-m', 'Initialize'], cwd=repo_dir)
+    commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repo_dir, text=True).strip()
+
+    self.main_registry.createGitRepoModule(dep_name,
+                                           dep_version,
+                                           repo_dir,
+                                           commit)
+    self.writeCcProjectFiles(dep_name, dep_version)
+
   def testLocalRepoInSourceJsonAbsoluteBasePath(self):
     self.main_registry.setModuleBasePath(str(self.main_registry.projects))
     self.setUpProjectWithLocalRegistryModule('sss', '1.3')
@@ -323,6 +346,12 @@ class BazelModuleTest(test_base.TestBase):
   def testLocalRepoInSourceJsonRelativeBasePath(self):
     self.main_registry.setModuleBasePath('projects')
     self.setUpProjectWithLocalRegistryModule('sss', '1.3')
+    _, stdout, _ = self.RunBazel(['run', '//:main'])
+    self.assertIn('main function => sss@1.3', stdout)
+
+  def testGitRepoAbsoluteBasePath(self):
+    self.main_registry.setModuleBasePath(str(self.main_registry.projects))
+    self.setUpProjectWithGitRegistryModule('sss', '1.3')
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => sss@1.3', stdout)
 

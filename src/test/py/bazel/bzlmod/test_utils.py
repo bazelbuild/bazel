@@ -326,6 +326,23 @@ class BazelRegistry:
         'path': path,
     }
 
+    self._createModuleAndSourceJson(module_dir, name, version, path, deps, source)
+
+  def createGitRepoModule(self, name, version, path, commit, deps=None):
+    """Add a git repo module into the registry."""
+    module_dir = self.root.joinpath('modules', name, version)
+    module_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create source.json & copy patch files to the registry
+    source = {
+        'type': 'git_repository',
+        'remote': f'file://{path}',
+        'commit': commit,
+    }
+
+    self._createModuleAndSourceJson(module_dir, name, version, path, deps, source)
+
+  def _createModuleAndSourceJson(self, module_dir, name, version, path, deps, source):
     if deps is None:
       deps = {}
 
