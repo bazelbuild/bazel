@@ -113,8 +113,4 @@ ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
   return result;
 }
 
-int portable_sysctlbyname(const char *name_chars, void *mibp, size_t *sizep) {
-  return sysctlbyname(name_chars, mibp, sizep, nullptr, 0);
-}
-
 }  // namespace blaze_jni
