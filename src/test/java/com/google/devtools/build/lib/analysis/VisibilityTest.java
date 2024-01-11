@@ -417,8 +417,9 @@ public class VisibilityTest extends AnalysisTestCase {
     assertThrows(ViewCreationFailedException.class, () -> update("//foo:target_with_aspects"));
     assertContainsEvent(
         "in //inner_aspect:lib.bzl%inner_aspect,//outer_aspect:lib.bzl%outer_aspect "
-            + "aspect on simple_starlark_rule rule //foo:simple_dep: target "
-            + "'//tool:outer_aspect_tool' is not visible from target '//outer_aspect:lib.bzl'");
+            + "aspect on simple_starlark_rule rule //foo:simple_dep: Visibility error:\n"
+            + "target '//tool:outer_aspect_tool' is not visible from\n"
+            + "target '//outer_aspect:lib.bzl'");
   }
 
   @Test
@@ -494,7 +495,8 @@ public class VisibilityTest extends AnalysisTestCase {
     assertThrows(ViewCreationFailedException.class, () -> update("//foo:target_with_aspects"));
     assertContainsEvent(
         "in //inner_aspect:lib.bzl%inner_aspect aspect on simple_starlark_rule "
-            + "rule //foo:simple_dep: target '//tool:inner_aspect_tool' is not visible from "
+            + "rule //foo:simple_dep: Visibility error:\n"
+            + "target '//tool:inner_aspect_tool' is not visible from\n"
             + "target '//inner_aspect:lib.bzl'");
   }
 
@@ -570,8 +572,9 @@ public class VisibilityTest extends AnalysisTestCase {
 
     assertThrows(ViewCreationFailedException.class, () -> update("//foo:target_with_aspects"));
     assertContainsEvent(
-        "in my_rule rule //foo:target_with_aspects: target '//tool:rule_tool' is "
-            + "not visible from target '//rule:lib.bzl'");
+        "in my_rule rule //foo:target_with_aspects: Visibility error:\n"
+            + "target '//tool:rule_tool' is not visible from\n"
+            + "target '//rule:lib.bzl'");
   }
 
   void setupFilesScenario(String wantRead) throws Exception {

@@ -1451,8 +1451,10 @@ public class AspectTest extends AnalysisTestCase {
                 ImmutableList.of(extraAttributeAspect.getName()),
                 "//pkg:x"));
     assertContainsEvent(
-        "ExtraAttributeAspect_//tool:tool_false aspect on simple_rule rule //pkg:x: target"
-            + " '//tool:tool' is not visible from target '//pkg:x'.");
+        "ExtraAttributeAspect_//tool:tool_false aspect on simple_rule rule //pkg:x: "
+            + "Visibility error:\n"
+            + "target '//tool:tool' is not visible from\n"
+            + "target '//pkg:x'");
   }
 
   private void setupAspectHints() throws Exception {

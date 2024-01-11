@@ -180,9 +180,9 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
                 Label.parseCanonical("//foo"),
                 collector.getOnlyConfigurationId(),
                 createAnalysisDetailedExitCode(
-                    "in sh_library rule //foo:foo: target '//bar:bar' is not visible from"
-                        + " target '//foo:foo'. Check the visibility declaration of the"
-                        + " former target if you think the dependency is legitimate")));
+                    "in sh_library rule //foo:foo: "
+                        + createVisibilityErrorMessage(
+                            "target '//bar:bar'", "target '//foo:foo'"))));
   }
 
   @Test
@@ -204,10 +204,10 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
                 DetailedExitCode.of(
                     FailureDetail.newBuilder()
                         .setMessage(
-                            "in sh_library rule //foo:foo: target '//bar:bar.sh' is not visible"
-                                + " from target '//foo:foo'. Check the visibility declaration of"
-                                + " the former target if you think the dependency is legitimate."
-                                + " To set the visibility of that source file target, use the"
+                            "in sh_library rule //foo:foo: "
+                                + createVisibilityErrorMessage(
+                                    "target '//bar:bar.sh'", "target '//foo:foo'")
+                                + ". To set the visibility of that source file target, use the"
                                 + " exports_files() function")
                         .setAnalysis(
                             Analysis.newBuilder()
@@ -230,9 +230,8 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
     BuildConfigurationValue expectedConfig =
         skyframeExecutor.getSkyframeBuildView().getBuildConfiguration();
     String message =
-        "in sh_test rule //foo:foo: target '//bar:bar' is not visible from"
-            + " target '//foo:foo'. Check the visibility declaration of the"
-            + " former target if you think the dependency is legitimate";
+        "in sh_test rule //foo:foo: "
+            + createVisibilityErrorMessage("target '//bar:bar'", "target '//foo:foo'");
     assertThat(collector.events.get(topLevel))
         .containsExactly(
             new AnalysisFailedCause(
@@ -289,5 +288,15 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
           .getConfiguredLabel()
           .getConfiguration();
     }
+  }
+
+  private static String createVisibilityErrorMessage(String from, String to) {
+    return String.format(
+        "Visibility error:\n"
+            + "%s is not visible from\n"
+            + "%s\n"
+            + "Recommendation: modify the visibility declaration if you think the dependency"
+            + " is legitimate. For more info see https://bazel.build/concepts/visibility",
+        from, to);
   }
 }

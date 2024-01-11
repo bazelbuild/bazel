@@ -89,7 +89,7 @@ public class AliasTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//c:c");
     assertContainsEvent(
-        "alias '//b:b' referring to target '//a:a' is not visible from target '//c:c'");
+        "alias '//b:b' referring to target '//a:a' is not visible from\ntarget '//c:c'");
   }
 
   @Test
@@ -105,8 +105,9 @@ public class AliasTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//d:d");
-    assertContainsEvent("alias '//c:c' referring to target '//a:a' through '//b:b' "
-        + "is not visible from target '//d:d'");
+    assertContainsEvent(
+        "alias '//c:c' referring to target '//a:a' through '//b:b' "
+            + "is not visible from\ntarget '//d:d'");
   }
 
   @Test
