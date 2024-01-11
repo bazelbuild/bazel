@@ -102,7 +102,8 @@ RcFile::ParseError RcFile::ParseFile(const string& filename,
           (words[1].compare(0, workspace_layout_->WorkspacePrefixLength,
                             workspace_layout_->WorkspacePrefix) == 0 &&
            !workspace_layout_->WorkspaceRelativizeRcFilePath(workspace_,
-                                                             &words[1]))) {
+                                                             &words[1]) &&
+           command == kCommandImport)) {
         blaze_util::StringPrintf(
             error_text,
             "Invalid import declaration in .blazerc file '%s': '%s'"
