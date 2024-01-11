@@ -1657,6 +1657,18 @@ Passes command-line options/flags/arguments to each test process. This
 option can be used multiple times to pass several arguments. For example,
 `--test_arg=--logtostderr --test_arg=--v=3`.
 
+Note that, unlike the `bazel run` command, you can't pass test arguments
+directly as in `bazel test -- target --logtostderr --v=3`. That's because
+extraneous arguments passed to `bazel test` are interpreted as additional test
+targets. That is, `--logtostderr` and `--v=3` would each be interpreted as a
+test target. This ambiguity doesn't exist for a `bazel run` command, which only
+accepts one target.
+
+`--test_arg` can be passed to a `bazel run` command, but it's ignored unless the
+target being run is a test target. (As with any other flag, if it's passed in a
+`bazel run` command after a `--` token, it's not processed by Bazel but
+forwarded verbatim to the executed target.)
+
 #### `--test_env={{ "<var>" }}variable{{ "</var>" }}=_value_` OR `--test_env={{ "<var>" }}variable{{ "</var>" }}` {:#test-env}
 
 Specifies additional variables that must be injected into the test
