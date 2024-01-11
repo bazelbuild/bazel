@@ -535,13 +535,29 @@ public class RemoteExecutionService {
         : null;
   }
 
+  private void maybeAcquireRemoteActionBuildingSemaphore(ProfilerTask task)
+      throws InterruptedException {
+    if (!remoteOptions.throttleRemoteActionBuilding) {
+      return;
+    }
+
+    try (var c = Profiler.instance().profile(task, "acquiring semaphore")) {
+      remoteActionBuildingSemaphore.acquire();
+    }
+  }
+
+  private void maybeReleaseRemoteActionBuildingSemaphore() {
+    if (!remoteOptions.throttleRemoteActionBuilding) {
+      return;
+    }
+
+    remoteActionBuildingSemaphore.release();
+  }
+
   /** Creates a new {@link RemoteAction} instance from spawn. */
   public RemoteAction buildRemoteAction(Spawn spawn, SpawnExecutionContext context)
       throws IOException, ExecException, ForbiddenActionInputException, InterruptedException {
-    try (SilentCloseable c =
-        Profiler.instance().profile(ProfilerTask.REMOTE_SETUP, "acquiring semaphore")) {
-      remoteActionBuildingSemaphore.acquire();
-    }
+    maybeAcquireRemoteActionBuildingSemaphore(ProfilerTask.REMOTE_SETUP);
     try {
       // Create a remote path resolver that is aware of the spawn's path mapper, which rewrites
       // the paths of the inputs and outputs as well as paths appearing in the command line for
@@ -603,7 +619,7 @@ public class RemoteExecutionService {
           actionKey,
           remoteOptions.remoteDiscardMerkleTrees);
     } finally {
-      remoteActionBuildingSemaphore.release();
+      maybeReleaseRemoteActionBuildingSemaphore();
     }
   }
 
@@ -1436,10 +1452,7 @@ public class RemoteExecutionService {
     // concurrency. This prevents memory exhaustion. We assume that
     // ensureInputsPresent() provides enough parallelism to saturate the
     // network connection.
-    try (SilentCloseable c =
-        Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "acquiring semaphore")) {
-      remoteActionBuildingSemaphore.acquire();
-    }
+    maybeAcquireRemoteActionBuildingSemaphore(ProfilerTask.UPLOAD_TIME);
     try {
       MerkleTree merkleTree = action.getMerkleTree();
       if (merkleTree == null) {
@@ -1462,7 +1475,7 @@ public class RemoteExecutionService {
           additionalInputs,
           force);
     } finally {
-      remoteActionBuildingSemaphore.release();
+      maybeReleaseRemoteActionBuildingSemaphore();
     }
   }
 
