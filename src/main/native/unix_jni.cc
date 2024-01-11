@@ -1282,19 +1282,6 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_write(
   free(buf);
 }
 
-extern "C" JNIEXPORT jlong JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixSystem_sysctlbynameGetLong(
-    JNIEnv *env, jclass clazz, jstring name) {
-  const char *name_chars = GetStringLatin1Chars(env, name);
-  int64_t r;
-  size_t len = sizeof(r);
-  if (portable_sysctlbyname(name_chars, &r, &len) == -1) {
-    PostException(env, errno, std::string("sysctlbyname(") + name_chars + ")");
-  }
-  ReleaseStringLatin1Chars(name_chars);
-  return (jlong)r;
-}
-
 /*
  * Class:     com_google_devtools_build_lib_platform_SleepPreventionModule_SleepPrevention
  * Method:    pushDisableSleep

@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.exec;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.exec.SpawnLogContext.millisToProto;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.mockito.Mockito.verify;
 
 import com.google.common.base.Utf8;
 import com.google.common.collect.ImmutableList;
@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.exec.ExpandedSpawnLogContext.Encoding;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.Protos.EnvironmentVariable;
 import com.google.devtools.build.lib.exec.Protos.File;
@@ -48,7 +49,6 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
-import com.google.devtools.build.lib.util.io.MessageOutputStream;
 import com.google.devtools.build.lib.vfs.DelegateFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -63,28 +63,26 @@ import com.google.devtools.common.options.Options;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
+import java.io.InputStream;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.SortedMap;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnit;
-import org.mockito.junit.MockitoRule;
 
-/** Tests for {@link SpawnLogContext}. */
+/** Tests for {@link ExpandedSpawnLogContext}. */
 @RunWith(TestParameterInjector.class)
-public final class SpawnLogContextTest {
-  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
-  @Mock private MessageOutputStream<SpawnExec> outputStream;
-
+public final class ExpandedSpawnLogContextTest {
   private final DigestHashFunction digestHashFunction = DigestHashFunction.SHA256;
   private final FileSystem fs = new InMemoryFileSystem(digestHashFunction);
   private final Path execRoot = fs.getPath("/execroot");
   private final ArtifactRoot rootDir = ArtifactRoot.asSourceRoot(Root.fromPath(execRoot));
   private final ArtifactRoot outputDir =
       ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out");
+
+  private final Path logPath = fs.getPath("/log");
+  private final Path tempPath = fs.getPath("/temp");
 
   // A fake action filesystem that provides a fast digest, but refuses to compute it from the
   // file contents (which won't be available when building without the bytes).
@@ -145,9 +143,9 @@ public final class SpawnLogContextTest {
       spawn.withTools(fileInput);
     }
 
-    SpawnLogContext spawnLogContext = createSpawnLogContext();
+    SpawnLogContext context = createSpawnLogContext();
 
-    spawnLogContext.logSpawn(
+    context.logSpawn(
         spawn.build(),
         createInputMetadataProvider(fileInput),
         createInputMap(fileInput),
@@ -155,15 +153,15 @@ public final class SpawnLogContextTest {
         defaultTimeout(),
         defaultSpawnResult());
 
-    verify(outputStream)
-        .write(
-            defaultSpawnExecBuilder()
-                .addInputs(
-                    File.newBuilder()
-                        .setPath("file")
-                        .setDigest(getDigest("abc"))
-                        .setIsTool(inputsMode.isTool()))
-                .build());
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addInputs(
+                File.newBuilder()
+                    .setPath("file")
+                    .setDigest(getDigest("abc"))
+                    .setIsTool(inputsMode.isTool()))
+            .build());
   }
 
   @Test
@@ -182,9 +180,9 @@ public final class SpawnLogContextTest {
       spawn.withTools(dirInput);
     }
 
-    SpawnLogContext spawnLogContext = createSpawnLogContext();
+    SpawnLogContext context = createSpawnLogContext();
 
-    spawnLogContext.logSpawn(
+    context.logSpawn(
         spawn.build(),
         createInputMetadataProvider(dirInput),
         createInputMap(dirInput),
@@ -193,18 +191,15 @@ public final class SpawnLogContextTest {
         defaultSpawnResult());
 
     // TODO(tjgq): Propagate tool bit to files inside source directories.
-    verify(outputStream)
-        .write(
-            defaultSpawnExecBuilder()
-                .addAllInputs(
-                    dirContents.isEmpty()
-                        ? ImmutableList.of()
-                        : ImmutableList.of(
-                            File.newBuilder()
-                                .setPath("dir/file")
-                                .setDigest(getDigest("abc"))
-                                .build()))
-                .build());
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addAllInputs(
+                dirContents.isEmpty()
+                    ? ImmutableList.of()
+                    : ImmutableList.of(
+                        File.newBuilder().setPath("dir/file").setDigest(getDigest("abc")).build()))
+            .build());
   }
 
   @Test
@@ -224,9 +219,9 @@ public final class SpawnLogContextTest {
       spawn.withTools(treeInput);
     }
 
-    SpawnLogContext spawnLogContext = createSpawnLogContext();
+    SpawnLogContext context = createSpawnLogContext();
 
-    spawnLogContext.logSpawn(
+    context.logSpawn(
         spawn.build(),
         createInputMetadataProvider(treeInput),
         createInputMap(treeInput),
@@ -234,19 +229,19 @@ public final class SpawnLogContextTest {
         defaultTimeout(),
         defaultSpawnResult());
 
-    verify(outputStream)
-        .write(
-            defaultSpawnExecBuilder()
-                .addAllInputs(
-                    dirContents.isEmpty()
-                        ? ImmutableList.of()
-                        : ImmutableList.of(
-                            File.newBuilder()
-                                .setPath("out/tree/child")
-                                .setDigest(getDigest("abc"))
-                                .setIsTool(inputsMode.isTool())
-                                .build()))
-                .build());
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addAllInputs(
+                dirContents.isEmpty()
+                    ? ImmutableList.of()
+                    : ImmutableList.of(
+                        File.newBuilder()
+                            .setPath("out/tree/child")
+                            .setDigest(getDigest("abc"))
+                            .setIsTool(inputsMode.isTool())
+                            .build()))
+            .build());
   }
 
   @Test
@@ -255,9 +250,9 @@ public final class SpawnLogContextTest {
 
     writeFile(runfilesInput, "abc");
 
-    SpawnLogContext spawnLogContext = createSpawnLogContext();
+    SpawnLogContext context = createSpawnLogContext();
 
-    spawnLogContext.logSpawn(
+    context.logSpawn(
         // In reality, the spawn would have a RunfilesSupplier and a runfiles middleman input.
         defaultSpawn(),
         createInputMetadataProvider(runfilesInput),
@@ -268,11 +263,11 @@ public final class SpawnLogContextTest {
         defaultSpawnResult());
 
     // TODO(tjgq): The path should be foo.runfiles/data.txt.
-    verify(outputStream)
-        .write(
-            defaultSpawnExecBuilder()
-                .addInputs(File.newBuilder().setPath("data.txt").setDigest(getDigest("abc")))
-                .build());
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addInputs(File.newBuilder().setPath("data.txt").setDigest(getDigest("abc")))
+            .build());
   }
 
   @Test
@@ -283,9 +278,9 @@ public final class SpawnLogContextTest {
 
     writeFile(absolutePath, "abc");
 
-    SpawnLogContext spawnLogContext = createSpawnLogContext();
+    SpawnLogContext context = createSpawnLogContext();
 
-    spawnLogContext.logSpawn(
+    context.logSpawn(
         defaultSpawn(),
         new StaticInputMetadataProvider(
             ImmutableMap.of(absolutePathInput, FileArtifactValue.createForTesting(absolutePath))),
@@ -294,18 +289,18 @@ public final class SpawnLogContextTest {
         defaultTimeout(),
         defaultSpawnResult());
 
-    verify(outputStream)
-        .write(
-            defaultSpawnExecBuilder()
-                .addInputs(File.newBuilder().setPath("/some/file.txt").setDigest(getDigest("abc")))
-                .build());
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addInputs(File.newBuilder().setPath("/some/file.txt").setDigest(getDigest("abc")))
+            .build());
   }
 
   @Test
   public void testEmptyInput() throws Exception {
-    SpawnLogContext spawnLogContext = createSpawnLogContext();
+    SpawnLogContext context = createSpawnLogContext();
 
-    spawnLogContext.logSpawn(
+    context.logSpawn(
         defaultSpawn(),
         createInputMetadataProvider(),
         /* inputMap= */ ImmutableSortedMap.of(
@@ -315,7 +310,7 @@ public final class SpawnLogContextTest {
         defaultSpawnResult());
 
     // TODO(tjgq): It would make more sense to report an empty file.
-    verify(outputStream).write(defaultSpawnExec());
+    closeAndAssertLog(context, defaultSpawnExec());
   }
 
   @Test
@@ -326,9 +321,9 @@ public final class SpawnLogContextTest {
 
     Spawn spawn = defaultSpawnBuilder().withOutputs(fileOutput).build();
 
-    SpawnLogContext spawnLogContext = createSpawnLogContext();
+    SpawnLogContext context = createSpawnLogContext();
 
-    spawnLogContext.logSpawn(
+    context.logSpawn(
         spawn,
         createInputMetadataProvider(),
         createInputMap(),
@@ -336,12 +331,12 @@ public final class SpawnLogContextTest {
         defaultTimeout(),
         defaultSpawnResult());
 
-    verify(outputStream)
-        .write(
-            defaultSpawnExecBuilder()
-                .addListedOutputs("out/file")
-                .addActualOutputs(File.newBuilder().setPath("out/file").setDigest(getDigest("abc")))
-                .build());
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addListedOutputs("out/file")
+            .addActualOutputs(File.newBuilder().setPath("out/file").setDigest(getDigest("abc")))
+            .build());
   }
 
   @Test
@@ -357,9 +352,9 @@ public final class SpawnLogContextTest {
 
     SpawnBuilder spawn = defaultSpawnBuilder().withOutputs(dirOutput);
 
-    SpawnLogContext spawnLogContext = createSpawnLogContext();
+    SpawnLogContext context = createSpawnLogContext();
 
-    spawnLogContext.logSpawn(
+    context.logSpawn(
         spawn.build(),
         createInputMetadataProvider(),
         createInputMap(),
@@ -367,19 +362,19 @@ public final class SpawnLogContextTest {
         defaultTimeout(),
         defaultSpawnResult());
 
-    verify(outputStream)
-        .write(
-            defaultSpawnExecBuilder()
-                .addListedOutputs("out/dir")
-                .addAllActualOutputs(
-                    dirContents.isEmpty()
-                        ? ImmutableList.of()
-                        : ImmutableList.of(
-                            File.newBuilder()
-                                .setPath("out/dir/file")
-                                .setDigest(getDigest("abc"))
-                                .build()))
-                .build());
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addListedOutputs("out/dir")
+            .addAllActualOutputs(
+                dirContents.isEmpty()
+                    ? ImmutableList.of()
+                    : ImmutableList.of(
+                        File.newBuilder()
+                            .setPath("out/dir/file")
+                            .setDigest(getDigest("abc"))
+                            .build()))
+            .build());
   }
 
   @Test
@@ -396,9 +391,9 @@ public final class SpawnLogContextTest {
 
     Spawn spawn = defaultSpawnBuilder().withOutputs(treeOutput).build();
 
-    SpawnLogContext spawnLogContext = createSpawnLogContext();
+    SpawnLogContext context = createSpawnLogContext();
 
-    spawnLogContext.logSpawn(
+    context.logSpawn(
         spawn,
         createInputMetadataProvider(),
         createInputMap(),
@@ -406,19 +401,19 @@ public final class SpawnLogContextTest {
         defaultTimeout(),
         defaultSpawnResult());
 
-    verify(outputStream)
-        .write(
-            defaultSpawnExecBuilder()
-                .addListedOutputs("out/tree")
-                .addAllActualOutputs(
-                    dirContents.isEmpty()
-                        ? ImmutableList.of()
-                        : ImmutableList.of(
-                            File.newBuilder()
-                                .setPath("out/tree/child")
-                                .setDigest(getDigest("abc"))
-                                .build()))
-                .build());
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addListedOutputs("out/tree")
+            .addAllActualOutputs(
+                dirContents.isEmpty()
+                    ? ImmutableList.of()
+                    : ImmutableList.of(
+                        File.newBuilder()
+                            .setPath("out/tree/child")
+                            .setDigest(getDigest("abc"))
+                            .build()))
+            .build());
   }
 
   @Test
@@ -426,9 +421,9 @@ public final class SpawnLogContextTest {
     Spawn spawn =
         defaultSpawnBuilder().withEnvironment("SPAM", "eggs").withEnvironment("FOO", "bar").build();
 
-    SpawnLogContext spawnLogContext = createSpawnLogContext();
+    SpawnLogContext context = createSpawnLogContext();
 
-    spawnLogContext.logSpawn(
+    context.logSpawn(
         spawn,
         createInputMetadataProvider(),
         createInputMap(),
@@ -436,21 +431,21 @@ public final class SpawnLogContextTest {
         defaultTimeout(),
         defaultSpawnResult());
 
-    verify(outputStream)
-        .write(
-            defaultSpawnExecBuilder()
-                .addEnvironmentVariables(
-                    EnvironmentVariable.newBuilder().setName("FOO").setValue("bar"))
-                .addEnvironmentVariables(
-                    EnvironmentVariable.newBuilder().setName("SPAM").setValue("eggs"))
-                .build());
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addEnvironmentVariables(
+                EnvironmentVariable.newBuilder().setName("FOO").setValue("bar"))
+            .addEnvironmentVariables(
+                EnvironmentVariable.newBuilder().setName("SPAM").setValue("eggs"))
+            .build());
   }
 
   @Test
   public void testDefaultPlatformProperties() throws Exception {
-    SpawnLogContext spawnLogContext = createSpawnLogContext(ImmutableMap.of("a", "1", "b", "2"));
+    SpawnLogContext context = createSpawnLogContext(ImmutableMap.of("a", "1", "b", "2"));
 
-    spawnLogContext.logSpawn(
+    context.logSpawn(
         defaultSpawn(),
         createInputMetadataProvider(),
         createInputMap(),
@@ -458,15 +453,15 @@ public final class SpawnLogContextTest {
         defaultTimeout(),
         defaultSpawnResult());
 
-    verify(outputStream)
-        .write(
-            defaultSpawnExecBuilder()
-                .setPlatform(
-                    Platform.newBuilder()
-                        .addProperties(Platform.Property.newBuilder().setName("a").setValue("1"))
-                        .addProperties(Platform.Property.newBuilder().setName("b").setValue("2"))
-                        .build())
-                .build());
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .setPlatform(
+                Platform.newBuilder()
+                    .addProperties(Platform.Property.newBuilder().setName("a").setValue("1"))
+                    .addProperties(Platform.Property.newBuilder().setName("b").setValue("2"))
+                    .build())
+            .build());
   }
 
   @Test
@@ -474,9 +469,9 @@ public final class SpawnLogContextTest {
     Spawn spawn =
         defaultSpawnBuilder().withExecProperties(ImmutableMap.of("a", "3", "c", "4")).build();
 
-    SpawnLogContext spawnLogContext = createSpawnLogContext(ImmutableMap.of("a", "1", "b", "2"));
+    SpawnLogContext context = createSpawnLogContext(ImmutableMap.of("a", "1", "b", "2"));
 
-    spawnLogContext.logSpawn(
+    context.logSpawn(
         spawn,
         createInputMetadataProvider(),
         createInputMap(),
@@ -485,16 +480,16 @@ public final class SpawnLogContextTest {
         defaultSpawnResult());
 
     // The spawn properties should override the default properties.
-    verify(outputStream)
-        .write(
-            defaultSpawnExecBuilder()
-                .setPlatform(
-                    Platform.newBuilder()
-                        .addProperties(Platform.Property.newBuilder().setName("a").setValue("3"))
-                        .addProperties(Platform.Property.newBuilder().setName("b").setValue("2"))
-                        .addProperties(Platform.Property.newBuilder().setName("c").setValue("4"))
-                        .build())
-                .build());
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .setPlatform(
+                Platform.newBuilder()
+                    .addProperties(Platform.Property.newBuilder().setName("a").setValue("3"))
+                    .addProperties(Platform.Property.newBuilder().setName("b").setValue("2"))
+                    .addProperties(Platform.Property.newBuilder().setName("c").setValue("4"))
+                    .build())
+            .build());
   }
 
   @Test
@@ -503,9 +498,9 @@ public final class SpawnLogContextTest {
       throws Exception {
     Spawn spawn = defaultSpawnBuilder().withExecutionInfo(requirement, "").build();
 
-    SpawnLogContext spawnLogContext = createSpawnLogContext();
+    SpawnLogContext context = createSpawnLogContext();
 
-    spawnLogContext.logSpawn(
+    context.logSpawn(
         spawn,
         createInputMetadataProvider(),
         createInputMap(),
@@ -513,25 +508,25 @@ public final class SpawnLogContextTest {
         defaultTimeout(),
         defaultSpawnResult());
 
-    verify(outputStream)
-        .write(
-            defaultSpawnExecBuilder()
-                .setRemotable(!requirement.equals("no-remote"))
-                .setCacheable(!requirement.equals("no-cache"))
-                .setRemoteCacheable(
-                    !requirement.equals("no-cache")
-                        && !requirement.equals("no-remote")
-                        && !requirement.equals("no-remote-cache"))
-                .build());
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .setRemotable(!requirement.equals("no-remote"))
+            .setCacheable(!requirement.equals("no-cache"))
+            .setRemoteCacheable(
+                !requirement.equals("no-cache")
+                    && !requirement.equals("no-remote")
+                    && !requirement.equals("no-remote-cache"))
+            .build());
   }
 
   @Test
   public void testCacheHit() throws Exception {
-    SpawnLogContext spawnLogContext = createSpawnLogContext();
+    SpawnLogContext context = createSpawnLogContext();
 
     SpawnResult result = defaultSpawnResultBuilder().setCacheHit(true).build();
 
-    spawnLogContext.logSpawn(
+    context.logSpawn(
         defaultSpawn(),
         createInputMetadataProvider(),
         createInputMap(),
@@ -539,16 +534,16 @@ public final class SpawnLogContextTest {
         defaultTimeout(),
         result);
 
-    verify(outputStream).write(defaultSpawnExecBuilder().setCacheHit(true).build());
+    closeAndAssertLog(context, defaultSpawnExecBuilder().setCacheHit(true).build());
   }
 
   @Test
   public void testDigest() throws Exception {
-    SpawnLogContext spawnLogContext = createSpawnLogContext();
+    SpawnLogContext context = createSpawnLogContext();
 
     SpawnResult result = defaultSpawnResultBuilder().setDigest(getDigest("abc")).build();
 
-    spawnLogContext.logSpawn(
+    context.logSpawn(
         defaultSpawn(),
         createInputMetadataProvider(),
         createInputMap(),
@@ -556,14 +551,14 @@ public final class SpawnLogContextTest {
         defaultTimeout(),
         result);
 
-    verify(outputStream).write(defaultSpawnExecBuilder().setDigest(getDigest("abc")).build());
+    closeAndAssertLog(context, defaultSpawnExecBuilder().setDigest(getDigest("abc")).build());
   }
 
   @Test
   public void testTimeout() throws Exception {
-    SpawnLogContext spawnLogContext = createSpawnLogContext();
+    SpawnLogContext context = createSpawnLogContext();
 
-    spawnLogContext.logSpawn(
+    context.logSpawn(
         defaultSpawn(),
         createInputMetadataProvider(),
         createInputMap(),
@@ -571,18 +566,18 @@ public final class SpawnLogContextTest {
         /* timeout= */ Duration.ofSeconds(42),
         defaultSpawnResult());
 
-    verify(outputStream)
-        .write(
-            defaultSpawnExecBuilder().setTimeoutMillis(Duration.ofSeconds(42).toMillis()).build());
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder().setTimeoutMillis(Duration.ofSeconds(42).toMillis()).build());
   }
 
   @Test
   public void testSpawnMetrics() throws Exception {
     SpawnMetrics metrics = SpawnMetrics.Builder.forLocalExec().setTotalTimeInMs(1).build();
 
-    SpawnLogContext spawnLogContext = createSpawnLogContext();
+    SpawnLogContext context = createSpawnLogContext();
 
-    spawnLogContext.logSpawn(
+    context.logSpawn(
         defaultSpawn(),
         createInputMetadataProvider(),
         createInputMap(),
@@ -590,16 +585,16 @@ public final class SpawnLogContextTest {
         defaultTimeout(),
         defaultSpawnResultBuilder().setSpawnMetrics(metrics).build());
 
-    verify(outputStream)
-        .write(
-            defaultSpawnExecBuilder()
-                .setMetrics(Protos.SpawnMetrics.newBuilder().setTotalTime(millisToProto(1)))
-                .build());
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .setMetrics(Protos.SpawnMetrics.newBuilder().setTotalTime(millisToProto(1)))
+            .build());
   }
 
   @Test
   public void testStatus() throws Exception {
-    SpawnLogContext spawnLogContext = createSpawnLogContext();
+    SpawnLogContext context = createSpawnLogContext();
 
     // SpawnResult requires a non-zero exit code and non-null failure details when the status isn't
     // successful.
@@ -614,7 +609,7 @@ public final class SpawnLogContextTest {
                     .build())
             .build();
 
-    spawnLogContext.logSpawn(
+    context.logSpawn(
         defaultSpawn(),
         createInputMetadataProvider(),
         createInputMap(),
@@ -622,12 +617,12 @@ public final class SpawnLogContextTest {
         defaultTimeout(),
         result);
 
-    verify(outputStream)
-        .write(
-            defaultSpawnExecBuilder()
-                .setExitCode(37)
-                .setStatus(Status.NON_ZERO_EXIT.toString())
-                .build());
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .setExitCode(37)
+            .setStatus(Status.NON_ZERO_EXIT.toString())
+            .build());
   }
 
   private static Duration defaultTimeout() {
@@ -724,18 +719,21 @@ public final class SpawnLogContextTest {
     return builder.build();
   }
 
-  private SpawnLogContext createSpawnLogContext() {
+  private SpawnLogContext createSpawnLogContext() throws IOException {
     return createSpawnLogContext(ImmutableSortedMap.of());
   }
 
-  private SpawnLogContext createSpawnLogContext(ImmutableMap<String, String> platformProperties) {
+  private SpawnLogContext createSpawnLogContext(ImmutableMap<String, String> platformProperties)
+      throws IOException {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.remoteDefaultExecProperties = platformProperties.entrySet().asList();
 
-    return new SpawnLogContext(
+    return new ExpandedSpawnLogContext(
+        logPath,
+        tempPath,
+        Encoding.BINARY,
+        /* sorted= */ false,
         execRoot.asFragment(),
-        outputStream,
-        Options.getDefaults(ExecutionOptions.class),
         remoteOptions,
         DigestHashFunction.SHA256,
         SyscallCache.NO_CACHE);
@@ -756,5 +754,20 @@ public final class SpawnLogContextTest {
   private static void writeFile(Path path, String contents) throws IOException {
     path.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContent(path, UTF_8, contents);
+  }
+
+  private void closeAndAssertLog(SpawnLogContext context, SpawnExec... expected)
+      throws IOException {
+    context.close();
+
+    ArrayList<SpawnExec> actual = new ArrayList<>();
+    try (InputStream in = logPath.getInputStream()) {
+      while (in.available() > 0) {
+        SpawnExec ex = SpawnExec.parseDelimitedFrom(in);
+        actual.add(ex);
+      }
+    }
+
+    assertThat(actual).containsExactlyElementsIn(expected).inOrder();
   }
 }

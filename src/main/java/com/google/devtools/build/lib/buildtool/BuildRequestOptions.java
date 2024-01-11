@@ -69,7 +69,7 @@ public class BuildRequestOptions extends OptionsBase {
 
   @Option(
       name = "experimental_use_semaphore_for_jobs",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
       help = "If set to true, additionally use semaphore to limit number of concurrent jobs.")

@@ -105,15 +105,6 @@ ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
 #endif
 }
 
-int portable_sysctlbyname(const char *name_chars, void *mibp, size_t *sizep) {
-#if defined(HAVE_SYSCTLBYNAME)
-  return sysctlbyname(name_chars, mibp, sizep, nullptr, 0);
-#else
-  errno = ENOSYS;
-  return -1;
-#endif
-}
-
 int portable_push_disable_sleep() {
   // Currently not supported.
   // https://wiki.freebsd.org/SuspendResume

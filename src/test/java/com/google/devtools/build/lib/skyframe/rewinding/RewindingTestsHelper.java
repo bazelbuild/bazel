@@ -658,7 +658,7 @@ public class RewindingTestsHelper {
    */
   public final void runMultipleLostInputsForRewindPlan() throws Exception {
     if (!supportsConcurrentRewinding()) {
-      testCase.addOptions("--jobs=1", "--experimental_use_semaphore_for_jobs");
+      testCase.addOptions("--jobs=1");
     }
     writeNGenrulePackages(ActionRewindStrategy.MAX_ACTION_REWIND_EVENTS + 1);
     for (int i = 1; i <= ActionRewindStrategy.MAX_ACTION_REWIND_EVENTS + 1; i++) {
