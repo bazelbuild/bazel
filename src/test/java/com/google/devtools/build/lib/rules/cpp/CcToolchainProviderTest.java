@@ -347,6 +347,45 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     assertThat(gcovPath).isEmpty();
   }
 
+  // regression test for b/319501294
+  @Test
+  public void testEmptyCoverageFilesDefaultsToAllFiles() throws Exception {
+    CcToolchainConfig.Builder ccToolchainConfigBuilder = CcToolchainConfig.builder();
+    scratch.file(
+        "a/BUILD",
+        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
+        "filegroup(name='empty')",
+        "filegroup(name='my_files', srcs = ['file1', 'file2'])",
+        "cc_toolchain(",
+        "    name = 'b',",
+        "    all_files = ':my_files',",
+        "    ar_files = ':empty',",
+        "    as_files = ':empty',",
+        "    compiler_files = ':empty',",
+        "    dwp_files = ':empty',",
+        "    linker_files = ':empty',",
+        "    strip_files = ':empty',",
+        "    objcopy_files = ':empty',",
+        "    toolchain_identifier = 'banana',",
+        "    toolchain_config = ':k8-compiler_config',",
+        ")",
+        ccToolchainConfigBuilder.build().getCcToolchainConfigRule(),
+        "cc_library(",
+        "    name = 'lib',",
+        "    toolchains = [':b'],",
+        ")");
+    analysisMock.ccSupport().setupCcToolchainConfig(mockToolsConfig, ccToolchainConfigBuilder);
+    mockToolsConfig.create(
+        "a/cc_toolchain_config.bzl",
+        ResourceLoader.readFromResources(
+            "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl"));
+
+    CcToolchainProvider provider = getConfiguredTarget("//a:b").get(CcToolchainProvider.PROVIDER);
+
+    assertThat(artifactsToStrings(provider.getCoverageFiles()))
+        .containsExactly("src a/file1", "src a/file2");
+  }
+
   @Test
   public void testLlvmCoverageToolsDefined() throws Exception {
     CcToolchainConfig.Builder ccToolchainConfigBuilder =
