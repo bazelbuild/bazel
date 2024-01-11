@@ -64,6 +64,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -126,8 +127,22 @@ public class Package {
     }
   }
 
-  /** The collection of all targets defined in this package, indexed by name. */
+  /**
+   * The collection of all targets defined in this package, indexed by name.
+   *
+   * <p>Invariant: This is disjoint with the set of keys in {@link #macros}.
+   */
   private ImmutableSortedMap<String, Target> targets;
+
+  /**
+   * The collection of all symbolic macro instances defined in this package, indexed by name.
+   *
+   * <p>Invariant: This is disjoint with the set of keys in {@link #targets}.
+   */
+  // TODO(#19922): We'll have to strengthen this invariant. It's not just that nothing should share
+  // the same name as a macro, but also that nothing should be inside a macro's namespace (meaning,
+  // in the current design, having the macro as a prefix) unless it was defined by that macro.
+  private ImmutableSortedMap<String, MacroInstance> macros;
 
   public PackageArgs getPackageArgs() {
     return metadata.packageArgs;
@@ -336,6 +351,7 @@ public class Package {
 
     this.metadata.makeEnv = ImmutableMap.copyOf(builder.makeEnv);
     this.targets = ImmutableSortedMap.copyOf(builder.targets);
+    this.macros = ImmutableSortedMap.copyOf(builder.macros);
     this.failureDetail = builder.getFailureDetail();
     this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
     this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
@@ -655,6 +671,14 @@ public class Package {
     }
   }
 
+  /** Returns all symbolic macros defined in the package. */
+  // TODO(#19922): Clarify this comment to indicate whether the macros have already been expanded
+  // by the point the Package has been built. The answer's probably "yes". In that case, this
+  // accessor is still useful for introspecting e.g. by `bazel query`.
+  public ImmutableMap<String, MacroInstance> getMacros() {
+    return macros;
+  }
+
   /**
    * How to enforce visibility on <code>config_setting</code> See {@link
    * ConfigSettingVisibilityPolicy} for details.
@@ -886,11 +910,15 @@ public class Package {
     // some tests.
     @Nullable private final Globber globber;
 
+    private final Map<Label, EnvironmentGroup> environmentGroups = new HashMap<>();
+
     // All targets added to the package. We use SnapshottableBiMap to help track insertion order of
     // Rule targets, for use by native.existing_rules().
     private BiMap<String, Target> targets =
         new SnapshottableBiMap<>(target -> target instanceof Rule);
-    private final Map<Label, EnvironmentGroup> environmentGroups = new HashMap<>();
+
+    // All instances of symbolic macros created during package construction.
+    private final Map<String, MacroInstance> macros = new LinkedHashMap<>();
 
     private enum NameConflictCheckingPolicy {
       UNKNOWN,
@@ -1624,6 +1652,13 @@ public class Package {
       checkForConflicts(rule, labels);
       addRuleInternal(rule);
       ruleLabels.put(rule, labels);
+    }
+
+    public void addMacro(MacroInstance macro) throws NameConflictException {
+      // TODO(#19922): Add name conflict checking!
+      macros.put(macro.getName(), macro);
+      // TODO(#19922): Push to a queue of unexpanded macros, read those when expanding macros as
+      // part of monolithic package evaluation (but not lazy macro evaluation).
     }
 
     void addRegisteredExecutionPlatforms(List<TargetPattern> platforms) {

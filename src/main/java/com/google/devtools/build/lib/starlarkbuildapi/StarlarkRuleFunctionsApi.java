@@ -192,6 +192,22 @@ public interface StarlarkRuleFunctionsApi {
       throws EvalException;
 
   @StarlarkMethod(
+      name = "macro",
+      documented = false, // TODO(#19922): Document
+      parameters = {
+        @Param(
+            name = "implementation",
+            positional = false,
+            named = true,
+            documented = false // TODO(#19922): Document
+            )
+        // TODO(#19922): Take attrs dict
+      },
+      useStarlarkThread = true)
+  StarlarkCallable macro(StarlarkFunction implementation, StarlarkThread thread)
+      throws EvalException;
+
+  @StarlarkMethod(
       name = "rule",
       doc =
           "Creates a new rule, which can be called from a BUILD file or a macro to create targets."

@@ -75,6 +75,8 @@ import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithCallback;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithMap;
 import com.google.devtools.build.lib.packages.LabelConverter;
+import com.google.devtools.build.lib.packages.MacroClass;
+import com.google.devtools.build.lib.packages.MacroInstance;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
@@ -311,6 +313,22 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     }
   }
 
+  @Override
+  public StarlarkCallable macro(StarlarkFunction implementation, StarlarkThread thread)
+      throws EvalException {
+    // Ordinarily we would use StarlarkMethod#enableOnlyWithFlag, but this doesn't work for
+    // top-level symbols (due to StarlarkGlobalsImpl relying on the Starlark#addMethods overload
+    // that uses default StarlarkSemantics), so enforce it here instead.
+    if (!thread
+        .getSemantics()
+        .getBool(BuildLanguageOptions.EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS)) {
+      throw Starlark.errorf("Use of `macro()` requires --experimental_enable_first_class_macros");
+    }
+
+    MacroClass.Builder builder = new MacroClass.Builder(implementation);
+    return new MacroFunction(builder);
+  }
+
   // TODO(bazel-team): implement attribute copy and other rule properties
   @Override
   public StarlarkRuleFunction rule(
@@ -434,7 +452,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   }
 
   /**
-   * Returns a new function representing a Starlark-defined rule.
+   * Returns a new callable representing a Starlark-defined rule.
    *
    * <p>This is public for the benefit of {@link StarlarkTestingModule}, which has the unusual use
    * case of creating new rule types to house analysis-time test assertions ({@code analysis_test}).
@@ -974,26 +992,143 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   }
 
   /**
-   * The implementation for the magic function "rule" that creates Starlark rule classes.
+   * A callable Starlark object representing a symbolic macro, which may be invoked during package
+   * construction time to instantiate the macro.
    *
-   * <p>Exactly one of {@link #builder} or {@link #ruleClass} is null except inside {@link #export}.
+   * <p>Instantiating the macro does not necessarily imply that the macro's implementation function
+   * will run synchronously with the call to this object. Just like a rule, a macro's implementation
+   * function is evaluated in its own context separate from the caller.
+   *
+   * <p>This object is not usable until it has been {@link #export exported}. Calling an unexported
+   * macro function results in an {@link EvalException}.
+   */
+  public static final class MacroFunction implements StarlarkExportable, StarlarkCallable {
+
+    // Initially non-null, then null once exported.
+    @Nullable private MacroClass.Builder builder;
+
+    // Initially null, then non-null once exported.
+    @Nullable private MacroClass macroClass = null;
+
+    public MacroFunction(MacroClass.Builder builder) {
+      this.builder = builder;
+    }
+
+    @Override
+    public String getName() {
+      return macroClass != null ? macroClass.getName() : "unexported macro";
+    }
+
+    // TODO(#19922): Define getDocumentation() and interaction with ModuleInfoExtractor, analogous
+    // to StarlarkRuleFunction.
+
+    @Override
+    public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
+        throws EvalException, InterruptedException {
+      BazelStarlarkContext.checkLoadingPhase(thread, getName());
+      Package.Builder pkgBuilder = thread.getThreadLocal(Package.Builder.class);
+      if (pkgBuilder == null) {
+        throw new EvalException(
+            "Cannot instantiate a macro when loading a .bzl file. "
+                + "Macros may only be instantiated while evaluating a BUILD file.");
+      }
+
+      if (macroClass == null) {
+        throw Starlark.errorf(
+            "Cannot instantiate a macro that has not been exported (assign it to a global variable"
+                + " in the .bzl where it's defined)");
+      }
+
+      if (!args.isEmpty()) {
+        throw Starlark.errorf("unexpected positional arguments");
+      }
+
+      Object nameUnchecked = kwargs.get("name");
+      if (nameUnchecked == null) {
+        throw Starlark.errorf("macro requires a `name` attribute");
+      }
+      if (!(nameUnchecked instanceof String)) {
+        throw Starlark.errorf(
+            "Expected a String for attribute 'name'; got %s",
+            nameUnchecked.getClass().getSimpleName());
+      }
+      String instanceName = (String) nameUnchecked;
+
+      MacroInstance macroInstance = new MacroInstance(macroClass, instanceName);
+      try {
+        pkgBuilder.addMacro(macroInstance);
+      } catch (NameConflictException e) {
+        throw new EvalException(e);
+      }
+      return Starlark.NONE;
+    }
+
+    @Override
+    public void export(EventHandler handler, Label label, String exportedName) {
+      checkState(builder != null && macroClass == null);
+      builder.setName(exportedName);
+      this.macroClass = builder.build();
+      this.builder = null;
+    }
+
+    @Override
+    public boolean isExported() {
+      return macroClass != null;
+    }
+
+    @Override
+    public void repr(Printer printer) {
+      if (isExported()) {
+        printer.append("<macro ").append(macroClass.getName()).append(">");
+      } else {
+        printer.append("<macro>");
+      }
+    }
+
+    @Override
+    public String toString() {
+      return "macro(...)";
+    }
+
+    @Override
+    public boolean isImmutable() {
+      // TODO(bazel-team): This seems technically wrong, analogous to
+      // StarlarkRuleFunction#isImmutable.
+      return true;
+    }
+  }
+
+  /**
+   * A callable Starlark object representing a Starlark-defined rule, which may be invoked during
+   * package construction time to instantiate the rule.
+   *
+   * <p>This is the object returned by calling {@code rule()}, e.g. the value that is bound in
+   * {@code my_rule = rule(...)}}.
    */
   public static final class StarlarkRuleFunction implements StarlarkExportable, RuleFunction {
-    private RuleClass.Builder builder;
+    // Initially non-null, then null once exported.
+    @Nullable private RuleClass.Builder builder;
 
-    private RuleClass ruleClass;
+    // Initially null, then non-null once exported.
+    @Nullable private RuleClass ruleClass;
+
     private final Location definitionLocation;
     @Nullable private final String documentation;
-    private Label starlarkLabel;
+
+    // Set upon export.
+    @Nullable private Label starlarkLabel;
 
     // TODO(adonovan): merge {Starlark,Builtin}RuleFunction and RuleClass,
     // making the latter a callable, StarlarkExportable value.
     // (Making RuleClasses first-class values will help us to build a
     // rich query output mode that includes values from loaded .bzl files.)
+    // [Note from brandjon: Even if we merge RuleFunction and RuleClass, it may still be useful to
+    // carry a distinction between loading-time vs analysis-time information about a rule type,
+    // particularly when it comes to the possibility of lazy .bzl loading. For example, you can in
+    // principle evaluate a BUILD file without loading and digesting .bzls that are only used by the
+    // implementation function.]
     public StarlarkRuleFunction(
-        RuleClass.Builder builder,
-        Location definitionLocation,
-        Optional<String> documentation) {
+        RuleClass.Builder builder, Location definitionLocation, Optional<String> documentation) {
       this.builder = builder;
       this.definitionLocation = definitionLocation;
       this.documentation = documentation.orElse(null);
@@ -1245,6 +1380,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
     @Override
     public boolean isImmutable() {
+      // TODO(bazel-team): It shouldn't be immutable until it's exported, no?
       return true;
     }
   }
