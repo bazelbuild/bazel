@@ -2210,4 +2210,42 @@ EOF
     //:foo >& $TEST_log || fail "Failed to build //:foo"
 }
 
+function test_incremental_run_command_with_no_check_output_files() {
+  # Regression test for https://github.com/bazelbuild/bazel/issues/20843.
+  cat > BUILD <<'EOF'
+genrule(
+  name = "gen",
+  outs = ["out.txt"],
+  cmd = "touch $@",
+)
+sh_binary(
+  name = "foo",
+  srcs = ["foo.sh"],
+  data = ["out.txt"],
+)
+EOF
+  cat > foo.sh <<'EOF'
+#!/bin/bash
+if ! [[ -f "$0.runfiles/_main/out.txt" ]]; then
+  echo "runfile $0.runfiles/_main/out.txt not found" 1>&2
+  exit 1
+fi
+EOF
+  chmod +x foo.sh
+
+  CACHEDIR=$(mktemp -d)
+  FLAGS=(--disk_cache="$CACHEDIR" --remote_download_minimal --noexperimental_check_output_files)
+
+  # Populate the disk cache.
+  bazel build "${FLAGS[@]}" //:foo >& $TEST_log || fail "Failed to build //:foo"
+
+  # Clean build. No outputs are considered top-level, so nothing is downloaded.
+  bazel clean "${FLAGS[@]}"
+  bazel build "${FLAGS[@]}" //:foo >& $TEST_log || fail "Failed to build //:foo"
+
+  # Incremental run. Even though output checking is disabled, invalidation must
+  # must still occur to force them to be downloaded.
+  bazel run "${FLAGS[@]}" //:foo >& $TEST_log || fail "Failed to run //:foo"
+}
+
 run_suite "Build without the Bytes tests"
