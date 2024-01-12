@@ -86,6 +86,7 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -2991,6 +2992,73 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
     assertThat((List<String>) info.getValue("srcs")).containsExactly("initializer_testing/a.ml");
     assertThat((List<String>) info.getValue("deps")).containsExactly("@@//:initial", "@@//:added");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void initializer_stringListDict() throws Exception {
+    scratch.file(
+        "initializer_testing/b.bzl",
+        "def initializer(**kwargs):",
+        "  return {}",
+        "MyInfo = provider()",
+        "def impl(ctx): ",
+        "  return [MyInfo(dict = ctx.attr.dict)]",
+        "my_rule = rule(impl,",
+        "  initializer = initializer,",
+        "  attrs = {",
+        "    'dict': attr.string_list_dict(),",
+        "  })");
+    scratch.file(
+        "initializer_testing/BUILD", //
+        "load(':b.bzl','my_rule')",
+        "my_rule(name = 'my_target', dict = {'k': ['val']})");
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//initializer_testing:my_target");
+    StructImpl info =
+        (StructImpl)
+            myTarget.get(
+                new StarlarkProvider.Key(
+                    Label.parseCanonical("//initializer_testing:b.bzl"), "MyInfo"));
+
+    assertThat(((Map<String, List<String>>) info.getValue("dict")).keySet()).containsExactly("k");
+    assertThat(((Map<String, List<String>>) info.getValue("dict")).get("k")).containsExactly("val");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void initializer_labelKeyedStringDict() throws Exception {
+    scratch.file(
+        "BUILD", //
+        "filegroup(name = 'key')");
+    scratch.file(
+        "initializer_testing/b.bzl",
+        "def initializer(**kwargs):",
+        "  return {}",
+        "MyInfo = provider()",
+        "def impl(ctx): ",
+        "  return [MyInfo(dict = ctx.attr.dict)]",
+        "my_rule = rule(impl,",
+        "  initializer = initializer,",
+        "  attrs = {",
+        "    'dict': attr.label_keyed_string_dict(),",
+        "  })");
+    scratch.file(
+        "initializer_testing/BUILD", //
+        "load(':b.bzl','my_rule')",
+        "my_rule(name = 'my_target', dict = {'//:key': 'val'})");
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//initializer_testing:my_target");
+    ConfiguredTarget key = getConfiguredTarget("//:key");
+    StructImpl info =
+        (StructImpl)
+            myTarget.get(
+                new StarlarkProvider.Key(
+                    Label.parseCanonical("//initializer_testing:b.bzl"), "MyInfo"));
+
+    assertThat(((Map<ConfiguredTarget, String>) info.getValue("dict")).keySet())
+        .containsExactly(key);
+    assertThat(((Map<ConfiguredTarget, String>) info.getValue("dict")).get(key)).isEqualTo("val");
   }
 
   @Test
