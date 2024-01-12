@@ -527,6 +527,8 @@ genrule(
         ":docs_embedded_in_sources",
         "//src/main/java/com/google/devtools/build/docgen:bazel_link_map",
         "//src/main/starlark/docgen:gen_be_proto_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_java_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_cpp_stardoc_proto",
     ],
     outs = ["build-encyclopedia.zip"],
     cmd = (
@@ -537,6 +539,8 @@ genrule(
         " --input_root=$$PWD" +
         " --input_dir=$$PWD/src/main/java/com/google/devtools/build/lib" +
         " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_proto_stardoc_proto)" +
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_java_stardoc_proto)" +
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_cpp_stardoc_proto)" +
         " --output_dir=$(@D)/be" +
         " --create_toc=true &&" +
         "zip -qj $@ $(@D)/be/*"
@@ -619,6 +623,8 @@ genrule(
     srcs = [
         "//src/main/java/com/google/devtools/build/docgen:bazel_link_map",
         "//src/main/starlark/docgen:gen_be_proto_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_java_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_cpp_stardoc_proto",
     ],
     outs = ["builtin.pb"],
     cmd = (
@@ -628,7 +634,9 @@ genrule(
         " --provider=com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider" +
         " --input_root=$$PWD" +
         " --input_dir=$$PWD/src/main/java/com/google/devtools/build/lib" +
-        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_proto_stardoc_proto)"
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_proto_stardoc_proto)" +
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_java_stardoc_proto)" +
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_cpp_stardoc_proto)"
     ),
     tools = [
         "//src/main/java/com/google/devtools/build/docgen:api_exporter",

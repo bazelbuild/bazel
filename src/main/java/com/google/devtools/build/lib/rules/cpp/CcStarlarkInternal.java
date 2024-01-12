@@ -537,26 +537,6 @@ public class CcStarlarkInternal implements StarlarkValue {
     }
   }
 
-  static class DefaultHdrsCheckBuiltinComputedDefault extends ComputedDefault
-      implements NativeComputedDefaultApi {
-    @Override
-    public Object getDefault(AttributeMap rule) {
-      return rule.getPackageArgs().isDefaultHdrsCheckSet()
-          ? rule.getPackageArgs().getDefaultHdrsCheck()
-          : "";
-    }
-
-    @Override
-    public boolean resolvableWithRawAttributes() {
-      return true;
-    }
-  }
-
-  @StarlarkMethod(name = "default_hdrs_check_computed_default", documented = false)
-  public ComputedDefault getDefaultHdrsCheckComputedDefault() {
-    return new DefaultHdrsCheckBuiltinComputedDefault();
-  }
-
   /**
    * TODO(bazel-team): This can be re-written directly to Starlark but it will cause a memory
    * regression due to the way StarlarkComputedDefault is stored for each rule.

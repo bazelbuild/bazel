@@ -554,64 +554,609 @@ DEPS_ALLOWED_RULES = [
     "cc_test",
 ]
 
-attrs = {
-    "srcs": attr.label_list(
-        allow_files = True,
-        flags = ["DIRECT_COMPILE_TIME_INPUT"],
-    ),
-    "alwayslink": attr.bool(default = False),
-    "linkstatic": attr.bool(default = False),
-    "implementation_deps": attr.label_list(providers = [CcInfo], allow_files = False),
-    "hdrs": attr.label_list(
-        allow_files = True,
-        flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
-    ),
-    "strip_include_prefix": attr.string(),
-    "include_prefix": attr.string(),
-    "textual_hdrs": attr.label_list(
-        allow_files = True,
-        flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
-    ),
-    "linkstamp": attr.label(allow_single_file = True),
-    "linkopts": attr.string_list(),
-    "additional_linker_inputs": attr.label_list(
-        allow_files = True,
-        flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
-    ),
-    "includes": attr.string_list(),
-    "defines": attr.string_list(),
-    "copts": attr.string_list(),
-    "hdrs_check": attr.string(default = cc_internal.default_hdrs_check_computed_default()),
-    "local_defines": attr.string_list(),
-    "deps": attr.label_list(
-        providers = [CcInfo],
-        flags = ["SKIP_ANALYSIS_TIME_FILETYPE_CHECK"],
-        allow_files = LINKER_SCRIPT + PREPROCESSED_C,
-        allow_rules = DEPS_ALLOWED_RULES,
-    ),
-    "data": attr.label_list(
-        allow_files = True,
-        flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
-    ),
-    "win_def_file": attr.label(allow_single_file = [".def"]),
-    # buildifier: disable=attr-license
-    "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
-    "additional_compiler_inputs": attr.label_list(
-        allow_files = True,
-        flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
-    ),
-    "_stl": semantics.get_stl(),
-    "_def_parser": semantics.get_def_parser(),
-    "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
-    "_use_auto_exec_groups": attr.bool(default = True),
-}
-attrs.update(semantics.get_distribs_attr())
-attrs.update(semantics.get_implementation_deps_allowed_attr())
-attrs.update(semantics.get_nocopts_attr())
-
 cc_library = rule(
     implementation = _cc_library_impl,
-    attrs = attrs,
+    doc = """
+<p>Use <code>cc_library()</code> for C++-compiled libraries.
+  The result is  either a <code>.so</code>, <code>.lo</code>,
+  or <code>.a</code>, depending on what is needed.
+</p>
+
+<p>
+  If you build something with static linking that depends on
+  a <code>cc_library</code>, the output of a depended-on library rule
+  is the <code>.a</code> file. If you specify
+   <code>alwayslink=True</code>, you get the <code>.lo</code> file.
+</p>
+
+<p>
+  The actual output file name is <code>lib<i>foo</i>.so</code> for
+  the shared library, where <i>foo</i> is the name of the rule.  The
+  other kinds of libraries end with <code>.lo</code> and <code>.a</code>,
+  respectively.  If you need a specific shared library name, for
+  example, to define a Python module, use a genrule to copy the library
+  to the desired name.
+</p>
+
+<h4 id="hdrs">Header inclusion checking</h4>
+
+<p>
+  All header files that are used in the build must be declared in
+  the <code>hdrs</code> or <code>srcs</code> of <code>cc_*</code> rules.
+  This is enforced.
+</p>
+
+<p>
+  For <code>cc_library</code> rules, headers in <code>hdrs</code> comprise the
+  public interface of the library and can be directly included both
+  from the files in <code>hdrs</code> and <code>srcs</code> of the library
+  itself as well as from files in <code>hdrs</code> and <code>srcs</code>
+  of <code>cc_*</code> rules that list the library in their <code>deps</code>.
+  Headers in <code>srcs</code> must only be directly included from the files
+  in <code>hdrs</code> and <code>srcs</code> of the library itself. When
+  deciding whether to put a header into <code>hdrs</code> or <code>srcs</code>,
+  you should ask whether you want consumers of this library to be able to
+  directly include it. This is roughly the same decision as
+  between <code>public</code> and <code>private</code> visibility in programming languages.
+</p>
+
+<p>
+  <code>cc_binary</code> and <code>cc_test</code> rules do not have an exported
+  interface, so they also do not have a <code>hdrs</code> attribute. All headers
+  that belong to the binary or test directly should be listed in
+  the <code>srcs</code>.
+</p>
+
+<p>
+  To illustrate these rules, look at the following example.
+</p>
+
+<pre><code class="lang-starlark">
+cc_binary(
+    name = "foo",
+    srcs = [
+        "foo.cc",
+        "foo.h",
+    ],
+    deps = [":bar"],
+)
+
+cc_library(
+    name = "bar",
+    srcs = [
+        "bar.cc",
+        "bar-impl.h",
+    ],
+    hdrs = ["bar.h"],
+    deps = [":baz"],
+)
+
+cc_library(
+    name = "baz",
+    srcs = [
+        "baz.cc",
+        "baz-impl.h",
+    ],
+    hdrs = ["baz.h"],
+)
+</code></pre>
+
+<p>
+  The allowed direct inclusions in this example are listed in the table below.
+  For example <code>foo.cc</code> is allowed to directly
+  include <code>foo.h</code> and <code>bar.h</code>, but not <code>baz.h</code>.
+</p>
+
+<table class="table table-striped table-bordered table-condensed">
+  <thead>
+    <tr><th>Including file</th><th>Allowed inclusions</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>foo.h</td><td>bar.h</td></tr>
+    <tr><td>foo.cc</td><td>foo.h bar.h</td></tr>
+    <tr><td>bar.h</td><td>bar-impl.h baz.h</td></tr>
+    <tr><td>bar-impl.h</td><td>bar.h baz.h</td></tr>
+    <tr><td>bar.cc</td><td>bar.h bar-impl.h baz.h</td></tr>
+    <tr><td>baz.h</td><td>baz-impl.h</td></tr>
+    <tr><td>baz-impl.h</td><td>baz.h</td></tr>
+    <tr><td>baz.cc</td><td>baz.h baz-impl.h</td></tr>
+  </tbody>
+</table>
+
+<p>
+  The inclusion checking rules only apply to <em>direct</em>
+  inclusions. In the example above <code>foo.cc</code> is allowed to
+  include <code>bar.h</code>, which may include <code>baz.h</code>, which in
+  turn is allowed to include <code>baz-impl.h</code>. Technically, the
+  compilation of a <code>.cc</code> file may transitively include any header
+  file in the <code>hdrs</code> or <code>srcs</code> in
+  any <code>cc_library</code> in the transitive <code>deps</code> closure. In
+  this case the compiler may read <code>baz.h</code> and <code>baz-impl.h</code>
+  when compiling <code>foo.cc</code>, but <code>foo.cc</code> must not
+  contain <code>#include "baz.h"</code>. For that to be
+  allowed, <code>baz</code> must be added to the <code>deps</code>
+  of <code>foo</code>.
+</p>
+
+<p>
+  Bazel depends on toolchain support to enforce the inclusion checking rules.
+  The <code>layering_check</code> feature has to be supported by the toolchain
+  and requested explicitly, for example via the
+  <code>--features=layering_check</code> command-line flag or the
+  <code>features</code> parameter of the
+  <a href="${link package}"><code>package</code></a> function. The toolchains
+  provided by Bazel only support this feature with clang on Unix and macOS.
+</p>
+
+<h4 id="cc_library_examples">Examples</h4>
+
+<p id="alwayslink_lib_example">
+   We use the <code>alwayslink</code> flag to force the linker to link in
+   this code although the main binary code doesn't reference it.
+</p>
+
+<pre><code class="lang-starlark">
+cc_library(
+    name = "ast_inspector_lib",
+    srcs = ["ast_inspector_lib.cc"],
+    hdrs = ["ast_inspector_lib.h"],
+    visibility = ["//visibility:public"],
+    deps = ["//third_party/llvm/llvm/tools/clang:frontend"],
+    # alwayslink as we want to be able to call things in this library at
+    # debug time, even if they aren't used anywhere in the code.
+    alwayslink = 1,
+)
+</code></pre>
+
+
+<p>The following example comes from
+   <code>third_party/python2_4_3/BUILD</code>.
+   Some of the code uses the <code>dl</code> library (to load
+   another, dynamic library), so this
+   rule specifies the <code>-ldl</code> link option to link the
+   <code>dl</code> library.
+</p>
+
+<pre><code class="lang-starlark">
+cc_library(
+    name = "python2_4_3",
+    linkopts = [
+        "-ldl",
+        "-lutil",
+    ],
+    deps = ["//third_party/expat"],
+)
+</code></pre>
+
+<p>The following example comes from <code>third_party/kde/BUILD</code>.
+   We keep pre-built <code>.so</code> files in the depot.
+   The header files live in a subdirectory named <code>include</code>.
+</p>
+
+<pre><code class="lang-starlark">
+cc_library(
+    name = "kde",
+    srcs = [
+        "lib/libDCOP.so",
+        "lib/libkdesu.so",
+        "lib/libkhtml.so",
+        "lib/libkparts.so",
+        <var>...more .so files...</var>,
+    ],
+    includes = ["include"],
+    deps = ["//third_party/X11"],
+)
+</code></pre>
+
+<p>The following example comes from <code>third_party/gles/BUILD</code>.
+   Third-party code often needs some <code>defines</code> and
+   <code>linkopts</code>.
+</p>
+
+<pre><code class="lang-starlark">
+cc_library(
+    name = "gles",
+    srcs = [
+        "GLES/egl.h",
+        "GLES/gl.h",
+        "ddx.c",
+        "egl.c",
+    ],
+    defines = [
+        "USE_FLOAT",
+        "__GL_FLOAT",
+        "__GL_COMMON",
+    ],
+    linkopts = ["-ldl"],  # uses dlopen(), dl library
+    deps = [
+        "es",
+        "//third_party/X11",
+    ],
+)
+</code></pre>
+""",
+    attrs = {
+        "srcs": attr.label_list(
+            allow_files = True,
+            flags = ["DIRECT_COMPILE_TIME_INPUT"],
+            doc = """
+The list of C and C++ files that are processed to create the library target.
+These are C/C++ source and header files, either non-generated (normal source
+code) or generated.
+<p>All <code>.cc</code>, <code>.c</code>, and <code>.cpp</code> files will
+   be compiled. These might be generated files: if a named file is in
+   the <code>outs</code> of some other rule, this <code>cc_library</code>
+   will automatically depend on that other rule.
+</p>
+<p>Pure assembler files (.s, .asm) are not preprocessed and are typically built using
+the assembler. Preprocessed assembly files (.S) are preprocessed and are typically built
+using the C/C++ compiler.
+</p>
+<p>A <code>.h</code> file will not be compiled, but will be available for
+   inclusion by sources in this rule. Both <code>.cc</code> and
+   <code>.h</code> files can directly include headers listed in
+   these <code>srcs</code> or in the <code>hdrs</code> of this rule or any
+   rule listed in the <code>deps</code> argument.
+</p>
+<p>All <code>#include</code>d files must be mentioned in the
+   <code>hdrs</code> attribute of this or referenced <code>cc_library</code>
+   rules, or they should be listed in <code>srcs</code> if they are private
+   to this library. See <a href="#hdrs">"Header inclusion checking"</a> for
+   a more detailed description.
+</p>
+<p><code>.so</code>, <code>.lo</code>, and <code>.a</code> files are
+   pre-compiled files. Your library might have these as
+   <code>srcs</code> if it uses third-party code for which we don't
+   have source code.
+</p>
+<p>If the <code>srcs</code> attribute includes the label of another rule,
+   <code>cc_library</code> will use the output files of that rule as source files to
+   compile. This is useful for one-off generation of source code (for more than occasional
+   use, it's better to implement a Starlark rule class and use the <code>cc_common</code>
+   API)
+</p>
+<p>
+  Permitted <code>srcs</code> file types:
+</p>
+<ul>
+<li>C and C++ source files: <code>.c</code>, <code>.cc</code>, <code>.cpp</code>,
+  <code>.cxx</code>, <code>.c++</code>, <code>.C</code></li>
+<li>C and C++ header files: <code>.h</code>, <code>.hh</code>, <code>.hpp</code>,
+  <code>.hxx</code>, <code>.inc</code>, <code>.inl</code>, <code>.H</code></li>
+<li>Assembler with C preprocessor: <code>.S</code></li>
+<li>Archive: <code>.a</code>, <code>.pic.a</code></li>
+<li>"Always link" library: <code>.lo</code>, <code>.pic.lo</code></li>
+<li>Shared library, versioned or unversioned: <code>.so</code>,
+  <code>.so.<i>version</i></code></li>
+<li>Object file: <code>.o</code>, <code>.pic.o</code></li>
+</ul>
+
+<p>
+  ... and any rules that produce those files (e.g. <code>cc_embed_data</code>).
+  Different extensions denote different programming languages in
+  accordance with gcc convention.
+</p>
+""",
+        ),
+        "hdrs": attr.label_list(
+            allow_files = True,
+            flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
+            doc = """
+The list of header files published by
+this library to be directly included by sources in dependent rules.
+<p>This is the strongly preferred location for declaring header files that
+ describe the interface for the library. These headers will be made
+ available for inclusion by sources in this rule or in dependent rules.
+ Headers not meant to be included by a client of this library should be
+ listed in the <code>srcs</code> attribute instead, even if they are
+ included by a published header. See <a href="#hdrs">"Header inclusion
+ checking"</a> for a more detailed description. </p>
+<p>Permitted <code>headers</code> file types:
+  <code>.h</code>,
+  <code>.hh</code>,
+  <code>.hpp</code>,
+  <code>.hxx</code>.
+</p>
+        """,
+        ),
+        "textual_hdrs": attr.label_list(
+            allow_files = True,
+            flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
+            doc = """
+The list of header files published by
+this library to be textually included by sources in dependent rules.
+<p>This is the location for declaring header files that cannot be compiled on their own;
+ that is, they always need to be textually included by other source files to build valid
+ code.</p>
+""",
+        ),
+        "deps": attr.label_list(
+            providers = [CcInfo],
+            flags = ["SKIP_ANALYSIS_TIME_FILETYPE_CHECK"],
+            allow_files = LINKER_SCRIPT + PREPROCESSED_C,
+            allow_rules = DEPS_ALLOWED_RULES,
+            doc = """
+The list of other libraries that the library target depends upon.
+
+<p>These can be <code>cc_library</code> or <code>objc_library</code> targets.</p>
+
+<p>See general comments about <code>deps</code>
+  at <a href="${link common-definitions#typical-attributes}">Typical attributes defined by
+  most build rules</a>.
+</p>
+<p>These should be names of C++ library rules.
+   When you build a binary that links this rule's library,
+   you will also link the libraries in <code>deps</code>.
+</p>
+<p>Despite the "deps" name, not all of this library's clients
+   belong here.  Run-time data dependencies belong in <code>data</code>.
+   Source files generated by other rules belong in <code>srcs</code>.
+</p>
+<p>To link in a pre-compiled third-party library, add its name to
+   the <code>srcs</code> instead.
+</p>
+<p>To depend on something without linking it to this library, add its
+   name to the <code>data</code> instead.
+</p>
+""",
+        ),
+        "implementation_deps": attr.label_list(providers = [CcInfo], allow_files = False, doc = """
+The list of other libraries that the library target depends on. Unlike with
+<code>deps</code>, the headers and include paths of these libraries (and all their
+transitive deps) are only used for compilation of this library, and not libraries that
+depend on it. Libraries specified with <code>implementation_deps</code> are still linked in
+binary targets that depend on this library.
+<p>For now usage is limited to cc_libraries and guarded by the flag
+<code>--experimental_cc_implementation_deps</code>.</p>
+"""),
+        "data": attr.label_list(
+            allow_files = True,
+            flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
+            doc = """
+The list of files needed by this library at runtime.
+
+See general comments about <code>data</code>
+at <a href="${link common-definitions#typical-attributes}">Typical attributes defined by
+most build rules</a>.
+<p>If a <code>data</code> is the name of a generated file, then this
+   <code>cc_library</code> rule automatically depends on the generating
+   rule.
+</p>
+<p>If a <code>data</code> is a rule name, then this
+   <code>cc_library</code> rule automatically depends on that rule,
+   and that rule's <code>outs</code> are automatically added to
+   this <code>cc_library</code>'s data files.
+</p>
+<p>Your C++ code can access these data files like so:</p>
+<pre><code class="lang-starlark">
+  const std::string path = devtools_build::GetDataDependencyFilepath(
+      "my/test/data/file");
+</code></pre>
+""",
+        ),
+        "includes": attr.string_list(doc = """
+List of include dirs to be added to the compile line.
+Subject to <a href="${link make-variables}">"Make variable"</a> substitution.
+Each string is prepended with the package path and passed to the C++ toolchain for
+expansion via the "include_paths" CROSSTOOL feature. A toolchain running on a POSIX system
+with typical feature definitions will produce
+<code>-isystem path_to_package/include_entry</code>.
+This should only be used for third-party libraries that
+do not conform to the Google style of writing #include statements.
+Unlike <a href="#cc_binary.copts">COPTS</a>, these flags are added for this rule
+and every rule that depends on it. (Note: not the rules it depends upon!) Be
+very careful, since this may have far-reaching effects.  When in doubt, add
+"-I" flags to <a href="#cc_binary.copts">COPTS</a> instead.
+<p>
+The default <code>include</code> path doesn't include generated
+files. If you need to <code>#include</code> a generated header
+file, list it in the <code>srcs</code>.
+</p>
+"""),
+        "strip_include_prefix": attr.string(doc = """
+The prefix to strip from the paths of the headers of this rule.
+
+<p>When set, the headers in the <code>hdrs</code> attribute of this rule are accessible
+at their path with this prefix cut off.
+
+<p>If it's a relative path, it's taken as a package-relative one. If it's an absolute one,
+it's understood as a repository-relative path.
+
+<p>The prefix in the <code>include_prefix</code> attribute is added after this prefix is
+stripped.
+
+<p>This attribute is only legal under <code>third_party</code>.
+"""),
+        "include_prefix": attr.string(doc = """
+The prefix to add to the paths of the headers of this rule.
+
+<p>When set, the headers in the <code>hdrs</code> attribute of this rule are accessible
+at is the value of this attribute prepended to their repository-relative path.
+
+<p>The prefix in the <code>strip_include_prefix</code> attribute is removed before this
+prefix is added.
+
+<p>This attribute is only legal under <code>third_party</code>.
+"""),
+        "defines": attr.string_list(doc = """
+List of defines to add to the compile line.
+Subject to <a href="${link make-variables}">"Make" variable</a> substitution and
+<a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
+Each string, which must consist of a single Bourne shell token,
+is prepended with <code>-D</code> and added to the compile command line to this target,
+as well as to every rule that depends on it. Be very careful, since this may have
+far-reaching effects.  When in doubt, add define values to
+<a href="#cc_binary.local_defines"><code>local_defines</code></a> instead.
+"""),
+        "local_defines": attr.string_list(doc = """
+List of defines to add to the compile line.
+Subject to <a href="${link make-variables}">"Make" variable</a> substitution and
+<a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
+Each string, which must consist of a single Bourne shell token,
+is prepended with <code>-D</code> and added to the compile command line for this target,
+but not to its dependents.
+"""),
+        "hdrs_check": attr.string(
+            doc = "Deprecated, no-op.",
+        ),
+        "copts": attr.string_list(doc = """
+Add these options to the C++ compilation command.
+Subject to <a href="${link make-variables}">"Make variable"</a> substitution and
+<a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
+<p>
+  Each string in this attribute is added in the given order to <code>COPTS</code> before
+  compiling the binary target. The flags take effect only for compiling this target, not
+  its dependencies, so be careful about header files included elsewhere.
+  All paths should be relative to the workspace, not to the current package.
+  This attribute should not be needed outside of <code>third_party</code>.
+</p>
+<p>
+  If the package declares the <a href="${link package.features}">feature</a>
+  <code>no_copts_tokenization</code>, Bourne shell tokenization applies only to strings
+  that consist of a single "Make" variable.
+</p>
+"""),
+        "additional_compiler_inputs": attr.label_list(
+            allow_files = True,
+            flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
+            doc = """
+Any additional files you might want to pass to the compiler command line, such as sanitizer
+ignorelists, for example. Files specified here can then be used in copts with the
+$(location) function.
+""",
+        ),
+        "alwayslink": attr.bool(default = False, doc = """
+If 1, any binary that depends (directly or indirectly) on this C++
+library will link in all the object files for the files listed in
+<code>srcs</code>, even if some contain no symbols referenced by the binary.
+This is useful if your code isn't explicitly called by code in
+the binary, e.g., if your code registers to receive some callback
+provided by some service.
+
+<p>If alwayslink doesn't work with VS 2017 on Windows, that is due to a
+<a href="https://github.com/bazelbuild/bazel/issues/3949">known issue</a>,
+please upgrade your VS 2017 to the latest version.</p>
+"""),
+        "linkstatic": attr.bool(default = False, doc = """
+For <a href="${link cc_binary}"><code>cc_binary</code></a> and
+<a href="${link cc_test}"><code>cc_test</code></a>: link the binary in static
+mode. For <code>cc_library.link_static</code>: see below.
+<p>By default this option is on for <code>cc_binary</code> and off for the rest.</p>
+<p>
+  If enabled and this is a binary or test, this option tells the build tool to link in
+  <code>.a</code>'s instead of <code>.so</code>'s for user libraries whenever possible.
+  System libraries such as libc (but <i>not</i> the C/C++ runtime libraries,
+  see below) are still linked dynamically, as are libraries for which
+  there is no static library. So the resulting executable will still be dynamically
+  linked, hence only <i>mostly</i> static.
+</p>
+<p>
+There are really three different ways to link an executable:
+</p>
+<ul>
+<li> STATIC with fully_static_link feature, in which everything is linked statically;
+  e.g. "<code>gcc -static foo.o libbar.a libbaz.a -lm</code>".<br/>
+  This mode is enabled by specifying <code>fully_static_link</code> in the
+  <a href="${link common-definitions#features}"><code>features</code></a> attribute.</li>
+<li> STATIC, in which all user libraries are linked statically (if a static
+  version is available), but where system libraries (excluding C/C++ runtime libraries)
+  are linked dynamically, e.g. "<code>gcc foo.o libfoo.a libbaz.a -lm</code>".<br/>
+  This mode is enabled by specifying <code>linkstatic=True</code>.</li>
+<li> DYNAMIC, in which all libraries are linked dynamically (if a dynamic version is
+  available), e.g. "<code>gcc foo.o libfoo.so libbaz.so -lm</code>".<br/>
+  This mode is enabled by specifying <code>linkstatic=False</code>.</li>
+</ul>
+<p>
+If the <code>linkstatic</code> attribute or <code>fully_static_link</code> in
+<code>features</code> is used outside of <code>//third_party</code>
+please include a comment near the rule to explain why.
+</p>
+<p>
+The <code>linkstatic</code> attribute has a different meaning if used on a
+<a href="${link cc_library}"><code>cc_library()</code></a> rule.
+For a C++ library, <code>linkstatic=True</code> indicates that only
+static linking is allowed, so no <code>.so</code> will be produced. linkstatic=False does
+not prevent static libraries from being created. The attribute is meant to control the
+creation of dynamic libraries.
+</p>
+<p>
+There should be very little code built with <code>linkstatic=False</code> in production.
+If <code>linkstatic=False</code>, then the build tool will create symlinks to
+depended-upon shared libraries in the <code>*.runfiles</code> area.
+</p>
+        """),
+        "linkstamp": attr.label(allow_single_file = True, doc = """
+Simultaneously compiles and links the specified C++ source file into the final
+binary. This trickery is required to introduce timestamp
+information into binaries; if we compiled the source file to an
+object file in the usual way, the timestamp would be incorrect.
+A linkstamp compilation may not include any particular set of
+compiler flags and so should not depend on any particular
+header, compiler option, or other build variable.
+<em class='harmful'>This option should only be needed in the
+<code>base</code> package.</em>
+"""),
+        "linkopts": attr.string_list(doc = """
+See <a href="${link cc_binary.linkopts}"><code>cc_binary.linkopts</code></a>.
+The <code>linkopts</code> attribute is also applied to any target that
+depends, directly or indirectly, on this library via <code>deps</code>
+attributes (or via other attributes that are treated similarly:
+the <a href="${link cc_binary.malloc}"><code>malloc</code></a>
+attribute of <a href="${link cc_binary}"><code>cc_binary</code></a>). Dependency
+linkopts take precedence over dependent linkopts (i.e. dependency linkopts
+appear later in the command line). Linkopts specified in
+<a href='../user-manual.html#flag--linkopt'><code>--linkopt</code></a>
+take precedence over rule linkopts.
+</p>
+<p>
+Note that the <code>linkopts</code> attribute only applies
+when creating <code>.so</code> files or executables, not
+when creating <code>.a</code> or <code>.lo</code> files.
+So if the <code>linkstatic=True</code> attribute is set, the
+<code>linkopts</code> attribute has no effect on the creation of
+this library, only on other targets which depend on this library.
+</p>
+<p>
+Also, it is important to note that "-Wl,-soname" or "-Xlinker -soname"
+options are not supported and should never be specified in this attribute.
+</p>
+<p> The <code>.so</code> files produced by <code>cc_library</code>
+rules are not linked against the libraries that they depend
+on.  If you're trying to create a shared library for use
+outside of the main repository, e.g. for manual use
+with <code>dlopen()</code> or <code>LD_PRELOAD</code>,
+it may be better to use a <code>cc_binary</code> rule
+with the <code>linkshared=True</code> attribute.
+See <a href="${link cc_binary.linkshared}"><code>cc_binary.linkshared</code></a>.
+</p>
+"""),
+        "additional_linker_inputs": attr.label_list(
+            allow_files = True,
+            flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
+            doc = """
+Pass these files to the C++ linker command.
+<p>
+  For example, compiled Windows .res files can be provided here to be embedded in
+  the binary target.
+</p>
+""",
+        ),
+        "win_def_file": attr.label(
+            allow_single_file = [".def"],
+            doc = """
+The Windows DEF file to be passed to linker.
+<p>This attribute should only be used when Windows is the target platform.
+It can be used to <a href="https://msdn.microsoft.com/en-us/library/d91k01sh.aspx">
+export symbols</a> during linking a shared library.</p>
+""",
+        ),
+        # buildifier: disable=attr-license
+        "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
+        "_stl": semantics.get_stl(),
+        "_def_parser": semantics.get_def_parser(),
+        "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
+        "_use_auto_exec_groups": attr.bool(default = True),
+    } | semantics.get_distribs_attr() | semantics.get_implementation_deps_allowed_attr() | semantics.get_nocopts_attr(),
     toolchains = cc_helper.use_cpp_toolchain() +
                  semantics.get_runtimes_toolchain(),
     fragments = ["cpp"] + semantics.additional_fragments(),

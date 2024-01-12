@@ -14,12 +14,12 @@
 package com.google.devtools.build.lib.bazel.rules;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcImportRule;
-import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcModule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcTestRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
@@ -84,7 +84,7 @@ public class CcRules implements RuleSet {
     builder.addRuleDefinition(new CcSharedLibraryRule());
     builder.addRuleDefinition(new BazelCcTestRule());
     builder.addRuleDefinition(new BazelCppRuleClasses.CcLibraryBaseRule());
-    builder.addRuleDefinition(new BazelCcLibraryRule());
+    builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("cc_library") {});
     builder.addRuleDefinition(new BazelCcImportRule());
     builder.addRuleDefinition(new CcIncludeScanningRule(/* addGrepIncludes= */ false));
     builder.addRuleDefinition(new FdoProfileRule());
