@@ -671,6 +671,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   public abstract static class LibraryToLinkValue extends VariableValueAdapter {
     public static final String OBJECT_FILES_FIELD_NAME = "object_files";
     public static final String NAME_FIELD_NAME = "name";
+    public static final String PATH_FIELD_NAME = "path";
     public static final String TYPE_FIELD_NAME = "type";
     public static final String IS_WHOLE_ARCHIVE_FIELD_NAME = "is_whole_archive";
 
@@ -680,8 +681,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       return new ForDynamicLibrary(name);
     }
 
-    public static LibraryToLinkValue forVersionedDynamicLibrary(String name) {
-      return new ForVersionedDynamicLibrary(name);
+    public static LibraryToLinkValue forVersionedDynamicLibrary(String name, String path) {
+      return new ForVersionedDynamicLibrary(name, path);
     }
 
     public static LibraryToLinkValue forInterfaceLibrary(String name) {
@@ -802,8 +803,40 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     private static final class ForVersionedDynamicLibrary extends LibraryToLinkValueWithName {
-      private ForVersionedDynamicLibrary(String name) {
+      private String path;
+
+      private ForVersionedDynamicLibrary(String name, String path) {
         super(name);
+        this.path = path;
+      }
+
+      @Override
+      public VariableValue getFieldValue(
+          String variableName,
+          String field,
+          @Nullable ArtifactExpander expander,
+          boolean throwOnMissingVariable) {
+        if (PATH_FIELD_NAME.equals(field)) {
+          return new StringValue(path);
+        }
+        return super.getFieldValue(variableName, field, expander, throwOnMissingVariable);
+      }
+
+      @Override
+      public boolean equals(Object obj) {
+        if (!(obj instanceof ForVersionedDynamicLibrary)) {
+          return false;
+        }
+        if (this == obj) {
+          return true;
+        }
+        ForVersionedDynamicLibrary other = (ForVersionedDynamicLibrary) obj;
+        return this.path.equals(other.path) && super.equals(other);
+      }
+
+      @Override
+      public int hashCode() {
+        return 31 * super.hashCode() + path.hashCode();
       }
 
       @Override

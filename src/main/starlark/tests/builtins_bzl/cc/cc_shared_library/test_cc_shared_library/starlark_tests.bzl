@@ -166,6 +166,7 @@ def _runfiles_test_impl(ctx):
         "libbar_so.so",
         "libdiff_pkg_so.so",
         "libprivate_lib_so.so",
+        "renamed_so_file_2.so",
         "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary_Slibfoo_Uso.so",
         "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary_Slibbar_Uso.so",
         "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary3_Slibdiff_Upkg_Uso.so",
