@@ -402,18 +402,15 @@ public class BlazeServerStartupOptions extends OptionsBase {
       help = "The maximum amount of time the client waits to connect to the server")
   public int localStartupTimeoutSecs;
 
-  // TODO(b/109764197): Add OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS & remove the
-  // experimental tag once this has been tested and is ready for use.
   @Option(
       name = "digest_function",
       defaultValue = "null",
       converter = DigestHashFunction.DigestFunctionConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {
         OptionEffectTag.LOSES_INCREMENTAL_STATE,
         OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION
       },
-      metadataTags = OptionMetadataTag.EXPERIMENTAL,
       help = "The hash function to use when computing file digests.")
   public DigestHashFunction digestHashFunction;
 
