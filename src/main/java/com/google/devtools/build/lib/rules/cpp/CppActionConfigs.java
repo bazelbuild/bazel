@@ -818,7 +818,7 @@ public class CppActionConfigs {
                             "      variable: 'libraries_to_link.type'",
                             "      value: 'versioned_dynamic_library'",
                             "    }",
-                            "    flag: '-l:%{libraries_to_link.name}'",
+                            "    flag: '%{libraries_to_link.path}'",
                             "  }"),
                         "      flag_group {",
                         "        expand_if_equal: {",
