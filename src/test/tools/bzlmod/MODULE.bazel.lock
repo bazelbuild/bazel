@@ -987,12 +987,18 @@
             }
           }
         },
-        "recordedRepoMappingEntries": []
+        "recordedRepoMappingEntries": [
+          [
+            "apple_support~1.5.0",
+            "bazel_tools",
+            "bazel_tools"
+          ]
+        ]
       }
     },
     "@@bazel_tools//tools/android:android_extensions.bzl%remote_android_tools_extensions": {
       "general": {
-        "bzlTransitiveDigest": "cYQAQLvXLcGKYAEPkqiqYQRwsgSZKLzIOW+kUbDcNZI=",
+        "bzlTransitiveDigest": "vsrPPBNf8OgywAYLMcIL1oNm2R8WtbCIL9wgQBUecpA=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -1010,8 +1016,8 @@
             "ruleClassName": "http_jar",
             "attributes": {
               "name": "bazel_tools~remote_android_tools_extensions~android_gmaven_r8",
-              "sha256": "80c39a28bb66b64efc232d68ae554d59fe3838808738b4fe584884691cb1e5a3",
-              "url": "https://maven.google.com/com/android/tools/r8/8.2.33/r8-8.2.33.jar"
+              "sha256": "a1d7f902d56cfa8d1e8cd64aa250e63549359fcd096eb793286787b1a1e76db1",
+              "url": "https://maven.google.com/com/android/tools/r8/8.2.42/r8-8.2.42.jar"
             }
           }
         },
@@ -1039,7 +1045,13 @@
             }
           }
         },
-        "recordedRepoMappingEntries": []
+        "recordedRepoMappingEntries": [
+          [
+            "bazel_tools",
+            "bazel_tools",
+            "bazel_tools"
+          ]
+        ]
       }
     },
     "@@bazel_tools//tools/osx:xcode_configure.bzl%xcode_configure_extension": {
@@ -1637,7 +1649,18 @@
             }
           }
         },
-        "recordedRepoMappingEntries": []
+        "recordedRepoMappingEntries": [
+          [
+            "rules_java~7.3.2",
+            "bazel_tools",
+            "bazel_tools"
+          ],
+          [
+            "rules_java~7.3.2",
+            "remote_java_tools",
+            "rules_java~7.3.2~toolchains~remote_java_tools"
+          ]
+        ]
       }
     },
     "@@rules_jvm_external~4.4.2//:extensions.bzl%maven": {
@@ -2725,7 +2748,18 @@
             }
           }
         },
-        "recordedRepoMappingEntries": []
+        "recordedRepoMappingEntries": [
+          [
+            "rules_jvm_external~4.4.2",
+            "bazel_tools",
+            "bazel_tools"
+          ],
+          [
+            "rules_jvm_external~4.4.2",
+            "rules_jvm_external",
+            "rules_jvm_external~4.4.2"
+          ]
+        ]
       }
     },
     "@@rules_jvm_external~4.4.2//:non-module-deps.bzl%non_module_deps": {
@@ -2746,7 +2780,13 @@
             }
           }
         },
-        "recordedRepoMappingEntries": []
+        "recordedRepoMappingEntries": [
+          [
+            "rules_jvm_external~4.4.2",
+            "bazel_tools",
+            "bazel_tools"
+          ]
+        ]
       }
     },
     "@@rules_python~0.22.1//python/extensions:python.bzl%python": {
@@ -2764,7 +2804,18 @@
             }
           }
         },
-        "recordedRepoMappingEntries": []
+        "recordedRepoMappingEntries": [
+          [
+            "rules_python~0.22.1",
+            "bazel_tools",
+            "bazel_tools"
+          ],
+          [
+            "rules_python~0.22.1",
+            "rules_python",
+            "rules_python~0.22.1"
+          ]
+        ]
       }
     },
     "@@rules_python~0.22.1//python/extensions/private:internal_deps.bzl%internal_deps": {
@@ -3213,7 +3264,23 @@
             }
           }
         },
-        "recordedRepoMappingEntries": []
+        "recordedRepoMappingEntries": [
+          [
+            "rules_python~0.22.1",
+            "bazel_skylib",
+            "bazel_skylib~1.3.0"
+          ],
+          [
+            "rules_python~0.22.1",
+            "bazel_tools",
+            "bazel_tools"
+          ],
+          [
+            "rules_python~0.22.1",
+            "rules_python",
+            "rules_python~0.22.1"
+          ]
+        ]
       }
     }
   }
