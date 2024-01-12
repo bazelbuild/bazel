@@ -794,4 +794,19 @@ test_workspace_boundary() {
                      'build //sub_repo/'
 }
 
+test_complete_root_package() {
+    # This test only works for Bazel
+    if [[ ! " ${COMMAND_ALIASES[*]} " =~ " bazel " ]]; then return; fi
+
+    mkdir pkgs_repo
+    touch pkgs_repo/WORKSPACE
+    cat > pkgs_repo/BUILD <<'EOF'
+cc_binary(name = "main")
+EOF
+    cd pkgs_repo 2>/dev/null
+
+    assert_expansion 'build //' \
+                     'build //:'
+}
+
 run_suite "Tests of bash completion of 'blaze' command."
