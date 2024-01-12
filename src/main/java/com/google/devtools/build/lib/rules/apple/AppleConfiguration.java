@@ -380,11 +380,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     }
   }
 
-  @Override
-  public String getBitcodeMode() {
-    return "none";
-  }
-
   /**
    * Returns the label of the xcode_config rule to use for resolving the exec system xcode version.
    */

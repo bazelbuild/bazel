@@ -886,11 +886,6 @@ public final class CppConfiguration extends Fragment
   }
 
   @Override
-  public String getAppleBitcodeMode() {
-    return "none";
-  }
-
-  @Override
   public boolean objcShouldStripBinary() {
     return objcEnableBinaryStripping() && getCompilationMode() == CompilationMode.OPT;
   }

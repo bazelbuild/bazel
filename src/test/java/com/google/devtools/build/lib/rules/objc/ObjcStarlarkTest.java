@@ -323,7 +323,6 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         "   single_arch_platform = ctx.fragments.apple.single_arch_platform",
         "   single_arch_cpu = ctx.fragments.apple.single_arch_cpu",
         "   platform_type = single_arch_platform.platform_type",
-        "   bitcode_mode = ctx.fragments.apple.bitcode_mode",
         "   return MyInfo(",
         "      cpu=cpu,",
         "      env=env,",
@@ -332,7 +331,6 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         "      single_arch_platform=str(single_arch_platform),",
         "      single_arch_cpu=str(single_arch_cpu),",
         "      platform_type=str(platform_type),",
-        "      bitcode_mode=str(bitcode_mode),",
         "      dead_code_report=str(dead_code_report),",
         "   )",
         "swift_binary = rule(",
@@ -375,8 +373,6 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     assertThat(myInfo.getValue("single_arch_cpu")).isEqualTo("i386");
     assertThat(myInfo.getValue("platform_type")).isEqualTo("ios");
     assertThat(myInfo.getValue("dead_code_report")).isEqualTo("None");
-    // bitcode_mode is deprecated, but ensure it still correctly returns none.
-    assertThat(myInfo.getValue("bitcode_mode")).isEqualTo("none");
   }
 
   @Test
