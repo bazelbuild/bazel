@@ -269,6 +269,14 @@ _bazel__expand_package_name() {
         fi
       fi
     done
+    # The loop over the compgen -d output above does not include the top-level
+    # package.
+    if [ -f $root$current/BUILD.bazel -o -f $root$current/BUILD ]; then
+      found=1
+      if [ "${type}" != "label-package" ]; then
+        echo "${current}:"
+      fi
+    fi
     [ $found -gt 0 ] && break  # Stop searching package path upon first match.
   done
 }
