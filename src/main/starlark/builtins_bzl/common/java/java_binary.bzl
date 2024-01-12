@@ -618,4 +618,5 @@ BASE_TEST_ATTRIBUTES = {
             "@" + paths.join(cc_semantics.get_platforms_root(), "os:watchos"),
         ],
     ),
+    "_legacy_any_type_attrs": attr.string_list(default = ["stamp"]),
 }
