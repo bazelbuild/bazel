@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.AssignmentConverter;
+import com.google.devtools.common.options.Converters.BooleanConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -731,6 +732,19 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + " (s), and milliseconds (ms). If the unit is omitted, the value is interpreted as"
               + " seconds.")
   public Duration remoteFailureWindowInterval;
+
+  @Option(
+      name = "experimental_throttle_remote_action_building",
+      defaultValue = "true",
+      converter = BooleanConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Whether to throttle the building of remote action to avoid OOM. Defaults to true.\n\n"
+              + "This is a temporary flag to allow users switch off the behaviour. Once Bazel is"
+              + " smart enough about the RAM/CPU usages, this flag will be removed.")
+  public boolean throttleRemoteActionBuilding;
 
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.
