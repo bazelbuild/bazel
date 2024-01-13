@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.actions.DynamicStrategyRegistry.Dyna
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -50,6 +51,7 @@ class LocalBranch extends Branch {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private RemoteBranch remoteBranch;
+  private final ImmutableMap<String, Integer> localExecutionDelays;
   private final IgnoreFailureCheck ignoreFailureCheck;
   private final Function<Spawn, Optional<Spawn>> getExtraSpawnForLocalExecution;
   private final AtomicBoolean delayLocalExecution;
@@ -60,10 +62,12 @@ class LocalBranch extends Branch {
       Spawn spawn,
       AtomicReference<DynamicMode> strategyThatCancelled,
       DynamicExecutionOptions options,
+      ImmutableMap<String, Integer> localExecutionDelays,
       IgnoreFailureCheck ignoreFailureCheck,
       Function<Spawn, Optional<Spawn>> getExtraSpawnForLocalExecution,
       AtomicBoolean delayLocalExecution) {
     super(actionExecutionContext, spawn, strategyThatCancelled, options);
+    this.localExecutionDelays = localExecutionDelays;
     this.ignoreFailureCheck = ignoreFailureCheck;
     this.getExtraSpawnForLocalExecution = getExtraSpawnForLocalExecution;
     this.delayLocalExecution = delayLocalExecution;
@@ -167,7 +171,8 @@ class LocalBranch extends Branch {
         throw new InterruptedException();
       }
       if (delayLocalExecution.get()) {
-        Thread.sleep(options.localExecutionDelay);
+        int delay = localExecutionDelays.getOrDefault(spawn.getMnemonic(), localExecutionDelays.getOrDefault("", 1000));
+        Thread.sleep(delay);
       }
       return runLocally(
           spawn,

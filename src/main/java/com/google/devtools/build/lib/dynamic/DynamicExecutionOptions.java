@@ -102,13 +102,16 @@ public class DynamicExecutionOptions extends OptionsBase {
       name = "dynamic_local_execution_delay",
       oldName = "experimental_local_execution_delay",
       oldNameWarning = false,
+      converter = Converters.NamedIntegersConverter.class,
+      defaultValue = "null",
+      allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-      defaultValue = "1000",
       help =
-          "How many milliseconds should local execution be delayed, if remote execution was faster"
-              + " during a build at least once?")
-  public int localExecutionDelay;
+          "How many milliseconds should local execution be delayed, if remote execution was faster "
+              + "during a build at least once? Defaults to 1000ms. "
+              + "Takes --dynamic_local_execution_delay=[mnemonic=]delay[,mnemonic=delay]")
+  public List<Map.Entry<String, Integer>> localExecutionDelays;
 
   @Option(
       name = "debug_spawn_scheduler",
