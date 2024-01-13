@@ -1499,6 +1499,84 @@ EOF
   bazel build java/com/google/foo:my_starlark_rule >& "$TEST_log" || fail "Expected success"
 }
 
+function test_java_common_pack_sources() {
+  setup_skylib_support
+
+  ## Set up subproject
+  mkdir -p sub/a/src/main/resources/b
+  touch sub/{WORKSPACE,BUILD,sub_root,a/child,a/src/main/resources/b/c}
+  cat >sub/BUILD <<"EOF"
+package(default_visibility=["//visibility:public"])
+filegroup(
+  name = "srcs",
+  srcs = [
+    "sub_root",  # Just a file at the subproject root.
+    "a/child",  # Just a file in a subdirectory.
+    "a/src/main/resources/b/c",  # File under (to be removed) src/.../resources prefix.
+  ],
+)
+EOF
+
+  ## Set up main project.
+  mkdir -p foo/bar/baz foo/src/main/resources
+  touch foo/bar/baz/quux foo/src/main/resources/blah
+
+  cat >> WORKSPACE <<"EOF"
+local_repository(
+  name = "sub",
+  path = "sub",
+)
+EOF
+
+  cat >pack.bzl <<"EOF"
+def _impl(ctx):
+  out = ctx.actions.declare_file(ctx.attr.out)
+  java_common.pack_sources(
+    ctx.actions,
+    output_source_jar = out,
+    sources = ctx.files.srcs,
+    java_toolchain = ctx.toolchains["@@JAVA_TOOLCHAIN_TYPE@@"].java,
+  )
+  return DefaultInfo(files=depset([out]))
+
+pack = rule(
+  _impl,
+  attrs = {
+    "srcs": attr.label_list(allow_files = True),
+    "out": attr.string(),
+  },
+  toolchains = ["@@JAVA_TOOLCHAIN_TYPE@@"],
+)
+EOF
+  sed -i "s%@@JAVA_TOOLCHAIN_TYPE@@%${JAVA_TOOLCHAIN_TYPE}%" pack.bzl
+
+  cat >BUILD <<"EOF"
+load(":pack.bzl", "pack")
+
+filegroup(
+  name = "srcs",
+  srcs = ["foo/bar/baz/quux", "foo/src/main/resources/blah"]
+)
+
+pack(
+  name = "packed",
+  out = "packed.jar",
+  srcs = [":srcs", "@sub//:srcs"],
+)
+EOF
+
+  ## Verify that faux srcjar was created with files in the expected positions.
+  assert_build_output bazel-bin/packed.jar :packed
+  zipinfo -1 bazel-bin/packed.jar >& "$TEST_log" || fail "Expected success"
+  # Check srcs from subproject.
+  expect_log ^sub_root$
+  expect_log ^a/child$
+  expect_log ^b/c$
+  # Check srcs from main project.
+  expect_log ^foo/bar/baz/quux$
+  expect_log ^blah$
+}
+
 # This test builds a simple java deploy jar using remote singlejar and ijar
 # targets which compile them from source.
 function test_build_hello_world_with_remote_embedded_tool_targets() {

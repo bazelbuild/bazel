@@ -295,7 +295,13 @@ def _executable_providers(ctx):
 def _resource_mapper(file):
     return "%s:%s" % (
         file.path,
-        semantics.get_default_resource_path(file.short_path, segment_extractor = _java_segments),
+        semantics.get_default_resource_path(
+            paths.relativize(
+                file.path,
+                paths.normalize(paths.join(file.root.path, file.owner.workspace_root)),
+            ),
+            segment_extractor = _java_segments,
+        ),
     )
 
 def _create_single_jar(
