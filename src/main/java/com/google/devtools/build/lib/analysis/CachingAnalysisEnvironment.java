@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Target;
@@ -84,6 +85,8 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
    */
   private final List<ActionAnalysisMetadata> actions = new ArrayList<>();
 
+  private final RepositoryMapping mainRepoMapping;
+
   public CachingAnalysisEnvironment(
       ArtifactFactory artifactFactory,
       ActionKeyContext actionKeyContext,
@@ -92,7 +95,8 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
       boolean allowAnalysisFailures,
       ExtendedEventHandler errorEventListener,
       SkyFunction.Environment env,
-      StarlarkBuiltinsValue starlarkBuiltinsValue) {
+      StarlarkBuiltinsValue starlarkBuiltinsValue,
+      RepositoryMapping mainRepoMapping) {
     this.artifactFactory = artifactFactory;
     this.actionKeyContext = actionKeyContext;
     this.owner = Preconditions.checkNotNull(owner);
@@ -101,6 +105,7 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
     this.errorEventListener = errorEventListener;
     this.skyframeEnv = env;
     this.starlarkBuiltinsValue = starlarkBuiltinsValue;
+    this.mainRepoMapping = mainRepoMapping;
     middlemanFactory = new MiddlemanFactory(artifactFactory, this);
   }
 
@@ -225,6 +230,11 @@ public final class CachingAnalysisEnvironment implements AnalysisEnvironment {
   @Override
   public ActionKeyContext getActionKeyContext() {
     return actionKeyContext;
+  }
+
+  @Override
+  public RepositoryMapping getMainRepoMapping() {
+    return mainRepoMapping;
   }
 
   @Override
