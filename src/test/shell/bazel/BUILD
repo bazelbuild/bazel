@@ -634,6 +634,7 @@ sh_test(
     data = [":test-deps"],
     tags = [
         "no_windows",
+        "requires-network",  # Allow this test to access the BCR
     ],
 )
 
