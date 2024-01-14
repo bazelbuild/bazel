@@ -5047,6 +5047,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
             bzlLabel,
             RepositoryMapping.create(
                 ImmutableMap.of("my_module", currentRepo, "dep", otherRepo), currentRepo),
+            /* bestEffortMainRepoMapping= */ null,
             "lib/label.bzl",
             /* loads= */ ImmutableList.of(),
             /* bzlTransitiveDigest= */ new byte[0]);
