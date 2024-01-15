@@ -295,13 +295,17 @@ public class ExecutionTool {
         startBuildAndDetermineModifiedOutputFiles(request.getId(), outputService);
     if (outputService == null || outputService.actionFileSystemType().supportsLocalActions()) {
       // Must be created after the output path is created above.
-      createActionLogDirectory();
+      try (SilentCloseable c = Profiler.instance().profile("createActionLogDirectory")) {
+        createActionLogDirectory();
+      }
     }
 
     ActionCache actionCache = null;
     if (buildRequestOptions.useActionCache) {
-      actionCache = getOrLoadActionCache();
-      actionCache.resetStatistics();
+      try (SilentCloseable c = Profiler.instance().profile("load/reset action cache")) {
+        actionCache = getOrLoadActionCache();
+        actionCache.resetStatistics();
+      }
     }
     SkyframeBuilder skyframeBuilder;
     try (SilentCloseable c = Profiler.instance().profile("createBuilder")) {
@@ -690,7 +694,7 @@ public class ExecutionTool {
   private void createActionLogDirectory() throws AbruptExitException {
     Path directory = env.getActionTempsDirectory();
     if (directory.exists()) {
-      try {
+      try (SilentCloseable c = Profiler.instance().profile("directory.deleteTree")) {
         directory.deleteTree();
       } catch (IOException e) {
         // TODO(b/140567980): Remove when we determine the cause of occasional deleteTree() failure.
@@ -702,7 +706,7 @@ public class ExecutionTool {
       }
     }
 
-    try {
+    try (SilentCloseable c = Profiler.instance().profile("directory.createDirectoryAndParents")) {
       directory.createDirectoryAndParents();
     } catch (IOException e) {
       throw createExitException(
