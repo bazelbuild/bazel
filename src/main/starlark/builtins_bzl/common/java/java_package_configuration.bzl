@@ -54,13 +54,62 @@ def _rule_impl(ctx):
 
 java_package_configuration = rule(
     implementation = _rule_impl,
+    doc = """
+<p>
+Configuration to apply to a set of packages.
+Configurations can be added to
+<code><a href="${link java_toolchain.javacopts}">java_toolchain.javacopts</a></code>s.
+</p>
+
+<h4 id="java_package_configuration_example">Example:</h4>
+
+<pre class="code">
+<code class="lang-starlark">
+
+java_package_configuration(
+    name = "my_configuration",
+    packages = [":my_packages"],
+    javacopts = ["-Werror"],
+)
+
+package_group(
+    name = "my_packages",
+    packages = [
+        "//com/my/project/...",
+        "-//com/my/project/testing/...",
+    ],
+)
+
+java_toolchain(
+    ...,
+    package_configuration = [
+        ":my_configuration",
+    ]
+)
+
+</code>
+</pre>
+    """,
     attrs = {
         "packages": attr.label_list(
             cfg = "exec",
             providers = [PackageSpecificationInfo],
+            doc = """
+The set of <code><a href="${link package_group}">package_group</a></code>s
+the configuration should be applied to.
+            """,
         ),
-        "javacopts": attr.string_list(),
-        "data": attr.label_list(allow_files = True),
+        "javacopts": attr.string_list(
+            doc = """
+Java compiler flags.
+            """,
+        ),
+        "data": attr.label_list(
+            allow_files = True,
+            doc = """
+The list of files needed by this configuration at runtime.
+            """,
+        ),
         "output_licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
     },
 )
