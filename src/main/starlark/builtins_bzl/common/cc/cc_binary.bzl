@@ -14,7 +14,7 @@
 
 """cc_binary Starlark implementation replacing native"""
 
-load(":common/cc/cc_binary_attrs.bzl", "cc_binary_attrs")
+load(":common/cc/attrs.bzl", "cc_binary_attrs")
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper", "linker_mode")
 load(":common/cc/cc_info.bzl", "CcInfo")
@@ -917,6 +917,26 @@ def _impl(ctx):
 cc_binary = rule(
     implementation = _impl,
     initializer = cc_shared_library_initializer,
+    doc = """
+<p>It produces an executable binary.</p>
+
+<br/>The <code>name</code> of the target should be the same as the name of the
+source file that is the main entry point of the application (minus the extension).
+For example, if your entry point is in <code>main.cc</code>, then your name should
+be <code>main</code>.
+
+<h4>Implicit output targets</h4>
+<ul>
+<li><code><var>name</var>.stripped</code> (only built if explicitly requested): A stripped
+  version of the binary. <code>strip -g</code> is run on the binary to remove debug
+  symbols.  Additional strip options can be provided on the command line using
+  <code>--stripopt=-foo</code>.</li>
+<li><code><var>name</var>.dwp</code> (only built if explicitly requested): If
+  <a href="https://gcc.gnu.org/wiki/DebugFission">Fission</a> is enabled: a debug
+  information package file suitable for debugging remotely deployed binaries. Else: an
+  empty file.</li>
+</ul>
+""" + semantics.cc_binary_extra_docs,
     attrs = cc_binary_attrs,
     outputs = {
         "stripped_binary": "%{name}.stripped",

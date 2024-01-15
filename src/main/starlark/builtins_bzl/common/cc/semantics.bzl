@@ -166,4 +166,17 @@ semantics = struct(
     BUILD_INFO_TRANLATOR_LABEL = "@bazel_tools//tools/build_defs/build_info:cc_build_info",
     CC_PROTO_TOOLCHAIN = "@rules_cc//cc/proto:toolchain_type",
     is_bazel = True,
+    stamp_extra_docs = "",
+    malloc_docs = """
+ Override the default dependency on malloc.
+ <p>
+   By default, C++ binaries are linked against <code>//tools/cpp:malloc</code>,
+   which is an empty library so the binary ends up using libc malloc.
+   This label must refer to a <code>cc_library</code>. If compilation is for a non-C++
+   rule, this option has no effect. The value of this attribute is ignored if
+   <code>linkshared=True</code> is specified.
+ </p>
+""",
+    cc_binary_extra_docs = "",
+    cc_test_extra_docs = "",
 )

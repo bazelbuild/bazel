@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -97,7 +98,9 @@ public interface RuleDefinition {
       public abstract Builder type(RuleClassType type);
       public abstract Builder factoryClass(Class<? extends RuleConfiguredTargetFactory> factory);
       public abstract Builder ancestors(List<Class<? extends RuleDefinition>> ancestors);
+
       @SafeVarargs
+      @CanIgnoreReturnValue
       public final Builder ancestors(Class<? extends RuleDefinition>... ancstrs) {
         return ancestors(Arrays.asList(ancstrs));
       }

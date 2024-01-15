@@ -16,6 +16,7 @@
 # Build Encyclopedia entry point for C / C++ rules implemented in Starlark in Blaze's @_builtins
 
 binary_rules = struct(
+    cc_binary = native.cc_binary,
 )
 
 library_rules = struct(
@@ -23,6 +24,7 @@ library_rules = struct(
 )
 
 test_rules = struct(
+    cc_test = native.cc_test,
 )
 
 other_rules = struct(

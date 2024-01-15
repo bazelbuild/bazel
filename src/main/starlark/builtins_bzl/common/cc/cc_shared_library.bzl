@@ -875,6 +875,16 @@ dynamic_deps_attrs = {
     "dynamic_deps": attr.label_list(
         allow_files = False,
         providers = [CcSharedLibraryInfo],
+        doc = """
+These are other <code>cc_shared_library</code> dependencies the current target depends on.
+
+<p>
+The <code>cc_shared_library</code> implementation will use the list of
+<code>dynamic_deps</code> (transitively, i.e. also the <code>dynamic_deps</code> of the
+current target's <code>dynamic_deps</code>) to decide which <code>cc_libraries</code> in
+the transitive <code>deps</code> should not be linked in because they are already provided
+by a different <code>cc_shared_library</code>.
+        """,
     ),
     "_deps_analyzed_by_graph_structure_aspect": attr.label_list(
         providers = [CcInfo],

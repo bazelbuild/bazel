@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
@@ -556,12 +557,17 @@ public class BaseRuleClasses {
 
     @Override
     public Metadata getMetadata() {
-      return Metadata.builder()
-          .name(name)
-          .type(RuleClassType.NORMAL)
-          .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
-          .factoryClass(EmptyRuleConfiguredTargetFactory.class)
-          .build();
+      Metadata.Builder metadata =
+          Metadata.builder()
+              .name(name)
+              .type(TargetUtils.isTestRuleName(name) ? RuleClassType.TEST : RuleClassType.NORMAL)
+              .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
+              .factoryClass(EmptyRuleConfiguredTargetFactory.class);
+      if (TargetUtils.isTestRuleName(name)) {
+        metadata.ancestors(
+            BaseRuleClasses.TestBaseRule.class, BaseRuleClasses.NativeActionCreatingRule.class);
+      }
+      return metadata.build();
     }
   }
 
