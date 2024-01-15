@@ -253,52 +253,326 @@ def _java_toolchain_initializer(**kwargs):
 java_toolchain = rule(
     implementation = _java_toolchain_impl,
     initializer = _java_toolchain_initializer,
+    doc = """
+<p>
+Specifies the configuration for the Java compiler. Which toolchain to be used can be changed through
+the --java_toolchain argument. Normally you should not write those kind of rules unless you want to
+tune your Java compiler.
+</p>
+
+<h4>Examples</h4>
+
+<p>A simple example would be:
+</p>
+
+<pre class="code">
+<code class="lang-starlark">
+
+java_toolchain(
+    name = "toolchain",
+    source_version = "7",
+    target_version = "7",
+    bootclasspath = ["//tools/jdk:bootclasspath"],
+    xlint = [ "classfile", "divzero", "empty", "options", "path" ],
+    javacopts = [ "-g" ],
+    javabuilder = ":JavaBuilder_deploy.jar",
+)
+</code>
+</pre>
+    """,
     attrs = {
-        "android_lint_data": attr.label_list(cfg = "exec", allow_files = True),
-        "android_lint_opts": attr.string_list(default = []),
-        "android_lint_jvm_opts": attr.string_list(default = []),
-        "android_lint_package_configuration": attr.label_list(cfg = "exec", providers = [JavaPackageConfigurationInfo], allow_files = True),
-        "android_lint_runner": attr.label(cfg = "exec", executable = True, allow_single_file = True),
-        "bootclasspath": attr.label_list(default = [], allow_files = True),
-        "compatible_javacopts": attr.string_list_dict(),
-        "deps_checker": attr.label(allow_single_file = True, cfg = "exec", executable = True),
-        "forcibly_disable_header_compilation": attr.bool(default = False),
-        "genclass": attr.label(allow_single_file = True, cfg = "exec", executable = True),
-        "header_compiler": attr.label(allow_single_file = True, cfg = "exec", executable = True),
-        "header_compiler_direct": attr.label(allow_single_file = True, cfg = "exec", executable = True),
-        "header_compiler_builtin_processors": attr.string_list(),
-        "ijar": attr.label(cfg = "exec", allow_files = True, executable = True),
-        "jacocorunner": attr.label(cfg = "exec", allow_single_file = True, executable = True),
-        "javabuilder": attr.label(cfg = "exec", allow_single_file = True, executable = True),
-        "javabuilder_data": attr.label_list(cfg = "exec", allow_files = True),
-        "javabuilder_jvm_opts": attr.string_list(),
-        "java_runtime": attr.label(cfg = "exec", providers = [JavaRuntimeInfo]),
-        "javac_supports_workers": attr.bool(default = True),
-        "javac_supports_multiplex_workers": attr.bool(default = True),
-        "javac_supports_worker_cancellation": attr.bool(default = True),
-        "javacopts": attr.string_list(default = []),
-        "jspecify_implicit_deps": attr.label(cfg = "exec", allow_single_file = True, executable = True),
-        "jspecify_javacopts": attr.string_list(),
-        "jspecify_packages": attr.label_list(cfg = "exec", allow_files = True, providers = [PackageSpecificationInfo]),
-        "jspecify_processor": attr.label(cfg = "exec", allow_single_file = True, executable = True),
-        "jspecify_processor_class": attr.string(),
-        "jspecify_stubs": attr.label_list(cfg = "exec", allow_files = True),
-        "jvm_opts": attr.string_list(default = []),
-        "misc": attr.string_list(default = []),
-        "oneversion": attr.label(cfg = "exec", allow_files = True, executable = True),
-        "oneversion_whitelist": attr.label(allow_single_file = True),
-        "oneversion_allowlist_for_tests": attr.label(allow_single_file = True),
-        "package_configuration": attr.label_list(cfg = "exec", providers = [JavaPackageConfigurationInfo]),
-        "proguard_allowlister": attr.label(cfg = "exec", executable = True, allow_files = True, default = semantics.PROGUARD_ALLOWLISTER_LABEL),
-        "reduced_classpath_incompatible_processors": attr.string_list(),
-        "singlejar": attr.label(cfg = "exec", allow_files = True, executable = True),
-        "source_version": attr.string(),
-        "target_version": attr.string(),
-        "timezone_data": attr.label(cfg = "exec", allow_single_file = True),
-        "tools": attr.label_list(cfg = "exec", allow_files = True),
-        "turbine_data": attr.label_list(cfg = "exec", allow_files = True),
-        "turbine_jvm_opts": attr.string_list(),
-        "xlint": attr.string_list(default = []),
+        "android_lint_data": attr.label_list(
+            cfg = "exec",
+            allow_files = True,
+            doc = """
+Labels of tools available for label-expansion in android_lint_jvm_opts.
+            """,
+        ),
+        "android_lint_opts": attr.string_list(
+            default = [],
+            doc = """
+The list of Android Lint arguments.
+            """,
+        ),
+        "android_lint_jvm_opts": attr.string_list(
+            default = [],
+            doc = """
+The list of arguments for the JVM when invoking Android Lint.
+            """,
+        ),
+        "android_lint_package_configuration": attr.label_list(
+            cfg = "exec",
+            providers = [JavaPackageConfigurationInfo],
+            allow_files = True,
+            doc = """
+Android Lint Configuration that should be applied to the specified package groups.
+            """,
+        ),
+        "android_lint_runner": attr.label(
+            cfg = "exec",
+            executable = True,
+            allow_single_file = True,
+            doc = """
+Label of the Android Lint runner, if any.
+            """,
+        ),
+        "bootclasspath": attr.label_list(
+            default = [],
+            allow_files = True,
+            doc = """
+The Java target bootclasspath entries. Corresponds to javac's -bootclasspath flag.
+            """,
+        ),
+        "compatible_javacopts": attr.string_list_dict(
+            doc = """Internal API, do not use!""",
+        ),
+        "deps_checker": attr.label(
+            allow_single_file = True,
+            cfg = "exec",
+            executable = True,
+            doc = """
+Label of the ImportDepsChecker deploy jar.
+            """,
+        ),
+        "forcibly_disable_header_compilation": attr.bool(
+            default = False,
+            doc = """
+Overrides --java_header_compilation to disable header compilation on platforms that do not
+support it, e.g. JDK 7 Bazel.
+            """,
+        ),
+        "genclass": attr.label(
+            allow_single_file = True,
+            cfg = "exec",
+            executable = True,
+            doc = """
+Label of the GenClass deploy jar.
+            """,
+        ),
+        "header_compiler": attr.label(
+            allow_single_file = True,
+            cfg = "exec",
+            executable = True,
+            doc = """
+Label of the header compiler. Required if --java_header_compilation is enabled.
+            """,
+        ),
+        "header_compiler_direct": attr.label(
+            allow_single_file = True,
+            cfg = "exec",
+            executable = True,
+            doc = """
+Optional label of the header compiler to use for direct classpath actions that do not
+include any API-generating annotation processors.
+
+<p>This tool does not support annotation processing.
+            """,
+        ),
+        "header_compiler_builtin_processors": attr.string_list(
+            doc = """Internal API, do not use!""",
+        ),
+        "ijar": attr.label(
+            cfg = "exec",
+            allow_files = True,
+            executable = True,
+            doc = """
+Label of the ijar executable.
+            """,
+        ),
+        "jacocorunner": attr.label(
+            cfg = "exec",
+            allow_single_file = True,
+            executable = True,
+            doc = """
+Label of the JacocoCoverageRunner deploy jar.
+            """,
+        ),
+        "javabuilder": attr.label(
+            cfg = "exec",
+            allow_single_file = True,
+            executable = True,
+            doc = """
+Label of the JavaBuilder deploy jar.
+            """,
+        ),
+        "javabuilder_data": attr.label_list(
+            cfg = "exec",
+            allow_files = True,
+            doc = """
+Labels of data available for label-expansion in javabuilder_jvm_opts.
+            """,
+        ),
+        "javabuilder_jvm_opts": attr.string_list(
+            doc = """
+The list of arguments for the JVM when invoking JavaBuilder.
+            """,
+        ),
+        "java_runtime": attr.label(
+            cfg = "exec",
+            providers = [JavaRuntimeInfo],
+            doc = """
+The java_runtime to use with this toolchain. It defaults to java_runtime
+in execution configuration.
+            """,
+        ),
+        "javac_supports_workers": attr.bool(
+            default = True,
+            doc = """
+True if JavaBuilder supports running as a persistent worker, false if it doesn't.
+            """,
+        ),
+        "javac_supports_multiplex_workers": attr.bool(
+            default = True,
+            doc = """
+True if JavaBuilder supports running as a multiplex persistent worker, false if it doesn't.
+            """,
+        ),
+        "javac_supports_worker_cancellation": attr.bool(
+            default = True,
+            doc = """
+True if JavaBuilder supports cancellation of persistent workers, false if it doesn't.
+            """,
+        ),
+        "javacopts": attr.string_list(
+            default = [],
+            doc = """
+The list of extra arguments for the Java compiler. Please refer to the Java compiler
+documentation for the extensive list of possible Java compiler flags.
+            """,
+        ),
+        "jspecify_implicit_deps": attr.label(
+            cfg = "exec",
+            allow_single_file = True,
+            executable = True,
+            doc = """Experimental, do not use!""",
+        ),
+        "jspecify_javacopts": attr.string_list(
+            doc = """Experimental, do not use!""",
+        ),
+        "jspecify_packages": attr.label_list(
+            cfg = "exec",
+            allow_files = True,
+            providers = [PackageSpecificationInfo],
+            doc = """Experimental, do not use!""",
+        ),
+        "jspecify_processor": attr.label(
+            cfg = "exec",
+            allow_single_file = True,
+            executable = True,
+            doc = """Experimental, do not use!""",
+        ),
+        "jspecify_processor_class": attr.string(
+            doc = """Experimental, do not use!""",
+        ),
+        "jspecify_stubs": attr.label_list(
+            cfg = "exec",
+            allow_files = True,
+            doc = """Experimental, do not use!""",
+        ),
+        "jvm_opts": attr.string_list(
+            default = [],
+            doc = """
+The list of arguments for the JVM when invoking the Java compiler. Please refer to the Java
+virtual machine documentation for the extensive list of possible flags for this option.
+            """,
+        ),
+        "misc": attr.string_list(
+            default = [],
+            doc = """Deprecated: use javacopts instead""",
+        ),
+        "oneversion": attr.label(
+            cfg = "exec",
+            allow_files = True,
+            executable = True,
+            doc = """
+Label of the one-version enforcement binary.
+            """,
+        ),
+        "oneversion_whitelist": attr.label(
+            allow_single_file = True,
+            doc = """
+Label of the one-version allowlist.
+            """,
+        ),
+        "oneversion_allowlist_for_tests": attr.label(
+            allow_single_file = True,
+            doc = """
+Label of the one-version allowlist for tests.
+            """,
+        ),
+        "package_configuration": attr.label_list(
+            cfg = "exec",
+            providers = [JavaPackageConfigurationInfo],
+            doc = """
+Configuration that should be applied to the specified package groups.
+            """,
+        ),
+        "proguard_allowlister": attr.label(
+            cfg = "exec",
+            executable = True,
+            allow_files = True,
+            default = semantics.PROGUARD_ALLOWLISTER_LABEL,
+            doc = """
+Label of the Proguard allowlister.
+            """,
+        ),
+        "reduced_classpath_incompatible_processors": attr.string_list(
+            doc = """Internal API, do not use!""",
+        ),
+        "singlejar": attr.label(
+            cfg = "exec",
+            allow_files = True,
+            executable = True,
+            doc = """
+Label of the SingleJar deploy jar.
+            """,
+        ),
+        "source_version": attr.string(
+            doc = """
+The Java source version (e.g., '6' or '7'). It specifies which set of code structures
+are allowed in the Java source code.
+            """,
+        ),
+        "target_version": attr.string(
+            doc = """
+The Java target version (e.g., '6' or '7'). It specifies for which Java runtime the class
+should be build.
+            """,
+        ),
+        "timezone_data": attr.label(
+            cfg = "exec",
+            allow_single_file = True,
+            doc = """
+Label of a resource jar containing timezone data. If set, the timezone data is added as an
+implicitly runtime dependency of all java_binary rules.
+            """,
+        ),
+        "tools": attr.label_list(
+            cfg = "exec",
+            allow_files = True,
+            doc = """
+Labels of tools available for label-expansion in jvm_opts.
+            """,
+        ),
+        "turbine_data": attr.label_list(
+            cfg = "exec",
+            allow_files = True,
+            doc = """
+Labels of data available for label-expansion in turbine_jvm_opts.
+            """,
+        ),
+        "turbine_jvm_opts": attr.string_list(
+            doc = """
+The list of arguments for the JVM when invoking turbine.
+            """,
+        ),
+        "xlint": attr.string_list(
+            default = [],
+            doc = """
+The list of warning to add or removes from default list. Precedes it with a dash to
+removes it. Please see the Javac documentation on the -Xlint options for more information.
+            """,
+        ),
         "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
         "_bytecode_optimizer": attr.label(
             cfg = "exec",
