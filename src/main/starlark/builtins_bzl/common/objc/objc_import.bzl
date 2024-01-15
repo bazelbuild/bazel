@@ -81,6 +81,7 @@ objc_import = rule(
     attrs = common_attrs.union(
         {
             "archives": attr.label_list(allow_empty = False, mandatory = True, allow_files = [".a"]),
+            "data": attr.label_list(allow_files = True),
         },
         common_attrs.ALWAYSLINK_RULE,
         common_attrs.CC_TOOLCHAIN_RULE,
