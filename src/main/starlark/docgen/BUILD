@@ -18,3 +18,8 @@ starlark_doc_extract(
     name = "gen_be_cpp_stardoc_proto",
     src = "cpp.bzl",
 )
+
+starlark_doc_extract(
+    name = "gen_be_python_stardoc_proto",
+    src = "python.bzl",
+)

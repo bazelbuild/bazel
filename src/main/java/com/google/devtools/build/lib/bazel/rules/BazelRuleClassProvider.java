@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses.EmptyRule;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
@@ -53,7 +54,6 @@ import com.google.devtools.build.lib.bazel.rules.android.BazelSdkToolchainRule;
 import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaProtoLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBuiltins;
-import com.google.devtools.build.lib.bazel.rules.python.BazelPyLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyTestRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
@@ -452,7 +452,7 @@ public class BazelRuleClassProvider {
 
           builder.addRuleDefinition(new BazelPyRuleClasses.PyBaseRule());
           builder.addRuleDefinition(new BazelPyRuleClasses.PyBinaryBaseRule());
-          builder.addRuleDefinition(new BazelPyLibraryRule());
+          builder.addRuleDefinition(new EmptyRule("py_library"));
           builder.addRuleDefinition(new BazelPyBinaryRule());
           builder.addRuleDefinition(new BazelPyTestRule());
           builder.addRuleDefinition(new PyRuntimeRule());
