@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -250,9 +251,9 @@ public final class CppLinkActionTest extends BuildViewTestCase {
     scratch.file("x/some-other-dir/qux.so");
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//x:foo");
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/foo");
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(configuredTarget, "x/foo");
 
-    List<String> arguments = linkAction.getLinkCommandLineForTesting().arguments();
+    List<String> arguments = linkAction.getArguments();
 
     assertThat(Joiner.on(" ").join(arguments))
         .matches(
@@ -1049,9 +1050,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
               .addObjectFile(objectFile);
 
       CppLinkAction linkAction = builder.build();
-      assertThat(
-              ImmutableList.copyOf(
-                  linkAction.getLinkCommandLineForTesting().getParamCommandLine(expander)))
+      assertThat(linkAction.getLinkCommandLineForTesting().getParamCommandLine(expander))
           .containsAtLeast(
               library0.getExecPathString(),
               library1.getExecPathString(),
@@ -1065,7 +1064,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
   public void testPieOptionDisabledForSharedLibraries() throws Exception {
     RuleContext ruleContext = createDummyRuleContext();
 
-    CppLinkAction linkAction =
+    SpawnAction linkAction =
         createLinkBuilder(
                 ruleContext,
                 LinkTargetType.DYNAMIC_LIBRARY,
@@ -1078,7 +1077,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
             .setLibraryIdentifier("foo")
             .build();
 
-    List<String> argv = linkAction.getLinkCommandLineForTesting().arguments();
+    List<String> argv = linkAction.getArguments();
     assertThat(argv).doesNotContain("-pie");
     assertThat(argv).contains("-other");
   }
@@ -1088,7 +1087,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
   public void testPieOptionKeptForExecutables() throws Exception {
     RuleContext ruleContext = createDummyRuleContext();
 
-    CppLinkAction linkAction =
+    SpawnAction linkAction =
         createLinkBuilder(
                 ruleContext,
                 LinkTargetType.EXECUTABLE,
@@ -1100,7 +1099,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
             .addLinkopts(ImmutableList.of("-pie", "-other", "-pie"))
             .build();
 
-    List<String> argv = linkAction.getLinkCommandLineForTesting().arguments();
+    List<String> argv = linkAction.getArguments();
     assertThat(argv).contains("-pie");
     assertThat(argv).contains("-other");
   }
@@ -1119,7 +1118,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
                 getOutputArtifact(solibPrefix + "/FakeLinkerInput3.so"),
                 getOutputArtifact(solibPrefix + "/FakeLinkerInput4.so")));
 
-    CppLinkAction linkAction =
+    SpawnAction linkAction =
         createLinkBuilder(
                 ruleContext,
                 LinkTargetType.EXECUTABLE,
@@ -1130,7 +1129,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
             .addLinkopts(ImmutableList.of("FakeLinkopt1", "FakeLinkopt2"))
             .build();
 
-    List<String> argv = linkAction.getLinkCommandLineForTesting().arguments();
+    List<String> argv = linkAction.getArguments();
     int lastLinkerInputIndex =
         Ints.max(
             argv.indexOf("FakeLinkerInput1"), argv.indexOf("FakeLinkerInput2"),
