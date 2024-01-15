@@ -204,7 +204,7 @@ public class CcCommonTest extends BuildViewTestCase {
 
     Artifact executable = getExecutable(archiveInSrcsTest);
     CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(executable);
-    assertThat(linkAction.getLinkCommandLineForTesting().toString()).contains(" -larchive.34 ");
+    assertThat(linkAction.getLinkCommandLineForTesting().arguments()).contains("-larchive.34");
   }
 
   @Test

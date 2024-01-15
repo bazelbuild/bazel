@@ -25,7 +25,6 @@ import com.google.common.collect.ObjectArrays;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
-import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -1629,52 +1628,6 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     assertThat(actions).hasSize(1);
     assertThat(actions.get(0).getProgressMessage())
         .matches("Stamping target label into jar .*/lib_custom_rule_name.jar");
-    assertThat(actions.get(0).getOwner().getExecutionPlatform().label())
-        .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
-  }
-
-  @Test
-  public void ccCommonLink_fileWriteActionExecutesOnFirstPlatform() throws Exception {
-    scratch.file(
-        "test/defs.bzl",
-        "def _use_cpp_toolchain():",
-        "   return [",
-        "      config_common.toolchain_type('"
-            + TestConstants.CPP_TOOLCHAIN_TYPE
-            + "', mandatory = True),",
-        "   ]",
-        "def _impl(ctx):",
-        "  cc_toolchain = ctx.toolchains['" + TestConstants.CPP_TOOLCHAIN_TYPE + "'].cc",
-        "  feature_configuration = cc_common.configure_features(",
-        "      ctx = ctx,",
-        "      cc_toolchain = cc_toolchain,",
-        "      requested_features = ctx.features,",
-        "     unsupported_features = ctx.disabled_features,",
-        "  )",
-        "  linking_outputs = cc_common.link(",
-        "    name = ctx.label.name,",
-        "    actions = ctx.actions,",
-        "    feature_configuration = feature_configuration,",
-        "    cc_toolchain = cc_toolchain,",
-        "  )",
-        "  return []",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        "  toolchains = ['//rule:toolchain_type_2'] + _use_cpp_toolchain(),",
-        "  fragments = ['cpp']",
-        ")");
-    scratch.file(
-        "test/BUILD",
-        "load('//test:defs.bzl', 'custom_rule')",
-        "custom_rule(name = 'custom_rule_name')");
-    useConfiguration(
-        "--incompatible_auto_exec_groups",
-        "--toolchain_resolution_debug='//tools/cpp:toolchain_type'");
-
-    ImmutableList<Action> actions =
-        getActions("//test:custom_rule_name", ParameterFileWriteAction.class);
-
-    assertThat(actions).hasSize(1);
     assertThat(actions.get(0).getOwner().getExecutionPlatform().label())
         .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
   }

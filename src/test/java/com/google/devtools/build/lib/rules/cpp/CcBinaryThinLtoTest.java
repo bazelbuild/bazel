@@ -186,7 +186,6 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
         .containsAtLeast(
             "bin pkg/bin.lto/" + rootExecPath + "/pkg/_objs/bin/binfile.pic.o",
             "bin pkg/bin.lto/" + rootExecPath + "/pkg/_objs/lib/libfile.pic.o",
-            "bin pkg/bin-2.params",
             "bin pkg/bin-lto-final.params");
 
     LtoBackendAction backendAction =
@@ -320,7 +319,6 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
         .containsAtLeast(
             "bin pkg/bin.lto/" + rootExecPath + "/pkg/_objs/bin/binfile.pic.o",
             "bin _solib_k8/libpkg_Sliblib.ifso",
-            "bin pkg/bin-2.params",
             "bin pkg/bin-lto-final.params");
 
     SolibSymlinkAction solibSymlinkAction =
