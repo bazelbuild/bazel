@@ -3487,7 +3487,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   @Test
   public void testPackSourcesWithExternalResourceArtifact() throws Exception {
-    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/custom_rule.bzl",
         "def _impl(ctx):",
