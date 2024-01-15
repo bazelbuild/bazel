@@ -59,6 +59,7 @@ public class GitRepoSpecBuilder {
         .setBzlFile(GIT_REPO_PATH)
         .setRuleClassName("git_repository")
         .setAttributes(AttributeValues.create(attrBuilder.buildOrThrow()))
+        // TODO(nachum): add more fields.
         .build();
   }
 }
