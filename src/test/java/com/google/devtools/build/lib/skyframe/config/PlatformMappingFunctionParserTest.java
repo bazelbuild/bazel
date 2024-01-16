@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.RepoContext;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import org.junit.Test;
@@ -242,9 +241,9 @@ public class PlatformMappingFunctionParserTest {
 
   @Test
   public void testParseExtraPlatformInFlags() throws Exception {
-    PlatformMappingFunction.PlatformMappingException exception =
+    PlatformMappingParsingException exception =
         assertThrows(
-            PlatformMappingFunction.PlatformMappingException.class,
+            PlatformMappingParsingException.class,
             () ->
                 parse(
                     "flags:", // Force line break
@@ -258,9 +257,9 @@ public class PlatformMappingFunctionParserTest {
 
   @Test
   public void testParsePlatformWithoutFlags() throws Exception {
-    PlatformMappingFunction.PlatformMappingException exception =
+    PlatformMappingParsingException exception =
         assertThrows(
-            PlatformMappingFunction.PlatformMappingException.class,
+            PlatformMappingParsingException.class,
             () ->
                 parse(
                     "platforms:", // Force line break
@@ -272,9 +271,9 @@ public class PlatformMappingFunctionParserTest {
 
   @Test
   public void testParseFlagsWithoutPlatform() throws Exception {
-    PlatformMappingFunction.PlatformMappingException exception =
+    PlatformMappingParsingException exception =
         assertThrows(
-            PlatformMappingFunction.PlatformMappingException.class,
+            PlatformMappingParsingException.class,
             () ->
                 parse(
                     "flags:", // Force line break
@@ -299,9 +298,9 @@ public class PlatformMappingFunctionParserTest {
 
   @Test
   public void testParseUnknownSection() throws Exception {
-    PlatformMappingFunction.PlatformMappingException exception =
+    PlatformMappingParsingException exception =
         assertThrows(
-            PlatformMappingFunction.PlatformMappingException.class,
+            PlatformMappingParsingException.class,
             () ->
                 parse(
                     "platform:", // Force line break
@@ -311,25 +310,26 @@ public class PlatformMappingFunctionParserTest {
 
     assertThat(exception).hasMessageThat().contains("platform:");
 
-    assertThrows(
-        PlatformMappingFunction.PlatformMappingException.class,
-        () ->
-            parse(
-                "platforms:",
-                "  //platforms:one",
-                "    --cpu=one",
-                "flag:",
-                "  --cpu=one",
-                "    //platforms:one"));
+    exception =
+        assertThrows(
+            PlatformMappingParsingException.class,
+            () ->
+                parse(
+                    "platforms:",
+                    "  //platforms:one",
+                    "    --cpu=one",
+                    "flag:",
+                    "  --cpu=one",
+                    "    //platforms:one"));
 
     assertThat(exception).hasMessageThat().contains("platform");
   }
 
   @Test
   public void testParsePlatformsInvalidPlatformLabel() throws Exception {
-    PlatformMappingFunction.PlatformMappingException exception =
+    PlatformMappingParsingException exception =
         assertThrows(
-            PlatformMappingFunction.PlatformMappingException.class,
+            PlatformMappingParsingException.class,
             () ->
                 parse(
                     "platforms:", // Force line break
@@ -337,14 +337,13 @@ public class PlatformMappingFunctionParserTest {
                     "    --cpu=one"));
 
     assertThat(exception).hasMessageThat().contains("@@@");
-    assertThat(exception).hasCauseThat().hasCauseThat().isInstanceOf(LabelSyntaxException.class);
   }
 
   @Test
   public void testParseFlagsInvalidPlatformLabel() throws Exception {
-    PlatformMappingFunction.PlatformMappingException exception =
+    PlatformMappingParsingException exception =
         assertThrows(
-            PlatformMappingFunction.PlatformMappingException.class,
+            PlatformMappingParsingException.class,
             () ->
                 parse(
                     "flags:", // Force line break
@@ -352,14 +351,13 @@ public class PlatformMappingFunctionParserTest {
                     "    @@@"));
 
     assertThat(exception).hasMessageThat().contains("@@@");
-    assertThat(exception).hasCauseThat().hasCauseThat().isInstanceOf(LabelSyntaxException.class);
   }
 
   @Test
   public void testParsePlatformsInvalidFlag() throws Exception {
-    PlatformMappingFunction.PlatformMappingException exception =
+    PlatformMappingParsingException exception =
         assertThrows(
-            PlatformMappingFunction.PlatformMappingException.class,
+            PlatformMappingParsingException.class,
             () ->
                 parse(
                     "platforms:", // Force line break
@@ -371,13 +369,13 @@ public class PlatformMappingFunctionParserTest {
 
   @Test
   public void testParseFlagsInvalidFlag() throws Exception {
-    PlatformMappingFunction.PlatformMappingException exception =
+    PlatformMappingParsingException exception =
         assertThrows(
-            PlatformMappingFunction.PlatformMappingException.class,
+            PlatformMappingParsingException.class,
             () ->
                 parse(
                     "flags:", // Force line break
-                    "  -cpu=one", // Force line break
+                    "  -cpu=one", // Force line breakPlatformMappingFunction
                     "    //platforms:one"));
 
     assertThat(exception).hasMessageThat().contains("-cpu");
@@ -385,9 +383,9 @@ public class PlatformMappingFunctionParserTest {
 
   @Test
   public void testParsePlatformsDuplicatePlatform() throws Exception {
-    PlatformMappingFunction.PlatformMappingException exception =
+    PlatformMappingParsingException exception =
         assertThrows(
-            PlatformMappingFunction.PlatformMappingException.class,
+            PlatformMappingParsingException.class,
             () ->
                 parse(
                     "platforms:", // Force line break
@@ -397,45 +395,33 @@ public class PlatformMappingFunctionParserTest {
                     "    --cpu=two"));
 
     assertThat(exception).hasMessageThat().contains("duplicate");
-    assertThat(exception)
-        .hasCauseThat()
-        .hasCauseThat()
-        .hasMessageThat()
-        .contains("//platforms:one");
   }
 
   @Test
   public void testParseFlagsDuplicateFlags() throws Exception {
-    PlatformMappingFunction.PlatformMappingException exception =
+    PlatformMappingParsingException exception =
         assertThrows(
-            PlatformMappingFunction.PlatformMappingException.class,
+            PlatformMappingParsingException.class,
             () ->
                 parse(
                     "flags:", // Force line break
                     "  --compilation_mode=dbg", // Force line break
-                    "  --cpu=one", // Force line break
+                    "  --cpu=one", // Force line break:242
                     "    //platforms:one", // Force line break
                     "  --compilation_mode=dbg", // Force line break
                     "  --cpu=one", // Force line break
                     "    //platforms:two"));
 
     assertThat(exception).hasMessageThat().contains("duplicate");
-    assertThat(exception).hasCauseThat().hasCauseThat().hasMessageThat().contains("--cpu=one");
-    assertThat(exception)
-        .hasCauseThat()
-        .hasCauseThat()
-        .hasMessageThat()
-        .contains("--compilation_mode=dbg");
   }
 
   private static PlatformMappingFunction.Mappings parse(String... lines)
-      throws PlatformMappingFunction.PlatformMappingException {
+      throws PlatformMappingParsingException {
     return parse(RepositoryMapping.ALWAYS_FALLBACK, lines);
   }
 
   private static PlatformMappingFunction.Mappings parse(
-      RepositoryMapping mainRepoMapping, String... lines)
-      throws PlatformMappingFunction.PlatformMappingException {
+      RepositoryMapping mainRepoMapping, String... lines) throws PlatformMappingParsingException {
     return PlatformMappingFunction.parse(
         /* env= */ null,
         ImmutableList.copyOf(lines),
