@@ -125,8 +125,8 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     boolean cancel();
   }
 
-  /** Max. number of command line args added as a profiler description. */
-  private static final int MAX_PROFILE_ARGS_LEN = 80;
+  /** Max. length of command line args added as a profiler description. */
+  private static final int MAX_PROFILE_ARGS_LEN = 512;
 
   protected final Path workingDirectory;
   protected final Environment env;
