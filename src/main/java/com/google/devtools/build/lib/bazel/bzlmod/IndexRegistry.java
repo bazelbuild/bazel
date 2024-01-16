@@ -159,8 +159,6 @@ public class IndexRegistry implements Registry {
     List<String> patchCmdsWin;
     String buildFile;
     String buildFileContent;
-    String workspaceFile;
-    String workspaceFileContent;
   }
 
   /**
@@ -375,8 +373,6 @@ public class IndexRegistry implements Registry {
         .setPatchCmdsWin(sourceJson.patchCmdsWin)
         .setBuildFile(sourceJson.buildFile)
         .setBuildFileContent(sourceJson.buildFileContent)
-        .setWorkspaceFile(sourceJson.workspaceFile)
-        .setWorkspaceFileContent(sourceJson.workspaceFileContent)
         .build();
   }
 

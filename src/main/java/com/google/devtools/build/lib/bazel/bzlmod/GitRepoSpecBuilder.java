@@ -120,16 +120,6 @@ public class GitRepoSpecBuilder {
     return setAttr("build_file_content", buildFileContent);
   }
 
-  @CanIgnoreReturnValue
-  public GitRepoSpecBuilder setWorkspaceFile(String workspaceFile) {
-    return setAttr("workspace_file", workspaceFile);
-  }
-
-  @CanIgnoreReturnValue
-  public GitRepoSpecBuilder setWorkspaceFileContent(String workspaceFileContent) {
-    return setAttr("workspace_file_content", workspaceFileContent);
-  }
-
   public RepoSpec build() {
     return RepoSpec.builder()
         .setBzlFile(GIT_REPO_PATH)
