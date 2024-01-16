@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
-import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -37,7 +36,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
-import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.LazyWriteNestedSetOfTupleAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -353,22 +351,6 @@ public final class TestActionBuilder {
     ImmutableList.Builder<Artifact> coverageArtifacts = ImmutableList.builder();
     ImmutableList.Builder<ActionInput> testOutputs = ImmutableList.builder();
 
-    RunfilesSupplier testRunfilesSupplier;
-    if (shardRuns > 1 || runsPerTest > 1) {
-      // When creating multiple test actions, cache the runfiles mappings across test actions. This
-      // saves a lot of garbage when shard_count and/or runs_per_test is high.
-      RunfilesTree runfilesTree = runfilesSupport.getRunfilesTree();
-      testRunfilesSupplier =
-          SingleRunfilesSupplier.createCaching(
-              runfilesTree.getExecPath(),
-              runfilesSupport.getRunfiles(),
-              runfilesSupport.getRepoMappingManifest(),
-              runfilesTree.getSymlinksMode(),
-              runfilesTree.isBuildRunfileLinks());
-    } else {
-      testRunfilesSupplier = runfilesSupport;
-    }
-
     ActionOwner actionOwner =
         testConfiguration.useTargetPlatformForTests() ? getTestActionOwner() : getOwner();
 
@@ -420,7 +402,7 @@ public final class TestActionBuilder {
             new TestRunnerAction(
                 actionOwner,
                 inputs,
-                testRunfilesSupplier,
+                runfilesSupport,
                 testActionExecutable,
                 testXmlGeneratorExecutable,
                 collectCoverageScript,
