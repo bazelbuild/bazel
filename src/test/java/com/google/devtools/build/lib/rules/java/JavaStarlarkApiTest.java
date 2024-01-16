@@ -3486,6 +3486,57 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testPackSourcesWithExternalResourceArtifact() throws Exception {
+    JavaToolchainTestUtil.writeBuildFileForJavaToolchain(scratch);
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  out = ctx.actions.declare_file('output.jar')",
+        "  java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo]",
+        "  java_common.pack_sources(",
+        "    ctx.actions,",
+        "    java_toolchain = java_toolchain,",
+        "    output_source_jar = out,",
+        "    sources = ctx.files.srcs,",
+        "  )",
+        "  return [DefaultInfo(files = depset([out]))]",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files = True),",
+        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
+        "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
+        "  fragments = ['java']",
+        ")");
+    scratch.file("my_other_repo/WORKSPACE");
+    scratch.file("my_other_repo/external-file.txt");
+    scratch.file("my_other_repo/BUILD", "exports_files(['external-file.txt'])");
+    rewriteWorkspace("local_repository(name = 'other_repo', path = './my_other_repo')");
+    scratch.file(
+        "foo/BUILD",
+        "load(':custom_rule.bzl', 'java_custom_library')",
+        "java_custom_library(",
+        "  name = 'custom',",
+        "  srcs = [",
+        "    'internal-file.txt',",
+        "    '@other_repo//:external-file.txt',",
+        "  ]",
+        ")");
+
+    List<String> arguments =
+        ((SpawnAction) getGeneratingAction(getConfiguredTarget("//foo:custom"), "foo/output.jar"))
+            .getArguments();
+
+    assertThat(arguments)
+        .containsAtLeast(
+            "--resources",
+            "foo/internal-file.txt:foo/internal-file.txt",
+            "external/other_repo/external-file.txt:external-file.txt")
+        .inOrder();
+  }
+
+  @Test
   public void mergeAddExports() throws Exception {
     scratch.file(
         "foo/custom_library.bzl",
