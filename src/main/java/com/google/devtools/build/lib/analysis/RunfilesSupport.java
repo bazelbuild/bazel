@@ -173,8 +173,7 @@ public final class RunfilesSupport implements RunfilesSupplier {
           new Runfiles.Builder(
                   ruleContext.getWorkspaceName(),
                   ruleContext.getConfiguration().legacyExternalRunfiles())
-              .addTransitiveArtifacts(
-                  runUnderTarget.getProvider(FileProvider.class).getFilesToBuild())
+              .merge(getRunfiles(runUnderTarget, ruleContext.getWorkspaceName()))
               .merge(runfiles)
               .build();
     }
@@ -245,6 +244,24 @@ public final class RunfilesSupport implements RunfilesSupplier {
 
   public Runfiles getRunfiles() {
     return runfilesTree.runfiles;
+  }
+
+  /**
+   * Helper method that returns a collection of artifacts that are necessary for the runfiles of the
+   * given target. Note that the runfile symlink tree is never built, so this may include artifacts
+   * that end up not being used (see {@link Runfiles}).
+   *
+   * @return the Runfiles object
+   */
+  private static Runfiles getRunfiles(TransitiveInfoCollection target, String workspaceName) {
+    RunfilesProvider runfilesProvider = target.getProvider(RunfilesProvider.class);
+    if (runfilesProvider != null) {
+      return runfilesProvider.getDefaultRunfiles();
+    } else {
+      return new Runfiles.Builder(workspaceName)
+          .addTransitiveArtifacts(target.getProvider(FileProvider.class).getFilesToBuild())
+          .build();
+    }
   }
 
   /**
