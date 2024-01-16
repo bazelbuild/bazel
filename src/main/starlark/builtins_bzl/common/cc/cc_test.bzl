@@ -16,8 +16,8 @@
 
 load(":common/cc/attrs.bzl", "cc_binary_attrs", "linkstatic_doc", "stamp_doc")
 load(":common/cc/cc_binary.bzl", "cc_binary_impl")
-load(":common/cc/cc_shared_library.bzl", "cc_shared_library_initializer")
 load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/cc/cc_shared_library.bzl", "cc_shared_library_initializer")
 load(":common/cc/semantics.bzl", "semantics")
 load(":common/paths.bzl", "paths")
 
@@ -28,7 +28,7 @@ testing = _builtins.toplevel.testing
 
 _CC_TEST_TOOLCHAIN_TYPE = "@" + semantics.get_repo() + "//tools/cpp:test_runner_toolchain_type"
 
-def _cc_test_impl(ctx):
+def _legacy_cc_test_impl(ctx):
     binary_info, providers = cc_binary_impl(ctx, [])
     test_env = {}
     test_env.update(cc_helper.get_expanded_env(ctx, {}))
@@ -64,9 +64,9 @@ def _impl(ctx):
         cc_test_info = cc_test_toolchain.cc_test_info
     else:
         # This is the "legacy" cc_test flow
-        return _cc_test_impl(ctx)
+        return _legacy_cc_test_impl(ctx)
 
-    binary_info, providers = cc_binary_impl(ctx, cc_test_info.linkopts)
+    binary_info, providers = cc_binary_impl(ctx, cc_test_info.linkopts, cc_test_info.linkstatic)
     processed_environment = cc_helper.get_expanded_env(ctx, {})
 
     test_providers = cc_test_info.get_runner.func(
