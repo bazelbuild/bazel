@@ -27,6 +27,8 @@ import threading
 import urllib.request
 import zipfile
 
+import sys  # TODO remove
+
 
 def download(url):
   """Download a file and return its content in bytes."""
@@ -328,7 +330,7 @@ class BazelRegistry:
 
     self._createModuleAndSourceJson(module_dir, name, version, path, deps, source)
 
-  def createGitRepoModule(self, name, version, path, commit, deps=None):
+  def createGitRepoModule(self, name, version, path, deps=None, **kwargs):
     """Add a git repo module into the registry."""
     module_dir = self.root.joinpath('modules', name, version)
     module_dir.mkdir(parents=True, exist_ok=True)
@@ -337,8 +339,8 @@ class BazelRegistry:
     source = {
         'type': 'git_repository',
         'remote': f'file://{path}',
-        'commit': commit,
     }
+    source.update(**kwargs)
 
     self._createModuleAndSourceJson(module_dir, name, version, path, deps, source)
 

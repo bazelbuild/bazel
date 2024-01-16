@@ -334,7 +334,9 @@ class BazelModuleTest(test_base.TestBase):
     self.main_registry.createGitRepoModule(dep_name,
                                            dep_version,
                                            repo_dir,
-                                           commit)
+                                           commit=commit,
+                                           verbose=True,
+                                           shallow_since='2000-01-02')
     self.writeCcProjectFiles(dep_name, dep_version)
 
   def testLocalRepoInSourceJsonAbsoluteBasePath(self):

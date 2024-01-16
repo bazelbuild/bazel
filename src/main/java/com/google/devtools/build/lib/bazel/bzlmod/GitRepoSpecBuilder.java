@@ -16,10 +16,10 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import net.starlark.java.eval.StarlarkInt;
+import java.util.List;
 
 /**
  * Builder for a {@link RepoSpec} object that indicates how to materialize a repo corresponding to
@@ -37,29 +37,123 @@ public class GitRepoSpecBuilder {
 
   @CanIgnoreReturnValue
   public GitRepoSpecBuilder setRepoName(String repoName) {
-    attrBuilder.put("name", repoName);
-    return this;
+    return setAttr("name", repoName);
   }
 
   @CanIgnoreReturnValue
   public GitRepoSpecBuilder setRemote(String remoteRepoUrl) {
-    attrBuilder.put("remote", remoteRepoUrl);
-    return this;
+    return setAttr("remote", remoteRepoUrl);
   }
 
   @CanIgnoreReturnValue
   public GitRepoSpecBuilder setCommit(String gitCommitHash) {
-    attrBuilder.put("commit", gitCommitHash);
-    return this;
+    return setAttr("commit", gitCommitHash);
+  }
+
+  @CanIgnoreReturnValue
+  public GitRepoSpecBuilder setShallowSince(String shallowSince) {
+    return setAttr("shallow_since", shallowSince);
+  }
+
+  @CanIgnoreReturnValue
+  public GitRepoSpecBuilder setTag(String tag) {
+    return setAttr("tag", tag);
+  }
+
+  @CanIgnoreReturnValue
+  public GitRepoSpecBuilder setBranch(String branch) {
+    return setAttr("branch", branch);
+  }
+
+  @CanIgnoreReturnValue
+  public GitRepoSpecBuilder setInitSubmodules(boolean initSubmodules) {
+    return setAttr("init_submodules", initSubmodules);
+  }
+
+  @CanIgnoreReturnValue
+  public GitRepoSpecBuilder setRecursiveInitSubmodules(boolean recursiveInitSubmodules) {
+    return setAttr("recursive_init_submodules", recursiveInitSubmodules);
+  }
+
+  @CanIgnoreReturnValue
+  public GitRepoSpecBuilder setVerbose(boolean verbose) {
+    return setAttr("verbose", verbose);
+  }
+
+  @CanIgnoreReturnValue
+  public GitRepoSpecBuilder setStripPrefix(String stripPrefix) {
+    return setAttr("strip_prefix", stripPrefix);
+  }
+
+  @CanIgnoreReturnValue
+  public GitRepoSpecBuilder setPatches(List<String> patches) {
+    return setAttr("patches", patches);
+  }
+
+  @CanIgnoreReturnValue
+  public GitRepoSpecBuilder setPatchTool(String patchTool) {
+    return setAttr("patch_tool", patchTool);
+  }
+
+  @CanIgnoreReturnValue
+  public GitRepoSpecBuilder setPatchArgs(List<String> patchArgs) {
+    return setAttr("patch_args", patchArgs);
+  }
+
+  @CanIgnoreReturnValue
+  public GitRepoSpecBuilder setPatchCmds(List<String> patchCmds) {
+    return setAttr("patch_cmds", patchCmds);
+  }
+
+  @CanIgnoreReturnValue
+  public GitRepoSpecBuilder setPatchCmdsWin(List<String> patchCmdsWin) {
+    return setAttr("patch_cmds_win", patchCmdsWin);
+  }
+
+  @CanIgnoreReturnValue
+  public GitRepoSpecBuilder setBuildFile(String buildFile) {
+    return setAttr("build_file", buildFile);
+  }
+
+  @CanIgnoreReturnValue
+  public GitRepoSpecBuilder setBuildFileContent(String buildFileContent) {
+    return setAttr("build_file_content", buildFileContent);
+  }
+
+  @CanIgnoreReturnValue
+  public GitRepoSpecBuilder setWorkspaceFile(String workspaceFile) {
+    return setAttr("workspace_file", workspaceFile);
+  }
+
+  @CanIgnoreReturnValue
+  public GitRepoSpecBuilder setWorkspaceFileContent(String workspaceFileContent) {
+    return setAttr("workspace_file_content", workspaceFileContent);
   }
 
   public RepoSpec build() {
-    attrBuilder.put("verbose", true);
     return RepoSpec.builder()
         .setBzlFile(GIT_REPO_PATH)
         .setRuleClassName("git_repository")
         .setAttributes(AttributeValues.create(attrBuilder.buildOrThrow()))
-        // TODO(nachum): add more fields.
         .build();
+  }
+
+  private GitRepoSpecBuilder setAttr(String name, String value) {
+    if (value != null && !value.isEmpty()) {
+      attrBuilder.put(name, value);
+    }
+    return this;
+  }
+
+  private GitRepoSpecBuilder setAttr(String name, boolean value) {
+    attrBuilder.put(name, value);
+    return this;
+  }
+
+  private GitRepoSpecBuilder setAttr(String name, List<String> value) {
+    if (value != null && !value.isEmpty()) {
+      attrBuilder.put(name, value);
+    }
+    return this;
   }
 }

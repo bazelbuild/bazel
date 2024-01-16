@@ -38,6 +38,7 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -117,18 +118,49 @@ public class IndexRegistry implements Registry {
     String moduleBasePath;
   }
 
-  /** Represents fields available in {@code source.json} for each version of a module. */
+  /** Represents the type field in {@code source.json} for each version of a module. */
   private static class SourceJson {
+    String type = "archive";
+  }
+
+  /** Represents fields in {@code source.json} for each archive-type version of a module. */
+  private static class ArchiveSourceJson {
     String type = "archive";
     URL url;
     String integrity;
     String stripPrefix;
     Map<String, String> patches;
     int patchStrip;
-    String path;
     String archiveType;
-    URL remote;
+  }
+
+  /** Represents fields in {@code source.json} for each local_path-type version of a module. */
+  private static class LocalPathSourceJson {
+    String type = "local_path";
+    String path;
+  }
+
+  /** Represents fields in {@code source.json} for each git_repository-type version of a module. */
+  private static class GitRepoSourceJson {
+    String type = "git_repository";
+    String remote;
     String commit;
+    String shallowSince;
+    String tag;
+    String branch;
+    boolean initSubmodules;
+    boolean recursiveInitSubmodules;
+    boolean verbose;
+    String stripPrefix;
+    List<String> patches;
+    String patchTool;
+    List<String> patchArgs;
+    List<String> patchCmds;
+    List<String> patchCmdsWin;
+    String buildFile;
+    String buildFileContent;
+    String workspaceFile;
+    String workspaceFileContent;
   }
 
   /**
@@ -153,11 +185,13 @@ public class IndexRegistry implements Registry {
     }
   }
 
-  @Override
-  public RepoSpec getRepoSpec(
-      ModuleKey key, RepositoryName repoName, ExtendedEventHandler eventHandler)
+  /**
+   * Grabs a JSON file from the given mdoule, and returns it as a parsed object with fields in {@code
+   * T}. Throws FileNotFoundException if the file does not exist.
+   */
+  private <T> T grabSourceJson(String url, ModuleKey key, Class<T> klass, ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException {
-    Optional<SourceJson> sourceJson =
+    Optional<T> sourceJson =
         grabJson(
             constructUrl(
                 uri.toString(),
@@ -165,24 +199,44 @@ public class IndexRegistry implements Registry {
                 key.getName(),
                 key.getVersion().toString(),
                 "source.json"),
-            SourceJson.class,
+            klass,
             eventHandler);
     if (sourceJson.isEmpty()) {
       throw new FileNotFoundException(
           String.format("Module %s's source information not found in registry %s", key, uri));
     }
+    return sourceJson.get();
+  }
 
-    String type = sourceJson.get().type;
-    switch (type) {
+  @Override
+  public RepoSpec getRepoSpec(
+      ModuleKey key, RepositoryName repoName, ExtendedEventHandler eventHandler)
+      throws IOException, InterruptedException {
+    String jsonUrl = constructUrl(
+        uri.toString(),
+        "modules",
+        key.getName(),
+        key.getVersion().toString(),
+        "source.json");
+    SourceJson sourceJson = grabSourceJson(jsonUrl, key, SourceJson.class, eventHandler);
+    switch (sourceJson.type) {
       case "archive":
-        return createArchiveRepoSpec(sourceJson, getBazelRegistryJson(eventHandler), key, repoName);
+        {
+          ArchiveSourceJson typedSourceJson = grabSourceJson(jsonUrl, key, ArchiveSourceJson.class, eventHandler);
+          return createArchiveRepoSpec(typedSourceJson, getBazelRegistryJson(eventHandler), key, repoName);
+        }
       case "local_path":
-        return createLocalPathRepoSpec(
-            sourceJson, getBazelRegistryJson(eventHandler), key, repoName);
+        {
+          LocalPathSourceJson typedSourceJson = grabSourceJson(jsonUrl, key, LocalPathSourceJson.class, eventHandler);
+          return createLocalPathRepoSpec(typedSourceJson, getBazelRegistryJson(eventHandler), key, repoName);
+        }
       case "git_repository":
-        return createGitRepoSpec(sourceJson, getBazelRegistryJson(eventHandler), key, repoName);
+        {
+          GitRepoSourceJson typedSourceJson = grabSourceJson(jsonUrl, key, GitRepoSourceJson.class, eventHandler);
+          return createGitRepoSpec(typedSourceJson, getBazelRegistryJson(eventHandler), key, repoName);
+        }
       default:
-        throw new IOException(String.format("Invalid source type \"%s\" for module %s", type, key));
+        throw new IOException(String.format("Invalid source type \"%s\" for module %s", sourceJson.type, key));
     }
   }
 
@@ -204,12 +258,12 @@ public class IndexRegistry implements Registry {
   }
 
   private RepoSpec createLocalPathRepoSpec(
-      Optional<SourceJson> sourceJson,
+      LocalPathSourceJson sourceJson,
       Optional<BazelRegistryJson> bazelRegistryJson,
       ModuleKey key,
       RepositoryName repoName)
       throws IOException {
-    String path = sourceJson.get().path;
+    String path = sourceJson.path;
     if (!PathFragment.isAbsolute(path)) {
       String moduleBase = bazelRegistryJson.get().moduleBasePath;
       path = moduleBase + "/" + path;
@@ -240,16 +294,16 @@ public class IndexRegistry implements Registry {
   }
 
   private RepoSpec createArchiveRepoSpec(
-      Optional<SourceJson> sourceJson,
+      ArchiveSourceJson sourceJson,
       Optional<BazelRegistryJson> bazelRegistryJson,
       ModuleKey key,
       RepositoryName repoName)
       throws IOException {
-    URL sourceUrl = sourceJson.get().url;
+    URL sourceUrl = sourceJson.url;
     if (sourceUrl == null) {
       throw new IOException(String.format("Missing source URL for module %s", key));
     }
-    if (sourceJson.get().integrity == null) {
+    if (sourceJson.integrity == null) {
       throw new IOException(String.format("Missing integrity for module %s", key));
     }
 
@@ -272,8 +326,8 @@ public class IndexRegistry implements Registry {
 
     // Build remote patches as key-value pairs of "url" => "integrity".
     ImmutableMap.Builder<String, String> remotePatches = new ImmutableMap.Builder<>();
-    if (sourceJson.get().patches != null) {
-      for (Map.Entry<String, String> entry : sourceJson.get().patches.entrySet()) {
+    if (sourceJson.patches != null) {
+      for (Map.Entry<String, String> entry : sourceJson.patches.entrySet()) {
         remotePatches.put(
             constructUrl(
                 unresolvedUri,
@@ -289,45 +343,40 @@ public class IndexRegistry implements Registry {
     return new ArchiveRepoSpecBuilder()
         .setRepoName(repoName.getName())
         .setUrls(urls.build())
-        .setIntegrity(sourceJson.get().integrity)
-        .setStripPrefix(Strings.nullToEmpty(sourceJson.get().stripPrefix))
+        .setIntegrity(sourceJson.integrity)
+        .setStripPrefix(Strings.nullToEmpty(sourceJson.stripPrefix))
         .setRemotePatches(remotePatches.buildOrThrow())
-        .setRemotePatchStrip(sourceJson.get().patchStrip)
-        .setArchiveType(sourceJson.get().archiveType)
+        .setRemotePatchStrip(sourceJson.patchStrip)
+        .setArchiveType(sourceJson.archiveType)
         .build();
   }
 
   private RepoSpec createGitRepoSpec(
-      Optional<SourceJson> sourceJson,
+      GitRepoSourceJson sourceJson,
       Optional<BazelRegistryJson> bazelRegistryJson,
       ModuleKey key,
       RepositoryName repoName)
       throws IOException {
-    URL remoteRepoUrl = sourceJson.get().remote;
-    if (remoteRepoUrl == null) {
-      throw new IOException(String.format("Missing git remote URL for module %s", key));
-    }
-
-    String gitCommitHash = sourceJson.get().commit;
-    if (gitCommitHash == null) {
-      throw new IOException(String.format("Missing git commit hash for module %s", key));
-    }
-
-    // Workaround Java URL "feature" which converts:
-    //    file:///<path-to-file>
-    //    which is correctly handled by git clone.
-    // to:
-    //    file:/<path-to-file>
-    //    which causes git clone to fail.
-    String remote = remoteRepoUrl.toString();
-    if (remote.startsWith("file:/") && !remote.startsWith("file:///")) {
-      remote = remote.replace("file:/", "file:///");
-    }
-
     return new GitRepoSpecBuilder()
         .setRepoName(repoName.getName())
-        .setRemote(remote)
-        .setCommit(gitCommitHash)
+        .setRemote(sourceJson.remote)
+        .setCommit(sourceJson.commit)
+        .setShallowSince(sourceJson.shallowSince)
+        .setTag(sourceJson.tag)
+        .setBranch(sourceJson.branch)
+        .setInitSubmodules(sourceJson.initSubmodules)
+        .setRecursiveInitSubmodules(sourceJson.recursiveInitSubmodules)
+        .setVerbose(sourceJson.verbose)
+        .setStripPrefix(sourceJson.stripPrefix)
+        .setPatches(sourceJson.patches)
+        .setPatchTool(sourceJson.patchTool)
+        .setPatchArgs(sourceJson.patchArgs)
+        .setPatchCmds(sourceJson.patchCmds)
+        .setPatchCmdsWin(sourceJson.patchCmdsWin)
+        .setBuildFile(sourceJson.buildFile)
+        .setBuildFileContent(sourceJson.buildFileContent)
+        .setWorkspaceFile(sourceJson.workspaceFile)
+        .setWorkspaceFileContent(sourceJson.workspaceFileContent)
         .build();
   }
 
