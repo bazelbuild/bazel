@@ -501,17 +501,12 @@ public final class ActionExecutionFunction implements SkyFunction {
         actionLookupData,
         e);
 
-    // Collect the set of direct deps of this action which may be responsible for the lost inputs,
-    // some of which may be discovered.
-    // TODO: b/315059768 - We can likely just use inputDepKeys. Confirm this and simplify.
+    // inputDepKeys only contains keys in the initial, pre-input-discovery Skyframe request. If the
+    // action discovers inputs, we must combine them with discovered input keys.
     ImmutableSet<SkyKey> failedActionDeps;
     if (e.isFromInputDiscovery()) {
-      // Lost inputs found during input discovery are necessarily ordinary derived artifacts. Their
-      // keys may not be direct deps yet, so to ensure that when this action is restarted the lost
-      // inputs' generating actions are requested, they're added to SkyframeActionExecutor's
-      // lostDiscoveredInputsMap. Also, lost inputs from input discovery may come from nested sets,
-      // which may be directly represented in skyframe. To ensure that applicable nested set nodes
-      // are rewound, this action's deps are also considered when computing the rewind plan.
+      // The action failed during input discovery. We don't know the discovered inputs, so just add
+      // keys of lost inputs in case any of them were discovered.
       failedActionDeps =
           ImmutableSet.<SkyKey>builder()
               .addAll(inputDepKeys)
