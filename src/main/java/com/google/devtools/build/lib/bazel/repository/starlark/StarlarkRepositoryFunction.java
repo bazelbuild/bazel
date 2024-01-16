@@ -223,7 +223,6 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       return null;
     }
     markerData.put(SEMANTICS, describeSemantics(starlarkSemantics));
-    markerData.put("ARCH:", CPU.getCurrent().getCanonicalName());
 
     PathPackageLocator packageLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
     if (env.valuesMissing()) {
