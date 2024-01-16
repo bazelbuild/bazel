@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -451,7 +452,7 @@ public final class TargetAndConfigurationProducer
 
     @Override
     public void acceptConfigConditionsError(ConfiguredValueCreationException e) {
-      emitTransitionErrorMessage(e.getMessage());
+      emitErrorMessage(e.getMessage());
     }
 
     public StateMachine computeTransition(Tasks tasks) {
@@ -512,12 +513,17 @@ public final class TargetAndConfigurationProducer
 
     @Override
     public void acceptTransitionError(TransitionException e) {
-      emitTransitionErrorMessage(e.getMessage());
+      emitErrorMessage(e.getMessage());
     }
 
     @Override
     public void acceptTransitionError(OptionsParsingException e) {
-      emitTransitionErrorMessage(e.getMessage());
+      emitErrorMessage(e.getMessage());
+    }
+
+    @Override
+    public void acceptPlatformMappingError(PlatformMappingException e) {
+      emitErrorMessage(e.getMessage());
     }
 
     @Override
@@ -527,7 +533,7 @@ public final class TargetAndConfigurationProducer
 
     @Override
     public void acceptPlatformInfoError(InvalidPlatformException error) {
-      emitTransitionErrorMessage(error.getMessage());
+      emitErrorMessage(error.getMessage());
     }
 
     private StateMachine processTransitionedKey(Tasks tasks) {
@@ -605,12 +611,17 @@ public final class TargetAndConfigurationProducer
 
       @Override
       public void acceptTransitionError(TransitionException e) {
-        emitTransitionErrorMessage(e.getMessage());
+        emitErrorMessage(e.getMessage());
       }
 
       @Override
       public void acceptTransitionError(OptionsParsingException e) {
-        emitTransitionErrorMessage(e.getMessage());
+        emitErrorMessage(e.getMessage());
+      }
+
+      @Override
+      public void acceptPlatformMappingError(PlatformMappingException e) {
+        emitErrorMessage(e.getMessage());
       }
 
       private StateMachine checkIdempotencyAndDelegate(Tasks tasks) {
@@ -634,7 +645,7 @@ public final class TargetAndConfigurationProducer
       }
     }
 
-    private void emitTransitionErrorMessage(String message) {
+    private void emitErrorMessage(String message) {
       emitError(message, TargetUtils.getLocationMaybe(target), /* exitCode= */ null);
     }
   }

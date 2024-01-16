@@ -133,6 +133,8 @@ public final class BaselineOptionsFunction implements SkyFunction {
         return null;
       }
       return key.getOptions();
+    } catch (PlatformMappingException e) {
+      throw new BaselineOptionsFunctionException(e);
     } catch (OptionsParsingException e) {
       throw new BaselineOptionsFunctionException(e);
     }
@@ -145,6 +147,7 @@ public final class BaselineOptionsFunction implements SkyFunction {
     private final Driver driver;
     private ImmutableMap<String, BuildConfigurationKey> transitionedOptions;
     private OptionsParsingException transitionError;
+    private PlatformMappingException platformMappingException;
 
     private BuildOptionsMapper(BuildOptions options) {
       this.driver =
@@ -159,6 +162,11 @@ public final class BaselineOptionsFunction implements SkyFunction {
     }
 
     @Override
+    public void acceptPlatformMappingError(PlatformMappingException e) {
+      this.platformMappingException = e;
+    }
+
+    @Override
     public void acceptTransitionedConfigurations(
         ImmutableMap<String, BuildConfigurationKey> transitionedOptions) {
       this.transitionedOptions = transitionedOptions;
@@ -166,13 +174,16 @@ public final class BaselineOptionsFunction implements SkyFunction {
 
     @Nullable
     private BuildConfigurationKey drive(LookupEnvironment env)
-        throws OptionsParsingException, InterruptedException {
+        throws OptionsParsingException, InterruptedException, PlatformMappingException {
       if (!this.driver.drive(env)) {
         return null;
       }
 
       if (this.transitionError != null) {
         throw this.transitionError;
+      }
+      if (this.platformMappingException != null) {
+        throw this.platformMappingException;
       }
 
       return this.transitionedOptions.get(TRANSITION_KEY);
