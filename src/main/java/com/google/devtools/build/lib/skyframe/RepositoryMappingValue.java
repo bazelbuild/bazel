@@ -18,6 +18,7 @@ import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.bazel.bzlmod.Version;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -145,10 +146,15 @@ public abstract class RepositoryMappingValue implements SkyValue {
      */
     abstract boolean rootModuleShouldSeeWorkspaceRepos();
 
-    @AutoCodec.Instantiator
     static Key create(RepositoryName repoName, boolean rootModuleShouldSeeWorkspaceRepos) {
       return interner.intern(
           new AutoValue_RepositoryMappingValue_Key(repoName, rootModuleShouldSeeWorkspaceRepos));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     @Override
