@@ -55,8 +55,8 @@ public class GlobFunctionWithRecursionInSingleFunction extends GlobFunction {
     public void acceptPathFragmentsWithoutPackageFragment(
         ImmutableSet<PathFragment> globMatchingResult) {
       if (error == null) {
-        // If an exception has already been discovered and accepted during previous
-        // computation, we should not accept any matching result.
+        // If an exception has already been discovered and accepted during previous computation, we
+        // should not accept any matching result.
         this.globMatchingResult = globMatchingResult;
       }
     }
