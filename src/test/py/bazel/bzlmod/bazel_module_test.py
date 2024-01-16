@@ -327,6 +327,8 @@ class BazelModuleTest(test_base.TestBase):
     shutil.move(src_dir, repo_dir)
     repo_dir = os.path.join(repo_dir, os.path.basename(src_dir))
     subprocess.check_output(['git', 'init'], cwd=repo_dir)
+    subprocess.check_output(['git', 'config', 'user.email', 'example@bazel-dev.org'], cwd=repo_dir)
+    subprocess.check_output(['git', 'config', 'user.name', 'example'], cwd=repo_dir)
     subprocess.check_output(['git', 'add', '--all'], cwd=repo_dir)
     subprocess.check_output(['git', 'commit', '-m', 'Initialize'], cwd=repo_dir)
     commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repo_dir, text=True).strip()
