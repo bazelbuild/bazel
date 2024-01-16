@@ -176,10 +176,14 @@ public abstract class BzlCompileValue implements NotComparableSkyValue {
       }
     }
 
-    @VisibleForSerialization
-    @AutoCodec.Instantiator
-    static Key create(Root root, Label label, Kind kind) {
+    private static Key create(Root root, Label label, Kind kind) {
       return interner.intern(new Key(root, label, kind));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     /** Returns whether this key is for a {@code @_builtins} .bzl file. */
