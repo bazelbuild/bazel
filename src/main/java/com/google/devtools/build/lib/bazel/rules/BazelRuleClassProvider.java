@@ -452,7 +452,7 @@ public class BazelRuleClassProvider {
 
           builder.addRuleDefinition(new BazelPyRuleClasses.PyBaseRule());
           builder.addRuleDefinition(new BazelPyRuleClasses.PyBinaryBaseRule());
-          builder.addRuleDefinition(new EmptyRule("py_library"));
+          builder.addRuleDefinition(new EmptyRule("py_library") {});
           builder.addRuleDefinition(new BazelPyBinaryRule());
           builder.addRuleDefinition(new BazelPyTestRule());
           builder.addRuleDefinition(new PyRuntimeRule());
@@ -531,7 +531,6 @@ public class BazelRuleClassProvider {
           ANDROID_RULES,
           PYTHON_RULES,
           ObjcRules.INSTANCE,
-          J2ObjcRules.INSTANCE,
           TestingSupportRules.INSTANCE,
           VARIOUS_WORKSPACE_RULES,
           PACKAGING_RULES,

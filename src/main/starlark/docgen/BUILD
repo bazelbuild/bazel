@@ -20,6 +20,11 @@ starlark_doc_extract(
 )
 
 starlark_doc_extract(
+    name = "gen_be_objc_stardoc_proto",
+    src = "objc.bzl",
+)
+
+starlark_doc_extract(
     name = "gen_be_python_stardoc_proto",
     src = "python.bzl",
 )

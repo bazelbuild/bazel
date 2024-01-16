@@ -543,7 +543,7 @@ public class BaseRuleClasses {
    * </code>. The <code>{}</code> create a new class for each rule. That's needed because {@link
    * ConfiguredRuleClassProvider.Builder} assumes each rule class has a different Java class.
    */
-  public static class EmptyRule implements RuleDefinition {
+  public abstract static class EmptyRule implements RuleDefinition {
     private final String name;
 
     public EmptyRule(String name) {
