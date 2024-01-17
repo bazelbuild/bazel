@@ -103,7 +103,6 @@ import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.cpp.CcSharedLibraryRule;
 import com.google.devtools.build.lib.rules.cpp.CcStarlarkInternal;
-import com.google.devtools.build.lib.rules.cpp.proto.CcProtoLibraryRule;
 import com.google.devtools.build.lib.rules.objc.BazelObjcStarlarkInternal;
 import com.google.devtools.build.lib.rules.objc.ObjcStarlarkInternal;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
@@ -329,19 +328,6 @@ public class BazelRuleClassProvider {
         }
       };
 
-  public static final RuleSet CPP_PROTO_RULES =
-      new RuleSet() {
-        @Override
-        public void init(ConfiguredRuleClassProvider.Builder builder) {
-          builder.addRuleDefinition(new CcProtoLibraryRule());
-        }
-
-        @Override
-        public ImmutableList<RuleSet> requires() {
-          return ImmutableList.of(CoreRules.INSTANCE, CcRules.INSTANCE);
-        }
-      };
-
   public static final RuleSet JAVA_PROTO_RULES =
       new RuleSet() {
         @Override
@@ -525,7 +511,6 @@ public class BazelRuleClassProvider {
           PROTO_RULES,
           ShRules.INSTANCE,
           CcRules.INSTANCE,
-          CPP_PROTO_RULES,
           JavaRules.INSTANCE,
           JAVA_PROTO_RULES,
           ANDROID_RULES,

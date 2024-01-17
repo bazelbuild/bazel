@@ -79,7 +79,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/config",
         "//src/main/java/com/google/devtools/build/lib/rules/core",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp/proto:CcProtoLibrary",
         "//src/main/java/com/google/devtools/build/lib/rules/genquery",
         "//src/main/java/com/google/devtools/build/lib/rules/genrule",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
