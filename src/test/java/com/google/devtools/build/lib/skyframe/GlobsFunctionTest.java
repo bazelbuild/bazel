@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.skyframe.GlobsValue.GlobRequest;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -143,5 +144,36 @@ public final class GlobsFunctionTest extends GlobTestBase {
     ErrorInfo errorInfo = result.getError(globsKey);
     assertThat(errorInfo.getException()).isInstanceOf(FileSymlinkInfiniteExpansionException.class);
     assertThat(errorInfo.getException()).hasMessageThat().contains("Infinite symlink expansion");
+  }
+
+  @Test
+  public void testGlobs_bothTwoGlobBothAreSymlinkCycles() throws Exception {
+    pkgPath.getRelative("parent/sub1").createDirectoryAndParents();
+    FileSystemUtils.ensureSymbolicLink(
+        pkgPath.getRelative("parent/sub1/self1"), pkgPath.getRelative("parent"));
+    GlobRequest symlinkGlobRequest1 = GlobRequest.create("parent/sub1/*", Operation.FILES_AND_DIRS);
+
+    pkgPath.getRelative("parent/sub2").createDirectoryAndParents();
+    FileSystemUtils.ensureSymbolicLink(
+        pkgPath.getRelative("parent/sub2/self2"), pkgPath.getRelative("parent"));
+    GlobRequest symlinkGlobRequest2 = GlobRequest.create("parent/sub2/*", Operation.FILES_AND_DIRS);
+
+    GlobsValue.Key globsKey =
+        GlobsValue.key(
+            PKG_ID, Root.fromPath(root), ImmutableSet.of(symlinkGlobRequest1, symlinkGlobRequest2));
+    EvaluationResult<GlobValue> result =
+        evaluator.evaluate(ImmutableList.of(globsKey), EVALUATION_OPTIONS);
+
+    assertThat(result.hasError()).isTrue();
+    ErrorInfo errorInfo = result.getError(globsKey);
+    assertThat(errorInfo.getException()).isInstanceOf(FileSymlinkInfiniteExpansionException.class);
+    assertThat(errorInfo.getException()).hasMessageThat().contains("Infinite symlink expansion");
+
+    // Since parent/sub1/self1 is always the first symlink to be processed, so its error is
+    // the first error to be caught. We expect the first error caught to be the one thrown by the
+    // Skyframe State Machine.
+    assertThat(((FileSymlinkInfiniteExpansionException) errorInfo.getException()).getChain())
+        .contains(
+            RootedPath.toRootedPath(Root.fromPath(root), pkgPath.getRelative("parent/sub1/self1")));
   }
 }

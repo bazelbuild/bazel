@@ -20,6 +20,7 @@ java_library(
     ],
     deps = [
         ":config",
+        ":exceptions",
         "//src/main/java/com/google/devtools/build/lib:starlark_options_parser",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
@@ -59,6 +60,19 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "exceptions",
+    srcs = [
+        "PlatformMappingException.java",
+        "PlatformMappingParsingException.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/common/options",
     ],
 )
 

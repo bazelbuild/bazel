@@ -171,24 +171,25 @@ public final class CommandHelper {
           continue;
         }
 
-        if (tool.getRunfilesSupport() != null) {
-          resolvedToolsBuilder.add(tool.getRunfilesSupport().getRunfilesMiddleman());
-
-          // It's that getExecutable() returns an artifact that is not in getFilesToBuild(). It is
-          // not nice, but it happens (see test_executable_without_default_files)
-          resolvedToolsBuilder.add(tool.getRunfilesSupport().getExecutable());
-        }
-
         NestedSet<Artifact> filesToBuild = dep.getProvider(FileProvider.class).getFilesToBuild();
         resolvedToolsBuilder.addTransitive(filesToBuild);
 
-        Label label = AliasProvider.getDependencyLabel(dep);
         Artifact executableArtifact = tool.getExecutable();
+        Label label = AliasProvider.getDependencyLabel(dep);
+
         // If the label has an executable artifact add that to the multimaps.
         if (executableArtifact != null) {
           mapGet(tempLabelMap, label).add(executableArtifact);
-          // Also send the runfiles when running remotely.
-          toolsRunfilesBuilder.add(tool.getRunfilesSupplier());
+          // Also send the runfiles if needed.
+          RunfilesSupport runfilesSupport = tool.getRunfilesSupport();
+          if (runfilesSupport != null) {
+            toolsRunfilesBuilder.add(runfilesSupport);
+            resolvedToolsBuilder.add(runfilesSupport.getRunfilesMiddleman());
+            // It's possible that getExecutable() returns an artifact that is not in
+            // getFilesToBuild(). It is not nice, but it happens
+            // (see test_executable_without_default_files)
+            resolvedToolsBuilder.add(tool.getRunfilesSupport().getExecutable());
+          }
         } else {
           // Map all depArtifacts to the respective label using the multimaps.
           mapGet(tempLabelMap, label).addAll(filesToBuild.toList());

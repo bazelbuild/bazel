@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
@@ -142,7 +141,13 @@ public class SpawnInputExpander {
     }
   }
 
-  private void addSingleRunfilesTreeToInputs(
+  /**
+   * Gathers the mapping for a single runfiles tree into {@code inputMap}.
+   *
+   * <p>This should not be a public interface, it's only there to support legacy code until we
+   * figure out how not to call this method (or else how to make this method more palatable)
+   */
+  public void addSingleRunfilesTreeToInputs(
       Map<PathFragment, ActionInput> inputMap,
       PathFragment root,
       Map<PathFragment, Artifact> mappings,
@@ -204,20 +209,6 @@ public class SpawnInputExpander {
             baseDirectory);
       }
     }
-  }
-
-  /** Adds runfiles inputs from runfilesSupplier to inputMappings. */
-  public Map<PathFragment, ActionInput> addRunfilesToInputs(
-      RunfilesSupplier runfilesSupplier,
-      InputMetadataProvider actionFileCache,
-      ArtifactExpander artifactExpander,
-      PathMapper pathMapper,
-      PathFragment baseDirectory)
-      throws IOException, ForbiddenActionInputException {
-    Map<PathFragment, ActionInput> inputMap = new HashMap<>();
-    addRunfilesToInputs(
-        inputMap, runfilesSupplier, actionFileCache, artifactExpander, pathMapper, baseDirectory);
-    return inputMap;
   }
 
   private static void failIfDirectory(InputMetadataProvider actionFileCache, ActionInput input)

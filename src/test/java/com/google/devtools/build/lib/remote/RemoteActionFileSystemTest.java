@@ -676,7 +676,34 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   @Test
-  public void readdir_followSymlinks(
+  public void readdir_followSymlinks_forDirectory(
+      @TestParameter FilesystemTestParam from, @TestParameter FilesystemTestParam to)
+      throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    FileSystem fromFs = from.getFilesystem(actionFs);
+    FileSystem toFs = to.getFilesystem(actionFs);
+
+    PathFragment linkPath = getOutputPath("sym");
+    PathFragment targetPath = getOutputPath("dir");
+    PathFragment childPath = getOutputPath("dir/child");
+
+    fromFs.getPath(linkPath).createSymbolicLink(execRoot.getRelative(targetPath).asFragment());
+    toFs.getPath(targetPath).createDirectory();
+
+    if (toFs.equals(actionFs.getLocalFileSystem())) {
+      writeLocalFile(actionFs, childPath, "content");
+    } else {
+      injectRemoteFile(actionFs, childPath, "content");
+    }
+
+    assertReaddir(
+        actionFs, linkPath, /* followSymlinks= */ false, new Dirent("child", Dirent.Type.FILE));
+    assertReaddir(
+        actionFs, linkPath, /* followSymlinks= */ true, new Dirent("child", Dirent.Type.FILE));
+  }
+
+  @Test
+  public void readdir_followSymlinks_forDirectoryEntries(
       @TestParameter FilesystemTestParam from, @TestParameter FilesystemTestParam to)
       throws Exception {
     RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
@@ -705,6 +732,17 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
         actionFs, dirPath, /* followSymlinks= */ false, new Dirent("sym", Dirent.Type.SYMLINK));
     assertReaddir(
         actionFs, dirPath, /* followSymlinks= */ true, new Dirent("sym", Dirent.Type.FILE));
+  }
+
+  @Test
+  public void readdir_nonDirectory() throws Exception {
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
+    Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "dir/out");
+    PathFragment path = artifact.getPath().getParentDirectory().asFragment();
+
+    writeLocalFile(actionFs, path, "content");
+
+    assertReaddirThrows(actionFs, path, /* followSymlinks= */ true);
   }
 
   @Test

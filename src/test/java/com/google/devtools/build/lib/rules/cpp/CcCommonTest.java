@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunEnvironmentInfo;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -203,8 +204,8 @@ public class CcCommonTest extends BuildViewTestCase {
             "    srcs = ['libarchive.34.dylib'])");
 
     Artifact executable = getExecutable(archiveInSrcsTest);
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(executable);
-    assertThat(linkAction.getLinkCommandLineForTesting().toString()).contains(" -larchive.34 ");
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(executable);
+    assertThat(linkAction.getArguments()).contains("-larchive.34");
   }
 
   @Test

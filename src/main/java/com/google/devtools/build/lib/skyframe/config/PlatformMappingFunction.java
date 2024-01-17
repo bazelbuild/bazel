@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
-import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -77,7 +76,7 @@ public final class PlatformMappingFunction implements SkyFunction {
   @Nullable
   @Override
   public PlatformMappingValue compute(SkyKey skyKey, Environment env)
-      throws PlatformMappingException, InterruptedException {
+      throws PlatformMappingFunctionException, InterruptedException {
     PlatformMappingValue.Key platformMappingKey = (PlatformMappingValue.Key) skyKey.argument();
     PathFragment workspaceRelativeMappingPath =
         platformMappingKey.getWorkspaceRelativeMappingPath();
@@ -107,7 +106,7 @@ public final class PlatformMappingFunction implements SkyFunction {
         continue;
       }
       if (fileValue.isDirectory()) {
-        throw new PlatformMappingException(
+        throw new PlatformMappingFunctionException(
             new MissingInputFileException(
                 createFailureDetail(
                     String.format(
@@ -122,12 +121,17 @@ public final class PlatformMappingFunction implements SkyFunction {
       try {
         lines = FileSystemUtils.readLines(fileValue.realRootedPath().asPath(), UTF_8);
       } catch (IOException e) {
-        throw new PlatformMappingException(e);
+        throw new PlatformMappingFunctionException(e);
       }
 
-      Mappings parsed = parse(env, lines, mainRepoContext);
+      Mappings parsed;
+      try {
+        parsed = parse(env, lines, mainRepoContext);
       if (parsed == null) {
         return null;
+      }
+      } catch (PlatformMappingParsingException e) {
+        throw new PlatformMappingFunctionException(e);
       }
       return parsed.toPlatformMappingValue(optionsClasses);
     }
@@ -138,7 +142,7 @@ public final class PlatformMappingFunction implements SkyFunction {
       return new PlatformMappingValue(
           ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of(), mainRepoContext.repoMapping());
     }
-    throw new PlatformMappingException(
+    throw new PlatformMappingFunctionException(
         new MissingInputFileException(
             createFailureDetail(
                 String.format(
@@ -156,31 +160,11 @@ public final class PlatformMappingFunction implements SkyFunction {
         .build();
   }
 
-  @VisibleForTesting
-  static final class PlatformMappingException extends SkyFunctionException {
-
-    PlatformMappingException(OptionsParsingException cause) {
-      super(cause, Transience.PERSISTENT);
-    }
-
-    PlatformMappingException(MissingInputFileException cause) {
-      super(cause, Transience.PERSISTENT);
-    }
-
-    PlatformMappingException(IOException cause) {
-      super(cause, Transience.TRANSIENT);
-    }
-
-    PlatformMappingException(PlatformMappingParsingException cause) {
-      super(cause, Transience.PERSISTENT);
-    }
-  }
-
   /** Parses the given lines, returns null if not all Skyframe deps are ready. */
   @VisibleForTesting
   @Nullable
   static Mappings parse(Environment env, List<String> lines, RepoContext mainRepoContext)
-      throws PlatformMappingException {
+      throws PlatformMappingParsingException {
     PeekingIterator<String> it =
         Iterators.peekingIterator(
             lines.stream()
@@ -267,7 +251,7 @@ public final class PlatformMappingFunction implements SkyFunction {
   @Nullable
   private static NativeAndStarlarkFlags parseStarlarkFlags(
       ImmutableSet<String> rawFlags, Environment env, RepoContext mainRepoContext)
-      throws PlatformMappingException {
+      throws PlatformMappingParsingException {
     ImmutableSet.Builder<String> nativeFlags = ImmutableSet.builder();
     ImmutableList.Builder<String> starlarkFlags = ImmutableList.builder();
     for (String flagSetting : rawFlags) {
@@ -287,11 +271,11 @@ public final class PlatformMappingFunction implements SkyFunction {
       if (!starlarkFlagParser.parseGivenArgs(starlarkFlags.build())) {
         return null;
       }
+    } catch (OptionsParsingException e) {
+      throw new PlatformMappingParsingException(e);
+    }
       return NativeAndStarlarkFlags.create(
           nativeFlags.build(), fakeNativeParser.getStarlarkOptions());
-    } catch (OptionsParsingException e) {
-      throw new PlatformMappingException(e);
-    }
   }
 
   /**
@@ -300,7 +284,7 @@ public final class PlatformMappingFunction implements SkyFunction {
   @Nullable
   private static ImmutableMap<Label, NativeAndStarlarkFlags> readPlatformsToFlags(
       PeekingIterator<String> it, Environment env, RepoContext mainRepoContext)
-      throws PlatformMappingException {
+      throws PlatformMappingParsingException {
     ImmutableMap.Builder<Label, NativeAndStarlarkFlags> platformsToFlags = ImmutableMap.builder();
     boolean needSkyframeDeps = false;
     while (it.hasNext() && !it.peek().equalsIgnoreCase("flags:")) {
@@ -327,7 +311,8 @@ public final class PlatformMappingFunction implements SkyFunction {
   }
 
   private static ImmutableMap<ImmutableSet<String>, Label> readFlagsToPlatforms(
-      PeekingIterator<String> it, RepoContext mainRepoContext) throws PlatformMappingException {
+      PeekingIterator<String> it, RepoContext mainRepoContext)
+      throws PlatformMappingParsingException {
     ImmutableMap.Builder<ImmutableSet<String>, Label> flagsToPlatforms = ImmutableMap.builder();
     while (it.hasNext() && it.peek().startsWith("--")) {
       ImmutableSet<String> flags = readFlags(it);
@@ -343,7 +328,7 @@ public final class PlatformMappingFunction implements SkyFunction {
   }
 
   private static Label readPlatform(PeekingIterator<String> it, RepoContext mainRepoContext)
-      throws PlatformMappingException {
+      throws PlatformMappingParsingException {
     if (!it.hasNext()) {
       throw parsingException("Expected platform label but got end of file");
     }
@@ -357,7 +342,7 @@ public final class PlatformMappingFunction implements SkyFunction {
   }
 
   private static ImmutableSet<String> readFlags(PeekingIterator<String> it)
-      throws PlatformMappingException {
+      throws PlatformMappingParsingException {
     ImmutableSet.Builder<String> flags = ImmutableSet.builder();
     // Note: Short form flags are not supported.
     while (it.hasNext() && it.peek().startsWith("--")) {
@@ -373,12 +358,12 @@ public final class PlatformMappingFunction implements SkyFunction {
     return parsedFlags;
   }
 
-  private static PlatformMappingException parsingException(String message) {
+  private static PlatformMappingParsingException parsingException(String message) {
     return parsingException(message, /*cause=*/ null);
   }
 
-  private static PlatformMappingException parsingException(String message, Exception cause) {
-    return new PlatformMappingException(new PlatformMappingParsingException(message, cause));
+  private static PlatformMappingParsingException parsingException(String message, Exception cause) {
+    return new PlatformMappingParsingException(message, cause);
   }
 
   /**
@@ -406,14 +391,19 @@ public final class PlatformMappingFunction implements SkyFunction {
     }
   }
 
-  /**
-   * Inner wrapper exception to work around the fact that {@link SkyFunctionException} cannot carry
-   * a message of its own.
-   */
-  private static final class PlatformMappingParsingException extends Exception {
+  @VisibleForTesting
+  static final class PlatformMappingFunctionException extends SkyFunctionException {
 
-    PlatformMappingParsingException(String message, Throwable cause) {
-      super(message, cause);
+    PlatformMappingFunctionException(MissingInputFileException cause) {
+      super(new PlatformMappingException(cause), Transience.PERSISTENT);
+    }
+
+    PlatformMappingFunctionException(IOException cause) {
+      super(new PlatformMappingException(cause), Transience.TRANSIENT);
+    }
+
+    PlatformMappingFunctionException(PlatformMappingParsingException cause) {
+      super(new PlatformMappingException(cause), Transience.PERSISTENT);
     }
   }
 }

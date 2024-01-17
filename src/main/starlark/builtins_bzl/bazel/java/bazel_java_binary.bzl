@@ -274,9 +274,10 @@ def _compute_test_support(use_testrunner):
 def _compute_launcher_attr(launcher):
     return launcher
 
-def _make_binary_rule(implementation, attrs, executable = False, test = False):
+def _make_binary_rule(implementation, attrs, executable = False, test = False, initializer = None):
     return rule(
         implementation = implementation,
+        initializer = initializer,
         attrs = attrs,
         executable = executable,
         test = test,
@@ -331,33 +332,42 @@ def make_java_binary(executable):
 
 java_binary = make_java_binary(executable = True)
 
-def make_java_test():
-    return _make_binary_rule(
-        _bazel_java_test_impl,
-        merge_attrs(
-            BASE_TEST_ATTRIBUTES,
-            _BASE_BINARY_ATTRS,
-            {
-                "_lcov_merger": attr.label(
-                    cfg = "exec",
-                    default = configuration_field(
-                        fragment = "coverage",
-                        name = "output_generator",
-                    ),
-                ),
-                "_collect_cc_coverage": attr.label(
-                    cfg = "exec",
-                    allow_single_file = True,
-                    default = "@bazel_tools//tools/test:collect_cc_coverage",
-                ),
-            },
-            override_attrs = {
-                "use_testrunner": attr.bool(default = True),
-                "stamp": attr.int(default = 0, values = [-1, 0, 1]),
-            },
-            remove_attrs = ["deploy_env"],
-        ),
-        test = True,
-    )
+def _java_test_initializer(**kwargs):
+    if "stamp" in kwargs and type(kwargs["stamp"]) == type(True):
+        kwargs["stamp"] = 1 if kwargs["stamp"] else 0
+    if "use_launcher" in kwargs and not kwargs["use_launcher"]:
+        kwargs["launcher"] = None
+    else:
+        # If launcher is not set or None, set it to config flag
+        if "launcher" not in kwargs or not kwargs["launcher"]:
+            kwargs["launcher"] = semantics.LAUNCHER_FLAG_LABEL
+    return kwargs
 
-java_test = make_java_test()
+java_test = _make_binary_rule(
+    _bazel_java_test_impl,
+    merge_attrs(
+        BASE_TEST_ATTRIBUTES,
+        _BASE_BINARY_ATTRS,
+        {
+            "_lcov_merger": attr.label(
+                cfg = "exec",
+                default = configuration_field(
+                    fragment = "coverage",
+                    name = "output_generator",
+                ),
+            ),
+            "_collect_cc_coverage": attr.label(
+                cfg = "exec",
+                allow_single_file = True,
+                default = "@bazel_tools//tools/test:collect_cc_coverage",
+            ),
+        },
+        override_attrs = {
+            "use_testrunner": attr.bool(default = True),
+            "stamp": attr.int(default = 0, values = [-1, 0, 1]),
+        },
+        remove_attrs = ["deploy_env"],
+    ),
+    test = True,
+    initializer = _java_test_initializer,
+)

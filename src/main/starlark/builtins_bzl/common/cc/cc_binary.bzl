@@ -14,7 +14,7 @@
 
 """cc_binary Starlark implementation replacing native"""
 
-load(":common/cc/cc_binary_attrs.bzl", "cc_binary_attrs")
+load(":common/cc/attrs.bzl", "cc_binary_attrs")
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper", "linker_mode")
 load(":common/cc/cc_info.bzl", "CcInfo")
@@ -536,10 +536,10 @@ def _collect_linking_context(ctx):
     cc_infos = _get_providers(ctx)
     return cc_common.merge_cc_infos(direct_cc_infos = cc_infos, cc_infos = cc_infos).linking_context
 
-def _get_link_staticness(ctx, cpp_config):
+def _get_link_staticness(ctx, cpp_config, force_linkstatic):
     if cpp_config.dynamic_mode() == "FULLY":
         return linker_mode.LINKING_DYNAMIC
-    elif cpp_config.dynamic_mode() == "OFF" or ctx.attr.linkstatic:
+    elif cpp_config.dynamic_mode() == "OFF" or ctx.attr.linkstatic or force_linkstatic:
         return linker_mode.LINKING_STATIC
     else:
         return linker_mode.LINKING_DYNAMIC
@@ -558,7 +558,7 @@ def _is_apple_platform(target_cpu):
         return True
     return False
 
-def cc_binary_impl(ctx, additional_linkopts):
+def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
     """Implementation function of cc_binary rule.
 
     Do NOT import outside cc_test.
@@ -566,6 +566,7 @@ def cc_binary_impl(ctx, additional_linkopts):
     Args:
       ctx: The Starlark rule context.
       additional_linkopts: Additional linkopts from an external source (e.g. toolchain)
+      force_linkstatic: If set, force this to be linked statically (i.e. --dynamic_mode=off)
 
     Returns:
       Appropriate providers for cc_binary/cc_test.
@@ -611,7 +612,7 @@ def cc_binary_impl(ctx, additional_linkopts):
             cc_toolchain = cc_toolchain,
             is_dynamic_link_type = is_dynamic_link_type,
         )
-    linking_mode = _get_link_staticness(ctx, cpp_config)
+    linking_mode = _get_link_staticness(ctx, cpp_config, force_linkstatic)
     features = ctx.features
     features.append(linking_mode)
     disabled_features = ctx.disabled_features
@@ -917,6 +918,26 @@ def _impl(ctx):
 cc_binary = rule(
     implementation = _impl,
     initializer = cc_shared_library_initializer,
+    doc = """
+<p>It produces an executable binary.</p>
+
+<br/>The <code>name</code> of the target should be the same as the name of the
+source file that is the main entry point of the application (minus the extension).
+For example, if your entry point is in <code>main.cc</code>, then your name should
+be <code>main</code>.
+
+<h4>Implicit output targets</h4>
+<ul>
+<li><code><var>name</var>.stripped</code> (only built if explicitly requested): A stripped
+  version of the binary. <code>strip -g</code> is run on the binary to remove debug
+  symbols.  Additional strip options can be provided on the command line using
+  <code>--stripopt=-foo</code>.</li>
+<li><code><var>name</var>.dwp</code> (only built if explicitly requested): If
+  <a href="https://gcc.gnu.org/wiki/DebugFission">Fission</a> is enabled: a debug
+  information package file suitable for debugging remotely deployed binaries. Else: an
+  empty file.</li>
+</ul>
+""" + semantics.cc_binary_extra_docs,
     attrs = cc_binary_attrs,
     outputs = {
         "stripped_binary": "%{name}.stripped",

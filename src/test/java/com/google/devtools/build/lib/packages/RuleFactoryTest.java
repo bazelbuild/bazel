@@ -77,7 +77,9 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
 
     Map<String, Object> attributeValues = new HashMap<>();
     attributeValues.put("name", "foo");
-    attributeValues.put("alwayslink", true);
+    attributeValues.put("executable", true);
+    attributeValues.put("outs", ImmutableList.of("foo.out"));
+    attributeValues.put("cmd", "echo");
 
     // TODO(b/274802222): Should this be prohibited?
     if (explicitlySetGeneratorAttrs) {
@@ -85,7 +87,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
       attributeValues.put("generator_function", "fake_generator_function");
     }
 
-    RuleClass ruleClass = provider.getRuleClassMap().get("cc_library");
+    RuleClass ruleClass = provider.getRuleClassMap().get("genrule");
     Rule rule =
         RuleFactory.createAndAddRule(
             pkgBuilder,
@@ -106,8 +108,8 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
     assertThat(rule.getLabel()).isEqualTo(Label.parseCanonical("//mypkg:foo"));
     assertThat(rule.getName()).isEqualTo("foo");
 
-    assertThat(rule.getRuleClass()).isEqualTo("cc_library");
-    assertThat(rule.getTargetKind()).isEqualTo("cc_library rule");
+    assertThat(rule.getRuleClass()).isEqualTo("genrule");
+    assertThat(rule.getTargetKind()).isEqualTo("genrule rule");
     // The rule reports the location of the outermost call (aka generator), in the BUILD file.
     // This behavior was added to fix b/23974287, but it loses information and is redundant
     // w.r.t. generator_location. A better fix to that issue would be to keep rule.location as
@@ -119,13 +121,13 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
 
     // Attr with explicitly-supplied value:
     AttributeMap attributes = RawAttributeMapper.of(rule);
-    assertThat(attributes.get("alwayslink", Type.BOOLEAN)).isTrue();
-    assertThrows(Exception.class, () -> attributes.get("alwayslink", Type.STRING));
+    assertThat(attributes.get("executable", Type.BOOLEAN)).isTrue();
+    assertThrows(Exception.class, () -> attributes.get("tools", Type.STRING));
     assertThrows(Exception.class, () -> attributes.get("nosuchattr", Type.STRING));
 
     // Attrs with default values:
     // cc_library linkstatic default=0 according to build encyc.
-    assertThat(attributes.get("linkstatic", Type.BOOLEAN)).isFalse();
+    assertThat(attributes.get("output_to_bindir", Type.BOOLEAN)).isFalse();
     assertThat(attributes.get("testonly", Type.BOOLEAN)).isFalse();
     assertThat(attributes.get("srcs", BuildType.LABEL_LIST)).isEmpty();
   }

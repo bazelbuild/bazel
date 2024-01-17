@@ -119,10 +119,17 @@ def _objc_library_impl(ctx):
 
 objc_library = rule(
     implementation = _objc_library_impl,
+    doc = """
+<p>This rule produces a static library from the given Objective-C source files.</p>""",
     attrs = common_attrs.union(
         {
             "data": attr.label_list(allow_files = True),
-            "implementation_deps": attr.label_list(providers = [CcInfo], allow_files = False),
+            "implementation_deps": attr.label_list(providers = [CcInfo], allow_files = False, doc = """
+The list of other libraries that the library target depends on. Unlike with
+<code>deps</code>, the headers and include paths of these libraries (and all their
+transitive deps) are only used for compilation of this library, and not libraries that
+depend on it. Libraries specified with <code>implementation_deps</code> are still linked
+in binary targets that depend on this library."""),
         },
         common_attrs.ALWAYSLINK_RULE,
         common_attrs.CC_TOOLCHAIN_RULE,

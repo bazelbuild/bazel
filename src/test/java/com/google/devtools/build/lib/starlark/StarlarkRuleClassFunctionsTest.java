@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkConfig;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkGlobalsImpl;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.MacroFunction;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.StarlarkRuleFunction;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -57,6 +58,8 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RequiredProviders;
@@ -77,11 +80,13 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -103,6 +108,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
+
 /** Tests for StarlarkRuleClassFunctions. */
 @RunWith(TestParameterInjector.class)
 public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
@@ -205,6 +211,173 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertThat(getRuleClass("exec_rule").hasAttr("args", Type.STRING_LIST)).isTrue();
     assertThat(getRuleClass("non_exec_rule").hasAttr("args", Type.STRING_LIST)).isFalse();
   }
+
+  /** Returns a package by the given name (no leading "//"), or null if it was in error. */
+  @CanIgnoreReturnValue
+  @Nullable
+  private Package getPackage(String pkgName) throws InterruptedException {
+    try {
+      return getPackageManager().getPackage(reporter, PackageIdentifier.createInMainRepo(pkgName));
+    } catch (NoSuchPackageException unused) {
+      return null;
+    }
+  }
+
+  @Test
+  public void testSymbolicMacro_failsWithoutFlag() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_first_class_macros=false");
+
+    scratch.file(
+        "pkg/foo.bzl", //
+        "def _impl(name):",
+        "    pass",
+        "my_macro = macro(implementation=_impl)");
+    scratch.file(
+        "pkg/BUILD", //
+        "load(':foo.bzl', 'my_macro')");
+
+    reporter.removeHandler(failFastHandler);
+    Package pkg = getPackage("pkg");
+    assertThat(pkg).isNull();
+    assertContainsEvent("requires --experimental_enable_first_class_macros");
+  }
+
+  @Test
+  public void testSymbolicMacro_instantiationRegistersOnPackage() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_first_class_macros");
+
+    scratch.file(
+        "pkg/foo.bzl", //
+        "def _impl(name):",
+        "    pass",
+        "my_macro = macro(implementation=_impl)");
+    scratch.file(
+        "pkg/BUILD", //
+        "load(':foo.bzl', 'my_macro')",
+        "my_macro(name='ghi')", // alphabetized when read back
+        "my_macro(name='abc')",
+        "my_macro(name='def')");
+
+    Package pkg = getPackage("pkg");
+    assertThat(pkg.getMacros().keySet()).containsExactly("abc", "def", "ghi").inOrder();
+    assertThat(pkg.getMacros().get("abc").getMacroClass().getName()).isEqualTo("my_macro");
+  }
+
+  @Test
+  public void testSymbolicMacro_instantiationRequiresExport() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_first_class_macros");
+
+    scratch.file(
+        "pkg/foo.bzl", //
+        "def _impl(name):",
+        "    pass",
+        "s = struct(m = macro(implementation=_impl))");
+    scratch.file(
+        "pkg/BUILD", //
+        "load(':foo.bzl', 's')",
+        "s.m(name='abc')");
+
+    reporter.removeHandler(failFastHandler);
+    Package pkg = getPackage("pkg");
+    assertThat(pkg).isNotNull();
+    assertThat(pkg.containsErrors()).isTrue();
+    assertContainsEvent("Cannot instantiate a macro that has not been exported");
+  }
+
+  @Test
+  public void testSymbolicMacro_cannotInstantiateInBzlThread() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_first_class_macros");
+
+    scratch.file(
+        "pkg/foo.bzl",
+        "def _impl(name):",
+        "    pass",
+        "my_macro = macro(implementation=_impl)",
+        "",
+        // Calling it from a function during .bzl load time is a little more interesting than
+        // calling it directly at the top level, since it forces us to check thread state rather
+        // than call stack state.
+        "def some_func():",
+        "    my_macro(name='nope')",
+        "some_func()");
+    scratch.file(
+        "pkg/BUILD", //
+        "load(':foo.bzl', 'my_macro')");
+
+    reporter.removeHandler(failFastHandler);
+    Package pkg = getPackage("pkg");
+    assertThat(pkg).isNull();
+    assertContainsEvent("Cannot instantiate a macro when loading a .bzl file");
+  }
+
+  @Test
+  public void testSymbolicMacro_requiresNameAttribute() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_first_class_macros");
+
+    scratch.file(
+        "pkg/foo.bzl", //
+        "def _impl(name):",
+        "    pass",
+        "my_macro = macro(implementation=_impl)");
+    scratch.file(
+        "pkg/BUILD", //
+        "load(':foo.bzl', 'my_macro')",
+        "my_macro()");
+
+    reporter.removeHandler(failFastHandler);
+    Package pkg = getPackage("pkg");
+    assertThat(pkg).isNotNull();
+    assertThat(pkg.containsErrors()).isTrue();
+    assertContainsEvent("macro requires a `name` attribute");
+  }
+
+  @Test
+  public void testSymbolicMacro_prohibitsPositionalArgs() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_first_class_macros");
+
+    scratch.file(
+        "pkg/foo.bzl", //
+        "def _impl(name):",
+        "    pass",
+        "my_macro = macro(implementation=_impl)");
+    scratch.file(
+        "pkg/BUILD", //
+        "load(':foo.bzl', 'my_macro')",
+        "my_macro('a positional arg', name = 'abc')");
+
+    reporter.removeHandler(failFastHandler);
+    Package pkg = getPackage("pkg");
+    assertThat(pkg).isNotNull();
+    assertThat(pkg.containsErrors()).isTrue();
+    assertContainsEvent("unexpected positional arguments");
+  }
+
+  @Test
+  public void testSymbolicMacro_macroFunctionApi() throws Exception {
+    ev.setSemantics("--experimental_enable_first_class_macros");
+
+    evalAndExport(
+        ev, //
+        "def _impl(name):",
+        "    pass",
+        "exported = macro(implementation=_impl)",
+        "s = struct(unexported = macro(implementation=_impl))");
+
+    MacroFunction exported = (MacroFunction) ev.lookup("exported");
+    MacroFunction unexported = (MacroFunction) ev.eval("s.unexported");
+
+    assertThat(exported.getName()).isEqualTo("exported");
+    assertThat(unexported.getName()).isEqualTo("unexported macro");
+
+    assertThat(exported.isExported()).isTrue();
+    assertThat(unexported.isExported()).isFalse();
+
+    assertThat(ev.eval("repr(exported)")).isEqualTo("<macro exported>");
+    assertThat(ev.eval("repr(s.unexported)")).isEqualTo("<macro>");
+  }
+
+  // TODO(#19922): Add assertions for calling convention and execution of macro implementation
+  // function.
 
   private RuleClass getRuleClass(String name) throws Exception {
     return ((StarlarkRuleFunction) ev.lookup(name)).getRuleClass();
@@ -2819,6 +2992,73 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
     assertThat((List<String>) info.getValue("srcs")).containsExactly("initializer_testing/a.ml");
     assertThat((List<String>) info.getValue("deps")).containsExactly("@@//:initial", "@@//:added");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void initializer_stringListDict() throws Exception {
+    scratch.file(
+        "initializer_testing/b.bzl",
+        "def initializer(**kwargs):",
+        "  return {}",
+        "MyInfo = provider()",
+        "def impl(ctx): ",
+        "  return [MyInfo(dict = ctx.attr.dict)]",
+        "my_rule = rule(impl,",
+        "  initializer = initializer,",
+        "  attrs = {",
+        "    'dict': attr.string_list_dict(),",
+        "  })");
+    scratch.file(
+        "initializer_testing/BUILD", //
+        "load(':b.bzl','my_rule')",
+        "my_rule(name = 'my_target', dict = {'k': ['val']})");
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//initializer_testing:my_target");
+    StructImpl info =
+        (StructImpl)
+            myTarget.get(
+                new StarlarkProvider.Key(
+                    Label.parseCanonical("//initializer_testing:b.bzl"), "MyInfo"));
+
+    assertThat(((Map<String, List<String>>) info.getValue("dict")).keySet()).containsExactly("k");
+    assertThat(((Map<String, List<String>>) info.getValue("dict")).get("k")).containsExactly("val");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void initializer_labelKeyedStringDict() throws Exception {
+    scratch.file(
+        "BUILD", //
+        "filegroup(name = 'key')");
+    scratch.file(
+        "initializer_testing/b.bzl",
+        "def initializer(**kwargs):",
+        "  return {}",
+        "MyInfo = provider()",
+        "def impl(ctx): ",
+        "  return [MyInfo(dict = ctx.attr.dict)]",
+        "my_rule = rule(impl,",
+        "  initializer = initializer,",
+        "  attrs = {",
+        "    'dict': attr.label_keyed_string_dict(),",
+        "  })");
+    scratch.file(
+        "initializer_testing/BUILD", //
+        "load(':b.bzl','my_rule')",
+        "my_rule(name = 'my_target', dict = {'//:key': 'val'})");
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//initializer_testing:my_target");
+    ConfiguredTarget key = getConfiguredTarget("//:key");
+    StructImpl info =
+        (StructImpl)
+            myTarget.get(
+                new StarlarkProvider.Key(
+                    Label.parseCanonical("//initializer_testing:b.bzl"), "MyInfo"));
+
+    assertThat(((Map<ConfiguredTarget, String>) info.getValue("dict")).keySet())
+        .containsExactly(key);
+    assertThat(((Map<ConfiguredTarget, String>) info.getValue("dict")).get(key)).isEqualTo("val");
   }
 
   @Test

@@ -710,7 +710,8 @@ public final class RemoteOptions extends CommonRemoteOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Enables remote cache key scrubbing with the supplied configuration file, which must be a"
-              + " ScrubbingConfig protocol buffer in text format.\n\n"
+              + " protocol buffer in text format (see"
+              + " src/main/protobuf/remote_scrubbing.proto).\n\n"
               + "This feature is intended to facilitate sharing a remote/disk cache between actions"
               + " executing on different platforms but targeting the same platform. It should be"
               + " used with extreme care, as improper settings may cause accidental sharing of"

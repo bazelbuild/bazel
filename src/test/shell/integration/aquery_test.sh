@@ -788,30 +788,6 @@ EOF
   assert_not_contains "Outputs: " output
 }
 
-function test_aquery_include_param_file_cc_binary() {
-  local pkg="${FUNCNAME[0]}"
-  mkdir -p "$pkg" || fail "mkdir -p $pkg"
-  cat > "$pkg/BUILD" <<'EOF'
-cc_binary(
-    name='foo',
-    srcs=['foo.cc']
-)
-EOF
-
-  # cc_binary targets write param files and use them in CppLinkActions.
-  QUERY="//$pkg:foo"
-
-  bazel aquery --output=text --include_param_files ${QUERY} > output 2> "$TEST_log" \
-    || fail "Expected success"
-  cat output >> "$TEST_log"
-
-  assert_contains "Command Line: " output
-  assert_contains "Params File Content (.*-2.params):" output
-
-  bazel aquery --output=textproto --include_param_files ${QUERY} > output \
-    2> "$TEST_log" || fail "Expected success"
-}
-
 function test_aquery_include_param_file_starlark_rule() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"

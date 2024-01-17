@@ -64,6 +64,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -115,10 +116,12 @@ public class Package {
   private static final long PACKAGE_OVERHEAD_UNSET = -1;
 
   /**
-   * An exception used when a target's name conflicts with other targets in the package.
+   * An exception used when the name of a target or symbolic macro clashes with another entity
+   * defined in the package.
    *
-   * <p>This could be an exact match, or in the case of output files, a prefix clash (one output
-   * file is a prefix of another).
+   * <p>Common examples of conflicts include two targets or symbolic macros sharing the same name,
+   * and one output file being a prefix of another. See {@link #checkForExistingName} and {@link
+   * #checkRuleAndOutputs} for more details.
    */
   public static final class NameConflictException extends Exception {
     private NameConflictException(String message) {
@@ -126,8 +129,22 @@ public class Package {
     }
   }
 
-  /** The collection of all targets defined in this package, indexed by name. */
+  /**
+   * The collection of all targets defined in this package, indexed by name.
+   *
+   * <p>Invariant: This is disjoint with the set of keys in {@link #macros}.
+   */
   private ImmutableSortedMap<String, Target> targets;
+
+  /**
+   * The collection of all symbolic macro instances defined in this package, indexed by name.
+   *
+   * <p>Invariant: This is disjoint with the set of keys in {@link #targets}.
+   */
+  // TODO(#19922): We'll have to strengthen this invariant. It's not just that nothing should share
+  // the same name as a macro, but also that nothing should be inside a macro's namespace (meaning,
+  // in the current design, having the macro as a prefix) unless it was defined by that macro.
+  private ImmutableSortedMap<String, MacroInstance> macros;
 
   public PackageArgs getPackageArgs() {
     return metadata.packageArgs;
@@ -336,6 +353,7 @@ public class Package {
 
     this.metadata.makeEnv = ImmutableMap.copyOf(builder.makeEnv);
     this.targets = ImmutableSortedMap.copyOf(builder.targets);
+    this.macros = ImmutableSortedMap.copyOf(builder.macros);
     this.failureDetail = builder.getFailureDetail();
     this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
     this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
@@ -655,6 +673,14 @@ public class Package {
     }
   }
 
+  /** Returns all symbolic macros defined in the package. */
+  // TODO(#19922): Clarify this comment to indicate whether the macros have already been expanded
+  // by the point the Package has been built. The answer's probably "yes". In that case, this
+  // accessor is still useful for introspecting e.g. by `bazel query`.
+  public ImmutableMap<String, MacroInstance> getMacros() {
+    return macros;
+  }
+
   /**
    * How to enforce visibility on <code>config_setting</code> See {@link
    * ConfigSettingVisibilityPolicy} for details.
@@ -886,27 +912,31 @@ public class Package {
     // some tests.
     @Nullable private final Globber globber;
 
+    private final Map<Label, EnvironmentGroup> environmentGroups = new HashMap<>();
+
     // All targets added to the package. We use SnapshottableBiMap to help track insertion order of
     // Rule targets, for use by native.existing_rules().
     private BiMap<String, Target> targets =
         new SnapshottableBiMap<>(target -> target instanceof Rule);
-    private final Map<Label, EnvironmentGroup> environmentGroups = new HashMap<>();
+
+    // All instances of symbolic macros created during package construction.
+    private final Map<String, MacroInstance> macros = new LinkedHashMap<>();
 
     private enum NameConflictCheckingPolicy {
       UNKNOWN,
-      DISABLED,
+      NOT_GUARANTEED,
       ENABLED;
     }
 
     /**
-     * Whether to do validation checks for name clashes between targets and between output file
+     * Whether to do all validation checks for name clashes among targets, macros, and output file
      * prefixes.
      *
-     * <p>This should only be disabled for data that has already been validated, e.g. in package
-     * deserialization.
+     * <p>The {@code NOT_GUARANTEED} value should only be used when the package data has already
+     * been validated, e.g. in package deserialization.
      *
-     * <p>Even disabling this does not turn off *all* checking, just some of the more expensive
-     * ones. Do not rely on being able to violate these checks.
+     * <p>Setting it to {@code NOT_GUARANTEED} does not necessarily turn off *all* checking, just
+     * some of the more expensive ones. Do not rely on being able to violate these checks.
      */
     private NameConflictCheckingPolicy nameConflictCheckingPolicy =
         NameConflictCheckingPolicy.UNKNOWN;
@@ -925,7 +955,7 @@ public class Package {
      * file having that prefix. Used for error reporting.
      *
      * <p>This field is null if name conflict checking is disabled. It is also null after the
-     * package is built. The content of the map is manipulated only in {@link #checkForConflicts}.
+     * package is built. The content of the map is manipulated only in {@link #checkRuleAndOutputs}.
      */
     @Nullable private Map<String, OutputFile> outputFilePrefixes = new HashMap<>();
 
@@ -1397,8 +1427,8 @@ public class Package {
      * @param targetName name of the input file. This must be a valid target name as defined by
      *     {@link com.google.devtools.build.lib.cmdline.LabelValidator#validateTargetName}.
      * @return the newly-created {@code InputFile}, or the old one if it already existed.
-     * @throws NameConflictException if the name was already taken by another target that is not an
-     *     input file
+     * @throws NameConflictException if the name was already taken by another target/macro that is
+     *     not an input file
      * @throws IllegalArgumentException if the name is not a valid label
      */
     InputFile createInputFile(String targetName, Location location) throws NameConflictException {
@@ -1416,12 +1446,9 @@ public class Package {
               "FileTarget in package " + pkg.getName() + " has illegal name: " + targetName, e);
       }
 
-      if (existing == null) {
-        addInputFile(inputFile);
-        return inputFile;
-      } else {
-        throw nameConflict(inputFile, existing);
-      }
+      checkForExistingName(inputFile);
+      addInputFile(inputFile);
+      return inputFile;
     }
 
     /**
@@ -1481,7 +1508,7 @@ public class Package {
               repoRootMeansCurrentRepo,
               eventHandler,
               location);
-      checkNameConflict(group);
+      checkForExistingName(group);
       targets.put(group.getName(), group);
 
       if (group.containsErrors()) {
@@ -1531,7 +1558,7 @@ public class Package {
 
       EnvironmentGroup group =
           new EnvironmentGroup(createLabel(name), pkg, environments, defaults, location);
-      checkNameConflict(group);
+      checkForExistingName(group);
       targets.put(group.getName(), group);
 
       // Invariant: once group is inserted into targets, it must also:
@@ -1566,8 +1593,9 @@ public class Package {
     }
 
     /**
-     * Turns off conflict checking for name clashes between targets, or between output file
-     * prefixes.
+     * Turns off (some) conflict checking for name clashes between targets, macros, and output file
+     * prefixes. (It is not guaranteed to disable all checks, since it is intended as an
+     * optimization and not for semantic effect.)
      *
      * <p>This should only be done for data that has already been validated, e.g. during package
      * deserialization. Do not call this unless you know what you're doing.
@@ -1578,14 +1606,15 @@ public class Package {
     @CanIgnoreReturnValue
     Builder disableNameConflictChecking() {
       Preconditions.checkState(nameConflictCheckingPolicy == NameConflictCheckingPolicy.UNKNOWN);
-      this.nameConflictCheckingPolicy = NameConflictCheckingPolicy.DISABLED;
+      this.nameConflictCheckingPolicy = NameConflictCheckingPolicy.NOT_GUARANTEED;
       this.ruleLabels = null;
       this.outputFilePrefixes = null;
       return this;
     }
 
     private void ensureNameConflictChecking() {
-      Preconditions.checkState(nameConflictCheckingPolicy != NameConflictCheckingPolicy.DISABLED);
+      Preconditions.checkState(
+          nameConflictCheckingPolicy != NameConflictCheckingPolicy.NOT_GUARANTEED);
       this.nameConflictCheckingPolicy = NameConflictCheckingPolicy.ENABLED;
     }
 
@@ -1609,7 +1638,8 @@ public class Package {
      * #disableNameConflictChecking} was already called.
      */
     void addRuleUnchecked(Rule rule) {
-      Preconditions.checkState(nameConflictCheckingPolicy == NameConflictCheckingPolicy.DISABLED);
+      Preconditions.checkState(
+          nameConflictCheckingPolicy == NameConflictCheckingPolicy.NOT_GUARANTEED);
       addRuleInternal(rule);
     }
 
@@ -1621,9 +1651,17 @@ public class Package {
       ensureNameConflictChecking();
 
       List<Label> labels = rule.getLabels();
-      checkForConflicts(rule, labels);
+      checkRuleAndOutputs(rule, labels);
       addRuleInternal(rule);
       ruleLabels.put(rule, labels);
+    }
+
+    /** Adds a symbolic macro instance to the package. */
+    public void addMacro(MacroInstance macro) throws NameConflictException {
+      checkForExistingName(macro);
+      macros.put(macro.getName(), macro);
+      // TODO(#19922): Push to a queue of unexpanded macros, read those when expanding macros as
+      // part of monolithic package evaluation (but not lazy macro evaluation).
     }
 
     void addRegisteredExecutionPlatforms(List<TargetPattern> platforms) {
@@ -1687,6 +1725,7 @@ public class Package {
           for (Label label : labels) {
             if (label.getPackageIdentifier().equals(pkg.getPackageIdentifier())
                 && !targets.containsKey(label.getName())
+                && !macros.containsKey(label.getName())
                 && !newInputFiles.containsKey(label.getName())) {
               Location loc = rule.getLocation();
               newInputFiles.put(
@@ -1781,11 +1820,12 @@ public class Package {
     }
 
     /**
-     * Precondition check for {@link #addRule}. Verifies that:
+     * Precondition check for {@link #addRule} (to be called before the rule and its outputs are in
+     * the targets map). Verifies that:
      *
      * <ul>
      *   <li>The added rule's name, and the names of its output files, are not the same as the name
-     *       of any target already declared in the package.
+     *       of any target/macro already declared in the package.
      *   <li>The added rule's output files list does not contain the same name twice.
      *   <li>The added rule does not have an input file and an output file that share the same name.
      *   <li>For each of the added rule's output files, no directory prefix of that file matches the
@@ -1797,12 +1837,12 @@ public class Package {
     // TODO(bazel-team): We verify that all prefixes of output files are distinct from other output
     // file names, but not that they're distinct from other target names in the package. What
     // happens if you define an input file "abc" and output file "abc/xyz"?
-    private void checkForConflicts(Rule rule, List<Label> labels) throws NameConflictException {
+    private void checkRuleAndOutputs(Rule rule, List<Label> labels) throws NameConflictException {
       Preconditions.checkNotNull(outputFilePrefixes); // ensured by addRule's precondition
 
       // Check the name of the new rule itself.
       String ruleName = rule.getName();
-      checkNameConflict(rule);
+      checkForExistingName(rule);
 
       ImmutableList<OutputFile> outputFiles = rule.getOutputFiles();
       Map<String, OutputFile> outputFilesByName =
@@ -1811,13 +1851,16 @@ public class Package {
       // Check the new rule's output files, both for direct conflicts and prefix conflicts.
       for (OutputFile outputFile : outputFiles) {
         String outputFileName = outputFile.getName();
-        // Check for duplicate within a single rule. (Can't use checkNameConflict since this rule's
-        // outputs aren't in the target map yet.)
+        // Check for duplicate within a single rule. (Can't use checkForExistingName since this
+        // rule's outputs aren't in the target map yet.)
         if (outputFilesByName.put(outputFileName, outputFile) != null) {
-          throw nameConflict(outputFile, outputFile); // Duplicate within a single rule.
+          throw new NameConflictException(
+              String.format(
+                  "rule '%s' has more than one generated file named '%s'",
+                  ruleName, outputFileName));
         }
-        // Check for conflict with any other already added target.
-        checkNameConflict(outputFile);
+        // Check for conflict with any other already added target/macro.
+        checkForExistingName(outputFile);
         // TODO(bazel-team): We also need to check for a conflict between an output file and its own
         // rule, which is not yet in the targets map.
 
@@ -1857,34 +1900,64 @@ public class Package {
     }
 
     /**
-     * Throws {@link NameConflictException} if a target with the given target's name is already
-     * present in the package.
+     * Throws {@link NameConflictException} if the given target's name matches an existing target or
+     * macro in the package.
      */
-    private void checkNameConflict(Target added) throws NameConflictException {
-      Target existing = targets.get(added.getName());
-      if (existing != null) {
-        throw nameConflict(added, existing);
-      }
+    private void checkForExistingName(Target added) throws NameConflictException {
+      checkForExistingName(added.getName(), added);
     }
 
-    /** Returns a {@link NameConflictException} about two targets having the same name. */
-    private static NameConflictException nameConflict(Target added, Target existing) {
-      String subject = String.format("%s '%s'", added.getTargetKind(), added.getName());
-      if (added instanceof OutputFile) {
-        subject += " in rule '" + ((OutputFile) added).getGeneratingRule().getName() + "'";
+    /**
+     * Throws {@link NameConflictException} if the given macro's name matches an existing target or
+     * macro in the package.
+     */
+    private void checkForExistingName(MacroInstance added) throws NameConflictException {
+      checkForExistingName(added.getName(), added);
+    }
+
+    private void checkForExistingName(String name, Object added) throws NameConflictException {
+      Object existing = targets.get(name);
+      if (existing == null) {
+        existing = macros.get(name);
+      }
+      if (existing == null) {
+        return;
       }
 
-      String object =
-          existing instanceof OutputFile
-              ? String.format(
-                  "generated file from rule '%s'",
-                  ((OutputFile) existing).getGeneratingRule().getName())
-              : existing.getTargetKind();
+      // Format error message subject and object, which are either Targets or MacroInstances.
 
-      return new NameConflictException(
-          String.format(
-              "%s conflicts with existing %s, defined at %s",
-              subject, object, existing.getLocation()));
+      String subject;
+      if (added instanceof Target) {
+        subject =
+            String.format("%s '%s'", ((Target) added).getTargetKind(), ((Target) added).getName());
+        if (added instanceof OutputFile) {
+          subject += " in rule '" + ((OutputFile) added).getGeneratingRule().getName() + "'";
+        }
+      } else if (added instanceof MacroInstance) {
+        subject = String.format("macro '%s'", ((MacroInstance) added).getName());
+      } else {
+        throw new IllegalArgumentException("Unexpected object type: " + added.getClass());
+      }
+
+      String object;
+      if (existing instanceof Target) {
+        object =
+            existing instanceof OutputFile
+                ? String.format(
+                    "generated file from rule '%s'",
+                    ((OutputFile) existing).getGeneratingRule().getName())
+                : ((Target) existing).getTargetKind();
+        object += ", defined at " + ((Target) existing).getLocation();
+      } else if (existing instanceof MacroInstance) {
+        // TODO(#19922): Add definition location info for the existing object, like we have in the
+        // case for rules.
+        object = "macro";
+      } else {
+        throw new AssertionError();
+      }
+
+      throw new NameConflictException(
+          String.format("%s conflicts with existing %s", subject, object));
     }
 
     /**

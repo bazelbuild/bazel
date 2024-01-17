@@ -295,13 +295,17 @@ public class ExecutionTool {
         startBuildAndDetermineModifiedOutputFiles(request.getId(), outputService);
     if (outputService == null || outputService.actionFileSystemType().supportsLocalActions()) {
       // Must be created after the output path is created above.
-      createActionLogDirectory();
+      try (SilentCloseable c = Profiler.instance().profile("createActionLogDirectory")) {
+        createActionLogDirectory();
+      }
     }
 
     ActionCache actionCache = null;
     if (buildRequestOptions.useActionCache) {
-      actionCache = getOrLoadActionCache();
-      actionCache.resetStatistics();
+      try (SilentCloseable c = Profiler.instance().profile("load/reset action cache")) {
+        actionCache = getOrLoadActionCache();
+        actionCache.resetStatistics();
+      }
     }
     SkyframeBuilder skyframeBuilder;
     try (SilentCloseable c = Profiler.instance().profile("createBuilder")) {
@@ -519,11 +523,15 @@ public class ExecutionTool {
         startLocalOutputBuild();
       }
     }
-    if (!request.getPackageOptions().checkOutputFiles
-        // Do not skip invalidation in case the output tree is empty -- this can happen
-        // after it's cleaned or corrupted.
-        && !modifiedOutputFiles.treatEverythingAsDeleted()) {
-      modifiedOutputFiles = ModifiedFileSet.NOTHING_MODIFIED;
+    if (!request.getPackageOptions().checkOutputFiles) {
+      // Do not skip output invalidation in the following cases:
+      // 1. If the output tree is empty: this can happen after it's cleaned or corrupted.
+      // 2. For a run command: so that outputs are downloaded even if they were previously built
+      //    with --remote_download_minimal. See https://github.com/bazelbuild/bazel/issues/20843.
+      if (!modifiedOutputFiles.treatEverythingAsDeleted()
+          && !request.getCommandName().equals("run")) {
+        return ModifiedFileSet.NOTHING_MODIFIED;
+      }
     }
     return modifiedOutputFiles;
   }
@@ -686,7 +694,7 @@ public class ExecutionTool {
   private void createActionLogDirectory() throws AbruptExitException {
     Path directory = env.getActionTempsDirectory();
     if (directory.exists()) {
-      try {
+      try (SilentCloseable c = Profiler.instance().profile("directory.deleteTree")) {
         directory.deleteTree();
       } catch (IOException e) {
         // TODO(b/140567980): Remove when we determine the cause of occasional deleteTree() failure.
@@ -698,7 +706,7 @@ public class ExecutionTool {
       }
     }
 
-    try {
+    try (SilentCloseable c = Profiler.instance().profile("directory.createDirectoryAndParents")) {
       directory.createDirectoryAndParents();
     } catch (IOException e) {
       throw createExitException(

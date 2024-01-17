@@ -380,7 +380,7 @@ upper_tabs:
       - title: Support policy
         path: /contribute/policy
 
-- name: Versions
+- name: Versioned docs
   path: /versions/
   menu:
   - column:
@@ -390,7 +390,5 @@ upper_tabs:
     - links:
       - label: "Nightly"
         path: /
-      - label: Rolling releases
-        path: /release/rolling
       - label: "More…"
         path: /versions/

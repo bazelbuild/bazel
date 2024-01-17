@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.MissingDepExecException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
@@ -640,6 +641,23 @@ public class LegacyIncludeScanner implements IncludeScanner {
   }
 
   /**
+   * Treats {@link LostInputsExecException} with higher priority so that rewinding can be initiated.
+   *
+   * <p>Notably, this allows lost inputs to be prioritized over {@link MissingDepExecException},
+   * which is more likely to resolve on its own (Skyframe evaluation of the missing dep completes).
+   */
+  private static final ErrorClassifier INCLUDE_SCANNING_ERROR_CLASSIFIER =
+      new ErrorClassifier() {
+        @Override
+        protected ErrorClassification classifyException(Exception e) {
+          return e instanceof ExecRuntimeException
+                  && e.getCause() instanceof LostInputsExecException
+              ? ErrorClassification.NOT_CRITICAL_HIGHER_PRIORITY
+              : ErrorClassification.NOT_CRITICAL;
+        }
+      };
+
+  /**
    * Implements a potentially parallel traversal over source files using a thread pool shared across
    * different IncludeScanner instances.
    */
@@ -661,7 +679,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
           includePool,
           ExecutorOwnership.SHARED,
           ExceptionHandlingMode.FAIL_FAST,
-          ErrorClassifier.DEFAULT);
+          INCLUDE_SCANNING_ERROR_CLASSIFIER);
       this.actionExecutionMetadata = actionExecutionMetadata;
       this.actionExecutionContext = actionExecutionContext;
       this.grepIncludes = grepIncludes;

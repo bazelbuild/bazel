@@ -497,12 +497,6 @@ public class ResourceLinker {
    */
   private CompressionOverride overrideCompression(DirectoryEntry entry) {
     String filename = entry.getFilename();
-    if (filename.startsWith("assets/") && filename.endsWith(".apk")) {
-      // This is solely to preserve legacy behavior, which could not otherwise be replicated with
-      // command line flags - nested APKs are compressed in res/raw unless in
-      // uncompressedExtensions, but are *never* compressed in assets.
-      return CompressionOverride.FORCE_STORED;
-    }
     if (filename.startsWith("res/")
         && filename.endsWith(".xml")
         && !uncompressedExtensions.contains(".xml")) {

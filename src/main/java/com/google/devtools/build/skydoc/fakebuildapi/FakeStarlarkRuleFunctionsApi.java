@@ -129,6 +129,18 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi {
   }
 
   @Override
+  public StarlarkCallable macro(StarlarkFunction implementation, StarlarkThread thread) {
+    // We don't support documenting symbolic macros -- at least not in legacy Stardoc.
+    // Return a dummy.
+    return new StarlarkCallable() {
+      @Override
+      public String getName() {
+        return "UNNAMED";
+      }
+    };
+  }
+
+  @Override
   public StarlarkCallable rule(
       StarlarkFunction implementation,
       Object test,

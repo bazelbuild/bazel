@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -52,10 +53,15 @@ public class WorkspaceFileValue implements SkyValue {
       this.idx = idx;
     }
 
-    @VisibleForSerialization
-    @AutoCodec.Instantiator
+    @VisibleForTesting
     static WorkspaceFileKey create(RootedPath path, int idx) {
       return interner.intern(new WorkspaceFileKey(path, idx));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static WorkspaceFileKey intern(WorkspaceFileKey key) {
+      return interner.intern(key);
     }
 
     public RootedPath getPath() {
