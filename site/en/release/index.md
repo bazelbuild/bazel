@@ -164,7 +164,7 @@ Bazel maintainers can request to cherry-pick specific commit(s) to a release bra
 1.  Submit the Issue
     *   Once all details are filled in and the miestone is set, submit the the issue.
 
-The cherry-pick bot will process the request and notify if the commit(s) are eligible for cherry-picking. If the commits are cherry-pickable, which means there's no merge conflict while cherry-picking the commit, then the bot will create a new pull request. When it is approved by a member of the Bazel team, it will result in the commits being cherry-picked to the release branch. For a visual example of a completed cherry-pick request, please refer to this [example](https://github.com/bazelbuild/bazel/issues/20230){: .external}.
+The cherry-pick bot will process the request and notify if the commit(s) are eligible for cherry-picking. If the commits are cherry-pickable, which means there's no merge conflict while cherry-picking the commit, then the bot will create a new pull request. When the pull request is approved by a member of the Bazel team, the commits are cherry-picked and merged to the release branch. For a visual example of a completed cherry-pick request, please refer to this [example](https://github.com/bazelbuild/bazel/issues/20230){: .external}.
 
 
 ## Report regressions {:#report-regressions}
