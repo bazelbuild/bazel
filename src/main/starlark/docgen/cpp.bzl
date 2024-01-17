@@ -21,6 +21,7 @@ binary_rules = struct(
 
 library_rules = struct(
     cc_library = native.cc_library,
+    cc_import = native.cc_import,
     cc_proto_library = native.cc_proto_library,
 )
 
