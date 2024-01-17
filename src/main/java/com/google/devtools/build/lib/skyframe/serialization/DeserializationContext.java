@@ -120,14 +120,6 @@ public class DeserializationContext implements AsyncDeserializationContext {
   }
 
   @Nullable
-  @SuppressWarnings({"TypeParameterUnusedInFormals"})
-  public <T> T deserializeWithAdHocMemoizationStrategy(
-      CodedInputStream codedIn, MemoizationStrategy memoizationStrategy)
-      throws IOException, SerializationException {
-    return deserializeInternal(codedIn, memoizationStrategy);
-  }
-
-  @Nullable
   @SuppressWarnings({"TypeParameterUnusedInFormals", "unchecked"})
   private <T> T deserializeInternal(
       CodedInputStream codedIn, @Nullable MemoizationStrategy customMemoizationStrategy)
