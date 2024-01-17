@@ -123,19 +123,19 @@ For LTS releases, the procedure and policies below are followed:
     *   Bazel maintainers can request to cherry-pick specific commit(s)
         to a release branch. This process is initiated by creating a
         cherry-pick request on GitHub. Here's how to do it.
-            1.  Open the [cherry-pick request](https://github.com/bazelbuild/bazel/issues/new?assignees=&labels=&projects=&template=cherry_pick_request.yml){: .external}
-            2.  Fill in the request details
+            1)  Open the [cherry-pick request](https://github.com/bazelbuild/bazel/issues/new?assignees=&labels=&projects=&template=cherry_pick_request.yml){: .external}
+            2)  Fill in the request details
                 *   Title: Provide a concise and descriptive title for the request.
                 *   Commit ID(s): Enter the ID(s) of the commit(s) you want to cherry-pick.
                     If there are multiple commits, then separate them with commas.
                 *   Category: Specify the category of the request.
                 *   Reviewer(s): For multiple reviewers, separate their GitHub ID's with
                     commas.
-            3.  Set the milestone
+            3)  Set the milestone
                 *   Find the "Milestone" section and click on the setting.
                 *   Select the appropriate X.Y.Z release blockers. This action triggers
                     the cherry-pick bot to process your request for the "release-X.Y.Z" branch.
-            4.  Submit the Issue
+            4)  Submit the Issue
                 *   Once all details are filled in and the miestone is set, submit the the issue.
 
     *   The cherry-pick bot will process the request and notify if the commit(s) are
