@@ -47,11 +47,11 @@ def _linking_order_test_impl(env, target):
     if env.ctx.target_platform_has_constraint(env.ctx.attr._is_linux[platform_common.ConstraintValueInfo]):
         target_action = None
         for action in target.actions:
-            if action.mnemonic == "CppLink":
+            if action.mnemonic == "FileWrite":
                 target_action = action
                 break
 
-        args = target_action.argv
+        args = target_action.content.split("\n")
         user_libs = [paths.basename(arg) for arg in args if arg.endswith(".o")]
 
         env.expect.that_collection(user_libs).contains_at_least_predicates([
@@ -268,11 +268,11 @@ interface_library_output_group_test = _interface_library_output_group_test_macro
 def _check_linking_action_lib_parameters_test_impl(env, target):
     target_action = None
     for action in target.actions:
-        if action.mnemonic == "CppLink":
+        if action.mnemonic == "FileWrite":
             target_action = action
             break
 
-    args = target_action.argv
+    args = target_action.content.split("\n")
     for arg in args:
         for bad_lib_entry in env.ctx.attr._libs_that_shouldnt_be_present:
             env.expect.where(

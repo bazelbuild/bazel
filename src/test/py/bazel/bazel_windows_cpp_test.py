@@ -376,7 +376,7 @@ class BazelWindowsCppTest(test_base.TestBase):
         bazel_output, 'x64_windows-fastbuild/bin/_objs/A/a.obj.params'
     )
     link_params = os.path.join(
-        bazel_output, 'x64_windows-fastbuild/bin/A_0.dll-0.params'
+        bazel_output, 'x64_windows-fastbuild/bin/A_0.dll-2.params'
     )
     self.AssertExitCode(exit_code, 0, stderr)
     self.AssertFileContentContains(compile_params, '/MD')
@@ -391,7 +391,7 @@ class BazelWindowsCppTest(test_base.TestBase):
         bazel_output, 'x64_windows-dbg/bin/_objs/A/a.obj.params'
     )
     link_params = os.path.join(
-        bazel_output, 'x64_windows-dbg/bin/A_0.dll-0.params'
+        bazel_output, 'x64_windows-dbg/bin/A_0.dll-2.params'
     )
     self.AssertExitCode(exit_code, 0, stderr)
     self.AssertFileContentContains(compile_params, '/MDd')
@@ -412,7 +412,7 @@ class BazelWindowsCppTest(test_base.TestBase):
         bazel_output, 'x64_windows-fastbuild/bin/_objs/A/a.obj.params'
     )
     link_params = os.path.join(
-        bazel_output, 'x64_windows-fastbuild/bin/A_0.dll-0.params'
+        bazel_output, 'x64_windows-fastbuild/bin/A_0.dll-2.params'
     )
     self.AssertExitCode(exit_code, 0, stderr)
     self.AssertFileContentNotContains(compile_params, '/MD')
@@ -429,7 +429,7 @@ class BazelWindowsCppTest(test_base.TestBase):
         bazel_output, 'x64_windows-dbg/bin/_objs/A/a.obj.params'
     )
     link_params = os.path.join(
-        bazel_output, 'x64_windows-dbg/bin/A_0.dll-0.params'
+        bazel_output, 'x64_windows-dbg/bin/A_0.dll-2.params'
     )
     self.AssertExitCode(exit_code, 0, stderr)
     self.AssertFileContentNotContains(compile_params, '/MDd')
@@ -651,7 +651,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     # Test specifying DEF file in cc_binary
     exit_code, _, stderr = self.RunBazel(['build', '//:lib_dy.dll', '-s'])
     self.AssertExitCode(exit_code, 0, stderr)
-    filepath = bazel_bin + '/lib_dy.dll-0.params'
+    filepath = bazel_bin + '/lib_dy.dll-2.params'
     with open(filepath, 'r', encoding='latin-1') as param_file:
       self.assertIn('/DEF:my_lib.def', param_file.read())
 
@@ -1027,7 +1027,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     ])
 
     bazel_output = self.getBazelInfo('output_path')
-    paramfile = 'x64_windows-%s/bin/main.exe-0.params'
+    paramfile = 'x64_windows-%s/bin/main.exe-2.params'
 
     # Test build without debug and optimize modes.
     exit_code, _, stderr = self.RunBazel([

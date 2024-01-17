@@ -629,11 +629,14 @@ tree_art_rule = rule(implementation = _tree_art_impl,
             default = "//${package}:write.sh")})
 
 def _actions_test_impl(target, ctx):
-    action = target.actions[0]
+    action = target.actions[1]
     if action.mnemonic != "CppArchive":
-      fail("Expected the first action to be CppArchive.")
+      fail("Expected the second action to be CppArchive.")
     aspect_out = ctx.actions.declare_file('aspect_out')
-    ctx.actions.write(aspect_out, action.args[1])
+    ctx.actions.run_shell(inputs = action.inputs,
+                          outputs = [aspect_out],
+                          command = "echo \$@ > " + aspect_out.path,
+                          arguments = action.args)
     return [OutputGroupInfo(out=[aspect_out])]
 
 actions_test_aspect = aspect(implementation = _actions_test_impl)
@@ -657,9 +660,7 @@ EOF
   cat "bazel-bin/${package}/aspect_out" | grep "\(ar\|libtool\)" \
       || fail "args didn't contain the tool path"
 
-  cat "bazel-bin/${package}/aspect_out" | grep "/a.*o" \
-      || fail "args didn't contain tree artifact paths"
-  cat "bazel-bin/${package}/aspect_out" | grep "/b.*o" \
+  cat "bazel-bin/${package}/aspect_out" | grep "a.*o .*b.*o .*c.*o" \
       || fail "args didn't contain tree artifact paths"
 }
 
@@ -812,36 +813,56 @@ def _actions_test_impl(target, ctx):
         ),
     )
 
-    archive_out = ctx.actions.declare_file("archive_out.a")
+    archive_args = ctx.actions.declare_file("archive_args")
     ctx.actions.run_shell(
-        inputs = archive_action.inputs,
+        outputs = [archive_args],
+        command = "echo \$@ > " + archive_args.path,
+        arguments = archive_action.args,
+    )
+
+    archive_out = ctx.actions.declare_file("archive_out.a")
+    archive_param_file = None
+    for i in archive_action.inputs.to_list():
+        if i.path.endswith("params"):
+            archive_param_file = i
+    ctx.actions.run_shell(
+        inputs = depset(direct = [archive_args], transitive = [archive_action.inputs]),
         mnemonic = "RecreatedCppArchive",
         outputs = [archive_out],
         env = archive_action.env,
-        command = "\$@ && cp %s %s" % (
+        command = "\$(cat %s) && cp %s %s" % (
+            archive_args.path,
             archive_action.outputs.to_list()[0].path,
             archive_out.path,
         ),
-        arguments = archive_action.args,
+    )
+
+    link_args = ctx.actions.declare_file("link_args")
+    ctx.actions.run_shell(
+        outputs = [link_args],
+        command = "echo \$@ > " + link_args.path,
+        arguments = link_action.args,
     )
 
     link_out = ctx.actions.declare_file("link_out.so")
     ctx.actions.run_shell(
-        inputs = link_action.inputs,
+        inputs = depset(direct = [link_args], transitive = [link_action.inputs]),
         mnemonic = "RecreatedCppLink",
         outputs = [link_out],
         env = link_action.env,
-        command = "\$@ && cp %s %s" % (
+        command = "\$(cat %s) && cp %s %s" % (
+            link_args.path,
             link_action.outputs.to_list()[0].path,
             link_out.path,
         ),
-        arguments = link_action.args,
     )
 
     return [OutputGroupInfo(out = [
         compile_args,
         compile_out,
+        archive_args,
         archive_out,
+        link_args,
         link_out,
     ])]
 
@@ -1200,21 +1221,30 @@ def _actions_test_impl(target, ctx):
         ),
     )
 
+    archive_args = ctx.actions.declare_file("archive_args")
+    ctx.actions.run_shell(
+        outputs = [archive_args],
+        command = "echo \$@ > " + archive_args.path,
+        arguments = archive_action.args,
+    )
+
     archive_out = ctx.actions.declare_file("archive_out.a")
     ctx.actions.run_shell(
+        inputs = [archive_args],
         shadowed_action = archive_action,
         mnemonic = "RecreatedCppArchive",
         outputs = [archive_out],
-        command = "\$@ && cp %s %s" % (
+        command = "\$(cat %s | sed 's|%s|%s|g')" % (
+            archive_args.path,
             archive_action.outputs.to_list()[0].path,
             archive_out.path,
         ),
-        arguments = archive_action.args,
     )
 
     return [OutputGroupInfo(out = [
         compile_args,
         compile_out,
+        archive_args,
         archive_out,
     ])]
 

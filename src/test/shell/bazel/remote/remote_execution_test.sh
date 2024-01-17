@@ -301,7 +301,7 @@ EOF
       --remote_executor=grpc://localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote execution"
-  expect_log "6 processes: 4 internal, 2 remote"
+  expect_log "7 processes: 5 internal, 2 remote"
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
       || fail "Remote execution generated different result"
 }
