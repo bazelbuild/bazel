@@ -55,6 +55,13 @@ path of the resource will be <code>y/java/z</code>. This heuristic cannot be ove
 however, the <code>resource_strip_prefix</code> attribute can be used to specify a
 specific alternative directory for resource files.
     """,
+        "use_testrunner": """
+Use the test runner (by default
+<code>com.google.testing.junit.runner.BazelTestRunner</code>) class as the
+main entry point for a Java program, and provide the test class
+to the test runner as a value of <code>bazel.test_suite</code>
+system property.
+    """,
     },
 )
 
