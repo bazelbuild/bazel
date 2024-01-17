@@ -117,7 +117,6 @@ For LTS releases, the procedure and policies below are followed:
    "`@bazel-io flag`" on relevant GitHub issues or PRs to mark them as potential
         release blockers, the Bazel team triages them and decide whether to
         back-port the commits.
-    *   The Bazel maintainers can create a [cherry-pick request](https://github.com/bazelbuild/bazel/issues/new?assignees=&labels=&projects=&template=cherry_pick_request.yml){: .external} to cherry-pick certain commit(s) to a release branch. Fill in the Title, Commit ID(s), Category, and Reviewer(s). If there are multiple commits or reviewers, then separate them by commas. After, set the milestone of the issue by clicking on the milestone setting and choosing the proper X.Y.Z release blockers (this will trigger the cherry-pick bot to cherry-pick the commits to the "release-X.Y.Z" branch). Finally, submit the issue. The cherry-pick bot will notify whether or not the commits are cherry-pickable. If they are, then a new PR will be created, which, if approved by a member of the Bazel team, will cherry-pick the commit(s) to the release branch. See [example](https://github.com/bazelbuild/bazel/issues/20230){: .external}.
     *   Only backward-compatible commits on the main branch can be back-ported,
    additional minor changes to resolve merge conflicts are acceptable.
 1.  Identify release blockers and fix issues found on the release branch.
@@ -149,6 +148,17 @@ For LTS releases, the procedure and policies below are followed:
         [bazel-discuss](https://groups.google.com/g/bazel-discuss){: .external},
         the Bazel team monitors and addresses community bug reports for the new
      release.
+
+## Creating a cherry-pick request for Bazel maintainers
+
+Bazel maintainers can request to cherry-picking specific commit(s) to a release branch. This process is initiated by creating a cherry-pick request on GitHub. Here's how to do it.
+1.  Open the [cherry-pick request](https://github.com/bazelbuild/bazel/issues/new?assignees=&labels=&projects=&template=cherry_pick_request.yml){: .external}
+1.  Fill in the request details
+    *   Title: Provide a concise and descriptive title for the request
+    *   Commit ID(s): Enter the ID(s) of the commit(s) you want to cherry-pick. If there are multiple commits, separate them with commas.
+    *   Category: Specify the category of the request.
+    *   Reviewer(s): For multiple reviewers, separate their names with commas.
+
 
 ## Report regressions {:#report-regressions}
 
