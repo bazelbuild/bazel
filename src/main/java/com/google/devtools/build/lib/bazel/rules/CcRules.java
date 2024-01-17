@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLibcTopAlias;
 import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryInfo;
-import com.google.devtools.build.lib.rules.cpp.CcSharedLibraryRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainAliasRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainConfigInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
@@ -73,7 +72,7 @@ public class CcRules implements RuleSet {
     builder.addRuleDefinition(new CcLibcTopAlias());
     builder.addRuleDefinition(new CcToolchainRequiringRule());
     builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("cc_binary") {});
-    builder.addRuleDefinition(new CcSharedLibraryRule());
+    builder.addRuleDefinition(new EmptyRule("cc_shared_library") {});
     builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("cc_test") {});
     builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("cc_library") {});
     builder.addRuleDefinition(new EmptyRule("cc_import") {});
