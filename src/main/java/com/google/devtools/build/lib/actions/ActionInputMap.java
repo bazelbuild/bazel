@@ -217,8 +217,8 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
   /**
    * Returns metadata for given path.
    *
-   * <p>This method is less efficient than {@link #getMetadata(ActionInput)}, please use it instead
-   * of this one when looking up {@linkplain ActionInput action inputs}.
+   * <p>This method is less efficient than {@link #getInputMetadata(ActionInput)}, please use that
+   * method instead of this one when looking up {@linkplain ActionInput action inputs}.
    */
   @Nullable
   public FileArtifactValue getMetadata(PathFragment execPath) {
@@ -305,8 +305,8 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
   }
 
   @Override
-  public boolean put(ActionInput input, FileArtifactValue metadata, @Nullable Artifact depOwner) {
-    return putWithNoDepOwner(input, metadata);
+  public void put(ActionInput input, FileArtifactValue metadata, @Nullable Artifact depOwner) {
+    putWithNoDepOwner(input, metadata);
   }
 
   @Override
@@ -331,7 +331,7 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
             : treeArtifactsRoot.add(tree.getExecPath(), treeArtifactValue);
   }
 
-  public boolean putWithNoDepOwner(ActionInput input, FileArtifactValue metadata) {
+  public void putWithNoDepOwner(ActionInput input, FileArtifactValue metadata) {
     checkArgument(
         !isATreeArtifact(input),
         "Can't add tree artifact: %s using put -- please use putTreeArtifact for that",
@@ -341,7 +341,6 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
         oldIndex == -1 || !isATreeArtifact((ActionInput) keys[oldIndex]),
         "Tried to overwrite tree artifact with a file: '%s' with the same exec path",
         input);
-    return oldIndex == -1;
   }
 
   private int putIfAbsent(ActionInput input, Object metadata) {
