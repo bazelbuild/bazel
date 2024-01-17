@@ -119,7 +119,7 @@ For LTS releases, the procedure and policies below are followed:
         back-port the commits.
     *   Only backward-compatible commits on the main branch can be back-ported,
    additional minor changes to resolve merge conflicts are acceptable.
-1.  Backport changes via cherry-pick request for Bazel maintainers
+1.  Backport changes via Cherry-Pick Request for Bazel maintainers
     *   Bazel maintainers can request to cherry-pick specific commit(s) to a release branch. This process is initiated by creating a cherry-pick request on GitHub. Here's how to do it.
     1.  Open the [cherry-pick request](https://github.com/bazelbuild/bazel/issues/new?assignees=&labels=&projects=&template=cherry_pick_request.yml){: .external}
         *   Fill in the request details
