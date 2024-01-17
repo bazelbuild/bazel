@@ -20,7 +20,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -443,8 +442,8 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
 
     ConfiguredTarget main = getConfiguredTarget("//bin:bin");
     Artifact mainBin = getBinArtifact("bin", main);
-    SpawnAction action = (SpawnAction) getGeneratingAction(mainBin);
-    List<String> linkArgv = action.getArguments();
+    CppLinkAction action = (CppLinkAction) getGeneratingAction(mainBin);
+    List<String> linkArgv = action.getLinkCommandLineForTesting().arguments();
     assertThat(linkArgv)
         .containsAtLeast("-Xlinker", "-rpath", "-Xlinker", "$ORIGIN/../_solib_k8/_U_S_Sa_Cfoo___Ua")
         .inOrder();
@@ -523,8 +522,8 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
 
     ConfiguredTarget main = getConfiguredTarget("//bin:bin");
     Artifact mainBin = getBinArtifact("bin", main);
-    SpawnAction action = (SpawnAction) getGeneratingAction(mainBin);
-    List<String> linkArgv = action.getArguments();
+    CppLinkAction action = (CppLinkAction) getGeneratingAction(mainBin);
+    List<String> linkArgv = action.getLinkCommandLineForTesting().arguments();
     assertThat(linkArgv)
         .containsAtLeast("-Xlinker", "-rpath", "-Xlinker", "$ORIGIN/../_solib_k8/_U_S_Sa_Cfoo___Ua")
         .inOrder();
