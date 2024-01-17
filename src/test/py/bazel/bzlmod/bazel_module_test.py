@@ -334,7 +334,7 @@ class BazelModuleTest(test_base.TestBase):
     subprocess.check_output(['git', 'config', 'user.name', 'example'], cwd=repo_dir)
     subprocess.check_output(['git', 'add', '--all'], cwd=repo_dir)
     subprocess.check_output(['git', 'commit', '-m', 'Initialize'], cwd=repo_dir)
-    commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repo_dir, text=True).strip()
+    commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repo_dir, universal_newlines=True).strip()
 
     self.main_registry.createGitRepoModule(dep_name,
                                            dep_version,
