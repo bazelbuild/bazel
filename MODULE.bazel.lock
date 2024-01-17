@@ -2180,7 +2180,7 @@
       "general": {
         "bzlTransitiveDigest": "QhQuQNBvy9io+azl8gYOlszhd84XltqOUhc6WXnInFY=",
         "accumulatedFileDigests": {
-          "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "cf51741dfa229ffdcb85071df1c72fbf76ee282235033e2e1a2f39b3aa716a54",
+          "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "552de48b3e70c27129fc02c79840365699609807f51793d0dc1590a62958de30",
           "@@//:MODULE.bazel": "1ce286c2e04a814940dcb741cddee8772a3d8b97d22e12ee12e116dac57f1cd3"
         },
         "envVariables": {},
@@ -2204,13 +2204,19 @@
                 "rules_cc~0.0.9",
                 "rules_java~7.1.0",
                 "rules_license~0.0.7",
-                "rules_proto~4.0.0",
-                "rules_python~0.4.0",
+                "rules_proto~5.3.0-21.7",
+                "rules_python~0.22.0",
                 "platforms",
-                "protobuf~3.19.6",
+                "protobuf~21.7",
                 "zlib~1.3",
                 "apple_support~1.5.0",
-                "bazel_skylib~1.3.0"
+                "bazel_skylib~1.3.0",
+                "rules_pkg~0.7.0",
+                "abseil-cpp~20211102.0",
+                "upb~0.0.0-20220923-a547704",
+                "rules_jvm_external~4.4.2",
+                "googletest~1.11.0",
+                "stardoc~0.5.1"
               ],
               "lockfile": "@@//src/test/tools/bzlmod:MODULE.bazel.lock"
             }
