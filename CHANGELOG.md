@@ -1,3 +1,11 @@
+## Release 8.0.0-pre.20240101.1 (2024-01-17)
+
+```
+Baseline: 40271d7642fb6b76d68289d73b73a1eb4acb80bd
+```
+
+Initial release.
+
 ## Release 7.0.0 (2023-12-11)
 
 ```
