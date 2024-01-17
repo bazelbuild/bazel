@@ -324,7 +324,10 @@ class BazelModuleTest(test_base.TestBase):
     # Move the src_dir to a temp dir and make that temp dir a git repo.
     repo_dir = os.path.join(self.registries_work_dir, 'git_repo', dep_name)
     os.makedirs(repo_dir)
-    shutil.move(src_dir, repo_dir)
+    shutil.move(
+        # Workaround https://bugs.python.org/issue32689 for Python < 3.9
+        str(src_dir),
+        repo_dir)
     repo_dir = os.path.join(repo_dir, os.path.basename(src_dir))
     subprocess.check_output(['git', 'init'], cwd=repo_dir)
     subprocess.check_output(['git', 'config', 'user.email', 'example@bazel-dev.org'], cwd=repo_dir)
