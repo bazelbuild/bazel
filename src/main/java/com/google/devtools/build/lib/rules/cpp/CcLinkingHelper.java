@@ -586,8 +586,7 @@ public final class CcLinkingHelper {
     if (createNoPicAction) {
       LinkerInputs.LibraryToLink staticLibrary =
           registerActionForStaticLibrary(
-                  staticLinkType, ccOutputs, /* usePic= */ false, libraryIdentifier)
-              .getOutputLibrary();
+              staticLinkType, ccOutputs, /* usePic= */ false, libraryIdentifier);
       libraryToLinkBuilder
           .setLibraryIdentifier(staticLibrary.getLibraryIdentifier())
           .setStaticLibrary(staticLibrary.getArtifact())
@@ -611,8 +610,7 @@ public final class CcLinkingHelper {
       }
       LinkerInputs.LibraryToLink picStaticLibrary =
           registerActionForStaticLibrary(
-                  linkTargetTypeUsedForNaming, ccOutputs, /* usePic= */ true, libraryIdentifier)
-              .getOutputLibrary();
+              linkTargetTypeUsedForNaming, ccOutputs, /* usePic= */ true, libraryIdentifier);
       libraryToLinkBuilder
           .setLibraryIdentifier(picStaticLibrary.getLibraryIdentifier())
           .setPicStaticLibrary(picStaticLibrary.getArtifact())
@@ -631,7 +629,7 @@ public final class CcLinkingHelper {
         && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null;
   }
 
-  private CppLinkAction registerActionForStaticLibrary(
+  private LinkerInputs.LibraryToLink registerActionForStaticLibrary(
       LinkTargetType linkTargetTypeUsedForNaming,
       CcCompilationOutputs ccOutputs,
       boolean usePic,
@@ -653,7 +651,7 @@ public final class CcLinkingHelper {
     }
     CppLinkAction action = builder.build();
     actionConstructionContext.registerAction(action);
-    return action;
+    return builder.getOutputLibrary();
   }
 
   private boolean createDynamicLinkAction(
@@ -812,8 +810,9 @@ public final class CcLinkingHelper {
     }
     actionConstructionContext.registerAction(dynamicLinkAction);
 
-    LinkerInputs.LibraryToLink dynamicLibrary = dynamicLinkAction.getOutputLibrary();
-    LinkerInputs.LibraryToLink interfaceLibrary = dynamicLinkAction.getInterfaceOutputLibrary();
+    LinkerInputs.LibraryToLink dynamicLibrary = dynamicLinkActionBuilder.getOutputLibrary();
+    LinkerInputs.LibraryToLink interfaceLibrary =
+        dynamicLinkActionBuilder.getInterfaceOutputLibrary();
 
     // If shared library has neverlink=1, then leave it untouched. Otherwise,
     // create a mangled symlink for it and from now on reference it through
