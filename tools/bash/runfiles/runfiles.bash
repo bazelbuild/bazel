@@ -253,7 +253,7 @@ function runfiles_current_repository() {
         echo >&2 "ERROR[runfiles.bash]: runfiles_current_repository($idx): ($normalized_caller_path) is not the target of an entry in the runfiles manifest ($RUNFILES_MANIFEST_FILE)"
       fi
       # The binary may also be run directly from bazel-bin or bazel-out.
-      local -r repository=$(echo "$normalized_caller_path" | __runfiles_maybe_grep -E -o '(^|/)(bazel-out/[^/]+/bin|bazel-bin)/external/[^/]+/' | tail -1 | rev | cut -d / -f 2 | rev)
+      local -r repository=$(echo "$normalized_caller_path" | __runfiles_maybe_grep -E -o '(^|/)(bazel-out/[^/]+/bin|bazel-bin)/external/[^/]+/' | tail -1 | awk -F/ '{print $(NF-1)}')
       if [[ -n "$repository" ]]; then
         if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
           echo >&2 "INFO[runfiles.bash]: runfiles_current_repository($idx): ($normalized_caller_path) lies in repository ($repository) (parsed exec path)"
@@ -295,7 +295,7 @@ function runfiles_current_repository() {
       # is the sh_binary entrypoint. Parse its path under the execroot, using the last match to
       # allow for nested execroots (e.g. in Bazel integration tests). The binary may also be run
       # directly from bazel-bin.
-      local -r repository=$(echo "$normalized_caller_path" | __runfiles_maybe_grep -E -o '(^|/)(bazel-out/[^/]+/bin|bazel-bin)/external/[^/]+/' | tail -1 | rev | cut -d / -f 2 | rev)
+      local -r repository=$(echo "$normalized_caller_path" | __runfiles_maybe_grep -E -o '(^|/)(bazel-out/[^/]+/bin|bazel-bin)/external/[^/]+/' | tail -1 | awk -F/ '{print $(NF-1)}')
       if [[ -n "$repository" ]]; then
         if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
           echo >&2 "INFO[runfiles.bash]: runfiles_current_repository($idx): ($normalized_caller_path) lies in repository ($repository) (parsed exec path)"
