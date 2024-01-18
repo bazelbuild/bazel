@@ -33,6 +33,9 @@ import javax.annotation.Nullable;
  * <p>Implementations must be thread-safe.
  */
 public interface RemoteCacheClient extends MissingDigestsFinder {
+
+  String getDisplayName();
+
   CacheCapabilities getCacheCapabilities() throws IOException;
 
   ListenableFuture<String> getAuthority();

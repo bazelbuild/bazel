@@ -95,6 +95,10 @@ public class RemoteCache extends AbstractReferenceCounted {
     this.options = options;
     this.digestUtil = digestUtil;
   }
+  
+  public String getDisplayName() {
+    return cacheProtocol.getDisplayName();
+  }
 
   public CacheCapabilities getCacheCapabilities() throws IOException {
     return cacheProtocol.getCacheCapabilities();

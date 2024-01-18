@@ -84,6 +84,11 @@ public class DiskCacheClient implements RemoteCacheClient {
     this.root.createDirectoryAndParents();
   }
 
+  @Override
+  public String getDisplayName() {
+    return "disk-cache";
+  }
+
   /**
    * If the given path exists, updates its mtime and returns true. Otherwise, returns false.
    *

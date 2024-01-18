@@ -117,6 +117,11 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
         maxMissingBlobsDigestsPerMessage > 0, "Error: gRPC message size too small.");
   }
 
+  @Override
+  public String getDisplayName() {
+    return "remote-cache";
+  }
+
   private int computeMaxMissingBlobsDigestsPerMessage() {
     final int overhead =
         FindMissingBlobsRequest.newBuilder()

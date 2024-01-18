@@ -300,6 +300,11 @@ public final class HttpCacheClient implements RemoteCacheClient {
     this.retrier = retrier;
   }
 
+  @Override
+  public String getDisplayName() {
+    return "remote-cache";
+  }
+
   @SuppressWarnings("FutureReturnValueIgnored")
   private Promise<Channel> acquireUploadChannel() {
     Promise<Channel> channelReady = eventLoop.next().newPromise();

@@ -59,6 +59,11 @@ public class InMemoryCacheClient implements RemoteCacheClient {
     }
   }
 
+  @Override
+  public String getDisplayName() {
+    return "in-memory-cache";
+  }
+
   public InMemoryCacheClient() {
     this.cas = new ConcurrentHashMap<>();
   }

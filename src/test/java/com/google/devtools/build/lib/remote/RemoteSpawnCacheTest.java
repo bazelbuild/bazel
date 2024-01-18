@@ -288,6 +288,8 @@ public class RemoteSpawnCacheTest {
     remotePathResolver = RemotePathResolver.createDefault(execRoot);
 
     fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().getSingleton(), "xyz");
+
+    when(remoteCache.getDisplayName()).thenReturn("remote-cache");
   }
 
   @Test
