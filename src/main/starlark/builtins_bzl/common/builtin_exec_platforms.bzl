@@ -253,6 +253,8 @@ bazel_fragments["CoreOptions"] = fragment(
         "//command_line_option:archived_tree_artifact_mnemonics_filter",
         "//command_line_option:allow_unresolved_symlinks",
         "//command_line_option:experimental_exec_config",
+        "//command_line_option:experimental_exclude_defines_from_exec_config",
+        "//command_line_option:experimental_exclude_starlark_flags_from_exec_config",
         "//command_line_option:experimental_propagate_custom_flag",
     ],
     inputs = ["//command_line_option:features"],
