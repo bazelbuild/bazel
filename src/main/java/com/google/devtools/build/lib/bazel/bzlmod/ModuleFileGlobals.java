@@ -1038,6 +1038,18 @@ public class ModuleFileGlobals {
             named = true,
             positional = false,
             defaultValue = "0"),
+        @Param(
+            name = "init_submodules",
+            doc = "Whether direct submodules in the fetched repo should be initialized.",
+            named = true,
+            positional = false,
+            defaultValue = "False"),
+        @Param(
+            name = "recursive_init_submodules",
+            doc = "Whether submodules in the fetched repo should be recursively initialized.",
+            named = true,
+            positional = false,
+            defaultValue = "False"),
       })
   public void gitOverride(
       String moduleName,
@@ -1045,7 +1057,9 @@ public class ModuleFileGlobals {
       String commit,
       Iterable<?> patches,
       Iterable<?> patchCmds,
-      StarlarkInt patchStrip)
+      StarlarkInt patchStrip,
+      boolean initSubmodules,
+      boolean recursiveInitSubmodules)
       throws EvalException {
     hadNonModuleCall = true;
     addOverride(
@@ -1055,7 +1069,9 @@ public class ModuleFileGlobals {
             commit,
             Sequence.cast(patches, String.class, "patches").getImmutableList(),
             Sequence.cast(patchCmds, String.class, "patchCmds").getImmutableList(),
-            patchStrip.toInt("git_override.patch_strip")));
+            patchStrip.toInt("git_override.patch_strip"),
+            initSubmodules,
+            recursiveInitSubmodules));
   }
 
   @StarlarkMethod(
