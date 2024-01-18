@@ -45,6 +45,7 @@ java_test(
 java_test(
     name = "DebugServerTransportTest",
     srcs = ["DebugServerTransportTest.java"],
+    tags = ["requires-network"],  # https://github.com/bazelbuild/bazel/issues/20743
     deps = [
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/proto:starlark_debugging_java_proto",
