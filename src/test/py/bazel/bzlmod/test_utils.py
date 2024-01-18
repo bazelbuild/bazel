@@ -27,8 +27,6 @@ import threading
 import urllib.request
 import zipfile
 
-import sys  # TODO remove
-
 
 def download(url):
   """Download a file and return its content in bytes."""

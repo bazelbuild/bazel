@@ -125,7 +125,6 @@ public class IndexRegistry implements Registry {
 
   /** Represents fields in {@code source.json} for each archive-type version of a module. */
   private static class ArchiveSourceJson {
-    String type = "archive";
     URL url;
     String integrity;
     String stripPrefix;
@@ -136,29 +135,19 @@ public class IndexRegistry implements Registry {
 
   /** Represents fields in {@code source.json} for each local_path-type version of a module. */
   private static class LocalPathSourceJson {
-    String type = "local_path";
     String path;
   }
 
   /** Represents fields in {@code source.json} for each git_repository-type version of a module. */
   private static class GitRepoSourceJson {
-    String type = "git_repository";
     String remote;
     String commit;
     String shallowSince;
     String tag;
-    String branch;
     boolean initSubmodules;
     boolean recursiveInitSubmodules;
     boolean verbose;
     String stripPrefix;
-    List<String> patches;
-    String patchTool;
-    List<String> patchArgs;
-    List<String> patchCmds;
-    List<String> patchCmdsWin;
-    String buildFile;
-    String buildFileContent;
   }
 
   /**
@@ -361,18 +350,10 @@ public class IndexRegistry implements Registry {
         .setCommit(sourceJson.commit)
         .setShallowSince(sourceJson.shallowSince)
         .setTag(sourceJson.tag)
-        .setBranch(sourceJson.branch)
         .setInitSubmodules(sourceJson.initSubmodules)
         .setRecursiveInitSubmodules(sourceJson.recursiveInitSubmodules)
         .setVerbose(sourceJson.verbose)
         .setStripPrefix(sourceJson.stripPrefix)
-        .setPatches(sourceJson.patches)
-        .setPatchTool(sourceJson.patchTool)
-        .setPatchArgs(sourceJson.patchArgs)
-        .setPatchCmds(sourceJson.patchCmds)
-        .setPatchCmdsWin(sourceJson.patchCmdsWin)
-        .setBuildFile(sourceJson.buildFile)
-        .setBuildFileContent(sourceJson.buildFileContent)
         .build();
   }
 
