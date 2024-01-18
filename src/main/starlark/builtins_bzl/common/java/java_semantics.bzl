@@ -73,4 +73,6 @@ semantics = struct(
     check_proto_registry_collision = _check_proto_registry_collision,
     get_coverage_runner = _get_coverage_runner,
     add_constraints = _add_constraints,
+    JAVA_PROTO_TOOLCHAIN = "@rules_java//java/proto:toolchain_type",
+    JAVA_LITE_PROTO_TOOLCHAIN = "@rules_java//java/proto:lite_toolchain_type",
 )

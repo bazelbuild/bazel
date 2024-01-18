@@ -30,6 +30,7 @@ ProtoLangToolchainInfo = provider(
         protoc_opts = "(list[str]) Options to pass to proto compiler.",
         progress_message = "(str) Progress message to set on the proto compiler action.",
         mnemonic = "(str) Mnemonic to set on the proto compiler action.",
+        toolchain_type = """(Label) Toolchain type that was used to obtain this info""",
     ),
 )
 
@@ -154,6 +155,7 @@ def _compile(
         use_default_shell_env = True,
         resource_set = resource_set,
         exec_group = experimental_exec_group,
+        toolchain = getattr(proto_lang_toolchain_info, "toolchain_type", None),
     )
 
 _BAZEL_TOOLS_PREFIX = "external/bazel_tools/"
@@ -265,10 +267,39 @@ def _declare_generated_files(
 
     return outputs
 
+def _find_toolchain(ctx, legacy_attr, toolchain_type):
+    if _builtins.toplevel.proto_common.incompatible_enable_proto_toolchain_resolution():
+        toolchain = ctx.toolchains[toolchain_type]
+        if not toolchain:
+            fail("No toolchains registered for '%s'." % toolchain_type)
+        return toolchain.proto
+    else:
+        return getattr(ctx.attr, legacy_attr)[ProtoLangToolchainInfo]
+
+def _use_toolchain(toolchain_type):
+    if _builtins.toplevel.proto_common.incompatible_enable_proto_toolchain_resolution():
+        return [_builtins.toplevel.config_common.toolchain_type(toolchain_type, mandatory = False)]
+    else:
+        return []
+
+def _if_legacy_toolchain(legacy_attr_dict):
+    if _builtins.toplevel.proto_common.incompatible_enable_proto_toolchain_resolution():
+        return {}
+    else:
+        return legacy_attr_dict
+
+toolchains = struct(
+    use_toolchain = _use_toolchain,
+    find_toolchain = _find_toolchain,
+    if_legacy_toolchain = _if_legacy_toolchain,
+)
+
 proto_common_do_not_use = struct(
     compile = _compile,
     declare_generated_files = _declare_generated_files,
     experimental_should_generate_code = _experimental_should_generate_code,
     experimental_filter_sources = _experimental_filter_sources,
     ProtoLangToolchainInfo = ProtoLangToolchainInfo,
+    INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION = _builtins.toplevel.proto_common.incompatible_enable_proto_toolchain_resolution(),
+    INCOMPATIBLE_PASS_TOOLCHAIN_TYPE = True,
 )

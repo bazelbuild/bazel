@@ -51,10 +51,8 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
 
   @Before
   public final void setup() throws Exception {
-    MockProtoSupport.setupWorkspace(scratch);
-    invalidatePackages();
-
     MockProtoSupport.setup(mockToolsConfig);
+    invalidatePackages();
 
     scratch.file(
         "third_party/x/BUILD",

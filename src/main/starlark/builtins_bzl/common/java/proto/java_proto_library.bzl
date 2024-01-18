@@ -15,7 +15,7 @@
 """The implementation of the `java_proto_library` rule and its aspect."""
 
 load(":common/java/java_semantics.bzl", "semantics")
-load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo", proto_common = "proto_common_do_not_use")
+load(":common/proto/proto_common.bzl", "toolchains", "ProtoLangToolchainInfo", proto_common = "proto_common_do_not_use")
 
 java_common = _builtins.toplevel.java_common
 JavaInfo = _builtins.toplevel.JavaInfo
@@ -47,7 +47,7 @@ def _bazel_java_proto_aspect_impl(target, ctx):
       runtime jars.
     """
 
-    proto_toolchain_info = ctx.attr._aspect_java_proto_toolchain[ProtoLangToolchainInfo]
+    proto_toolchain_info = toolchains.find_toolchain(ctx, "_aspect_java_proto_toolchain", semantics.JAVA_PROTO_TOOLCHAIN)
     source_jar = None
     if proto_common.experimental_should_generate_code(target[ProtoInfo], proto_toolchain_info, "java_proto_library", target.label):
         # Generate source jar using proto compiler.
@@ -129,12 +129,12 @@ def java_compile_for_protos(ctx, output_jar_suffix, source_jar = None, deps = []
 
 bazel_java_proto_aspect = aspect(
     implementation = _bazel_java_proto_aspect_impl,
-    attrs = {
+    attrs = toolchains.if_legacy_toolchain({
         "_aspect_java_proto_toolchain": attr.label(
             default = configuration_field(fragment = "proto", name = "proto_toolchain_for_java"),
         ),
-    },
-    toolchains = [semantics.JAVA_TOOLCHAIN],
+    }),
+    toolchains = [semantics.JAVA_TOOLCHAIN] + toolchains.use_toolchain(semantics.JAVA_PROTO_TOOLCHAIN),
     attr_aspects = ["deps", "exports"],
     required_providers = [ProtoInfo],
     provides = [JavaInfo, JavaProtoAspectInfo],
@@ -149,7 +149,6 @@ def bazel_java_proto_library_rule(ctx):
     Returns:
       ([JavaInfo, DefaultInfo, OutputGroupInfo])
     """
-
     java_info = java_common.merge([dep[JavaInfo] for dep in ctx.attr.deps], merge_java_outputs = False)
 
     transitive_src_and_runtime_jars = depset(transitive = [dep[JavaProtoAspectInfo].jars for dep in ctx.attr.deps])
@@ -172,4 +171,5 @@ java_proto_library = rule(
         "distribs": attr.string_list(),
     },
     provides = [JavaInfo],
+    toolchains = toolchains.use_toolchain(semantics.JAVA_PROTO_TOOLCHAIN),
 )

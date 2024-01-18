@@ -20,6 +20,7 @@ def _preprocess(ctx):
     pass
 
 semantics = struct(
+    PROTO_TOOLCHAIN = "@rules_proto//proto:toolchain_type",
     PROTO_COMPILER_LABEL = "@bazel_tools//tools/proto:protoc",
     EXTRA_ATTRIBUTES = {
         "import_prefix": attr.string(),

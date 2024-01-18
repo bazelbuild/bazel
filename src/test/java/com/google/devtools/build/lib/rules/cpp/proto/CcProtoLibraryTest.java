@@ -55,6 +55,10 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
 
   @Before
   public void setUp() throws Exception {
+    MockProtoSupport.setup(mockToolsConfig);
+    scratch.file(
+        "third_party/bazel_rules/rules_cc/cc/proto/BUILD",
+        "toolchain_type(name = 'toolchain_type', visibility = ['//visibility:public'])");
     scratch.file("protobuf/WORKSPACE");
     scratch.overwriteFile(
         "protobuf/BUILD",
@@ -78,8 +82,32 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "    name = 'com_google_protobuf',",
         "    path = 'protobuf',",
         ")");
-    MockProtoSupport.setupWorkspace(scratch);
     invalidatePackages(); // A dash of magic to re-evaluate the WORKSPACE file.
+  }
+
+  @Test
+  public void protoToolchainResolution_enabled() throws Exception {
+    setBuildLanguageOptions("--incompatible_enable_proto_toolchain_resolution");
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
+                    CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
+    scratch.file(
+        "x/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "cc_proto_library(name = 'foo_cc_proto', deps = ['foo_proto'])",
+        "proto_library(name = 'foo_proto', srcs = ['foo.proto'])");
+    assertThat(prettyArtifactNames(getFilesToBuild(getConfiguredTarget("//x:foo_cc_proto"))))
+        .containsExactly(
+            "x/foo.pb.h",
+            "x/foo.pb.cc",
+            "x/libfoo_proto.a",
+            "x/libfoo_proto.ifso",
+            "x/libfoo_proto.so");
   }
 
   @Test

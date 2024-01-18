@@ -41,7 +41,7 @@ public class CcStarlarkApiProviderTest extends BuildViewTestCase {
 
   @Before
   public void setUp() throws Exception {
-    MockProtoSupport.setupWorkspace(scratch);
+    MockProtoSupport.setupWorkspace(mockToolsConfig);
     invalidatePackages();
   }
 

@@ -31,6 +31,7 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.List;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkThread;
@@ -65,13 +66,12 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     public List<String> protocOpts;
 
     @Option(
-      name = "experimental_proto_extra_actions",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "Run extra actions for alternative Java api versions in a proto_library."
-    )
+        name = "experimental_proto_extra_actions",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+        help = "Run extra actions for alternative Java api versions in a proto_library.")
     public boolean experimentalProtoExtraActions;
 
     @Option(
@@ -240,8 +240,8 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
   }
 
   /**
-   * Returns true if we will run extra actions for actions that are not run by default. If this
-   * is enabled, e.g. all extra_actions for alternative api-versions or language-flavours of a
+   * Returns true if we will run extra actions for actions that are not run by default. If this is
+   * enabled, e.g. all extra_actions for alternative api-versions or language-flavours of a
    * proto_library target are run.
    */
   public boolean runExperimentalProtoExtraActions() {
@@ -252,6 +252,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       name = "proto_compiler",
       doc = "Label for the proto compiler.",
       defaultLabel = ProtoConstants.DEFAULT_PROTOC_LABEL)
+  @Nullable
   public Label protoCompiler() {
     return options.protoCompiler;
   }
@@ -260,10 +261,12 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       name = "proto_toolchain_for_java",
       doc = "Label for the java proto toolchains.",
       defaultLabel = ProtoConstants.DEFAULT_JAVA_PROTO_LABEL)
+  @Nullable
   public Label protoToolchainForJava() {
     return options.protoToolchainForJava;
   }
 
+  @Nullable
   public Label protoToolchainForJ2objc() {
     return options.protoToolchainForJ2objc;
   }
@@ -272,6 +275,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       name = "proto_toolchain_for_java_lite",
       doc = "Label for the java lite proto toolchains.",
       defaultLabel = ProtoConstants.DEFAULT_JAVA_LITE_PROTO_LABEL)
+  @Nullable
   public Label protoToolchainForJavaLite() {
     return options.protoToolchainForJavaLite;
   }
@@ -280,6 +284,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       name = "proto_toolchain_for_cc",
       doc = "Label for the cc proto toolchains.",
       defaultLabel = ProtoConstants.DEFAULT_CC_PROTO_LABEL)
+  @Nullable
   public Label protoToolchainForCc() {
     return options.protoToolchainForCc;
   }

@@ -16,8 +16,8 @@
 Definition of proto_library rule.
 """
 
+load(":common/proto/proto_common.bzl", "toolchains", proto_common = "proto_common_do_not_use")
 load(":common/proto/proto_semantics.bzl", "semantics")
-load(":common/proto/proto_common.bzl", proto_common = "proto_common_do_not_use")
 load(":common/paths.bzl", "paths")
 
 ProtoInfo = _builtins.toplevel.ProtoInfo
@@ -251,15 +251,22 @@ def _write_descriptor_set(ctx, direct_sources, deps, exports, proto_info, descri
             args.add("--allowed_public_imports=")
         else:
             args.add_joined("--allowed_public_imports", public_import_protos, map_each = _get_import_path, join_with = ":")
-    proto_lang_toolchain_info = proto_common.ProtoLangToolchainInfo(
-        out_replacement_format_flag = "--descriptor_set_out=%s",
-        output_files = "single",
-        mnemonic = "GenProtoDescriptorSet",
-        progress_message = "Generating Descriptor Set proto_library %{label}",
-        proto_compiler = ctx.executable._proto_compiler,
-        protoc_opts = ctx.fragments.proto.experimental_protoc_opts,
-        plugin = None,
-    )
+    if proto_common.INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION:
+        toolchain = ctx.toolchains[semantics.PROTO_TOOLCHAIN]
+        if not toolchain:
+            fail("Protocol compiler toolchain could not be resolved.")
+        proto_lang_toolchain_info = toolchain.proto
+    else:
+        proto_lang_toolchain_info = proto_common.ProtoLangToolchainInfo(
+            out_replacement_format_flag = "--descriptor_set_out=%s",
+            output_files = "single",
+            mnemonic = "GenProtoDescriptorSet",
+            progress_message = "Generating Descriptor Set proto_library %{label}",
+            proto_compiler = ctx.executable._proto_compiler,
+            protoc_opts = ctx.fragments.proto.experimental_protoc_opts,
+            plugin = None,
+        )
+
     proto_common.compile(
         ctx.actions,
         proto_info,
@@ -271,7 +278,7 @@ def _write_descriptor_set(ctx, direct_sources, deps, exports, proto_info, descri
 
 proto_library = rule(
     _proto_library_impl,
-    attrs = dict({
+    attrs = {
         "srcs": attr.label_list(
             allow_files = [".proto", ".protodevel"],
             flags = ["DIRECT_COMPILE_TIME_INPUT"],
@@ -288,14 +295,16 @@ proto_library = rule(
             flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
         ),
         "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
+    } | toolchains.if_legacy_toolchain({
         "_proto_compiler": attr.label(
             cfg = "exec",
             executable = True,
             allow_files = True,
             default = configuration_field("proto", "proto_compiler"),
         ),
-    }, **semantics.EXTRA_ATTRIBUTES),
+    }) | semantics.EXTRA_ATTRIBUTES,
     fragments = ["proto"] + semantics.EXTRA_FRAGMENTS,
     provides = [ProtoInfo],
     output_to_genfiles = True,  # TODO(b/204266604) move to bin dir
+    toolchains = toolchains.use_toolchain(semantics.PROTO_TOOLCHAIN),
 )
