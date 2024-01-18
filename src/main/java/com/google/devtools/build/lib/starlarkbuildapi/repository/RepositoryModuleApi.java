@@ -84,8 +84,10 @@ public interface RepositoryModuleApi {
             },
             defaultValue = "[]",
             doc =
-                "Provides a list of environment variable that this repository rule depends on. If "
-                    + "an environment variable in that list change, the repository will be "
+                "<b>Deprecated</b>. This parameter has been deprecated. Migrate to "
+                    + "<code>repository_ctx.getenv</code> instead.<br/>"
+                    + "Provides a list of environment variable that this repository rule depends "
+                    + "on. If an environment variable in that list change, the repository will be "
                     + "refetched.",
             named = true,
             positional = false),
