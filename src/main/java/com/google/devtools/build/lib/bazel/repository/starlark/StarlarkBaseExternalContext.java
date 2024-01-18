@@ -22,6 +22,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.Futures;
@@ -51,6 +52,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryFunction.Reposit
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
+import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -77,6 +79,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -89,6 +92,7 @@ import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -137,6 +141,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   @Nullable private final ProcessWrapper processWrapper;
   protected final StarlarkSemantics starlarkSemantics;
   private final HashMap<Label, String> accumulatedFileDigests = new HashMap<>();
+  private final HashSet<String> accumulatedEnvKeys = new HashSet<>();
   private final RepositoryRemoteExecutor remoteExecutor;
   private final List<AsyncTask> asyncTasks;
 
@@ -191,6 +196,11 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   /** Returns the file digests used by this context object so far. */
   public ImmutableMap<Label, String> getAccumulatedFileDigests() {
     return ImmutableMap.copyOf(accumulatedFileDigests);
+  }
+
+  /** Returns set of environment variable keys encountered so far. */
+  public ImmutableSet<String> getAccumulatedEnvKeys() {
+    return ImmutableSet.copyOf(accumulatedEnvKeys);
   }
 
   protected void checkInOutputDirectory(String operation, StarlarkPath path)
@@ -1004,6 +1014,47 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       throw new RepositoryFunctionException(
           Starlark.errorf("Could not create %s: %s", p, e.getMessage()), Transience.PERSISTENT);
     }
+  }
+
+  // Move to a common location like net.starlark.java.eval.Starlark?
+  @Nullable
+  private static <T> T nullIfNone(Object object, Class<T> type) {
+    return object != Starlark.NONE ? type.cast(object) : null;
+  }
+
+  @StarlarkMethod(
+      name = "getenv",
+      doc =
+          "Returns the value of an environment variable <code>name</code> as a string if exists, "
+              + "or <code>default</code> if it doesn't."
+              + "<p>When building incrementally, any change to the value of the variable named by "
+              + "<code>name</code> will cause this repository to be re-fetched.",
+      parameters = {
+        @Param(
+            name = "name",
+            doc = "name of desired environment variable",
+            allowedTypes = {@ParamType(type = String.class)}),
+        @Param(
+            name = "default",
+            doc = "Default value to return if `name` is not found",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None")
+      },
+      allowReturnNones = true)
+  @Nullable
+  public String getEnvironmentValue(String name, Object defaultValue)
+      throws InterruptedException, NeedsSkyframeRestartException {
+    // Must look up via AEF, rather than solely copy from `this.envVariables`, in order to
+    // establish a SkyKey dependency relationship.
+    if (env.getValue(ActionEnvironmentFunction.key(name)) == null) {
+      throw new NeedsSkyframeRestartException();
+    }
+
+    // However, to account for --repo_env we take the value from `this.envVariables`.
+    // See https://github.com/bazelbuild/bazel/pull/20787#discussion_r1445571248 .
+    String envVarValue = envVariables.get(name);
+    accumulatedEnvKeys.add(name);
+    return envVarValue != null ? envVarValue : nullIfNone(defaultValue, String.class);
   }
 
   @StarlarkMethod(
