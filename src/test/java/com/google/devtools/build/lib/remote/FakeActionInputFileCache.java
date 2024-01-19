@@ -18,11 +18,14 @@ import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -31,6 +34,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /** A fake implementation of the {@link InputMetadataProvider} interface. */
 final class FakeActionInputFileCache implements InputMetadataProvider {
@@ -51,6 +55,17 @@ final class FakeActionInputFileCache implements InputMetadataProvider {
     FileStatus stat = path.stat(Symlinks.FOLLOW);
     return FileArtifactValue.createForNormalFile(
         HashCode.fromString(hexDigest).asBytes(), FileContentsProxy.create(stat), stat.getSize());
+  }
+
+  @Override
+  @Nullable
+  public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public ImmutableList<RunfilesTree> getRunfilesTrees() {
+    throw new UnsupportedOperationException();
   }
 
   @Override

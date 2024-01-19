@@ -31,6 +31,9 @@ public interface ActionInputMapSink {
    */
   void put(ActionInput input, FileArtifactValue metadata, @Nullable Artifact depOwner);
 
+  void putRunfilesMetadata(
+      Artifact input, RunfilesArtifactValue metadata, @Nullable Artifact depOwner);
+
   /** Adds a tree artifact entry with given value. */
   void putTreeArtifact(
       SpecialArtifact tree, TreeArtifactValue treeArtifactValue, @Nullable Artifact depOwner);

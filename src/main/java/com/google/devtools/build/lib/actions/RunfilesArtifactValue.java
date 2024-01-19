@@ -11,24 +11,24 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.skyframe;
+package com.google.devtools.build.lib.actions;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /** The artifacts behind a runfiles middleman. */
-final class RunfilesArtifactValue implements SkyValue {
+public final class RunfilesArtifactValue implements SkyValue {
 
+  /** A callback for consuming artifacts in a runfiles tree. */
   @FunctionalInterface
-  interface RunfilesConsumer<T> {
+  public interface RunfilesConsumer<T> {
     void accept(Artifact artifact, T metadata) throws InterruptedException;
   }
 
@@ -43,7 +43,7 @@ final class RunfilesArtifactValue implements SkyValue {
   private final ImmutableList<Artifact> trees;
   private final ImmutableList<TreeArtifactValue> treeValues;
 
-  RunfilesArtifactValue(
+  public RunfilesArtifactValue(
       FileArtifactValue metadata,
       RunfilesTree runfilesTree,
       ImmutableList<Artifact> files,
@@ -63,24 +63,26 @@ final class RunfilesArtifactValue implements SkyValue {
   }
 
   /** Returns the data of the artifact for this value, as computed by the action cache checker. */
-  FileArtifactValue getMetadata() {
+  public FileArtifactValue getMetadata() {
     return metadata;
   }
 
   /** Returns the runfiles tree this value represents. */
-  RunfilesTree getRunfilesTree() {
+  public RunfilesTree getRunfilesTree() {
     return runfilesTree;
   }
 
   /** Visits the file artifacts that this runfiles artifact expands to, together with their data. */
-  void forEachFile(RunfilesConsumer<FileArtifactValue> consumer) throws InterruptedException {
+  public void forEachFile(RunfilesConsumer<FileArtifactValue> consumer)
+      throws InterruptedException {
     for (int i = 0; i < files.size(); i++) {
       consumer.accept(files.get(i), fileValues.get(i));
     }
   }
 
   /** Visits the tree artifacts that this runfiles artifact expands to, together with their data. */
-  void forEachTree(RunfilesConsumer<TreeArtifactValue> consumer) throws InterruptedException {
+  public void forEachTree(RunfilesConsumer<TreeArtifactValue> consumer)
+      throws InterruptedException {
     for (int i = 0; i < trees.size(); i++) {
       consumer.accept(trees.get(i), treeValues.get(i));
     }

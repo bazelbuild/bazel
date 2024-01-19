@@ -157,6 +157,7 @@ java_library(
         ":localhost_capacity",
         ":middleman_type",
         ":package_roots",
+        ":runfiles_metadata",
         ":runfiles_supplier",
         ":thread_state_receiver",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
@@ -383,6 +384,20 @@ java_library(
         ":has_digest",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:auto_value",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "runfiles_metadata",
+    srcs = ["RunfilesArtifactValue.java"],
+    deps = [
+        ":artifacts",
+        ":file_metadata",
+        ":runfiles_supplier",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
+        "//src/main/java/com/google/devtools/build/lib/util:hash_codes",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
     ],
 )

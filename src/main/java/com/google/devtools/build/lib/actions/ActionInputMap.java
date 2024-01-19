@@ -20,14 +20,18 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -135,6 +139,8 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
 
   private TrieArtifact treeArtifactsRoot = new TrieArtifact();
 
+  private List<RunfilesTree> runfilesTrees = new ArrayList<>();
+
   @Deprecated
   @VisibleForTesting
   public ActionInputMap(int sizeHint) {
@@ -175,6 +181,11 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
   @Nullable
   @Override
   public FileArtifactValue getInputMetadata(ActionInput input) {
+    if (isARunfilesMiddleman(input)) {
+      RunfilesArtifactValue runfilesMetadata = getRunfilesMetadata(input);
+      return runfilesMetadata == null ? null : runfilesMetadata.getMetadata();
+    }
+
     if (input instanceof TreeFileArtifact) {
       TreeFileArtifact treeFileArtifact = (TreeFileArtifact) input;
       int treeIndex = getIndex(treeFileArtifact.getParent().getExecPathString());
@@ -212,6 +223,24 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
                   "Tree artifact file: '%s' referred to as an action input", input.getExecPath())));
     }
     return result;
+  }
+
+  @Nullable
+  @Override
+  public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
+    Preconditions.checkArgument(isARunfilesMiddleman(input));
+
+    int index = getIndex(input.getExecPathString());
+    if (index == -1) {
+      return null;
+    }
+
+    return (RunfilesArtifactValue) values[index];
+  }
+
+  @Override
+  public ImmutableList<RunfilesTree> getRunfilesTrees() {
+    return ImmutableList.copyOf(runfilesTrees);
   }
 
   /**
@@ -310,6 +339,17 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
   }
 
   @Override
+  public void putRunfilesMetadata(
+      Artifact input, RunfilesArtifactValue metadata, @Nullable Artifact depOwner) {
+    checkArgument(isARunfilesMiddleman(input));
+
+    int oldIndex = putIfAbsent(input, metadata);
+    Preconditions.checkState(oldIndex == -1);
+
+    runfilesTrees.add(metadata.getRunfilesTree());
+  }
+
+  @Override
   public void putTreeArtifact(
       SpecialArtifact tree, TreeArtifactValue treeArtifactValue, @Nullable Artifact depOwner) {
     // Use a placeholder value so that we don't have to create a new trie entry if the entry is
@@ -336,6 +376,8 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
         !isATreeArtifact(input),
         "Can't add tree artifact: %s using put -- please use putTreeArtifact for that",
         input);
+    checkArgument(!isARunfilesMiddleman(input));
+
     int oldIndex = putIfAbsent(input, metadata);
     checkArgument(
         oldIndex == -1 || !isATreeArtifact((ActionInput) keys[oldIndex]),
@@ -381,6 +423,7 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
     Arrays.fill(values, null);
     size = 0;
     treeArtifactsRoot = new TrieArtifact();
+    runfilesTrees = new ArrayList<>();
   }
 
   private void resize() {
@@ -417,5 +460,9 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
 
   private static boolean isATreeArtifact(ActionInput input) {
     return input instanceof SpecialArtifact && ((SpecialArtifact) input).isTreeArtifact();
+  }
+
+  private static boolean isARunfilesMiddleman(ActionInput input) {
+    return input instanceof Artifact && ((Artifact) input).isMiddlemanArtifact();
   }
 }
