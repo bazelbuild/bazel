@@ -35,17 +35,17 @@ public final class BazelJavaImportRule implements RuleDefinition {
     return builder
         /* <!-- #BLAZE_RULE(java_import).ATTRIBUTE(deps) -->
         The list of other libraries to be linked in to the target.
-        See <a href="${link java_library.deps}">java_library.deps</a>.
+        See <code>java_library.deps</code>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("deps", LABEL_LIST).allowedFileTypes())
         /* <!-- #BLAZE_RULE(java_import).ATTRIBUTE(exports) -->
         Targets to make available to users of this rule.
-        See <a href="${link java_library.exports}">java_library.exports</a>.
+        See <code>java_library.exports</code>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("exports", LABEL_LIST).allowedFileTypes())
         /* <!-- #BLAZE_RULE(java_import).ATTRIBUTE(runtime_deps) -->
         Libraries to make available to the final binary or test at runtime only.
-        See <a href="${link java_library.runtime_deps}">java_library.runtime_deps</a>.
+        See <code>java_library.runtime_deps</code>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("runtime_deps", LABEL_LIST).allowedFileTypes())
         .build();
@@ -65,7 +65,7 @@ public final class BazelJavaImportRule implements RuleDefinition {
 
 <p>
   This rule allows the use of precompiled <code>.jar</code> files as
-  libraries for <code><a href="${link java_library}">java_library</a></code> and
+  libraries for <code>java_library</code> and
   <code><a href="${link java_binary}">java_binary</a></code> rules.
 </p>
 

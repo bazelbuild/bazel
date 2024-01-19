@@ -132,7 +132,7 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
         <p>
           The specified list of <code>java_plugin</code>s will be applied to any library which
           directly depends on this library, just as if that library had explicitly declared these
-          labels in <code><a href="${link java_library.plugins}">plugins</a></code>.
+          labels in <code>java_library.plugins</code>.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("exported_plugins", LABEL_LIST).allowedFileTypes())
