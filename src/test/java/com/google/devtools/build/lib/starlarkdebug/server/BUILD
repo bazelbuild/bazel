@@ -77,6 +77,7 @@ java_test(
     size = "medium",
     srcs = ["StarlarkDebugIntegrationTest.java"],
     jvm_flags = ["-Djava.net.preferIPv6Addresses=true"],  # https://github.com/bazelbuild/bazel/issues/5206
+    shard_count = 4,
     deps = [
         ":utils",
         "//src/main/java/com/google/devtools/build/lib:runtime",
