@@ -14,7 +14,6 @@ filegroup(
 java_library(
     name = "java-rules",
     srcs = [
-        "GenericBuildInfoPropertiesTranslator.java",
         "JavaImportBaseRule.java",
         "JavaInfo.java",
         "JavaPluginsFlagAliasRule.java",
@@ -49,7 +48,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/java",
-        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
@@ -63,7 +61,6 @@ java_library(
     name = "java-compilation",
     srcs = [
         "BootClassPathInfo.java",
-        "BuildInfoPropertiesTranslator.java",
         "ClasspathConfiguredFragment.java",
         "DeployArchiveBuilder.java",
         "ImportDepsCheckActionBuilder.java",
@@ -152,7 +149,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
