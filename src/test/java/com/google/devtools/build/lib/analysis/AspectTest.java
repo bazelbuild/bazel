@@ -1394,7 +1394,6 @@ public class AspectTest extends AnalysisTestCase {
   public void ruleDepsVisibilityNotAffectNativeAspect() throws Exception {
     setRulesAndAspectsAvailableInTests(
         ImmutableList.of(TestAspects.ALL_ATTRIBUTES_ASPECT), ImmutableList.of());
-    useConfiguration("--incompatible_visibility_private_attributes_at_definition");
     scratch.file("defs/BUILD");
     scratch.file(
         "defs/build_defs.bzl",
