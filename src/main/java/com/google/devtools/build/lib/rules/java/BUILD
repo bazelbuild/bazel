@@ -14,7 +14,6 @@ filegroup(
 java_library(
     name = "java-rules",
     srcs = [
-        "JavaImportBaseRule.java",
         "JavaInfo.java",
         "JavaPluginsFlagAliasRule.java",
         "JavaPrimaryClassProvider.java",
