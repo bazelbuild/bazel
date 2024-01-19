@@ -50,11 +50,6 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public String getDisplayName() {
-    return "combined-cache";
-  }
-
-  @Override
   public ListenableFuture<Void> uploadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
     ListenableFuture<Void> future = Futures.immediateVoidFuture();

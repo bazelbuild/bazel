@@ -289,15 +289,6 @@ public class RemoteExecutionService {
     return options.diskCache != null && !options.diskCache.isEmpty();
   }
 
-  /**
-   * If using a disk, remote or combined cache, returns the display name for the cache. Otherwise,
-   * returns null.
-   */
-  @Nullable
-  public String getCacheDisplayName() {
-    return remoteCache != null ? checkNotNull(remoteCache.getDisplayName()) : null;
-  }
-
   public CachePolicy getReadCachePolicy(Spawn spawn) {
     if (remoteCache == null) {
       return CachePolicy.NO_CACHE;
@@ -614,7 +605,7 @@ public class RemoteExecutionService {
               buildRequestId, commandId, actionKey.getDigest().getHash(), spawn.getResourceOwner());
       RemoteActionExecutionContext remoteActionExecutionContext =
           RemoteActionExecutionContext.create(
-              spawn, metadata, getWriteCachePolicy(spawn), getReadCachePolicy(spawn));
+              spawn, context, metadata, getWriteCachePolicy(spawn), getReadCachePolicy(spawn));
 
       return new RemoteAction(
           spawn,

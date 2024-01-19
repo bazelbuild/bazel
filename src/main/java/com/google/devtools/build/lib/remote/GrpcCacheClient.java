@@ -48,6 +48,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ProgressiveBackoff;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
@@ -56,6 +57,7 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.zstd.ZstdDecompressingOutputStream;
@@ -76,10 +78,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
-/** A RemoteActionCache implementation that uses gRPC calls to a remote cache server. */
+/**
+ * A RemoteActionCache implementation that uses gRPC calls to a remote cache server.
+ */
 @ThreadSafe
 public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder {
+
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
+  private static final SpawnCheckingCacheEvent SPAWN_CHECKING_CACHE_EVENT =
+      SpawnCheckingCacheEvent.create("remote-cache");
 
   private final CallCredentialsProvider callCredentialsProvider;
   private final ReferenceCountedChannel channel;
@@ -115,11 +123,6 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
     maxMissingBlobsDigestsPerMessage = computeMaxMissingBlobsDigestsPerMessage();
     Preconditions.checkState(
         maxMissingBlobsDigestsPerMessage > 0, "Error: gRPC message size too small.");
-  }
-
-  @Override
-  public String getDisplayName() {
-    return "remote-cache";
   }
 
   private int computeMaxMissingBlobsDigestsPerMessage() {
@@ -279,6 +282,10 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   @Override
   public ListenableFuture<CachedActionResult> downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
+    if (context.getSpawnExecutionContext() != null) {
+      context.getSpawnExecutionContext().report(SPAWN_CHECKING_CACHE_EVENT);
+    }
+
     GetActionResultRequest request =
         GetActionResultRequest.newBuilder()
             .setInstanceName(options.remoteInstanceName)

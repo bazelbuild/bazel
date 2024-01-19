@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_DOWNLOAD;
 import static com.google.devtools.build.lib.remote.util.Utils.createSpawnResult;
@@ -47,7 +46,6 @@ import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.NoSuchElementException;
-import java.util.concurrent.ConcurrentHashMap;
 
 /** A remote {@link SpawnCache} implementation. */
 @ThreadSafe // If the RemoteActionCache implementation is thread-safe.
@@ -61,10 +59,6 @@ final class RemoteSpawnCache implements SpawnCache {
   private final RemoteExecutionService remoteExecutionService;
   private final DigestUtil digestUtil;
   private final boolean verboseFailures;
-
-  // Maps cache display names to lazily-initialized, reusable singleton events, to reduce garbage.
-  private static final ConcurrentHashMap<String, SpawnCheckingCacheEvent> EVENT_MAP =
-      new ConcurrentHashMap<>();
 
   RemoteSpawnCache(
       Path execRoot,
@@ -107,7 +101,6 @@ final class RemoteSpawnCache implements SpawnCache {
 
     Profiler prof = Profiler.instance();
     if (shouldAcceptCachedResult) {
-      reportSpawnCheckingCacheEvent(context);
       // Metadata will be available in context.current() until we detach.
       // This is done via a thread-local variable.
       try {
@@ -216,13 +209,6 @@ final class RemoteSpawnCache implements SpawnCache {
     } else {
       return SpawnCache.NO_RESULT_NO_STORE;
     }
-  }
-
-  private void reportSpawnCheckingCacheEvent(SpawnExecutionContext context) {
-    String displayName = checkNotNull(remoteExecutionService.getCacheDisplayName());
-    SpawnCheckingCacheEvent event = EVENT_MAP.computeIfAbsent(displayName,
-        SpawnCheckingCacheEvent::create);
-    context.report(event);
   }
 
   @Override
