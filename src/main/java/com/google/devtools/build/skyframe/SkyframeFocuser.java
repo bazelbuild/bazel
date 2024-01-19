@@ -161,6 +161,9 @@ public final class SkyframeFocuser {
 
     graph.shrinkNodeMap();
 
+    long rdepEdgesBefore = 0;
+    long rdepEdgesAfter = 0;
+
     for (SkyKey key : keptDeps) {
       // TODO: b/312819241 - Consider transforming IncrementalInMemoryNodeEntry only used for their
       // immutable states to an ImmutableDoneNodeEntry or NonIncrementalInMemoryNodeEntry for
@@ -185,13 +188,21 @@ public final class SkyframeFocuser {
       // reachable (hence, dirty-able) by the working set.
       //
       // This accounts for nearly 5% of 9+GB retained heap on a large server build.
+      rdepEdgesBefore += nodeEntry.getReverseDepsForDoneEntry().size();
       for (SkyKey rdep : nodeEntry.getReverseDepsForDoneEntry()) {
         if (!keptRdeps.contains(rdep)) {
           nodeEntry.removeReverseDep(rdep);
         }
       }
+
+      // This consolidation is also done in getReverseDepsForDoneEntry(), but make it
+      // explicit here (and it's idempotent, anyway).
       ReverseDepsUtility.consolidateData(nodeEntry);
+      rdepEdgesAfter += nodeEntry.getReverseDepsForDoneEntry().size();
     }
+
+    eventHandler.handle(
+        Event.info(String.format("Rdep edges: %s -> %s", rdepEdgesBefore, rdepEdgesAfter)));
 
     return new FocusResult(ImmutableSet.copyOf(keptRdeps), ImmutableSet.copyOf(keptDeps));
   }

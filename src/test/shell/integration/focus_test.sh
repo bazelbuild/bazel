@@ -128,12 +128,12 @@ EOF
   out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/out.txt
   bazel build //${pkg}:g
 
-  echo "a change" >> ${pkg}/in.txt
   bazel focus --files=${pkg}/in.txt >$TEST_log 2>&1
 
   expect_log "Focusing on .\+ roots, .\+ leafs"
   expect_log "Nodes in reverse transitive closure from leafs: .\+"
   expect_log "Nodes in direct deps of reverse transitive closure: .\+"
+  expect_log "Rdep edges: .\+ -> .\+"
   expect_log "Heap: .\+MB -> .\+MB (.\+% reduction)"
   expect_log "Node count: .\+ -> .\+ (.\+% reduction)"
 }
@@ -155,7 +155,6 @@ EOF
   out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/out.txt
   bazel build //${pkg}:g  &> $TEST_log 2>&1
 
-  echo "a change" >> ${pkg}/in.txt
   bazel focus --dump_keys --files=${pkg}/in.txt >$TEST_log 2>&1
 
   expect_log "Focusing on .\+ roots, .\+ leafs"
