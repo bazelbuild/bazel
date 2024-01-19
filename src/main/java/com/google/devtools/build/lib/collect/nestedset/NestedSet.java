@@ -494,14 +494,8 @@ public final class NestedSet<E> {
    * @return the size of the nested set.
    */
   public int memoizedFlattenAndGetSize() {
-    // before flattening?
-    if (memo == null) {
-      return toList().size(); // side effect: set memo
-    }
-
-    // After flattening: inspect memo.
-
-    // shallow?
+    // This special value NO_MEMO is only set in the constructor and is immutable once set, so
+    // it's safe to test here with no lock.
     if (memo == NO_MEMO) {
       Object children = getChildrenUninterruptibly();
       return children == EMPTY_CHILDREN
@@ -511,9 +505,11 @@ public final class NestedSet<E> {
               : ((Object[]) children).length;
     }
 
-    // Make sure we have a full view of memo from a possible concurrent lockedExpand call.
+    // Make sure we have a full view of memo from a possible concurrent lockedExpand/clearMemo call.
     synchronized (this) {
-      // Read size from end of memo.
+      if (memo == null) {
+        return toList().size(); // side effect: set memo
+      }
       int size = 0;
       for (int i = memo.length - 1; ; i--) {
         size = (size << 7) | (memo[i] & 0x7f);
