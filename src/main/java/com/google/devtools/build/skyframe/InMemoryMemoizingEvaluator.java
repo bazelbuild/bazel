@@ -15,12 +15,15 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.skyframe.Differencer.Diff;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -38,6 +41,19 @@ public final class InMemoryMemoizingEvaluator
   private InMemoryGraph graph;
 
   private final AtomicBoolean evaluating = new AtomicBoolean(false);
+
+  private Set<SkyKey> latestTopLevelEvaluations;
+  private Set<SkyKey> topLevelEvaluations = new HashSet<>();
+
+  @Override
+  public void updateTopLevelEvaluations() {
+    latestTopLevelEvaluations = topLevelEvaluations;
+    topLevelEvaluations = new HashSet<>();
+  }
+
+  public Set<SkyKey> getLatestTopLevelEvaluations() {
+    return latestTopLevelEvaluations;
+  }
 
   public InMemoryMemoizingEvaluator(
       Map<SkyFunctionName, SkyFunction> skyFunctions, Differencer differencer) {
@@ -89,6 +105,12 @@ public final class InMemoryMemoizingEvaluator
     // NOTE: Performance critical code. See bug "Null build performance parity".
     Version graphVersion = getNextGraphVersion();
     setAndCheckEvaluateState(true, roots);
+
+    // Only remember roots for focusing if we're tracking incremental states by keeping edges.
+    if (keepEdges) {
+      // Remember the top level evaluation of the last build-like invocation.
+      Iterables.addAll(topLevelEvaluations, roots);
+    }
 
     // Mark for removal any nodes from the previous evaluation that were still inflight or were
     // rewound but did not complete successfully. When the invalidator runs, it will delete the

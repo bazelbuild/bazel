@@ -887,6 +887,15 @@ sh_library(
     srcs = ["config_stripped_outputs_lib.sh"],
 )
 
+sh_test(
+    name = "focus_test",
+    srcs = ["focus_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
 ########################################################################
 # Test suites.
 

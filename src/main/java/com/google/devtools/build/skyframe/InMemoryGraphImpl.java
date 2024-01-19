@@ -16,6 +16,7 @@ package com.google.devtools.build.skyframe;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.collect.ForwardingConcurrentMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -39,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.Lock;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
@@ -53,7 +55,18 @@ public class InMemoryGraphImpl implements InMemoryGraph {
 
   private static final int PARALLELISM_THRESHOLD = 1024;
 
-  protected final ConcurrentHashMap<SkyKey, InMemoryNodeEntry> nodeMap;
+  // Use ForwardingConcurrentMap as a live reference to nodeMap so that it's safe to mutate
+  // nodeMap and not have callers see the stale map. See getValues, getDoneValues,
+  // getAllNodeEntries.
+  private final ConcurrentMap<SkyKey, InMemoryNodeEntry> liveView =
+      new ForwardingConcurrentMap<>() {
+        @Override
+        protected ConcurrentMap<SkyKey, InMemoryNodeEntry> delegate() {
+          return nodeMap;
+        }
+      };
+
+  protected ConcurrentHashMap<SkyKey, InMemoryNodeEntry> nodeMap;
   private final NodeBatch getBatch;
   private final NodeBatch createIfAbsentBatch;
   private final boolean usePooledInterning;
@@ -76,7 +89,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
 
   private InMemoryGraphImpl(int initialCapacity, boolean usePooledInterning) {
     this.nodeMap = new ConcurrentHashMap<>(initialCapacity);
-    this.getBatch = nodeMap::get;
+    this.getBatch = this::getIfPresent;
     this.createIfAbsentBatch = this::createIfAbsent;
     this.usePooledInterning = usePooledInterning;
     if (usePooledInterning) {
@@ -213,14 +226,14 @@ public class InMemoryGraphImpl implements InMemoryGraph {
 
   @Override
   public Map<SkyKey, SkyValue> getValues() {
-    return Collections.unmodifiableMap(Maps.transformValues(nodeMap, InMemoryNodeEntry::toValue));
+    return Collections.unmodifiableMap(Maps.transformValues(liveView, InMemoryNodeEntry::toValue));
   }
 
   @Override
   public Map<SkyKey, SkyValue> getDoneValues() {
     return Collections.unmodifiableMap(
         Maps.filterValues(
-            Maps.transformValues(nodeMap, entry -> entry.isDone() ? entry.getValue() : null),
+            Maps.transformValues(liveView, entry -> entry.isDone() ? entry.getValue() : null),
             Objects::nonNull));
   }
 
@@ -263,6 +276,12 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   @Nullable
   public InMemoryNodeEntry getIfPresent(SkyKey key) {
     return nodeMap.get(key);
+  }
+
+  /** Minimizes the size of the ConcurrentHashMap backing the graph. May be costly to run (O(n)). */
+  @Override
+  public void shrinkNodeMap() {
+    nodeMap = new ConcurrentHashMap<>(nodeMap);
   }
 
   static final class EdgelessInMemoryGraphImpl extends InMemoryGraphImpl {

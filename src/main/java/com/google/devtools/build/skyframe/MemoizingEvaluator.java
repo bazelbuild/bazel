@@ -219,4 +219,12 @@ public interface MemoizingEvaluator {
    * is about to be thrown away.
    */
   void cleanupInterningPools();
+
+  /**
+   * Implementations of MemoizingEvaluator can choose to remember the top level SkyKeys evaluated
+   * from a previous build for further optimizations, like the focus command.
+   *
+   * <p>This can be called to purge an existing set of SkyKeys, and replace it with a new set.
+   */
+  void updateTopLevelEvaluations();
 }

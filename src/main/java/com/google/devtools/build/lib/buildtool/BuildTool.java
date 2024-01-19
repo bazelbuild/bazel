@@ -654,6 +654,7 @@ public class BuildTool {
     InterruptedException ie = null;
     try {
       env.getSkyframeExecutor().notifyCommandComplete(env.getReporter());
+      env.getSkyframeExecutor().getEvaluator().updateTopLevelEvaluations();
     } catch (InterruptedException e) {
       env.getReporter().handle(Event.error("Build interrupted during command completion"));
       ie = e;

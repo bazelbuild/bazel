@@ -13,29 +13,53 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.stream.Collectors.toCollection;
+
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.commands.info.UsedHeapSizeAfterGcInfoItem;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.util.StringUtilities;
+import com.google.devtools.build.lib.vfs.FileStateKey;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.InMemoryGraphImpl;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyframeFocuser;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.PrintStream;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /** The focus command. */
 @Command(
     hidden = true, // experimental, don't show in the help command.
     options = {
       FocusCommand.FocusOptions.class,
+      PackageOptions.class,
     },
     help =
         "Usage: %{product} focus <options>\n"
@@ -48,6 +72,17 @@ public class FocusCommand implements BlazeCommand {
 
   /** The set of options for the focus command. */
   public static class FocusOptions extends OptionsBase {
+
+    @Option(
+        name = "files",
+        defaultValue = "",
+        effectTags = OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
+        // Deliberately undocumented.
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        converter = Converters.CommaSeparatedOptionListConverter.class,
+        help = "The working set. Specify as comma-separated workspace root-relative paths.")
+    public List<String> files;
+
     @Option(
         name = "dump_keys",
         defaultValue = "false",
@@ -69,14 +104,54 @@ public class FocusCommand implements BlazeCommand {
     try (PrintStream pos = new PrintStream(reporter.getOutErr().getOutputStream())) {
       pos.printf("Rdeps kept:\n");
       for (SkyKey key : focusResult.getRdeps()) {
-        pos.printf("  %s", key.getCanonicalName());
+        pos.printf("%s", key.getCanonicalName());
       }
-      pos.printf("\n");
-      pos.printf("Deps kept:\n");
+      pos.println();
+      pos.println("Deps kept:");
       for (SkyKey key : focusResult.getDeps()) {
-        pos.printf("  %s", key.getCanonicalName());
+        pos.printf("%s", key.getCanonicalName());
       }
+      Map<SkyFunctionName, Long> skyKeyCount =
+          Sets.union(focusResult.getRdeps(), focusResult.getDeps()).stream()
+              .collect(Collectors.groupingBy(SkyKey::functionName, Collectors.counting()));
+
+      pos.println();
+      pos.println("Summary of kept keys:");
+      skyKeyCount.forEach((k, v) -> pos.println(k + " " + v));
     }
+  }
+
+  private static void reportRequestStats(
+      CommandEnvironment env, FocusOptions focusOptions, Set<SkyKey> roots, Set<SkyKey> leafs) {
+    env.getReporter()
+        .handle(
+            Event.info(
+                String.format(
+                    "Focusing on %d roots, %d leafs.. (use --dump_keys to show them)",
+                    roots.size(), leafs.size())));
+    if (focusOptions.dumpKeys) {
+      roots.forEach(k -> env.getReporter().handle(Event.info("root: " + k.getCanonicalName())));
+      leafs.forEach(k -> env.getReporter().handle(Event.info("leaf: " + k.getCanonicalName())));
+    }
+  }
+
+  private static void reportResults(
+      CommandEnvironment env,
+      long beforeHeap,
+      int beforeNodeCount,
+      long afterHeap,
+      int afterNodeCount) {
+    env.getReporter()
+        .handle(
+            Event.info(
+                String.format(
+                    "Heap: %s -> %s (%.2f%% reduction), Node count: %d -> %d (%.2f%% reduction)",
+                    StringUtilities.prettyPrintBytes(beforeHeap),
+                    StringUtilities.prettyPrintBytes(afterHeap),
+                    (double) (beforeHeap - afterHeap) / beforeHeap * 100,
+                    beforeNodeCount,
+                    afterNodeCount,
+                    (double) (beforeNodeCount - afterNodeCount) / beforeNodeCount * 100)));
   }
 
   @Override
@@ -86,14 +161,89 @@ public class FocusCommand implements BlazeCommand {
             Event.warn(
                 "The focus command is experimental. Feel free to test it, "
                     + "but do not depend on it yet."));
-    env.getReporter().handle(Event.info("Focusing..."));
 
     FocusOptions focusOptions = options.getOptions(FocusOptions.class);
 
     SkyframeExecutor executor = env.getSkyframeExecutor();
+    // TODO: b/312819241 - add support for SerializationCheckingGraph for use in tests.
     InMemoryMemoizingEvaluator evaluator = (InMemoryMemoizingEvaluator) executor.getEvaluator();
     InMemoryGraphImpl graph = (InMemoryGraphImpl) evaluator.getInMemoryGraph();
-    SkyframeFocuser.FocusResult focusResult = SkyframeFocuser.focus(graph, env.getReporter());
+
+    // Compute the roots and leafs.
+    // TODO: b/312819241 - find a less volatile way to specify roots.
+    Set<SkyKey> roots = evaluator.getLatestTopLevelEvaluations();
+    if (roots == null || roots.isEmpty()) {
+      env.getReporter().handle(Event.error("Unable to focus without roots. Run a build first."));
+      // TODO: b/312819241 - turn this into a FailureDetail and avoid crashing.
+      throw new IllegalStateException("Unable to get root SkyKeys of the previous build.");
+    }
+
+    // TODO: b/312819241 - For simplicity's sake, use the first --package_path as the root.
+    // This may be an issue with packages from a different package_path root.
+    Root packageRoot = env.getPackageLocator().getPathEntries().get(0);
+    HashSet<RootedPath> requestedWorkingSet =
+        focusOptions.files.stream()
+            .map(f -> RootedPath.toRootedPath(packageRoot, PathFragment.create(f)))
+            .collect(toCollection(HashSet::new));
+
+    Set<SkyKey> leafs = new LinkedHashSet<>();
+    graph.parallelForEach(
+        node -> {
+          SkyKey k = node.getKey();
+          if (k instanceof FileStateKey) {
+            RootedPath rootedPath = ((FileStateKey) k).argument();
+            if (requestedWorkingSet.remove(rootedPath)) {
+              leafs.add(k);
+            }
+          }
+        });
+    if (leafs.isEmpty()) {
+      // TODO: b/312819241 - turn this into a FailureDetail and avoid crashing.
+      throw new IllegalStateException(
+          "Failed to construct working set because files not found in the transitive closure: "
+              + String.join(", ", focusOptions.files));
+    }
+    if (!requestedWorkingSet.isEmpty()) {
+      env.getReporter()
+          .handle(
+              Event.warn(
+                  requestedWorkingSet.size()
+                      + " files were not found in the transitive closure, and "
+                      + "so they are not included in the working set."));
+    }
+
+    // TODO: b/312819241 - this leaf is necessary for build correctness of volatile actions, like
+    // stamping, but retains a lot of memory (100MB of retained heap for a 9+GB build).
+    leafs.add(PrecomputedValue.BUILD_ID.getKey()); // needed to invalidate linkstamped targets.
+
+    reportRequestStats(env, focusOptions, roots, leafs);
+
+    long beforeHeap = UsedHeapSizeAfterGcInfoItem.getHeapUsageAfterGc();
+    int beforeNodeCount = graph.valuesSize();
+
+    SkyframeFocuser.FocusResult focusResult =
+        SkyframeFocuser.focus(
+            graph,
+            roots,
+            leafs,
+            env.getReporter(),
+            /* additionalDepsToKeep= */ (SkyKey k) -> {
+              // ActionExecutionFunction#lookupInput allows getting a transitive dep without
+              // adding a SkyframeDependency on it. In Blaze/Bazel's case, NestedSets are a major
+              // user. To keep that working, it's not sufficient to only keep the direct deps (e.g.
+              // NestedSets), but also keep the nodes of the transitive artifacts
+              // with this workaround.
+              if (k instanceof ArtifactNestedSetKey) {
+                return ((ArtifactNestedSetKey) k)
+                    .expandToArtifacts().stream().map(Artifact::key).collect(toImmutableSet());
+              }
+              return ImmutableSet.of();
+            });
+
+    long afterHeap = UsedHeapSizeAfterGcInfoItem.getHeapUsageAfterGc();
+    int afterNodeCount = graph.valuesSize();
+
+    reportResults(env, beforeHeap, beforeNodeCount, afterHeap, afterNodeCount);
 
     if (focusOptions.dumpKeys) {
       dumpKeys(env.getReporter(), focusResult);
