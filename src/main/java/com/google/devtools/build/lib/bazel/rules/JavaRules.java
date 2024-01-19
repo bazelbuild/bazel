@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.bazel.rules;
 import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.EXPERIMENTAL_JAVA_LIBRARY_EXPORT;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaImportRule;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaLibraryRule;
-import com.google.devtools.build.lib.bazel.rules.java.BazelJavaPluginRule;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaSemantics;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaTestRule;
@@ -68,7 +68,7 @@ public class JavaRules implements RuleSet {
     builder.addRuleDefinition(new BazelJavaLibraryRule());
     builder.addRuleDefinition(new BazelJavaImportRule());
     builder.addRuleDefinition(new BazelJavaTestRule());
-    builder.addRuleDefinition(new BazelJavaPluginRule());
+    builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("java_plugin") {});
     builder.addRuleDefinition(JavaToolchainRule.create());
     builder.addRuleDefinition(new JavaPackageConfigurationRule());
     builder.addRuleDefinition(new JavaRuntimeRule());

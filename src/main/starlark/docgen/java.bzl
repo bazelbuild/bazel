@@ -26,4 +26,5 @@ test_rules = struct(
 )
 
 other_rules = struct(
+    java_plugin = native.java_plugin,
 )
