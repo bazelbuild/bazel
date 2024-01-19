@@ -34,8 +34,10 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -173,14 +175,6 @@ public final class OutputDirectoryLinksUtils {
                   Joiner.on(", ").join(ambiguousLinks))));
     }
     return convenienceSymlinksBuilder.build();
-  }
-
-  public static PathPrettyPrinter getPathPrettyPrinter(
-      Iterable<SymlinkDefinition> symlinkDefinitions,
-      String symlinkPrefix,
-      Path workspaceDirectory) {
-    return new PathPrettyPrinter(
-        getAllLinkDefinitions(symlinkDefinitions), symlinkPrefix, workspaceDirectory);
   }
 
   /**
@@ -377,4 +371,42 @@ public final class OutputDirectoryLinksUtils {
               return ImmutableSet.of(execRoot);
             }
           });
+
+  public static PathPrettyPrinter getPathPrettyPrinter(
+      Iterable<SymlinkDefinition> symlinkDefinitions,
+      String symlinkPrefix,
+      Path workspaceDirectory) {
+    return new PathPrettyPrinter(
+        symlinkPrefix,
+        resolve(getAllLinkDefinitions(symlinkDefinitions), workspaceDirectory, symlinkPrefix));
+  }
+
+  /**
+   * Creates a path pretty printer, immediately resolving the symlink definitions by reading the
+   * current symlinks _from disk_.
+   */
+  private static Map<PathFragment, PathFragment> resolve(
+      ImmutableList<SymlinkDefinition> symlinkDefinitions,
+      Path workspaceDirectory,
+      String symlinkPrefix) {
+    Map<PathFragment, PathFragment> result = new LinkedHashMap<>();
+    String workspaceBaseName = workspaceDirectory.getBaseName();
+    for (SymlinkDefinition link : symlinkDefinitions) {
+      String linkName = link.getLinkName(symlinkPrefix, workspaceBaseName);
+      PathFragment linkFragment = PathFragment.create(linkName);
+      Path dir = workspaceDirectory.getRelative(linkFragment);
+      try {
+        PathFragment levelOneLinkTarget = dir.readSymbolicLink();
+        if (levelOneLinkTarget.isAbsolute()) {
+          result.put(linkFragment, dir.getRelative(levelOneLinkTarget).asFragment());
+        }
+      } catch (IOException ignored) {
+        // We don't guarantee that the convenience symlinks exist - e.g., we might be running in a
+        // readonly directory. We silently fall back to printing the full path in that case. As an
+        // alternative, we could capture that information when we create the symlinks and pass that
+        // here instead of reading files back from local disk.
+      }
+    }
+    return result;
+  }
 }
