@@ -25,6 +25,7 @@ library_rules = struct(
 )
 
 test_rules = struct(
+    java_test = native.java_test,
 )
 
 other_rules = struct(
