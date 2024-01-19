@@ -180,7 +180,7 @@ public class RemoteSpawnCacheTest {
 
         @Override
         public SpawnInputExpander getSpawnInputExpander() {
-          return new SpawnInputExpander(execRoot, /*strict*/ false);
+          return new SpawnInputExpander(execRoot);
         }
 
         @Override
@@ -198,7 +198,7 @@ public class RemoteSpawnCacheTest {
             PathFragment baseDirectory, boolean willAccessRepeatedly)
             throws IOException, ForbiddenActionInputException {
           return getSpawnInputExpander()
-              .getInputMapping(simpleSpawn, SIMPLE_ARTIFACT_EXPANDER, baseDirectory, fakeFileCache);
+              .getInputMapping(simpleSpawn, SIMPLE_ARTIFACT_EXPANDER, baseDirectory);
         }
 
         @Override

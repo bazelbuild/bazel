@@ -117,12 +117,7 @@ public interface RemotePathResolver {
         throws IOException, ForbiddenActionInputException {
       context
           .getSpawnInputExpander()
-          .walkInputs(
-              spawn,
-              context.getArtifactExpander(),
-              PathFragment.EMPTY_FRAGMENT,
-              context.getInputMetadataProvider(),
-              visitor);
+          .walkInputs(spawn, context.getArtifactExpander(), PathFragment.EMPTY_FRAGMENT, visitor);
     }
 
     @Override
@@ -197,7 +192,6 @@ public interface RemotePathResolver {
               spawn,
               context.getArtifactExpander(),
               PathFragment.create(checkNotNull(getWorkingDirectory())),
-              context.getInputMetadataProvider(),
               visitor);
     }
 

@@ -86,7 +86,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
 
   protected AbstractSpawnStrategy(
       Path execRoot, SpawnRunner spawnRunner, ExecutionOptions executionOptions) {
-    this.spawnInputExpander = new SpawnInputExpander(execRoot, false);
+    this.spawnInputExpander = new SpawnInputExpander(execRoot);
     this.spawnRunner = spawnRunner;
     this.executionOptions = executionOptions;
   }
@@ -369,10 +369,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
           Profiler.instance().profile("AbstractSpawnStrategy.getInputMapping")) {
         inputMapping =
             spawnInputExpander.getInputMapping(
-                spawn,
-                actionExecutionContext.getArtifactExpander(),
-                baseDirectory,
-                actionExecutionContext.getInputMetadataProvider());
+                spawn, actionExecutionContext.getArtifactExpander(), baseDirectory);
       }
 
       // Don't cache the input mapping if it is unlikely that it is used again.

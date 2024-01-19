@@ -34,10 +34,8 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
-import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetManifest;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
-import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -45,7 +43,6 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
-import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -66,8 +63,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link SpawnInputExpander}. */
 @RunWith(JUnit4.class)
-public class SpawnInputExpanderTest {
-  private static final byte[] FAKE_DIGEST = new byte[] {1, 2, 3, 4};
+public final class SpawnInputExpanderTest {
 
   private static final ArtifactExpander NO_ARTIFACT_EXPANDER =
       (a, b) -> fail("expected no interactions");
@@ -76,17 +72,15 @@ public class SpawnInputExpanderTest {
   private final Path execRoot = fs.getPath("/root");
   private final ArtifactRoot rootDir = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out");
 
-  private SpawnInputExpander expander = new SpawnInputExpander(execRoot, /*strict=*/ true);
+  private SpawnInputExpander expander = new SpawnInputExpander(execRoot);
   private Map<PathFragment, ActionInput> inputMappings = new HashMap<>();
 
   @Test
   public void testEmptyRunfiles() throws Exception {
     RunfilesSupplier supplier = EmptyRunfilesSupplier.INSTANCE;
-    FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
     expander.addRunfilesToInputs(
         inputMappings,
         supplier,
-        mockCache,
         NO_ARTIFACT_EXPANDER,
         PathMapper.NOOP,
         PathFragment.EMPTY_FRAGMENT);
@@ -102,15 +96,10 @@ public class SpawnInputExpanderTest {
     Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(artifact).build();
     RunfilesSupplier supplier =
         AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
-    FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
-    mockCache.put(
-        artifact,
-        FileArtifactValue.createForNormalFile(FAKE_DIGEST, /*proxy=*/ null, /*size=*/ 0L));
 
     expander.addRunfilesToInputs(
         inputMappings,
         supplier,
-        mockCache,
         NO_ARTIFACT_EXPANDER,
         PathMapper.NOOP,
         PathFragment.EMPTY_FRAGMENT);
@@ -125,10 +114,6 @@ public class SpawnInputExpanderTest {
     Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(artifact).build();
     RunfilesSupplier supplier =
         AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
-    FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
-    mockCache.put(
-        artifact,
-        FileArtifactValue.createForNormalFile(FAKE_DIGEST, /*proxy=*/ null, /*size=*/ 0L));
 
     ArtifactExpander filesetExpander =
         new ArtifactExpander() {
@@ -150,7 +135,6 @@ public class SpawnInputExpanderTest {
     expander.addRunfilesToInputs(
         inputMappings,
         supplier,
-        mockCache,
         filesetExpander,
         PathMapper.NOOP,
         PathFragment.EMPTY_FRAGMENT);
@@ -162,32 +146,6 @@ public class SpawnInputExpanderTest {
   }
 
   @Test
-  public void testRunfilesDirectoryStrict() {
-    Artifact artifact =
-        ActionsTestUtil.createArtifact(
-            ArtifactRoot.asSourceRoot(Root.fromPath(fs.getPath("/root"))),
-            fs.getPath("/root/dir/file"));
-    Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(artifact).build();
-    RunfilesSupplier supplier =
-        AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
-    FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
-    mockCache.put(artifact, FileArtifactValue.createForDirectoryWithMtime(-1));
-
-    ForbiddenActionInputException expected =
-        assertThrows(
-            ForbiddenActionInputException.class,
-            () ->
-                expander.addRunfilesToInputs(
-                    inputMappings,
-                    supplier,
-                    mockCache,
-                    NO_ARTIFACT_EXPANDER,
-                    PathMapper.NOOP,
-                    PathFragment.EMPTY_FRAGMENT));
-    assertThat(expected).hasMessageThat().isEqualTo("Not a file: dir/file");
-  }
-
-  @Test
   public void testRunfilesDirectoryNonStrict() throws Exception {
     Artifact artifact =
         ActionsTestUtil.createArtifact(
@@ -196,14 +154,11 @@ public class SpawnInputExpanderTest {
     Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(artifact).build();
     RunfilesSupplier supplier =
         AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
-    FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
-    mockCache.put(artifact, FileArtifactValue.createForDirectoryWithMtime(-1));
 
-    expander = new SpawnInputExpander(execRoot, /*strict=*/ false);
+    expander = new SpawnInputExpander(execRoot);
     expander.addRunfilesToInputs(
         inputMappings,
         supplier,
-        mockCache,
         NO_ARTIFACT_EXPANDER,
         PathMapper.NOOP,
         PathFragment.EMPTY_FRAGMENT);
@@ -226,18 +181,10 @@ public class SpawnInputExpanderTest {
         new Runfiles.Builder("workspace").addArtifact(artifact1).addArtifact(artifact2).build();
     RunfilesSupplier supplier =
         AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
-    FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
-    mockCache.put(
-        artifact1,
-        FileArtifactValue.createForNormalFile(FAKE_DIGEST, /*proxy=*/ null, /*size=*/ 1L));
-    mockCache.put(
-        artifact2,
-        FileArtifactValue.createForNormalFile(FAKE_DIGEST, /*proxy=*/ null, /*size=*/ 12L));
 
     expander.addRunfilesToInputs(
         inputMappings,
         supplier,
-        mockCache,
         NO_ARTIFACT_EXPANDER,
         PathMapper.NOOP,
         PathFragment.EMPTY_FRAGMENT);
@@ -263,18 +210,10 @@ public class SpawnInputExpanderTest {
     RunfilesSupplier supplier =
         AnalysisTestUtil.createRunfilesSupplier(
             PathFragment.create("bazel-out/k8-opt/bin/foo.runfiles"), runfiles);
-    FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
-    mockCache.put(
-        artifact1,
-        FileArtifactValue.createForNormalFile(FAKE_DIGEST, /* proxy= */ null, /* size= */ 1L));
-    mockCache.put(
-        artifact2,
-        FileArtifactValue.createForNormalFile(FAKE_DIGEST, /* proxy= */ null, /* size= */ 12L));
 
     expander.addRunfilesToInputs(
         inputMappings,
         supplier,
-        mockCache,
         NO_ARTIFACT_EXPANDER,
         execPath -> PathFragment.create(execPath.getPathString().replace("k8-opt/", "")),
         PathFragment.EMPTY_FRAGMENT);
@@ -299,15 +238,10 @@ public class SpawnInputExpanderTest {
             .build();
     RunfilesSupplier supplier =
         AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
-    FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
-    mockCache.put(
-        artifact,
-        FileArtifactValue.createForNormalFile(FAKE_DIGEST, /*proxy=*/ null, /*size=*/ 1L));
 
     expander.addRunfilesToInputs(
         inputMappings,
         supplier,
-        mockCache,
         NO_ARTIFACT_EXPANDER,
         PathMapper.NOOP,
         PathFragment.EMPTY_FRAGMENT);
@@ -328,15 +262,10 @@ public class SpawnInputExpanderTest {
             .build();
     RunfilesSupplier supplier =
         AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
-    FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
-    mockCache.put(
-        artifact,
-        FileArtifactValue.createForNormalFile(FAKE_DIGEST, /*proxy=*/ null, /*size=*/ 1L));
 
     expander.addRunfilesToInputs(
         inputMappings,
         supplier,
-        mockCache,
         NO_ARTIFACT_EXPANDER,
         PathMapper.NOOP,
         PathFragment.EMPTY_FRAGMENT);
@@ -367,14 +296,10 @@ public class SpawnInputExpanderTest {
         };
     RunfilesSupplier supplier =
         AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
-    FakeActionInputFileCache fakeCache = new FakeActionInputFileCache();
-    fakeCache.put(file1, FileArtifactValue.createForTesting(file1));
-    fakeCache.put(file2, FileArtifactValue.createForTesting(file2));
 
     expander.addRunfilesToInputs(
         inputMappings,
         supplier,
-        fakeCache,
         artifactExpander,
         PathMapper.NOOP,
         PathFragment.EMPTY_FRAGMENT);
@@ -404,9 +329,6 @@ public class SpawnInputExpanderTest {
     RunfilesSupplier supplier =
         AnalysisTestUtil.createRunfilesSupplier(
             PathFragment.create("bazel-out/k8-opt/bin/foo.runfiles"), runfiles);
-    FakeActionInputFileCache fakeCache = new FakeActionInputFileCache();
-    fakeCache.put(file1, FileArtifactValue.createForTesting(file1));
-    fakeCache.put(file2, FileArtifactValue.createForTesting(file2));
 
     PathMapper pathMapper =
         execPath -> {
@@ -428,7 +350,6 @@ public class SpawnInputExpanderTest {
     expander.addRunfilesToInputs(
         inputMappings,
         supplier,
-        fakeCache,
         artifactExpander,
         pathMapper,
         PathFragment.EMPTY_FRAGMENT);
@@ -467,16 +388,9 @@ public class SpawnInputExpanderTest {
     RunfilesSupplier supplier =
         AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
 
-    expander =
-        new SpawnInputExpander(
-            execRoot, /* strict= */ true, IGNORE, /* expandArchivedTreeArtifacts= */ false);
+    expander = new SpawnInputExpander(execRoot, IGNORE, /* expandArchivedTreeArtifacts= */ false);
     expander.addRunfilesToInputs(
-        inputMappings,
-        supplier,
-        new FakeActionInputFileCache(),
-        artifactExpander,
-        PathMapper.NOOP,
-        PathFragment.EMPTY_FRAGMENT);
+        inputMappings, supplier, artifactExpander, PathMapper.NOOP, PathFragment.EMPTY_FRAGMENT);
     assertThat(inputMappings).hasSize(1);
     assertThat(inputMappings)
         .containsExactly(PathFragment.create("runfiles/workspace/treeArtifact"), treeArtifact);
@@ -503,14 +417,10 @@ public class SpawnInputExpanderTest {
         };
     RunfilesSupplier supplier =
         AnalysisTestUtil.createRunfilesSupplier(PathFragment.create("runfiles"), runfiles);
-    FakeActionInputFileCache fakeCache = new FakeActionInputFileCache();
-    fakeCache.put(file1, FileArtifactValue.createForTesting(file1));
-    fakeCache.put(file2, FileArtifactValue.createForTesting(file2));
 
     expander.addRunfilesToInputs(
         inputMappings,
         supplier,
-        fakeCache,
         artifactExpander,
         PathMapper.NOOP,
         PathFragment.EMPTY_FRAGMENT);
@@ -536,13 +446,9 @@ public class SpawnInputExpanderTest {
             output.addAll(Arrays.asList(file1, file2));
           }
         };
-    FakeActionInputFileCache fakeCache = new FakeActionInputFileCache();
-    fakeCache.put(file1, FileArtifactValue.createForTesting(file1));
-    fakeCache.put(file2, FileArtifactValue.createForTesting(file2));
 
     Spawn spawn = new SpawnBuilder("/bin/echo", "Hello World").withInput(treeArtifact).build();
-    inputMappings =
-        expander.getInputMapping(spawn, artifactExpander, PathFragment.EMPTY_FRAGMENT, fakeCache);
+    inputMappings = expander.getInputMapping(spawn, artifactExpander, PathFragment.EMPTY_FRAGMENT);
     assertThat(inputMappings).hasSize(2);
     assertThat(inputMappings).containsEntry(PathFragment.create("out/treeArtifact/file1"), file1);
     assertThat(inputMappings).containsEntry(PathFragment.create("out/treeArtifact/file2"), file2);
@@ -644,7 +550,7 @@ public class SpawnInputExpanderTest {
 
   @Test
   public void testManifestWithErrorOnRelativeSymlink() {
-    expander = new SpawnInputExpander(execRoot, /*strict=*/ true, ERROR);
+    expander = new SpawnInputExpander(execRoot, ERROR);
     FilesetManifest.ForbiddenRelativeSymlinkException e =
         assertThrows(
             FilesetManifest.ForbiddenRelativeSymlinkException.class,
@@ -656,7 +562,7 @@ public class SpawnInputExpanderTest {
 
   @Test
   public void testManifestWithIgnoredRelativeSymlink() throws Exception {
-    expander = new SpawnInputExpander(execRoot, /*strict=*/ true, IGNORE);
+    expander = new SpawnInputExpander(execRoot, IGNORE);
     expander.addFilesetManifests(
         simpleFilesetManifest(), inputMappings, PathFragment.EMPTY_FRAGMENT);
     assertThat(inputMappings)
@@ -666,7 +572,7 @@ public class SpawnInputExpanderTest {
 
   @Test
   public void testManifestWithResolvedRelativeSymlink() throws Exception {
-    expander = new SpawnInputExpander(execRoot, /*strict=*/ true, RESOLVE);
+    expander = new SpawnInputExpander(execRoot, RESOLVE);
     expander.addFilesetManifests(
         simpleFilesetManifest(), inputMappings, PathFragment.EMPTY_FRAGMENT);
     assertThat(inputMappings)
