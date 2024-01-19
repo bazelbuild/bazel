@@ -54,7 +54,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/genrule",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:bazel_java_semantics",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/java/proto",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/python",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/sh",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

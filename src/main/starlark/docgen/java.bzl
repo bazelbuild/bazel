@@ -22,6 +22,7 @@ library_rules = struct(
     java_import = native.java_import,
     java_library = native.java_library,
     java_lite_proto_library = native.java_lite_proto_library,
+    java_proto_library = native.java_proto_library,
 )
 
 test_rules = struct(
