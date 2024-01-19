@@ -60,6 +60,8 @@ public class IndexRegistry implements Registry {
   private final Gson gson;
   private volatile Optional<BazelRegistryJson> bazelRegistryJson;
 
+  private static final String SOURCE_JSON_FILENAME = "source.json";
+
   public IndexRegistry(
       URI uri,
       String unresolvedUri,
@@ -151,48 +153,44 @@ public class IndexRegistry implements Registry {
   }
 
   /**
-   * Grabs a JSON file from the given URL, and returns it as a parsed object with fields in {@code
-   * T}. Returns {@link Optional#empty} if the file doesn't exist.
+   * Grabs a JSON file from the given URL, and returns its content.
+   * Returns {@link Optional#empty} if the file doesn't exist.
    */
-  private <T> Optional<T> grabJson(String url, Class<T> klass, ExtendedEventHandler eventHandler)
+  private Optional<String> grabJsonFile(String url, ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException {
     Optional<byte[]> bytes = grabFile(url, eventHandler);
     if (bytes.isEmpty()) {
       return Optional.empty();
     }
-    String jsonString = new String(bytes.get(), UTF_8);
-    if (jsonString.isBlank()) {
+    return Optional.of(new String(bytes.get(), UTF_8));
+  }
+
+  /**
+   * Grabs a JSON file from the given URL, and returns it as a parsed object with fields in {@code
+   * T}. Returns {@link Optional#empty} if the file doesn't exist.
+   */
+  private <T> Optional<T> grabJson(String url, Class<T> klass, ExtendedEventHandler eventHandler)
+      throws IOException, InterruptedException {
+    Optional<String> jsonString = grabJsonFile(url, eventHandler);
+    if (jsonString.isEmpty() || jsonString.get().isBlank()) {
       return Optional.empty();
     }
+    return Optional.of(
+	grabJsonFromString(jsonString.get(), url, klass));
+  }
+
+  /**
+   * Parses the given JSON string and returns it as an object with fields in {@code
+   * T}.
+   */
+  private <T> T grabJsonFromString(String jsonString, String url, Class<T> klass)
+      throws IOException {
     try {
-      return Optional.of(gson.fromJson(jsonString, klass));
+      return gson.fromJson(jsonString, klass);
     } catch (JsonParseException e) {
       throw new IOException(
           String.format("Unable to parse json at url %s: %s", url, e.getMessage()), e);
     }
-  }
-
-  /**
-   * Grabs a JSON file from the given mdoule, and returns it as a parsed object with fields in {@code
-   * T}. Throws FileNotFoundException if the file does not exist.
-   */
-  private <T> T grabSourceJson(String url, ModuleKey key, Class<T> klass, ExtendedEventHandler eventHandler)
-      throws IOException, InterruptedException {
-    Optional<T> sourceJson =
-        grabJson(
-            constructUrl(
-                uri.toString(),
-                "modules",
-                key.getName(),
-                key.getVersion().toString(),
-                "source.json"),
-            klass,
-            eventHandler);
-    if (sourceJson.isEmpty()) {
-      throw new FileNotFoundException(
-          String.format("Module %s's source information not found in registry %s", key, uri));
-    }
-    return sourceJson.get();
   }
 
   @Override
@@ -204,22 +202,27 @@ public class IndexRegistry implements Registry {
         "modules",
         key.getName(),
         key.getVersion().toString(),
-        "source.json");
-    SourceJson sourceJson = grabSourceJson(jsonUrl, key, SourceJson.class, eventHandler);
+        SOURCE_JSON_FILENAME);
+    Optional<String> jsonString = grabJsonFile(jsonUrl, eventHandler);
+    if (jsonString.isEmpty()) {
+      throw new FileNotFoundException(
+          String.format("Module %s's %s not found in registry %s", key, SOURCE_JSON_FILENAME, uri));
+    }
+    SourceJson sourceJson = grabJsonFromString(jsonString.get(), jsonUrl, SourceJson.class);
     switch (sourceJson.type) {
       case "archive":
         {
-          ArchiveSourceJson typedSourceJson = grabSourceJson(jsonUrl, key, ArchiveSourceJson.class, eventHandler);
+          ArchiveSourceJson typedSourceJson = grabJsonFromString(jsonString.get(), jsonUrl, ArchiveSourceJson.class);
           return createArchiveRepoSpec(typedSourceJson, getBazelRegistryJson(eventHandler), key, repoName);
         }
       case "local_path":
         {
-          LocalPathSourceJson typedSourceJson = grabSourceJson(jsonUrl, key, LocalPathSourceJson.class, eventHandler);
+          LocalPathSourceJson typedSourceJson = grabJsonFromString(jsonString.get(), jsonUrl, LocalPathSourceJson.class);
           return createLocalPathRepoSpec(typedSourceJson, getBazelRegistryJson(eventHandler), key, repoName);
         }
       case "git_repository":
         {
-          GitRepoSourceJson typedSourceJson = grabSourceJson(jsonUrl, key, GitRepoSourceJson.class, eventHandler);
+          GitRepoSourceJson typedSourceJson = grabJsonFromString(jsonString.get(), jsonUrl, GitRepoSourceJson.class);
           return createGitRepoSpec(typedSourceJson, getBazelRegistryJson(eventHandler), key, repoName);
         }
       default:
