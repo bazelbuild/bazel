@@ -27,7 +27,6 @@ public final class PathPrettyPrinter {
 
   private final Map<PathFragment, PathFragment> resolvedSymlinks;
   private final String symlinkPrefix;
-  private final String productName;
   private final Path workspaceDirectory;
 
   /**
@@ -37,10 +36,8 @@ public final class PathPrettyPrinter {
   PathPrettyPrinter(
       ImmutableList<SymlinkDefinition> symlinkDefinitions,
       String symlinkPrefix,
-      String productName,
       Path workspaceDirectory) {
     this.symlinkPrefix = symlinkPrefix;
-    this.productName = productName;
     this.workspaceDirectory = workspaceDirectory;
     this.resolvedSymlinks = resolve(symlinkDefinitions);
   }
@@ -50,7 +47,7 @@ public final class PathPrettyPrinter {
     Map<PathFragment, PathFragment> result = new LinkedHashMap<>();
     String workspaceBaseName = workspaceDirectory.getBaseName();
     for (SymlinkDefinition link : symlinkDefinitions) {
-      String linkName = link.getLinkName(symlinkPrefix, productName, workspaceBaseName);
+      String linkName = link.getLinkName(symlinkPrefix, workspaceBaseName);
       PathFragment linkFragment = PathFragment.create(linkName);
       Path dir = workspaceDirectory.getRelative(linkFragment);
       try {

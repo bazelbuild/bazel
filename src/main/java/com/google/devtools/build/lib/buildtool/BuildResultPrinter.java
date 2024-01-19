@@ -94,7 +94,6 @@ class BuildResultPrinter {
         OutputDirectoryLinksUtils.getPathPrettyPrinter(
             runtime.getRuleClassProvider().getSymlinkDefinitions(),
             request.getBuildOptions().getSymlinkPrefix(productName),
-            productName,
             env.getWorkspace());
     OutErr outErr = request.getOutErr();
 

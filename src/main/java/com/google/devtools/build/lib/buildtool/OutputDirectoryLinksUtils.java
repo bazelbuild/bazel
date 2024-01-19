@@ -121,7 +121,7 @@ public final class OutputDirectoryLinksUtils {
     boolean logOnly = mode == ConvenienceSymlinksMode.LOG_ONLY;
 
     for (SymlinkDefinition symlink : getAllLinkDefinitions(symlinkDefinitions)) {
-      String linkName = symlink.getLinkName(symlinkPrefix, productName, workspaceBaseName);
+      String linkName = symlink.getLinkName(symlinkPrefix, workspaceBaseName);
       if (!createdLinks.add(linkName)) {
         // already created a link by this name
         continue;
@@ -178,10 +178,9 @@ public final class OutputDirectoryLinksUtils {
   public static PathPrettyPrinter getPathPrettyPrinter(
       Iterable<SymlinkDefinition> symlinkDefinitions,
       String symlinkPrefix,
-      String productName,
       Path workspaceDirectory) {
     return new PathPrettyPrinter(
-        getAllLinkDefinitions(symlinkDefinitions), symlinkPrefix, productName, workspaceDirectory);
+        getAllLinkDefinitions(symlinkDefinitions), symlinkPrefix, workspaceDirectory);
   }
 
   /**
@@ -201,10 +200,8 @@ public final class OutputDirectoryLinksUtils {
   public static void removeOutputDirectoryLinks(
       Iterable<SymlinkDefinition> symlinkDefinitions,
       Path workspace,
-      Path outputBase,
       EventHandler eventHandler,
-      String symlinkPrefix,
-      String productName) {
+      String symlinkPrefix) {
     if (NO_CREATE_SYMLINKS_PREFIX.equals(symlinkPrefix)) {
       return;
     }
@@ -215,7 +212,7 @@ public final class OutputDirectoryLinksUtils {
     for (SymlinkDefinition link : getAllLinkDefinitions(symlinkDefinitions)) {
       removeLink(
           workspace,
-          link.getLinkName(symlinkPrefix, productName, workspaceBaseName),
+          link.getLinkName(symlinkPrefix, workspaceBaseName),
           failures,
           ImmutableList.builder(),
           false);
@@ -347,8 +344,7 @@ public final class OutputDirectoryLinksUtils {
           // output directory (bazel-out)
           new SymlinkDefinition() {
             @Override
-            public String getLinkName(
-                String symlinkPrefix, String productName, String workspaceBaseName) {
+            public String getLinkName(String symlinkPrefix, String workspaceBaseName) {
               return symlinkPrefix + "out";
             }
 
@@ -366,8 +362,7 @@ public final class OutputDirectoryLinksUtils {
           // execroot
           new SymlinkDefinition() {
             @Override
-            public String getLinkName(
-                String symlinkPrefix, String productName, String workspaceBaseName) {
+            public String getLinkName(String symlinkPrefix, String workspaceBaseName) {
               return symlinkPrefix + workspaceBaseName;
             }
 

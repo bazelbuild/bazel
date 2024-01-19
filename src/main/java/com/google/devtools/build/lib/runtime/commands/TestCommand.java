@@ -269,7 +269,6 @@ public class TestCommand implements BlazeCommand {
         OutputDirectoryLinksUtils.getPathPrettyPrinter(
             runtime.getRuleClassProvider().getSymlinkDefinitions(),
             requestOptions.getSymlinkPrefix(productName),
-            productName,
             env.getWorkspace());
     return path -> pathPrettyPrinter.getPrettyPath(path.asFragment()).getPathString();
   }

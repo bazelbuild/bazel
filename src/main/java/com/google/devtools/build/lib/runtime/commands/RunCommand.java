@@ -710,7 +710,6 @@ public class RunCommand implements BlazeCommand {
         OutputDirectoryLinksUtils.getPathPrettyPrinter(
             runtime.getRuleClassProvider().getSymlinkDefinitions(),
             requestOptions.getSymlinkPrefix(productName),
-            productName,
             env.getWorkspace());
     PathFragment prettyExecutablePath =
         prettyPrinter.getPrettyPath(executable.getPath().asFragment());
