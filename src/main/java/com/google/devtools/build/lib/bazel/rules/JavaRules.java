@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.rules.extra.ActionListenerRule;
 import com.google.devtools.build.lib.rules.extra.ExtraActionRule;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaImportBaseRule;
-import com.google.devtools.build.lib.rules.java.JavaPackageConfigurationRule;
 import com.google.devtools.build.lib.rules.java.JavaPluginsFlagAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaRuntimeBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaToolchainBaseRule;
@@ -69,7 +68,7 @@ public class JavaRules implements RuleSet {
     builder.addRuleDefinition(new BazelJavaTestRule());
     builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("java_plugin") {});
     builder.addRuleDefinition(JavaToolchainRule.create());
-    builder.addRuleDefinition(new JavaPackageConfigurationRule());
+    builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("java_package_configuration") {});
     builder.addRuleDefinition(new JavaRuntimeRule());
     builder.addRuleDefinition(new JavaPluginsFlagAliasRule());
 
