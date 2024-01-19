@@ -229,13 +229,11 @@ java_library(
         "runtime/GcThrashingDetector.java",
         "runtime/MemoryPressureEvent.java",
         "runtime/MemoryPressureOptions.java",
-        "runtime/MemoryPressureStatCollector.java",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:memory_pressure_java_proto",
         "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:guava",
