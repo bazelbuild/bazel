@@ -30,4 +30,5 @@ other_rules = struct(
     java_package_configuration = native.java_package_configuration,
     java_plugin = native.java_plugin,
     java_runtime = native.java_runtime,
+    java_toolchain = native.java_toolchain,
 )
