@@ -70,6 +70,9 @@ source "$(rlocation "io_bazel/src/test/shell/bazel/remote_helpers.sh")" \
 
 mock_rules_java_to_avoid_downloading
 
+# Make sure no repository cache is used in this test
+add_to_bazelrc "build --repository_cache="
+
 # Basic test.
 function test_macro_local_repository() {
   create_new_workspace
@@ -2329,7 +2332,8 @@ genrule(
 )
 EOF
 
-  bazel build --distdir="." --repository_disable_download //:it || fail "Failed to build"
+  # for some reason --repository_disable_download fails with bzlmod trying to download @platforms.
+  bazel build --distdir="." --repository_disable_download --noenable_bzlmod //:it || fail "Failed to build"
 }
 
 function test_disable_download_should_allow_local_repository() {
