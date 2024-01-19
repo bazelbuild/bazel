@@ -114,12 +114,11 @@ following things changes:
 * The parameters passed to the declaration of the repository in the
   `WORKSPACE` file.
 * The Starlark code comprising the implementation of the repository.
-* The value of any environment variable declared with the `environ`
-  attribute of the [`repository_rule`](/rules/lib/globals/bzl#repository_rule).
-  The values of these environment variables can be hard-wired on the command
-  line with the
-  [`--action_env`](/reference/command-line-reference#flag--action_env)
-  flag (but this flag will invalidate every action of the build).
+* The value of any environment variable passed to `repository_ctx`'s
+  `getenv()` method or declared with the `environ` attribute of the
+  [`repository_rule`](/rules/lib/globals/bzl#repository_rule). The values
+  of these environment variables can be hard-wired on the command line with the
+  [`--repo_env`](/reference/command-line-reference#flag--repo_env) flag.
 * The content of any file passed to the `read()`, `execute()` and similar
   methods of `repository_ctx` which is referred to by a label (for example,
   `//mypkg:label.txt` but not `mypkg/label.txt`)
