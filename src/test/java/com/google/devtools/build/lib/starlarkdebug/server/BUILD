@@ -27,6 +27,7 @@ java_test(
     name = "StarlarkDebugServerTest",
     size = "medium",
     srcs = ["StarlarkDebugServerTest.java"],
+    tags = ["requires-network"],  # https://github.com/bazelbuild/bazel/issues/20743
     deps = [
         ":utils",
         "//src/main/java/com/google/devtools/build/lib/events",
