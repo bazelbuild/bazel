@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FilesToRunProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
@@ -40,17 +42,6 @@ public interface WrapCcHelperApi<
         FeatureConfigurationT extends FeatureConfigurationApi,
         ConstraintValueT extends ConstraintValueInfoApi,
         starlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
-        CcToolchainProviderT extends
-            CcToolchainProviderApi<
-                    FeatureConfigurationT,
-                    ?,
-                    ?,
-                    ConstraintValueT,
-                    starlarkRuleContextT,
-                    ?,
-                    ? extends CppConfigurationApi<?>,
-                    ?,
-                    ?>,
         CompilationInfoT extends CompilationInfoApi<FileT>,
         FileT extends FileApi,
         CcCompilationContextT extends
@@ -130,7 +121,7 @@ public interface WrapCcHelperApi<
   // TODO(plf): Write in Starlark when all 3 SWIG rules are in Starlark.
   public void registerSwigAction(
       starlarkRuleContextT starlarkRuleContext,
-      CcToolchainProviderT ccToolchain,
+      Info ccToolchain,
       FeatureConfigurationT featureConfiguration,
       CcCompilationContextT wrapperCcCompilationContext,
       Depset swigIncludes,
@@ -144,5 +135,5 @@ public interface WrapCcHelperApi<
       Depset auxiliaryInputs,
       String swigAttributeName,
       Object zipTool)
-      throws EvalException, InterruptedException;
+      throws EvalException, InterruptedException, RuleErrorException;
 }

@@ -121,7 +121,6 @@ public abstract class CcModule
         StarlarkActionFactory,
         Artifact,
         FdoContext,
-        CcToolchainProvider,
         FeatureConfigurationForStarlark,
         CcCompilationContext,
         LtoBackendArtifacts,
@@ -170,7 +169,7 @@ public abstract class CcModule
   @Override
   public FeatureConfigurationForStarlark configureFeatures(
       Object ruleContextOrNone,
-      CcToolchainProvider toolchain,
+      Info toolchainInfo,
       Object languageObject,
       Sequence<?> requestedFeatures, // <String> expected
       Sequence<?> unsupportedFeatures, // <String> expected
@@ -194,6 +193,8 @@ public abstract class CcModule
             Sequence.cast(unsupportedFeatures, String.class, "unsupported_features"));
     final CppConfiguration cppConfiguration;
     final BuildOptions buildOptions;
+    CcToolchainProvider toolchain =
+        CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(toolchainInfo);
     if (ruleContext == null) {
       throw Starlark.errorf(
           "Mandatory parameter 'ctx' of cc_common.configure_features is missing. "
@@ -309,7 +310,7 @@ public abstract class CcModule
 
   @Override
   public CcToolchainVariables getCompileBuildVariables(
-      CcToolchainProvider ccToolchainProvider,
+      Info ccToolchainInfo,
       FeatureConfigurationForStarlark featureConfiguration,
       Object sourceFile,
       Object outputFile,
@@ -334,7 +335,8 @@ public abstract class CcModule
         asDict(variablesExtension).isEmpty()
             ? ImmutableList.of()
             : ImmutableList.of(new UserVariablesExtension(asDict(variablesExtension)));
-
+    CcToolchainProvider ccToolchainProvider =
+        CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(ccToolchainInfo);
     CcToolchainVariables.Builder variables =
         CcToolchainVariables.builder(
                 CompileBuildVariables.setupVariablesOrThrowEvalException(
@@ -383,7 +385,7 @@ public abstract class CcModule
 
   @Override
   public CcToolchainVariables getLinkBuildVariables(
-      CcToolchainProvider ccToolchainProvider,
+      Info ccToolchainInfo,
       FeatureConfigurationForStarlark featureConfiguration,
       Object librarySearchDirectories,
       Object runtimeLibrarySearchDirectories,
@@ -402,6 +404,8 @@ public abstract class CcModule
     if (featureConfiguration.getFeatureConfiguration().isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
       throw Starlark.errorf("FDO instrumentation not supported");
     }
+    CcToolchainProvider ccToolchainProvider =
+        CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(ccToolchainInfo);
     return LinkBuildVariables.setupVariables(
         thread,
         isUsingLinkerNotArchiver,
@@ -572,8 +576,12 @@ public abstract class CcModule
         nullIfNone(actionsObject, StarlarkActionFactory.class);
     FeatureConfigurationForStarlark featureConfiguration =
         nullIfNone(featureConfigurationObject, FeatureConfigurationForStarlark.class);
-    CcToolchainProvider ccToolchainProvider =
-        nullIfNone(ccToolchainProviderObject, CcToolchainProvider.class);
+    Info ccToolchainProviderInfo = nullIfNone(ccToolchainProviderObject, Info.class);
+    CcToolchainProvider ccToolchainProvider = null;
+    if (ccToolchainProviderInfo != null) {
+      ccToolchainProvider =
+          CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(ccToolchainProviderInfo);
+    }
     Artifact staticLibrary = nullIfNone(staticLibraryObject, Artifact.class);
     Artifact picStaticLibrary = nullIfNone(picStaticLibraryObject, Artifact.class);
     Artifact dynamicLibrary = nullIfNone(dynamicLibraryObject, Artifact.class);
@@ -1004,43 +1012,41 @@ public abstract class CcModule
       String ltoObjRootPrefixString,
       Artifact bitcodeFile,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
-      CcToolchainProvider ccToolchain,
+      Info ccToolchainInfo,
       FdoContext fdoContext,
       boolean usePic,
       boolean shouldCreatePerObjectDebugInfo,
       Sequence<?> argv,
       StarlarkThread thread)
-      throws EvalException, InterruptedException {
+      throws EvalException, InterruptedException, RuleErrorException {
     isCalledFromStarlarkCcCommon(thread);
     RuleContext ruleContext = starlarkRuleContext.getRuleContext();
     PathFragment ltoOutputRootPrefix = PathFragment.create(ltoOutputRootPrefixString);
     PathFragment ltoObjRootPrefix = PathFragment.create(ltoObjRootPrefixString);
+    CcToolchainProvider ccToolchain =
+        CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(ccToolchainInfo);
     LtoBackendArtifacts ltoBackendArtifacts;
-    try {
-      ltoBackendArtifacts =
-          new LtoBackendArtifacts(
-              ruleContext.getStarlarkThread(),
-              ruleContext,
-              ruleContext.getConfiguration().getOptions(),
-              ruleContext.getConfiguration().getFragment(CppConfiguration.class),
-              ltoOutputRootPrefix,
-              ltoObjRootPrefix,
-              bitcodeFile,
-              /* allBitcodeFiles= */ null,
-              starlarkRuleContext.actions().getActionConstructionContext(),
-              ruleContext.getRepository(),
-              ruleContext.getConfiguration(),
-              CppLinkAction.DEFAULT_ARTIFACT_FACTORY,
-              featureConfigurationForStarlark.getFeatureConfiguration(),
-              ccToolchain,
-              fdoContext,
-              usePic,
-              shouldCreatePerObjectDebugInfo,
-              Sequence.cast(argv, String.class, "argv"));
-      return ltoBackendArtifacts;
-    } catch (RuleErrorException ruleErrorException) {
-      throw new EvalException(ruleErrorException);
-    }
+    ltoBackendArtifacts =
+        new LtoBackendArtifacts(
+            ruleContext.getStarlarkThread(),
+            ruleContext,
+            ruleContext.getConfiguration().getOptions(),
+            ruleContext.getConfiguration().getFragment(CppConfiguration.class),
+            ltoOutputRootPrefix,
+            ltoObjRootPrefix,
+            bitcodeFile,
+            /* allBitcodeFiles= */ null,
+            starlarkRuleContext.actions().getActionConstructionContext(),
+            ruleContext.getRepository(),
+            ruleContext.getConfiguration(),
+            CppLinkAction.DEFAULT_ARTIFACT_FACTORY,
+            featureConfigurationForStarlark.getFeatureConfiguration(),
+            ccToolchain,
+            fdoContext,
+            usePic,
+            shouldCreatePerObjectDebugInfo,
+            Sequence.cast(argv, String.class, "argv"));
+    return ltoBackendArtifacts;
   }
 
   @Override
@@ -1194,9 +1200,11 @@ public abstract class CcModule
 
   // TODO(b/65151735): Remove when cc_flags is entirely from features.
   @Override
-  public String legacyCcFlagsMakeVariable(CcToolchainProvider ccToolchain, StarlarkThread thread)
+  public String legacyCcFlagsMakeVariable(Info ccToolchainInfo, StarlarkThread thread)
       throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
+    CcToolchainProvider ccToolchain =
+        CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(ccToolchainInfo);
     return ccToolchain.getLegacyCcFlagsMakeVariable();
   }
 
@@ -1923,7 +1931,7 @@ public abstract class CcModule
   public Tuple createLinkingContextFromCompilationOutputs(
       StarlarkActionFactory starlarkActionFactoryApi,
       FeatureConfigurationForStarlark starlarkFeatureConfiguration,
-      CcToolchainProvider starlarkCcToolchainProvider,
+      Info starlarkCcToolchainProvider,
       CcCompilationOutputs compilationOutputs,
       Sequence<?> userLinkFlags, // <String> expected
       Sequence<?> linkingContextsObjects, // <CcLinkingContext> expected
@@ -1949,7 +1957,7 @@ public abstract class CcModule
     boolean isStampingEnabled =
         isStampingEnabled(stampInt, actions.getRuleContext().getConfiguration());
     CcToolchainProvider ccToolchainProvider =
-        convertFromNoneable(starlarkCcToolchainProvider, null);
+        CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(starlarkCcToolchainProvider);
     FeatureConfigurationForStarlark featureConfiguration =
         convertFromNoneable(starlarkFeatureConfiguration, null);
     Label label = getCallerLabel(actions, name);
@@ -2421,7 +2429,7 @@ public abstract class CcModule
   public Tuple compile(
       StarlarkActionFactory starlarkActionFactoryApi,
       FeatureConfigurationForStarlark starlarkFeatureConfiguration,
-      CcToolchainProvider starlarkCcToolchainProvider,
+      Info starlarkCcToolchainProvider,
       Sequence<?> sourcesUnchecked, // <Artifact> expected
       Sequence<?> publicHeadersUnchecked, // <Artifact> expected
       Sequence<?> privateHeadersUnchecked, // <Artifact> expected
@@ -2472,7 +2480,7 @@ public abstract class CcModule
 
     StarlarkActionFactory actions = starlarkActionFactoryApi;
     CcToolchainProvider ccToolchainProvider =
-        convertFromNoneable(starlarkCcToolchainProvider, null);
+        CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(starlarkCcToolchainProvider);
 
     CppModuleMap moduleMap = convertFromNoneable(moduleMapNoneable, /* defaultValue= */ null);
     ImmutableList<CppModuleMap> additionalModuleMaps =
@@ -2668,7 +2676,7 @@ public abstract class CcModule
   public CcLinkingOutputs link(
       StarlarkActionFactory actions,
       FeatureConfigurationForStarlark starlarkFeatureConfiguration,
-      CcToolchainProvider starlarkCcToolchainProvider,
+      Info starlarkCcToolchainProvider,
       Object compilationOutputsObject,
       Sequence<?> userLinkFlags,
       Sequence<?> linkingContexts,
@@ -2704,7 +2712,7 @@ public abstract class CcModule
     boolean isStampingEnabled =
         isStampingEnabled(stamp.toInt("stamp"), actions.getRuleContext().getConfiguration());
     CcToolchainProvider ccToolchainProvider =
-        convertFromNoneable(starlarkCcToolchainProvider, null);
+        CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(starlarkCcToolchainProvider);
     FeatureConfigurationForStarlark featureConfiguration =
         convertFromNoneable(starlarkFeatureConfiguration, null);
     Artifact mainOutput = convertFromNoneable(mainOutputObject, null);
@@ -2910,7 +2918,7 @@ public abstract class CcModule
       })
   public void registerLinkstampCompileAction(
       StarlarkActionFactory starlarkActionFactoryApi,
-      CcToolchainProvider ccToolchain,
+      Info ccToolchainInfo,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
       Artifact sourceFile,
       Artifact outputFile,
@@ -2924,6 +2932,8 @@ public abstract class CcModule
     RuleContext ruleContext = starlarkActionFactoryApi.getRuleContext();
     CppConfiguration cppConfiguration =
         ruleContext.getConfiguration().getFragment(CppConfiguration.class);
+    CcToolchainProvider ccToolchain =
+        CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(ccToolchainInfo);
     starlarkActionFactoryApi
         .getActionConstructionContext()
         .registerAction(

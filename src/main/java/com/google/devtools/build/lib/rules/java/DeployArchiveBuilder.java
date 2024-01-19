@@ -45,6 +45,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashSet;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
@@ -467,6 +468,8 @@ public class DeployArchiveBuilder {
     } catch (RuleErrorException e) {
       // Something went wrong loading the toolchain, which is an exceptional condition.
       throw new IllegalStateException("Unable to load cc toolchain", e);
+    } catch (EvalException e) {
+      throw new RuleErrorException(e.getMessage());
     }
     CommandLine commandLine =
         semantics.buildSingleJarCommandLine(

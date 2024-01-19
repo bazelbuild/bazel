@@ -154,7 +154,7 @@ def _cc_toolchain_impl(ctx):
     if cc_toolchain == None:
         fail("This should never happen")
     template_variable_info = TemplateVariableInfo(
-        cc_toolchain.get_additional_make_variables() | cc_helper.get_toolchain_global_make_variables(cc_toolchain),
+        cc_toolchain._additional_make_variables | cc_helper.get_toolchain_global_make_variables(cc_toolchain),
     )
     toolchain = ToolchainInfo(
         cc = cc_toolchain,
@@ -165,7 +165,7 @@ def _cc_toolchain_impl(ctx):
     providers.append(cc_toolchain)
     providers.append(toolchain)
     providers.append(template_variable_info)
-    providers.append(DefaultInfo(files = cc_toolchain.get_all_files_including_libc()))
+    providers.append(DefaultInfo(files = cc_toolchain._all_files_including_libc))
     return providers
 
 def make_cc_toolchain(cc_toolchain_attrs, **kwargs):

@@ -193,7 +193,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
               Starlark.call(
                   thread,
                   getMakeVariables,
-                  ImmutableList.of(ccToolchainProvider),
+                  ImmutableList.of(ccToolchainProvider.getValue()),
                   ImmutableMap.of());
       return ImmutableMap.copyOf(
           Dict.cast(makeVarsDict, String.class, String.class, "make_vars_for_test"));
@@ -716,29 +716,5 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     assertThat(getConfiguredTarget("//a:test")).isNull();
     assertContainsEvent(
         "Toolchain supports embedded runtimes, but didn't provide dynamic_runtime_lib attribute.");
-  }
-
-  @Test
-  public void testDwpFilesIsBlocked() throws Exception {
-    scratch.file(
-        "test/dwp_files_rule.bzl",
-        "def _impl(ctx):",
-        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
-        "  cc_toolchain.dwp_files()",
-        "  return []",
-        "dwp_files_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {'_cc_toolchain':" + " attr.label(default=Label('//test:alias'))},",
-        ")");
-    scratch.file(
-        "test/BUILD",
-        "load(':dwp_files_rule.bzl', 'dwp_files_rule')",
-        "cc_toolchain_alias(name='alias')",
-        "dwp_files_rule(name = 'target')");
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//test:target");
-
-    assertContainsEvent("cannot use private API");
   }
 }

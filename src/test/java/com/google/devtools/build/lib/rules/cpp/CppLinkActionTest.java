@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CTool
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -447,29 +448,33 @@ public final class CppLinkActionTest extends BuildViewTestCase {
           @Override
           public Action generate(ImmutableSet<StaticKeyAttributes> attributes)
               throws InterruptedException, RuleErrorException {
-            CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
-            CppLinkActionBuilder builder =
-                new CppLinkActionBuilder(
-                    ruleContext,
-                    ruleContext,
-                    ruleContext.getLabel(),
-                    attributes.contains(StaticKeyAttributes.OUTPUT_FILE)
-                        ? staticOutputFile
-                        : dynamicOutputFile,
-                    ruleContext.getConfiguration(),
-                    toolchain,
-                    toolchain.getFdoContext(),
-                    getMockFeatureConfiguration(
-                        attributes.contains(StaticKeyAttributes.ENVIRONMENT)
-                            ? ImmutableMap.of("var", "value")
-                            : ImmutableMap.of()),
-                    MockCppSemantics.INSTANCE);
-            builder.setLinkType(
-                attributes.contains(StaticKeyAttributes.OUTPUT_FILE)
-                    ? LinkTargetType.STATIC_LIBRARY
-                    : LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
-            builder.setLibraryIdentifier("foo");
-            return builder.build();
+            try {
+              CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
+              CppLinkActionBuilder builder =
+                  new CppLinkActionBuilder(
+                      ruleContext,
+                      ruleContext,
+                      ruleContext.getLabel(),
+                      attributes.contains(StaticKeyAttributes.OUTPUT_FILE)
+                          ? staticOutputFile
+                          : dynamicOutputFile,
+                      ruleContext.getConfiguration(),
+                      toolchain,
+                      toolchain.getFdoContext(),
+                      getMockFeatureConfiguration(
+                          attributes.contains(StaticKeyAttributes.ENVIRONMENT)
+                              ? ImmutableMap.of("var", "value")
+                              : ImmutableMap.of()),
+                      MockCppSemantics.INSTANCE);
+              builder.setLinkType(
+                  attributes.contains(StaticKeyAttributes.OUTPUT_FILE)
+                      ? LinkTargetType.STATIC_LIBRARY
+                      : LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
+              builder.setLibraryIdentifier("foo");
+              return builder.build();
+            } catch (EvalException e) {
+              throw new RuleErrorException(e.getMessage());
+            }
           }
         },
         actionKeyContext);
@@ -753,7 +758,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
       Iterable<Artifact> nonLibraryInputs,
       ImmutableList<LibraryToLink> libraryInputs,
       FeatureConfiguration featureConfiguration)
-      throws RuleErrorException {
+      throws RuleErrorException, EvalException {
     CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     return new CppLinkActionBuilder(
             ruleContext,

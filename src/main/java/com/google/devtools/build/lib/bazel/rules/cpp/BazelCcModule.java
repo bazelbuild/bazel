@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkerInput;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingOutputs;
 import com.google.devtools.build.lib.rules.cpp.CcModule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainConfigInfo;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
@@ -37,10 +36,7 @@ import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.cpp.LtoBackendArtifacts;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.BazelCcModuleApi;
 
-/**
- * A module that contains Starlark utilities for C++ support.
- *
- */
+/** A module that contains Starlark utilities for C++ support. */
 public class BazelCcModule extends CcModule
     implements BazelCcModuleApi<
         StarlarkActionFactory,
@@ -48,7 +44,6 @@ public class BazelCcModule extends CcModule
         FdoContext,
         ConstraintValueInfo,
         StarlarkRuleContext,
-        CcToolchainProvider,
         FeatureConfigurationForStarlark,
         CcCompilationContext,
         CcCompilationOutputs,

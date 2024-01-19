@@ -155,7 +155,8 @@ public class CppLinkActionBuilder {
       CcToolchainProvider toolchain,
       FdoContext fdoContext,
       FeatureConfiguration featureConfiguration,
-      CppSemantics cppSemantics) {
+      CppSemantics cppSemantics)
+      throws EvalException {
     this.output = Preconditions.checkNotNull(output);
     this.configuration = Preconditions.checkNotNull(configuration);
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
@@ -499,7 +500,7 @@ public class CppLinkActionBuilder {
   }
 
   @VisibleForTesting
-  boolean canSplitCommandLine() {
+  boolean canSplitCommandLine() throws EvalException {
     if (toolchain == null || !toolchain.supportsParamFiles()) {
       return false;
     }
@@ -529,7 +530,7 @@ public class CppLinkActionBuilder {
 
   /** Builds the Action as configured and returns it. */
   @Nullable
-  public CppLinkAction build() throws InterruptedException, RuleErrorException {
+  public CppLinkAction build() throws InterruptedException, RuleErrorException, EvalException {
     NestedSet<LinkerInputs.LibraryToLink> originalUniqueLibraries = libraries.build();
 
     // Executable links do not have library identifiers.
@@ -1032,7 +1033,7 @@ public class CppLinkActionBuilder {
 
   private boolean shouldUseLinkDynamicLibraryTool() {
     return linkType.isDynamicLibrary()
-        && toolchain.supportsInterfaceSharedLibraries(featureConfiguration)
+        && CcToolchainProvider.supportsInterfaceSharedLibraries(featureConfiguration)
         && !featureConfiguration.hasConfiguredLinkerPathInActionConfig();
   }
 

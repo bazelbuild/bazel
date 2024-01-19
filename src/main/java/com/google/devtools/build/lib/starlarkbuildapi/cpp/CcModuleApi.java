@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.BuildConfigurationApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
@@ -46,17 +48,6 @@ public interface CcModuleApi<
         StarlarkActionFactoryT extends StarlarkActionFactoryApi,
         FileT extends FileApi,
         FdoContextT extends FdoContextApi<?>,
-        CcToolchainProviderT extends
-            CcToolchainProviderApi<
-                    FeatureConfigurationT,
-                    ?,
-                    FdoContextT,
-                    ConstraintValueT,
-                    StarlarkRuleContextT,
-                    ?,
-                    ? extends CppConfigurationApi<?>,
-                    CcToolchainVariablesT,
-                    ?>,
         FeatureConfigurationT extends FeatureConfigurationApi,
         CompilationContextT extends CcCompilationContextApi<FileT, CppModuleMapT>,
         LtoBackendArtifactsT extends LtoBackendArtifactsApi<FileT>,
@@ -305,7 +296,7 @@ public interface CcModuleApi<
   LinkingOutputsT link(
       StarlarkActionFactoryT starlarkActionFactoryApi,
       FeatureConfigurationT starlarkFeatureConfiguration,
-      CcToolchainProviderT starlarkCcToolchainProvider,
+      Info starlarkCcToolchainProvider,
       Object compilationOutputs,
       Sequence<?> userLinkFlags, // <String> expected
       Sequence<?> linkingContexts, // <LinkingContextT> expected
@@ -379,7 +370,7 @@ public interface CcModuleApi<
       useStarlarkThread = true)
   FeatureConfigurationT configureFeatures(
       Object ruleContextOrNone,
-      CcToolchainProviderT toolchain,
+      Info toolchain,
       Object languageObject,
       Sequence<?> requestedFeatures, // <String> expected
       Sequence<?> unsupportedFeatures, // <String> expected
@@ -780,7 +771,7 @@ public interface CcModuleApi<
             }),
       })
   CcToolchainVariablesT getCompileBuildVariables(
-      CcToolchainProviderT ccToolchainProvider,
+      Info ccToolchainProvider,
       FeatureConfigurationT featureConfiguration,
       Object sourceFile,
       Object outputFile,
@@ -900,7 +891,7 @@ public interface CcModuleApi<
       },
       useStarlarkThread = true)
   CcToolchainVariablesT getLinkBuildVariables(
-      CcToolchainProviderT ccToolchainProvider,
+      Info ccToolchainProvider,
       FeatureConfigurationT featureConfiguration,
       Object librarySearchDirectories,
       Object runtimeLibrarySearchDirectories,
@@ -1417,9 +1408,7 @@ public interface CcModuleApi<
             named = true)
       },
       useStarlarkThread = true)
-  String legacyCcFlagsMakeVariable(CcToolchainProviderT ccToolchain, StarlarkThread thread)
-      throws EvalException;
-
+  String legacyCcFlagsMakeVariable(Info ccToolchain, StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "create_cc_toolchain_config_info",
@@ -1734,7 +1723,7 @@ public interface CcModuleApi<
   Tuple createLinkingContextFromCompilationOutputs(
       StarlarkActionFactoryT starlarkActionFactoryApi,
       FeatureConfigurationT starlarkFeatureConfiguration,
-      CcToolchainProviderT starlarkCcToolchainProvider,
+      Info starlarkCcToolchainProvider,
       CompilationOutputsT compilationOutputs,
       Sequence<?> userLinkFlags, // <String> expected
       Sequence<?> linkingContexts, // <LinkingContextT> expected
@@ -1810,13 +1799,13 @@ public interface CcModuleApi<
       String ltoObjRootPrefixString,
       FileT bitcodeFile,
       FeatureConfigurationT featureConfigurationForStarlark,
-      CcToolchainProviderT ccToolchain,
+      Info ccToolchain,
       FdoContextT fdoContext,
       boolean usePic,
       boolean shouldCreatePerObjectDebugInfo,
       Sequence<?> argv,
       StarlarkThread thread)
-      throws EvalException, InterruptedException;
+      throws EvalException, InterruptedException, RuleErrorException;
 
   @StarlarkMethod(
       name = "merge_compilation_contexts",

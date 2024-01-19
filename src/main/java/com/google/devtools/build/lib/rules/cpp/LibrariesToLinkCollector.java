@@ -38,6 +38,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /** Class that goes over linker inputs and produces {@link LibraryToLinkValue}s */
 public class LibrariesToLinkCollector {
@@ -145,7 +146,7 @@ public class LibrariesToLinkCollector {
   }
 
   private NestedSet<String> collectToolchainRuntimeLibrarySearchDirectories(
-      ImmutableList<String> potentialSolibParents) {
+      ImmutableList<String> potentialSolibParents) throws EvalException {
     NestedSetBuilder<String> runtimeLibrarySearchDirectories = NestedSetBuilder.linkOrder();
     if (!needToolchainLibrariesRpath) {
       return runtimeLibrarySearchDirectories.build();
@@ -255,7 +256,7 @@ public class LibrariesToLinkCollector {
   }
 
   private ImmutableList<String> findToolchainSolibParents(
-      ImmutableList<String> potentialSolibParents) {
+      ImmutableList<String> potentialSolibParents) throws EvalException {
     boolean usesLegacyRepositoryLayout = output.getRoot().isLegacy();
     // When -experimental_sibling_repository_layout is not enabled, the toolchain solib sits next to
     // the solib_<cpu> directory - so that it shares the same parents.
@@ -406,7 +407,7 @@ public class LibrariesToLinkCollector {
    *
    * <p>TODO: Factor out of the bazel binary into build variables for crosstool action_configs.
    */
-  public CollectedLibrariesToLink collectLibrariesToLink() {
+  public CollectedLibrariesToLink collectLibrariesToLink() throws EvalException {
     NestedSetBuilder<String> librarySearchDirectories = NestedSetBuilder.linkOrder();
     ImmutableSet.Builder<String> rpathRootsForExplicitSoDeps = ImmutableSet.builder();
     NestedSetBuilder<LinkerInput> expandedLinkerInputsBuilder = NestedSetBuilder.linkOrder();
@@ -418,6 +419,7 @@ public class LibrariesToLinkCollector {
     ImmutableList<String> rpathRoots;
     // Calculate the correct relative value for the "-rpath" link option (which sets
     // the search path for finding shared libraries).
+    String solibDirPathString = ccToolchainProvider.getSolibDirectory();
     if (isNativeDeps && cppConfiguration.shareNativeDeps()) {
       // For shared native libraries, special symlinking is applied to ensure C++
       // toolchain libraries are available under $ORIGIN/_solib_[arch]. So we set the RPATH to find
@@ -431,12 +433,12 @@ public class LibrariesToLinkCollector {
       // artifact, both are symlinks to the same place, so
       // there's no *one* RPATH setting that fits all targets involved in the sharing.
       potentialSolibParents = ImmutableList.of();
-      rpathRoots = ImmutableList.of(ccToolchainProvider.getSolibDirectory() + "/");
+      rpathRoots = ImmutableList.of(solibDirPathString + "/");
     } else {
       potentialSolibParents = findPotentialSolibParents();
       rpathRoots =
           potentialSolibParents.stream()
-              .map((execRoot) -> execRoot + ccToolchainProvider.getSolibDirectory() + "/")
+              .map((execRoot) -> execRoot + solibDirPathString + "/")
               .collect(toImmutableList());
     }
 
@@ -512,7 +514,7 @@ public class LibrariesToLinkCollector {
         if (!featureConfiguration.isEnabled(CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY)) {
           // The first fragment is bazel-out, and the second may contain a configuration mnemonic.
           // We should always add the default solib dir because that's where libraries will be found
-          // e.g. in remote execution, so we ignore the first two fragments.
+          // e.g., in remote execution, so we ignore the first two fragments.
           if (libDir.subFragment(2).equals(solibDir.subFragment(2))) {
             includeSolibDir = true;
           }
@@ -551,12 +553,11 @@ public class LibrariesToLinkCollector {
             || input.getArtifactCategory() == ArtifactCategory.INTERFACE_LIBRARY);
     Preconditions.checkState(
         !Link.useStartEndLib(
-            input,
-            CppHelper.getArchiveType(cppConfiguration, ccToolchainProvider, featureConfiguration)));
+            input, CppHelper.getArchiveType(cppConfiguration, featureConfiguration)));
 
     expandedLinkerInputsBuilder.add(input);
     if (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)
-        && ccToolchainProvider.supportsInterfaceSharedLibraries(featureConfiguration)) {
+        && CcToolchainProvider.supportsInterfaceSharedLibraries(featureConfiguration)) {
       // On Windows, dynamic library (dll) cannot be linked directly when using toolchains that
       // support interface library (eg. MSVC). If the user is doing so, it is only to be referenced
       // in other places (such as copy_dynamic_libraries_to_binary); skip adding it.
@@ -664,8 +665,7 @@ public class LibrariesToLinkCollector {
 
     // start-lib/end-lib library: adds its input object files.
     if (Link.useStartEndLib(
-        input,
-        CppHelper.getArchiveType(cppConfiguration, ccToolchainProvider, featureConfiguration))) {
+        input, CppHelper.getArchiveType(cppConfiguration, featureConfiguration))) {
       Iterable<Artifact> archiveMembers = input.getObjectFiles();
       if (!Iterables.isEmpty(archiveMembers)) {
         ImmutableList.Builder<Artifact> nonLtoArchiveMembersBuilder = ImmutableList.builder();
@@ -802,8 +802,7 @@ public class LibrariesToLinkCollector {
     // As a bonus, we can rephrase --nostart_end_lib as --features=-start_end_lib and get rid
     // of a command line option.
 
-    Preconditions.checkState(
-        CppHelper.useStartEndLib(cppConfiguration, ccToolchainProvider, featureConfiguration));
+    Preconditions.checkState(CppHelper.useStartEndLib(cppConfiguration, featureConfiguration));
     Map<Artifact, Artifact> ltoMap = new HashMap<>();
     for (LtoBackendArtifacts l : allLtoArtifacts) {
       ltoMap.put(l.getBitcodeFile(), l.getObjectFile());

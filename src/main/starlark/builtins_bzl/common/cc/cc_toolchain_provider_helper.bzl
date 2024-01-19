@@ -16,6 +16,8 @@
 
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/cc_toolchain_info.bzl", "CcToolchainInfo")
 load(":common/objc/objc_common.bzl", "objc_common")
 load(":common/paths.bzl", "paths")
 
@@ -249,41 +251,42 @@ def get_cc_toolchain_provider(ctx, attributes, xcode_config_info):
     else:
         build_vars = cc_internal.cc_toolchain_variables(vars = objc_common.get_common_vars(ctx.fragments.cpp, sysroot))
 
-    return cc_internal.construct_toolchain_provider(
-        ctx = ctx,
-        cpp_config = ctx.fragments.cpp,
+    return CcToolchainInfo(
+        cpp_configuration = ctx.fragments.cpp,
+        toolchain_config_info = toolchain_config_info,
         toolchain_features = toolchain_features,
-        tools_directory = tools_directory,
-        static_runtime_link_inputs = static_runtime_link_inputs,
-        dynamic_runtime_link_symlinks = dynamic_runtime_link_symlinks,
-        runtime_solib_dir = runtime_solib_dir,
-        cc_compilation_context = cc_compilation_context,
+        crosstool_top_path = tools_directory,
+        static_runtime_lib_depset = static_runtime_link_inputs,
+        dynamic_runtime_lib_depset = dynamic_runtime_link_symlinks,
+        dynamic_runtime_solib_dir = runtime_solib_dir,
+        cc_info = CcInfo(
+            compilation_context = cc_compilation_context,
+        ),
         builtin_include_files = _builtin_includes(attributes.libc),
-        builtin_include_directories = builtin_include_directories,
+        built_in_include_directories = builtin_include_directories,
         sysroot = sysroot,
         fdo_context = fdo_context,
         is_tool_configuration = ctx.configuration.is_tool_configuration(),
         tool_paths = tool_paths,
-        toolchain_config_info = toolchain_config_info,
         default_sysroot = default_sysroot,
         # The runtime sysroot should really be set from --grte_top. However, currently libc has
         # no way to set the sysroot. The CROSSTOOL file does set the runtime sysroot, in the
         # builtin_sysroot field. This implies that you can not arbitrarily mix and match
         # Crosstool and libc versions, you must always choose compatible ones.
         runtime_sysroot = default_sysroot,
-        solib_directory = solib_directory,
+        solib_dir = solib_directory,
         additional_make_variables = _additional_make_variables(toolchain_config_info.make_variables()),
         legacy_cc_flags_make_variable = _legacy_cc_flags_make_variable(toolchain_config_info.make_variables()),
-        objcopy = tool_paths.get("objcopy", ""),
-        compiler = tool_paths.get("gcc", ""),
-        preprocessor = tool_paths.get("cpp", ""),
-        nm = tool_paths.get("nm", ""),
-        objdump = tool_paths.get("objdump", ""),
-        ar = tool_paths.get("ar", ""),
-        strip = tool_paths.get("strip", ""),
-        ld = tool_paths.get("ld", ""),
-        gcov = tool_paths.get("gcov", ""),
-        vars = build_vars,
+        objcopy_executable = tool_paths.get("objcopy", ""),
+        compiler_executable = tool_paths.get("gcc", ""),
+        preprocessor_executable = tool_paths.get("cpp", ""),
+        nm_executable = tool_paths.get("nm", ""),
+        objdump_executable = tool_paths.get("objdump", ""),
+        ar_executable = tool_paths.get("ar", ""),
+        strip_executable = tool_paths.get("strip", ""),
+        ld_executable = tool_paths.get("ld", ""),
+        gcov_executable = tool_paths.get("gcov", ""),
+        build_variables = build_vars,
         xcode_config_info = xcode_config_info,
         all_files = attributes.all_files,
         all_files_including_libc = attributes.all_files_including_libc,
@@ -301,7 +304,7 @@ def get_cc_toolchain_provider(ctx, attributes, xcode_config_info):
         supports_header_parsing = attributes.supports_header_parsing,
         link_dynamic_library_tool = attributes.link_dynamic_library_tool,
         grep_includes = attributes.grep_includes,
-        licenses_provider = attributes.licenses_provider,
         allowlist_for_layering_check = attributes.allowlist_for_layering_check,
         build_info_files = attributes.build_info_files,
+        toolchain_label = ctx.label,
     )
