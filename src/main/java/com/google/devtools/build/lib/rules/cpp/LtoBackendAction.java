@@ -262,7 +262,7 @@ public final class LtoBackendAction extends SpawnAction {
     }
     fp.addString(getMnemonic());
     for (RunfilesTree runfilesTree : getRunfilesSupplier().getRunfilesTrees()) {
-      fp.addPath(runfilesTree.getExecPath());
+      fp.addPath(runfilesTree.getPossiblyIncorrectExecPath());
     }
 
     for (Artifact input : mandatoryInputs.toList()) {

@@ -383,7 +383,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     // definition and the output of an action shouldn't change whether something is considered a
     // tool or not.
     for (RunfilesTree runfilesTree : getRunfilesSupplier().getRunfilesTrees()) {
-      fp.addPath(runfilesTree.getExecPath());
+      fp.addPath(runfilesTree.getPossiblyIncorrectExecPath());
     }
     env.addTo(fp);
     fp.addStringMap(getExecutionInfo());

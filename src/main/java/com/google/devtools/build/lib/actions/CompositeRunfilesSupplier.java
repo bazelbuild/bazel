@@ -52,7 +52,7 @@ public final class CompositeRunfilesSupplier implements RunfilesSupplier {
 
     for (RunfilesSupplier supplier : nonEmptySuppliers) {
       for (RunfilesTree tree : supplier.getRunfilesTrees()) {
-        if (execPaths.add(tree.getExecPath())) {
+        if (execPaths.add(tree.getPossiblyIncorrectExecPath())) {
           trees.add(tree);
         }
       }

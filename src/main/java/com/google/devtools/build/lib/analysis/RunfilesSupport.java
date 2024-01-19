@@ -117,7 +117,7 @@ public final class RunfilesSupport implements RunfilesSupplier {
     }
 
     @Override
-    public PathFragment getExecPath() {
+    public PathFragment getPossiblyIncorrectExecPath() {
       return execPath;
     }
 

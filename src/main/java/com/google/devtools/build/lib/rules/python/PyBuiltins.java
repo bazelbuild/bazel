@@ -166,7 +166,8 @@ public abstract class PyBuiltins implements StarlarkValue {
         // NOTE: value may be null. This happens for Runfiles.empty_filenames entries.
         runfilesMap.put(innerEntry.getKey().getPathString(), value == null ? Starlark.NONE : value);
       }
-      inputManifest.put(outerEntry.getExecPath().getPathString(), runfilesMap.buildImmutable());
+      inputManifest.put(
+          outerEntry.getPossiblyIncorrectExecPath().getPathString(), runfilesMap.buildImmutable());
     }
     return inputManifest.buildImmutable();
   }
