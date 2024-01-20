@@ -57,6 +57,7 @@ public final class RunfilesTest {
     Path dir =
         Files.createTempDirectory(
             FileSystems.getDefault().getPath(System.getenv("TEST_TMPDIR")), null);
+    Files.createFile(dir.resolve("_runfiles_enabled"));
 
     Runfiles r = Runfiles.create(ImmutableMap.of("RUNFILES_DIR", dir.toString()));
     assertRlocationArg(r, null, null);
@@ -79,11 +80,37 @@ public final class RunfilesTest {
     Runfiles r =
         Runfiles.create(
             ImmutableMap.of(
-                "RUNFILES_MANIFEST_ONLY", "1",
                 "RUNFILES_MANIFEST_FILE", mf.toString(),
-                "RUNFILES_DIR", "ignored when RUNFILES_MANIFEST_ONLY=1",
+                "RUNFILES_DIR", "ignored when RUNFILES_DIR is not set",
                 "JAVA_RUNFILES", "ignored when RUNFILES_DIR has a value",
                 "TEST_SRCDIR", "should always be ignored"));
+    assertThat(r.rlocation("a/b")).isEqualTo("c/d");
+    assertThat(r.rlocation("foo")).isNull();
+
+    if (isWindows()) {
+      assertThat(r.rlocation("c:/foo")).isEqualTo("c:/foo");
+      assertThat(r.rlocation("c:\\foo")).isEqualTo("c:\\foo");
+    } else {
+      assertThat(r.rlocation("/foo")).isEqualTo("/foo");
+    }
+  }
+
+  @Test
+  public void testCreatesManifestBasedRunfilesWithEmptyRunfilesDir() throws Exception {
+    Path mf = tempFile("foo.runfiles_manifest", ImmutableList.of("a/b c/d"));
+    Path dir = tempDir.newFolder("foo.runfiles").toPath();
+    // dir does not contain the _runfiles_enabled marker file.
+    Runfiles r =
+        Runfiles.create(
+            ImmutableMap.of(
+                "RUNFILES_MANIFEST_FILE",
+                mf.toString(),
+                "RUNFILES_DIR",
+                dir.toString(),
+                "JAVA_RUNFILES",
+                "ignored when RUNFILES_DIR has a value",
+                "TEST_SRCDIR",
+                "should always be ignored"));
     assertThat(r.rlocation("a/b")).isEqualTo("c/d");
     assertThat(r.rlocation("foo")).isNull();
 
@@ -100,11 +127,12 @@ public final class RunfilesTest {
     Path dir =
         Files.createTempDirectory(
             FileSystems.getDefault().getPath(System.getenv("TEST_TMPDIR")), null);
+    Files.createFile(dir.resolve("_runfiles_enabled"));
 
     Runfiles r =
         Runfiles.create(
             ImmutableMap.of(
-                "RUNFILES_MANIFEST_FILE", "ignored when RUNFILES_MANIFEST_ONLY is not set to 1",
+                "RUNFILES_MANIFEST_FILE", "ignored when RUNFILES_DIR exists and is populated",
                 "RUNFILES_DIR", dir.toString(),
                 "JAVA_RUNFILES", "ignored when RUNFILES_DIR has a value",
                 "TEST_SRCDIR", "should always be ignored"));
@@ -114,7 +142,7 @@ public final class RunfilesTest {
     r =
         Runfiles.create(
             ImmutableMap.of(
-                "RUNFILES_MANIFEST_FILE", "ignored when RUNFILES_MANIFEST_ONLY is not set to 1",
+                "RUNFILES_MANIFEST_FILE", "ignored when RUNFILES_DIR exists and is populated",
                 "RUNFILES_DIR", "",
                 "JAVA_RUNFILES", dir.toString(),
                 "TEST_SRCDIR", "should always be ignored"));
@@ -127,17 +155,18 @@ public final class RunfilesTest {
     Path dir =
         Files.createTempDirectory(
             FileSystems.getDefault().getPath(System.getenv("TEST_TMPDIR")), null);
+    Files.createFile(dir.resolve("_runfiles_enabled"));
 
     Runfiles.create(
         ImmutableMap.of(
             "RUNFILES_DIR", dir.toString(),
-            "RUNFILES_MANIFEST_FILE", "ignored when RUNFILES_MANIFEST_ONLY is not set to 1",
+            "RUNFILES_MANIFEST_FILE", "ignored when RUNFILES_DIR exists and is populated",
             "TEST_SRCDIR", "should always be ignored"));
 
     Runfiles.create(
         ImmutableMap.of(
             "JAVA_RUNFILES", dir.toString(),
-            "RUNFILES_MANIFEST_FILE", "ignored when RUNFILES_MANIFEST_ONLY is not set to 1",
+            "RUNFILES_MANIFEST_FILE", "ignored when RUNFILES_DIR exists and is populated",
             "TEST_SRCDIR", "should always be ignored"));
 
     IOException e =
@@ -151,10 +180,10 @@ public final class RunfilesTest {
                         "JAVA_RUNFILES",
                         "",
                         "RUNFILES_MANIFEST_FILE",
-                        "ignored when RUNFILES_MANIFEST_ONLY is not set to 1",
+                        "",
                         "TEST_SRCDIR",
                         "should always be ignored")));
-    assertThat(e).hasMessageThat().contains("$RUNFILES_DIR and $JAVA_RUNFILES");
+    assertThat(e).hasMessageThat().contains("$RUNFILES_DIR and $JAVA_RUNFILES do not exist or are not populated and $RUNFILES_MANIFEST_FILE is empty or undefined");
   }
 
   @Test
@@ -165,7 +194,6 @@ public final class RunfilesTest {
             () ->
                 Runfiles.create(
                     ImmutableMap.of(
-                        "RUNFILES_MANIFEST_ONLY", "1",
                         "RUNFILES_MANIFEST_FILE", "non-existing path")));
     assertThat(e).hasMessageThat().contains("non-existing path");
   }
@@ -176,9 +204,8 @@ public final class RunfilesTest {
     Map<String, String> envvars =
         Runfiles.create(
                 ImmutableMap.of(
-                    "RUNFILES_MANIFEST_ONLY", "1",
                     "RUNFILES_MANIFEST_FILE", mf.toString(),
-                    "RUNFILES_DIR", "ignored when RUNFILES_MANIFEST_ONLY=1",
+                    "RUNFILES_DIR", "does not exist",
                     "JAVA_RUNFILES", "ignored when RUNFILES_DIR has a value",
                     "TEST_SRCDIR", "should always be ignored"))
             .getEnvVars();
@@ -196,9 +223,8 @@ public final class RunfilesTest {
     envvars =
         Runfiles.create(
                 ImmutableMap.of(
-                    "RUNFILES_MANIFEST_ONLY", "1",
                     "RUNFILES_MANIFEST_FILE", mf.toString(),
-                    "RUNFILES_DIR", "ignored when RUNFILES_MANIFEST_ONLY=1",
+                    "RUNFILES_DIR", "does not exist",
                     "JAVA_RUNFILES", "ignored when RUNFILES_DIR has a value",
                     "TEST_SRCDIR", "should always be ignored"))
             .getEnvVars();
@@ -210,21 +236,23 @@ public final class RunfilesTest {
 
   @Test
   public void testDirectoryBasedEnvVars() throws Exception {
+    Path dir = tempDir.getRoot().toPath();
+    Files.createFile(dir.resolve("_runfiles_enabled"));
     Map<String, String> envvars =
         Runfiles.create(
                 ImmutableMap.of(
                     "RUNFILES_MANIFEST_FILE",
-                    "ignored when RUNFILES_MANIFEST_ONLY is not set to 1",
+                    "ignored when RUNFILES_DIR exists and is populated",
                     "RUNFILES_DIR",
-                    tempDir.getRoot().toString(),
+                    dir.toString(),
                     "JAVA_RUNFILES",
                     "ignored when RUNFILES_DIR has a value",
                     "TEST_SRCDIR",
                     "should always be ignored"))
             .getEnvVars();
     assertThat(envvars.keySet()).containsExactly("RUNFILES_DIR", "JAVA_RUNFILES");
-    assertThat(envvars.get("RUNFILES_DIR")).isEqualTo(tempDir.getRoot().toString());
-    assertThat(envvars.get("JAVA_RUNFILES")).isEqualTo(tempDir.getRoot().toString());
+    assertThat(envvars.get("RUNFILES_DIR")).isEqualTo(dir.toString());
+    assertThat(envvars.get("JAVA_RUNFILES")).isEqualTo(dir.toString());
   }
 
   @Test

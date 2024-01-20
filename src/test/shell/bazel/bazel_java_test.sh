@@ -1944,4 +1944,42 @@ EOF
   bazel build //pkg:a >& $TEST_log || fail "build failed"
 }
 
+function setup_java_binary_tool_runfiles() {
+  mkdir -p pkg
+  cat << 'EOF' > pkg/BUILD
+java_binary(
+  name = "tool",
+  srcs = ["Tool.java"],
+  main_class = "com.example.Tool",
+)
+genrule(
+  name = "gen",
+  outs = ["gen.txt"],
+  tools = [":tool"],
+  cmd = "$(execpath :tool) && touch $@",
+)
+EOF
+  cat << 'EOF' > pkg/Tool.java
+package com.example;
+
+public class Tool {
+  public static void main(String[] args) {
+    System.out.println("Hello World!");
+  }
+}
+EOF
+}
+
+function test_java_binary_tool_with_enable_runfiles() {
+  setup_java_binary_tool_runfiles
+  bazel build --enable_runfiles //pkg:gen >& $TEST_log || fail "build failed"
+  expect_log "Hello World!"
+}
+
+function test_java_binary_tool_with_noenable_runfiles() {
+  setup_java_binary_tool_runfiles
+  bazel build --noenable_runfiles //pkg:gen >& $TEST_log || fail "build failed"
+  expect_log "Hello World!"
+}
+
 run_suite "Java integration tests"

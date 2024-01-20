@@ -94,6 +94,9 @@ public final class Runfiles implements RunfilesApi {
   // It is important to declare this *after* the DUMMY_SYMLINK_EXPANDER to avoid NPEs
   public static final Runfiles EMPTY = new Builder().build();
 
+  public static final PathFragment RUNFILES_ENABLED_MARKER_PATH =
+      PathFragment.create("_runfiles_enabled");
+
   private static final CommandLineItem.ExceptionlessMapFn<SymlinkEntry> SYMLINK_ENTRY_MAP_FN =
       (symlink, args) -> {
         args.accept(symlink.getPathString());
@@ -378,6 +381,7 @@ public final class Runfiles implements RunfilesApi {
     if (repoMappingManifest != null) {
       checker.put(builder.manifest, PathFragment.create("_repo_mapping"), repoMappingManifest);
     }
+    checker.put(builder.manifest, RUNFILES_ENABLED_MARKER_PATH, null);
     return builder.build();
   }
 

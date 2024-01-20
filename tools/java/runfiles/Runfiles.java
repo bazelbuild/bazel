@@ -21,6 +21,8 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.ref.SoftReference;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -263,13 +265,13 @@ public final class Runfiles {
    *     values are empty, or some IO error occurs
    */
   public static Preloaded preload(Map<String, String> env) throws IOException {
-    if (isManifestOnly(env)) {
-      // On Windows, Bazel sets RUNFILES_MANIFEST_ONLY=1.
-      // On every platform, Bazel also sets RUNFILES_MANIFEST_FILE, but on Linux and macOS it's
-      // faster to use RUNFILES_DIR.
-      return new ManifestBased(getManifestPath(env));
+    String runfilesDir = getRunfilesDir(env);
+    // Prefer RUNFILES_DIR if available since it is faster.
+    if (!Util.isNullOrEmpty(runfilesDir)
+        && Files.exists(Paths.get(runfilesDir, "_runfiles_enabled"))) {
+      return new DirectoryBased(runfilesDir);
     } else {
-      return new DirectoryBased(getRunfilesDir(env));
+      return new ManifestBased(getManifestPath(env));
     }
   }
 
@@ -379,29 +381,19 @@ public final class Runfiles {
             apparentRepositoryName);
   }
 
-  /** Returns true if the platform supports runfiles only via manifests. */
-  private static boolean isManifestOnly(Map<String, String> env) {
-    return "1".equals(env.get("RUNFILES_MANIFEST_ONLY"));
-  }
-
   private static String getManifestPath(Map<String, String> env) throws IOException {
     String value = env.get("RUNFILES_MANIFEST_FILE");
     if (Util.isNullOrEmpty(value)) {
       throw new IOException(
-          "Cannot load runfiles manifest: $RUNFILES_MANIFEST_ONLY is 1 but"
-              + " $RUNFILES_MANIFEST_FILE is empty or undefined");
+          "Cannot load runfiles manifest: $RUNFILES_DIR and $JAVA_RUNFILES do not exist or are not populated and $RUNFILES_MANIFEST_FILE is empty or undefined");
     }
     return value;
   }
 
-  private static String getRunfilesDir(Map<String, String> env) throws IOException {
+  private static String getRunfilesDir(Map<String, String> env) {
     String value = env.get("RUNFILES_DIR");
     if (Util.isNullOrEmpty(value)) {
       value = env.get("JAVA_RUNFILES");
-    }
-    if (Util.isNullOrEmpty(value)) {
-      throw new IOException(
-          "Cannot find runfiles: $RUNFILES_DIR and $JAVA_RUNFILES are both unset or empty");
     }
     return value;
   }

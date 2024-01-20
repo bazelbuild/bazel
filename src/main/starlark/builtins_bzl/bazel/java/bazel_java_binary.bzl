@@ -221,7 +221,6 @@ def _create_stub(ctx, java_attrs, launcher, executable, jvm_flags, main_class, c
         template = ctx.file._stub_template,
         output = executable,
         substitutions = {
-            "%runfiles_manifest_only%": "" if runfiles_enabled else "1",
             "%workspace_prefix%": workspace_prefix,
             "%javabin%": java_bin,
             "%needs_runfiles%": "0" if helper.is_absolute_target_platform_path(ctx, java_runtime_toolchain.java_executable_exec_path) else "1",

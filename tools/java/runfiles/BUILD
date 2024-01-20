@@ -50,5 +50,5 @@ java_library(
     name = "runfiles_for_stardoc",
     srcs = ["RunfilesForStardoc.java"],
     visibility = ["//src/main/java/com/google/devtools/build/skydoc:__pkg__"],
-    deps = [":runfiles"],
+    deps = ["@bazel_tools//tools/java/runfiles"],
 )

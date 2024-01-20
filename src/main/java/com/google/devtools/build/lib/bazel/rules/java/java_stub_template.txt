@@ -194,17 +194,18 @@ fi
 
 export JAVA_RUNFILES
 export RUNFILES_MANIFEST_FILE="${JAVA_RUNFILES}/MANIFEST"
-export RUNFILES_MANIFEST_ONLY=%runfiles_manifest_only%
 
-if [ -z "$RUNFILES_MANIFEST_ONLY" ]; then
+if [ -f "${JAVA_RUNFILES}/_runfiles_enabled" ]; then
   function rlocation() {
     if [[ "$1" = /* ]]; then
       echo $1
     else
-      echo "$(dirname $RUNFILES_MANIFEST_FILE)/$1"
+      echo "${JAVA_RUNFILES}/$1"
     fi
   }
 else
+  export RUNFILES_MANIFEST_ONLY=1
+
   if ! is_macos; then
     # Read file into my_array
     oifs=$IFS

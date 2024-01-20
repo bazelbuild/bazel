@@ -741,6 +741,8 @@ public class TestRunnerAction extends AbstractAction
 
     if (!configuration.runfilesEnabled()) {
       // If runfiles are disabled, tell remote-runtest.sh/local-runtest.sh about that.
+      // TODO: Remove this obsolete mechanism, which has been replaced by the "_runfiles_enabled"
+      //       marker file.
       env.put("RUNFILES_MANIFEST_ONLY", "1");
     }
 

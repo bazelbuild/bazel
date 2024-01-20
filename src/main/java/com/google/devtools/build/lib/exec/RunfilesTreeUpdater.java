@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
+import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
@@ -135,8 +136,8 @@ public class RunfilesTreeUpdater {
       // On Windows, where symlinks may be silently replaced by copies, a previous run in SKIP mode
       // could have resulted in an output manifest that is an identical copy of the input manifest,
       // which we must not treat as up to date, but we also don't want to unnecessarily rebuild the
-      // runfiles directory all the time. Instead, check for the presence of the first runfile in
-      // the manifest. If it is present, we can be certain that the previous mode wasn't SKIP.
+      // runfiles directory all the time. Instead, check for the presence of the marker runfile. If
+      // it is present, we can be certain that the previous mode wasn't SKIP.
       if (tree.getSymlinksMode() != SKIP
           && !outputManifest.isSymbolicLink()
           && Arrays.equals(
@@ -172,17 +173,6 @@ public class RunfilesTreeUpdater {
   }
 
   private boolean isRunfilesDirectoryPopulated(Path runfilesDirPath) {
-    Path outputManifest = RunfilesSupport.outputManifestPath(runfilesDirPath);
-    String relativeRunfilePath;
-    try (BufferedReader reader =
-        new BufferedReader(new InputStreamReader(outputManifest.getInputStream(), ISO_8859_1))) {
-      // If it is created at all, the manifest always contains at least one line.
-      relativeRunfilePath = reader.readLine().split(" ", -1)[0];
-    } catch (IOException e) {
-      // Instead of failing outright, just assume the runfiles directory is not populated.
-      return false;
-    }
-    // The runfile could be a dangling symlink.
-    return runfilesDirPath.getRelative(relativeRunfilePath).exists(Symlinks.NOFOLLOW);
+    return runfilesDirPath.getRelative(Runfiles.RUNFILES_ENABLED_MARKER_PATH).exists();
   }
 }

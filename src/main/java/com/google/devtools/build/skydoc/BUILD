@@ -50,7 +50,7 @@ java_library(
         "//src/main/java/net/starlark/java/lib/json",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
-        "//tools/java/runfiles",
         "//tools/java/runfiles:runfiles_for_stardoc",
+        "@bazel_tools//tools/java/runfiles",
     ],
 )

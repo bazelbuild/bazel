@@ -129,9 +129,9 @@ export -f rlocation
 export -f is_absolute
 # If RUNFILES_MANIFEST_ONLY is set to 1 and the manifest file does exist,
 # then test programs should use manifest file to find runfiles.
-if [[ "${RUNFILES_MANIFEST_ONLY:-}" == "1" && -e "${RUNFILES_MANIFEST_FILE:-}" ]]; then
+if [[ ! -e "${TEST_SRCDIR}/_runfiles_enabled" && -e "${RUNFILES_MANIFEST_FILE:-}" ]]; then
   export RUNFILES_MANIFEST_FILE
-  export RUNFILES_MANIFEST_ONLY
+  export RUNFILES_MANIFEST_ONLY=1
 fi
 
 DIR="$TEST_SRCDIR"
