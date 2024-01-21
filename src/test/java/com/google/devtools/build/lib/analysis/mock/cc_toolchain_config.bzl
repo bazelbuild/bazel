@@ -117,6 +117,7 @@ _FEATURE_NAMES = struct(
     optional_cc_flags_feature = "optional_cc_flags_feature",
     cpp_compile_with_requirements = "cpp_compile_with_requirements",
     no_copts_tokenization = "no_copts_tokenization",
+    generate_linkmap = "generate_linkmap",
 )
 
 _no_copts_tokenization_feature = feature(name = _FEATURE_NAMES.no_copts_tokenization)
@@ -1313,6 +1314,21 @@ _layering_check_module_maps_header_modules_simple_features = [
     ),
 ]
 
+_generate_linkmap_feature = feature(
+    name = _FEATURE_NAMES.generate_linkmap,
+    flag_sets = [
+        flag_set(
+            actions = [ACTION_NAMES.cpp_link_executable],
+            flag_groups = [
+                flag_group(
+                    flags = ["-linkmap=%{output_execpath}.map"],
+                    expand_if_available = "output_execpath",
+                ),
+            ],
+        ),
+    ],
+)
+
 _feature_name_to_feature = {
     _FEATURE_NAMES.no_legacy_features: _no_legacy_features_feature,
     _FEATURE_NAMES.do_not_split_linking_cmdline: _do_not_split_linking_cmdline_feature,
@@ -1388,6 +1404,7 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.optional_cc_flags_feature: _optional_cc_flags_feature,
     _FEATURE_NAMES.cpp_compile_with_requirements: _cpp_compile_with_requirements,
     _FEATURE_NAMES.generate_pdb_file: _generate_pdb_file_feature,
+    _FEATURE_NAMES.generate_linkmap: _generate_linkmap_feature,
     "header_modules_feature_configuration": _header_modules_feature_configuration,
     "env_var_feature_configuration": _env_var_feature_configuration,
     "host_and_nonhost_configuration": _host_and_nonhost_configuration,
