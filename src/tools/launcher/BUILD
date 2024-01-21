@@ -32,6 +32,7 @@ win_cc_library(
         "//src/main/cpp/util:filesystem",
         "//src/tools/launcher/util",
         "//src/tools/launcher/util:data_parser",
+        "@bazel_tools//tools/cpp/runfiles",
     ],
 )
 

@@ -20,14 +20,13 @@
 #include <vector>
 
 #include "src/tools/launcher/util/data_parser.h"
+#include "tools/cpp/runfiles/runfiles.h"
 
 namespace bazel {
 namespace launcher {
 
 typedef int32_t ExitCode;
 static constexpr const char* WORKSPACE_NAME = "workspace_name";
-static constexpr const char* SYMLINK_RUNFILES_ENABLED =
-    "symlink_runfiles_enabled";
 
 // The maximum length of lpCommandLine is 32768 characters.
 // https://msdn.microsoft.com/en-us/library/windows/desktop/ms682425(v=vs.85).aspx
@@ -38,8 +37,6 @@ struct CmdLine {
 };
 
 class BinaryLauncherBase {
-  typedef std::unordered_map<std::wstring, std::wstring> ManifestFileMap;
-
  public:
   BinaryLauncherBase(const LaunchDataParser::LaunchInfo& launch_info,
                      const std::wstring& launcher_path, int argc,
@@ -91,17 +88,13 @@ class BinaryLauncherBase {
   std::wstring GetRunfilesPath() const;
 
  private:
+  const bazel::tools::cpp::runfiles::Runfiles* runfiles;
+
   // The path of the launcher binary.
   const std::wstring launcher_path;
 
   // A map to store all the launch information.
   const LaunchDataParser::LaunchInfo& launch_info;
-
-  // Absolute path to the runfiles manifest file, if one exists.
-  const std::wstring manifest_file;
-
-  // Path to the runfiles directory, if one exists.
-  const std::wstring runfiles_dir;
 
   // The commandline arguments received.
   // The first argument is the path of this launcher itself.
@@ -109,12 +102,6 @@ class BinaryLauncherBase {
 
   // The workspace name of the repository this target belongs to.
   const std::wstring workspace_name;
-
-  // A map to store all entries of the manifest file.
-  ManifestFileMap manifest_file_map;
-
-  // If symlink runfiles tree is enabled, this value is true.
-  const bool symlink_runfiles_enabled;
 
   // If --print_launcher_command is presented in arguments,
   // then print the command line.
@@ -132,16 +119,6 @@ class BinaryLauncherBase {
   void CreateCommandLine(CmdLine* result, const std::wstring& executable,
                          const std::vector<std::wstring>& arguments) const;
 
-  // Find manifest file of the binary.
-  //
-  // Expect the manifest file to be at
-  //    1. <path>/<to>/<binary>/<target_name>.runfiles/MANIFEST
-  // or 2. <path>/<to>/<binary>/<target_name>.runfiles_manifest
-  static std::wstring FindManifestFile(const wchar_t* launcher_path);
-
-  // Parse manifest file into a map
-  static void ParseManifestFile(ManifestFileMap* manifest_file_map,
-                                const std::wstring& manifest_path);
 };
 
 }  // namespace launcher
