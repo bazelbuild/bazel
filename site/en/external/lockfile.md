@@ -217,7 +217,7 @@ practices:
     `.bazeliskrc` file in version control that lists the Bazel version
     corresponding to the lockfile. Because Bazel itself is a dependency of
     your build, the lockfile is specific to the Bazel version, and will
-    change between [backwards compatible](/release/backward-compatibility)
+    change even between [backwards compatible](/release/backward-compatibility)
     Bazel releases. Using `bazelisk` ensures that all developers are using
     a Bazel version that matches the lockfile.
 
