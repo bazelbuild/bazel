@@ -232,6 +232,9 @@ reference to `//:bar`. `//:foo` has an *action dependency* on `//:bar` if an
 action in `//:foo` depends on an input [artifact](#artifact) created by an
 action in `//:bar`.
 
+In certain contexts, it could also refer to an _external dependency_; see
+[modules](#module).
+
 ### Depset {:#depset}
 
 A data structure for collecting data on transitive dependencies. Optimized so
@@ -308,28 +311,30 @@ build.
 
 ### Label {:#label}
 
-An identifier for a [target](#target). A fully-qualified label such as
-`//path/to/package:target` consists of `//` to mark the workspace root
-directory, `path/to/package` as the directory that contains the [`BUILD`
-file](#build-file) declaring the target, and `:target` as the name of the target
-declared in the aforementioned `BUILD` file. May also be prefixed with
-`@my_repository//<..>` to indicate that the target is declared in an [external
-repository](/docs/external) named `my_repository`.
+An identifier for a [target](#target). Generally has the form
+`@repo//path/to/package:target`, where `repo` is the (apparent) name of the
+[repository](#repository) containing the target, `path/to/package` is the path
+to the directory that contains the [`BUILD` file](#build-file) declaring the
+target (this directory is also known as the [package](#package)), and `target`
+is the name of the target itself. Depending on the situation, parts of this
+syntax may be omitted.
+
+**See also**: [Labels](/concepts/labels)
 
 ### Loading phase {:#loading-phase}
 
-The first phase of a build where Bazel parses `WORKSPACE`, `BUILD`, and [`.bzl`
-files](#bzl-file) to create [packages](#package). [Macros](#macro) and certain
-functions like `glob()` are evaluated in this phase. Interleaved with the second
-phase of the build, the [analysis phase](#analysis-phase), to build up a [target
+The first phase of a build where Bazel executes [`BUILD` files](#build-file) to
+create [packages](#package). [Macros](#macro) and certain functions like
+`glob()` are evaluated in this phase. Interleaved with the second phase of the
+build, the [analysis phase](#analysis-phase), to build up a [target
 graph](#target-graph).
 
 ### Macro {:#macro}
 
 A mechanism to compose multiple [rule](#rule) target declarations together under
 a single [Starlark](#starlark) function. Enables reusing common rule declaration
-patterns across `BUILD` files. Expanded to the underlying rule target declarations
-during the [loading phase](#loading-phase).
+patterns across `BUILD` files. Expanded to the underlying rule target
+declarations during the [loading phase](#loading-phase).
 
 **See also:** [Macro documentation](/extending/macros)
 
@@ -341,6 +346,32 @@ identifiers for *spawn strategy* selections. Some examples of action mnemonics
 are `Javac` from Java rules, `CppCompile` from C++ rules, and
 `AndroidManifestMerger` from Android rules.
 
+### Module {:#module}
+
+A Bazel project that can have multiple versions, each of which can have
+dependencies on other modules. This is analogous to familiar concepts in other
+dependency management systems, such as a Maven _artifact_, an npm _package_, a
+Go _module_, or a Cargo _crate_. Modules form the backbone of Bazel's external
+dependency management system.
+
+Each module is backed by a [repo](#repository) with a `MODULE.bazel` file at its
+root. This file contains metadata about the module itself (such as its name and
+version), its direct dependencies, and various other data including toolchain
+registrations and [module extension](#module-extension) input.
+
+Module metadata is hosted in Bazel registries.
+
+**See also:** [Bazel modules](/external/module)
+
+### Module Extension {:#module-extension}
+
+A piece of logic that can be run to generate [repos](#repository) by reading
+inputs from across the [module](#module) dependency graph and invoking [repo
+rules](#repository-rule). Module extensions have capabilities similar to repo
+rules, allowing them to access the internet, perform file I/O, and so on.
+
+**See also:** [Module extensions](/external/extension)
+
 ### Native rules {:#native-rules}
 
 [Rules](#rule) that are built into Bazel and implemented in Java. Such rules
@@ -351,8 +382,8 @@ example, `native.cc_library` or `native.java_library`). User-defined rules
 ### Output base {:#output-base}
 
 A [workspace](#workspace)-specific directory to store Bazel output files. Used
-to separate outputs from the *workspace*'s source tree. Located in the [output
-user root](#output-user-root).
+to separate outputs from the *workspace*'s source tree (the [main
+repo](#repository)). Located in the [output user root](#output-user-root).
 
 ### Output groups {:#output-groups}
 
@@ -376,9 +407,9 @@ also known as [output bases](#output-base).
 ### Package {:#package}
 
 The set of [targets](#target) defined by a [`BUILD` file](#build-file). A
-package's name is the `BUILD` file's path relative to the workspace root. A
-package can contain subpackages, or subdirectories containing `BUILD` files,
-thus forming a package hierarchy.
+package's name is the `BUILD` file's path relative to the [repo](#repository)
+root. A package can contain subpackages, or subdirectories containing `BUILD`
+files, thus forming a package hierarchy.
 
 ### Package group {:#package-group}
 
@@ -422,16 +453,48 @@ but can't analyze the effects of `select()`, [build flags](#command-flags),
 
 **See also:** [Query how-to](/query/guide), [Query reference](/query/language)
 
+### Repository {:#repository}
+
+A directory tree with a boundary marker file at its root, containing source
+files that can be used in a Bazel build. Often shortened to just **repo**.
+
+A repo boundary marker file can be `MODULE.bazel` (signaling that this repo
+represents a Bazel module), `REPO.bazel`, or in legacy contexts, `WORKSPACE` or
+`WORKSPACE.bazel`. Any repo boundary marker file will signify the boundary of a
+repo; multiple such files can coexist in a directory.
+
+The *main repo* is the repo in which the current Bazel command is being run.
+
+*External repos* are defined by specifying [modules](#module) in `MODULE.bazel`
+files, or invoking [repo rules](#repository-rule) in [module
+extensions](#module-extension). They can be fetched on demand to a predetermined
+"magical" location on disk.
+
+Each repo has a unique, constant *canonical* name, and potentially different
+*apparent* names when viewed from other repos.
+
+**See also**: [External dependencies overview](/external/overview)
+
 ### Repository cache {:#repo-cache}
 
 A shared content-addressable cache of files downloaded by Bazel for builds,
 shareable across [workspaces](#workspace). Enables offline builds after the
-initial download. Commonly used to cache files downloaded through repository
-rules like `http_archive` and repository rule APIs like
+initial download. Commonly used to cache files downloaded through [repository
+rules](#repository-rule) like `http_archive` and repository rule APIs like
 `repository_ctx.download`. Files are cached only if their SHA-256 checksums are
 specified for the download.
 
-<!-- TODO: ### Repository rule -->
+### Repository rule {:#repository-rule}
+
+A schema for repository definitions that tells Bazel how to materialize (or
+"fetch") a [repository](#repository). Often shortened to just **repo rule**.
+Repo rules are invoked by Bazel internally to define repos backed by
+[modules](#module), or can be invoked by [module extensions](#module-extension).
+Repo rules can access the internet or perform file I/O; the most common repo
+rule is `http_archive` to download an archive containing source files from the
+internet.
+
+**See also:** [Repo rule documentation](/extending/repo)
 
 ### Reproducibility {:#reproducibility}
 
@@ -618,12 +681,10 @@ or `.bzl` file may load a given `.bzl` file. Without context, usually
 
 ### Workspace {:#workspace}
 
-A directory containing a `WORKSPACE` file and source code for the software you
-want to build. Labels that start with `//` are relative to the workspace
-directory.
+The environment shared by all Bazel commands run from the same [main
+repository](#repository).
 
-### WORKSPACE file {:#workspace-file}
-
-Defines a directory to be a [workspace](#workspace). The file can be empty,
-although it usually contains external repository declarations to fetch
-additional dependencies from the network or local filesystem.
+Note that historically the concepts of "repository" and "workspace" have been
+conflated; the term "workspace" has often been used to refer to the main
+repository, and sometimes even used as a synonym of "repository". Such usage
+should be avoided for clarity.
