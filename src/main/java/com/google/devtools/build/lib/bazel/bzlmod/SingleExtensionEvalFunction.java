@@ -344,9 +344,9 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       throws InterruptedException, NeedsSkyframeRestartException {
     // Request repo mappings for any 'source repos' in the recorded mapping entries.
     // Note specially that the main repo needs to be treated differently: if any .bzl file from the
-    // main repo was used for module extension eval, it _has_ to be before WORKSPACE is evaluated,
-    // so we only request the main repo mapping _without_ WORKSPACE repos. See #20942 for more
-    // information.
+    // main repo was used for module extension eval, it _has_ to be before WORKSPACE is evaluated
+    // (see relevant code in BzlLoadFunction#getRepositoryMapping), so we only request the main repo
+    // mapping _without_ WORKSPACE repos. See #20942 for more information.
     SkyframeLookupResult result =
         env.getValuesAndExceptions(
             recordedRepoMappings.rowKeySet().stream()
