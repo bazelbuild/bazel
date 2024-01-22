@@ -31,8 +31,10 @@ public abstract class GitOverride implements NonRegistryOverride {
       String commit,
       ImmutableList<String> patches,
       ImmutableList<String> patchCmds,
-      int patchStrip) {
-    return new AutoValue_GitOverride(remote, commit, patches, patchCmds, patchStrip);
+      int patchStrip,
+      boolean initSubmodules) {
+    return new AutoValue_GitOverride(
+        remote, commit, patches, patchCmds, patchStrip, initSubmodules);
   }
 
   /** The URL pointing to the git repository. */
@@ -50,6 +52,9 @@ public abstract class GitOverride implements NonRegistryOverride {
   /** The number of path segments to strip from the paths in the supplied patches. */
   public abstract int getPatchStrip();
 
+  /** Whether submodules in the fetched repo should be recursively initialized. */
+  public abstract boolean getInitSubmodules();
+
   /** Returns the {@link RepoSpec} that defines this repository. */
   @Override
   public RepoSpec getRepoSpec(RepositoryName repoName) {
@@ -60,7 +65,9 @@ public abstract class GitOverride implements NonRegistryOverride {
         .put("commit", getCommit())
         .put("patches", getPatches())
         .put("patch_cmds", getPatchCmds())
-        .put("patch_args", ImmutableList.of("-p" + getPatchStrip()));
+        .put("patch_args", ImmutableList.of("-p" + getPatchStrip()))
+        .put("init_submodules", getInitSubmodules())
+        .put("recursive_init_submodules", getInitSubmodules());
     return RepoSpec.builder()
         .setBzlFile(GIT_REPOSITORY_PATH)
         .setRuleClassName("git_repository")
