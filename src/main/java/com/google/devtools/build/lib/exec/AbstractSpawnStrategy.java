@@ -272,8 +272,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
 
     @Override
-    public ListenableFuture<Void> prefetchInputs()
-        throws IOException, ForbiddenActionInputException {
+    public ListenableFuture<Void> prefetchInputs() throws ForbiddenActionInputException {
       if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
         return Futures.catchingAsync(
             actionExecutionContext
@@ -358,7 +357,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     @Override
     public SortedMap<PathFragment, ActionInput> getInputMapping(
         PathFragment baseDirectory, boolean willAccessRepeatedly)
-        throws IOException, ForbiddenActionInputException {
+        throws ForbiddenActionInputException {
       // Return previously computed copy if present.
       if (lazyInputMapping != null && inputMappingBaseDirectory.equals(baseDirectory)) {
         return lazyInputMapping;

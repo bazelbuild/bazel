@@ -52,7 +52,7 @@ import java.util.TreeMap;
  * performs no I/O operations, but only rearranges the files according to how the runfiles should be
  * laid out.
  */
-public class SpawnInputExpander {
+public final class SpawnInputExpander {
   private final Path execRoot;
   private final RelativeSymlinkBehavior relSymlinkBehavior;
   private final boolean expandArchivedTreeArtifacts;
@@ -91,7 +91,7 @@ public class SpawnInputExpander {
       ArtifactExpander artifactExpander,
       PathMapper pathMapper,
       PathFragment baseDirectory)
-      throws IOException, ForbiddenActionInputException {
+      throws ForbiddenActionInputException {
     for (RunfilesTree runfilesTree : runfilesSupplier.getRunfilesTrees()) {
       addSingleRunfilesTreeToInputs(
           inputMap,
@@ -116,7 +116,7 @@ public class SpawnInputExpander {
       ArtifactExpander artifactExpander,
       PathMapper pathMapper,
       PathFragment baseDirectory)
-      throws IOException, ForbiddenActionInputException {
+      throws ForbiddenActionInputException {
     Preconditions.checkArgument(!root.isAbsolute(), root);
     for (Map.Entry<PathFragment, Artifact> mapping : mappings.entrySet()) {
       PathFragment location = root.getRelative(mapping.getKey());
@@ -246,7 +246,7 @@ public class SpawnInputExpander {
    */
   public SortedMap<PathFragment, ActionInput> getInputMapping(
       Spawn spawn, ArtifactExpander artifactExpander, PathFragment baseDirectory)
-      throws IOException, ForbiddenActionInputException {
+      throws ForbiddenActionInputException {
     TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
     addInputs(
         inputMap, spawn.getInputFiles(), artifactExpander, spawn.getPathMapper(), baseDirectory);
@@ -363,7 +363,7 @@ public class SpawnInputExpander {
           new InputWalker() {
             @Override
             public SortedMap<PathFragment, ActionInput> getLeavesInputMapping()
-                throws IOException, ForbiddenActionInputException {
+                throws ForbiddenActionInputException {
               TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
               addSingleRunfilesTreeToInputs(
                   inputMap, root, mappings, artifactExpander, pathMapper, baseDirectory);

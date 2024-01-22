@@ -196,7 +196,7 @@ public class RemoteSpawnCacheTest {
         @Override
         public SortedMap<PathFragment, ActionInput> getInputMapping(
             PathFragment baseDirectory, boolean willAccessRepeatedly)
-            throws IOException, ForbiddenActionInputException {
+            throws ForbiddenActionInputException {
           return getSpawnInputExpander()
               .getInputMapping(simpleSpawn, SIMPLE_ARTIFACT_EXPANDER, baseDirectory);
         }

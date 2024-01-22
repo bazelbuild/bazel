@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.remote.RemoteActionFileSystem;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.IOException;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.SortedMap;
@@ -139,7 +138,7 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
   @Override
   public SortedMap<PathFragment, ActionInput> getInputMapping(
       PathFragment baseDirectory, boolean willAccessRepeatedly)
-      throws IOException, ForbiddenActionInputException {
+      throws ForbiddenActionInputException {
     return getSpawnInputExpander().getInputMapping(spawn, this::artifactExpander, baseDirectory);
   }
 

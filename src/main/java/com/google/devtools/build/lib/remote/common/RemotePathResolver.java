@@ -48,7 +48,7 @@ public interface RemotePathResolver {
    */
   SortedMap<PathFragment, ActionInput> getInputMapping(
       SpawnExecutionContext context, boolean willAccessRepeatedly)
-      throws IOException, ForbiddenActionInputException;
+      throws ForbiddenActionInputException;
 
   void walkInputs(
       Spawn spawn, SpawnExecutionContext context, SpawnInputExpander.InputVisitor visitor)
@@ -107,7 +107,7 @@ public interface RemotePathResolver {
     @Override
     public SortedMap<PathFragment, ActionInput> getInputMapping(
         SpawnExecutionContext context, boolean willAccessRepeatedly)
-        throws IOException, ForbiddenActionInputException {
+        throws ForbiddenActionInputException {
       return context.getInputMapping(PathFragment.EMPTY_FRAGMENT, willAccessRepeatedly);
     }
 
@@ -174,7 +174,7 @@ public interface RemotePathResolver {
     @Override
     public SortedMap<PathFragment, ActionInput> getInputMapping(
         SpawnExecutionContext context, boolean willAccessRepeatedly)
-        throws IOException, ForbiddenActionInputException {
+        throws ForbiddenActionInputException {
       // The "root directory" of the action from the point of view of RBE is the parent directory of
       // the execroot locally. This is so that paths of artifacts in external repositories don't
       // start with an uplevel reference.
@@ -245,7 +245,7 @@ public interface RemotePathResolver {
       @Override
       public SortedMap<PathFragment, ActionInput> getInputMapping(
           SpawnExecutionContext context, boolean willAccessRepeatedly)
-          throws IOException, ForbiddenActionInputException {
+          throws ForbiddenActionInputException {
         return base.getInputMapping(context, willAccessRepeatedly);
       }
 
