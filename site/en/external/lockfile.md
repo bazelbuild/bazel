@@ -214,7 +214,7 @@ practices:
     consistent development environments across the project.
 
 *   Use [`bazelisk`](/install/bazelisk) to run Bazel, and include a
-    `.bazelversuib` file in version control that specifies the Bazel version
+    `.bazelversion` file in version control that specifies the Bazel version
     corresponding to the lockfile. Because Bazel itself is a dependency of
     your build, the lockfile is specific to the Bazel version, and will
     change even between [backwards compatible](/release/backward-compatibility)
