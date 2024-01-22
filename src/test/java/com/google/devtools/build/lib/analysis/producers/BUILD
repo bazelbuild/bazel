@@ -23,6 +23,7 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/analysis/producers",
+        "//src/main/java/com/google/devtools/build/lib/analysis/producers:platform_info_producer",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:platform_lookup_util",
