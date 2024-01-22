@@ -71,7 +71,7 @@ body:
     id: source
     attributes:
       label: >
-        What's the output of `git remote get-url origin; git rev-parse main; git rev-parse HEAD` ?
+        What's the output of `git remote get-url origin; git rev-parse HEAD` ?
       render: text
   - type: textarea
     id: relevant-info
