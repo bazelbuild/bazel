@@ -18,6 +18,7 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.GlobalMethods;
 import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -226,26 +227,37 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
   @StarlarkMethod(
       name = "package_name",
       doc =
-          "The name of the package being evaluated. "
+          "The name of the package being evaluated, without the repository name. "
               + "For example, in the BUILD file <code>some/package/BUILD</code>, its value "
               + "will be <code>some/package</code>. "
               + "If the BUILD file calls a function defined in a .bzl file, "
-              + "<code>package_name()</code> will match the caller BUILD file package. "
-              + "This function is equivalent to the deprecated variable <code>PACKAGE_NAME</code>.",
+              + "<code>package_name()</code> will match the caller BUILD file package.",
       useStarlarkThread = true)
   String packageName(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "repository_name",
       doc =
-          "The name of the repository the rule or build extension is called from. "
-              + "For example, in packages that are called into existence by the WORKSPACE stanza "
-              + "<code>local_repository(name='local', path=...)</code> it will be set to "
-              + "<code>@local</code>. In packages in the main repository, it will be set to "
-              + "<code>@</code>. This function is equivalent to the deprecated variable "
-              + "<code>REPOSITORY_NAME</code>.",
+          "<strong>Deprecated.</strong> Prefer to use <a"
+              + " href=\"#repo_name\"><code>repo_name</code></a> instead, which doesn't contain the"
+              + " spurious leading at-sign, but behaves identically otherwise.<p>The canonical name"
+              + " of the repository containing the package currently being evaluated, with a single"
+              + " at-sign (<code>@</code>) prefixed. For example, in packages that are called into"
+              + " existence by the WORKSPACE stanza <code>local_repository(name='local',"
+              + " path=...)</code> it will be set to <code>@local</code>. In packages in the main"
+              + " repository, it will be set to <code>@</code>.",
+      enableOnlyWithFlag = BuildLanguageOptions.INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS,
       useStarlarkThread = true)
+  @Deprecated
   String repositoryName(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "repo_name",
+      doc =
+          "The canonical name of the repository containing the package currently being evaluated,"
+              + " with no leading at-signs.",
+      useStarlarkThread = true)
+  String repoName(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "package_relative_label",

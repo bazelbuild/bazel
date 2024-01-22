@@ -608,18 +608,21 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   @Override
   public String packageName(StarlarkThread thread) throws EvalException {
     BazelStarlarkContext.checkLoadingPhase(thread, "native.package_name");
-    PackageIdentifier packageId =
-        PackageFactory.getContext(thread).getBuilder().getPackageIdentifier();
+    PackageIdentifier packageId = getContext(thread).getBuilder().getPackageIdentifier();
     return packageId.getPackageFragment().getPathString();
   }
 
   @Override
   public String repositoryName(StarlarkThread thread) throws EvalException {
     BazelStarlarkContext.checkLoadingPhase(thread, "native.repository_name");
-    PackageIdentifier packageId =
-        PackageFactory.getContext(thread).getBuilder().getPackageIdentifier();
     // for legacy reasons, this is prefixed with a single '@'.
-    return '@' + packageId.getRepository().getName();
+    return '@' + repoName(thread);
+  }
+
+  @Override
+  public String repoName(StarlarkThread thread) throws EvalException {
+    BazelStarlarkContext.checkLoadingPhase(thread, "native.repo_name");
+    return getContext(thread).getBuilder().getPackageIdentifier().getRepository().getName();
   }
 
   @Override
@@ -630,7 +633,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     }
     try {
       String s = (String) input;
-      return PackageFactory.getContext(thread).getBuilder().getLabelConverter().convert(s);
+      return getContext(thread).getBuilder().getLabelConverter().convert(s);
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("invalid label in native.package_relative_label: %s", e.getMessage());
     }
@@ -640,14 +643,14 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   @Nullable
   public String moduleName(StarlarkThread thread) throws EvalException {
     BazelStarlarkContext.checkLoadingPhase(thread, "native.module_name");
-    return PackageFactory.getContext(thread).getBuilder().getAssociatedModuleName().orElse(null);
+    return getContext(thread).getBuilder().getAssociatedModuleName().orElse(null);
   }
 
   @Override
   @Nullable
   public String moduleVersion(StarlarkThread thread) throws EvalException {
     BazelStarlarkContext.checkLoadingPhase(thread, "native.module_version");
-    return PackageFactory.getContext(thread).getBuilder().getAssociatedModuleVersion().orElse(null);
+    return getContext(thread).getBuilder().getAssociatedModuleVersion().orElse(null);
   }
 
   private static Dict<String, Object> getRuleDict(Rule rule, Mutability mu) throws EvalException {
