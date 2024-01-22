@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
@@ -221,24 +223,28 @@ public class FocusCommand implements BlazeCommand {
     long beforeHeap = UsedHeapSizeAfterGcInfoItem.getHeapUsageAfterGc();
     int beforeNodeCount = graph.valuesSize();
 
-    SkyframeFocuser.FocusResult focusResult =
-        SkyframeFocuser.focus(
-            graph,
-            roots,
-            leafs,
-            env.getReporter(),
-            /* additionalDepsToKeep= */ (SkyKey k) -> {
-              // ActionExecutionFunction#lookupInput allows getting a transitive dep without
-              // adding a SkyframeDependency on it. In Blaze/Bazel's case, NestedSets are a major
-              // user. To keep that working, it's not sufficient to only keep the direct deps (e.g.
-              // NestedSets), but also keep the nodes of the transitive artifacts
-              // with this workaround.
-              if (k instanceof ArtifactNestedSetKey) {
-                return ((ArtifactNestedSetKey) k)
-                    .expandToArtifacts().stream().map(Artifact::key).collect(toImmutableSet());
-              }
-              return ImmutableSet.of();
-            });
+    SkyframeFocuser.FocusResult focusResult;
+    try (SilentCloseable c = Profiler.instance().profile("SkyframeFocuser")) {
+      focusResult =
+          SkyframeFocuser.focus(
+              graph,
+              roots,
+              leafs,
+              env.getReporter(),
+              /* additionalDepsToKeep= */ (SkyKey k) -> {
+                // ActionExecutionFunction#lookupInput allows getting a transitive dep without
+                // adding a SkyframeDependency on it. In Blaze/Bazel's case, NestedSets are a major
+                // user. To keep that working, it's not sufficient to only keep the direct deps
+                // (e.g.
+                // NestedSets), but also keep the nodes of the transitive artifacts
+                // with this workaround.
+                if (k instanceof ArtifactNestedSetKey) {
+                  return ((ArtifactNestedSetKey) k)
+                      .expandToArtifacts().stream().map(Artifact::key).collect(toImmutableSet());
+                }
+                return ImmutableSet.of();
+              });
+    }
 
     long afterHeap = UsedHeapSizeAfterGcInfoItem.getHeapUsageAfterGc();
     int afterNodeCount = graph.valuesSize();

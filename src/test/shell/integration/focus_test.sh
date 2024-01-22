@@ -206,4 +206,30 @@ EOF
   bazel build //${pkg}:g3 || fail "cannot build //${pkg}:g3"
 }
 
+function test_focus_emits_profile_data() {
+  local -r pkg=${FUNCNAME[0]}
+  mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
+  mkdir -p ${pkg}
+  echo "input" > ${pkg}/in.txt
+  cat > ${pkg}/BUILD <<EOF
+genrule(
+  name = "g",
+  srcs = ["in.txt"],
+  outs = ["out.txt"],
+  cmd = "cp \$< \$@",
+)
+EOF
+
+  bazel build //${pkg}:g
+  bazel focus --files=${pkg}/in.txt \
+    --profile=/tmp/profile.log &> "$TEST_log" || fail "Expected success"
+  grep '"ph":"X"' /tmp/profile.log > "$TEST_log" \
+    || fail "Missing profile file."
+
+  expect_log '"SkyframeFocuser"'
+  expect_log '"focus.mark"'
+  expect_log '"focus.sweep_nodes"'
+  expect_log '"focus.sweep_edges"'
+}
+
 run_suite "Tests for the focus command"

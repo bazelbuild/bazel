@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.Queue;
@@ -105,41 +107,43 @@ public final class SkyframeFocuser {
     // this function, but we ensure that all specified ones are kept here.
     keptDeps.addAll(roots);
 
-    while (!queue.isEmpty()) {
-      SkyKey key = queue.remove();
-      InMemoryNodeEntry nodeEntry = graph.getIfPresent(key);
-      if (nodeEntry == null) {
-        // Throwing may be too strong if the working set is loosely defined, e.g. an entire
-        // directory instead of a single file, and there are some files in the directory that
-        // are not in the TC of the roots.
-        //
-        // TODO: b/312819241 - handle this gracefully without throwing.
-        throw new IllegalStateException("nodeEntry not found for: " + key.getCanonicalName());
-      }
-
-      if (!nodeEntry.isDone()) {
-        // TODO: b/312819241 - handle this gracefully without throwing.
-        throw new IllegalStateException("nodeEntry not done: " + key.getCanonicalName());
-      }
-
-      for (SkyKey rdep : nodeEntry.getReverseDepsForDoneEntry()) {
-        if (!keptRdeps.add(rdep)) {
-          // Already processed.
-          continue;
+    try (SilentCloseable c = Profiler.instance().profile("focus.mark")) {
+      while (!queue.isEmpty()) {
+        SkyKey key = queue.remove();
+        InMemoryNodeEntry nodeEntry = graph.getIfPresent(key);
+        if (nodeEntry == null) {
+          // Throwing may be too strong if the working set is loosely defined, e.g. an entire
+          // directory instead of a single file, and there are some files in the directory that
+          // are not in the TC of the roots.
+          //
+          // TODO: b/312819241 - handle this gracefully without throwing.
+          throw new IllegalStateException("nodeEntry not found for: " + key.getCanonicalName());
         }
-        // Traverse up the graph.
-        queue.offer(rdep);
-      }
 
-      for (SkyKey dep : nodeEntry.getDirectDeps()) {
-        keptDeps.add(dep);
+        if (!nodeEntry.isDone()) {
+          // TODO: b/312819241 - handle this gracefully without throwing.
+          throw new IllegalStateException("nodeEntry not done: " + key.getCanonicalName());
+        }
 
-        // This is necessary to keep the action inputs encapsulated by a NestedSet. Otherwise,
-        // those inputs will be missing.
-        //
-        // TODO: b/312819241 - move SkyframeFocuser from build.skyframe to build.lib.skyframe so
-        // that we can do the check directly without using an injected Function.
-        keptDeps.addAll(additionalDepsToKeep.apply(dep));
+        for (SkyKey rdep : nodeEntry.getReverseDepsForDoneEntry()) {
+          if (!keptRdeps.add(rdep)) {
+            // Already processed.
+            continue;
+          }
+          // Traverse up the graph.
+          queue.offer(rdep);
+        }
+
+        for (SkyKey dep : nodeEntry.getDirectDeps()) {
+          keptDeps.add(dep);
+
+          // This is necessary to keep the action inputs encapsulated by a NestedSet. Otherwise,
+          // those inputs will be missing.
+          //
+          // TODO: b/312819241 - move SkyframeFocuser from build.skyframe to build.lib.skyframe so
+          // that we can do the check directly without using an injected Function.
+          keptDeps.addAll(additionalDepsToKeep.apply(dep));
+        }
       }
     }
 
@@ -150,55 +154,60 @@ public final class SkyframeFocuser {
     eventHandler.handle(
         Event.info("Nodes in direct deps of reverse transitive closure: " + keptDeps.size()));
 
-    Set<SkyKey> toKeep = Sets.union(keptDeps, keptRdeps);
-    graph.parallelForEach(
-        inMemoryNodeEntry -> {
-          SkyKey key = inMemoryNodeEntry.getKey();
-          if (!toKeep.contains(key)) {
-            graph.remove(key);
-          }
-        });
+    try (SilentCloseable c = Profiler.instance().profile("focus.sweep_nodes")) {
+      Set<SkyKey> toKeep = Sets.union(keptDeps, keptRdeps);
+      graph.parallelForEach(
+          inMemoryNodeEntry -> {
+            SkyKey key = inMemoryNodeEntry.getKey();
+            if (!toKeep.contains(key)) {
+              graph.remove(key);
+            }
+          });
 
-    graph.shrinkNodeMap();
+      graph.shrinkNodeMap();
+    }
 
     long rdepEdgesBefore = 0;
     long rdepEdgesAfter = 0;
 
-    for (SkyKey key : keptDeps) {
-      // TODO: b/312819241 - Consider transforming IncrementalInMemoryNodeEntry only used for their
-      // immutable states to an ImmutableDoneNodeEntry or NonIncrementalInMemoryNodeEntry for
-      // further memory savings.
-      IncrementalInMemoryNodeEntry nodeEntry =
-          (IncrementalInMemoryNodeEntry) graph.getIfPresent(key);
+    try (SilentCloseable c = Profiler.instance().profile("focus.sweep_edges")) {
+      for (SkyKey key : keptDeps) {
+        // TODO: b/312819241 - Consider transforming IncrementalInMemoryNodeEntry only used for
+        // their
+        // immutable states to an ImmutableDoneNodeEntry or NonIncrementalInMemoryNodeEntry for
+        // further memory savings.
+        IncrementalInMemoryNodeEntry nodeEntry =
+            (IncrementalInMemoryNodeEntry) graph.getIfPresent(key);
 
-      // No need to keep the direct deps edges of existing deps. For example:
-      //
-      //    B
-      //  / |\
-      // A C  \
-      //    \ |
-      //     D
-      //
-      // B is the root, and A is the only leaf. We can throw out the CD edge, even
-      // though both C and D are still used by B. This is because no changes are expected to C
-      // and D, so it's unnecessary to maintain the edges.
-      nodeEntry.directDeps = GroupedDeps.EMPTY_COMPRESSED;
+        // No need to keep the direct deps edges of existing deps. For example:
+        //
+        //    B
+        //  / |\
+        // A C  \
+        //    \ |
+        //     D
+        //
+        // B is the root, and A is the only leaf. We can throw out the CD edge, even
+        // though both C and D are still used by B. This is because no changes are expected to C
+        // and D, so it's unnecessary to maintain the edges.
+        nodeEntry.directDeps = GroupedDeps.EMPTY_COMPRESSED;
 
-      // No need to keep the rdep edges of the deps if they do not point to an rdep
-      // reachable (hence, dirty-able) by the working set.
-      //
-      // This accounts for nearly 5% of 9+GB retained heap on a large server build.
-      rdepEdgesBefore += nodeEntry.getReverseDepsForDoneEntry().size();
-      for (SkyKey rdep : nodeEntry.getReverseDepsForDoneEntry()) {
-        if (!keptRdeps.contains(rdep)) {
-          nodeEntry.removeReverseDep(rdep);
+        // No need to keep the rdep edges of the deps if they do not point to an rdep
+        // reachable (hence, dirty-able) by the working set.
+        //
+        // This accounts for nearly 5% of 9+GB retained heap on a large server build.
+        rdepEdgesBefore += nodeEntry.getReverseDepsForDoneEntry().size();
+        for (SkyKey rdep : nodeEntry.getReverseDepsForDoneEntry()) {
+          if (!keptRdeps.contains(rdep)) {
+            nodeEntry.removeReverseDep(rdep);
+          }
         }
-      }
 
-      // This consolidation is also done in getReverseDepsForDoneEntry(), but make it
-      // explicit here (and it's idempotent, anyway).
-      ReverseDepsUtility.consolidateData(nodeEntry);
-      rdepEdgesAfter += nodeEntry.getReverseDepsForDoneEntry().size();
+        // This consolidation is also done in getReverseDepsForDoneEntry(), but make it
+        // explicit here (and it's idempotent, anyway).
+        ReverseDepsUtility.consolidateData(nodeEntry);
+        rdepEdgesAfter += nodeEntry.getReverseDepsForDoneEntry().size();
+      }
     }
 
     eventHandler.handle(
