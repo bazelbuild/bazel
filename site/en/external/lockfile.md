@@ -213,6 +213,14 @@ practices:
     ensure that all team members have access to the same lockfile, promoting
     consistent development environments across the project.
 
+*   Use [`bazelisk`](/install/bazelisk) to run Bazel, and include a
+    `.bazeliskrc` file in version control that lists the Bazel version
+    corresponding to the lockfile. Because Bazel itself is a dependency of
+    your build, the lockfile is specific to the Bazel version, and will
+    change between [backwards compatible](/release/backward-compatibility)
+    Bazel releases. Using `bazelisk` ensures that all developers are using
+    a Bazel version that matches the lockfile.
+
 By following these best practices, you can effectively utilize the lockfile
 feature in Bazel, leading to more efficient, reliable, and collaborative
 software development workflows.
