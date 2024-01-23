@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.buildtool;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import java.util.ArrayList;
@@ -55,6 +57,7 @@ public final class BuildResult {
   @Nullable private DetailedExitCode detailedExitCode;
 
   private BuildConfigurationValue configuration;
+  private ImmutableMap<PathFragment, PathFragment> convenienceSymlinks = ImmutableMap.of();
   private Collection<ConfiguredTarget> actualTargets;
   private Collection<ConfiguredTarget> testTargets;
   private Collection<ConfiguredTarget> successfulTargets;
@@ -159,6 +162,18 @@ public final class BuildResult {
   /** Returns the build configuration collection used for the build. */
   public BuildConfigurationValue getBuildConfiguration() {
     return configuration;
+  }
+
+  void setConvenienceSymlinks(ImmutableMap<PathFragment, PathFragment> convenienceSymlinks) {
+    this.convenienceSymlinks = convenienceSymlinks;
+  }
+
+  /**
+   * Returns the convenience symlinks for this build in name -> target format (eg blaze-out ->
+   * /symlink/target).
+   */
+  public ImmutableMap<PathFragment, PathFragment> getConvenienceSymlinks() {
+    return convenienceSymlinks;
   }
 
   /** @see #getActualTargets */

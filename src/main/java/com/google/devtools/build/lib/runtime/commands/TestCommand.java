@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -23,7 +24,6 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.buildtool.InstrumentationFilterSupport;
-import com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils;
 import com.google.devtools.build.lib.buildtool.PathPrettyPrinter;
 import com.google.devtools.build.lib.buildtool.buildevent.TestingCompleteEvent;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -250,12 +251,16 @@ public class TestCommand implements BlazeCommand {
 
     TestResultNotifier notifier =
         new TerminalTestResultNotifier(
-            printer, makeTestLogPathFormatter(options, env), options, mainRepoMapping);
+            printer,
+            makeTestLogPathFormatter(buildResult.getConvenienceSymlinks(), options, env),
+            options,
+            mainRepoMapping);
     return listener.differentialAnalyzeAndReport(
         buildResult.getTestTargets(), buildResult.getSkippedTargets(), validatedTargets, notifier);
   }
 
   private static TestLogPathFormatter makeTestLogPathFormatter(
+      ImmutableMap<PathFragment, PathFragment> convenienceSymlinks,
       OptionsParsingResult options,
       CommandEnvironment env) {
     BlazeRuntime runtime = env.getRuntime();
@@ -266,10 +271,7 @@ public class TestCommand implements BlazeCommand {
     String productName = runtime.getProductName();
     BuildRequestOptions requestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
     PathPrettyPrinter pathPrettyPrinter =
-        OutputDirectoryLinksUtils.getPathPrettyPrinter(
-            runtime.getRuleClassProvider().getSymlinkDefinitions(),
-            requestOptions.getSymlinkPrefix(productName),
-            env.getWorkspace());
+        new PathPrettyPrinter(requestOptions.getSymlinkPrefix(productName), convenienceSymlinks);
     return path -> pathPrettyPrinter.getPrettyPath(path.asFragment()).getPathString();
   }
 }

@@ -29,7 +29,8 @@ public final class PathPrettyPrinter {
   private final String symlinkPrefix;
   private final Map<PathFragment, PathFragment> resolvedSymlinks;
 
-  PathPrettyPrinter(String symlinkPrefix, Map<PathFragment, PathFragment> convenienceSymlinks) {
+  public PathPrettyPrinter(
+      String symlinkPrefix, Map<PathFragment, PathFragment> convenienceSymlinks) {
     this.symlinkPrefix = symlinkPrefix;
     this.resolvedSymlinks = convenienceSymlinks;
   }

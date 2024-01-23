@@ -348,8 +348,9 @@ public class BuildTool {
     } finally {
       if (result.getBuildConfiguration() != null) {
         // We still need to do this even in case of an exception.
-        executionTool.handleConvenienceSymlinks(
-            env.getBuildResultListener().getAnalyzedTargets(), result.getBuildConfiguration());
+        result.setConvenienceSymlinks(
+            executionTool.handleConvenienceSymlinks(
+                env.getBuildResultListener().getAnalyzedTargets(), result.getBuildConfiguration()));
       }
       executionTool.unconditionalExecutionPhaseFinalizations(
           executionTimer, env.getSkyframeExecutor());

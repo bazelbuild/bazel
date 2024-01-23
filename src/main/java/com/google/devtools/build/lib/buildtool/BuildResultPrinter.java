@@ -91,10 +91,9 @@ class BuildResultPrinter {
     BlazeRuntime runtime = env.getRuntime();
     String productName = runtime.getProductName();
     PathPrettyPrinter prettyPrinter =
-        OutputDirectoryLinksUtils.getPathPrettyPrinter(
-            runtime.getRuleClassProvider().getSymlinkDefinitions(),
+        new PathPrettyPrinter(
             request.getBuildOptions().getSymlinkPrefix(productName),
-            env.getWorkspace());
+            result.getConvenienceSymlinks());
     OutErr outErr = request.getOutErr();
 
     // Splits aspects based on whether they are validation aspects.
