@@ -101,7 +101,6 @@ import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -398,8 +397,9 @@ public class ExecutionTool {
       createActionLogDirectory();
     }
 
-    handleConvenienceSymlinks(
-        analysisResult.getTargetsToBuild(), analysisResult.getConfiguration());
+    buildResult.setConvenienceSymlinks(
+        handleConvenienceSymlinks(
+            analysisResult.getTargetsToBuild(), analysisResult.getConfiguration()));
 
     BuildRequestOptions options = request.getBuildOptions();
     ActionCache actionCache = null;
@@ -743,7 +743,6 @@ public class ExecutionTool {
    *
    * @return map of convenience symlink name to target
    */
-  @CanIgnoreReturnValue
   public ImmutableMap<PathFragment, PathFragment> handleConvenienceSymlinks(
       ImmutableSet<ConfiguredTarget> targetsToBuild, BuildConfigurationValue configuration) {
     try (SilentCloseable c =
