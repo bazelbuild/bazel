@@ -201,7 +201,8 @@ public class BazelLockFileModule extends BlazeModule {
                       lockfilePath
                           .asPath()
                           .getParentDirectory()
-                          .getRelative(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME))
+                          .getRelative(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME),
+                      workspaceRoot)
                   .toJson(updatedLockfile)
               + "\n");
     } catch (IOException e) {
