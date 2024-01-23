@@ -301,23 +301,23 @@ public final class GsonTypeAdapterUtil {
 
     public abstract int column();
 
-    public Location toLocation(String moduleFilePath) {
+    public Location toLocation(String moduleFilePath, String workspaceRoot) {
       String file;
       if (file().equals(ROOT_MODULE_FILE_LABEL)) {
         file = moduleFilePath;
       } else {
-        file = file();
+        file = file().replace("%workspace%", workspaceRoot);
       }
       return Location.fromFileLineColumn(file, line(), column());
     }
 
     public static RootModuleFileEscapingLocation fromLocation(
-        Location location, String moduleFilePath) {
+        Location location, String moduleFilePath, String workspaceRoot) {
       String file;
       if (location.file().equals(moduleFilePath)) {
         file = ROOT_MODULE_FILE_LABEL;
       } else {
-        file = location.file();
+        file = location.file().replace(workspaceRoot, "%workspace%");
       }
       return new AutoValue_GsonTypeAdapterUtil_RootModuleFileEscapingLocation(
           file, location.line(), location.column());
@@ -327,9 +327,11 @@ public final class GsonTypeAdapterUtil {
   private static final class LocationTypeAdapterFactory implements TypeAdapterFactory {
 
     private final String moduleFilePath;
+    private final String workspaceRoot;
 
-    public LocationTypeAdapterFactory(Path moduleFilePath) {
+    public LocationTypeAdapterFactory(Path moduleFilePath, Path workspaceRoot) {
       this.moduleFilePath = moduleFilePath.getPathString();
+      this.workspaceRoot = workspaceRoot.getPathString();
     }
 
     @Nullable
@@ -348,18 +350,21 @@ public final class GsonTypeAdapterUtil {
             public void write(JsonWriter jsonWriter, Location location) throws IOException {
               relativizedLocationTypeAdapter.write(
                   jsonWriter,
-                  RootModuleFileEscapingLocation.fromLocation(location, moduleFilePath));
+                  RootModuleFileEscapingLocation.fromLocation(
+                      location, moduleFilePath, workspaceRoot));
             }
 
             @Override
             public Location read(JsonReader jsonReader) throws IOException {
-              return relativizedLocationTypeAdapter.read(jsonReader).toLocation(moduleFilePath);
+              return relativizedLocationTypeAdapter
+                  .read(jsonReader)
+                  .toLocation(moduleFilePath, workspaceRoot);
             }
           };
     }
   }
 
-  public static Gson createLockFileGson(Path moduleFilePath) {
+  public static Gson createLockFileGson(Path moduleFilePath, Path workspaceRoot) {
     return new GsonBuilder()
         .setPrettyPrinting()
         .disableHtmlEscaping()
@@ -371,7 +376,8 @@ public final class GsonTypeAdapterUtil {
         .registerTypeAdapterFactory(IMMUTABLE_BIMAP)
         .registerTypeAdapterFactory(IMMUTABLE_SET)
         .registerTypeAdapterFactory(OPTIONAL)
-        .registerTypeAdapterFactory(new LocationTypeAdapterFactory(moduleFilePath))
+        .registerTypeAdapterFactory(IMMUTABLE_TABLE)
+        .registerTypeAdapterFactory(new LocationTypeAdapterFactory(moduleFilePath, workspaceRoot))
         .registerTypeAdapter(Label.class, LABEL_TYPE_ADAPTER)
         .registerTypeAdapter(Version.class, VERSION_TYPE_ADAPTER)
         .registerTypeAdapter(ModuleKey.class, MODULE_KEY_TYPE_ADAPTER)
