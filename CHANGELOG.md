@@ -1,3 +1,32 @@
+## Release 6.5.0 (2024-01-23)
+
+```
+Baseline:  50b61e38fb6eaa08a6c811a313824a59f1c2abbf
+
+Release Notes:
+
++ Fix tree file materialized as symlink to another file when building without the bytes. (#20409)
++ Don't pass --add-opens= to javac (#20472)
++ Flip --incompatible_visibility_private_attributes_at_definition (#20520)
++ Fix extraction of tar archives containing sparse files. (#20531)
++ RemoteSpawnRunner: record inbetween phases in timing profile (#20550)
++ Add profiling to `remoteActionBuildingSemaphore.acquire()` (#20549)
++ The label API shakeup & docs cleanup (#20590)
++ Disable rewriter test (#20758)
++ Disable PyTest.testSmoke on macOS (#20729)
++ Upgrade abseil-cpp to fix build on macos_arm64 (#20785)
++ Ignore read-only errors when updating the `mtime` of the `install_base` (#20568)
++ Restart at most once when prepopulating repository rule environment (#20667)
++ Fix bootstrapped Bazel binary (#20804)
++ Add flag `experimental_throttle_remote_action_building` (#20861)
++ Fix versioned shared libraries for macOS toolchain (#20847)
++ Proto toolchainisation cherrypicks (#20925)
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as bazel.build machine account, Brentley Jones, Fabian Meumertzheim, Jordan Mele, Mai Hussien, oquenchil, Rahul Butani, Son Luong Ngoc, Xùdōng Yáng.
+```
+
 ## Release 7.0.1 (2024-01-18)
 
 ```
