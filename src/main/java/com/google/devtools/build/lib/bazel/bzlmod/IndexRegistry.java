@@ -147,9 +147,13 @@ public class IndexRegistry implements Registry {
     String shallowSince;
     String tag;
     boolean initSubmodules;
-    boolean recursiveInitSubmodules;
     boolean verbose;
     String stripPrefix;
+    List<String> patches;
+    String patchTool;
+    List<String> patchArgs;
+    List<String> patchCmds;
+    List<String> patchCmdsWin;
   }
 
   /**
@@ -176,14 +180,14 @@ public class IndexRegistry implements Registry {
       return Optional.empty();
     }
     return Optional.of(
-	grabJsonFromString(jsonString.get(), url, klass));
+	parseJson(jsonString.get(), url, klass));
   }
 
   /**
    * Parses the given JSON string and returns it as an object with fields in {@code
    * T}.
    */
-  private <T> T grabJsonFromString(String jsonString, String url, Class<T> klass)
+  private <T> T parseJson(String jsonString, String url, Class<T> klass)
       throws IOException {
     try {
       return gson.fromJson(jsonString, klass);
@@ -208,21 +212,21 @@ public class IndexRegistry implements Registry {
       throw new FileNotFoundException(
           String.format("Module %s's %s not found in registry %s", key, SOURCE_JSON_FILENAME, uri));
     }
-    SourceJson sourceJson = grabJsonFromString(jsonString.get(), jsonUrl, SourceJson.class);
+    SourceJson sourceJson = parseJson(jsonString.get(), jsonUrl, SourceJson.class);
     switch (sourceJson.type) {
       case "archive":
         {
-          ArchiveSourceJson typedSourceJson = grabJsonFromString(jsonString.get(), jsonUrl, ArchiveSourceJson.class);
+          ArchiveSourceJson typedSourceJson = parseJson(jsonString.get(), jsonUrl, ArchiveSourceJson.class);
           return createArchiveRepoSpec(typedSourceJson, getBazelRegistryJson(eventHandler), key, repoName);
         }
       case "local_path":
         {
-          LocalPathSourceJson typedSourceJson = grabJsonFromString(jsonString.get(), jsonUrl, LocalPathSourceJson.class);
+          LocalPathSourceJson typedSourceJson = parseJson(jsonString.get(), jsonUrl, LocalPathSourceJson.class);
           return createLocalPathRepoSpec(typedSourceJson, getBazelRegistryJson(eventHandler), key, repoName);
         }
       case "git_repository":
         {
-          GitRepoSourceJson typedSourceJson = grabJsonFromString(jsonString.get(), jsonUrl, GitRepoSourceJson.class);
+          GitRepoSourceJson typedSourceJson = parseJson(jsonString.get(), jsonUrl, GitRepoSourceJson.class);
           return createGitRepoSpec(typedSourceJson, getBazelRegistryJson(eventHandler), key, repoName);
         }
       default:
@@ -354,9 +358,13 @@ public class IndexRegistry implements Registry {
         .setShallowSince(sourceJson.shallowSince)
         .setTag(sourceJson.tag)
         .setInitSubmodules(sourceJson.initSubmodules)
-        .setRecursiveInitSubmodules(sourceJson.recursiveInitSubmodules)
         .setVerbose(sourceJson.verbose)
         .setStripPrefix(sourceJson.stripPrefix)
+        .setPatches(sourceJson.patches)
+        .setPatchTool(sourceJson.patchTool)
+        .setPatchArgs(sourceJson.patchArgs)
+        .setPatchCmds(sourceJson.patchCmds)
+        .setPatchCmdsWin(sourceJson.patchCmdsWin)
         .build();
   }
 

@@ -24,8 +24,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 /** Specifies that a module should be retrieved from a Git repository. */
 @AutoValue
 public abstract class GitOverride implements NonRegistryOverride {
-  public static final String GIT_REPOSITORY_PATH = "@bazel_tools//tools/build_defs/repo:git.bzl";
-
   public static GitOverride create(
       String remote,
       String commit,
@@ -58,21 +56,16 @@ public abstract class GitOverride implements NonRegistryOverride {
   /** Returns the {@link RepoSpec} that defines this repository. */
   @Override
   public RepoSpec getRepoSpec(RepositoryName repoName) {
-    ImmutableMap.Builder<String, Object> attrBuilder = ImmutableMap.builder();
-    attrBuilder
-        .put("name", repoName.getName())
-        .put("remote", getRemote())
-        .put("commit", getCommit())
-        .put("patches", getPatches())
-        .put("patch_cmds", getPatchCmds())
-        .put("patch_args", ImmutableList.of("-p" + getPatchStrip()))
-        .put("init_submodules", getInitSubmodules())
-        .put("recursive_init_submodules", getInitSubmodules());
-    return RepoSpec.builder()
-        .setBzlFile(GIT_REPOSITORY_PATH)
-        .setRuleClassName("git_repository")
-        .setAttributes(AttributeValues.create(attrBuilder.buildOrThrow()))
-        .build();
+    GitRepoSpecBuilder builder = new GitRepoSpecBuilder();
+    builder
+        .setRepoName(repoName.getName())
+        .setRemote(getRemote())
+        .setCommit(getCommit())
+        .setPatches(getPatches())
+        .setPatchCmds(getPatchCmds())
+        .setPatchArgs(ImmutableList.of("-p" + getPatchStrip()))
+        .setInitSubmodules(getInitSubmodules());
+    return builder.build();
   }
 
   @Override

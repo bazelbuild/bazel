@@ -61,18 +61,10 @@ public class GitRepoSpecBuilder {
   }
 
   @CanIgnoreReturnValue
-  public GitRepoSpecBuilder setBranch(String branch) {
-    return setAttr("branch", branch);
-  }
-
-  @CanIgnoreReturnValue
   public GitRepoSpecBuilder setInitSubmodules(boolean initSubmodules) {
-    return setAttr("init_submodules", initSubmodules);
-  }
-
-  @CanIgnoreReturnValue
-  public GitRepoSpecBuilder setRecursiveInitSubmodules(boolean recursiveInitSubmodules) {
-    return setAttr("recursive_init_submodules", recursiveInitSubmodules);
+    setAttr("init_submodules", initSubmodules);
+    setAttr("recursive_init_submodules", initSubmodules);
+    return this;
   }
 
   @CanIgnoreReturnValue
@@ -108,16 +100,6 @@ public class GitRepoSpecBuilder {
   @CanIgnoreReturnValue
   public GitRepoSpecBuilder setPatchCmdsWin(List<String> patchCmdsWin) {
     return setAttr("patch_cmds_win", patchCmdsWin);
-  }
-
-  @CanIgnoreReturnValue
-  public GitRepoSpecBuilder setBuildFile(String buildFile) {
-    return setAttr("build_file", buildFile);
-  }
-
-  @CanIgnoreReturnValue
-  public GitRepoSpecBuilder setBuildFileContent(String buildFileContent) {
-    return setAttr("build_file_content", buildFileContent);
   }
 
   public RepoSpec build() {

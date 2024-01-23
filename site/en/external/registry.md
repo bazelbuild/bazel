@@ -80,9 +80,13 @@ An index registry must follow the format below:
                 * `shallow_since`
                 * `tag`
                 * `init_submodules`
-                * `recursive_init_submodules`
                 * `verbose`
                 * `strip_prefix`
+                * `patches`
+                * `patch_tool`
+                * `patch_args`
+                * `patch_cmds`
+                * `patch_cmds_win`
         *   The type can be changed to use a local path, representing a
             `local_repository` repo, with these fields:
             *   `type`: `local_path`
