@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -225,7 +224,6 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       return null;
     }
     markerData.put(SEMANTICS, describeSemantics(starlarkSemantics));
-    markerData.put("ARCH:", CPU.getCurrent().getCanonicalName());
 
     PathPackageLocator packageLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
     if (env.valuesMissing()) {
