@@ -1208,7 +1208,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           // The less magic the better. Do not give in those temptations!
           Dict.Builder<String, Object> initializerKwargs = Dict.builder();
           for (var attr : currentRuleClass.getAttributes()) {
-            if (attr.isPublic() && attr.starlarkDefined()) {
+            if ((attr.isPublic() && attr.starlarkDefined()) || attr.getName().equals("name")) {
               if (kwargs.containsKey(attr.getName())) {
                 Object value = kwargs.get(attr.getName());
                 if (value == Starlark.NONE) {
@@ -1238,6 +1238,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                   : Dict.cast(ret, String.class, Object.class, "rule's initializer return value");
 
           for (var arg : newKwargs.keySet()) {
+            if (arg.equals("name")) {
+              if (!kwargs.get("name").equals(newKwargs.get("name"))) {
+                throw Starlark.errorf("Initializer can't change the name of the target");
+              }
+              continue;
+            }
             checkAttributeName(arg);
             if (arg.startsWith("_")) {
               // allow setting private attributes from initializers in builtins

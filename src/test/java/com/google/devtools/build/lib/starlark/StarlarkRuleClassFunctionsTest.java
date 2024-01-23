@@ -2966,7 +2966,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "initializer_testing/b.bzl",
         "MyInfo = provider()",
-        "def initializer(srcs = [], deps = []):",
+        "def initializer(name, srcs = [], deps = []):",
         "  return {'deps': deps + ['//:added']}",
         "def impl(ctx): ",
         "  return [MyInfo(",
@@ -2992,6 +2992,49 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
     assertThat((List<String>) info.getValue("srcs")).containsExactly("initializer_testing/a.ml");
     assertThat((List<String>) info.getValue("deps")).containsExactly("@@//:initial", "@@//:added");
+  }
+
+  @Test
+  public void initializer_nameUnchanged() throws Exception {
+    scratch.file(
+        "initializer_testing/b.bzl",
+        "def initializer(name, **kwargs):",
+        "  if name != 'my_target':",
+        "     fail()",
+        "  return {'name': name} | kwargs",
+        "MyInfo = provider()",
+        "def impl(ctx): ",
+        "  pass",
+        "my_rule = rule(impl, initializer = initializer)");
+    scratch.file(
+        "initializer_testing/BUILD", //
+        "load(':b.bzl','my_rule')",
+        "my_rule(name = 'my_target')");
+
+    getConfiguredTarget("//initializer_testing:my_target");
+
+    assertNoEvents();
+  }
+
+  @Test
+  public void initializer_nameChanged() throws Exception {
+    scratch.file(
+        "initializer_testing/b.bzl",
+        "def initializer(name, **kwargs):",
+        "  return {'name': 'my_new_name'}",
+        "def impl(ctx): ",
+        "  pass",
+        "my_rule = rule(impl, initializer = initializer)");
+    scratch.file(
+        "initializer_testing/BUILD", //
+        "load(':b.bzl','my_rule')",
+        "my_rule(name = 'my_target')");
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//initializer_testing:my_target");
+
+    ev.assertContainsError("Error in my_rule: Initializer can't change the name of the target");
   }
 
   @Test
@@ -3066,7 +3109,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "initializer_testing/b.bzl",
         "MyInfo = provider()",
-        "def initializer(tristate = -1):",
+        "def initializer(name, tristate = -1):",
         "  return {'tristate': int(tristate)}",
         "def impl(ctx): ",
         "  return [MyInfo(tristate = ctx.attr.tristate)]",
@@ -3126,7 +3169,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "initializer_testing/b.bzl",
         "MyInfo = provider()",
-        "def initializer(srcs = []):",
+        "def initializer(name, srcs = []):",
         "  return {'srcs': srcs + ['b.ml']}",
         "def impl(ctx): ",
         "  return [MyInfo(",
@@ -3186,7 +3229,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "initializer_testing/b.bzl",
         "MyInfo = provider()",
-        "def initializer(deps = ['//:initializer_default']):",
+        "def initializer(name, deps = ['//:initializer_default']):",
         "  return {'deps': deps}",
         "def impl(ctx): ",
         "  return [MyInfo(",
@@ -3221,7 +3264,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "initializer_testing/b.bzl",
         "MyInfo = provider()",
-        "def initializer(deps = ['//:initializer_default']):",
+        "def initializer(name, deps = ['//:initializer_default']):",
         "  return {'deps': None}",
         "def impl(ctx): ",
         "  return [MyInfo(",
@@ -3251,7 +3294,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "initializer_testing/b.bzl",
         "MyInfo = provider()",
-        "def initializer(srcs):",
+        "def initializer(name, srcs):",
         "  return {'srcs': srcs}",
         "def impl(ctx): ",
         "  pass",
@@ -3278,7 +3321,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "initializer_testing/b.bzl",
         "MyInfo = provider()",
-        "def initializer(srcs):",
+        "def initializer(name, srcs):",
         "  return {'srcs': srcs}",
         "def impl(ctx): ",
         "  pass",
@@ -3303,7 +3346,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void initializer_incorrectReturnType() throws Exception {
     scratch.file(
         "initializer_testing/b.bzl",
-        "def initializer(srcs = []):",
+        "def initializer(name, srcs = []):",
         "  return [srcs]",
         "def impl(ctx): ",
         "  pass",
@@ -3328,7 +3371,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void initializer_incorrectReturnDicts() throws Exception {
     scratch.file(
         "initializer_testing/b.bzl",
-        "def initializer(srcs = []):",
+        "def initializer(name, srcs = []):",
         "  return {True: srcs}",
         "def impl(ctx): ",
         "  pass",
@@ -3354,7 +3397,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     // 'args' is an attribute defined for all executable rules
     scratch.file(
         "initializer_testing/b.bzl",
-        "def initializer(srcs = [], deps = []):",
+        "def initializer(name, srcs = [], deps = []):",
         "  return {'srcs': srcs, 'deps': deps, 'args': ['a']}",
         "def impl(ctx): ",
         "  pass",
@@ -3381,7 +3424,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void initializer_failsSettingPrivateAttribute_outsideBuiltins() throws Exception {
     scratch.file(
         "initializer_testing/b.bzl",
-        "def initializer(srcs = [], deps = []):",
+        "def initializer(name, srcs = [], deps = []):",
         "  return {'srcs': srcs, '_tool': ':my_tool'}",
         "def impl(ctx): ",
         "  pass",
@@ -3412,7 +3455,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file("initializer_testing/builtins/BUILD", "filegroup(name='my_tool')");
     scratch.file(
         "initializer_testing/builtins/b.bzl",
-        "def initializer(srcs = [], deps = []):",
+        "def initializer(name, srcs = [], deps = []):",
         "  return {'srcs': srcs, '_tool': ':my_tool'}",
         "MyInfo = provider()",
         "def impl(ctx): ",
@@ -3443,7 +3486,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void initializer_failsSettingUnknownAttr() throws Exception {
     scratch.file(
         "initializer_testing/b.bzl",
-        "def initializer(srcs = [], deps = []):",
+        "def initializer(name, srcs = [], deps = []):",
         "  return {'srcs': srcs, 'my_deps': deps}",
         "def impl(ctx): ",
         "  pass",
@@ -3469,7 +3512,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void initializer_failsCreatingAnotherRule() throws Exception {
     scratch.file(
         "initializer_testing/b.bzl",
-        "def initializer(srcs = [], deps = []):",
+        "def initializer(name, srcs = [], deps = []):",
         "  native.java_library(name = 'jl', srcs = ['a.java'])",
         "  return {'srcs': srcs, 'deps': deps}",
         "def impl(ctx): ",
@@ -3497,7 +3540,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void initializer_failsWithExistingRules() throws Exception {
     scratch.file(
         "initializer_testing/b.bzl",
-        "def initializer(srcs = [], deps = []):",
+        "def initializer(name, srcs = [], deps = []):",
         "  native.existing_rules()",
         "  return {'srcs': srcs, 'deps': deps}",
         "def impl(ctx): ",
@@ -3524,7 +3567,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void initializer_withFails() throws Exception {
     scratch.file(
         "initializer_testing/b.bzl",
-        "def initializer(srcs = [], deps = []):",
+        "def initializer(name, srcs = [], deps = []):",
         "  fail('Fail called in initializer')",
         "  return {'srcs': srcs, 'deps': deps}",
         "def impl(ctx): ",
@@ -3653,7 +3696,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "extend_rule_testing/parent/parent.bzl",
         "ParentInfo = provider()",
-        "def _parent_initializer(srcs, deps):", // only parents attributes
+        "def _parent_initializer(name, srcs, deps):", // only parents attributes
         "  return {'deps': deps + ['//extend_rule_testing:parent_dep']}",
         "def _impl(ctx):",
         "  return [ParentInfo()]",
@@ -3670,7 +3713,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "extend_rule_testing/child.bzl",
         "load('//extend_rule_testing/parent:parent.bzl', 'parent_library')",
         "ChildInfo = provider()",
-        "def _child_initializer(srcs, deps, runtime_deps = []):",
+        "def _child_initializer(name, srcs, deps, runtime_deps = []):",
         "  return {'deps': deps + [':child_dep'], 'runtime_deps': runtime_deps + [':runtime_dep']}",
         "def _impl(ctx):",
         "  return ctx.super() + [ChildInfo(",
