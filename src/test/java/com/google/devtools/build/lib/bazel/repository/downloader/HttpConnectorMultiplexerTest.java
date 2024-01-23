@@ -165,7 +165,7 @@ public class HttpConnectorMultiplexerTest {
 
     Function<URL, ImmutableMap<String, List<String>>> headerFunction =
         HttpConnectorMultiplexer.getHeaderFunction(
-            baseHeaders, new StaticCredentials(additionalHeaders));
+            baseHeaders, new StaticCredentials(additionalHeaders), eventHandler);
 
     // Unrelated URL
     assertThat(headerFunction.apply(new URL("http://example.org/some/path/file.txt")))
@@ -218,7 +218,7 @@ public class HttpConnectorMultiplexerTest {
         ImmutableMap.of("Authentication", ImmutableList.of("YW5vbnltb3VzOmZvb0BleGFtcGxlLm9yZw=="));
     Function<URL, ImmutableMap<String, List<String>>> combinedHeaders =
         HttpConnectorMultiplexer.getHeaderFunction(
-            annonAuth, new StaticCredentials(additionalHeaders));
+            annonAuth, new StaticCredentials(additionalHeaders), eventHandler);
     assertThat(combinedHeaders.apply(new URL("http://hosting.example.com/user/foo/file.txt")))
         .containsExactly("Authentication", ImmutableList.of("Zm9vOmZvb3NlY3JldA=="));
     assertThat(combinedHeaders.apply(new URL("http://unreleated.example.org/user/foo/file.txt")))
