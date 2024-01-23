@@ -1,3 +1,43 @@
+## Release 7.0.1 (2024-01-18)
+
+```
+Baseline:  d798ebde6c6394203a87b5f1a6b62ecfc3880991
+
+Release Notes:
+
++ Consider MODULE.bazel for workspace detection in bazel.sh (#20594)
++ Auto-create deploy jars for Bazel `java_test` targets if requested (#20602)
++ `java_binary` wrapper should forward `restricted_to` (#20611)
++ Mount user-specified bind mounts before Bazel's own magic. (#20609)
++ Fix bootstrapped Bazel binary (#20612)
++ Attempt to make main repo mapping inverse more efficient (#20625)
++ Cherry-pick all presubmit.yml changes (#20733)
++ Print interactive sandboxed shell command with `--sandbox_debug` (#20734)
++ Fix two issues with --incompatible_sandbox_hermetic_tmp that manifested themselves when the output base was under /tmp (#20718)
++ Let module extensions track calls to `Label()` (#20750)
++ Add support for bind mounts under `/tmp` with hermetic tmp (#20749)
++ Fixes for Bazel's own integration tests fail locally on Linux  (#20821)
++ Fix NPE in BzlmodRepoRuleFunction (#20828)
++ Avoid emitting canonical labels into generated repos (#20840)
++ Let .bzl files record their usages of repo mapping (#20848)
++ Force output checking for incremental run commands without the bytes. (#20881)
++ Retry binding to ipv6 localhost (#20903)
++ Fix linker feature detection being performed on wrong linker (#20901)
++ Fix singlejar resource mapping for external repositories (#20904)
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as bazel.build machine account, David Ostrovsky, Fabian Meumertzheim, hvd, Siddhartha Bagaria, Tianyu Geng, Xdng Yng, Xùdōng Yáng.
+```
+
+## Release 8.0.0-pre.20240101.1 (2024-01-17)
+
+```
+Baseline: 40271d7642fb6b76d68289d73b73a1eb4acb80bd
+```
+
+Initial release.
+
 ## Release 7.0.0 (2023-12-11)
 
 ```

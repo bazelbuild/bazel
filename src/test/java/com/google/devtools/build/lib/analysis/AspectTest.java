@@ -56,7 +56,9 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
@@ -961,7 +963,7 @@ public class AspectTest extends AnalysisTestCase {
 
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
-    assertThat(configuredAspect.getProvider(ExtraAttributeAspect.Provider.class)).isNull();
+    assertThat(configuredAspect.get(ExtraAttributeAspect.PROVIDER.getKey())).isNull();
   }
 
   @Test
@@ -978,9 +980,9 @@ public class AspectTest extends AnalysisTestCase {
 
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
-    ExtraAttributeAspect.Provider provider =
-        configuredAspect.getProvider(ExtraAttributeAspect.Provider.class);
-    assertThat(provider.label()).isEqualTo("//extra:extra");
+    StarlarkInfo provider =
+        (StarlarkInfo) configuredAspect.get(ExtraAttributeAspect.PROVIDER.getKey());
+    assertThat(provider.getValue("label")).isEqualTo("//extra:extra");
   }
 
   @Test
@@ -995,7 +997,7 @@ public class AspectTest extends AnalysisTestCase {
 
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
-    assertThat(configuredAspect.getProvider(ExtraAttributeAspect.Provider.class)).isNull();
+    assertThat(configuredAspect.get(ExtraAttributeAspect.PROVIDER.getKey())).isNull();
   }
 
   @Test
@@ -1019,10 +1021,11 @@ public class AspectTest extends AnalysisTestCase {
             "//a");
 
     assertThat(analysisResult.getAspectsMap()).hasSize(2);
-    ExtraAttributeAspect.Provider provider =
-        getAspectByName(analysisResult.getAspectsMap(), aspectApplies.getName())
-            .getProvider(ExtraAttributeAspect.Provider.class);
-    assertThat(provider.label()).isEqualTo("//extra:extra");
+    StarlarkInfo provider =
+        (StarlarkInfo)
+            getAspectByName(analysisResult.getAspectsMap(), aspectApplies.getName())
+                .get(ExtraAttributeAspect.PROVIDER.getKey());
+    assertThat(provider.getValue("label")).isEqualTo("//extra:extra");
     assertThat(
             getAspectByName(analysisResult.getAspectsMap(), aspectDoesNotApply.getName())
                 .getProviders()
@@ -1035,7 +1038,9 @@ public class AspectTest extends AnalysisTestCase {
       throws Exception {
     ExtraAttributeAspect aspectApplies =
         new ExtraAttributeAspect(
-            "//extra", /*applyToFiles=*/ true, ExtraAttributeAspect.Provider.class);
+            "//extra",
+            /* applyToFiles= */ true,
+            StarlarkProviderIdentifier.forKey(ExtraAttributeAspect.PROVIDER.getKey()));
     ExtraAttributeAspect aspectDoesNotApply =
         new ExtraAttributeAspect("//extra:extra2", /*applyToFiles=*/ false);
     setRulesAndAspectsAvailableInTests(
@@ -1053,10 +1058,11 @@ public class AspectTest extends AnalysisTestCase {
             "//a");
 
     assertThat(analysisResult.getAspectsMap()).hasSize(2);
-    ExtraAttributeAspect.Provider provider =
-        getAspectByName(analysisResult.getAspectsMap(), aspectApplies.getName())
-            .getProvider(ExtraAttributeAspect.Provider.class);
-    assertThat(provider.label()).isEqualTo("//extra:extra");
+    StarlarkInfo provider =
+        (StarlarkInfo)
+            getAspectByName(analysisResult.getAspectsMap(), aspectApplies.getName())
+                .get(ExtraAttributeAspect.PROVIDER.getKey());
+    assertThat(provider.getValue("label")).isEqualTo("//extra:extra");
     assertThat(
             getAspectByName(analysisResult.getAspectsMap(), aspectDoesNotApply.getName())
                 .getProviders()
@@ -1394,7 +1400,6 @@ public class AspectTest extends AnalysisTestCase {
   public void ruleDepsVisibilityNotAffectNativeAspect() throws Exception {
     setRulesAndAspectsAvailableInTests(
         ImmutableList.of(TestAspects.ALL_ATTRIBUTES_ASPECT), ImmutableList.of());
-    useConfiguration("--incompatible_visibility_private_attributes_at_definition");
     scratch.file("defs/BUILD");
     scratch.file(
         "defs/build_defs.bzl",

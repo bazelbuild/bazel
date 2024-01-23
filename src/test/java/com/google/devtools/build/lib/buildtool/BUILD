@@ -432,6 +432,18 @@ java_test(
 )
 
 java_test(
+    name = "PathPrettyPrinterTest",
+    srcs = ["PathPrettyPrinterTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "ProgressReportingTest",
     srcs = ["ProgressReportingTest.java"],
     tags = [

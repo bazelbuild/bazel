@@ -916,6 +916,9 @@ public class CcToolchainFeatures implements StarlarkValue {
     private final ImmutableSet<String> executionRequirements;
     private final ImmutableSet<WithFeatureSet> withFeatureSetSets;
 
+    // Caching tool path string.
+    @Nullable private String toolPathString = null;
+
     private Tool(CToolchain.Tool tool, ImmutableSet<WithFeatureSet> withFeatureSetSets)
         throws EvalException {
       this(
@@ -986,7 +989,10 @@ public class CcToolchainFeatures implements StarlarkValue {
       switch (toolPathOrigin) {
         case CROSSTOOL_PACKAGE:
           // Legacy behavior.
-          return ccToolchainPath.getRelative(toolPathFragment).getSafePathString();
+          if (toolPathString == null) {
+            toolPathString = ccToolchainPath.getRelative(toolPathFragment).getSafePathString();
+          }
+          return toolPathString;
 
         case FILESYSTEM_ROOT: // fallthrough.
         case WORKSPACE_ROOT:

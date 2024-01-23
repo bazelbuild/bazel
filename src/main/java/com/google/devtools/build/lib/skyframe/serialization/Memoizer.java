@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.Memoizat
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
 import java.io.IOException;
 import java.util.ArrayDeque;
@@ -149,12 +150,8 @@ class Memoizer {
         CodedOutputStream codedOut,
         MemoizationStrategy strategy)
         throws SerializationException, IOException {
-      if (strategy == MemoizationStrategy.DO_NOT_MEMOIZE) {
-        codec.serialize(context, obj, codedOut);
-      } else {
-        // The caller already checked the table, so this is definitely a new value.
-        serializeMemoContent(context, obj, codec, codedOut, strategy);
-      }
+      // The caller already checked the table, so this is definitely a new value.
+      serializeMemoContent(context, obj, codec, codedOut, strategy);
     }
 
     int getMemoizedIndex(Object obj) {
@@ -188,16 +185,18 @@ class Memoizer {
             codedOut.writeInt32NoTag(id);
             break;
           }
-        default:
-          throw new AssertionError("Unreachable (strategy=" + strategy + ")");
       }
     }
 
     private static class SerializingMemoTable {
       private final Reference2IntOpenHashMap<Object> table = new Reference2IntOpenHashMap<>();
 
+      /** Table for types memoized using values equality, currently only {@link String}. */
+      private final Object2IntOpenHashMap<Object> valuesTable = new Object2IntOpenHashMap<>();
+
       SerializingMemoTable() {
         table.defaultReturnValue(-1);
+        valuesTable.defaultReturnValue(-1);
       }
 
       /**
@@ -206,10 +205,14 @@ class Memoizer {
        */
       private int memoize(Object value) {
         Preconditions.checkArgument(
-            !table.containsKey(value), "Tried to memoize object '%s' multiple times", value);
+            lookup(value) == -1, "Tried to memoize object '%s' multiple times", value);
         // Ids count sequentially from 0.
-        int newId = table.size();
-        table.put(value, newId);
+        int newId = table.size() + valuesTable.size();
+        if (value instanceof String) {
+          valuesTable.put(value, newId);
+        } else {
+          table.put(value, newId);
+        }
         return newId;
       }
 
@@ -217,6 +220,9 @@ class Memoizer {
        * If the value is already memoized, return its on-the-wire id; otherwise returns {@code -1}.
        */
       private int lookup(Object value) {
+        if (value instanceof String) {
+          return valuesTable.getInt(value);
+        }
         return table.getInt(value);
       }
     }
@@ -247,18 +253,13 @@ class Memoizer {
           "non-null memoized-before tag %s (%s)",
           tagForMemoizedBefore,
           codec);
-      if (strategy == MemoizationStrategy.DO_NOT_MEMOIZE) {
-        return codec.deserialize(context, codedIn);
-      } else {
-          switch (strategy) {
-            case MEMOIZE_BEFORE:
-              return deserializeMemoBeforeContent(context, codec, codedIn);
-            case MEMOIZE_AFTER:
-              return deserializeMemoAfterContent(context, codec, codedIn);
-            default:
-              throw new AssertionError("Unreachable (strategy=" + strategy + ")");
-          }
-        }
+      switch (strategy) {
+        case MEMOIZE_BEFORE:
+          return deserializeMemoBeforeContent(context, codec, codedIn);
+        case MEMOIZE_AFTER:
+          return deserializeMemoAfterContent(context, codec, codedIn);
+      }
+      throw new AssertionError("Unreachable (strategy=" + strategy + ")");
     }
 
     Object getMemoized(int memoIndex) {

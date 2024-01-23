@@ -882,6 +882,8 @@ cc_common = struct(
     link = _link,
     create_compilation_outputs = _create_compilation_outputs,
     merge_compilation_outputs = _merge_compilation_outputs,
+    # Ideally we would like to get rid of this Java symbol and replace it with Starlark one.
+    # And also deprecate this public API.
     CcToolchainInfo = cc_common_internal.CcToolchainInfo,
     do_not_use_tools_cpp_compiler_present = cc_common_internal.do_not_use_tools_cpp_compiler_present,
     configure_features = _configure_features,

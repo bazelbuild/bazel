@@ -552,9 +552,9 @@ def _create_shared_native_deps_dso(
     if not linkstamps:
         build_info_artifacts = []
     elif cc_helper.is_stamping_enabled(ctx):
-        build_info_artifacts = cc_toolchain.build_info_files().non_redacted_build_info_files.to_list()
+        build_info_artifacts = cc_toolchain._build_info_files.non_redacted_build_info_files.to_list()
     else:
-        build_info_artifacts = cc_toolchain.build_info_files().redacted_build_info_files.to_list()
+        build_info_artifacts = cc_toolchain._build_info_files.redacted_build_info_files.to_list()
     dso_hash = _get_shared_native_deps_hash(
         linker_inputs = cc_helper.get_static_mode_params_for_dynamic_library_libraries(
             depset([

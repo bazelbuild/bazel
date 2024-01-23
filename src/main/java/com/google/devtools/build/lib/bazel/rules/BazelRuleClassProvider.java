@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSemantics;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidToolsDefaultsJarRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelDexArchiveAspect;
 import com.google.devtools.build.lib.bazel.rules.android.BazelSdkToolchainRule;
-import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaProtoLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBuiltins;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses;
@@ -331,7 +330,7 @@ public class BazelRuleClassProvider {
       new RuleSet() {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
-          builder.addRuleDefinition(new BazelJavaProtoLibraryRule());
+          builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("java_proto_library") {});
           builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("java_lite_proto_library") {});
         }
 

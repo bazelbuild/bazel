@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.BuildTool;
-import com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils;
 import com.google.devtools.build.lib.buildtool.PathPrettyPrinter;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecRequestEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.RunBuildCompleteEvent;
@@ -504,6 +503,7 @@ public class RunCommand implements BlazeCommand {
         targetToRunRunfilesSupport,
         runUnderTarget,
         configuration,
+        result.getConvenienceSymlinks(),
         result.getStopTime());
   }
 
@@ -659,6 +659,7 @@ public class RunCommand implements BlazeCommand {
             redactedCmdLine,
             env,
             builtTargets.configuration,
+            builtTargets.convenienceSymlinks,
             builtTargets.targetToRun,
             builtTargets.runUnderTarget,
             argsFromBinary,
@@ -693,6 +694,7 @@ public class RunCommand implements BlazeCommand {
       List<String> redactedCmdLine,
       CommandEnvironment env,
       BuildConfigurationValue configuration,
+      ImmutableMap<PathFragment, PathFragment> convenienceSymlinks,
       ConfiguredTarget targetToRun,
       ConfiguredTarget runUnderTarget,
       ImmutableList<String> argsFromBinary,
@@ -707,11 +709,7 @@ public class RunCommand implements BlazeCommand {
 
     PathFragment executablePath = executable.getPath().asFragment();
     PathPrettyPrinter prettyPrinter =
-        OutputDirectoryLinksUtils.getPathPrettyPrinter(
-            runtime.getRuleClassProvider().getSymlinkDefinitions(),
-            requestOptions.getSymlinkPrefix(productName),
-            productName,
-            env.getWorkspace());
+        new PathPrettyPrinter(requestOptions.getSymlinkPrefix(productName), convenienceSymlinks);
     PathFragment prettyExecutablePath =
         prettyPrinter.getPrettyPath(executable.getPath().asFragment());
 
@@ -887,6 +885,7 @@ public class RunCommand implements BlazeCommand {
     private final RunfilesSupport targetToRunRunfilesSupport;
     @Nullable private final ConfiguredTarget runUnderTarget;
     private final BuildConfigurationValue configuration;
+    private final ImmutableMap<PathFragment, PathFragment> convenienceSymlinks;
     private final long stopTime;
 
     private BuiltTargets(
@@ -895,12 +894,14 @@ public class RunCommand implements BlazeCommand {
         RunfilesSupport targetToRunRunfilesSupport,
         @Nullable ConfiguredTarget runUnderTarget,
         BuildConfigurationValue configuration,
+        ImmutableMap<PathFragment, PathFragment> convenienceSymlinks,
         long stopTime) {
       this.targetToRun = targetToRun;
       this.runUnderTarget = runUnderTarget;
       this.targetToRunRunfilesDir = targetToRunRunfilesDir;
       this.targetToRunRunfilesSupport = targetToRunRunfilesSupport;
       this.configuration = configuration;
+      this.convenienceSymlinks = convenienceSymlinks;
       this.stopTime = stopTime;
     }
   }
@@ -936,7 +937,7 @@ public class RunCommand implements BlazeCommand {
       BuildConfigurationValue configuration,
       RunfilesTreeUpdater runfilesTreeUpdater)
       throws RunfilesException, InterruptedException {
-    PathFragment runfilesDir = runfilesSupport.getRunfilesTree().getExecPath();
+    PathFragment runfilesDir = runfilesSupport.getRunfilesTree().getPossiblyIncorrectExecPath();
     Path workingDir = env.getExecRoot().getRelative(runfilesDir);
     // On Windows, runfiles tree is disabled.
     // Workspace name directory doesn't exist, so don't add it.

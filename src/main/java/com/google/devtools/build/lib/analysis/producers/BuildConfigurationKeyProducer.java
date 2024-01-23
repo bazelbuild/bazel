@@ -35,7 +35,6 @@ import javax.annotation.Nullable;
  *
  * <p>The output preserves the iteration order of the input.
  */
-// Logic here must be kept in sync with SkyframeExecutor.createBuildConfigurationKey.
 public class BuildConfigurationKeyProducer
     implements StateMachine, ValueOrExceptionSink<PlatformMappingException> {
 

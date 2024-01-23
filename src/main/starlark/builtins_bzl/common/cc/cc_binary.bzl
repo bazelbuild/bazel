@@ -47,7 +47,7 @@ def _strip_extension(file):
 def _new_dwp_action(ctx, cc_toolchain, dwp_tools):
     return {
         "tools": dwp_tools,
-        "executable": cc_toolchain.tool_paths().get("dwp", None),
+        "executable": cc_toolchain._tool_paths.get("dwp", None),
         "arguments": ctx.actions.args(),
         "inputs": [],
         "outputs": [],
@@ -143,7 +143,7 @@ def _create_debug_packager_actions(ctx, cc_toolchain, dwp_output, dwo_files):
     # The actions form an n-ary tree with n == MAX_INPUTS_PER_DWP_ACTION. The tree is fuller
     # at the leaves than the root, but that both increases parallelism and reduces the final
     # action's input size.
-    packager = _create_intermediate_dwp_packagers(ctx, dwp_output, cc_toolchain, cc_toolchain.dwp_files(), dwo_files_list, 1)
+    packager = _create_intermediate_dwp_packagers(ctx, dwp_output, cc_toolchain, cc_toolchain._dwp_files, dwo_files_list, 1)
     packager["outputs"].append(dwp_output)
     packager["arguments"].add("-o", dwp_output)
     ctx.actions.run(
@@ -343,7 +343,6 @@ def _filter_libraries_that_are_linked_dynamically(ctx, feature_configuration, cc
     merged_cc_shared_library_infos = merge_cc_shared_library_infos(ctx)
     link_once_static_libs_map = build_link_once_static_libs_map(merged_cc_shared_library_infos)
     transitive_exports = build_exports_map_from_only_dynamic_deps(merged_cc_shared_library_infos)
-    static_linker_inputs = []
     linker_inputs = cc_linking_context.linker_inputs.to_list()
 
     all_deps = ctx.attr._deps_analyzed_by_graph_structure_aspect
@@ -415,12 +414,10 @@ def _create_transitive_linking_actions(
         ctx,
         cc_toolchain,
         feature_configuration,
-        cpp_config,
         precompiled_files,
         cc_compilation_outputs,
         additional_linker_inputs,
         cc_linking_outputs,
-        compilation_context,
         binary,
         deps_cc_linking_context,
         extra_link_time_libraries_depset,
@@ -572,7 +569,6 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
       Appropriate providers for cc_binary/cc_test.
     """
     cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_binary", True)
-    common = cc_internal.create_common(ctx = ctx)
     semantics.validate_deps(ctx)
 
     if len(ctx.attr.dynamic_deps) > 0:
@@ -728,12 +724,10 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
         ctx,
         cc_toolchain,
         feature_configuration,
-        cpp_config,
         precompiled_files,
         cc_compilation_outputs,
         additional_linker_inputs,
         cc_linking_outputs,
-        compilation_context,
         binary,
         deps_cc_linking_context,
         linker_inputs_extra,

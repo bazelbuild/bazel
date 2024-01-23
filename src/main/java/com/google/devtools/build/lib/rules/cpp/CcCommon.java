@@ -220,7 +220,7 @@ public final class CcCommon implements StarlarkValue {
 
       try {
         return CcCommon.computeCcFlags(ruleContext, toolchain);
-      } catch (RuleErrorException e) {
+      } catch (RuleErrorException | EvalException e) {
         throw new ExpansionException(e.getMessage());
       }
     }
@@ -404,9 +404,9 @@ public final class CcCommon implements StarlarkValue {
       Language language,
       CcToolchainProvider toolchain,
       CppSemantics cppSemantics) {
-    cppSemantics.validateLayeringCheckFeatures(
-        ruleContext, /* aspectDescriptor= */ null, toolchain, ImmutableSet.of());
     try {
+      cppSemantics.validateLayeringCheckFeatures(
+          ruleContext, /* aspectDescriptor= */ null, toolchain, ImmutableSet.of());
       return configureFeaturesOrThrowEvalException(
           requestedFeatures,
           unsupportedFeatures,
@@ -594,7 +594,7 @@ public final class CcCommon implements StarlarkValue {
    * toolchain.
    */
   public static String computeCcFlags(RuleContext ruleContext, TransitiveInfoCollection toolchain)
-      throws RuleErrorException, InterruptedException {
+      throws RuleErrorException, InterruptedException, EvalException {
     CcToolchainProvider toolchainProvider = toolchain.get(CcToolchainProvider.PROVIDER);
 
     // Determine the original value of CC_FLAGS.

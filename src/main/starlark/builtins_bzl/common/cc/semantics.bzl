@@ -14,6 +14,11 @@
 
 """Semantics for Bazel cc rules"""
 
+# Point virtual includes symlinks to the source root for better IDE integration.
+# See https://github.com/bazelbuild/bazel/pull/20540.
+# TODO: b/320980684 - Add a test that fails if this is flipped to True.
+USE_EXEC_ROOT_FOR_VIRTUAL_INCLUDES_SYMLINKS = False
+
 def _get_proto_aspects():
     return []
 

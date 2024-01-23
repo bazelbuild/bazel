@@ -20,14 +20,18 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -135,6 +139,8 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
 
   private TrieArtifact treeArtifactsRoot = new TrieArtifact();
 
+  private List<RunfilesTree> runfilesTrees = new ArrayList<>();
+
   @Deprecated
   @VisibleForTesting
   public ActionInputMap(int sizeHint) {
@@ -175,6 +181,11 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
   @Nullable
   @Override
   public FileArtifactValue getInputMetadata(ActionInput input) {
+    if (isARunfilesMiddleman(input)) {
+      RunfilesArtifactValue runfilesMetadata = getRunfilesMetadata(input);
+      return runfilesMetadata == null ? null : runfilesMetadata.getMetadata();
+    }
+
     if (input instanceof TreeFileArtifact) {
       TreeFileArtifact treeFileArtifact = (TreeFileArtifact) input;
       int treeIndex = getIndex(treeFileArtifact.getParent().getExecPathString());
@@ -214,11 +225,29 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
     return result;
   }
 
+  @Nullable
+  @Override
+  public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
+    Preconditions.checkArgument(isARunfilesMiddleman(input));
+
+    int index = getIndex(input.getExecPathString());
+    if (index == -1) {
+      return null;
+    }
+
+    return (RunfilesArtifactValue) values[index];
+  }
+
+  @Override
+  public ImmutableList<RunfilesTree> getRunfilesTrees() {
+    return ImmutableList.copyOf(runfilesTrees);
+  }
+
   /**
    * Returns metadata for given path.
    *
-   * <p>This method is less efficient than {@link #getMetadata(ActionInput)}, please use it instead
-   * of this one when looking up {@linkplain ActionInput action inputs}.
+   * <p>This method is less efficient than {@link #getInputMetadata(ActionInput)}, please use that
+   * method instead of this one when looking up {@linkplain ActionInput action inputs}.
    */
   @Nullable
   public FileArtifactValue getMetadata(PathFragment execPath) {
@@ -305,8 +334,19 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
   }
 
   @Override
-  public boolean put(ActionInput input, FileArtifactValue metadata, @Nullable Artifact depOwner) {
-    return putWithNoDepOwner(input, metadata);
+  public void put(ActionInput input, FileArtifactValue metadata, @Nullable Artifact depOwner) {
+    putWithNoDepOwner(input, metadata);
+  }
+
+  @Override
+  public void putRunfilesMetadata(
+      Artifact input, RunfilesArtifactValue metadata, @Nullable Artifact depOwner) {
+    checkArgument(isARunfilesMiddleman(input));
+
+    int oldIndex = putIfAbsent(input, metadata);
+    Preconditions.checkState(oldIndex == -1);
+
+    runfilesTrees.add(metadata.getRunfilesTree());
   }
 
   @Override
@@ -331,17 +371,18 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
             : treeArtifactsRoot.add(tree.getExecPath(), treeArtifactValue);
   }
 
-  public boolean putWithNoDepOwner(ActionInput input, FileArtifactValue metadata) {
+  public void putWithNoDepOwner(ActionInput input, FileArtifactValue metadata) {
     checkArgument(
         !isATreeArtifact(input),
         "Can't add tree artifact: %s using put -- please use putTreeArtifact for that",
         input);
+    checkArgument(!isARunfilesMiddleman(input));
+
     int oldIndex = putIfAbsent(input, metadata);
     checkArgument(
         oldIndex == -1 || !isATreeArtifact((ActionInput) keys[oldIndex]),
         "Tried to overwrite tree artifact with a file: '%s' with the same exec path",
         input);
-    return oldIndex == -1;
   }
 
   private int putIfAbsent(ActionInput input, Object metadata) {
@@ -382,6 +423,7 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
     Arrays.fill(values, null);
     size = 0;
     treeArtifactsRoot = new TrieArtifact();
+    runfilesTrees = new ArrayList<>();
   }
 
   private void resize() {
@@ -418,5 +460,9 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
 
   private static boolean isATreeArtifact(ActionInput input) {
     return input instanceof SpecialArtifact && ((SpecialArtifact) input).isTreeArtifact();
+  }
+
+  private static boolean isARunfilesMiddleman(ActionInput input) {
+    return input instanceof Artifact && ((Artifact) input).isMiddlemanArtifact();
   }
 }

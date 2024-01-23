@@ -84,7 +84,8 @@ public final class PrecomputedValue implements SkyValue {
   public static final Precomputed<StarlarkSemantics> STARLARK_SEMANTICS =
       new Precomputed<>("starlark_semantics");
 
-  static final Precomputed<UUID> BUILD_ID = new Precomputed<>("build_id", /*shareable=*/ false);
+  public static final Precomputed<UUID> BUILD_ID =
+      new Precomputed<>("build_id", /* shareable= */ false);
 
   public static final Precomputed<Map<String, String>> ACTION_ENV = new Precomputed<>("action_env");
 
@@ -149,8 +150,7 @@ public final class PrecomputedValue implements SkyValue {
       this.key = shareable ? Key.create(key) : UnshareableKey.create(key);
     }
 
-    @VisibleForTesting
-    public SkyKey getKeyForTesting() {
+    public SkyKey getKey() {
       return key;
     }
 

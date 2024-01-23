@@ -511,4 +511,63 @@ EOF
     || fail "MANIFEST file not recreated"
 }
 
+function test_rebuilt_when_mapping_changes {
+  if "$is_windows"; then
+    # Can't do 'ln -s' on Windows
+    return
+  fi
+
+  mkdir -p a
+  cat > a/a.bzl <<'EOF'
+def _a_impl(ctx):
+    ex = ctx.actions.declare_file("a.sh")
+    r = ctx.runfiles(
+        files = [ex],
+        symlinks = {ctx.attr.link: ctx.file.target},
+    )
+    ctx.actions.write(ex, "#!/bin/bash", True)
+    return DefaultInfo(
+        files = depset([ex]),
+        default_runfiles = r,
+        executable = ex,
+    )
+
+a = rule(
+    implementation = _a_impl,
+    executable = True,
+    attrs = {
+        "link": attr.string(),
+        "target": attr.label(allow_single_file = True),
+    },
+)
+EOF
+
+  cat >a/BUILD <<'EOF'
+load(":a.bzl", "a")
+a(
+  name = "a",
+  link = "link_one",
+  target = ":f",
+)
+
+genrule(
+  name = "g",
+  srcs = [],
+  outs = ["go"],
+  output_to_bindir = 1,
+  tools = [":a"],
+  cmd = "echo $(location :a).runfiles/*/link_* > $@",
+)
+EOF
+
+  touch a/f
+
+  bazel build //a:g || fail "first build failed"
+  assert_contains '/link_one$' *-bin/a/go
+
+  inplace-sed 's/link_one/link_two/' a/BUILD
+  bazel build //a:g || fail "first build failed"
+  assert_contains '/link_two$' *-bin/a/go
+}
+
 run_suite "runfiles"

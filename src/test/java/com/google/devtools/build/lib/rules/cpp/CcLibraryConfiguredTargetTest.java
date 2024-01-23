@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -2116,8 +2115,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
     ConfiguredTarget main = getConfiguredTarget("//:main");
     Artifact mainBin = getBinArtifact("main", main);
-    SpawnAction action = (SpawnAction) getGeneratingAction(mainBin);
-    assertThat(Joiner.on(" ").join(action.getArguments())).doesNotContain("-Xlinker -rpath");
+    CppLinkAction action = (CppLinkAction) getGeneratingAction(mainBin);
+    assertThat(Joiner.on(" ").join(action.getLinkCommandLineForTesting().arguments()))
+        .doesNotContain("-Xlinker -rpath");
   }
 
   @Test
@@ -2148,8 +2148,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
     ConfiguredTarget main = getConfiguredTarget("//no-transition:main");
     Artifact mainBin = getBinArtifact("main", main);
-    SpawnAction action = (SpawnAction) getGeneratingAction(mainBin);
-    List<String> linkArgv = action.getArguments();
+    CppLinkAction action = (CppLinkAction) getGeneratingAction(mainBin);
+    List<String> linkArgv = action.getLinkCommandLineForTesting().arguments();
     assertThat(linkArgv)
         .containsAtLeast("-Xlinker", "-rpath", "-Xlinker", "$ORIGIN/../_solib_k8/")
         .inOrder();
@@ -2219,8 +2219,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
     ConfiguredTarget main = getConfiguredTarget("//transition:main");
     Artifact mainBin = getBinArtifact("main", main);
-    SpawnAction action = (SpawnAction) getGeneratingAction(mainBin);
-    List<String> linkArgv = action.getArguments();
+    CppLinkAction action = (CppLinkAction) getGeneratingAction(mainBin);
+    List<String> linkArgv = action.getLinkCommandLineForTesting().arguments();
     assertThat(linkArgv)
         .containsAtLeast("-Xlinker", "-rpath", "-Xlinker", "$ORIGIN/../_solib_k8/")
         .inOrder();
@@ -2280,7 +2280,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             .get(0)
             .getDynamicLibrary();
     CppLinkAction action = (CppLinkAction) getGeneratingAction(sharedObject);
-    assertThat(action.getLinkstampObjects()).isEmpty();
+    assertThat(artifactsToStrings(action.getInputs()))
+        .doesNotContain("bin hello/_objs/bin/hello/linkstamp.o");
   }
 
   @Test

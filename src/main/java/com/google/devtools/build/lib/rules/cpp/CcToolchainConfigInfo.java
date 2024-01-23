@@ -195,8 +195,20 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     return cxxBuiltinIncludeDirectories;
   }
 
+  @StarlarkMethod(name = "toolchain_id", documented = false, useStarlarkThread = true)
+  public String getToolchainIdentifierForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getToolchainIdentifier();
+  }
+
   public String getToolchainIdentifier() {
     return toolchainIdentifier;
+  }
+
+  @StarlarkMethod(name = "target_system_name", documented = false, useStarlarkThread = true)
+  public String getTargetSystemNameForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getTargetSystemName();
   }
 
   public String getTargetSystemName() {
@@ -213,16 +225,40 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     return targetCpu;
   }
 
+  @StarlarkMethod(name = "target_libc", documented = false, useStarlarkThread = true)
+  public String getTargetLibcForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getTargetLibc();
+  }
+
   public String getTargetLibc() {
     return targetLibc;
+  }
+
+  @StarlarkMethod(name = "compiler", documented = false, useStarlarkThread = true)
+  public String getCompilerForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getCompiler();
   }
 
   public String getCompiler() {
     return compiler;
   }
 
+  @StarlarkMethod(name = "abi_version", documented = false, useStarlarkThread = true)
+  public String getAbiVersionForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getAbiVersion();
+  }
+
   public String getAbiVersion() {
     return abiVersion;
+  }
+
+  @StarlarkMethod(name = "abi_libc_version", documented = false, useStarlarkThread = true)
+  public String getAbiLibcVersionForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getAbiLibcVersion();
   }
 
   public String getAbiLibcVersion() {
@@ -264,6 +300,12 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
 
   public String getBuiltinSysroot() {
     return builtinSysroot;
+  }
+
+  @StarlarkMethod(name = "target_os", documented = false, useStarlarkThread = true)
+  public String getCcTargetOsForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getCcTargetOs();
   }
 
   public String getCcTargetOs() {

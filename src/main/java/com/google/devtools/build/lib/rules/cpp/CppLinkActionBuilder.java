@@ -127,6 +127,12 @@ public class CppLinkActionBuilder {
   // to set up the RPATH properly with respect to the symlink itself and not the original library.
   private Artifact dynamicLibrarySolibSymlinkOutput;
 
+  // Set after build() is called
+  @Nullable private LinkerInputs.LibraryToLink outputLibrary;
+
+  // Set after build() is called
+  @Nullable private LinkerInputs.LibraryToLink interfaceOutputLibrary;
+
   /**
    * Creates a builder that builds {@link CppLinkAction}s.
    *
@@ -149,7 +155,8 @@ public class CppLinkActionBuilder {
       CcToolchainProvider toolchain,
       FdoContext fdoContext,
       FeatureConfiguration featureConfiguration,
-      CppSemantics cppSemantics) {
+      CppSemantics cppSemantics)
+      throws EvalException {
     this.output = Preconditions.checkNotNull(output);
     this.configuration = Preconditions.checkNotNull(configuration);
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
@@ -493,7 +500,7 @@ public class CppLinkActionBuilder {
   }
 
   @VisibleForTesting
-  boolean canSplitCommandLine() {
+  boolean canSplitCommandLine() throws EvalException {
     if (toolchain == null || !toolchain.supportsParamFiles()) {
       return false;
     }
@@ -523,7 +530,7 @@ public class CppLinkActionBuilder {
 
   /** Builds the Action as configured and returns it. */
   @Nullable
-  public CppLinkAction build() throws InterruptedException, RuleErrorException {
+  public CppLinkAction build() throws InterruptedException, RuleErrorException, EvalException {
     NestedSet<LinkerInputs.LibraryToLink> originalUniqueLibraries = libraries.build();
 
     // Executable links do not have library identifiers.
@@ -657,7 +664,7 @@ public class CppLinkActionBuilder {
             .addAll(objectArtifacts.toList())
             .addAll(linkstampObjectArtifacts.toList())
             .build();
-    final LinkerInputs.LibraryToLink outputLibrary =
+    outputLibrary =
         linkType.isExecutable()
             ? null
             : LinkerInputs.newInputLibrary(
@@ -672,7 +679,7 @@ public class CppLinkActionBuilder {
                     : LtoCompilationContext.EMPTY,
                 createSharedNonLtoArtifacts(isLtoIndexing),
                 /* mustKeepDebug= */ false);
-    final LinkerInputs.LibraryToLink interfaceOutputLibrary =
+    interfaceOutputLibrary =
         (interfaceOutput == null)
             ? null
             : LinkerInputs.newInputLibrary(
@@ -986,14 +993,25 @@ public class CppLinkActionBuilder {
         mnemonic,
         inputsBuilder.build(),
         actionOutputs,
-        outputLibrary,
-        interfaceOutputLibrary,
         isLtoIndexing,
-        linkstampMap,
         linkCommandLine,
         configuration.getActionEnvironment(),
         toolchainEnv,
         ImmutableMap.copyOf(executionInfo));
+  }
+
+  /**
+   * Returns the output of this action as a {@link LinkerInputs.LibraryToLink} or null if it is an
+   * executable.
+   */
+  @Nullable
+  LinkerInputs.LibraryToLink getOutputLibrary() {
+    return outputLibrary;
+  }
+
+  @Nullable
+  LinkerInputs.LibraryToLink getInterfaceOutputLibrary() {
+    return interfaceOutputLibrary;
   }
 
   /** We're doing 4-phased lto build, and this is the final link action (4-th phase). */
@@ -1015,7 +1033,7 @@ public class CppLinkActionBuilder {
 
   private boolean shouldUseLinkDynamicLibraryTool() {
     return linkType.isDynamicLibrary()
-        && toolchain.supportsInterfaceSharedLibraries(featureConfiguration)
+        && CcToolchainProvider.supportsInterfaceSharedLibraries(featureConfiguration)
         && !featureConfiguration.hasConfiguredLinkerPathInActionConfig();
   }
 

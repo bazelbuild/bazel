@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -186,11 +187,15 @@ public class CompactSpawnLogContext implements SpawnLogContext {
 
     ImmutableList.Builder<Integer> additionalDirectoryIds = ImmutableList.builder();
 
-    for (RunfilesTree tree : spawn.getRunfilesSupplier().getRunfilesTrees()) {
+    RunfilesSupplier runfilesSupplier = spawn.getRunfilesSupplier();
+    for (RunfilesTree tree : runfilesSupplier.getRunfilesTrees()) {
       // The runfiles symlink tree might not have been materialized on disk, so use the mapping.
       additionalDirectoryIds.add(
           logRunfilesDirectory(
-              tree.getExecPath(), tree.getMapping(), inputMetadataProvider, fileSystem));
+              RunfilesSupplier.getExecPathForTree(runfilesSupplier, tree),
+              tree.getMapping(),
+              inputMetadataProvider,
+              fileSystem));
     }
 
     for (Artifact fileset : spawn.getFilesetMappings().keySet()) {

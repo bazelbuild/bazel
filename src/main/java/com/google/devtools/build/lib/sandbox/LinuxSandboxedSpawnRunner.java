@@ -323,12 +323,14 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     }
 
     if (sandboxOptions.memoryLimitMb > 0) {
-      CgroupsInfo cgroupsInfo = CgroupsInfo.getInstance();
       // We put the sandbox inside a unique subdirectory using the context's ID. This ID is
       // unique per spawn run by this spawn runner.
-      cgroupsDir =
-          cgroupsInfo.createMemoryLimitCgroupDir(
-              "sandbox_" + context.getId(), sandboxOptions.memoryLimitMb);
+      CgroupsInfo sandboxCgroup =
+          CgroupsInfo.createMemoryLimitCgroupDir(
+              CgroupsInfo.getBlazeSpawnsCgroup(),
+              "sandbox_" + context.getId(),
+              sandboxOptions.memoryLimitMb);
+      cgroupsDir = sandboxCgroup.getCgroupDir().toString();
       commandLineBuilder.setCgroupsDir(cgroupsDir);
     }
 

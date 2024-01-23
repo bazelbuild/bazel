@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe.config;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
@@ -23,7 +22,6 @@ import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoade
 import com.google.devtools.build.lib.analysis.config.transitions.BaselineOptionsValue;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionUtil;
-import com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyProducer;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
@@ -34,8 +32,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.state.Driver;
-import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -125,68 +121,19 @@ public final class BaselineOptionsFunction implements SkyFunction {
   @Nullable
   private static BuildOptions mapBuildOptions(Environment env, BuildOptions rawBaselineOptions)
       throws InterruptedException, BaselineOptionsFunctionException {
-    BuildOptionsMapper mapper = new BuildOptionsMapper(rawBaselineOptions);
-
+    BuildConfigurationKeyValue.Key bckvk =
+        BuildConfigurationKeyValue.Key.create(rawBaselineOptions);
     try {
-      BuildConfigurationKey key = mapper.drive(env);
-      if (key == null) {
+      BuildConfigurationKeyValue buildConfigurationKeyValue =
+          (BuildConfigurationKeyValue)
+              env.getValueOrThrow(
+                  bckvk, OptionsParsingException.class, PlatformMappingException.class);
+      if (buildConfigurationKeyValue == null) {
         return null;
       }
-      return key.getOptions();
-    } catch (PlatformMappingException e) {
+      return buildConfigurationKeyValue.buildConfigurationKey().getOptions();
+    } catch (PlatformMappingException | OptionsParsingException e) {
       throw new BaselineOptionsFunctionException(e);
-    } catch (OptionsParsingException e) {
-      throw new BaselineOptionsFunctionException(e);
-    }
-  }
-
-  /** Uses BuildConfigurationKeyProducer to handle finalizing the options. */
-  private static class BuildOptionsMapper implements BuildConfigurationKeyProducer.ResultSink {
-    private static final String TRANSITION_KEY = "key";
-
-    private final Driver driver;
-    private ImmutableMap<String, BuildConfigurationKey> transitionedOptions;
-    private OptionsParsingException transitionError;
-    private PlatformMappingException platformMappingException;
-
-    private BuildOptionsMapper(BuildOptions options) {
-      this.driver =
-          new Driver(
-              new BuildConfigurationKeyProducer(
-                  this, StateMachine.DONE, ImmutableMap.of(TRANSITION_KEY, options)));
-    }
-
-    @Override
-    public void acceptTransitionError(OptionsParsingException e) {
-      this.transitionError = e;
-    }
-
-    @Override
-    public void acceptPlatformMappingError(PlatformMappingException e) {
-      this.platformMappingException = e;
-    }
-
-    @Override
-    public void acceptTransitionedConfigurations(
-        ImmutableMap<String, BuildConfigurationKey> transitionedOptions) {
-      this.transitionedOptions = transitionedOptions;
-    }
-
-    @Nullable
-    private BuildConfigurationKey drive(LookupEnvironment env)
-        throws OptionsParsingException, InterruptedException, PlatformMappingException {
-      if (!this.driver.drive(env)) {
-        return null;
-      }
-
-      if (this.transitionError != null) {
-        throw this.transitionError;
-      }
-      if (this.platformMappingException != null) {
-        throw this.platformMappingException;
-      }
-
-      return this.transitionedOptions.get(TRANSITION_KEY);
     }
   }
 

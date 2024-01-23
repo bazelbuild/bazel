@@ -16,6 +16,7 @@ java_library(
     srcs = [
         "BaselineOptionsFunction.java",
         "BuildConfigurationFunction.java",
+        "BuildConfigurationKeyFunction.java",
         "PlatformMappingFunction.java",
     ],
     deps = [
@@ -80,6 +81,7 @@ java_library(
     name = "config",
     srcs = [
         "BuildConfigurationKey.java",
+        "BuildConfigurationKeyValue.java",
         "PlatformMappingValue.java",
     ],
     deps = [

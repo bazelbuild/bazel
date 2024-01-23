@@ -19,7 +19,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -53,7 +52,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.ConvenienceSymlink;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions.ConvenienceSymlinksMode;
 import com.google.devtools.build.lib.buildtool.buildevent.ConvenienceSymlinksIdentifiedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
@@ -103,6 +101,7 @@ import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -741,20 +740,28 @@ public class ExecutionTool {
    * ConvenienceSymlinksMode#IGNORE}, then skip any creating or cleaning of convenience symlinks.
    * Otherwise, manage the convenience symlinks and then post a {@link
    * ConvenienceSymlinksIdentifiedEvent} build event.
+   *
+   * @return map of convenience symlink name to target
    */
-  public void handleConvenienceSymlinks(
+  @CanIgnoreReturnValue
+  public ImmutableMap<PathFragment, PathFragment> handleConvenienceSymlinks(
       ImmutableSet<ConfiguredTarget> targetsToBuild, BuildConfigurationValue configuration) {
     try (SilentCloseable c =
         Profiler.instance().profile("ExecutionTool.handleConvenienceSymlinks")) {
-      ImmutableList<ConvenienceSymlink> convenienceSymlinks = ImmutableList.of();
+      OutputDirectoryLinksUtils.SymlinkCreationResult convenienceSymlinks =
+          OutputDirectoryLinksUtils.EMPTY_SYMLINK_CREATION_RESULT;
       if (request.getBuildOptions().experimentalConvenienceSymlinks
           != ConvenienceSymlinksMode.IGNORE) {
         convenienceSymlinks =
             createConvenienceSymlinks(request.getBuildOptions(), targetsToBuild, configuration);
       }
       if (request.getBuildOptions().experimentalConvenienceSymlinksBepEvent) {
-        env.getEventBus().post(new ConvenienceSymlinksIdentifiedEvent(convenienceSymlinks));
+        env.getEventBus()
+            .post(
+                new ConvenienceSymlinksIdentifiedEvent(
+                    convenienceSymlinks.getConvenienceSymlinkProtos()));
       }
+      return convenienceSymlinks.getCreatedSymlinks();
     }
   }
 
@@ -774,7 +781,7 @@ public class ExecutionTool {
    * symlinks aren't created. Furthermore, lingering symlinks from the last build are deleted. This
    * is to prevent confusion by pointing to an outdated directory the current build never used.
    */
-  private ImmutableList<ConvenienceSymlink> createConvenienceSymlinks(
+  private OutputDirectoryLinksUtils.SymlinkCreationResult createConvenienceSymlinks(
       BuildRequestOptions buildRequestOptions,
       ImmutableSet<ConfiguredTarget> targetsToBuild,
       BuildConfigurationValue configuration) {

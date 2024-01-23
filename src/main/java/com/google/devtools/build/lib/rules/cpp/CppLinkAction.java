@@ -15,8 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -42,8 +40,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
-import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -140,10 +136,8 @@ public final class CppLinkAction extends SpawnAction {
 
   private static final String LINK_GUID = "58ec78bd-1176-4e36-8143-439f656b181d";
 
-  private final LibraryToLink outputLibrary;
-  private final LibraryToLink interfaceOutputLibrary;
+  private static final LinkResourceSetBuilder resourceSetBuilder = new LinkResourceSetBuilder();
   private final ImmutableMap<String, String> toolchainEnv;
-  private final ImmutableMap<Linkstamp, Artifact> linkstamps;
   private final LinkCommandLine linkCommandLine;
 
   /**
@@ -158,10 +152,7 @@ public final class CppLinkAction extends SpawnAction {
       String mnemonic,
       NestedSet<Artifact> inputs,
       ImmutableSet<Artifact> outputs,
-      LibraryToLink outputLibrary,
-      LibraryToLink interfaceOutputLibrary,
       boolean isLtoIndexing,
-      ImmutableMap<Linkstamp, Artifact> linkstamps,
       LinkCommandLine linkCommandLine,
       ActionEnvironment env,
       ImmutableMap<String, String> toolchainEnv,
@@ -172,7 +163,7 @@ public final class CppLinkAction extends SpawnAction {
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         inputs,
         outputs,
-        /* resourceSetOrBuilder= */ new LinkResourceSetBuilder(),
+        /* resourceSetOrBuilder= */ resourceSetBuilder,
         /* commandLines= */ linkCommandLine.getCommandLines(),
         /* env= */ env,
         /* executionInfo= */ executionRequirements,
@@ -181,9 +172,6 @@ public final class CppLinkAction extends SpawnAction {
         /* mnemonic= */ getMnemonic(mnemonic, isLtoIndexing),
         /* outputPathsMode= */ OutputPathsMode.OFF);
 
-    this.outputLibrary = outputLibrary;
-    this.interfaceOutputLibrary = interfaceOutputLibrary;
-    this.linkstamps = linkstamps;
     this.linkCommandLine = linkCommandLine;
     this.toolchainEnv = toolchainEnv;
   }
@@ -207,36 +195,6 @@ public final class CppLinkAction extends SpawnAction {
   @VisibleForTesting
   public LinkCommandLine getLinkCommandLineForTesting() {
     return linkCommandLine;
-  }
-
-  /**
-   * Returns the output of this action as a {@link LibraryToLink} or null if it is an executable.
-   */
-  @Nullable
-  LibraryToLink getOutputLibrary() {
-    return outputLibrary;
-  }
-
-  LibraryToLink getInterfaceOutputLibrary() {
-    return interfaceOutputLibrary;
-  }
-
-  /**
-   * Returns a (possibly empty) list of linkstamp object files.
-   *
-   * <p>This is used to embed various values from the build system into binaries to identify their
-   * provenance.
-   */
-  @VisibleForTesting
-  ImmutableList<Artifact> getLinkstampObjects() {
-    return linkstamps.keySet().stream()
-        .map(CcLinkingContext.Linkstamp::getArtifact)
-        .collect(ImmutableList.toImmutableList());
-  }
-
-  @VisibleForTesting
-  ImmutableCollection<Artifact> getLinkstampObjectFileInputs() {
-    return linkstamps.values();
   }
 
   @Override

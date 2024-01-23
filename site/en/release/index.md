@@ -83,8 +83,8 @@ on Github.
 
 | LTS release | Support stage | Latest version | End of support |
 | ----------- | ------------- | -------------- | -------------- |
-| Bazel 8 | Rolling| [Check rolling release page](https://releases.bazel.build/rolling.html){: .external} | N/A |
-| Bazel 7 | Active| [7.0.0](https://github.com/bazelbuild/bazel/releases/tag/7.0.0){: .external} | Dec 2026 |
+| Bazel 8 | Rolling| [Check rolling release page](https://bazel.build/release/rolling){: .external} | N/A |
+| Bazel 7 | Active| [7.0.1](https://github.com/bazelbuild/bazel/releases/tag/7.0.1){: .external} | Dec 2026 |
 | Bazel 6 | Maintenance | [6.4.0](https://github.com/bazelbuild/bazel/releases/tag/6.4.0){: .external} | Dec 2025 |
 | Bazel 5 | Maintenance | [5.4.1](https://github.com/bazelbuild/bazel/releases/tag/5.4.1){: .external} | Jan 2025 |
 | Bazel 4 | Deprecated | [4.2.4](https://github.com/bazelbuild/bazel/releases/tag/4.2.4){: .external} | Jan 2024 |
@@ -119,6 +119,40 @@ For LTS releases, the procedure and policies below are followed:
         back-port the commits.
     *   Only backward-compatible commits on the main branch can be back-ported,
    additional minor changes to resolve merge conflicts are acceptable.
+1.  Backport changes using Cherry-Pick Request Issue for Bazel maintainers.
+    *   Bazel maintainers can request to cherry-pick specific commit(s)
+        to a release branch. This process is initiated by creating a
+        cherry-pick request on GitHub. Here's how to do it.
+        1.  Open the [cherry-pick request](https://github.com/bazelbuild/bazel/issues/new?assignees=&labels=&projects=&template=cherry_pick_request.yml){: .external}
+        2.  Fill in the request details
+            *   Title: Provide a concise and descriptive title for the request.
+            *   Commit ID(s): Enter the ID(s) of the commit(s) you want to
+                cherry-pick. If there are multiple commits, then separate
+                them with commas.
+            *   Category: Specify the category of the request.
+            *   Reviewer(s): For multiple reviewers, separate their GitHub
+                ID's with commas.
+        3.  Set the milestone
+            *   Find the "Milestone" section and click the setting.
+            *   Select the appropriate X.Y.Z release blockers. This action
+                triggers the cherry-pick bot to process your request
+                for the "release-X.Y.Z" branch.
+        4.  Submit the Issue
+            *   Once all details are filled in and the miestone is set,
+                submit the issue.
+
+    *   The cherry-pick bot will process the request and notify
+        if the commit(s) are eligible for cherry-picking. If
+        the commits are cherry-pickable, which means there's no
+        merge conflict while cherry-picking the commit, then
+        the bot will create a new pull request. When the pull
+        request is approved by a member of the Bazel team, the
+        commits are cherry-picked and merged to the release branch.
+        For a visual example of a completed cherry-pick request,
+        refer to this
+        [example](https://github.com/bazelbuild/bazel/issues/20230)
+        {: .external}.
+
 1.  Identify release blockers and fix issues found on the release branch.
     *   The release branch is tested with the same test suite in
         [postsubmit](https://buildkite.com/bazel/bazel-bazel){: .external} and

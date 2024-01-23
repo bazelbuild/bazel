@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -25,6 +26,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyKey.SkyKeyInterner;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
 
@@ -74,10 +76,15 @@ public final class PrepareDepsOfPatternsValue implements SkyValue {
       this.offset = Preconditions.checkNotNull(offset);
     }
 
-    @VisibleForSerialization
-    @AutoCodec.Instantiator
+    @VisibleForTesting
     static TargetPatternSequence create(ImmutableList<String> patterns, PathFragment offset) {
       return interner.intern(new TargetPatternSequence(patterns, offset));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static TargetPatternSequence intern(TargetPatternSequence targetPatternSequence) {
+      return interner.intern(targetPatternSequence);
     }
 
     @Override

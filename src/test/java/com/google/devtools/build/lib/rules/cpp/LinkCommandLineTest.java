@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import org.junit.Test;
@@ -280,8 +279,7 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
             .setParameterFileType(ParameterFileType.UNQUOTED)
             .build();
     assertThat(linkConfig.getCommandLines().unpack().get(0).commandLine.arguments())
-        .containsExactly("foo/bar/ar")
-        .inOrder();
+        .containsExactly("foo/bar/ar");
     assertThat(linkConfig.getCommandLines().unpack().get(1).paramFileInfo.always()).isTrue();
     assertThat(linkConfig.getParamCommandLine(null))
         .containsExactly("rcsD", "a/FakeOutput")
@@ -325,7 +323,8 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
             .setLinkTargetType(LinkTargetType.STATIC_LIBRARY)
             .build();
     List<String> result = linkConfig.arguments();
-    assertThat(result).isEqualTo(Arrays.asList("foo/bar/ar", "rcsD", "a/FakeOutput"));
+    assertThat(result).containsExactly("rcsD", "a/FakeOutput").inOrder();
+    assertThat(linkConfig.getLinkerPathString()).isEqualTo("foo/bar/ar");
   }
 
   @Test

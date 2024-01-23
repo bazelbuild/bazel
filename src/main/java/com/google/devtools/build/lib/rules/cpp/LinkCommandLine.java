@@ -42,7 +42,7 @@ import javax.annotation.Nullable;
  * as well as static libraries.
  */
 @Immutable
-public final class LinkCommandLine {
+public final class LinkCommandLine extends CommandLine {
   private final String actionName;
   private final String forcedToolPath;
   private final CcToolchainVariables variables;
@@ -121,20 +121,6 @@ public final class LinkCommandLine {
     CommandLines.Builder builder = CommandLines.builder();
     builder.addSingleArgument(getLinkerPathString());
 
-    CommandLine cmdLine =
-        new CommandLine() {
-          @Override
-          public ImmutableList<String> arguments() throws CommandLineExpansionException {
-            return arguments(null, PathMapper.NOOP);
-          }
-
-          @Override
-          public ImmutableList<String> arguments(
-              ArtifactExpander artifactExpander, PathMapper pathMapper)
-              throws CommandLineExpansionException {
-            return getParamCommandLine(artifactExpander);
-          }
-        };
     ParamFileInfo paramFileInfo = null;
     if (splitCommandLine) {
       try {
@@ -158,21 +144,20 @@ public final class LinkCommandLine {
       }
     }
 
-    builder.addCommandLine(cmdLine, paramFileInfo);
+    builder.addCommandLine(this, paramFileInfo);
 
     return builder.build();
   }
 
-  public List<String> arguments() throws CommandLineExpansionException, RuleErrorException {
+  @Override
+  public List<String> arguments() throws CommandLineExpansionException {
     return arguments(null, null);
   }
 
+  @Override
   public List<String> arguments(ArtifactExpander artifactExpander, PathMapper pathMapper)
-      throws CommandLineExpansionException, RuleErrorException {
-    return ImmutableList.<String>builder()
-        .add(getLinkerPathString())
-        .addAll(getParamCommandLine(artifactExpander))
-        .build();
+      throws CommandLineExpansionException {
+    return getParamCommandLine(artifactExpander);
   }
 
   /** A builder for a {@link LinkCommandLine}. */

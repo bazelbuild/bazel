@@ -308,6 +308,10 @@ public abstract class RepositoryFunction {
   protected Map<String, String> declareEnvironmentDependencies(
       Map<String, String> markerData, Environment env, Set<String> keys)
       throws InterruptedException {
+    if (keys.isEmpty()) {
+      return ImmutableMap.of();
+    }
+
     ImmutableMap<String, String> envDep = getEnvVarValues(env, keys);
     if (envDep == null) {
       return null;
@@ -349,6 +353,10 @@ public abstract class RepositoryFunction {
   protected boolean verifyEnvironMarkerData(
       Map<String, String> markerData, Environment env, Set<String> keys)
       throws InterruptedException {
+    if (keys.isEmpty()) {
+      return true;
+    }
+
     ImmutableMap<String, String> environ = ActionEnvironmentFunction.getEnvironmentView(env, keys);
     if (env.valuesMissing()) {
       return false; // Returns false so caller knows to return immediately

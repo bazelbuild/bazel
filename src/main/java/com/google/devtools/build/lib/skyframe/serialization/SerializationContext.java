@@ -83,12 +83,6 @@ public class SerializationContext implements SerializationDependencyProvider {
     serializeInternal(object, /*customMemoizationStrategy=*/ null, codedOut);
   }
 
-  void serializeWithAdHocMemoizationStrategy(
-      Object object, MemoizationStrategy memoizationStrategy, CodedOutputStream codedOut)
-      throws IOException, SerializationException {
-    serializeInternal(object, memoizationStrategy, codedOut);
-  }
-
   private void serializeInternal(
       Object object,
       @Nullable MemoizationStrategy customMemoizationStrategy,

@@ -40,6 +40,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules:repository/workspace_attribute_mapper",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/workspace_file_helper",
         "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:action_environment_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:ignored_package_prefixes_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/repository",

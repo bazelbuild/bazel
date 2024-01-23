@@ -552,7 +552,7 @@ public class BaseRuleClasses {
 
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder.build();
+      return builder.removeAttribute("deps").removeAttribute("data").build();
     }
 
     @Override

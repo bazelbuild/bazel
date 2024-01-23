@@ -49,6 +49,10 @@ public final class MiddlemanAction extends AbstractAction {
     Preconditions.checkArgument(Iterables.getOnlyElement(outputs).isMiddlemanArtifact(), outputs);
   }
 
+  public RunfilesTree getRunfilesTree() {
+    return runfilesTree;
+  }
+
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext) {
     throw new IllegalStateException("MiddlemanAction should never be executed");

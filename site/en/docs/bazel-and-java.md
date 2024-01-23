@@ -138,7 +138,6 @@ projects:
 
     *   [`java_annotation_processing`](/rules/lib/builtins/java_annotation_processing)
     *   [`java_compilation_info`](/rules/lib/providers/java_compilation_info)
-    *   [`java_output`](/rules/lib/builtins/java_output)
     *   [`java_output_jars`](/rules/lib/providers/java_output_jars)
     *   [`JavaRuntimeInfo`](/rules/lib/providers/JavaRuntimeInfo)
     *   [`JavaToolchainInfo`](/rules/lib/providers/JavaToolchainInfo)

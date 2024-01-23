@@ -48,12 +48,6 @@ public class AspectDefinitionTest {
 
   private static final class P1 implements TransitiveInfoProvider {}
 
-  private static final class P2 implements TransitiveInfoProvider {}
-
-  private static final class P3 implements TransitiveInfoProvider {}
-
-  private static final class P4 implements TransitiveInfoProvider {}
-
   private static final Label FAKE_LABEL = Label.parseCanonicalUnchecked("//fake/label.bzl");
 
   private static final StarlarkProviderIdentifier STARLARK_P1 =
@@ -166,59 +160,6 @@ public class AspectDefinitionTest {
   }
 
   @Test
-  public void testRequireBuiltinProviders_addsToSetOfRequiredProvidersAndNames() throws Exception {
-    AspectDefinition requiresProviders =
-        new AspectDefinition.Builder(TEST_ASPECT_CLASS)
-            .requireProviders(P1.class, P2.class)
-            .build();
-    AdvertisedProviderSet expectedOkSet =
-        AdvertisedProviderSet.builder()
-            .addBuiltin(P1.class)
-            .addBuiltin(P2.class)
-            .addBuiltin(P3.class)
-            .build();
-    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedOkSet))
-        .isTrue();
-
-    AdvertisedProviderSet expectedFailSet =
-        AdvertisedProviderSet.builder().addBuiltin(P1.class).build();
-    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedFailSet))
-        .isFalse();
-
-    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(AdvertisedProviderSet.ANY))
-        .isTrue();
-    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(AdvertisedProviderSet.EMPTY))
-        .isFalse();
-  }
-
-  @Test
-  public void testRequireBuiltinProviders_addsTwoSetsOfRequiredProvidersAndNames() {
-    AspectDefinition requiresProviders =
-        new AspectDefinition.Builder(TEST_ASPECT_CLASS)
-            .requireProviderSets(
-                ImmutableList.of(ImmutableSet.of(P1.class, P2.class), ImmutableSet.of(P3.class)))
-            .build();
-
-    AdvertisedProviderSet expectedOkSet1 =
-        AdvertisedProviderSet.builder().addBuiltin(P1.class).addBuiltin(P2.class).build();
-
-    AdvertisedProviderSet expectedOkSet2 =
-        AdvertisedProviderSet.builder().addBuiltin(P3.class).build();
-
-    AdvertisedProviderSet expectedFailSet =
-        AdvertisedProviderSet.builder().addBuiltin(P4.class).build();
-
-   assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(AdvertisedProviderSet.ANY))
-       .isTrue();
-    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedOkSet1)).isTrue();
-    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedOkSet2)).isTrue();
-    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedFailSet)).isFalse();
-   assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(AdvertisedProviderSet.EMPTY))
-       .isFalse();
-
- }
-
-  @Test
   public void testRequireStarlarkProviders_addsFlatSetOfRequiredProviders() throws Exception {
     AspectDefinition requiresProviders =
         new AspectDefinition.Builder(TEST_ASPECT_CLASS)
@@ -275,7 +216,7 @@ public class AspectDefinitionTest {
     AspectDefinition noRequiredProviders = new AspectDefinition.Builder(TEST_ASPECT_CLASS).build();
 
     AdvertisedProviderSet expectedOkSet =
-        AdvertisedProviderSet.builder().addBuiltin(P4.class).addStarlark(STARLARK_P4).build();
+        AdvertisedProviderSet.builder().addBuiltin(P1.class).addStarlark(STARLARK_P4).build();
     assertThat(noRequiredProviders.getRequiredProviders().isSatisfiedBy(expectedOkSet)).isTrue();
 
     assertThat(noRequiredProviders.getRequiredProviders().isSatisfiedBy(AdvertisedProviderSet.ANY))
@@ -291,7 +232,7 @@ public class AspectDefinitionTest {
         .build();
 
     AdvertisedProviderSet expectedFailSet =
-        AdvertisedProviderSet.builder().addBuiltin(P4.class).build();
+        AdvertisedProviderSet.builder().addBuiltin(P1.class).build();
 
     assertThat(noAspects.getRequiredProvidersForAspects().isSatisfiedBy(AdvertisedProviderSet.ANY))
         .isFalse();

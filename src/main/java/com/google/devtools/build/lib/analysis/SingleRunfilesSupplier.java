@@ -72,7 +72,7 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier, RunfilesT
   }
 
   @Override
-  public PathFragment getExecPath() {
+  public PathFragment getPossiblyIncorrectExecPath() {
     return runfilesDir;
   }
 

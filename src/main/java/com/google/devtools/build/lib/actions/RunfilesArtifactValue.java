@@ -11,27 +11,29 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.skyframe;
+package com.google.devtools.build.lib.actions;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /** The artifacts behind a runfiles middleman. */
-final class RunfilesArtifactValue implements SkyValue {
+public final class RunfilesArtifactValue implements SkyValue {
 
+  /** A callback for consuming artifacts in a runfiles tree. */
   @FunctionalInterface
-  interface RunfilesConsumer<T> {
+  public interface RunfilesConsumer<T> {
     void accept(Artifact artifact, T metadata) throws InterruptedException;
   }
 
   private final FileArtifactValue metadata;
+  private final RunfilesTree runfilesTree;
 
   // Parallel lists.
   private final ImmutableList<Artifact> files;
@@ -41,13 +43,15 @@ final class RunfilesArtifactValue implements SkyValue {
   private final ImmutableList<Artifact> trees;
   private final ImmutableList<TreeArtifactValue> treeValues;
 
-  RunfilesArtifactValue(
+  public RunfilesArtifactValue(
       FileArtifactValue metadata,
+      RunfilesTree runfilesTree,
       ImmutableList<Artifact> files,
       ImmutableList<FileArtifactValue> fileValues,
       ImmutableList<Artifact> trees,
       ImmutableList<TreeArtifactValue> treeValues) {
     this.metadata = checkNotNull(metadata);
+    this.runfilesTree = checkNotNull(runfilesTree);
     this.files = checkNotNull(files);
     this.fileValues = checkNotNull(fileValues);
     this.trees = checkNotNull(trees);
@@ -59,19 +63,26 @@ final class RunfilesArtifactValue implements SkyValue {
   }
 
   /** Returns the data of the artifact for this value, as computed by the action cache checker. */
-  FileArtifactValue getMetadata() {
+  public FileArtifactValue getMetadata() {
     return metadata;
   }
 
+  /** Returns the runfiles tree this value represents. */
+  public RunfilesTree getRunfilesTree() {
+    return runfilesTree;
+  }
+
   /** Visits the file artifacts that this runfiles artifact expands to, together with their data. */
-  void forEachFile(RunfilesConsumer<FileArtifactValue> consumer) throws InterruptedException {
+  public void forEachFile(RunfilesConsumer<FileArtifactValue> consumer)
+      throws InterruptedException {
     for (int i = 0; i < files.size(); i++) {
       consumer.accept(files.get(i), fileValues.get(i));
     }
   }
 
   /** Visits the tree artifacts that this runfiles artifact expands to, together with their data. */
-  void forEachTree(RunfilesConsumer<TreeArtifactValue> consumer) throws InterruptedException {
+  public void forEachTree(RunfilesConsumer<TreeArtifactValue> consumer)
+      throws InterruptedException {
     for (int i = 0; i < trees.size(); i++) {
       consumer.accept(trees.get(i), treeValues.get(i));
     }
@@ -79,6 +90,22 @@ final class RunfilesArtifactValue implements SkyValue {
 
   @Override
   public boolean equals(Object o) {
+    // This method, seemingly erroneously, does not check whether the runfilesTree of the two
+    // objects is equivalent. This is because it's costly (it involves flattening nested sets and
+    // even if one caches a fingerprint, it's still a fair amount of CPU) and because it's
+    // currently not necessary: RunfilesArtifactValue is only ever created as the SkyValue of
+    // runfiles middlemen and those are special-cased in ActionCacheChecker (see
+    // ActionCacheChecker.checkMiddlemanAction()): the checksum of a middleman artifact is the
+    // function of the checksum of all the artifacts on the inputs of the middleman action, which
+    // includes both the artifacts the runfiles tree links to and the runfiles input manifest,
+    // which in turn encodes the structure of the runfiles tree. The checksum of the middleman
+    // artifact is here as the "metadata" field, which *is* compared here, so the
+    // RunfilesArtifactValues of two runfiles middlemen will be equals iff they represent the same
+    // runfiles tree.
+    //
+    // Eventually, if we ever do away with runfiles input manifests, it will be necessary to change
+    // this (it's weird that one needs to do a round-trip to the file system to determine the
+    // checksum of a runfiles tree), but that's not happening anytime soon.
     if (this == o) {
       return true;
     }

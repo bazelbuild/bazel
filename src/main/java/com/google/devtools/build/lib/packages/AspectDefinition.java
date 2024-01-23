@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -277,37 +276,9 @@ public final class AspectDefinition {
       this.aspectClass = aspectClass;
     }
 
-    /**
-     * Asserts that this aspect can only be evaluated for rules that supply all of the providers
-     * from at least one set of required providers.
-     */
-    @CanIgnoreReturnValue
-    public Builder requireProviderSets(
-        Iterable<ImmutableSet<Class<? extends TransitiveInfoProvider>>> providerSets) {
-      for (ImmutableSet<Class<? extends TransitiveInfoProvider>> providerSet : providerSets) {
-        requiredProviders.addBuiltinSet(providerSet);
-      }
-      return this;
-    }
-
-    /**
-     * Asserts that this aspect can only be evaluated for rules that supply all of the specified
-     * providers.
-     */
-    @CanIgnoreReturnValue
-    public Builder requireProviders(Class<? extends TransitiveInfoProvider>... providers) {
-      requiredProviders.addBuiltinSet(ImmutableSet.copyOf(providers));
-      return this;
-    }
-
-    /**
-     * Same as the equivalent calls to {@link #requireProviderSets} and {@link
-     * #requireStarlarkProviderSets} for specifying the required providers conveyed by {@code
-     * requiredProviders}.
-     */
     @CanIgnoreReturnValue
     public Builder requireProviders(RequiredProviders requiredProviders) {
-      requiredProviders.addToAspectDefinitionBuilder(this);
+      this.requireStarlarkProviderSets(requiredProviders.getStarlarkProviders());
       return this;
     }
 
@@ -353,22 +324,6 @@ public final class AspectDefinition {
         if (!providerSet.isEmpty()) {
           requiredAspectProviders.addStarlarkSet(providerSet);
         }
-      }
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder requireAspectsWithBuiltinProviders(
-        Class<? extends TransitiveInfoProvider>... providers) {
-      requiredAspectProviders.addBuiltinSet(ImmutableSet.copyOf(providers));
-      return this;
-    }
-
-    /** State that the aspect being built provides given providers. */
-    @CanIgnoreReturnValue
-    public Builder advertiseProvider(Class<?>... providers) {
-      for (Class<?> provider : providers) {
-        advertisedProviders.addBuiltin(provider);
       }
       return this;
     }
