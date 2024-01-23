@@ -298,12 +298,39 @@ public class BuildDriverFunction implements SkyFunction {
           postedEventsTypes,
           state.testType);
     } else {
-      announceAspectAnalysisDoneAndRequestExecution(
-          buildDriverKey,
-          (TopLevelAspectsValue) topLevelSkyValue,
-          env,
-          topLevelArtifactContext,
-          postedEventsTypes);
+      ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
+      List<SkyKey> aspectCompletionKeys = new ArrayList<>();
+
+      for (Map.Entry<AspectKey, AspectValue> entry :
+          ((TopLevelAspectsValue) topLevelSkyValue).getTopLevelAspectsMap().entrySet()) {
+        AspectKey aspectKey = entry.getKey();
+        AspectValue aspectValue = entry.getValue();
+        addExtraActionsIfRequested(
+            aspectValue.getProvider(ExtraActionArtifactsProvider.class),
+            artifactsToBuild,
+            buildDriverKey.isExtraActionTopLevelOnly());
+
+        // It's possible that this code path is triggered AFTER the analysis cache clean up and the
+        // transitive packages for package root resolution is already cleared. In such a case, the
+        // symlinks should have already been planted.
+        if (aspectValue.getTransitivePackages() != null) {
+          postEventIfNecessary(
+              postedEventsTypes,
+              env,
+              TopLevelTargetReadyForSymlinkPlanting.create(aspectValue.getTransitivePackages()));
+        }
+        aspectCompletionKeys.add(AspectCompletionKey.create(aspectKey, topLevelArtifactContext));
+      }
+
+      // Send the AspectAnalyzedEvents first to make sure the BuildResultListener is up-to-date
+      // before signaling that the analysis of this top level aspect has concluded.
+      postEventIfNecessary(
+          postedEventsTypes, env, TopLevelEntityAnalysisConcludedEvent.success(buildDriverKey));
+
+      postEventIfNecessary(postedEventsTypes, env, SomeExecutionStartedEvent.create());
+      // Request the execution of the collected aspects.
+      declareDependenciesAndCheckValues(
+          env, Iterables.concat(Artifact.keys(artifactsToBuild.build()), aspectCompletionKeys));
     }
 
     if (env.valuesMissing()) {
@@ -541,52 +568,6 @@ public class BuildDriverFunction implements SkyFunction {
             topLevelArtifactContext,
             /* willTest= */ true));
     declareDependenciesAndCheckValues(env, keysToRequest.build());
-  }
-
-  private void announceAspectAnalysisDoneAndRequestExecution(
-      BuildDriverKey buildDriverKey,
-      TopLevelAspectsValue topLevelAspectsValue,
-      Environment env,
-      TopLevelArtifactContext topLevelArtifactContext,
-      Set<TopLevelStatusEvents.Type> postedEventsTypes)
-      throws InterruptedException {
-
-    ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
-    List<SkyKey> aspectCompletionKeys = new ArrayList<>();
-
-    boolean symlinkPlantingEventsSent =
-        !postedEventsTypes.add(
-            TopLevelStatusEvents.Type.TOP_LEVEL_TARGET_READY_FOR_SYMLINK_PLANTING);
-    for (Map.Entry<AspectKey, AspectValue> entry :
-        topLevelAspectsValue.getTopLevelAspectsMap().entrySet()) {
-      AspectKey aspectKey = entry.getKey();
-      AspectValue aspectValue = entry.getValue();
-      addExtraActionsIfRequested(
-          aspectValue.getProvider(ExtraActionArtifactsProvider.class),
-          artifactsToBuild,
-          buildDriverKey.isExtraActionTopLevelOnly());
-
-      // It's possible that this code path is triggered AFTER the analysis cache clean up and the
-      // transitive packages for package root resolution is already cleared. In such a case, the
-      // symlinks should have already been planted.
-      if (aspectValue.getTransitivePackages() != null && !symlinkPlantingEventsSent) {
-        env.getListener()
-            .post(
-                TopLevelTargetReadyForSymlinkPlanting.create(aspectValue.getTransitivePackages()));
-      }
-
-      aspectCompletionKeys.add(AspectCompletionKey.create(aspectKey, topLevelArtifactContext));
-    }
-
-    // Send the AspectAnalyzedEvents first to make sure the BuildResultListener is up-to-date before
-    // signaling that the analysis of this top level aspect has concluded.
-    postEventIfNecessary(
-        postedEventsTypes, env, TopLevelEntityAnalysisConcludedEvent.success(buildDriverKey));
-
-    postEventIfNecessary(postedEventsTypes, env, SomeExecutionStartedEvent.create());
-    declareDependenciesAndCheckValues(
-        env, Iterables.concat(Artifact.keys(artifactsToBuild.build()), aspectCompletionKeys));
-
   }
 
   /**
