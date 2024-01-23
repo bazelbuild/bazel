@@ -1898,13 +1898,13 @@ class BazelLockfileTest(test_base.TestBase):
     # any `load` in WORKSPACE should trigger the bug
     self.ScratchFile('WORKSPACE.bzlmod', ['load("@repo//:defs.bzl","STR")'])
 
-    _, _, stderr = self.RunBazel(['build', '--enable_workspace', ':lol'])
+    _, _, stderr = self.RunBazel(['build', ':lol'])
     self.assertIn('STR=@@foo~1.0//:lib_foo', '\n'.join(stderr))
 
     # Shutdown bazel to make sure we rely on the lockfile and not skyframe
     self.RunBazel(['shutdown'])
     # Build again. This should _NOT_ trigger a failure!
-    _, _, stderr = self.RunBazel(['build', '--enable_workspace', ':lol'])
+    _, _, stderr = self.RunBazel(['build', ':lol'])
     self.assertNotIn('ran the extension!', '\n'.join(stderr))
 
 
