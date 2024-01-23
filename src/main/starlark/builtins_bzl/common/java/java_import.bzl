@@ -329,7 +329,7 @@ java_import = rule(
 <p>
   This rule allows the use of precompiled <code>.jar</code> files as
   libraries for <code><a href="${link java_library}">java_library</a></code> and
-  <code><a href="${link java_binary}">java_binary</a></code> rules.
+  <code>java_binary</code> rules.
 </p>
 
 <h4 id="java_import_examples">Examples</h4>
