@@ -1134,8 +1134,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                         currentRuleClass.getName(),
                         attr,
                         value,
-                        // Reify to the location of the initializer definition
-                        currentRuleClass.getLabelConverterForInitializer());
+                        // Reify to the location of the initializer definition (except for outputs)
+                        attr.getType() == BuildType.OUTPUT
+                                || attr.getType() == BuildType.OUTPUT_LIST
+                            ? pkgContext.getBuilder().getLabelConverter()
+                            : currentRuleClass.getLabelConverterForInitializer());
             kwargs.putEntry(nativeName, reifiedValue);
           }
         }
