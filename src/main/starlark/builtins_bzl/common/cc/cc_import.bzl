@@ -265,6 +265,7 @@ cc_import(
   static_library = "libmylib.a",
   shared_library = "libmylib.so",
 )
+</code></pre>
 
 <p>On Windows:
 <pre><code class="lang-starlark">
