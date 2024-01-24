@@ -31,7 +31,7 @@ _DYNAMIC_LIBRARY = "dynamic_library"
 
 _IOS_SIMULATOR_TARGET_CPUS = ["ios_x86_64", "ios_i386", "ios_sim_arm64"]
 _IOS_DEVICE_TARGET_CPUS = ["ios_armv6", "ios_arm64", "ios_armv7", "ios_armv7s", "ios_arm64e"]
-_VISIONOS_SIMULATOR_TARGET_CPUS = ["visionos_x86_64", "visionos_sim_arm64"]
+_VISIONOS_SIMULATOR_TARGET_CPUS = ["visionos_sim_arm64"]
 _VISIONOS_DEVICE_TARGET_CPUS = ["visionos_arm64"]
 _WATCHOS_SIMULATOR_TARGET_CPUS = ["watchos_i386", "watchos_x86_64", "watchos_arm64"]
 _WATCHOS_DEVICE_TARGET_CPUS = ["watchos_armv7k", "watchos_arm64_32"]
