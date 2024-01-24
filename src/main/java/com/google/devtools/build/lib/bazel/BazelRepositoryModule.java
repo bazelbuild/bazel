@@ -344,10 +344,22 @@ public class BazelRepositoryModule extends BlazeModule {
           starlarkRepositoryFunction.setWorkerExecutorService(repoFetchingWorkerThreadPool);
           break;
         case VIRTUAL:
-          throw new AbruptExitException(
-              detailedExitCode(
-                  "using a virtual worker thread for repo fetching is not yet supported",
-                  Code.BAD_DOWNLOADER_CONFIG));
+          try {
+            // Since Google hasn't migrated to JDK 21 yet, we can't directly call
+            // Executors.newVirtualThreadPerTaskExecutor here. But a bit of reflection never hurt
+            // anyone... right? (OSS Bazel already ships with a bundled JDK 21)
+            starlarkRepositoryFunction.setWorkerExecutorService(
+                (ExecutorService)
+                    Executors.class
+                        .getDeclaredMethod("newVirtualThreadPerTaskExecutor")
+                        .invoke(null));
+          } catch (ReflectiveOperationException e) {
+            throw new AbruptExitException(
+                detailedExitCode(
+                    "couldn't create virtual worker thread executor for repo fetching",
+                    Code.BAD_DOWNLOADER_CONFIG),
+                e);
+          }
       }
       downloadManager.setDisableDownload(repoOptions.disableDownload);
       if (repoOptions.repositoryDownloaderRetries >= 0) {
