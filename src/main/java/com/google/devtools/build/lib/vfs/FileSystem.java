@@ -28,7 +28,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.Collection;
@@ -728,20 +727,9 @@ public abstract class FileSystem {
   protected abstract InputStream getInputStream(PathFragment path) throws IOException;
 
   /**
-   * Creates a ReadableFileChannel accessing the file denoted by the path.
-   *
-   * @throws IOException if there was an error opening the file for reading
-   */
-  protected ReadableByteChannel createReadableByteChannel(PathFragment path) throws IOException {
-    throw new UnsupportedOperationException();
-  }
-
-  /**
    * Returns a {@link SeekableByteChannel} for writing to a file at provided path.
    *
    * <p>Truncates the target file, therefore it cannot be used to read already existing files.
-   * Please use {@link #createReadableByteChannel} to get a {@linkplain ReadableByteChannel channel}
-   * for reads instead.
    */
   protected abstract SeekableByteChannel createReadWriteByteChannel(PathFragment path)
       throws IOException;

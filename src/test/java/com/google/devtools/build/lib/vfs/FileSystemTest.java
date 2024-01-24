@@ -40,7 +40,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.channels.WritableByteChannel;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -1275,20 +1274,6 @@ public abstract class FileSystemTest {
   }
 
   @Test
-  public void testFileChannelEOF() throws Exception {
-    try (OutputStream outStream = xFile.getOutputStream()) {
-      outStream.write(new byte[] {1});
-    }
-
-    try (ReadableByteChannel channel = xFile.createReadableByteChannel()) {
-      ByteBuffer buffer = ByteBuffer.allocate(2);
-      int numRead = readFromChannel(channel, buffer, 1);
-      assertThat(numRead).isEqualTo(1);
-      assertThat(readFromChannel(channel, buffer, 1)).isEqualTo(-1);
-    }
-  }
-
-  @Test
   public void testInputAndOutputStream() throws Exception {
     try (OutputStream outStream = xFile.getOutputStream()) {
       for (int i = 33; i < 126; i++) {
@@ -1316,22 +1301,6 @@ public abstract class FileSystemTest {
     assertThat(xFile.exists()).isTrue();
     xFile.setWritable(false);
     assertThrows(FileAccessException.class, () -> xFile.getOutputStream());
-  }
-
-  @Test
-  public void testFileChannel() throws Exception {
-    byte[] bytes = "abcdefghijklmnoprstuvwxyz".getBytes(StandardCharsets.ISO_8859_1);
-    try (OutputStream outStream = xFile.getOutputStream()) {
-      outStream.write(bytes);
-    }
-
-    try (ReadableByteChannel channel = xFile.createReadableByteChannel()) {
-      ByteBuffer buffer = ByteBuffer.allocate(bytes.length);
-      int numRead = readFromChannel(channel, buffer, bytes.length);
-      assertThat(numRead).isEqualTo(bytes.length);
-      assertThat(buffer.hasArray()).isTrue();
-      assertThat(buffer.array()).isEqualTo(bytes);
-    }
   }
 
   @Test
@@ -1400,22 +1369,6 @@ public abstract class FileSystemTest {
       totalRead += read;
       assertThat(buffer.position()).isEqualTo(totalRead);
     }
-  }
-
-  private static int readFromChannel(ReadableByteChannel channel, ByteBuffer buffer, int expected)
-      throws IOException {
-    int numRead = 0;
-    for (int i = 0; i < 100; i++) {
-      int stepRead = channel.read(buffer);
-      if (stepRead < 0) {
-        return stepRead;
-      }
-      numRead += stepRead;
-      if (numRead >= expected) {
-        return numRead;
-      }
-    }
-    throw new IOException("Can not read the specified number of bytes.");
   }
 
   @Test

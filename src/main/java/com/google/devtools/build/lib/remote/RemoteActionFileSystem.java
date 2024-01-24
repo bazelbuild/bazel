@@ -58,7 +58,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.util.Collection;
 import java.util.HashMap;
@@ -335,12 +334,6 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
   protected OutputStream getOutputStream(PathFragment path, boolean append, boolean internal)
       throws IOException {
     return localFs.getPath(path).getOutputStream(append, internal);
-  }
-
-  @Override
-  protected ReadableByteChannel createReadableByteChannel(PathFragment path) throws IOException {
-    downloadFileIfRemote(path);
-    return localFs.getPath(path).createReadableByteChannel();
   }
 
   @Override

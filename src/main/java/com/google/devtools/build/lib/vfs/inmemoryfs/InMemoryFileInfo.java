@@ -22,8 +22,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
-import java.nio.channels.ReadableByteChannel;
 import java.util.function.Consumer;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -68,35 +66,6 @@ public class InMemoryFileInfo extends FileInfo {
   @Override
   public synchronized InputStream getInputStream() {
     return new ByteArrayInputStream(content);
-  }
-
-  @Override
-  public ReadableByteChannel createReadableByteChannel() {
-    return new ReadableByteChannel() {
-      private int offset = 0;
-
-      @Override
-      public int read(ByteBuffer dst) {
-        int length;
-        synchronized (InMemoryFileInfo.this) {
-          if (offset >= content.length) {
-            return -1;
-          }
-          length = Math.min(dst.remaining(), content.length - offset);
-          dst.put(content, offset, length);
-        }
-        offset += length;
-        return length;
-      }
-
-      @Override
-      public boolean isOpen() {
-        return true;
-      }
-
-      @Override
-      public void close() {}
-    };
   }
 
   @Override
