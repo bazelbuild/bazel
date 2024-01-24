@@ -35,8 +35,6 @@ class BazelLockfileTest(test_base.TestBase):
         'aaa', '1.1'
     ).createCcModule('bbb', '1.0', {'aaa': '1.0'}).createCcModule(
         'bbb', '1.1', {'aaa': '1.1'}
-    ).createCcModule(
-        'ccc', '1.1', {'aaa': '1.1', 'bbb': '1.1'}
     )
     self.ScratchFile(
         '.bazelrc',
@@ -1899,6 +1897,70 @@ class BazelLockfileTest(test_base.TestBase):
     # Build again. This should _NOT_ trigger a failure!
     _, _, stderr = self.RunBazel(['build', '--enable_workspace', ':lol'])
     self.assertNotIn('ran the extension!', '\n'.join(stderr))
+  def testExtensionIgnoredInLockfile(self):
+    self.ScratchFile(
+      'MODULE.bazel',
+      [
+        'ext1 = use_extension("extension.bzl", "ext1")',
+        'ext2 = use_extension("extension.bzl", "ext2")',
+        'use_repo(ext1, "repo1")',
+        'use_repo(ext2, "repo2")',
+      ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+      'extension.bzl',
+      [
+        'def _repo_rule_impl(ctx):',
+        '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+        'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+        '',
+        'def _should_lock_impl(ctx): repo_rule(name="repo1")',
+        'def _no_lock_impl(ctx):',
+        '    repo_rule(name="repo2")',
+        '    return ctx.extension_metadata(',
+        '        root_module_direct_deps=[],',
+        '        root_module_direct_dev_deps=[],',
+        '        exclude_from_lockfile=True',
+        '    )',
+        'ext1 = module_extension(implementation=_should_lock_impl)',
+        'ext2 = module_extension(implementation=_no_lock_impl)',
+      ],
+    )
+
+    self.RunBazel(['build', '@repo1//:all', '@repo2//:all'])
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+      self.assertIn('//:extension.bzl%ext1', lockfile['moduleExtensions'])
+      self.assertNotIn('//:extension.bzl%ext2', lockfile['moduleExtensions'])
+
+    # Update extensions implementations to the opposite
+    self.ScratchFile(
+      'extension.bzl',
+      [
+        'def _repo_rule_impl(ctx):',
+        '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+        'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+        '',
+        'def _should_lock_impl(ctx): repo_rule(name="repo2")',
+        'def _no_lock_impl(ctx):',
+        '    repo_rule(name="repo1")',
+        '    return ctx.extension_metadata(',
+        '        root_module_direct_deps=[],',
+        '        root_module_direct_dev_deps=[],',
+        '        exclude_from_lockfile=True',
+        '    )',
+        'ext1 = module_extension(implementation=_no_lock_impl)',
+        'ext2 = module_extension(implementation=_should_lock_impl)',
+      ],
+    )
+
+    # Assert updates in the lockfile
+    self.RunBazel(['build', '@repo1//:all', '@repo2//:all'])
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+      self.assertNotIn('//:extension.bzl%ext1', lockfile['moduleExtensions'])
+      self.assertIn('//:extension.bzl%ext2', lockfile['moduleExtensions'])
 
 
 if __name__ == '__main__':
