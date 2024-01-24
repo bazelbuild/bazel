@@ -25,7 +25,9 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.NonRootModuleFileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -43,6 +45,7 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -299,13 +302,17 @@ public class ModuleFileFunction implements SkyFunction {
     if (rootOverride != null) {
       throw errorf(Code.BAD_MODULE, "invalid override for the root module found: %s", rootOverride);
     }
+    // A module with a non-registry override always has a unique version across the entire dep
+    // graph.
     ImmutableMap<RepositoryName, String> nonRegistryOverrideCanonicalRepoNameLookup =
         Maps.filterValues(overrides, override -> override instanceof NonRegistryOverride)
             .keySet()
             .stream()
             .collect(
                 toImmutableMap(
-                    name -> ModuleKey.create(name, Version.EMPTY).getCanonicalRepoName(),
+                    name ->
+                        ModuleKey.create(name, Version.EMPTY)
+                            .getCanonicalRepoName(/* hasUniqueVersion= */ true),
                     name -> name));
     return RootModuleFileValue.create(
         module, moduleFileHash, overrides, nonRegistryOverrideCanonicalRepoNameLookup);
@@ -384,7 +391,9 @@ public class ModuleFileFunction implements SkyFunction {
     // If there is a non-registry override for this module, we need to fetch the corresponding repo
     // first and read the module file from there.
     if (override instanceof NonRegistryOverride) {
-      RepositoryName canonicalRepoName = key.getCanonicalRepoName();
+      // A module with a non-registry override always has a unique version across the entire dep
+      // graph.
+      RepositoryName canonicalRepoName = key.getCanonicalRepoName(/* hasUniqueVersion */ true);
       RepositoryDirectoryValue repoDir =
           (RepositoryDirectoryValue) env.getValue(RepositoryDirectoryValue.key(canonicalRepoName));
       if (repoDir == null) {
@@ -397,10 +406,14 @@ public class ModuleFileFunction implements SkyFunction {
         return null;
       }
       GetModuleFileResult result = new GetModuleFileResult();
+      Label moduleFileLabel =
+          Label.createUnvalidated(
+              PackageIdentifier.create(canonicalRepoName, PathFragment.EMPTY_FRAGMENT),
+              LabelConstants.MODULE_DOT_BAZEL_FILE_NAME.getBaseName());
       result.moduleFile =
           ModuleFile.create(
               readModuleFile(moduleFilePath.asPath()),
-              key.moduleFileLabel().getUnambiguousCanonicalForm());
+              moduleFileLabel.getUnambiguousCanonicalForm());
       return result;
     }
 

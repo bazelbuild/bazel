@@ -91,16 +91,20 @@ public class StarlarkBazelModuleTest {
                                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                                 .build())))
             .build();
-    Module module =
-        buildModule("foo", "1.0")
-            .setKey(createModuleKey("foo", ""))
-            .addDep("bar", createModuleKey("bar", "2.0"))
-            .build();
+    ModuleKey fooKey = createModuleKey("foo", "");
+    ModuleKey barKey = createModuleKey("bar", "2.0");
+    Module module = buildModule("foo", "1.0").setKey(fooKey).addDep("bar", barKey).build();
     AbridgedModule abridgedModule = AbridgedModule.from(module);
 
     StarlarkBazelModule moduleProxy =
         StarlarkBazelModule.create(
-            abridgedModule, extension, module.getRepoMappingWithBazelDepsOnly(), usage);
+            abridgedModule,
+            extension,
+            module.getRepoMappingWithBazelDepsOnly(
+                ImmutableMap.of(
+                    fooKey, fooKey.getCanonicalRepoName(/* hasUniqueVersion= */ false),
+                    barKey, barKey.getCanonicalRepoName(/* hasUniqueVersion= */ false))),
+            usage);
 
     assertThat(moduleProxy.getName()).isEqualTo("foo");
     assertThat(moduleProxy.getVersion()).isEqualTo("1.0");
@@ -134,7 +138,8 @@ public class StarlarkBazelModuleTest {
     ModuleExtensionUsage usage = getBaseUsageBuilder().addTag(buildTag("blep").build()).build();
     ModuleExtension extension =
         getBaseExtensionBuilder().setTagClasses(ImmutableMap.of("dep", createTagClass())).build();
-    Module module = buildModule("foo", "1.0").setKey(createModuleKey("foo", "")).build();
+    ModuleKey fooKey = createModuleKey("foo", "");
+    Module module = buildModule("foo", "1.0").setKey(fooKey).build();
     AbridgedModule abridgedModule = AbridgedModule.from(module);
 
     ExternalDepsException e =
@@ -142,7 +147,12 @@ public class StarlarkBazelModuleTest {
             ExternalDepsException.class,
             () ->
                 StarlarkBazelModule.create(
-                    abridgedModule, extension, module.getRepoMappingWithBazelDepsOnly(), usage));
+                    abridgedModule,
+                    extension,
+                    module.getRepoMappingWithBazelDepsOnly(
+                        ImmutableMap.of(
+                            fooKey, fooKey.getCanonicalRepoName(/* hasUniqueVersion= */ false))),
+                    usage));
     assertThat(e).hasMessageThat().contains("does not have a tag class named blep");
   }
 }

@@ -49,10 +49,6 @@ abstract class ModuleBase {
    */
   public abstract ModuleKey getKey();
 
-  public final RepositoryName getCanonicalRepoName() {
-    return getKey().getCanonicalRepoName();
-  }
-
   /**
    * The name of the repository representing this module, as seen by the module itself. By default,
    * the name of the repo is the name of the module. This can be specified to ease migration for

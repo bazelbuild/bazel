@@ -30,10 +30,6 @@ public abstract class AbridgedModule {
 
   public abstract ModuleKey getKey();
 
-  public final RepositoryName getCanonicalRepoName() {
-    return getKey().getCanonicalRepoName();
-  }
-
   public static AbridgedModule from(Module module) {
     return new AutoValue_AbridgedModule(module.getName(), module.getVersion(), module.getKey());
   }
