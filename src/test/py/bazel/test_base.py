@@ -266,6 +266,20 @@ class TestBase(absltest.TestCase):
     """Returns true if the current platform is Linux."""
     return sys.platform.startswith('linux')
 
+  def IsJunction(self, path):
+    """Returns whether a folder is a junction or not. Used with Windows folders.
+
+    Args:
+      path: string; an absolute path to a folder e.g. "C://foo/bar/aaa"
+    """
+    result = subprocess.run(
+        ['fsutil', 'reparsepoint', 'query', path],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.returncode == 0 and 'Reparse Tag Value' in result.stdout
+
   def Path(self, path):
     """Returns the absolute path of `path` relative to self._test_cwd.
 

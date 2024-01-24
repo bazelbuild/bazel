@@ -20,6 +20,7 @@ java_library(
         "fetch.txt",
         "mod.txt",
         "sync.txt",
+        "vendor.txt",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:keep-going-option",
@@ -66,6 +67,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:interrupted_failure_details",
         "//src/main/java/com/google/devtools/build/lib/util:maybe_complete_set",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",

@@ -141,6 +141,8 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
                 RepositoryDelegatorFunction.FORCE_FETCH,
                 RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
             PrecomputedValue.injected(
+                RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()),
+			PrecomputedValue.injected(
                 BuildInfoCollectionFunction.BUILD_INFO_FACTORIES,
                 ruleClassProvider.getBuildInfoFactoriesAsMap())));
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
