@@ -376,7 +376,6 @@ public final class GsonTypeAdapterUtil {
         .registerTypeAdapterFactory(IMMUTABLE_BIMAP)
         .registerTypeAdapterFactory(IMMUTABLE_SET)
         .registerTypeAdapterFactory(OPTIONAL)
-        .registerTypeAdapterFactory(IMMUTABLE_TABLE)
         .registerTypeAdapterFactory(new LocationTypeAdapterFactory(moduleFilePath, workspaceRoot))
         .registerTypeAdapter(Label.class, LABEL_TYPE_ADAPTER)
         .registerTypeAdapter(Version.class, VERSION_TYPE_ADAPTER)
