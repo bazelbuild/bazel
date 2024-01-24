@@ -2366,7 +2366,7 @@
       "general": {
         "bzlTransitiveDigest": "/jvGR8cde+5bIyA4EmhA+3sI7AeJfPuw8yTXlAXHQTI=",
         "accumulatedFileDigests": {
-          "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "8f6790b04d4a6d76abe59e873488be9195bb8328ff1377d5c4601125021576ca",
+          "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "0a80fbbd4241dc7ccd3f7665029acd69a64c8d79fa49108c1c46ef778c857685",
           "@@//:MODULE.bazel": "7e00b434061feab70b94deee240eb765c14046a07988b8b6f1eb5d7596b4a4f5"
         },
         "envVariables": {},
@@ -2907,7 +2907,7 @@
     },
     "//tools/android:android_extensions.bzl%remote_android_tools_extensions": {
       "general": {
-        "bzlTransitiveDigest": "cYQAQLvXLcGKYAEPkqiqYQRwsgSZKLzIOW+kUbDcNZI=",
+        "bzlTransitiveDigest": "vsrPPBNf8OgywAYLMcIL1oNm2R8WtbCIL9wgQBUecpA=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2925,8 +2925,8 @@
             "ruleClassName": "http_jar",
             "attributes": {
               "name": "_main~remote_android_tools_extensions~android_gmaven_r8",
-              "sha256": "80c39a28bb66b64efc232d68ae554d59fe3838808738b4fe584884691cb1e5a3",
-              "url": "https://maven.google.com/com/android/tools/r8/8.2.33/r8-8.2.33.jar"
+              "sha256": "a1d7f902d56cfa8d1e8cd64aa250e63549359fcd096eb793286787b1a1e76db1",
+              "url": "https://maven.google.com/com/android/tools/r8/8.2.42/r8-8.2.42.jar"
             }
           }
         },
@@ -8631,7 +8631,7 @@
     },
     "@@rules_python~0.26.0//python/extensions:pip.bzl%pip": {
       "os:osx,arch:aarch64": {
-        "bzlTransitiveDigest": "FMCmMrmdwnNI+AkBXs4xHjCXfnvMhdt6yGJVSQNXZ3g=",
+        "bzlTransitiveDigest": "6QEU6MdnrfZaTz7QKiefTGbQgYawdLTA533VOkS5F4E=",
         "accumulatedFileDigests": {
           "@@//:requirements.txt": "ff12967a755bb8e9b4c92524f6471a99e14c30474a3d428547c55745ec8f23a0"
         },

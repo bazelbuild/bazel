@@ -13,6 +13,6 @@ maybe(
 maybe(
     http_jar,
     name = "android_gmaven_r8",
-    sha256 = "80c39a28bb66b64efc232d68ae554d59fe3838808738b4fe584884691cb1e5a3",
-    url = "https://maven.google.com/com/android/tools/r8/8.2.33/r8-8.2.33.jar",
+    sha256 = "a1d7f902d56cfa8d1e8cd64aa250e63549359fcd096eb793286787b1a1e76db1",
+    url = "https://maven.google.com/com/android/tools/r8/8.2.42/r8-8.2.42.jar",
 )
