@@ -88,7 +88,10 @@ java_library(
 
 java_library(
     name = "ps_info_collector",
-    srcs = ["PsInfoCollector.java"],
+    srcs = [
+        "PsInfoCollector.java",
+        "ResourceSnapshot.java",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//third_party:auto_value",

@@ -190,19 +190,4 @@ public class PsInfoCollector {
           pidToPsInfo, pidToChildrenPsInfo, collectionTime);
     }
   }
-
-  /** Contains resource consumption info per process tree. */
-  @AutoValue
-  public abstract static class ResourceSnapshot {
-    /** Overall memory consumption by all descendant processes including initial process. */
-    public abstract ImmutableMap<Long, Integer> getPidToMemoryInKb();
-
-    /** Time when this snapshot was collected. */
-    public abstract Instant getCollectionTime();
-
-    public static ResourceSnapshot create(
-        ImmutableMap<Long, Integer> pidToMemoryInKb, Instant collectionTime) {
-      return new AutoValue_PsInfoCollector_ResourceSnapshot(pidToMemoryInKb, collectionTime);
-    }
-  }
 }

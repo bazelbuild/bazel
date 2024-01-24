@@ -25,7 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics.WorkerStatus;
 import com.google.devtools.build.lib.clock.Clock;
-import com.google.devtools.build.lib.metrics.PsInfoCollector;
+import com.google.devtools.build.lib.metrics.ResourceSnapshot;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector.WorkerMetricsPublishComparator;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import java.time.Instant;
@@ -310,9 +310,8 @@ public class WorkerProcessMetricsCollectorTest {
             PROCESS_ID_1, 1234,
             PROCESS_ID_2, 2345);
     Instant collectionTime = DEFAULT_CLOCK_START_INSTANT.plusSeconds(10);
-    PsInfoCollector.ResourceSnapshot resourceSnapshot =
-        PsInfoCollector.ResourceSnapshot.create(memoryUsageMap, collectionTime);
-    doReturn(resourceSnapshot).when(spyCollector).collectMemoryUsageByPid(any(), any());
+    ResourceSnapshot resourceSnapshot = ResourceSnapshot.create(memoryUsageMap, collectionTime);
+    doReturn(resourceSnapshot).when(spyCollector).collectResourceUsage(any(), any());
     clock.setTime(collectionTime.toEpochMilli());
 
     ImmutableList<WorkerProcessMetrics> metrics = spyCollector.collectMetrics();
