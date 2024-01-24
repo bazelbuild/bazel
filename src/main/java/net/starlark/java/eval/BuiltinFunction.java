@@ -157,6 +157,9 @@ public final class BuiltinFunction implements StarlarkCallable {
     ParamDescriptor[] parameters = desc.getParameters();
 
     // Fast case: reuse positional as Java argument vector
+    // StringModule methods, which are treated specially below, will never match this case since
+    // their "self" parameter is restricted to String and thus
+    // getPositionalsCanBeJavaArgumentVector() is false.
     if (desc.getPositionalsCanBeJavaArgumentVector()
         && positional.length == parameters.length
         && named.length == 0) {
