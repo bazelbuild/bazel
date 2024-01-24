@@ -172,8 +172,47 @@ def bazel_java_proto_library_rule(ctx):
 
 java_proto_library = rule(
     implementation = bazel_java_proto_library_rule,
+    doc = """
+<p>
+<code>java_proto_library</code> generates Java code from <code>.proto</code> files.
+</p>
+
+<p>
+<code>deps</code> must point to <a href="protocol-buffer.html#proto_library"><code>proto_library
+</code></a> rules.
+</p>
+
+<p>
+Example:
+</p>
+
+<pre class="code">
+<code class="lang-starlark">
+java_library(
+    name = "lib",
+    deps = [":foo_java_proto"],
+)
+
+java_proto_library(
+    name = "foo_java_proto",
+    deps = [":foo_proto"],
+)
+
+proto_library(
+    name = "foo_proto",
+)
+</code>
+</pre>
+    """,
     attrs = {
-        "deps": attr.label_list(providers = [ProtoInfo], aspects = [bazel_java_proto_aspect]),
+        "deps": attr.label_list(
+            providers = [ProtoInfo],
+            aspects = [bazel_java_proto_aspect],
+            doc = """
+The list of <a href="protocol-buffer.html#proto_library"><code>proto_library</code></a>
+rules to generate Java code for.
+            """,
+        ),
         "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
         "distribs": attr.string_list(),
     } | toolchains.if_legacy_toolchain({

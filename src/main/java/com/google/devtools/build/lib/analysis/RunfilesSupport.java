@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
-import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
@@ -37,6 +36,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.lang.ref.SoftReference;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -86,6 +86,18 @@ public final class RunfilesSupport implements RunfilesSupplier {
     private final Runfiles runfiles;
     private final Artifact repoMappingManifest;
 
+    /**
+     * The cached runfiles mapping. Possible values:
+     *
+     * <ul>
+     *   <li>null if caching is not desired
+     *   <li>A soft reference pointing to null if the cached value is not available (not yet
+     *       computed yet or flushed from RAM)
+     *   <li>A soft reference to the cached value
+     * </ul>
+     */
+    @Nullable private volatile SoftReference<Map<PathFragment, Artifact>> cachedMapping;
+
     private final boolean buildRunfileLinks;
     private final RunfileSymlinksMode runfileSymlinksMode;
 
@@ -94,23 +106,45 @@ public final class RunfilesSupport implements RunfilesSupplier {
         Runfiles runfiles,
         Artifact repoMappingManifest,
         boolean buildRunfileLinks,
+        boolean cacheMapping,
         RunfileSymlinksMode runfileSymlinksMode) {
       this.execPath = execPath;
       this.runfiles = runfiles;
       this.repoMappingManifest = repoMappingManifest;
       this.buildRunfileLinks = buildRunfileLinks;
       this.runfileSymlinksMode = runfileSymlinksMode;
+      this.cachedMapping = cacheMapping ? new SoftReference<>(null) : null;
     }
 
     @Override
-    public PathFragment getExecPath() {
+    public PathFragment getPossiblyIncorrectExecPath() {
       return execPath;
     }
 
     @Override
     public Map<PathFragment, Artifact> getMapping() {
-      return runfiles.getRunfilesInputs(
-          /* eventHandler= */ null, /* location= */ null, repoMappingManifest);
+      if (cachedMapping == null) {
+        return runfiles.getRunfilesInputs(
+            /* eventHandler= */ null, /* location= */ null, repoMappingManifest);
+      }
+
+      Map<PathFragment, Artifact> result = cachedMapping.get();
+      if (result != null) {
+        return result;
+      }
+
+      synchronized (this) {
+        result = cachedMapping.get();
+        if (result != null) {
+          return result;
+        }
+
+        result =
+            runfiles.getRunfilesInputs(
+                /* eventHandler= */ null, /* location= */ null, repoMappingManifest);
+        cachedMapping = new SoftReference<>(result);
+        return result;
+      }
     }
 
     @Override
@@ -161,6 +195,7 @@ public final class RunfilesSupport implements RunfilesSupplier {
         ruleContext.getConfiguration().getRunfileSymlinksMode();
     boolean buildRunfileManifests = ruleContext.getConfiguration().buildRunfileManifests();
     boolean buildRunfileLinks = ruleContext.getConfiguration().buildRunfileLinks();
+    boolean cacheRunfilesMapping = TargetUtils.isTestRule(ruleContext.getTarget());
 
     // Adding run_under target to the runfiles manifest so it would become part
     // of runfiles tree and would be executable everywhere.
@@ -173,8 +208,7 @@ public final class RunfilesSupport implements RunfilesSupplier {
           new Runfiles.Builder(
                   ruleContext.getWorkspaceName(),
                   ruleContext.getConfiguration().legacyExternalRunfiles())
-              .addTransitiveArtifacts(
-                  runUnderTarget.getProvider(FileProvider.class).getFilesToBuild())
+              .merge(getRunfiles(runUnderTarget, ruleContext.getWorkspaceName()))
               .merge(runfiles)
               .build();
     }
@@ -205,6 +239,7 @@ public final class RunfilesSupport implements RunfilesSupplier {
             runfiles,
             repoMappingManifest,
             buildRunfileLinks,
+            cacheRunfilesMapping,
             runfileSymlinksMode);
 
     Artifact runfilesMiddleman =
@@ -245,6 +280,24 @@ public final class RunfilesSupport implements RunfilesSupplier {
 
   public Runfiles getRunfiles() {
     return runfilesTree.runfiles;
+  }
+
+  /**
+   * Helper method that returns a collection of artifacts that are necessary for the runfiles of the
+   * given target. Note that the runfile symlink tree is never built, so this may include artifacts
+   * that end up not being used (see {@link Runfiles}).
+   *
+   * @return the Runfiles object
+   */
+  private static Runfiles getRunfiles(TransitiveInfoCollection target, String workspaceName) {
+    RunfilesProvider runfilesProvider = target.getProvider(RunfilesProvider.class);
+    if (runfilesProvider != null) {
+      return runfilesProvider.getDefaultRunfiles();
+    } else {
+      return new Runfiles.Builder(workspaceName)
+          .addTransitiveArtifacts(target.getProvider(FileProvider.class).getFilesToBuild())
+          .build();
+    }
   }
 
   /**
@@ -428,6 +481,10 @@ public final class RunfilesSupport implements RunfilesSupplier {
   /**
    * Creates and returns a {@link RunfilesSupport} object for the given rule and executable. Note
    * that this method calls back into the passed in rule to obtain the runfiles.
+   *
+   * <p>If the executable is a test, runfiles mappings are cached and re-used between shards. It's a
+   * win since when there is a large number of test shards and/or runs per test, the same runfiles
+   * tree is needed many times.
    */
   public static RunfilesSupport withExecutable(
       RuleContext ruleContext, Runfiles runfiles, Artifact executable) throws InterruptedException {

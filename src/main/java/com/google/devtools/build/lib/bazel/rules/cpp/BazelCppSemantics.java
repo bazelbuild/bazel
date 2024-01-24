@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.rules.cpp.AspectLegalCppSemantics;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
@@ -89,7 +90,8 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
       BuildConfigurationValue configuration,
       FeatureConfiguration featureConfiguration,
       CppCompileActionBuilder actionBuilder,
-      RuleErrorConsumer ruleErrorConsumer) {
+      RuleErrorConsumer ruleErrorConsumer)
+      throws RuleErrorException {
     CcToolchainProvider toolchain = actionBuilder.getToolchain();
     if (language == Language.CPP) {
       CppConfiguration cppConfig = configuration.getFragment(CppConfiguration.class);

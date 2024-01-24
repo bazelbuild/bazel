@@ -292,10 +292,8 @@ public final class CleanCommand implements BlazeCommand {
     OutputDirectoryLinksUtils.removeOutputDirectoryLinks(
         runtime.getRuleClassProvider().getSymlinkDefinitions(),
         env.getWorkspace(),
-        env.getOutputBase(),
         env.getReporter(),
-        symlinkPrefix,
-        env.getRuntime().getProductName());
+        symlinkPrefix);
 
     // shutdown on expunge cleans
     if (expunge) {

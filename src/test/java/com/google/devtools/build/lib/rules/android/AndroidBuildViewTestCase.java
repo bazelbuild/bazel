@@ -531,12 +531,4 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
             ActionsTestUtil.getFirstArtifactEndingWith(
                 generateProguardAction.getOutputs(), "_proguard.cfg"));
   }
-
-  protected void assertProguardNotUsed(ConfiguredTarget binary) {
-    assertWithMessage("proguard.jar is in the rule output")
-        .that(
-            actionsTestUtil()
-                .getActionForArtifactEndingWith(getFilesToBuild(binary), "_proguard.jar"))
-        .isNull();
-  }
 }

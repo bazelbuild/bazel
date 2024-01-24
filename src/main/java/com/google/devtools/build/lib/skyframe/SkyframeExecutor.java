@@ -85,7 +85,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
-import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.TargetConfiguredEvent;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
@@ -190,8 +189,9 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecution
 import com.google.devtools.build.lib.skyframe.config.BaselineOptionsFunction;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationFunction;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKeyFunction;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKeyValue;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingFunction;
-import com.google.devtools.build.lib.skyframe.config.PlatformMappingValue;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsFunction;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsCycleReporter;
@@ -244,7 +244,6 @@ import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
 import com.google.devtools.build.skyframe.state.StateMachineEvaluatorForTesting;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.common.options.ParsedOptionDescription;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -664,6 +663,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         SkyFunctions.BUILD_CONFIGURATION,
         new BuildConfigurationFunction(directories, ruleClassProvider));
+    map.put(SkyFunctions.BUILD_CONFIGURATION_KEY, new BuildConfigurationKeyFunction());
     map.put(SkyFunctions.BASELINE_OPTIONS, new BaselineOptionsFunction());
     map.put(
         SkyFunctions.STARLARK_BUILD_SETTINGS_DETAILS, new StarlarkBuildSettingsDetailsFunction());
@@ -1840,33 +1840,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private BuildConfigurationKey createBuildConfigurationKey(
       ExtendedEventHandler eventHandler, BuildOptions buildOptions)
       throws InvalidConfigurationException {
-    // Logic here must be kept in sync with BuildConfigurationKeyProducer.
 
-    // Determine the platform mapping to use.
-    PathFragment platformMappingPath =
-        buildOptions.hasNoConfig()
-            ? null
-            : buildOptions.get(PlatformOptions.class).platformMappings;
-
-    PlatformMappingValue.Key platformMappingKey =
-        PlatformMappingValue.Key.create(platformMappingPath);
+    BuildConfigurationKeyValue.Key key = BuildConfigurationKeyValue.Key.create(buildOptions);
     EvaluationResult<SkyValue> evaluationResult =
-        evaluateSkyKeys(eventHandler, ImmutableSet.of(platformMappingKey));
-    // Handle all possible errors with the platform mapping by reporting them to the user.
+        evaluateSkyKeys(eventHandler, ImmutableSet.of(key));
+    // Handle all possible errors by reporting them to the user.
     if (evaluationResult.hasError()) {
       throw new InvalidConfigurationException(
           Code.PLATFORM_MAPPING_EVALUATION_FAILURE, evaluationResult.getError().getException());
     }
-    PlatformMappingValue platformMappingValue =
-        (PlatformMappingValue) evaluationResult.get(platformMappingKey);
-
-    // Create the build configuration key.
-    try {
-      BuildOptions mappedOptions = platformMappingValue.map(buildOptions);
-      return BuildConfigurationKey.create(mappedOptions);
-    } catch (OptionsParsingException e) {
-      throw new InvalidConfigurationException(Code.INVALID_BUILD_OPTIONS, e);
-    }
+    BuildConfigurationKeyValue buildConfigurationKeyValue =
+        (BuildConfigurationKeyValue) evaluationResult.get(key);
+    return buildConfigurationKeyValue.buildConfigurationKey();
   }
 
   /**

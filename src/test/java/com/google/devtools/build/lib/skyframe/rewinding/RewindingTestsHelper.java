@@ -31,6 +31,7 @@ import static org.mockito.Mockito.verify;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
@@ -2631,6 +2632,36 @@ public class RewindingTestsHelper {
         };
 
     runFlakyActionFailsAfterRewind_raceWithIndirectConsumer(synchronizingListener);
+  }
+
+  public void runDiscoveredCppModuleLost() throws Exception {
+    testCase.write(
+        "foo/BUILD",
+        "package(features = ['header_modules', 'use_header_modules'])",
+        "cc_library(name = 'top', srcs = ['top.cc'], deps = [':dep'])",
+        "cc_library(name = 'dep', hdrs = ['dep.h'])");
+    testCase.write("foo/top.cc", "#include \"foo/dep.h\"");
+    testCase.write("foo/dep.h");
+
+    AtomicReference<Artifact> depPcm = new AtomicReference<>();
+    addSpawnShim(
+        "Compiling foo/top.cc",
+        (spawn, context) -> {
+          ActionInput lostInput = SpawnInputUtils.getInputWithName(spawn, "dep.pic.pcm");
+          depPcm.set((Artifact) lostInput);
+          return createLostInputsExecException(
+              context,
+              ImmutableList.of(lostInput),
+              new ActionInputDepOwnerMap(ImmutableList.of(lostInput)));
+        });
+    List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
+
+    testCase.buildTarget("//foo:top");
+
+    verifyAllSpawnShimsConsumed();
+    assertThat(rewoundKeys).containsExactly(Artifact.key(depPcm.get()));
+    assertThat(ImmutableMultiset.copyOf(getExecutedSpawnDescriptions()))
+        .hasCount("Compiling foo/dep.cppmap", 2);
   }
 
   static boolean isActionExecutionKey(Object key, Label label) {

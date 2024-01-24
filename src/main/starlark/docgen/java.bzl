@@ -1,4 +1,4 @@
-# Copyright 2023 The Bazel Authors. All rights reserved.
+# Copyright 2024 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,17 +13,25 @@
 # limitations under the License.
 
 """Java"""
-# Build Encyclopedia entry point for Java rules implemented in Starlark in Blaze's @_builtins
+# Build Encyclopedia entry point for Java rules implemented in Starlark in Bazel's @_builtins
 
 binary_rules = struct(
 )
 
 library_rules = struct(
+    java_import = native.java_import,
+    java_library = native.java_library,
     java_lite_proto_library = native.java_lite_proto_library,
+    java_proto_library = native.java_proto_library,
 )
 
 test_rules = struct(
+    java_test = native.java_test,
 )
 
 other_rules = struct(
+    java_package_configuration = native.java_package_configuration,
+    java_plugin = native.java_plugin,
+    java_runtime = native.java_runtime,
+    java_toolchain = native.java_toolchain,
 )

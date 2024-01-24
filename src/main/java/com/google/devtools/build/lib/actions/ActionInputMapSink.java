@@ -25,11 +25,14 @@ import javax.annotation.Nullable;
 public interface ActionInputMapSink {
 
   /**
-   * Adds an input if it is not present and returns true iff a new entry was added.
+   * Adds an input if it is not present.
    *
    * <p>Does not handle tree artifacts, please use {@link #putTreeArtifact} for those.
    */
-  boolean put(ActionInput input, FileArtifactValue metadata, @Nullable Artifact depOwner);
+  void put(ActionInput input, FileArtifactValue metadata, @Nullable Artifact depOwner);
+
+  void putRunfilesMetadata(
+      Artifact input, RunfilesArtifactValue metadata, @Nullable Artifact depOwner);
 
   /** Adds a tree artifact entry with given value. */
   void putTreeArtifact(

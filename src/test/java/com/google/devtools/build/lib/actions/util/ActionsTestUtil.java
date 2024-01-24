@@ -59,6 +59,8 @@ import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
+import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissDetail;
@@ -918,6 +920,17 @@ public final class ActionsTestUtil {
       implements InputMetadataProvider, OutputMetadataStore {
     @Override
     public FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    @Nullable
+    public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ImmutableList<RunfilesTree> getRunfilesTrees() {
       throw new UnsupportedOperationException();
     }
 

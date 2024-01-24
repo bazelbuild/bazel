@@ -37,7 +37,7 @@ import javax.annotation.Nullable;
  * precious resources that could otherwise be used for the build itself. But when the build is
  * finished, this number should be raised to quickly go through any pending deletions.
  */
-class AsynchronousTreeDeleter implements TreeDeleter {
+public class AsynchronousTreeDeleter implements TreeDeleter {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final AtomicInteger trashCount = new AtomicInteger(0);
@@ -48,7 +48,7 @@ class AsynchronousTreeDeleter implements TreeDeleter {
   private final Path trashBase;
 
   /** Constructs a new asynchronous tree deleter backed by just one thread. */
-  AsynchronousTreeDeleter(Path trashBase) {
+  public AsynchronousTreeDeleter(Path trashBase) {
     logger.atInfo().log("Starting async tree deletion pool with 1 thread");
 
     ThreadFactory threadFactory =
@@ -82,6 +82,9 @@ class AsynchronousTreeDeleter implements TreeDeleter {
 
   @Override
   public void deleteTree(Path path) throws IOException {
+    if (!trashBase.exists()) {
+      trashBase.createDirectory();
+    }
     Path trashPath = trashBase.getRelative(Integer.toString(trashCount.getAndIncrement()));
     path.renameTo(trashPath);
     checkNotNull(service, "Cannot call deleteTree after shutdown")

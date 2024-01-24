@@ -14,6 +14,7 @@
 
 """A Starlark cc_toolchain configuration rule"""
 
+load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
 load(
     "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
     "action_config",
@@ -29,7 +30,6 @@ load(
     "variable_with_value",
     "with_feature_set",
 )
-load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
 
 def _target_os_version(ctx):
     platform_type = ctx.fragments.apple.single_arch_platform.platform_type
@@ -1286,7 +1286,9 @@ def _impl(ctx):
             ),
             flag_set(
                 actions = all_link_actions,
-                flag_groups = [flag_group(flags = ["-Wl,-fatal-warnings"])],
+                flag_groups = [flag_group(
+                    flags = ["-Wl,-fatal-warnings"] if is_linux else ["-Wl,-fatal_warnings"],
+                )],
             ),
         ],
     )

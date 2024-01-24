@@ -638,8 +638,7 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
         ")");
 
     useConfiguration(
-        "--extra_execution_platforms=//platforms:local_platform_a,//platforms:local_platform_b",
-        "--incompatible_visibility_private_attributes_at_definition");
+        "--extra_execution_platforms=//platforms:local_platform_a,//platforms:local_platform_b");
     scratch.file(
         "foo/lib.bzl",
         "def _impl(ctx):",
@@ -682,8 +681,7 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
         ")");
 
     useConfiguration(
-        "--extra_execution_platforms=//platforms:local_platform_a,//platforms:local_platform_b",
-        "--incompatible_visibility_private_attributes_at_definition");
+        "--extra_execution_platforms=//platforms:local_platform_a,//platforms:local_platform_b");
     scratch.file(
         "foo/lib.bzl",
         "def _impl(ctx):",
@@ -732,8 +730,7 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
         ")");
 
     useConfiguration(
-        "--extra_execution_platforms=//platforms:local_platform_a,//platforms:local_platform_b",
-        "--incompatible_visibility_private_attributes_at_definition");
+        "--extra_execution_platforms=//platforms:local_platform_a,//platforms:local_platform_b");
     scratch.file(
         "foo/lib.bzl",
         "def _impl_aspect(ctx, target):",

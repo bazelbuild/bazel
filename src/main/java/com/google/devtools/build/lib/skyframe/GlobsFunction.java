@@ -59,12 +59,19 @@ public class GlobsFunction implements SkyFunction {
 
     @Override
     public void acceptAggregateMatchingPaths(ImmutableSet<PathFragment> globsMatchingResult) {
-      this.globsMatchingResult = globsMatchingResult;
+      if (error == null) {
+        // If an exception has already been discovered and accepted during previous computation, we
+        // should not accept any matching result.
+        this.globsMatchingResult = globsMatchingResult;
+      }
     }
 
     @Override
-    public void acceptGlobError(GlobError error) {
-      this.error = error;
+    public void acceptGlobError(GlobError globError) {
+      if (error == null) {
+        // Keeps the first reported error if there are multiple.
+        this.error = globError;
+      }
     }
   }
 

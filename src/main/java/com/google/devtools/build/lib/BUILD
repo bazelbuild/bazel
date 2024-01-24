@@ -229,13 +229,11 @@ java_library(
         "runtime/GcThrashingDetector.java",
         "runtime/MemoryPressureEvent.java",
         "runtime/MemoryPressureOptions.java",
-        "runtime/MemoryPressureStatCollector.java",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:memory_pressure_java_proto",
         "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:guava",
@@ -529,6 +527,8 @@ genrule(
         "//src/main/starlark/docgen:gen_be_proto_stardoc_proto",
         "//src/main/starlark/docgen:gen_be_java_stardoc_proto",
         "//src/main/starlark/docgen:gen_be_cpp_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_objc_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_python_stardoc_proto",
     ],
     outs = ["build-encyclopedia.zip"],
     cmd = (
@@ -541,6 +541,8 @@ genrule(
         " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_proto_stardoc_proto)" +
         " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_java_stardoc_proto)" +
         " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_cpp_stardoc_proto)" +
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_objc_stardoc_proto)" +
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_python_stardoc_proto)" +
         " --output_dir=$(@D)/be" +
         " --create_toc=true &&" +
         "zip -qj $@ $(@D)/be/*"
@@ -625,6 +627,8 @@ genrule(
         "//src/main/starlark/docgen:gen_be_proto_stardoc_proto",
         "//src/main/starlark/docgen:gen_be_java_stardoc_proto",
         "//src/main/starlark/docgen:gen_be_cpp_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_objc_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_python_stardoc_proto",
     ],
     outs = ["builtin.pb"],
     cmd = (
@@ -636,7 +640,9 @@ genrule(
         " --input_dir=$$PWD/src/main/java/com/google/devtools/build/lib" +
         " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_proto_stardoc_proto)" +
         " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_java_stardoc_proto)" +
-        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_cpp_stardoc_proto)"
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_cpp_stardoc_proto)" +
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_objc_stardoc_proto)" +
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_python_stardoc_proto)"
     ),
     tools = [
         "//src/main/java/com/google/devtools/build/docgen:api_exporter",

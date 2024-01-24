@@ -1026,7 +1026,7 @@
     },
     "@@bazel_tools//tools/cpp:cc_configure.bzl%cc_configure_extension": {
       "general": {
-        "bzlTransitiveDigest": "uZaFg/HFA09XE0yk4B2fascwbA381z3FwFF64AD5a9w=",
+        "bzlTransitiveDigest": "2LC5INJ/KSraqEsbNl9rSibnM7ApBho21h1gyUQbjPg=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {

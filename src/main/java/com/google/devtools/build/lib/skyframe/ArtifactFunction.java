@@ -32,6 +32,8 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
+import com.google.devtools.build.lib.actions.MiddlemanAction;
+import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
@@ -148,7 +150,7 @@ public final class ArtifactFunction implements SkyFunction {
             artifactDependencies);
 
     FileArtifactValue individualMetadata = actionValue.getExistingFileArtifactValue(artifact);
-    return createRunfilesArtifactValue(artifact, action, individualMetadata, env);
+    return createRunfilesArtifactValue(artifact, (MiddlemanAction) action, individualMetadata, env);
   }
 
   private static void mkdirForTreeArtifact(
@@ -344,7 +346,7 @@ public final class ArtifactFunction implements SkyFunction {
   @Nullable
   private static RunfilesArtifactValue createRunfilesArtifactValue(
       Artifact artifact,
-      ActionAnalysisMetadata action,
+      MiddlemanAction action,
       FileArtifactValue value,
       SkyFunction.Environment env)
       throws InterruptedException {
@@ -388,7 +390,12 @@ public final class ArtifactFunction implements SkyFunction {
     }
 
     return new RunfilesArtifactValue(
-        value, files.build(), fileValues.build(), trees.build(), treeValues.build());
+        value,
+        action.getRunfilesTree(),
+        files.build(),
+        fileValues.build(),
+        trees.build(),
+        treeValues.build());
   }
 
   @Override

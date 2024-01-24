@@ -659,16 +659,6 @@ public class CcToolchainTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSupportsDynamicLinkerIsFalseWhenFeatureNotSet() throws Exception {
-    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
-
-    ConfiguredTarget target = getConfiguredTarget("//a:b");
-    CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
-
-    assertThat(toolchainProvider.supportsDynamicLinker(FeatureConfiguration.EMPTY)).isFalse();
-  }
-
-  @Test
   public void testSysroot_fromCrosstool_unset() throws Exception {
     scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')");
     scratch.file("libc1/BUILD", "filegroup(name = 'everything', srcs = ['header1.h'])");

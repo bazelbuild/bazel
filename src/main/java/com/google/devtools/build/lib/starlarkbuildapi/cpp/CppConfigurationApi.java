@@ -142,14 +142,6 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
       throws EvalException;
 
   @StarlarkMethod(
-      name = "apple_bitcode_mode",
-      doc =
-          "Deprecated: Returns the Bitcode mode to use for compilation steps. "
-              + "Always returns <code>'none'</code>.",
-      structField = true)
-  String getAppleBitcodeMode();
-
-  @StarlarkMethod(
       name = "apple_generate_dsym",
       doc = "Whether to generate Apple debug symbol(.dSYM) artifacts.",
       structField = true)

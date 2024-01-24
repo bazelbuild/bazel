@@ -311,10 +311,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   private boolean rewindingEnabled(OptionsProvider options) throws AbruptExitException {
     var buildRequestOptions = options.getOptions(BuildRequestOptions.class);
-    if (buildRequestOptions == null || !buildRequestOptions.rewindLostInputs) {
-      return false;
-    }
-    return true;
+    return buildRequestOptions != null && buildRequestOptions.rewindLostInputs;
   }
 
   /**

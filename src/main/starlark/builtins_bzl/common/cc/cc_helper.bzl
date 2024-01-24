@@ -641,7 +641,7 @@ def _get_artifact_name_for_category(cc_toolchain, is_dynamic_link_type, output_n
     else:
         linked_artifact_category = artifact_category.EXECUTABLE
 
-    return cc_toolchain.get_artifact_name_for_category(category = linked_artifact_category, output_name = output_name)
+    return cc_internal.get_artifact_name_for_category(cc_toolchain = cc_toolchain, category = linked_artifact_category, output_name = output_name)
 
 def _get_linked_artifact(ctx, cc_toolchain, is_dynamic_link_type):
     name = ctx.label.name
@@ -655,7 +655,7 @@ def _collect_native_cc_libraries(deps, libraries):
     return CcNativeLibraryInfo(libraries_to_link = depset(direct = libraries, transitive = transitive_libraries))
 
 def _tool_path(cc_toolchain, tool):
-    return cc_toolchain.tool_paths().get(tool, None)
+    return cc_toolchain._tool_paths.get(tool, None)
 
 def _get_toolchain_global_make_variables(cc_toolchain):
     result = {
@@ -682,15 +682,15 @@ def _get_toolchain_global_make_variables(cc_toolchain):
     else:
         result["GLIBC_VERSION"] = libc
 
-    abi_glibc_version = cc_toolchain.get_abi_glibc_version()
+    abi_glibc_version = cc_toolchain._abi_glibc_version
     if abi_glibc_version != None:
         result["ABI_GLIBC_VERSION"] = abi_glibc_version
 
-    abi = cc_toolchain.get_abi()
+    abi = cc_toolchain._abi
     if abi != None:
         result["ABI"] = abi
 
-    result["CROSSTOOLTOP"] = cc_toolchain.get_crosstool_top_path()
+    result["CROSSTOOLTOP"] = cc_toolchain._crosstool_top_path
     return result
 
 def _contains_sysroot(original_cc_flags, feature_config_cc_flags):
@@ -712,11 +712,11 @@ def _lookup_var(ctx, additional_vars, var):
     fail("{}: {} not defined".format(ctx.label, "$(" + var + ")"))
 
 def _build_variables(cc_toolchain, cpp_config, apple_config, cpu):
-    if not cc_toolchain.xcode_config_info():
-        return cc_toolchain.build_variables()
+    if not cc_toolchain._xcode_config_info:
+        return cc_toolchain._build_variables
 
     return objc_common.apple_cc_toolchain_build_variables(
-        cc_toolchain.xcode_config_info(),
+        cc_toolchain._xcode_config_info,
         apple_config.single_arch_platform,
         cpu,
         cpp_config,
@@ -724,7 +724,7 @@ def _build_variables(cc_toolchain, cpp_config, apple_config, cpu):
     )
 
 def _get_cc_flags_make_variable(ctx, feature_configuration, cc_toolchain):
-    original_cc_flags = cc_toolchain.legacy_cc_flags_make_variable()
+    original_cc_flags = cc_toolchain._legacy_cc_flags_make_variable
     sysroot_cc_flag = ""
     if cc_toolchain.sysroot != None:
         sysroot_cc_flag = SYSROOT_FLAG + cc_toolchain.sysroot
@@ -1127,7 +1127,7 @@ def _create_cc_instrumented_files_info(ctx, cc_config, cc_toolchain, metadata_fi
     coverage_environment = {}
     if ctx.configuration.coverage_enabled:
         coverage_environment = _get_coverage_environment(ctx, cc_config, cc_toolchain)
-    coverage_support_files = cc_toolchain.coverage_files() if ctx.configuration.coverage_enabled else depset([])
+    coverage_support_files = cc_toolchain._coverage_files if ctx.configuration.coverage_enabled else depset([])
     info = coverage_common.instrumented_files_info(
         ctx = ctx,
         source_attributes = ["srcs", "hdrs"],

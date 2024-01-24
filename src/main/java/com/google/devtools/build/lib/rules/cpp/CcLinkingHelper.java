@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -463,9 +464,17 @@ public final class CcLinkingHelper {
       boolean usePic =
           (!dynamicLinkType.isExecutable() && usePicForDynamicLibs)
               || (dynamicLinkType.isExecutable() && usePicForBinaries);
-      hasBuiltDynamicLibrary =
-          createDynamicLinkAction(
-              ccLinkingOutputsBuilder, libraryToLinkBuilder, usePic, libraryIdentifier, ccOutputs);
+      try {
+        hasBuiltDynamicLibrary =
+            createDynamicLinkAction(
+                ccLinkingOutputsBuilder,
+                libraryToLinkBuilder,
+                usePic,
+                libraryIdentifier,
+                ccOutputs);
+      } catch (EvalException e) {
+        throw new RuleErrorException(e.getMessage());
+      }
     }
 
     if (shouldCreateStaticLibraries
@@ -586,8 +595,7 @@ public final class CcLinkingHelper {
     if (createNoPicAction) {
       LinkerInputs.LibraryToLink staticLibrary =
           registerActionForStaticLibrary(
-                  staticLinkType, ccOutputs, /* usePic= */ false, libraryIdentifier)
-              .getOutputLibrary();
+              staticLinkType, ccOutputs, /* usePic= */ false, libraryIdentifier);
       libraryToLinkBuilder
           .setLibraryIdentifier(staticLibrary.getLibraryIdentifier())
           .setStaticLibrary(staticLibrary.getArtifact())
@@ -611,8 +619,7 @@ public final class CcLinkingHelper {
       }
       LinkerInputs.LibraryToLink picStaticLibrary =
           registerActionForStaticLibrary(
-                  linkTargetTypeUsedForNaming, ccOutputs, /* usePic= */ true, libraryIdentifier)
-              .getOutputLibrary();
+              linkTargetTypeUsedForNaming, ccOutputs, /* usePic= */ true, libraryIdentifier);
       libraryToLinkBuilder
           .setLibraryIdentifier(picStaticLibrary.getLibraryIdentifier())
           .setPicStaticLibrary(picStaticLibrary.getArtifact())
@@ -625,13 +632,13 @@ public final class CcLinkingHelper {
   }
 
   /** Returns whether Propeller profiles should be passed to the linking step. */
-  private boolean shouldPassPropellerProfiles() {
+  private boolean shouldPassPropellerProfiles() throws EvalException {
     return !ccToolchain.isToolConfiguration()
         && fdoContext.getPropellerOptimizeInputFile() != null
         && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null;
   }
 
-  private CppLinkAction registerActionForStaticLibrary(
+  private LinkerInputs.LibraryToLink registerActionForStaticLibrary(
       LinkTargetType linkTargetTypeUsedForNaming,
       CcCompilationOutputs ccOutputs,
       boolean usePic,
@@ -648,12 +655,16 @@ public final class CcLinkingHelper {
             .addActionInputs(linkActionInputs)
             .setLibraryIdentifier(libraryIdentifier)
             .addVariablesExtensions(variablesExtensions);
+    try {
     if (shouldPassPropellerProfiles()) {
       builder.addNonCodeInput(fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
     }
     CppLinkAction action = builder.build();
     actionConstructionContext.registerAction(action);
-    return action;
+      return builder.getOutputLibrary();
+    } catch (EvalException e) {
+      throw new RuleErrorException(e.getMessage());
+    }
   }
 
   private boolean createDynamicLinkAction(
@@ -662,7 +673,7 @@ public final class CcLinkingHelper {
       boolean usePic,
       String libraryIdentifier,
       CcCompilationOutputs ccOutputs)
-      throws RuleErrorException, InterruptedException {
+      throws RuleErrorException, InterruptedException, EvalException {
     boolean hasBuiltDynamicLibrary = false;
     // Create dynamic library.
     Artifact linkerOutput;
@@ -726,8 +737,8 @@ public final class CcLinkingHelper {
             ArtifactCategory.DYNAMIC_LIBRARY,
             CcToolchainProvider.getDynamicRuntimeLinkInputsOrThrowError(
                 ccToolchain.getDynamicRuntimeLinkInputs(), featureConfiguration));
-      } catch (EvalException e) {
-        throw ruleErrorConsumer.throwWithRuleError(e);
+      } catch (TypeException e) {
+        throw new RuleErrorException(e.getMessage());
       }
     } else {
       try {
@@ -735,8 +746,8 @@ public final class CcLinkingHelper {
             ArtifactCategory.STATIC_LIBRARY,
             CcToolchainProvider.getStaticRuntimeLinkInputsOrThrowError(
                 ccToolchain.getStaticRuntimeLinkInputs(), featureConfiguration));
-      } catch (EvalException e) {
-        throw ruleErrorConsumer.throwWithRuleError(e);
+      } catch (TypeException e) {
+        throw new RuleErrorException(e.getMessage());
       }
     }
 
@@ -812,8 +823,9 @@ public final class CcLinkingHelper {
     }
     actionConstructionContext.registerAction(dynamicLinkAction);
 
-    LinkerInputs.LibraryToLink dynamicLibrary = dynamicLinkAction.getOutputLibrary();
-    LinkerInputs.LibraryToLink interfaceLibrary = dynamicLinkAction.getInterfaceOutputLibrary();
+    LinkerInputs.LibraryToLink dynamicLibrary = dynamicLinkActionBuilder.getOutputLibrary();
+    LinkerInputs.LibraryToLink interfaceLibrary =
+        dynamicLinkActionBuilder.getInterfaceOutputLibrary();
 
     // If shared library has neverlink=1, then leave it untouched. Otherwise,
     // create a mangled symlink for it and from now on reference it through
@@ -863,36 +875,40 @@ public final class CcLinkingHelper {
   }
 
   private CppLinkActionBuilder newLinkActionBuilder(
-      Artifact outputArtifact, LinkTargetType linkType) {
+      Artifact outputArtifact, LinkTargetType linkType) throws RuleErrorException {
     String mnemonic = linkType.equals(LinkTargetType.OBJC_EXECUTABLE) ? "ObjcLink" : null;
-    CppLinkActionBuilder builder =
-        new CppLinkActionBuilder(
-                ruleErrorConsumer,
-                actionConstructionContext,
-                label,
-                outputArtifact,
-                configuration,
-                ccToolchain,
-                fdoContext,
-                featureConfiguration,
-                semantics)
-            .setMnemonic(mnemonic)
-            .setIsStampingEnabled(isStampingEnabled)
-            .setTestOrTestOnlyTarget(isTestOrTestOnlyTarget)
-            .setLinkType(linkType)
-            .setLinkerFiles(
-                (cppConfiguration.useSpecificToolFiles()
-                        && linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER)
-                    ? ccToolchain.getArFiles()
-                    : ccToolchain.getLinkerFiles())
-            .setLinkArtifactFactory(linkArtifactFactory)
-            .setUseTestOnlyFlags(useTestOnlyFlags)
-            .addTransitiveActionInputs(additionalLinkerInputs)
-            .addExecutionInfo(executionInfo);
-    for (Artifact output : linkerOutputs) {
-      builder.addActionOutput(output);
+    try {
+      CppLinkActionBuilder builder =
+          new CppLinkActionBuilder(
+                  ruleErrorConsumer,
+                  actionConstructionContext,
+                  label,
+                  outputArtifact,
+                  configuration,
+                  ccToolchain,
+                  fdoContext,
+                  featureConfiguration,
+                  semantics)
+              .setMnemonic(mnemonic)
+              .setIsStampingEnabled(isStampingEnabled)
+              .setTestOrTestOnlyTarget(isTestOrTestOnlyTarget)
+              .setLinkType(linkType)
+              .setLinkerFiles(
+                  (cppConfiguration.useSpecificToolFiles()
+                          && linkType.linkerOrArchiver() == LinkerOrArchiver.ARCHIVER)
+                      ? ccToolchain.getArFiles()
+                      : ccToolchain.getLinkerFiles())
+              .setLinkArtifactFactory(linkArtifactFactory)
+              .setUseTestOnlyFlags(useTestOnlyFlags)
+              .addTransitiveActionInputs(additionalLinkerInputs)
+              .addExecutionInfo(executionInfo);
+      for (Artifact output : linkerOutputs) {
+        builder.addActionOutput(output);
     }
-    return builder;
+      return builder;
+    } catch (TypeException | EvalException e) {
+      throw new RuleErrorException(e.getMessage());
+    }
   }
 
   /**
@@ -1013,7 +1029,8 @@ public final class CcLinkingHelper {
   }
 
   @Nullable
-  private Artifact getDynamicLibrarySolibSymlinkOutput(Artifact linkerOutputArtifact) {
+  private Artifact getDynamicLibrarySolibSymlinkOutput(Artifact linkerOutputArtifact)
+      throws EvalException {
     if (dynamicLinkType != LinkTargetType.DYNAMIC_LIBRARY
         || neverlink
         || featureConfiguration.isEnabled(CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY)) {

@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresentation;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -111,7 +112,7 @@ final class ActionInputMapHelper {
           });
       // We have to cache the "digest" of the aggregating value itself, because the action cache
       // checker may want it.
-      inputMap.put(key, runfilesArtifactValue.getMetadata(), /* depOwner= */ key);
+      inputMap.putRunfilesMetadata(key, runfilesArtifactValue, /* depOwner= */ key);
     } else if (value instanceof TreeArtifactValue) {
       TreeArtifactValue treeArtifactValue = (TreeArtifactValue) value;
       expandTreeArtifactAndPopulateArtifactData(

@@ -54,4 +54,4 @@ body:
       label: >
         Reviewers
       description: >
-        Please provide reviewers for the cherry-pick PR. E.g. @iancha1992, @bazelbuild/triage
+        Please provide reviewers for the cherry-pick PR. E.g. @iancha1992, @keertk

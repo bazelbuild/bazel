@@ -25,12 +25,14 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
+import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeWorkspace;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.events.CleanStartingEvent;
+import com.google.devtools.build.lib.sandbox.AsynchronousTreeDeleter;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxUtil;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxOptions;
@@ -46,6 +48,7 @@ public class WorkerModule extends BlazeModule {
   private CommandEnvironment env;
 
   private WorkerFactory workerFactory;
+  private TreeDeleter treeDeleter;
   @VisibleForTesting WorkerPoolImpl workerPool;
   @Nullable private WorkerLifecycleManager workerLifecycleManager;
 
@@ -107,7 +110,12 @@ public class WorkerModule extends BlazeModule {
     } else {
       workerSandboxOptions = null;
     }
-    WorkerFactory newWorkerFactory = new WorkerFactory(workerDir, workerSandboxOptions);
+    Path trashBase = workerDir.getRelative("_moved_trash_dir");
+    if (treeDeleter == null) {
+      treeDeleter = new AsynchronousTreeDeleter(trashBase);
+    }
+    WorkerFactory newWorkerFactory =
+        new WorkerFactory(workerDir, workerSandboxOptions, treeDeleter);
     if (!newWorkerFactory.equals(workerFactory)) {
       if (workerDir.exists()) {
         try {

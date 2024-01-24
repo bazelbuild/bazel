@@ -87,7 +87,7 @@ public final class PsInfoCollectorTest {
     ImmutableSet<Long> pids = ImmutableSet.of(1L, 2L, 5L, 6L);
     when(spyCollector.collectDataFromPs()).thenReturn(psInfos);
 
-    PsInfoCollector.ResourceSnapshot resourceSnapshot = spyCollector.collectResourceUsage(pids);
+    ResourceSnapshot resourceSnapshot = spyCollector.collectResourceUsage(pids);
 
     ImmutableMap<Long, Integer> expectedMemoryUsageByPid =
         ImmutableMap.of(1L, 3216 + 1234 + 2345 + 3456, 2L, 4232 + 1001 + 1032, 5L, 40000);

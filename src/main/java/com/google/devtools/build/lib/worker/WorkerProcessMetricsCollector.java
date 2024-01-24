@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.worker;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics.WorkerStatus;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.metrics.PsInfoCollector;
+import com.google.devtools.build.lib.metrics.ResourceSnapshot;
 import com.google.devtools.build.lib.util.OS;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -57,18 +59,29 @@ public class WorkerProcessMetricsCollector {
     this.clock = clock;
   }
 
+  ResourceSnapshot collectResourceUsage() {
+    // Only collect for process we know are alive.
+    ImmutableSet<Long> alivePids =
+        processIdToWorkerProcessMetrics.entrySet().stream()
+            .filter(e -> !e.getValue().getStatus().isKilled())
+            .map(e -> e.getKey())
+            .collect(toImmutableSet());
+    return collectResourceUsage(OS.getCurrent(), alivePids);
+  }
+
   /**
    * Collects memory usage of all ancestors of processes by pid. If a pid does not allow collecting
    * memory usage, it is silently ignored.
    */
-  PsInfoCollector.ResourceSnapshot collectMemoryUsageByPid(OS os, ImmutableSet<Long> processIds) {
+  ResourceSnapshot collectResourceUsage(OS os, ImmutableSet<Long> processIds) {
     // TODO(b/181317827): Support Windows.
-    if (processIds.isEmpty() || (os != OS.LINUX && os != OS.DARWIN)) {
-      return PsInfoCollector.ResourceSnapshot.create(
-          /* pidToMemoryInKb= */ ImmutableMap.of(), /* collectionTime= */ Instant.now());
+    if (processIds.isEmpty()) {
+      return ResourceSnapshot.createEmpty();
     }
-
-    return PsInfoCollector.instance().collectResourceUsage(processIds);
+    if (os == OS.LINUX || os == OS.DARWIN) {
+      return PsInfoCollector.instance().collectResourceUsage(processIds);
+    }
+    return ResourceSnapshot.createEmpty();
   }
 
   public ImmutableList<WorkerProcessMetrics> getLiveWorkerProcessMetrics() {
@@ -78,9 +91,7 @@ public class WorkerProcessMetricsCollector {
   }
 
   public ImmutableList<WorkerProcessMetrics> collectMetrics() {
-    PsInfoCollector.ResourceSnapshot resourceSnapshot =
-        collectMemoryUsageByPid(
-            OS.getCurrent(), ImmutableSet.copyOf(processIdToWorkerProcessMetrics.keySet()));
+    ResourceSnapshot resourceSnapshot = collectResourceUsage();
 
     ImmutableMap<Long, Integer> pidToMemoryInKb = resourceSnapshot.getPidToMemoryInKb();
     Instant collectionTime = resourceSnapshot.getCollectionTime();

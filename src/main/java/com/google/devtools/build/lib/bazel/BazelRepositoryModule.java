@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.commands.FetchCommand;
 import com.google.devtools.build.lib.bazel.commands.ModCommand;
 import com.google.devtools.build.lib.bazel.commands.SyncCommand;
+import com.google.devtools.build.lib.bazel.commands.VendorCommand;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformFunction;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
@@ -156,6 +157,8 @@ public class BazelRepositoryModule extends BlazeModule {
   private CheckDirectDepsMode checkDirectDepsMode = CheckDirectDepsMode.WARNING;
   private BazelCompatibilityMode bazelCompatibilityMode = BazelCompatibilityMode.ERROR;
   private LockfileMode bazelLockfileMode = LockfileMode.UPDATE;
+
+  private Optional<Path> vendorDirectory;
   private List<String> allowedYankedVersions = ImmutableList.of();
   private SingleExtensionEvalFunction singleExtensionEvalFunction;
   private final ExecutorService repoFetchingWorkerThreadPool =
@@ -216,6 +219,7 @@ public class BazelRepositoryModule extends BlazeModule {
     builder.addCommands(new FetchCommand());
     builder.addCommands(new ModCommand());
     builder.addCommands(new SyncCommand());
+    builder.addCommands(new VendorCommand());
     builder.addInfoItems(new RepositoryCacheInfoItem(repositoryCache));
   }
 
@@ -516,6 +520,16 @@ public class BazelRepositoryModule extends BlazeModule {
       bazelLockfileMode = repoOptions.lockfileMode;
       allowedYankedVersions = repoOptions.allowedYankedVersions;
 
+      if (repoOptions.vendorDirectory != null) {
+        vendorDirectory =
+            Optional.of(
+                repoOptions.vendorDirectory.isAbsolute()
+                    ? filesystem.getPath(repoOptions.vendorDirectory)
+                    : env.getWorkspace().getRelative(repoOptions.vendorDirectory));
+      } else {
+        vendorDirectory = Optional.empty();
+      }
+
       if (repoOptions.registries != null && !repoOptions.registries.isEmpty()) {
         registries = repoOptions.registries;
       } else {
@@ -587,6 +601,8 @@ public class BazelRepositoryModule extends BlazeModule {
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE, bazelCompatibilityMode),
         PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, bazelLockfileMode),
+        PrecomputedValue.injected(RepositoryDelegatorFunction.IS_VENDOR_COMMAND, false),
+        PrecomputedValue.injected(RepositoryDelegatorFunction.VENDOR_DIRECTORY, vendorDirectory),
         PrecomputedValue.injected(
             YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, allowedYankedVersions));
   }

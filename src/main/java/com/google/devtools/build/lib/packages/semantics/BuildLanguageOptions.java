@@ -467,17 +467,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean incompatibleFixPackageGroupReporootSyntax;
 
   @Option(
-      name = "incompatible_visibility_private_attributes_at_definition",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, the visibility of private rule attributes is checked with respect "
-              + "to the rule definition, falling back to rule usage if not visible.")
-  public boolean incompatibleVisibilityPrivateAttributesAtDefinition;
-
-  @Option(
       name = "incompatible_no_attr_license",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -810,9 +799,6 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM, incompatibleNoRuleOutputsParam)
             .setBool(INCOMPATIBLE_RUN_SHELL_COMMAND_STRING, incompatibleRunShellCommandString)
             .setBool(INCOMPATIBLE_STRUCT_HAS_NO_METHODS, incompatibleStructHasNoMethods)
-            .setBool(
-                INCOMPATIBLE_VISIBILITY_PRIVATE_ATTRIBUTES_AT_DEFINITION,
-                incompatibleVisibilityPrivateAttributesAtDefinition)
             .setBool(StarlarkSemantics.PRINT_TEST_MARKER, internalStarlarkFlagTestCanary)
             .setBool(
                 INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE, incompatibleDoNotSplitLinkingCmdline)
@@ -931,8 +917,6 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-incompatible_use_cc_configure_from_rules";
   public static final String INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION =
       "+incompatible_unambiguous_label_stringification";
-  public static final String INCOMPATIBLE_VISIBILITY_PRIVATE_ATTRIBUTES_AT_DEFINITION =
-      "+incompatible_visibility_private_attributes_at_definition";
   public static final String INCOMPATIBLE_TOP_LEVEL_ASPECTS_REQUIRE_PROVIDERS =
       "-incompatible_top_level_aspects_require_providers";
   public static final String INCOMPATIBLE_DISABLE_STARLARK_HOST_TRANSITIONS =

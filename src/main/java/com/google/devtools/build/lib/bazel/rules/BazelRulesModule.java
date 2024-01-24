@@ -429,6 +429,15 @@ public final class BazelRulesModule extends BlazeModule {
   public static final class AllCommandGraveyardOptions extends OptionsBase {
 
     @Option(
+        name = "incompatible_visibility_private_attributes_at_definition",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "No-op")
+    public boolean incompatibleVisibilityPrivateAttributesAtDefinition;
+
+    @Option(
         name = "incompatible_new_actions_api",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,

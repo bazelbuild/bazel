@@ -16,10 +16,12 @@ java_library(
     srcs = [
         "BaselineOptionsFunction.java",
         "BuildConfigurationFunction.java",
+        "BuildConfigurationKeyFunction.java",
         "PlatformMappingFunction.java",
     ],
     deps = [
         ":config",
+        ":exceptions",
         "//src/main/java/com/google/devtools/build/lib:starlark_options_parser",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
@@ -63,9 +65,23 @@ java_library(
 )
 
 java_library(
+    name = "exceptions",
+    srcs = [
+        "PlatformMappingException.java",
+        "PlatformMappingParsingException.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/common/options",
+    ],
+)
+
+java_library(
     name = "config",
     srcs = [
         "BuildConfigurationKey.java",
+        "BuildConfigurationKeyValue.java",
         "PlatformMappingValue.java",
     ],
     deps = [

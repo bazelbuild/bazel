@@ -2280,7 +2280,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             .get(0)
             .getDynamicLibrary();
     CppLinkAction action = (CppLinkAction) getGeneratingAction(sharedObject);
-    assertThat(action.getLinkstampObjects()).isEmpty();
+    assertThat(artifactsToStrings(action.getInputs()))
+        .doesNotContain("bin hello/_objs/bin/hello/linkstamp.o");
   }
 
   @Test

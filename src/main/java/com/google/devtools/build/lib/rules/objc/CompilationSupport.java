@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -543,7 +544,7 @@ public class CompilationSupport implements StarlarkValue {
           CcToolchainProvider.getStaticRuntimeLinkInputsOrThrowError(
                   toolchain.getStaticRuntimeLinkInputs(), featureConfiguration)
               .toList();
-    } catch (EvalException e) {
+    } catch (EvalException | TypeException e) {
       throw ruleContext.throwWithRuleError(e);
     }
 

@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.actions.FilesetManifest;
 import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehaviorWithoutError;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -89,6 +91,17 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
     }
 
     return null;
+  }
+
+  @Nullable
+  @Override
+  public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
+    return inputArtifactData.getRunfilesMetadata(input);
+  }
+
+  @Override
+  public ImmutableList<RunfilesTree> getRunfilesTrees() {
+    return inputArtifactData.getRunfilesTrees();
   }
 
   @Override

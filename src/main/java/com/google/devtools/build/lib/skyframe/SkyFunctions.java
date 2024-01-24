@@ -92,6 +92,8 @@ public final class SkyFunctions {
   static final SkyFunctionName TEST_COMPLETION = SkyFunctionName.createHermetic("TEST_COMPLETION");
   public static final SkyFunctionName BUILD_CONFIGURATION =
       SkyFunctionName.createHermetic("BUILD_CONFIGURATION");
+  public static final SkyFunctionName BUILD_CONFIGURATION_KEY =
+      SkyFunctionName.createHermetic("BUILD_CONFIGURATION_KEY");
   public static final SkyFunctionName BASELINE_OPTIONS =
       SkyFunctionName.createHermetic("BASELINE_OPTIONS");
   public static final SkyFunctionName STARLARK_BUILD_SETTINGS_DETAILS =

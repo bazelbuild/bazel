@@ -13,12 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.util;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.getStackTraceAsString;
-import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.stream.Collectors.joining;
 
 import build.bazel.remote.execution.v2.Action;
@@ -33,6 +29,7 @@ import com.google.common.util.concurrent.AsyncCallable;
 import com.google.common.util.concurrent.FluentFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -420,11 +417,11 @@ public final class Utils {
               try {
                 return Futures.immediateFuture(ActionResult.parseFrom(data.toByteArray()));
               } catch (InvalidProtocolBufferException e) {
-                return immediateFailedFuture(e);
+                return Futures.immediateFailedFuture(e);
               }
             },
-            directExecutor())
-        .catching(CacheNotFoundException.class, (e) -> null, directExecutor());
+            MoreExecutors.directExecutor())
+        .catching(CacheNotFoundException.class, (e) -> null, MoreExecutors.directExecutor());
   }
 
   public static void verifyBlobContents(Digest expected, Digest actual) throws IOException {
@@ -486,15 +483,15 @@ public final class Utils {
    */
   public static <V> ListenableFuture<V> refreshIfUnauthenticatedAsync(
       AsyncCallable<V> call, CallCredentialsProvider callCredentialsProvider) {
-    checkNotNull(call);
-    checkNotNull(callCredentialsProvider);
+    Preconditions.checkNotNull(call);
+    Preconditions.checkNotNull(callCredentialsProvider);
 
     try {
       return Futures.catchingAsync(
           call.call(),
           Throwable.class,
           (e) -> refreshIfUnauthenticatedAsyncOnException(e, call, callCredentialsProvider),
-          directExecutor());
+          MoreExecutors.directExecutor());
     } catch (Throwable t) {
       return refreshIfUnauthenticatedAsyncOnException(t, call, callCredentialsProvider);
     }
@@ -514,15 +511,15 @@ public final class Utils {
       }
     }
 
-    return immediateFailedFuture(t);
+    return Futures.immediateFailedFuture(t);
   }
 
   /** Same as {@link #refreshIfUnauthenticatedAsync} but calling a synchronous code block. */
   public static <V> V refreshIfUnauthenticated(
       Callable<V> call, CallCredentialsProvider callCredentialsProvider)
       throws IOException, InterruptedException {
-    checkNotNull(call);
-    checkNotNull(callCredentialsProvider);
+    Preconditions.checkNotNull(call);
+    Preconditions.checkNotNull(callCredentialsProvider);
 
     try {
       return call.call();
@@ -620,50 +617,5 @@ public final class Utils {
     if (bulkTransferException != null) {
       throw bulkTransferException;
     }
-  }
-
-  public static ListenableFuture<Void> mergeBulkTransfer(
-      Iterable<ListenableFuture<Void>> transfers) {
-    return Futures.whenAllComplete(transfers)
-        .callAsync(
-            () -> {
-              BulkTransferException bulkTransferException = null;
-
-              for (var transfer : transfers) {
-                IOException error = null;
-                try {
-                  transfer.get();
-                } catch (CancellationException e) {
-                  return immediateFailedFuture(new InterruptedException());
-                } catch (InterruptedException e) {
-                  return immediateFailedFuture(e);
-                } catch (ExecutionException e) {
-                  var cause = e.getCause();
-                  if (cause instanceof InterruptedException) {
-                    return immediateFailedFuture(cause);
-                  } else if (cause instanceof IOException) {
-                    error = (IOException) cause;
-                  } else {
-                    error = new IOException(cause);
-                  }
-                }
-
-                if (error == null) {
-                  continue;
-                }
-
-                if (bulkTransferException == null) {
-                  bulkTransferException = new BulkTransferException();
-                }
-                bulkTransferException.add(error);
-              }
-
-              if (bulkTransferException != null) {
-                return immediateFailedFuture(bulkTransferException);
-              }
-
-              return immediateVoidFuture();
-            },
-            directExecutor());
   }
 }

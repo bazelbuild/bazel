@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /** An {@link ActionTemplate} that expands into {@link CppCompileAction}s at execution time. */
 public final class CppCompileActionTemplate extends ActionKeyCacher
@@ -81,7 +82,8 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
       CppCompileActionBuilder cppCompileActionBuilder,
       CcToolchainProvider toolchain,
       ImmutableList<ArtifactCategory> categories,
-      ActionOwner actionOwner) {
+      ActionOwner actionOwner)
+      throws EvalException {
     this.cppCompileActionBuilder = cppCompileActionBuilder;
     this.sourceTreeArtifact = sourceTreeArtifact;
     this.outputTreeArtifact = outputTreeArtifact;
@@ -135,42 +137,47 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
     NestedSet<Artifact> privateHeaders = privateHeadersBuilder.build();
 
     for (TreeFileArtifact inputTreeFileArtifact : sources) {
-      String outputName = outputTreeFileArtifactName(inputTreeFileArtifact);
-      TreeFileArtifact outputTreeFileArtifact =
-          TreeFileArtifact.createTemplateExpansionOutput(
-              outputTreeArtifact, outputName, artifactOwner);
-      TreeFileArtifact dotdFileArtifact = null;
-      if (dotdTreeArtifact != null && cppCompileActionBuilder.useDotdFile(inputTreeFileArtifact)) {
-        dotdFileArtifact =
+      try {
+        String outputName = outputTreeFileArtifactName(inputTreeFileArtifact);
+        TreeFileArtifact outputTreeFileArtifact =
             TreeFileArtifact.createTemplateExpansionOutput(
-                dotdTreeArtifact, outputName + ".d", artifactOwner);
-      }
-      TreeFileArtifact diagnosticsFileArtifact = null;
-      if (diagnosticsTreeArtifact != null) {
-        diagnosticsFileArtifact =
-            TreeFileArtifact.createTemplateExpansionOutput(
-                diagnosticsTreeArtifact, outputName + ".dia", artifactOwner);
-      }
+                outputTreeArtifact, outputName, artifactOwner);
+        TreeFileArtifact dotdFileArtifact = null;
+        if (dotdTreeArtifact != null
+            && cppCompileActionBuilder.useDotdFile(inputTreeFileArtifact)) {
+          dotdFileArtifact =
+              TreeFileArtifact.createTemplateExpansionOutput(
+                  dotdTreeArtifact, outputName + ".d", artifactOwner);
+        }
+        TreeFileArtifact diagnosticsFileArtifact = null;
+        if (diagnosticsTreeArtifact != null) {
+          diagnosticsFileArtifact =
+              TreeFileArtifact.createTemplateExpansionOutput(
+                  diagnosticsTreeArtifact, outputName + ".dia", artifactOwner);
+        }
 
-      TreeFileArtifact ltoIndexFileArtifact = null;
-      if (ltoIndexTreeArtifact != null) {
-        PathFragment outputFilePathFragment = PathFragment.create(outputName);
-        PathFragment thinltofile =
-            FileSystemUtils.replaceExtension(
-                outputFilePathFragment,
-                Iterables.getOnlyElement(CppFileTypes.LTO_INDEXING_OBJECT_FILE.getExtensions()));
-        ltoIndexFileArtifact =
-            TreeFileArtifact.createTemplateExpansionOutput(
-                ltoIndexTreeArtifact, thinltofile, artifactOwner);
+        TreeFileArtifact ltoIndexFileArtifact = null;
+        if (ltoIndexTreeArtifact != null) {
+          PathFragment outputFilePathFragment = PathFragment.create(outputName);
+          PathFragment thinltofile =
+              FileSystemUtils.replaceExtension(
+                  outputFilePathFragment,
+                  Iterables.getOnlyElement(CppFileTypes.LTO_INDEXING_OBJECT_FILE.getExtensions()));
+          ltoIndexFileArtifact =
+              TreeFileArtifact.createTemplateExpansionOutput(
+                  ltoIndexTreeArtifact, thinltofile, artifactOwner);
+        }
+        expandedActions.add(
+            createAction(
+                inputTreeFileArtifact,
+                outputTreeFileArtifact,
+                dotdFileArtifact,
+                diagnosticsFileArtifact,
+                ltoIndexFileArtifact,
+                privateHeaders));
+      } catch (EvalException e) {
+        throw throwActionExecutionException(e);
       }
-      expandedActions.add(
-          createAction(
-              inputTreeFileArtifact,
-              outputTreeFileArtifact,
-              dotdFileArtifact,
-              diagnosticsFileArtifact,
-              ltoIndexFileArtifact,
-              privateHeaders));
     }
 
     return expandedActions.build();
@@ -190,20 +197,24 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
             dotdTreeArtifact,
             cppCompileActionBuilder.getFeatureConfiguration(),
             cppCompileActionBuilder.getVariables());
-    CppCompileAction.computeKey(
-        actionKeyContext,
-        fp,
-        cppCompileActionBuilder.getActionEnvironment(),
-        commandLine.getEnvironment(),
-        cppCompileActionBuilder.getExecutionInfo(),
-        CppCompileAction.computeCommandLineKey(
-            commandLine.getCompilerOptions(/* overwrittenVariables= */ null)),
-        cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeSrcs(),
-        mandatoryInputs,
-        mandatoryInputs,
-        cppCompileActionBuilder.getPrunableHeaders(),
-        cppCompileActionBuilder.getBuiltinIncludeDirectories(),
-        cppCompileActionBuilder.getInputsForInvalidation());
+    try {
+      CppCompileAction.computeKey(
+          actionKeyContext,
+          fp,
+          cppCompileActionBuilder.getActionEnvironment(),
+          commandLine.getEnvironment(),
+          cppCompileActionBuilder.getExecutionInfo(),
+          CppCompileAction.computeCommandLineKey(
+              commandLine.getCompilerOptions(/* overwrittenVariables= */ null)),
+          cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeSrcs(),
+          mandatoryInputs,
+          mandatoryInputs,
+          cppCompileActionBuilder.getPrunableHeaders(),
+          cppCompileActionBuilder.getBuiltinIncludeDirectories(),
+          cppCompileActionBuilder.getInputsForInvalidation());
+    } catch (EvalException e) {
+      throw new CommandLineExpansionException(e.getMessage());
+    }
   }
 
   private boolean shouldCompileHeaders() {
@@ -254,12 +265,13 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
 
     try {
       return builder.buildAndVerify();
-    } catch (CppCompileActionBuilder.UnconfiguredActionConfigException e) {
+    } catch (CppCompileActionBuilder.UnconfiguredActionConfigException | EvalException e) {
       throw throwActionExecutionException(e);
     }
   }
 
-  private String outputTreeFileArtifactName(TreeFileArtifact inputTreeFileArtifact) {
+  private String outputTreeFileArtifactName(TreeFileArtifact inputTreeFileArtifact)
+      throws EvalException {
     String outputName = FileSystemUtils.removeExtension(
         inputTreeFileArtifact.getParentRelativePath().getPathString());
     for (ArtifactCategory category : categories) {

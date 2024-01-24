@@ -14,9 +14,9 @@
 
 """Starlark implementation of cc_toolchain_alias rule."""
 
-load(":common/cc/semantics.bzl", "semantics")
-load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_common.bzl", "cc_common")
+load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/cc/semantics.bzl", "semantics")
 
 CcToolchainInfo = cc_common.CcToolchainInfo
 TemplateVariableInfo = _builtins.toplevel.platform_common.TemplateVariableInfo
@@ -26,7 +26,7 @@ def _impl(ctx):
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx, mandatory = ctx.attr.mandatory)
     if not cc_toolchain:
         return []
-    make_variables = cc_toolchain.get_additional_make_variables()
+    make_variables = cc_toolchain._additional_make_variables
     cc_provider_make_variables = cc_helper.get_toolchain_global_make_variables(cc_toolchain)
     template_variable_info = TemplateVariableInfo(make_variables | cc_provider_make_variables)
     toolchain = ToolchainInfo(
@@ -38,7 +38,7 @@ def _impl(ctx):
         toolchain,
         template_variable_info,
         DefaultInfo(
-            files = cc_toolchain.get_all_files_including_libc(),
+            files = cc_toolchain._all_files_including_libc,
         ),
     ]
 

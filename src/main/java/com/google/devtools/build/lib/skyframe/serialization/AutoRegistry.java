@@ -58,6 +58,7 @@ public class AutoRegistry {
           "java.io.IOException",
           "java.lang.StackTraceElement",
           "java.lang.invoke.SerializedLambda",
+          "java.lang.ref.SoftReference",
           "java.time.Instant",
           "com.google.common.base.Predicates$InPredicate",
           // Implementation class for com.google.common.base.Optional.

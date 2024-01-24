@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.sandbox.CgroupsInfo;
@@ -101,13 +102,15 @@ final class SandboxedWorker extends SingleplexWorker {
 
   private Path inaccessibleHelperDir;
   private Path inaccessibleHelperFile;
+  private final TreeDeleter treeDeleter;
 
   SandboxedWorker(
       WorkerKey workerKey,
       int workerId,
       Path workDir,
       Path logFile,
-      @Nullable WorkerSandboxOptions hardenedSandboxOptions) {
+      @Nullable WorkerSandboxOptions hardenedSandboxOptions,
+      TreeDeleter treeDeleter) {
     super(workerKey, workerId, workDir, logFile);
     this.workerExecRoot =
         new WorkerExecRoot(
@@ -116,6 +119,7 @@ final class SandboxedWorker extends SingleplexWorker {
                 ? ImmutableList.of(PathFragment.create("../" + TMP_DIR_MOUNT_NAME))
                 : ImmutableList.of());
     this.hardenedSandboxOptions = hardenedSandboxOptions;
+    this.treeDeleter = treeDeleter;
   }
 
   @Override
@@ -192,11 +196,13 @@ final class SandboxedWorker extends SingleplexWorker {
               .setCreateNetworkNamespace(NETNS);
 
       if (hardenedSandboxOptions.memoryLimit() > 0) {
-        CgroupsInfo cgroupsInfo = CgroupsInfo.getInstance();
         // We put the sandbox inside a unique subdirectory using the worker's ID.
-        cgroupsDir =
-            cgroupsInfo.createMemoryLimitCgroupDir(
-                "worker_sandbox_" + workerId, hardenedSandboxOptions.memoryLimit());
+        CgroupsInfo workerCgroup =
+            CgroupsInfo.createMemoryLimitCgroupDir(
+                CgroupsInfo.getBlazeSpawnsCgroup(),
+                "worker_sandbox_" + workerId,
+                hardenedSandboxOptions.memoryLimit());
+        cgroupsDir = workerCgroup.getCgroupDir().toString();
         commandLineBuilder.setCgroupsDir(cgroupsDir);
       }
 
@@ -214,7 +220,7 @@ final class SandboxedWorker extends SingleplexWorker {
       SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
       throws IOException, InterruptedException, UserExecException {
     try (SilentCloseable c = Profiler.instance().profile("workerExecRoot.createFileSystem")) {
-      workerExecRoot.createFileSystem(workerFiles, inputFiles, outputs);
+      workerExecRoot.createFileSystem(workerFiles, inputFiles, outputs, treeDeleter);
     }
 
     super.prepareExecution(inputFiles, outputs, workerFiles);

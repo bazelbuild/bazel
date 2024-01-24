@@ -50,7 +50,7 @@ public class PyRuleClasses {
     public static final Py3Symlink INSTANCE = new Py3Symlink();
 
     @Override
-    public String getLinkName(String symlinkPrefix, String productName, String workspaceBaseName) {
+    public String getLinkName(String symlinkPrefix, String workspaceBaseName) {
       return symlinkPrefix + Ascii.toLowerCase(PythonVersion.PY3.toString());
     }
 

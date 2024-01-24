@@ -275,11 +275,46 @@ def _impl(ctx):
 
 cc_proto_library = rule(
     implementation = _impl,
+    doc = """
+<p>
+<code>cc_proto_library</code> generates C++ code from <code>.proto</code> files.
+</p>
+
+<p>
+<code>deps</code> must point to <a href="protocol-buffer.html#proto_library"><code>proto_library
+</code></a> rules.
+</p>
+
+<p>
+Example:
+</p>
+
+<pre>
+<code class="lang-starlark">
+cc_library(
+    name = "lib",
+    deps = [":foo_cc_proto"],
+)
+
+cc_proto_library(
+    name = "foo_cc_proto",
+    deps = [":foo_proto"],
+)
+
+proto_library(
+    name = "foo_proto",
+)
+</code>
+</pre>
+""",
     attrs = {
         "deps": attr.label_list(
             aspects = [cc_proto_aspect],
             allow_rules = ["proto_library"],
             allow_files = False,
+            doc = """
+The list of <a href="protocol-buffer.html#proto_library"><code>proto_library</code></a>
+rules to generate C++ code for.""",
         ),
     } | toolchains.if_legacy_toolchain({
         "_aspect_cc_proto_toolchain": attr.label(

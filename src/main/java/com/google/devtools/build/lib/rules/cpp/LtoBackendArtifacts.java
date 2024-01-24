@@ -264,28 +264,29 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
       List<String> userCompileFlags,
       RuleErrorConsumer ruleErrorConsumer)
       throws RuleErrorException {
-    builder.addTransitiveInputs(ccToolchain.getCompilerFiles());
-    builder.setMnemonic("CcLtoBackendCompile");
-    addProfileForLtoBackend(builder, fdoContext, featureConfiguration, buildVariablesBuilder);
-    // Add the context sensitive instrument path to the backend.
-    if (featureConfiguration.isEnabled(CppRuleClasses.CS_FDO_INSTRUMENT)) {
-      buildVariablesBuilder.addStringVariable(
-          CompileBuildVariables.CS_FDO_INSTRUMENT_PATH.getVariableName(),
-          ccToolchain.getCSFdoInstrument());
-    }
-    buildVariablesBuilder.addStringSequenceVariable(
-        CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName(), userCompileFlags);
-
-    if (cppConfiguration.useStandaloneLtoIndexingCommandLines()) {
-      if (!featureConfiguration.actionIsConfigured(CppActionNames.LTO_BACKEND)) {
-        throw ruleErrorConsumer.throwWithRuleError(
-            "Thinlto build is requested, but the C++ toolchain doesn't define an action_config for"
-                + " 'lto-backend' action.");
+    try {
+      builder.addTransitiveInputs(ccToolchain.getCompilerFiles());
+      builder.setMnemonic("CcLtoBackendCompile");
+      addProfileForLtoBackend(builder, fdoContext, featureConfiguration, buildVariablesBuilder);
+      // Add the context sensitive instrument path to the backend.
+      if (featureConfiguration.isEnabled(CppRuleClasses.CS_FDO_INSTRUMENT)) {
+        buildVariablesBuilder.addStringVariable(
+            CompileBuildVariables.CS_FDO_INSTRUMENT_PATH.getVariableName(),
+            ccToolchain.getCSFdoInstrument());
       }
-      PathFragment compiler =
-          PathFragment.create(
-              featureConfiguration.getToolPathForAction(CppActionNames.LTO_BACKEND));
-      builder.setExecutable(compiler);
+      buildVariablesBuilder.addStringSequenceVariable(
+          CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName(), userCompileFlags);
+
+      if (cppConfiguration.useStandaloneLtoIndexingCommandLines()) {
+        if (!featureConfiguration.actionIsConfigured(CppActionNames.LTO_BACKEND)) {
+          throw ruleErrorConsumer.throwWithRuleError(
+              "Thinlto build is requested, but the C++ toolchain doesn't define an action_config"
+                  + " for 'lto-backend' action.");
+        }
+        PathFragment compiler =
+            PathFragment.create(
+                featureConfiguration.getToolPathForAction(CppActionNames.LTO_BACKEND));
+        builder.setExecutable(compiler);
     } else {
       PathFragment compiler =
           PathFragment.create(
@@ -295,7 +296,10 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
                   ccToolchain.getCcToolchainLabel(),
                   ccToolchain.getToolchainIdentifier(),
                   ruleErrorConsumer));
-      builder.setExecutable(compiler);
+        builder.setExecutable(compiler);
+      }
+    } catch (EvalException e) {
+      throw new RuleErrorException(e.getMessage());
     }
   }
 

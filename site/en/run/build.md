@@ -160,12 +160,12 @@ workspace.
 </tr>
 <tr>
   <td><code>//...</code></td>
-  <td>All targets in packages in the workspace. This does not include targets
+  <td>All rule targets in packages in the main repository. Does not include targets
   from <a href="/docs/external">external repositories</a>.</td>
 </tr>
 <tr>
   <td><code>//:all</code></td>
-  <td>All targets in the top-level package, if there is a `BUILD` file at the
+  <td>All rule targets in the top-level package, if there is a `BUILD` file at the
   root of the workspace.</td>
 </tr>
 </table>

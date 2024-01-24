@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
@@ -234,12 +233,6 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     // As the classpath is no longer part of commandLines implicitly, we need to explicitly add
     // the transitive inputs to the key here.
     actionKeyContext.addNestedSetToFingerprint(fp, transitiveInputs);
-    // We don't need the toolManifests here, because they are a subset of the inputManifests by
-    // definition and the output of an action shouldn't change whether something is considered a
-    // tool or not.
-    for (RunfilesTree runfilesTree : getRunfilesSupplier().getRunfilesTrees()) {
-      fp.addPath(runfilesTree.getExecPath());
-    }
     getEnvironment().addTo(fp);
     fp.addStringMap(executionInfo);
     PathMappers.addToFingerprint(

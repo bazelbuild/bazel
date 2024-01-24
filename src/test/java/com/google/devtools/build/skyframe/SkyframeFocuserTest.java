@@ -15,11 +15,13 @@ package com.google.devtools.build.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.skyframe.SkyframeFocuser.FocusResult;
+import java.util.LinkedHashSet;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -41,7 +43,13 @@ public final class SkyframeFocuserTest {
   @Test
   public void testFocusCommand_emptyInputsReturnsEmptyResult() {
     InMemoryGraphImpl graph = new InMemoryGraphImpl();
-    FocusResult focusResult = SkyframeFocuser.focus(graph, reporter);
+    FocusResult focusResult =
+        SkyframeFocuser.focus(
+            graph,
+            new LinkedHashSet<>(),
+            new LinkedHashSet<>(),
+            reporter,
+            (SkyKey k) -> ImmutableSet.of());
     assertThat(focusResult.getDeps()).isEmpty();
     assertThat(focusResult.getRdeps()).isEmpty();
   }

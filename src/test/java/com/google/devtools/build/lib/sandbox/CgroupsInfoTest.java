@@ -49,7 +49,7 @@ public class CgroupsInfoTest {
             "cgroup /dev/cgroup/job cgroup rw,job 0 0",
             "cgroup /dev/cgroup/memory cgroup rw,memory,hugetlb 0 0",
             "proc /proc proc rw,nosuid,nodev,noexec,relatime 0 0");
-    Pair<File, Boolean> cgroupsMountInfo = CgroupsInfo.getMemoryCgroupInfo(new File(pathString));
+    Pair<File, Boolean> cgroupsMountInfo = CgroupsInfo.getCgroupMountInfo(new File(pathString));
     assertThat(cgroupsMountInfo.second).isFalse();
     assertThat(cgroupsMountInfo.first.toString()).isEqualTo("/dev/cgroup/memory");
   }
@@ -62,7 +62,7 @@ public class CgroupsInfoTest {
             "sysfs /sys sysfs rw,nosuid,nodev,noexec,relatime 0 0",
             "cgroup2 /sys/fs/cgroup cgroup2 rw,memory_recursiveprot 0 0",
             "proc /proc proc rw,nosuid,nodev,noexec,relatime 0 0");
-    Pair<File, Boolean> cgroupsMountInfo = CgroupsInfo.getMemoryCgroupInfo(new File(pathString));
+    Pair<File, Boolean> cgroupsMountInfo = CgroupsInfo.getCgroupMountInfo(new File(pathString));
     assertThat(cgroupsMountInfo.second).isTrue();
     assertThat(cgroupsMountInfo.first.toString()).isEqualTo("/sys/fs/cgroup");
   }
@@ -77,7 +77,7 @@ public class CgroupsInfoTest {
             "cgroup /dev/cgroup/job cgroup rw,job 0 0",
             "cgroup /dev/cgroup/memory cgroup rw,memory,hugetlb 0 0",
             "proc /proc proc rw,nosuid,nodev,noexec,relatime 0 0");
-    Pair<File, Boolean> cgroupsMountInfo = CgroupsInfo.getMemoryCgroupInfo(new File(pathString));
+    Pair<File, Boolean> cgroupsMountInfo = CgroupsInfo.getCgroupMountInfo(new File(pathString));
     assertThat(cgroupsMountInfo.second).isFalse();
     assertThat(cgroupsMountInfo.first.toString()).isEqualTo("/dev/cgroup/memory");
   }
@@ -92,7 +92,7 @@ public class CgroupsInfoTest {
             "cgroup /dev/cgroup/job cgroup rw,job 0 0",
             "cgroup /dev/cgroup/io cgroup rw,io 0 0",
             "proc /proc proc rw,nosuid,nodev,noexec,relatime 0 0");
-    Pair<File, Boolean> cgroupsMountInfo = CgroupsInfo.getMemoryCgroupInfo(new File(pathString));
+    Pair<File, Boolean> cgroupsMountInfo = CgroupsInfo.getCgroupMountInfo(new File(pathString));
     assertThat(cgroupsMountInfo.second).isTrue();
     assertThat(cgroupsMountInfo.first.toString()).isEqualTo("/sys/fs/cgroup");
   }
@@ -121,7 +121,8 @@ public class CgroupsInfoTest {
             "6:job:/jobdir/action-16",
             "5:io:/iodir/action-1");
     scratch.dir(root + "/dev/cgroup/memory/memdir/action-6").createDirectoryAndParents();
-    File cgroupsMountInfo = CgroupsInfo.getBlazeMemoryCgroup(new File(mountPath), 7, pathString);
+    File cgroupsMountInfo =
+        CgroupsInfo.getBlazeProcessCgroupDir(new File(mountPath), 7, pathString);
     assertThat(cgroupsMountInfo.getAbsolutePath()).isEqualTo(mountPath + "/memdir/action-6");
   }
 
@@ -132,7 +133,7 @@ public class CgroupsInfoTest {
         createFakeAbsoluteFile("/proc/self/cgroup", "0::/user.slice/session.scope");
     scratch.dir(mountPath + "/user.slice/session.scope").createDirectoryAndParents();
     File cgroupsMountInfo =
-        CgroupsInfo.getBlazeMemoryCgroup(new File(mountPath), 0, procSelfCgroup);
+        CgroupsInfo.getBlazeProcessCgroupDir(new File(mountPath), 0, procSelfCgroup);
     assertThat(cgroupsMountInfo.getAbsolutePath())
         .isEqualTo(mountPath + "/user.slice/session.scope");
   }
@@ -157,11 +158,11 @@ public class CgroupsInfoTest {
             "6:job:/jobdir/action-16",
             "5:io:/iodir/action-1");
     scratch.dir(root + "/dev/cgroup/memory/memdir/action-6").createDirectoryAndParents();
-    CgroupsInfo cgroupsInfo = CgroupsInfo.create(procMount, procSelfCgroup);
+    CgroupsInfo cgroupsInfo = CgroupsInfo.createBlazeSpawnsCgroup(procMount, procSelfCgroup);
     assertThat(cgroupsInfo.isCgroupsV2()).isFalse();
-    assertThat(cgroupsInfo.getBlazeDir().getAbsolutePath())
+    assertThat(cgroupsInfo.getCgroupDir().getAbsolutePath())
         .matches(root + "/dev/cgroup/memory/memdir/action-6/blaze_\\d+_spawns");
-    assertThat(cgroupsInfo.getBlazeDir().exists()).isTrue();
+    assertThat(cgroupsInfo.getCgroupDir().exists()).isTrue();
   }
 
   @Test
@@ -189,10 +190,10 @@ public class CgroupsInfoTest {
     // Since this controllers file is missing `pids`, we expect that to be written to it.
     scratch.file(blazeSlice + "/cgroup.subtree_control", "memory");
 
-    CgroupsInfo cgroupsInfo = CgroupsInfo.create(procMount, procSelfCgroup);
+    CgroupsInfo cgroupsInfo = CgroupsInfo.createBlazeSpawnsCgroup(procMount, procSelfCgroup);
 
     assertThat(cgroupsInfo.isCgroupsV2()).isTrue();
-    assertThat(cgroupsInfo.getBlazeDir().getAbsolutePath())
+    assertThat(cgroupsInfo.getCgroupDir().getAbsolutePath())
         .matches(root + "/sys/fs/cgroup/user.slice/blaze_\\d+_spawns.slice");
 
     // This is not what an actual cgroupsv2 file would contain, but it's what we expect to write to
