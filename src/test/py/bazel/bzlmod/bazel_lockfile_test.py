@@ -1286,6 +1286,7 @@ class BazelLockfileTest(test_base.TestBase):
 
   def testLockfileWithNoUserSpecificPath(self):
     self.my_registry = BazelRegistry(os.path.join(self._test_cwd, 'registry'))
+    self.my_registry.setModuleBasePath('projects')
     patch_file = self.ScratchFile(
         'ss.patch',
         [
@@ -1301,9 +1302,27 @@ class BazelLockfileTest(test_base.TestBase):
             ' }',
         ],
     )
+    # Module with a local patch & extension
     self.my_registry.createCcModule(
-        'ss', '1.3-1', patches=[patch_file], patch_strip=1
+        'ss',
+        '1.3-1',
+        {'ext': '1.0'},
+        patches=[patch_file],
+        patch_strip=1,
+        extra_module_file_contents=[
+            'my_ext = use_extension("@ext//:ext.bzl", "ext")',
+            'use_repo(my_ext, "justRepo")',
+        ],
     )
+    ext_src = [
+        'def _repo_impl(ctx): ctx.file("BUILD")',
+        'repo = repository_rule(_repo_impl)',
+        'def _ext_impl(ctx): repo(name=justRepo)',
+        'ext=module_extension(_ext_impl)',
+    ]
+    self.my_registry.createLocalPathModule('ext', '1.0', 'ext')
+    scratchFile(self.my_registry.projects.joinpath('ext', 'BUILD'))
+    scratchFile(self.my_registry.projects.joinpath('ext', 'ext.bzl'), ext_src)
 
     self.ScratchFile(
         'MODULE.bazel',
@@ -1318,10 +1337,14 @@ class BazelLockfileTest(test_base.TestBase):
 
     with open('MODULE.bazel.lock', 'r') as json_file:
       lockfile = json.load(json_file)
-    remote_patches = lockfile['moduleDepGraph']['ss@1.3-1']['repoSpec'][
-        'attributes'
-    ]['remote_patches']
+    ss_dep = lockfile['moduleDepGraph']['ss@1.3-1']
+    remote_patches = ss_dep['repoSpec']['attributes']['remote_patches']
+    ext_usage_location = ss_dep['extensionUsages'][0]['location']['file']
+
+    self.assertNotIn(self.my_registry.getURL(), ext_usage_location)
+    self.assertIn('%workspace%', ext_usage_location)
     for key in remote_patches.keys():
+      self.assertNotIn(self.my_registry.getURL(), key)
       self.assertIn('%workspace%', key)
 
   def testExtensionEvaluationRerunsIfDepGraphOrderChanges(self):
