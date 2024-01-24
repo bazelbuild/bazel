@@ -1305,6 +1305,20 @@ public abstract class FileSystemTest {
   }
 
   @Test
+  public void testInputStreamPermissionError() throws Exception {
+    assertThat(xFile.exists()).isTrue();
+    xFile.setReadable(false);
+    assertThrows(FileAccessException.class, () -> xFile.getInputStream());
+  }
+
+  @Test
+  public void testOutputStreamPermissionError() throws Exception {
+    assertThat(xFile.exists()).isTrue();
+    xFile.setWritable(false);
+    assertThrows(FileAccessException.class, () -> xFile.getOutputStream());
+  }
+
+  @Test
   public void testFileChannel() throws Exception {
     byte[] bytes = "abcdefghijklmnoprstuvwxyz".getBytes(StandardCharsets.ISO_8859_1);
     try (OutputStream outStream = xFile.getOutputStream()) {
