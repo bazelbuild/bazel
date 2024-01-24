@@ -379,8 +379,8 @@ public final class SpawnInputExpanderTest {
     verify(inputSink)
         .acceptMapping(
             PathFragment.create("runfiles/workspace/treeArtifact"),
-            treeArtifact,
-            /* owner= */ null);
+            archivedTreeArtifact,
+            treeArtifact);
   }
 
   @Test
