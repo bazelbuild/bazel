@@ -2384,6 +2384,12 @@ EOF
   bazel build @foo//:bar --experimental_worker_for_repo_fetching=platform >& $TEST_log \
     || fail "Expected build to succeed"
   expect_log_n "hello world!" 1
+
+  # virtual worker thread, never restarts
+  bazel shutdown
+  bazel build @foo//:bar --experimental_worker_for_repo_fetching=virtual >& $TEST_log \
+    || fail "Expected build to succeed"
+  expect_log_n "hello world!" 1
 }
 
 function test_duplicate_value_in_environ() {
