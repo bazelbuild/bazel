@@ -149,11 +149,6 @@ public class IndexRegistry implements Registry {
     boolean initSubmodules;
     boolean verbose;
     String stripPrefix;
-    List<String> patches;
-    String patchTool;
-    List<String> patchArgs;
-    List<String> patchCmds;
-    List<String> patchCmdsWin;
   }
 
   /**
@@ -360,11 +355,6 @@ public class IndexRegistry implements Registry {
         .setInitSubmodules(sourceJson.initSubmodules)
         .setVerbose(sourceJson.verbose)
         .setStripPrefix(sourceJson.stripPrefix)
-        .setPatches(sourceJson.patches)
-        .setPatchTool(sourceJson.patchTool)
-        .setPatchArgs(sourceJson.patchArgs)
-        .setPatchCmds(sourceJson.patchCmds)
-        .setPatchCmdsWin(sourceJson.patchCmdsWin)
         .build();
   }
 
