@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
+import static com.google.devtools.build.lib.cmdline.LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -73,6 +74,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   public static final Precomputed<Map<RepositoryName, PathFragment>> REPOSITORY_OVERRIDES =
       new Precomputed<>("repository_overrides");
 
+  public static final String FORCE_FETCH_DISABLED = "";
+
   public static final Precomputed<String> FORCE_FETCH =
       new Precomputed<>("dependency_for_force_fetching_repository");
 
@@ -82,7 +85,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   public static final Precomputed<Optional<RootedPath>> RESOLVED_FILE_INSTEAD_OF_WORKSPACE =
       new Precomputed<>("resolved_file_instead_of_workspace");
 
-  public static final String FORCE_FETCH_DISABLED = "";
+  public static final Precomputed<Boolean> IS_VENDOR_COMMAND =
+      new Precomputed<>("is_vendor_command");
+
+  public static final Precomputed<Optional<Path>> VENDOR_DIRECTORY =
+      new Precomputed<>("vendor_directory");
 
   // The marker file version is inject in the rule key digest so the rule key is always different
   // when we decide to update the format.
@@ -160,6 +167,35 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       }
 
       DigestWriter digestWriter = new DigestWriter(directories, repositoryName, rule);
+      if (shouldUseVendorRepos(env, handler, rule)) {
+        Path vendorPath = VENDOR_DIRECTORY.get(env).get();
+        Path vendorMarker = vendorPath.getChild("@" + repositoryName.getName() + ".marker");
+        boolean isVendorRepoUpToDate =
+            digestWriter.areRepositoryAndMarkerFileConsistent(handler, env, vendorMarker) != null;
+        if (env.valuesMissing()) {
+          return null;
+        }
+        if (isVendorRepoUpToDate) {
+          PathFragment vendorRepoPath =
+              vendorPath.getRelative(repositoryName.getName()).asFragment();
+          return setupOverride(vendorRepoPath, env, repoRoot, repositoryName.getName());
+        } else if (!IS_VENDOR_COMMAND.get(env).booleanValue()) {
+          // If this is vendor command, proceed with fetching to update the vendor directory.
+          // Otherwise, for example, the build command, we need to display a warning indicating
+          // that the vendored repository is out-of-date.
+          env.getListener()
+              .handle(
+                  Event.warn(
+                      rule.getLocation(),
+                      String.format(
+                          "Vendored repository '%s' is out-of-date. The up-to-date version will"
+                              + " be fetched into the external cache and used. To update the repo"
+                              + " in the  vendor directory, run 'bazel vendor' with the directory"
+                              + " flag",
+                          rule.getName())));
+        }
+      }
+
       if (shouldUseCachedRepos(env, handler, repoRoot, rule)) {
         // Make sure marker file is up-to-date; correctly describes the current repository state
         byte[] markerHash = digestWriter.areRepositoryAndMarkerFileConsistent(handler, env);
@@ -167,7 +203,14 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           return null;
         }
         if (markerHash != null) {
-          return RepositoryDirectoryValue.builder().setPath(repoRoot).setDigest(markerHash).build();
+          return RepositoryDirectoryValue.builder()
+              .setPath(repoRoot)
+              .setDigest(markerHash)
+              .setExcludeFromVendoring(shouldExcludeRepoFromVendoring(handler, rule))
+              .build();
+        } else {
+          // So that we are in a consistent state if something happens while fetching the repository
+          DigestWriter.clearMarkerFile(directories, repositoryName);
         }
       }
 
@@ -190,7 +233,10 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         // restart thus calling the possibly very slow (networking, decompression...) fetch()
         // operation again. So we write the marker file here immediately.
         byte[] digest = digestWriter.writeMarkerFile();
-        return builder.setDigest(digest).build();
+        return builder
+            .setDigest(digest)
+            .setExcludeFromVendoring(shouldExcludeRepoFromVendoring(handler, rule))
+            .build();
       }
 
       if (!repoRoot.exists()) {
@@ -217,6 +263,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           .setPath(repoRoot)
           .setFetchingDelayed()
           .setDigest(new Fingerprint().digestAndReset())
+          .setExcludeFromVendoring(shouldExcludeRepoFromVendoring(handler, rule))
           .build();
     }
   }
@@ -293,6 +340,29 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     }
 
     return true;
+  }
+
+  /* Determines whether we should use the vendored repositories */
+  private boolean shouldUseVendorRepos(Environment env, RepositoryFunction handler, Rule rule)
+      throws InterruptedException {
+    if (VENDOR_DIRECTORY.get(env).isEmpty()) { // If vendor mode is off
+      return false;
+    }
+
+    if (shouldExcludeRepoFromVendoring(handler, rule)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  private boolean shouldExcludeRepoFromVendoring(RepositoryFunction handler, Rule rule) {
+    return handler.isLocal(rule) || handler.isConfigure(rule) || isWorkspaceRepo(rule);
+  }
+
+  private boolean isWorkspaceRepo(Rule rule) {
+    // All workspace repos are under //external, while bzlmod repo rules are not
+    return rule.getPackage().getPackageIdentifier().equals(EXTERNAL_PACKAGE_IDENTIFIER);
   }
 
   @Nullable
@@ -440,7 +510,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           new IOException("No MODULE.bazel, REPO.bazel, or WORKSPACE file found in " + destination),
           Transience.PERSISTENT);
     }
-    return RepositoryDirectoryValue.builder().setPath(source);
+    return RepositoryDirectoryValue.builder().setExcludeFromVendoring(true).setPath(source);
   }
 
   // Escape a value for the marker file
@@ -509,12 +579,15 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       return new Fingerprint().addString(content).digestAndReset();
     }
 
+    @Nullable
+    byte[] areRepositoryAndMarkerFileConsistent(RepositoryFunction handler, Environment env)
+        throws InterruptedException, RepositoryFunctionException {
+      return areRepositoryAndMarkerFileConsistent(handler, env, markerPath);
+    }
+
     /**
      * Checks if the state of the repository in the file system is consistent with the rule in the
      * WORKSPACE file.
-     *
-     * <p>Deletes the marker file if not so that no matter what happens after, the state of the file
-     * system stays consistent.
      *
      * <p>Returns null if the file system is not up to date and a hash of the marker file if the
      * file system is up to date.
@@ -524,7 +597,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
      * and the state of the file system would be inconsistent.
      */
     @Nullable
-    byte[] areRepositoryAndMarkerFileConsistent(RepositoryFunction handler, Environment env)
+    byte[] areRepositoryAndMarkerFileConsistent(
+        RepositoryFunction handler, Environment env, Path markerPath)
         throws RepositoryFunctionException, InterruptedException {
       if (!markerPath.exists()) {
         return null;
@@ -546,8 +620,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         if (verified) {
           return new Fingerprint().addString(content).digestAndReset();
         } else {
-          // So that we are in a consistent state if something happens while fetching the repository
-          markerPath.delete();
           return null;
         }
       } catch (IOException e) {

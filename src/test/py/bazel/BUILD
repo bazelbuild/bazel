@@ -312,6 +312,21 @@ py_test(
 )
 
 py_test(
+    name = "bazel_vendor_test",
+    size = "large",
+    srcs = ["bzlmod/bazel_vendor_test.py"],
+    data = ["//tools/build_defs/repo:http_src"],
+    shard_count = 5,
+    tags = [
+        "requires-network",
+    ],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+    ],
+)
+
+py_test(
     name = "bazel_overrides_test",
     size = "large",
     srcs = ["bzlmod/bazel_overrides_test.py"],

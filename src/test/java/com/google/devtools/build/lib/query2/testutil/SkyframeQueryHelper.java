@@ -415,6 +415,8 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                 RepositoryDelegatorFunction.FORCE_FETCH,
                 RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
             PrecomputedValue.injected(
+                RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()),
+            PrecomputedValue.injected(
                 ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
             PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
             PrecomputedValue.injected(

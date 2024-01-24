@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -31,8 +32,8 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 /**
- * Void function designed to gather and fetch all the repositories without returning any specific
- * result (empty value is returned).
+ * Gather and fetch all the repositories from MODULE.bazel resolution and extensions evaluation. If
+ * this is fetch configure, only configure repos will be fetched and returned
  */
 public class BazelFetchAllFunction implements SkyFunction {
 
@@ -53,14 +54,12 @@ public class BazelFetchAllFunction implements SkyFunction {
             .filter(repo -> !repo.isMain())
             .collect(toImmutableList()));
 
-    // 2. Run every extension found in the modules
+    // 2. Run every extension found in the modules & collect its generated repos
     ImmutableSet<ModuleExtensionId> extensionIds =
         depGraphValue.getExtensionUsagesTable().rowKeySet();
     ImmutableSet<SkyKey> singleEvalKeys =
         extensionIds.stream().map(SingleExtensionEvalValue::key).collect(toImmutableSet());
     SkyframeLookupResult singleEvalValues = env.getValuesAndExceptions(singleEvalKeys);
-
-    // 3. For each extension, collect its generated repos
     for (SkyKey singleEvalKey : singleEvalKeys) {
       SingleExtensionEvalValue singleEvalValue =
           (SingleExtensionEvalValue) singleEvalValues.get(singleEvalKey);
@@ -70,7 +69,7 @@ public class BazelFetchAllFunction implements SkyFunction {
       reposToFetch.addAll(singleEvalValue.getCanonicalRepoNameToInternalNames().keySet());
     }
 
-    // 4. If this is fetch configure, get repo rules and only collect repos marked as configure
+    // 3. If this is fetch configure, get repo rules and only collect repos marked as configure
     Boolean fetchConfigure = (Boolean) skyKey.argument();
     if (fetchConfigure) {
       ImmutableSet<SkyKey> repoRuleKeys =
@@ -83,12 +82,13 @@ public class BazelFetchAllFunction implements SkyFunction {
           return null;
         }
         if (StarlarkRepositoryFunction.isConfigureRule(repoRuleValue.getRule())) {
-          reposToFetch.add(RepositoryName.createUnvalidated(repoRuleValue.getRule().getName()));
+          reposToFetch.add((RepositoryName) repoRuleKey.argument());
         }
       }
     }
 
-    // 5. Fetch all the collected repos
+    // 4. Fetch all the collected repos
+    List<RepositoryName> shouldVendor = new ArrayList<>();
     ImmutableSet<SkyKey> repoDelegatorKeys =
         reposToFetch.stream().map(RepositoryDirectoryValue::key).collect(toImmutableSet());
     SkyframeLookupResult repoDirValues = env.getValuesAndExceptions(repoDelegatorKeys);
@@ -98,9 +98,13 @@ public class BazelFetchAllFunction implements SkyFunction {
       if (repoDirValue == null) {
         return null;
       }
+      if (!repoDirValue.excludeFromVendoring()) {
+        shouldVendor.add((RepositoryName) repoDelegatorKey.argument());
+      }
     }
 
-    return BazelFetchAllValue.create();
+    return BazelFetchAllValue.create(
+        ImmutableList.copyOf(reposToFetch), ImmutableList.copyOf(shouldVendor));
   }
 
 }

@@ -312,6 +312,19 @@ public class RepositoryOptions extends OptionsBase {
               + " to the lockfile.")
   public LockfileMode lockfileMode;
 
+  @Option(
+      name = "vendor_dir",
+      defaultValue = "null",
+      converter = OptionsUtils.PathFragmentConverter.class,
+      documentationCategory = OptionDocumentationCategory.BZLMOD,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "Specifies the directory that should hold the external repositories in vendor mode, "
+              + "whether for the purpose of fetching them into it or using them while building. "
+              + "The path can be specified as either an absolute path or a path relative to the "
+              + "workspace directory.")
+  public PathFragment vendorDirectory;
+
   /** An enum for specifying different modes for checking direct dependency accuracy. */
   public enum CheckDirectDepsMode {
     OFF, // Don't check direct dependency accuracy.
