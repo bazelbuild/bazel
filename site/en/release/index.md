@@ -150,8 +150,8 @@ For LTS releases, the procedure and policies below are followed:
         commits are cherry-picked and merged to the release branch.
         For a visual example of a completed cherry-pick request,
         refer to this
-        [example](https://github.com/bazelbuild/bazel/issues/20230)
-        {: .external}.
+        [example](https://github.com/bazelbuild/bazel/issues/20230){: .external}
+        .
 
 1.  Identify release blockers and fix issues found on the release branch.
     *   The release branch is tested with the same test suite in
