@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.sandbox.CgroupsInfo;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.BindMount;
@@ -99,13 +100,15 @@ final class SandboxedWorker extends SingleplexWorker {
 
   private Path inaccessibleHelperDir;
   private Path inaccessibleHelperFile;
+  private final TreeDeleter treeDeleter;
 
   SandboxedWorker(
       WorkerKey workerKey,
       int workerId,
       Path workDir,
       Path logFile,
-      @Nullable WorkerSandboxOptions hardenedSandboxOptions) {
+      @Nullable WorkerSandboxOptions hardenedSandboxOptions,
+      TreeDeleter treeDeleter) {
     super(workerKey, workerId, workDir, logFile);
     this.workerExecRoot =
         new WorkerExecRoot(
@@ -114,6 +117,7 @@ final class SandboxedWorker extends SingleplexWorker {
                 ? ImmutableList.of(PathFragment.create("../" + TMP_DIR_MOUNT_NAME))
                 : ImmutableList.of());
     this.hardenedSandboxOptions = hardenedSandboxOptions;
+    this.treeDeleter = treeDeleter;
   }
 
   @Override
@@ -211,7 +215,7 @@ final class SandboxedWorker extends SingleplexWorker {
   public void prepareExecution(
       SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
       throws IOException, InterruptedException, UserExecException {
-    workerExecRoot.createFileSystem(workerFiles, inputFiles, outputs);
+    workerExecRoot.createFileSystem(workerFiles, inputFiles, outputs, treeDeleter);
 
     super.prepareExecution(inputFiles, outputs, workerFiles);
   }

@@ -148,6 +148,16 @@ public final class SandboxHelpers {
       Path workDir,
       @Nullable TreeDeleter treeDeleter)
       throws IOException, InterruptedException {
+    Path inaccessibleHelperDir = workDir.getRelative("inaccessibleHelperDir");
+    // Setting the permissions is necessary when we are using an asynchronous tree deleter in order
+    // to move the directory first. This is not necessary for a synchronous tree deleter because the
+    // permissions are only needed in the parent directory in that case.
+    if (inaccessibleHelperDir.exists()) {
+      inaccessibleHelperDir.setExecutable(true);
+      inaccessibleHelperDir.setWritable(true);
+      inaccessibleHelperDir.setReadable(true);
+    }
+
     // To avoid excessive scanning of dirsToCreate for prefix dirs, we prepopulate this set of
     // prefixes.
     Set<PathFragment> prefixDirs = new HashSet<>();

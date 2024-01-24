@@ -18,6 +18,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.worker.SandboxedWorker.WorkerSandboxOptions;
@@ -46,6 +47,7 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final Path workerBaseDir;
+  private final TreeDeleter treeDeleter;
   private Reporter reporter;
   private EventBus eventBus;
 
@@ -56,12 +58,16 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
   @Nullable private final WorkerSandboxOptions hardenedSandboxOptions;
 
   public WorkerFactory(Path workerBaseDir) {
-    this(workerBaseDir, null);
+    this(workerBaseDir, null, null);
   }
 
-  public WorkerFactory(Path workerBaseDir, @Nullable WorkerSandboxOptions hardenedSandboxOptions) {
+  public WorkerFactory(
+      Path workerBaseDir,
+      @Nullable WorkerSandboxOptions hardenedSandboxOptions,
+      @Nullable TreeDeleter treeDeleter) {
     this.workerBaseDir = workerBaseDir;
     this.hardenedSandboxOptions = hardenedSandboxOptions;
+    this.treeDeleter = treeDeleter;
   }
 
   public void setReporter(Reporter reporter) {
@@ -90,7 +96,9 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
         worker = new SandboxedWorkerProxy(key, workerId, logFile, workerMultiplexer, workDir);
       } else {
         Path workDir = getSandboxedWorkerPath(key, workerId);
-        worker = new SandboxedWorker(key, workerId, workDir, logFile, hardenedSandboxOptions);
+        worker =
+            new SandboxedWorker(
+                key, workerId, workDir, logFile, hardenedSandboxOptions, treeDeleter);
       }
     } else if (key.isMultiplex()) {
       WorkerMultiplexer workerMultiplexer = WorkerMultiplexerManager.getInstance(key, logFile);
