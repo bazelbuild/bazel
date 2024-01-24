@@ -727,7 +727,7 @@ Genrule) on a per-mnemonic basis. See
 [--spawn_strategy](#spawn-strategy) for the supported
 strategies and their effects.
 
-#### `--strategy_regexp={{ "<var>" }}&lt;filter,filter,...&gt;=&lt;strategy&gt;{{ "</var>" }}` {:#strategy-regexp}
+#### `--strategy_regexp={{ "<var>" }}<filter,filter,...>=<strategy>{{ "</var>" }}` {:#strategy-regexp}
 
 This option specifies which strategy should be used to execute commands that have descriptions
 matching a certain `regex_filter`. See
@@ -1372,7 +1372,7 @@ Some common values of this option:
 *   **Suppress symlink creation:**
       `--symlink_prefix=/` will cause Bazel to not
       create or update any symlinks, including the `bazel-out` and
-      `bazel-&lt;workspace&gt;`
+      `bazel-<workspace>`
       symlinks. Use this option to suppress symlink creation entirely.
 
 *   **Reduce clutter:**
@@ -1980,7 +1980,7 @@ through `sed -ne /key:/s/key://p`:
     root directory under output_base. This directory is the root for all files
     accessible to commands executed during the build, and is the working
     directory for those commands. If the workspace directory is writable, a
-    symlink named `bazel-&lt;workspace&gt;`
+    symlink named `bazel-<workspace>`
     is placed there pointing to this directory.
 *   `output_path`: the absolute path to the output
     directory beneath the execution root used for all files actually

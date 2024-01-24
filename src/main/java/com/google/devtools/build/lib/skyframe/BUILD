@@ -985,6 +985,7 @@ java_library(
     name = "collect_packages_under_directory_value",
     srcs = ["CollectPackagesUnderDirectoryValue.java"],
     deps = [
+        ":recursive_pkg_key",
         ":recursive_pkg_sky_key",
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -2129,6 +2130,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
@@ -2152,6 +2154,7 @@ java_library(
     name = "recursive_pkg_value",
     srcs = ["RecursivePkgValue.java"],
     deps = [
+        ":recursive_pkg_key",
         ":recursive_pkg_sky_key",
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

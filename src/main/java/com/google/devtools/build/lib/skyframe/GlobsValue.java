@@ -224,7 +224,7 @@ public class GlobsValue implements SkyValue {
       StringBuilder stringBuilder = new StringBuilder();
       stringBuilder.append(
           String.format(
-              "<GlobsKey packageRoot = %s, packageIdentifier = %s, globRequests = %s",
+              "<GlobsKey packageRoot = %s, packageIdentifier = %s, globRequests = %s>",
               packageRoot, packageIdentifier, globRequests));
       return stringBuilder.toString();
     }
