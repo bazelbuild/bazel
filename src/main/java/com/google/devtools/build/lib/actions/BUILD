@@ -440,6 +440,16 @@ java_library(
 )
 
 java_library(
+    name = "important_output_handler",
+    srcs = ["ImportantOutputHandler.java"],
+    deps = [
+        ":actions",
+        ":artifacts",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "localhost_capacity",
     srcs = [
         "LocalHostCapacity.java",
