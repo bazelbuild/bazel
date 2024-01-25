@@ -96,6 +96,14 @@ class BazelVendorTest(test_base.TestBase):
     self.assertIn('@bbb~1.0.marker', repos_vendored)
     self.assertIn('.vendorignore', repos_vendored)
 
+  def testVendorFailsWithNofetch(self):
+    self.ScratchFile('MODULE.bazel')
+    self.ScratchFile('BUILD')
+    _, _, stderr = self.RunBazel(
+        ['vendor', '--vendor_dir=vendor', '--nofetch'], allow_failure=True
+    )
+    self.assertIn('ERROR: You cannot run vendor with --nofetch', stderr)
+
   def testVendoringMultipleTimes(self):
     self.main_registry.createCcModule('aaa', '1.0')
     self.ScratchFile(
