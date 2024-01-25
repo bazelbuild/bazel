@@ -45,7 +45,7 @@ def _rule_impl(ctx):
         DefaultInfo(),
         JavaPackageConfigurationInfo(
             data = depset(ctx.files.data),
-            javac_opts = lambda as_depset: javacopts_depset if as_depset else javacopts,
+            javac_opts = javacopts_depset,
             javac_opts_list = javacopts,
             matches = lambda label: _matches(package_specs, label),
             package_specs = package_specs,

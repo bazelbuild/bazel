@@ -112,7 +112,7 @@ def _android_lint_action(ctx, source_files, source_jars, compilation_info):
     for package_config in linter.package_config:
         if package_config.matches(ctx.label):
             # wrap in a list so that map_each passes the depset to _tokenize_opts
-            package_opts = [package_config.javac_opts(as_depset = True)]
+            package_opts = [package_config.javac_opts]
             args.add_all(package_opts, map_each = _tokenize_opts)
             transitive_inputs.append(package_config.data)
 

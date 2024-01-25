@@ -136,7 +136,7 @@ def compile(
         ))
     for package_config in java_toolchain._package_configuration:
         if package_config.matches(ctx.label):
-            all_javac_opts.append(package_config.javac_opts(as_depset = True))
+            all_javac_opts.append(package_config.javac_opts)
 
     all_javac_opts.append(depset(
         ["--add-exports=%s=ALL-UNNAMED" % x for x in add_exports],
