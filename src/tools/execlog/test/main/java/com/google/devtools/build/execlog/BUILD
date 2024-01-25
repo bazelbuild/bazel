@@ -1,20 +1,19 @@
 load("@rules_java//java:defs.bzl", "java_test")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_testonly = 1,
-    default_visibility = ["//src:__subpackages__"],
+    default_visibility = [
+        "//javatests/com/google/devtools/build/lib:__subpackages__",
+        "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+    ],
 )
 
 filegroup(
     name = "srcs",
     testonly = 0,
-    srcs = glob(
-        ["**"],
-        exclude = [
-            "*~",
-        ],
-    ),
-    visibility = ["//src/tools/execlog:__pkg__"],
+    srcs = glob(["**"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 java_test(
