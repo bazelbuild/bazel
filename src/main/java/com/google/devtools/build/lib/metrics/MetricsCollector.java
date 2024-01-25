@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.metrics;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.AllowConcurrentEvents;
@@ -22,6 +23,7 @@ import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.actions.AnalysisGraphStatsEvent;
+import com.google.devtools.build.lib.actions.DynamicStrategyRegistry.DynamicMode;
 import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
@@ -35,6 +37,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ArtifactMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.CumulativeMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.DynamicExecutionMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics.GarbageMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.NetworkMetrics;
@@ -48,6 +51,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseComplete
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochConverter;
+import com.google.devtools.build.lib.dynamic.DynamicExecutionFinishedEvent;
 import com.google.devtools.build.lib.metrics.MetricsModule.Options;
 import com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.PeakHeap;
 import com.google.devtools.build.lib.packages.metrics.ExtremaPackageMetricsRecorder;
@@ -95,6 +99,7 @@ class MetricsCollector {
   private final TimingMetrics.Builder timingMetrics = TimingMetrics.newBuilder();
   private final ArtifactMetrics.Builder artifactMetrics = ArtifactMetrics.newBuilder();
   private final BuildGraphMetrics.Builder buildGraphMetrics = BuildGraphMetrics.newBuilder();
+  private final DynamicExecutionStats dynamicExecutionStats = new DynamicExecutionStats();
   private final SpawnStats spawnStats = new SpawnStats();
   // Skymeld-specific: we don't have an ExecutionStartingEvent for skymeld, so we have to use
   // TopLevelTargetExecutionStartedEvent. This AtomicBoolean is so that we only account for the
@@ -234,6 +239,16 @@ class MetricsCollector {
 
   @SuppressWarnings("unused")
   @Subscribe
+  public void onDynamicExecutionFinishedEvent(DynamicExecutionFinishedEvent event) {
+    dynamicExecutionStats.update(
+        event.getMnemonic(),
+        event.getLocalBranchName(),
+        event.getRemoteBranchName(),
+        event.getWinnerBranchType());
+  }
+
+  @SuppressWarnings("unused")
+  @Subscribe
   public void onSkyframeGraphStats(SkyframeGraphStatsEvent event) {
     buildGraphMetrics.setPostInvocationSkyframeNodeCount(event.getGraphSize());
   }
@@ -283,7 +298,8 @@ class MetricsCollector {
             .setArtifactMetrics(artifactMetrics.build())
             .setBuildGraphMetrics(buildGraphMetrics.build())
             .addAllWorkerMetrics(workerMetrics)
-            .setWorkerPoolMetrics(createWorkerPoolMetrics(workerProcessMetrics));
+            .setWorkerPoolMetrics(createWorkerPoolMetrics(workerProcessMetrics))
+            .setDynamicExecutionMetrics(dynamicExecutionStats.toMetrics());
 
     NetworkMetrics networkMetrics = NetworkMetricsCollector.instance().collectMetrics();
     if (networkMetrics != null) {
@@ -497,6 +513,98 @@ class MetricsCollector {
       numActions = new AtomicLong();
       systemTime = new AtomicLong();
       userTime = new AtomicLong();
+    }
+  }
+
+  /* Collects stats about dynamic execution races  of remote vs local branches **/
+  static class DynamicExecutionStats {
+    // Mapping from tuple <mnemonic, local branch name, remote branch name> to pair of numbers,
+    // which represents corresponding number of wins of local and remote branches.
+    final ConcurrentHashMap<RaceIdentifier, RaceWinners> branchWinners;
+
+    public DynamicExecutionStats() {
+      this.branchWinners = new ConcurrentHashMap<>();
+    }
+
+    public void update(String menemonic, String localName, String remoteName, DynamicMode winner) {
+
+      branchWinners.compute(
+          RaceIdentifier.create(menemonic, localName, remoteName),
+          (k, oldValue) -> {
+            RaceWinners newValue = new RaceWinners(/* localWins= */ 0, /* remoteWins= */ 0);
+
+            if (oldValue != null) {
+              newValue = oldValue;
+            }
+
+            switch (winner) {
+              case LOCAL:
+                newValue.incrementLocalWins();
+                break;
+              case REMOTE:
+                newValue.incrementRemoteWins();
+                break;
+            }
+
+            return newValue;
+          });
+    }
+
+    static class RaceWinners {
+      private int localWins;
+      private int remoteWins;
+
+      RaceWinners(int localWins, int remoteWins) {
+        this.localWins = localWins;
+        this.remoteWins = remoteWins;
+      }
+
+      public int getLocalWins() {
+        return localWins;
+      }
+
+      public int getRemoteWins() {
+        return remoteWins;
+      }
+
+      public void incrementLocalWins() {
+        localWins++;
+      }
+
+      public void incrementRemoteWins() {
+        remoteWins++;
+      }
+    }
+
+    @AutoValue
+    abstract static class RaceIdentifier {
+      abstract String mnemonic();
+
+      abstract String localName();
+
+      abstract String remoteName();
+
+      static RaceIdentifier create(String mnemonic, String localName, String remoteName) {
+        return new AutoValue_MetricsCollector_DynamicExecutionStats_RaceIdentifier(
+            mnemonic, localName, remoteName);
+      }
+    }
+
+    public DynamicExecutionMetrics toMetrics() {
+      DynamicExecutionMetrics.Builder builder = DynamicExecutionMetrics.newBuilder();
+      for (RaceIdentifier raceIdentifier : branchWinners.keySet()) {
+        RaceWinners raceWinners = branchWinners.get(raceIdentifier);
+        builder.addRaceStatistics(
+            DynamicExecutionMetrics.RaceStatistics.newBuilder()
+                .setMnemonic(raceIdentifier.mnemonic())
+                .setLocalRunner(raceIdentifier.localName())
+                .setRemoteRunner(raceIdentifier.remoteName())
+                .setLocalWins(raceWinners.getLocalWins())
+                .setRemoteWins(raceWinners.getRemoteWins())
+                .build());
+      }
+
+      return builder.build();
     }
   }
 }
