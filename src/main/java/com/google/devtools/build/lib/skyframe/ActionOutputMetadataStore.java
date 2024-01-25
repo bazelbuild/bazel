@@ -348,7 +348,9 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       }
 
       if (materializationExecPath == null) {
-        materializationExecPath = treeDir.resolveSymbolicLinks().asFragment().relativeTo(execRoot);
+        PathFragment realpath = treeDir.resolveSymbolicLinks().asFragment();
+        materializationExecPath =
+            realpath.startsWith(execRoot) ? realpath.relativeTo(execRoot) : realpath;
       }
 
       tree.setMaterializationExecPath(materializationExecPath);
