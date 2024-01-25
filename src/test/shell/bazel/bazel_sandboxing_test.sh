@@ -435,6 +435,56 @@ EOF
   bazel --output_base="$tmp_output_base" shutdown
 }
 
+function test_symlink_to_directory_absolute_path() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # Tests Linux-specific functionality
+    return 0
+  fi
+
+  create_workspace_with_default_repos WORKSPACE
+
+  sed -i.bak '/sandbox_tmpfs_path/d' $TEST_TMPDIR/bazelrc
+
+
+  mkdir -p /tmp/tree/{a,b}
+  touch /tmp/tree/{a,b}/file
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+load(":r.bzl", "symlink_rule", "tree_rule")
+
+symlink_rule(name="s", input=":t")
+tree_rule(name="t")
+EOF
+
+
+  cat > pkg/r.bzl <<'EOF'
+def _symlink_impl(ctx):
+  output = ctx.actions.declare_directory(ctx.label.name)
+  ctx.actions.symlink(output = output, target_file = ctx.file.input)
+  return [DefaultInfo(files = depset([output]))]
+
+symlink_rule = rule(
+  implementation = _symlink_impl,
+  attrs = {"input": attr.label(allow_single_file=True)})
+
+def _tree_impl(ctx):
+  output = ctx.actions.declare_directory(ctx.label.name)
+  ctx.actions.run_shell(
+    outputs = [output],
+    # Make the tree artifact itself a symlink to /tmp/tree
+    command = "export TREE=%s && rmdir $TREE && ln -s /tmp/tree $TREE" % output.path)
+  return [DefaultInfo(files = depset([output]))]
+
+tree_rule = rule(
+  implementation = _tree_impl,
+  attrs = {})
+EOF
+
+  # /tmp/tree in the action sandbox must be the same as outside of it
+  bazel build --sandbox_add_mount_pair=/tmp/tree //pkg:s || fail "build failed"
+}
+
 function test_symlink_to_directory_with_output_base_under_tmp() {
   if [[ "$PLATFORM" == "darwin" ]]; then
     # Tests Linux-specific functionality
