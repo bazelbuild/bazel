@@ -8631,7 +8631,7 @@
     },
     "@@rules_python~0.26.0//python/extensions:pip.bzl%pip": {
       "os:osx,arch:aarch64": {
-        "bzlTransitiveDigest": "6QEU6MdnrfZaTz7QKiefTGbQgYawdLTA533VOkS5F4E=",
+        "bzlTransitiveDigest": "FMCmMrmdwnNI+AkBXs4xHjCXfnvMhdt6yGJVSQNXZ3g=",
         "accumulatedFileDigests": {
           "@@//:requirements.txt": "ff12967a755bb8e9b4c92524f6471a99e14c30474a3d428547c55745ec8f23a0"
         },
