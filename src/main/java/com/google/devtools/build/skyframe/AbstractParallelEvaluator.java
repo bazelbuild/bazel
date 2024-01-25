@@ -120,8 +120,7 @@ abstract class AbstractParallelEvaluator {
       InflightTrackingProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       QuiescingExecutor executor,
-      CycleDetector cycleDetector,
-      boolean mergingSkyframeAnalysisExecutionPhases) {
+      CycleDetector cycleDetector) {
     this.graph = graph;
     this.cycleDetector = cycleDetector;
     this.evaluatorContext =
@@ -138,7 +137,6 @@ abstract class AbstractParallelEvaluator {
             errorInfoManager,
             graphInconsistencyReceiver,
             () -> new NodeEntryVisitor(executor, progressReceiver, Evaluate::new, stateCache),
-            /* mergingSkyframeAnalysisExecutionPhases= */ mergingSkyframeAnalysisExecutionPhases,
             stateCache);
   }
 

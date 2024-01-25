@@ -158,7 +158,6 @@ public final class InMemoryMemoizingEvaluator
                                 evaluationContext.getParallelism(),
                                 ParallelEvaluatorErrorClassifier.instance())),
                 new SimpleCycleDetector(),
-                evaluationContext.mergingSkyframeAnalysisExecutionPhases(),
                 evaluationContext.getUnnecessaryTemporaryStateDropperReceiver());
         result = evaluator.eval(roots);
       }

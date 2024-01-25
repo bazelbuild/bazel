@@ -140,7 +140,6 @@ public class ParallelEvaluatorTest {
         GraphInconsistencyReceiver.THROWING,
         AbstractQueueVisitor.create("test-pool", 200, ParallelEvaluatorErrorClassifier.instance()),
         new SimpleCycleDetector(),
-        /* mergingSkyframeAnalysisExecutionPhases= */ false,
         UnnecessaryTemporaryStateDropperReceiver.NULL);
   }
 
@@ -3225,7 +3224,6 @@ public class ParallelEvaluatorTest {
             AbstractQueueVisitor.create(
                 "test-pool", 1, ParallelEvaluatorErrorClassifier.instance()),
             new SimpleCycleDetector(),
-            /* mergingSkyframeAnalysisExecutionPhases= */ false,
             dropperReceiver);
     // Then, when we evaluate key1,
     SkyValue resultValue = parallelEvaluator.eval(ImmutableList.of(key1)).get(key1);

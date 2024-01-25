@@ -76,7 +76,6 @@ public final class StateMachineTest {
             AbstractQueueVisitor.create(
                 "test-pool", TEST_PARALLELISM, ParallelEvaluatorErrorClassifier.instance()),
             new SimpleCycleDetector(),
-            /* mergingSkyframeAnalysisExecutionPhases= */ false,
             UnnecessaryTemporaryStateDropperReceiver.NULL)
         .eval(ImmutableList.of(root));
   }
