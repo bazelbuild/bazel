@@ -61,9 +61,8 @@ public final class JavaPackageConfigurationProvider implements StarlarkValue {
 
   ImmutableList<String> javacoptsAsList() throws RuleErrorException {
     try {
-      return Sequence.noneableCast(
-              underlying.getValue("javac_opts_list"), String.class, "javac_opts_list")
-          .getImmutableList();
+      return JavaHelper.tokenizeJavaOptions(
+          Depset.noneableCast(underlying.getValue("javac_opts"), String.class, "javac_opts"));
     } catch (EvalException e) {
       throw new RuleErrorException(e);
     }

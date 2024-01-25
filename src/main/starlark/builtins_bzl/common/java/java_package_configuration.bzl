@@ -25,7 +25,6 @@ JavaPackageConfigurationInfo = provider(
     fields = [
         "data",
         "javac_opts",
-        "javac_opts_list",
         "matches",
         "package_specs",
     ],
@@ -46,7 +45,6 @@ def _rule_impl(ctx):
         JavaPackageConfigurationInfo(
             data = depset(ctx.files.data),
             javac_opts = javacopts_depset,
-            javac_opts_list = javacopts,
             matches = lambda label: _matches(package_specs, label),
             package_specs = package_specs,
         ),
