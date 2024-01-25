@@ -651,15 +651,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean incompatibleMergeFixedAndDefaultShellEnv;
 
   @Option(
-      name = "incompatible_objc_provider_remove_linking_info",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If set to true, the ObjcProvider's APIs for linking info will be removed.")
-  public boolean incompatibleObjcProviderRemoveLinkingInfo;
-
-  @Option(
       name = "incompatible_disable_objc_library_transition",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -823,9 +814,6 @@ public final class BuildLanguageOptions extends OptionsBase {
                 INCOMPATIBLE_MERGE_FIXED_AND_DEFAULT_SHELL_ENV,
                 incompatibleMergeFixedAndDefaultShellEnv)
             .setBool(
-                INCOMPATIBLE_OBJC_PROVIDER_REMOVE_LINKING_INFO,
-                incompatibleObjcProviderRemoveLinkingInfo)
-            .setBool(
                 INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION,
                 incompatibleDisableObjcLibraryTransition)
             .setBool(INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES, incompatibleFailOnUnknownAttributes)
@@ -923,8 +911,6 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-incompatible_disable_starlark_host_transitions";
   public static final String INCOMPATIBLE_MERGE_FIXED_AND_DEFAULT_SHELL_ENV =
       "+experimental_merge_fixed_and_default_shell_env";
-  public static final String INCOMPATIBLE_OBJC_PROVIDER_REMOVE_LINKING_INFO =
-      "+incompatible_objc_provider_remove_linking_info";
   public static final String INCOMPATIBLE_DISABLE_OBJC_LIBRARY_TRANSITION =
       "+incompatible_disable_objc_library_transition";
   public static final String INCOMPATIBLE_FAIL_ON_UNKNOWN_ATTRIBUTES =

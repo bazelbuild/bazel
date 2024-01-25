@@ -250,7 +250,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "fx/defs.bzl",
         "def _custom_static_framework_import_impl(ctx):",
         "    return [",
-        "        apple_common.new_objc_provider(),",
         "        CcInfo(",
         "            compilation_context=cc_common.create_compilation_context(",
         "                framework_includes=depset(ctx.attr.framework_search_paths)",
