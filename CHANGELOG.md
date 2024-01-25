@@ -1,3 +1,17 @@
+## Release 7.0.2 (2024-01-25)
+
+```
+Baseline:  2634a6ec8bef0d8eef9870b23befdddb3dbe0005
+
+Release Notes:
+
++ Disregard WORKSPACE while verifying lockfile repo mapping entries in extension eval (#21003)
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as bazel.build machine account, Xdng Yng.
+```
+
 ## Release 6.5.0 (2024-01-23)
 
 ```
