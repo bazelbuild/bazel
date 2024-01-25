@@ -17,22 +17,21 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 
 /** Specifies that a module should be retrieved from a Git repository. */
 @AutoValue
 public abstract class GitOverride implements NonRegistryOverride {
-  public static final String GIT_REPOSITORY_PATH = "@bazel_tools//tools/build_defs/repo:git.bzl";
-
   public static GitOverride create(
       String remote,
       String commit,
       ImmutableList<String> patches,
       ImmutableList<String> patchCmds,
-      int patchStrip) {
-    return new AutoValue_GitOverride(remote, commit, patches, patchCmds, patchStrip);
+      int patchStrip,
+      boolean initSubmodules) {
+    return new AutoValue_GitOverride(
+        remote, commit, patches, patchCmds, patchStrip, initSubmodules);
   }
 
   /** The URL pointing to the git repository. */
@@ -50,22 +49,22 @@ public abstract class GitOverride implements NonRegistryOverride {
   /** The number of path segments to strip from the paths in the supplied patches. */
   public abstract int getPatchStrip();
 
+  /** Whether submodules in the fetched repo should be recursively initialized. */
+  public abstract boolean getInitSubmodules();
+
   /** Returns the {@link RepoSpec} that defines this repository. */
   @Override
   public RepoSpec getRepoSpec(RepositoryName repoName) {
-    ImmutableMap.Builder<String, Object> attrBuilder = ImmutableMap.builder();
-    attrBuilder
-        .put("name", repoName.getName())
-        .put("remote", getRemote())
-        .put("commit", getCommit())
-        .put("patches", getPatches())
-        .put("patch_cmds", getPatchCmds())
-        .put("patch_args", ImmutableList.of("-p" + getPatchStrip()));
-    return RepoSpec.builder()
-        .setBzlFile(GIT_REPOSITORY_PATH)
-        .setRuleClassName("git_repository")
-        .setAttributes(AttributeValues.create(attrBuilder.buildOrThrow()))
-        .build();
+    GitRepoSpecBuilder builder = new GitRepoSpecBuilder();
+    builder
+        .setRepoName(repoName.getName())
+        .setRemote(getRemote())
+        .setCommit(getCommit())
+        .setPatches(getPatches())
+        .setPatchCmds(getPatchCmds())
+        .setPatchArgs(ImmutableList.of("-p" + getPatchStrip()))
+        .setInitSubmodules(getInitSubmodules());
+    return builder.build();
   }
 
   @Override

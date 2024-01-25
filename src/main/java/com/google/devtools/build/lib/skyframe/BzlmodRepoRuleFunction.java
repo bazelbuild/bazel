@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.AttributeValues;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleCreator;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
-import com.google.devtools.build.lib.bazel.bzlmod.GitOverride;
+import com.google.devtools.build.lib.bazel.bzlmod.GitRepoSpecBuilder;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
@@ -246,7 +246,7 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
   private static final Set<String> BOOTSTRAP_RULE_CLASSES =
       ImmutableSet.of(
           ArchiveRepoSpecBuilder.HTTP_ARCHIVE_PATH + "%http_archive",
-          GitOverride.GIT_REPOSITORY_PATH + "%git_repository");
+          GitRepoSpecBuilder.GIT_REPO_PATH + "%git_repository");
 
   /** Loads modules from the given bzl file. */
   private ImmutableMap<String, Module> loadBzlModules(

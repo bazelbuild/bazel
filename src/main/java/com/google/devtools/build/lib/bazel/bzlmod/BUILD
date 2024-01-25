@@ -18,6 +18,7 @@ java_library(
     srcs = [
         "ArchiveRepoSpecBuilder.java",
         "AttributeValues.java",
+        "GitRepoSpecBuilder.java",
         "ModuleFile.java",
         "ModuleKey.java",
         "RepoSpec.java",
