@@ -14,7 +14,7 @@ package(default_visibility = ["//visibility:public"])
 
 LASTVERSION = "0.8.11"
 
-VERSIONS = ("0.8.8", "0.8.9-SNAPSHOT", "0.8.11")
+VERSIONS = ["0.8.11"]
 
 filegroup(
     name = "srcs",
