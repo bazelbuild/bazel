@@ -33,12 +33,6 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcIncludeScanningRule;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcLinkingRule;
 import com.google.devtools.build.lib.rules.cpp.DebugPackageProvider;
-import com.google.devtools.build.lib.rules.cpp.FdoPrefetchHintsProvider;
-import com.google.devtools.build.lib.rules.cpp.FdoPrefetchHintsRule;
-import com.google.devtools.build.lib.rules.cpp.FdoProfileProvider;
-import com.google.devtools.build.lib.rules.cpp.FdoProfileRule;
-import com.google.devtools.build.lib.rules.cpp.MemProfProfileProvider;
-import com.google.devtools.build.lib.rules.cpp.MemProfProfileRule;
 import com.google.devtools.build.lib.rules.cpp.PropellerOptimizeProvider;
 import com.google.devtools.build.lib.rules.cpp.PropellerOptimizeRule;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
@@ -77,19 +71,16 @@ public class CcRules implements RuleSet {
     builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("cc_library") {});
     builder.addRuleDefinition(new EmptyRule("cc_import") {});
     builder.addRuleDefinition(new CcIncludeScanningRule(/* addGrepIncludes= */ false));
-    builder.addRuleDefinition(new FdoProfileRule());
-    builder.addRuleDefinition(new FdoPrefetchHintsRule());
+    builder.addRuleDefinition(new EmptyRule("fdo_profile") {});
+    builder.addRuleDefinition(new EmptyRule("fdo_prefetch_hints") {});
     builder.addRuleDefinition(new CcLinkingRule());
-    builder.addRuleDefinition(new MemProfProfileRule());
+    builder.addRuleDefinition(new EmptyRule("memprof_profile") {});
     builder.addRuleDefinition(new PropellerOptimizeRule());
     builder.addStarlarkBuiltinsInternal(
         "StaticallyLinkedMarkerProvider", StaticallyLinkedMarkerProvider.PROVIDER);
     builder.addStarlarkBuiltinsInternal("CcNativeLibraryInfo", CcNativeLibraryInfo.PROVIDER);
-    builder.addStarlarkBuiltinsInternal("FdoProfileInfo", FdoProfileProvider.PROVIDER);
-    builder.addStarlarkBuiltinsInternal("FdoPrefetchHintsInfo", FdoPrefetchHintsProvider.PROVIDER);
     builder.addStarlarkBuiltinsInternal(
         "PropellerOptimizeInfo", PropellerOptimizeProvider.PROVIDER);
-    builder.addStarlarkBuiltinsInternal("MemProfProfileInfo", MemProfProfileProvider.PROVIDER);
     builder.addStarlarkBuiltinsInternal("cc_common", bazelCcModule);
     builder.addStarlarkBootstrap(
         new CcBootstrap(

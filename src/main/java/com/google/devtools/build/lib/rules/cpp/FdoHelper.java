@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.FdoContext.BranchFdoMode;
 import com.google.devtools.build.lib.util.FileType;
@@ -33,6 +33,8 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /** Helper responsible for creating {@link FdoContext} */
 public class FdoHelper {
@@ -43,19 +45,19 @@ public class FdoHelper {
       BuildConfigurationValue configuration,
       CppConfiguration cppConfiguration,
       ImmutableMap<String, PathFragment> toolPaths,
-      FdoPrefetchHintsProvider fdoPrefetchProvider,
+      StructImpl fdoPrefetchProvider,
       PropellerOptimizeProvider propellerOptimizeProvider,
-      MemProfProfileProvider memProfProfileProvider,
-      FdoProfileProvider fdoOptimizeProvider,
-      FdoProfileProvider fdoProfileProvider,
-      FdoProfileProvider xFdoProfileProvider,
-      FdoProfileProvider csFdoProfileProvider,
+      StructImpl memProfProfileProvider,
+      StructImpl fdoOptimizeProvider,
+      StructImpl fdoProfileProvider,
+      StructImpl xFdoProfileProvider,
+      StructImpl csFdoProfileProvider,
       NestedSet<Artifact> allFiles,
       Artifact zipper,
       CcToolchainConfigInfo ccToolchainConfigInfo,
       ImmutableList<Artifact> fdoOptimizeArtifacts,
       Label fdoOptimizeLabel)
-      throws InterruptedException, RuleErrorException {
+      throws EvalException {
     FdoInputFile fdoInputFile = null;
     FdoInputFile csFdoInputFile = null;
     FdoInputFile prefetchHints = null;
@@ -65,7 +67,7 @@ public class FdoHelper {
     Pair<FdoInputFile, Artifact> fdoInputs = null;
     if (configuration.getCompilationMode() == CompilationMode.OPT) {
       if (cppConfiguration.getFdoPrefetchHintsLabel() != null) {
-        prefetchHints = fdoPrefetchProvider.getInputFile();
+        prefetchHints = FdoInputFile.fromStarlarkProvider(fdoPrefetchProvider);
       }
 
       if (cppConfiguration.getPropellerOptimizeAbsoluteCCProfile() != null
@@ -90,7 +92,7 @@ public class FdoHelper {
       }
 
       if (cppConfiguration.getMemProfProfileLabel() != null) {
-        memprofProfile = memProfProfileProvider.getInputFile();
+        memprofProfile = FdoInputFile.fromStarlarkProvider(memProfProfileProvider);
       }
 
       if (cppConfiguration.getFdoPath() != null) {
@@ -168,11 +170,11 @@ public class FdoHelper {
       if ((branchFdoMode != BranchFdoMode.XBINARY_FDO)
           && (branchFdoMode != BranchFdoMode.AUTO_FDO)
           && cppConfiguration.getXFdoProfileLabel() != null) {
-        ruleContext.throwWithRuleError("--xbinary_fdo only accepts *.xfdo and *.afdo");
+        throw Starlark.errorf("--xbinary_fdo only accepts *.xfdo and *.afdo");
       }
 
       if (configuration.isCodeCoverageEnabled()) {
-        ruleContext.throwWithRuleError("coverage mode is not compatible with FDO optimization");
+        throw Starlark.errorf("coverage mode is not compatible with FDO optimization");
       }
       // This tries to convert LLVM profiles to the indexed format if necessary.
       Artifact profileArtifact = null;
@@ -562,12 +564,16 @@ public class FdoHelper {
 
   @Nullable
   static Pair<FdoInputFile, Artifact> getFdoInputs(
-      RuleContext ruleContext, FdoProfileProvider fdoProfileProvider) {
+      RuleContext ruleContext, StructImpl fdoProfileProvider) throws EvalException {
     if (fdoProfileProvider == null) {
       ruleContext.ruleError("--fdo_profile/--xbinary_fdo input needs to be an fdo_profile rule");
       return null;
     }
-    return Pair.of(fdoProfileProvider.getInputFile(), fdoProfileProvider.getProtoProfileArtifact());
+    return Pair.of(
+        FdoInputFile.fromStarlarkProvider(fdoProfileProvider),
+        fdoProfileProvider.getValue("proto_profile_artifact") == Starlark.NONE
+            ? null
+            : fdoProfileProvider.getValue("proto_profile_artifact", Artifact.class));
   }
 
   @Nullable

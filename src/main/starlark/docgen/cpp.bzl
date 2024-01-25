@@ -31,4 +31,7 @@ test_rules = struct(
 )
 
 other_rules = struct(
+    fdo_prefetch_hints = native.fdo_prefetch_hints,
+    fdo_profile = native.fdo_profile,
+    memprof_profile = native.memprof_profile,
 )

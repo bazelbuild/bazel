@@ -679,6 +679,15 @@ public final class CppConfiguration extends Fragment
     return cppOptions.enableFdoProfileAbsolutePath;
   }
 
+  @StarlarkMethod(
+      name = "enable_fdo_profile_absolute_path",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean isFdoAbsolutePathEnabledForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return cppOptions.enableFdoProfileAbsolutePath;
+  }
+
   public boolean useLLVMCoverageMapFormat() {
     return cppOptions.useLLVMCoverageMapFormat;
   }

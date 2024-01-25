@@ -14,14 +14,14 @@
 
 """Attributes for cc_toolchain rule."""
 
+load(":common/cc/fdo_prefetch_hints.bzl", "FdoPrefetchHintsInfo")
+load(":common/cc/fdo_profile.bzl", "FdoProfileInfo")
+load(":common/cc/memprof_profile.bzl", "MemProfProfileInfo")
 load(":common/cc/semantics.bzl", "semantics")
 
-FdoProfileInfo = _builtins.internal.FdoProfileInfo
-FdoPrefetchHintsInfo = _builtins.internal.FdoPrefetchHintsInfo
 PropellerOptimizeInfo = _builtins.internal.PropellerOptimizeInfo
 PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
 CcToolchainConfigInfo = _builtins.toplevel.CcToolchainConfigInfo
-MemProfProfileInfo = _builtins.internal.MemProfProfileInfo
 
 cc_toolchain_attrs_exec = {
     # buildifier: disable=attr-license

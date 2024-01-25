@@ -16,18 +16,18 @@
 
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_toolchain_provider_helper.bzl", "get_cc_toolchain_provider")
+load(":common/cc/fdo_prefetch_hints.bzl", "FdoPrefetchHintsInfo")
+load(":common/cc/fdo_profile.bzl", "FdoProfileInfo")
+load(":common/cc/memprof_profile.bzl", "MemProfProfileInfo")
 load(":common/cc/semantics.bzl", "semantics")
 
 cc_internal = _builtins.internal.cc_internal
 ToolchainInfo = _builtins.toplevel.platform_common.ToolchainInfo
 TemplateVariableInfo = _builtins.toplevel.platform_common.TemplateVariableInfo
 apple_common = _builtins.toplevel.apple_common
-FdoProfileInfo = _builtins.internal.FdoProfileInfo
-FdoPrefetchHintsInfo = _builtins.internal.FdoPrefetchHintsInfo
 PropellerOptimizeInfo = _builtins.internal.PropellerOptimizeInfo
 PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
 CcToolchainConfigInfo = _builtins.toplevel.CcToolchainConfigInfo
-MemProfProfileInfo = _builtins.internal.MemProfProfileInfo
 
 def _validate_toolchain(ctx, is_apple):
     if not is_apple:

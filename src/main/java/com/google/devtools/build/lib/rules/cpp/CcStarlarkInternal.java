@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
@@ -161,28 +162,25 @@ public class CcStarlarkInternal implements StarlarkValue {
     } catch (TypeException e) {
       throw new EvalException(e);
     }
-    try {
-      return FdoHelper.getFdoContext(
-          ruleContext.getRuleContext(),
-          configuration,
-          cppConfiguration,
-          castDict(toolPathsDict),
-          nullIfNone(fdoPrefetchProvider, FdoPrefetchHintsProvider.class),
-          nullIfNone(propellerOptimizeProvider, PropellerOptimizeProvider.class),
-          nullIfNone(memProfProfileProvider, MemProfProfileProvider.class),
-          nullIfNone(fdoOptimizeProvider, FdoProfileProvider.class),
-          nullIfNone(fdoProfileProvider, FdoProfileProvider.class),
-          nullIfNone(xFdoProfileProvider, FdoProfileProvider.class),
-          nullIfNone(csFdoProfileProvider, FdoProfileProvider.class),
-          allFiles,
-          nullIfNone(zipper, Artifact.class),
-          ccToolchainConfigInfo,
-          Sequence.cast(fdoOptimizeArtifacts, Artifact.class, "fdo_optimize_artifacts")
-              .getImmutableList(),
-          nullIfNone(fdoOptimizeLabel, Label.class));
-    } catch (RuleErrorException e) {
-      throw new EvalException(e);
-    }
+
+    return FdoHelper.getFdoContext(
+        ruleContext.getRuleContext(),
+        configuration,
+        cppConfiguration,
+        castDict(toolPathsDict),
+        nullIfNone(fdoPrefetchProvider, StructImpl.class),
+        nullIfNone(propellerOptimizeProvider, PropellerOptimizeProvider.class),
+        nullIfNone(memProfProfileProvider, StructImpl.class),
+        nullIfNone(fdoOptimizeProvider, StructImpl.class),
+        nullIfNone(fdoProfileProvider, StructImpl.class),
+        nullIfNone(xFdoProfileProvider, StructImpl.class),
+        nullIfNone(csFdoProfileProvider, StructImpl.class),
+        allFiles,
+        nullIfNone(zipper, Artifact.class),
+        ccToolchainConfigInfo,
+        Sequence.cast(fdoOptimizeArtifacts, Artifact.class, "fdo_optimize_artifacts")
+            .getImmutableList(),
+        nullIfNone(fdoOptimizeLabel, Label.class));
   }
 
   @StarlarkMethod(
