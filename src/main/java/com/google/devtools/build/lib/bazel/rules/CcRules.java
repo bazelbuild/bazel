@@ -33,8 +33,6 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcIncludeScanningRule;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcLinkingRule;
 import com.google.devtools.build.lib.rules.cpp.DebugPackageProvider;
-import com.google.devtools.build.lib.rules.cpp.PropellerOptimizeProvider;
-import com.google.devtools.build.lib.rules.cpp.PropellerOptimizeRule;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcBootstrap;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
@@ -75,12 +73,10 @@ public class CcRules implements RuleSet {
     builder.addRuleDefinition(new EmptyRule("fdo_prefetch_hints") {});
     builder.addRuleDefinition(new CcLinkingRule());
     builder.addRuleDefinition(new EmptyRule("memprof_profile") {});
-    builder.addRuleDefinition(new PropellerOptimizeRule());
+    builder.addRuleDefinition(new EmptyRule("propeller_optimize") {});
     builder.addStarlarkBuiltinsInternal(
         "StaticallyLinkedMarkerProvider", StaticallyLinkedMarkerProvider.PROVIDER);
     builder.addStarlarkBuiltinsInternal("CcNativeLibraryInfo", CcNativeLibraryInfo.PROVIDER);
-    builder.addStarlarkBuiltinsInternal(
-        "PropellerOptimizeInfo", PropellerOptimizeProvider.PROVIDER);
     builder.addStarlarkBuiltinsInternal("cc_common", bazelCcModule);
     builder.addStarlarkBootstrap(
         new CcBootstrap(

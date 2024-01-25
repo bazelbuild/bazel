@@ -46,7 +46,7 @@ public class FdoHelper {
       CppConfiguration cppConfiguration,
       ImmutableMap<String, PathFragment> toolPaths,
       StructImpl fdoPrefetchProvider,
-      PropellerOptimizeProvider propellerOptimizeProvider,
+      StructImpl propellerOptimizeProvider,
       StructImpl memProfProfileProvider,
       StructImpl fdoOptimizeProvider,
       StructImpl fdoProfileProvider,
@@ -88,7 +88,8 @@ public class FdoHelper {
           propellerOptimizeInputFile = new PropellerOptimizeInputFile(ccArtifact, ldArtifact);
         }
       } else if (cppConfiguration.getPropellerOptimizeLabel() != null) {
-        propellerOptimizeInputFile = propellerOptimizeProvider.getInputFile();
+        propellerOptimizeInputFile =
+            PropellerOptimizeInputFile.fromStarlarkProvider(propellerOptimizeProvider);
       }
 
       if (cppConfiguration.getMemProfProfileLabel() != null) {

@@ -17,9 +17,9 @@
 load(":common/cc/fdo_prefetch_hints.bzl", "FdoPrefetchHintsInfo")
 load(":common/cc/fdo_profile.bzl", "FdoProfileInfo")
 load(":common/cc/memprof_profile.bzl", "MemProfProfileInfo")
+load(":common/cc/propeller_optimize.bzl", "PropellerOptimizeInfo")
 load(":common/cc/semantics.bzl", "semantics")
 
-PropellerOptimizeInfo = _builtins.internal.PropellerOptimizeInfo
 PackageSpecificationInfo = _builtins.toplevel.PackageSpecificationInfo
 CcToolchainConfigInfo = _builtins.toplevel.CcToolchainConfigInfo
 

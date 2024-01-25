@@ -40,6 +40,7 @@ load("@_builtins//:common/python/py_runtime_macro.bzl", "py_runtime")
 load(":common/cc/fdo_prefetch_hints.bzl", "fdo_prefetch_hints")
 load(":common/cc/fdo_profile.bzl", "fdo_profile")
 load(":common/cc/memprof_profile.bzl", "memprof_profile")
+load(":common/cc/propeller_optimize.bzl", "propeller_optimize")
 load(":common/java/java_binary_deploy_jar.bzl", get_java_build_info = "get_build_info")
 load(":common/java/java_common.bzl", "java_common")
 load(":common/java/java_info.bzl", "JavaInfo", "JavaPluginInfo")
@@ -93,6 +94,7 @@ exported_rules = {
     "fdo_prefetch_hints": fdo_prefetch_hints,
     "fdo_profile": fdo_profile,
     "memprof_profile": memprof_profile,
+    "propeller_optimize": propeller_optimize,
 }
 
 # A list of Starlark functions callable from native rules implementation.

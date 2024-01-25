@@ -169,7 +169,7 @@ public class CcStarlarkInternal implements StarlarkValue {
         cppConfiguration,
         castDict(toolPathsDict),
         nullIfNone(fdoPrefetchProvider, StructImpl.class),
-        nullIfNone(propellerOptimizeProvider, PropellerOptimizeProvider.class),
+        nullIfNone(propellerOptimizeProvider, StructImpl.class),
         nullIfNone(memProfProfileProvider, StructImpl.class),
         nullIfNone(fdoOptimizeProvider, StructImpl.class),
         nullIfNone(fdoProfileProvider, StructImpl.class),
