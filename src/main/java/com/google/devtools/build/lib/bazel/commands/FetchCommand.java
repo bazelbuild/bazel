@@ -94,7 +94,7 @@ public final class FetchCommand implements BlazeCommand {
     PackageOptions pkgOptions = options.getOptions(PackageOptions.class);
     if (!pkgOptions.fetch) {
       return createFailedBlazeCommandResult(
-          env.getReporter(), Code.OPTIONS_INVALID, "You cannot run fetch with --fetch=false");
+          env.getReporter(), Code.OPTIONS_INVALID, "You cannot run fetch with --nofetch");
     }
     FetchOptions fetchOptions = options.getOptions(FetchOptions.class);
     int optionsCount =

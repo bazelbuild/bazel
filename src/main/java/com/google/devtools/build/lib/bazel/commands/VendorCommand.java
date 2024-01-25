@@ -84,6 +84,11 @@ public final class VendorCommand implements BlazeCommand {
           Code.OPTIONS_INVALID,
           "You cannot run vendor without specifying --vendor_dir");
     }
+    PackageOptions pkgOptions = options.getOptions(PackageOptions.class);
+    if (!pkgOptions.fetch) {
+      return createFailedBlazeCommandResult(
+          env.getReporter(), Code.OPTIONS_INVALID, "You cannot run vendor with --nofetch");
+    }
 
     LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
