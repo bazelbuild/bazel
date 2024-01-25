@@ -123,9 +123,8 @@ and every rule that depends on it. (Note: not the rules it depends upon!) Be
 very careful, since this may have far-reaching effects.  When in doubt, add
 "-I" flags to <a href="#cc_binary.copts">COPTS</a> instead.
 <p>
-The default <code>include</code> path doesn't include generated
-files. If you need to <code>#include</code> a generated header
-file, list it in the <code>srcs</code>.
+The added <code>include</code> paths will include generated files as well as
+files in the source tree.
 </p>
 """),
     "defines": attr.string_list(doc = """
