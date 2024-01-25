@@ -35,6 +35,11 @@ public abstract class RepoSpec implements SkyValue {
 
   public abstract String ruleClassName();
 
+  /**
+   * All attribute values provided to the repository rule, except for the <code>name</code>
+   * attribute, which is set in {@link
+   * com.google.devtools.build.lib.skyframe.BzlmodRepoRuleFunction}.
+   */
   public abstract AttributeValues attributes();
 
   public static Builder builder() {
