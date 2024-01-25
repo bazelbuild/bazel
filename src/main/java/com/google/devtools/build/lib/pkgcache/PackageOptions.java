@@ -168,12 +168,14 @@ public class PackageOptions extends OptionsBase {
   public int maxDirectoriesToEagerlyVisitInGlobbing;
 
   @Option(
-    name = "fetch",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Allows the command to fetch external dependencies"
-  )
+      name = "fetch",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Allows the command to fetch external dependencies. If set to false, the command will"
+              + " utilize any cached version of the dependency, and if none exists, the command"
+              + " will result in failure.")
   public boolean fetch;
 
   @Option(
