@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.info.UsedHeapSizeAfterGcInfoItem;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -228,9 +229,9 @@ public class FocusCommand implements BlazeCommand {
       focusResult =
           SkyframeFocuser.focus(
               graph,
+              env.getReporter(),
               roots,
               leafs,
-              env.getReporter(),
               /* additionalDepsToKeep= */ (SkyKey k) -> {
                 // ActionExecutionFunction#lookupInput allows getting a transitive dep without
                 // adding a SkyframeDependency on it. In Blaze/Bazel's case, NestedSets are a major
@@ -244,6 +245,9 @@ public class FocusCommand implements BlazeCommand {
                 }
                 return ImmutableSet.of();
               });
+    } catch (InterruptedException e) {
+      return BlazeCommandResult.detailedExitCode(
+          InterruptedFailureDetails.detailedExitCode("focus interrupted"));
     }
 
     long afterHeap = UsedHeapSizeAfterGcInfoItem.getHeapUsageAfterGc();
