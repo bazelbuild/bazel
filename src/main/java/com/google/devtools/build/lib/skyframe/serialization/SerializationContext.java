@@ -81,15 +81,16 @@ public class SerializationContext implements SerializationDependencyProvider {
       throws IOException, SerializationException {
     ObjectCodecRegistry.CodecDescriptor descriptor =
         recordAndGetDescriptorIfNotConstantMemoizedOrNull(object, codedOut);
-    if (descriptor != null) {
-      if (serializer == null) {
-        descriptor.serialize(this, object, codedOut);
-      } else {
-        @SuppressWarnings("unchecked")
-        ObjectCodec<Object> castCodec = (ObjectCodec<Object>) descriptor.getCodec();
-        serializer.serialize(this, object, castCodec, codedOut);
-      }
+    if (descriptor == null) {
+      return;
     }
+    @SuppressWarnings("unchecked")
+    ObjectCodec<Object> castCodec = (ObjectCodec<Object>) descriptor.getCodec();
+    if (serializer == null) {
+      castCodec.serialize(this, object, codedOut);
+      return;
+    }
+    serializer.serialize(this, object, castCodec, codedOut);
   }
 
   @Override

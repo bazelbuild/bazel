@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -23,7 +24,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.io.ByteStreams;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import com.google.protobuf.MessageLite;
 import java.io.IOException;
@@ -232,12 +232,15 @@ public class ObjectCodecRegistry {
   }
 
   /** Describes encoding logic. */
-  interface CodecDescriptor {
-    void serialize(SerializationContext context, Object obj, CodedOutputStream codedOut)
-        throws IOException, SerializationException;
+  static final class CodecDescriptor {
+    private final int tag;
+    private final ObjectCodec<?> codec;
 
-    Object deserialize(DeserializationContext context, CodedInputStream codedIn)
-        throws IOException, SerializationException;
+    @VisibleForTesting
+    CodecDescriptor(int tag, ObjectCodec<?> codec) {
+      this.tag = tag;
+      this.codec = codec;
+    }
 
     /**
      * Unique identifier for the associated codec.
@@ -249,41 +252,12 @@ public class ObjectCodecRegistry {
      * <p>0 is a special tag representing null while negative numbers are reserved for
      * backreferences.
      */
-    int getTag();
-
-    /** Returns the underlying codec. */
-    ObjectCodec<?> getCodec();
-  }
-
-  private static class TypedCodecDescriptor<T> implements CodecDescriptor {
-    private final int tag;
-    private final ObjectCodec<T> codec;
-
-    private TypedCodecDescriptor(int tag, ObjectCodec<T> codec) {
-      this.tag = tag;
-      this.codec = codec;
-    }
-
-    @Override
-    @SuppressWarnings("unchecked")
-    public void serialize(SerializationContext context, Object obj, CodedOutputStream codedOut)
-        throws IOException, SerializationException {
-      codec.serialize(context, (T) obj, codedOut);
-    }
-
-    @Override
-    public T deserialize(DeserializationContext context, CodedInputStream codedIn)
-        throws IOException, SerializationException {
-      return codec.deserialize(context, codedIn);
-    }
-
-    @Override
     public int getTag() {
       return tag;
     }
 
-    @Override
-    public ObjectCodec<T> getCodec() {
+    /** Returns the underlying codec. */
+    public ObjectCodec<?> getCodec() {
       return codec;
     }
 
@@ -398,7 +372,7 @@ public class ObjectCodecRegistry {
     for (ObjectCodec<?> codec :
         ImmutableList.sortedCopyOf(
             Comparator.comparing(o -> o.getEncodedClass().getName()), memoizingCodecs)) {
-      CodecDescriptor codecDescriptor = new TypedCodecDescriptor<>(nextTag, codec);
+      CodecDescriptor codecDescriptor = new CodecDescriptor(nextTag, codec);
       addToChecksum(checksum, nextTag, codec.getClass().getName());
       tagMappedCodecsBuilder.add(codecDescriptor);
       codecsBuilder.put(codec.getEncodedClass(), codecDescriptor);
@@ -460,7 +434,7 @@ public class ObjectCodecRegistry {
       if (MessageLite.class.isAssignableFrom(type)) {
         return createCodecDescriptorForProto(tag, type);
       }
-      return new TypedCodecDescriptor<>(tag, new DynamicCodec(type));
+      return new CodecDescriptor(tag, new DynamicCodec(type));
     } catch (ReflectiveOperationException e) {
       new SerializationException("Could not create codec for type: " + className, e)
           .printStackTrace();
@@ -470,13 +444,12 @@ public class ObjectCodecRegistry {
 
   @SuppressWarnings({"unchecked", "rawtypes"})
   private static CodecDescriptor createCodecDescriptorForEnum(int tag, Class<?> enumType) {
-    return new TypedCodecDescriptor(tag, new EnumCodec(enumType));
+    return new CodecDescriptor(tag, new EnumCodec(enumType));
   }
 
-  @SuppressWarnings({"unchecked", "rawtypes"})
+  @SuppressWarnings("unchecked")
   private static CodecDescriptor createCodecDescriptorForProto(int tag, Class<?> protoType) {
-    return new TypedCodecDescriptor(
-        tag, new MessageLiteCodec((Class<? extends MessageLite>) protoType));
+    return new CodecDescriptor(tag, new MessageLiteCodec((Class<? extends MessageLite>) protoType));
   }
 
   private CodecDescriptor getDynamicCodecDescriptor(String className, @Nullable Class<?> type)

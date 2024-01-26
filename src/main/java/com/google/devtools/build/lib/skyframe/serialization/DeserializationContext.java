@@ -67,7 +67,7 @@ public class DeserializationContext implements AsyncDeserializationContext {
       return null;
     }
     if (tag < 0) {
-      // Subtract 1 to undo transformation from SerializationContext to avoid null.
+      // Subtracts 1 to undo transformation from SerializationContext to avoid null.
       return (T) deserializer.getMemoized(-tag - 1); // unchecked cast
     }
     T constant = (T) registry.maybeGetConstantByTag(tag);
@@ -75,11 +75,10 @@ public class DeserializationContext implements AsyncDeserializationContext {
       return constant;
     }
     CodecDescriptor codecDescriptor = registry.getCodecDescriptorByTag(tag);
+    ObjectCodec<T> castCodec = (ObjectCodec<T>) codecDescriptor.getCodec(); // unchecked cast
     if (deserializer == null) {
-      return (T) codecDescriptor.deserialize(this, codedIn); // unchecked cast
+      return castCodec.deserialize(this, codedIn);
     }
-    @SuppressWarnings("unchecked")
-    ObjectCodec<T> castCodec = (ObjectCodec<T>) codecDescriptor.getCodec();
     return deserializer.deserialize(this, castCodec, codedIn);
   }
 
