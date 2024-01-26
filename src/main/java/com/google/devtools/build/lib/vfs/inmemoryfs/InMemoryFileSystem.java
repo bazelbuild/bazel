@@ -608,9 +608,10 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected synchronized SeekableByteChannel createReadWriteByteChannel(PathFragment path) {
-    // It's feasible to implement, but so far it is not needed.
-    throw new UnsupportedOperationException("Not implemented");
+  protected synchronized SeekableByteChannel createReadWriteByteChannel(PathFragment path)
+      throws IOException {
+    InMemoryContentInfo status = getOrCreateWritableInode(path);
+    return ((FileInfo) status).createReadWriteByteChannel();
   }
 
   @Override

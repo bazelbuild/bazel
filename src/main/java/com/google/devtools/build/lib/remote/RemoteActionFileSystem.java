@@ -923,6 +923,11 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat {
     }
 
     @Override
+    public SeekableByteChannel createReadWriteByteChannel() throws IOException {
+      throw new IllegalStateException("Shouldn't be called directly");
+    }
+
+    @Override
     public byte[] getxattr(String name) throws IOException {
       throw new IllegalStateException("Shouldn't be called directly");
     }
