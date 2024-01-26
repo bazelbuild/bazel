@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationStrategy;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -147,11 +146,10 @@ class Memoizer {
         SerializationContext context,
         T obj,
         ObjectCodec<? super T> codec,
-        CodedOutputStream codedOut,
-        MemoizationStrategy strategy)
+        CodedOutputStream codedOut)
         throws SerializationException, IOException {
       // The caller already checked the table, so this is definitely a new value.
-      serializeMemoContent(context, obj, codec, codedOut, strategy);
+      serializeMemoContent(context, obj, codec, codedOut);
     }
 
     int getMemoizedIndex(Object obj) {
@@ -160,13 +158,9 @@ class Memoizer {
 
     // Corresponds to MemoContent in the abstract grammar.
     private <T> void serializeMemoContent(
-        SerializationContext context,
-        T obj,
-        ObjectCodec<T> codec,
-        CodedOutputStream codedOut,
-        MemoizationStrategy strategy)
+        SerializationContext context, T obj, ObjectCodec<T> codec, CodedOutputStream codedOut)
         throws SerializationException, IOException {
-      switch (strategy) {
+      switch (codec.getStrategy()) {
         case MEMOIZE_BEFORE:
           {
             int id = memo.memoize(obj);
@@ -245,7 +239,6 @@ class Memoizer {
     <T> T deserialize(
         DeserializationContext context,
         ObjectCodec<? extends T> codec,
-        MemoizationStrategy strategy,
         CodedInputStream codedIn)
         throws SerializationException, IOException {
       Preconditions.checkState(
@@ -253,13 +246,13 @@ class Memoizer {
           "non-null memoized-before tag %s (%s)",
           tagForMemoizedBefore,
           codec);
-      switch (strategy) {
+      switch (codec.getStrategy()) {
         case MEMOIZE_BEFORE:
           return deserializeMemoBeforeContent(context, codec, codedIn);
         case MEMOIZE_AFTER:
           return deserializeMemoAfterContent(context, codec, codedIn);
       }
-      throw new AssertionError("Unreachable (strategy=" + strategy + ")");
+      throw new AssertionError("Unreachable (strategy=" + codec.getStrategy() + ")");
     }
 
     Object getMemoized(int memoIndex) {

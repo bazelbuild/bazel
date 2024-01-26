@@ -22,7 +22,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationStrategy;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry.CodecDescriptor;
 import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.protobuf.CodedInputStream;
@@ -61,9 +60,27 @@ public class DeserializationContext implements AsyncDeserializationContext {
   }
 
   @Nullable
-  @SuppressWarnings({"TypeParameterUnusedInFormals"})
+  @SuppressWarnings({"TypeParameterUnusedInFormals", "unchecked"})
   public <T> T deserialize(CodedInputStream codedIn) throws IOException, SerializationException {
-    return deserializeInternal(codedIn, /*customMemoizationStrategy=*/ null);
+    int tag = codedIn.readSInt32();
+    if (tag == 0) {
+      return null;
+    }
+    if (tag < 0) {
+      // Subtract 1 to undo transformation from SerializationContext to avoid null.
+      return (T) deserializer.getMemoized(-tag - 1); // unchecked cast
+    }
+    T constant = (T) registry.maybeGetConstantByTag(tag);
+    if (constant != null) {
+      return constant;
+    }
+    CodecDescriptor codecDescriptor = registry.getCodecDescriptorByTag(tag);
+    if (deserializer == null) {
+      return (T) codecDescriptor.deserialize(this, codedIn); // unchecked cast
+    }
+    @SuppressWarnings("unchecked")
+    ObjectCodec<T> castCodec = (ObjectCodec<T>) codecDescriptor.getCodec();
+    return deserializer.deserialize(this, castCodec, codedIn);
   }
 
   /**
@@ -74,7 +91,7 @@ public class DeserializationContext implements AsyncDeserializationContext {
   @Override
   public <T> void deserialize(CodedInputStream codedIn, T obj, FieldSetter<? super T> setter)
       throws IOException, SerializationException {
-    Object value = deserializeInternal(codedIn, /* customMemoizationStrategy= */ null);
+    Object value = deserialize(codedIn);
     if (value == null) {
       return;
     }
@@ -84,7 +101,7 @@ public class DeserializationContext implements AsyncDeserializationContext {
   @Override
   public void deserialize(CodedInputStream codedIn, Object obj, long offset)
       throws IOException, SerializationException {
-    Object value = deserializeInternal(codedIn, /* customMemoizationStrategy= */ null);
+    Object value = deserialize(codedIn);
     if (value == null) {
       return;
     }
@@ -117,35 +134,6 @@ public class DeserializationContext implements AsyncDeserializationContext {
       throws IOException, SerializationException {
     // This method is identical to the call below in the synchronous implementation.
     deserialize(codedIn, obj, offset, done);
-  }
-
-  @Nullable
-  @SuppressWarnings({"TypeParameterUnusedInFormals", "unchecked"})
-  private <T> T deserializeInternal(
-      CodedInputStream codedIn, @Nullable MemoizationStrategy customMemoizationStrategy)
-      throws IOException, SerializationException {
-    int tag = codedIn.readSInt32();
-    if (tag == 0) {
-      return null;
-    }
-    if (tag < 0) {
-      // Subtract 1 to undo transformation from SerializationContext to avoid null.
-      return (T) deserializer.getMemoized(-tag - 1); // unchecked cast
-    }
-    T constant = (T) registry.maybeGetConstantByTag(tag);
-    if (constant != null) {
-      return constant;
-    }
-    CodecDescriptor codecDescriptor = registry.getCodecDescriptorByTag(tag);
-    if (deserializer == null) {
-      return (T) codecDescriptor.deserialize(this, codedIn); // unchecked cast
-    } else {
-      @SuppressWarnings("unchecked")
-      ObjectCodec<T> castCodec = (ObjectCodec<T>) codecDescriptor.getCodec();
-      MemoizationStrategy memoizationStrategy =
-          customMemoizationStrategy != null ? customMemoizationStrategy : castCodec.getStrategy();
-      return deserializer.deserialize(this, castCodec, memoizationStrategy, codedIn);
-    }
   }
 
   @Override

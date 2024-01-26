@@ -26,7 +26,6 @@ import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.Memoizer.Serializer;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationStrategy;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException.NoCodecException;
 import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.protobuf.CodedOutputStream;
@@ -80,14 +79,6 @@ public class SerializationContext implements SerializationDependencyProvider {
   // TODO(shahan): consider making codedOut a member of this class.
   public void serialize(Object object, CodedOutputStream codedOut)
       throws IOException, SerializationException {
-    serializeInternal(object, /*customMemoizationStrategy=*/ null, codedOut);
-  }
-
-  private void serializeInternal(
-      Object object,
-      @Nullable MemoizationStrategy customMemoizationStrategy,
-      CodedOutputStream codedOut)
-      throws IOException, SerializationException {
     ObjectCodecRegistry.CodecDescriptor descriptor =
         recordAndGetDescriptorIfNotConstantMemoizedOrNull(object, codedOut);
     if (descriptor != null) {
@@ -96,9 +87,7 @@ public class SerializationContext implements SerializationDependencyProvider {
       } else {
         @SuppressWarnings("unchecked")
         ObjectCodec<Object> castCodec = (ObjectCodec<Object>) descriptor.getCodec();
-        MemoizationStrategy memoizationStrategy =
-            customMemoizationStrategy != null ? customMemoizationStrategy : castCodec.getStrategy();
-        serializer.serialize(this, object, castCodec, codedOut, memoizationStrategy);
+        serializer.serialize(this, object, castCodec, codedOut);
       }
     }
   }
