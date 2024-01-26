@@ -605,7 +605,7 @@ public class RemoteExecutionService {
               buildRequestId, commandId, actionKey.getDigest().getHash(), spawn.getResourceOwner());
       RemoteActionExecutionContext remoteActionExecutionContext =
           RemoteActionExecutionContext.create(
-              spawn, metadata, getWriteCachePolicy(spawn), getReadCachePolicy(spawn));
+              spawn, context, metadata, getWriteCachePolicy(spawn), getReadCachePolicy(spawn));
 
       return new RemoteAction(
           spawn,
