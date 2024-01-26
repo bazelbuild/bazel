@@ -711,30 +711,13 @@ def _lookup_var(ctx, additional_vars, var):
         return expanded_make_var_ctx
     fail("{}: {} not defined".format(ctx.label, "$(" + var + ")"))
 
-def _build_variables(cc_toolchain, cpp_config, apple_config, cpu):
-    if not cc_toolchain._xcode_config_info:
-        return cc_toolchain._build_variables
-
-    return objc_common.apple_cc_toolchain_build_variables(
-        cc_toolchain._xcode_config_info,
-        apple_config.single_arch_platform,
-        cpu,
-        cpp_config,
-        cc_toolchain.sysroot,
-    )
-
 def _get_cc_flags_make_variable(ctx, feature_configuration, cc_toolchain):
     original_cc_flags = cc_toolchain._legacy_cc_flags_make_variable
     sysroot_cc_flag = ""
     if cc_toolchain.sysroot != None:
         sysroot_cc_flag = SYSROOT_FLAG + cc_toolchain.sysroot
 
-    build_vars = _build_variables(
-        cc_toolchain,
-        ctx.fragments.cpp,
-        cc_internal.apple_config_if_available(ctx = ctx),
-        ctx.configuration.cpu(),
-    )
+    build_vars = cc_toolchain._build_variables
     feature_config_cc_flags = cc_common.get_memory_inefficient_command_line(
         feature_configuration = feature_configuration,
         action_name = "cc-flags-make-variable",
@@ -1277,5 +1260,4 @@ cc_helper = struct(
     proto_output_root = _proto_output_root,
     package_source_root = _package_source_root,
     tokenize = _tokenize,
-    build_variables = _build_variables,
 )

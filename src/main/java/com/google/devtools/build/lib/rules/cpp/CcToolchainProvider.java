@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
@@ -34,8 +33,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
-import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -44,8 +41,6 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkFunction;
-import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 
 /** Information about a C++ compiler used by the <code>cc_*</code> rules. */
@@ -425,27 +420,8 @@ public final class CcToolchainProvider {
     return cppConfiguration.getCSFdoInstrument();
   }
 
-  public static CcToolchainVariables getBuildVars(
-      CcToolchainProvider ccToolchainProvider,
-      StarlarkThread thread,
-      CppConfiguration cppConfiguration,
-      BuildOptions buildOptions,
-      String cpu,
-      StarlarkFunction buildVarsFunc)
-      throws EvalException, InterruptedException {
-    Object ccToolchainVariables =
-        Starlark.call(
-            thread,
-            buildVarsFunc,
-            ImmutableList.of(
-                /* cc_toolchain */ ccToolchainProvider.getValue(),
-                /* cpp_config */ cppConfiguration,
-                /* apple_config */ buildOptions.contains(AppleCommandLineOptions.class)
-                    ? new AppleConfiguration(buildOptions)
-                    : Starlark.NONE,
-                /* cpu */ cpu),
-            ImmutableMap.of());
-    return (CcToolchainVariables) ccToolchainVariables;
+  public CcToolchainVariables getBuildVars() throws EvalException {
+    return getValue().getValue("_build_variables", CcToolchainVariables.class);
   }
 
   /**
@@ -554,9 +530,5 @@ public final class CcToolchainProvider {
 
   public OutputGroupInfo getCcBuildInfoTranslator() throws EvalException {
     return value.getValue("_build_info_files", OutputGroupInfo.class);
-  }
-
-  public StarlarkFunction getBuildVarsFunc() throws EvalException {
-    return value.getValue("_build_vars_func", StarlarkFunction.class);
   }
 }

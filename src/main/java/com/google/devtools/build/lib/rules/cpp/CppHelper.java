@@ -31,15 +31,10 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -308,82 +303,6 @@ public class CppHelper {
       return "FDO";
     }
     return null;
-  }
-
-  /** Creates an action to strip an executable. */
-  public static void createStripAction(
-      RuleContext ruleContext,
-      CcToolchainProvider toolchain,
-      CppConfiguration cppConfiguration,
-      Artifact input,
-      Artifact output,
-      FeatureConfiguration featureConfiguration)
-      throws RuleErrorException, InterruptedException {
-    if (featureConfiguration.isEnabled(CppRuleClasses.NO_STRIPPING)) {
-      ruleContext.registerAction(
-          SymlinkAction.toArtifact(
-              ruleContext.getActionOwner(),
-              input,
-              output,
-              "Symlinking original binary as stripped binary"));
-      return;
-    }
-
-    if (!featureConfiguration.actionIsConfigured(CppActionNames.STRIP)) {
-      ruleContext.ruleError("Expected action_config for 'strip' to be configured.");
-      return;
-    }
-
-    CcToolchainVariables baseVars;
-    try {
-      baseVars =
-          CcToolchainProvider.getBuildVars(
-              toolchain,
-              ruleContext.getStarlarkThread(),
-              cppConfiguration,
-              ruleContext.getConfiguration().getOptions(),
-              ruleContext.getConfiguration().getOptions().get(CoreOptions.class).cpu,
-              toolchain.getBuildVarsFunc());
-    } catch (EvalException e) {
-      throw new RuleErrorException(e.getMessage());
-    }
-
-    CcToolchainVariables variables =
-        CcToolchainVariables.builder(baseVars)
-            .addStringVariable(
-                StripBuildVariables.OUTPUT_FILE.getVariableName(), output.getExecPathString())
-            .addStringSequenceVariable(
-                StripBuildVariables.STRIPOPTS.getVariableName(), cppConfiguration.getStripOpts())
-            .addStringVariable(CcCommon.INPUT_FILE_VARIABLE_NAME, input.getExecPathString())
-            .build();
-    ImmutableList<String> commandLine =
-        getCommandLine(ruleContext, featureConfiguration, variables, CppActionNames.STRIP);
-    ImmutableMap.Builder<String, String> executionInfoBuilder = ImmutableMap.builder();
-    for (String executionRequirement :
-        featureConfiguration.getToolRequirementsForAction(CppActionNames.STRIP)) {
-      executionInfoBuilder.put(executionRequirement, "");
-    }
-    try {
-      SpawnAction stripAction =
-          new SpawnAction.Builder()
-              .addInput(input)
-              .addTransitiveInputs(toolchain.getStripFiles())
-              .addOutput(output)
-              .useDefaultShellEnvironment()
-              .setExecutable(
-                  PathFragment.create(
-                      featureConfiguration.getToolPathForAction(CppActionNames.STRIP)))
-              .setExecutionInfo(executionInfoBuilder.buildOrThrow())
-              .setProgressMessage(
-                  "Stripping %s for %s", output.prettyPrint(), ruleContext.getLabel())
-              .setMnemonic("CcStrip")
-              .addCommandLine(CustomCommandLine.builder().addAll(commandLine).build())
-              .build(ruleContext);
-    ruleContext.registerAction(stripAction);
-
-    } catch (EvalException | TypeException e) {
-      throw new RuleErrorException(e.getMessage());
-    }
   }
 
   public static ImmutableList<String> getCommandLine(

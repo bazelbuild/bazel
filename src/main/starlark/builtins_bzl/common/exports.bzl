@@ -25,7 +25,6 @@ load("@_builtins//:common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryH
 load("@_builtins//:common/cc/cc_test.bzl", "cc_test")
 load("@_builtins//:common/cc/cc_toolchain.bzl", "apple_cc_toolchain", "cc_toolchain")
 load("@_builtins//:common/cc/cc_toolchain_alias.bzl", "cc_toolchain_alias")
-load("@_builtins//:common/cc/cc_toolchain_provider_helper.bzl", "get_cc_toolchain_provider")
 load("@_builtins//:common/java/proto/java_lite_proto_library.bzl", "java_lite_proto_library")
 load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
 load("@_builtins//:common/objc/j2objc_library.bzl", "j2objc_library")
@@ -105,8 +104,6 @@ exported_to_java = {
     "proto_common_experimental_should_generate_code": proto_common_do_not_use.experimental_should_generate_code,
     "proto_common_experimental_filter_sources": proto_common_do_not_use.experimental_filter_sources,
     "link_multi_arch_static_library": linking_support.link_multi_arch_static_library,
-    "get_cc_toolchain_provider": get_cc_toolchain_provider,
-    "build_variables": cc_helper.build_variables,
     "j2objc_mapping_file_info_union": objc_common.j2objc_mapping_file_info_union,
     "j2objc_entry_class_info_union": objc_common.j2objc_entry_class_info_union,
     "init_cc_compilation_context": cc_compilation_helper.init_cc_compilation_context,

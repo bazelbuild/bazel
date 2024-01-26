@@ -340,13 +340,8 @@ public abstract class CcModule
     CcToolchainVariables.Builder variables =
         CcToolchainVariables.builder(
                 CompileBuildVariables.setupVariablesOrThrowEvalException(
-                    thread,
                     featureConfiguration.getFeatureConfiguration(),
                     ccToolchainProvider,
-                    featureConfiguration
-                        .getBuildOptionsFromFeatureConfigurationCreatedForStarlark_andIKnowWhatImDoing(),
-                    featureConfiguration
-                        .getCppConfigurationFromFeatureConfigurationCreatedForStarlark_andIKnowWhatImDoing(),
                     convertFromNoneable(sourceFile, /* defaultValue= */ null),
                     convertFromNoneable(outputFile, /* defaultValue= */ null),
                     /* gcnoFile= */ null,
@@ -407,7 +402,6 @@ public abstract class CcModule
     CcToolchainProvider ccToolchainProvider =
         CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(ccToolchainInfo);
     return LinkBuildVariables.setupVariables(
-        thread,
         isUsingLinkerNotArchiver,
         /* binDirectoryPath= */ null,
         convertFromNoneable(outputFile, /* defaultValue= */ null),
@@ -420,8 +414,6 @@ public abstract class CcModule
         ccToolchainProvider,
         featureConfiguration
             .getCppConfigurationFromFeatureConfigurationCreatedForStarlark_andIKnowWhatImDoing(),
-        featureConfiguration
-            .getBuildOptionsFromFeatureConfigurationCreatedForStarlark_andIKnowWhatImDoing(),
         featureConfiguration.getFeatureConfiguration(),
         useTestOnlyFlags,
         /* isLtoIndexing= */ false,

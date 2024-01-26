@@ -17,14 +17,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.StarlarkThread;
 
 /** Enum covering all build variables we create for all various {@link CppLinkAction}. */
 public enum LinkBuildVariables {
@@ -99,7 +96,6 @@ public enum LinkBuildVariables {
   }
 
   public static CcToolchainVariables setupVariables(
-      StarlarkThread thread,
       boolean isUsingLinkerNotArchiver,
       PathFragment binDirectoryPath,
       String outputFile,
@@ -111,7 +107,6 @@ public enum LinkBuildVariables {
       boolean mustKeepDebug,
       CcToolchainProvider ccToolchainProvider,
       CppConfiguration cppConfiguration,
-      BuildOptions buildOptions,
       FeatureConfiguration featureConfiguration,
       boolean useTestOnlyFlags,
       boolean isLtoIndexing,
@@ -128,14 +123,7 @@ public enum LinkBuildVariables {
       boolean addIfsoRelatedVariables)
       throws EvalException, InterruptedException {
     CcToolchainVariables.Builder buildVariables =
-        CcToolchainVariables.builder(
-            CcToolchainProvider.getBuildVars(
-                ccToolchainProvider,
-                thread,
-                cppConfiguration,
-                buildOptions,
-                buildOptions.get(CoreOptions.class).cpu,
-                ccToolchainProvider.getBuildVarsFunc()));
+        CcToolchainVariables.builder(ccToolchainProvider.getBuildVars());
 
     // pic
     if (cppConfiguration.forcePic()) {

@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -65,7 +64,6 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkList;
-import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Tuple;
 
 /**
@@ -849,7 +847,7 @@ public final class CcCompilationHelper {
 
     // Create compile actions (both PIC and no-PIC).
     try {
-      CcCompilationOutputs ccOutputs = createCcCompileActions(ruleContext.getStarlarkThread());
+      CcCompilationOutputs ccOutputs = createCcCompileActions();
 
       if (cppConfiguration.processHeadersInDependencies()) {
         return new CompilationInfo(
@@ -981,7 +979,7 @@ public final class CcCompilationHelper {
    * file. It takes into account coverage, and PIC, in addition to using the settings specified on
    * the current object. This method should only be called once.
    */
-  private CcCompilationOutputs createCcCompileActions(StarlarkThread thread)
+  private CcCompilationOutputs createCcCompileActions()
       throws RuleErrorException, EvalException, InterruptedException {
     CcCompilationOutputs.Builder result = CcCompilationOutputs.builder();
     Preconditions.checkNotNull(ccCompilationContext);
@@ -989,20 +987,20 @@ public final class CcCompilationHelper {
     if (shouldProvideHeaderModules()) {
       CppModuleMap cppModuleMap = ccCompilationContext.getCppModuleMap();
       Label moduleMapLabel = Label.parseCanonicalUnchecked(cppModuleMap.getName());
-      ImmutableList<Artifact> modules = createModuleAction(thread, result, cppModuleMap);
+      ImmutableList<Artifact> modules = createModuleAction(result, cppModuleMap);
       ImmutableList<Artifact> separateModules = ImmutableList.of();
       if (!separateModuleHeaders.isEmpty()) {
         CppModuleMap separateMap =
             new CppModuleMap(
                 cppModuleMap.getArtifact(),
                 cppModuleMap.getName() + CppModuleMap.SEPARATE_MODULE_SUFFIX);
-        separateModules = createModuleAction(thread, result, separateMap);
+        separateModules = createModuleAction(result, separateMap);
       }
       if (featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULE_CODEGEN)) {
         for (Artifact module : Iterables.concat(modules, separateModules)) {
           // TODO(djasper): Investigate whether we need to use a label separate from that of the
           // module map. It is used for per-file-copts.
-          createModuleCodegenAction(thread, result, moduleMapLabel, module);
+          createModuleCodegenAction(result, moduleMapLabel, module);
         }
       }
     }
@@ -1042,7 +1040,6 @@ public final class CcCompilationHelper {
       if (!sourceArtifact.isTreeArtifact()) {
         compiledBasenames.add(Files.getNameWithoutExtension(sourceArtifact.getExecPathString()));
         createSourceAction(
-            thread,
             sourceLabel,
             outputName,
             result,
@@ -1068,7 +1065,6 @@ public final class CcCompilationHelper {
           case HEADER:
             Artifact headerTokenFile =
                 createCompileActionTemplate(
-                    thread,
                     source,
                     outputName,
                     builder,
@@ -1084,7 +1080,6 @@ public final class CcCompilationHelper {
             if (generateNoPicAction) {
               Artifact objectFile =
                   createCompileActionTemplate(
-                      thread,
                       source,
                       outputName,
                       builder,
@@ -1098,7 +1093,6 @@ public final class CcCompilationHelper {
             if (generatePicAction) {
               Artifact picObjectFile =
                   createCompileActionTemplate(
-                      thread,
                       source,
                       outputName,
                       builder,
@@ -1132,14 +1126,13 @@ public final class CcCompilationHelper {
           .addAdditionalIncludeScanningRoots(additionalIncludeScanningRoots);
 
       String outputName = outputNameMap.get(artifact);
-      createHeaderAction(thread, source.getLabel(), outputName, result, builder);
+      createHeaderAction(source.getLabel(), outputName, result, builder);
     }
 
     return result.build();
   }
 
   private Artifact createCompileActionTemplate(
-      StarlarkThread thread,
       CppSource source,
       String outputName,
       CppCompileActionBuilder builder,
@@ -1159,7 +1152,6 @@ public final class CcCompilationHelper {
     builder.setOutputs(outputFiles, /* dotdFile= */ null, /* diagnosticsFile= */ null);
     builder.setVariables(
         setupCompileBuildVariables(
-            thread,
             builder,
             /* sourceLabel= */ null,
             usePic,
@@ -1272,7 +1264,6 @@ public final class CcCompilationHelper {
   }
 
   private CcToolchainVariables setupCompileBuildVariables(
-      StarlarkThread thread,
       CppCompileActionBuilder builder,
       Label sourceLabel,
       boolean usePic,
@@ -1322,14 +1313,7 @@ public final class CcCompilationHelper {
       }
       CcToolchainVariables cctoolchainVariables;
       try {
-        cctoolchainVariables =
-            CcToolchainProvider.getBuildVars(
-                ccToolchain,
-                thread,
-                cppConfiguration,
-                configuration.getOptions(),
-                configuration.getOptions().get(CoreOptions.class).cpu,
-                ccToolchain.getBuildVarsFunc());
+        cctoolchainVariables = ccToolchain.getBuildVars();
       } catch (EvalException e) {
         throw new RuleErrorException(e.getMessage());
       }
@@ -1406,10 +1390,7 @@ public final class CcCompilationHelper {
   }
 
   private void createModuleCodegenAction(
-      StarlarkThread thread,
-      CcCompilationOutputs.Builder result,
-      Label sourceLabel,
-      Artifact module)
+      CcCompilationOutputs.Builder result, Label sourceLabel, Artifact module)
       throws RuleErrorException, EvalException, InterruptedException {
     String outputName = module.getRootRelativePath().getBaseName();
 
@@ -1447,7 +1428,6 @@ public final class CcCompilationHelper {
 
     builder.setVariables(
         setupCompileBuildVariables(
-            thread,
             builder,
             sourceLabel,
             /* usePic= */ pic,
@@ -1475,7 +1455,6 @@ public final class CcCompilationHelper {
   }
 
   private void createHeaderAction(
-      StarlarkThread thread,
       Label sourceLabel,
       String outputName,
       CcCompilationOutputs.Builder result,
@@ -1496,7 +1475,6 @@ public final class CcCompilationHelper {
         .setPicMode(generatePicAction);
     builder.setVariables(
         setupCompileBuildVariables(
-            thread,
             builder,
             sourceLabel,
             generatePicAction,
@@ -1516,7 +1494,7 @@ public final class CcCompilationHelper {
   }
 
   private ImmutableList<Artifact> createModuleAction(
-      StarlarkThread thread, CcCompilationOutputs.Builder result, CppModuleMap cppModuleMap)
+      CcCompilationOutputs.Builder result, CppModuleMap cppModuleMap)
       throws RuleErrorException, EvalException, InterruptedException {
     Artifact moduleMapArtifact = cppModuleMap.getArtifact();
     CppCompileActionBuilder builder = initializeCompileAction(moduleMapArtifact);
@@ -1527,7 +1505,6 @@ public final class CcCompilationHelper {
     // - the compiled source file is the module map
     // - it creates a header module (.pcm file).
     return createSourceAction(
-        thread,
         label,
         Paths.get(label.getName()).getFileName().toString(),
         result,
@@ -1543,7 +1520,6 @@ public final class CcCompilationHelper {
 
   @CanIgnoreReturnValue
   private ImmutableList<Artifact> createSourceAction(
-      StarlarkThread thread,
       Label sourceLabel,
       String outputName,
       CcCompilationOutputs.Builder result,
@@ -1580,7 +1556,6 @@ public final class CcCompilationHelper {
 
       picBuilder.setVariables(
           setupCompileBuildVariables(
-              thread,
               picBuilder,
               sourceLabel,
               /* usePic= */ true,
@@ -1594,7 +1569,6 @@ public final class CcCompilationHelper {
 
       result.addTemps(
           createTempsActions(
-              thread,
               sourceArtifact,
               sourceLabel,
               outputName,
@@ -1656,7 +1630,6 @@ public final class CcCompilationHelper {
 
       builder.setVariables(
           setupCompileBuildVariables(
-              thread,
               builder,
               sourceLabel,
               /* usePic= */ false,
@@ -1670,7 +1643,6 @@ public final class CcCompilationHelper {
 
       result.addTemps(
           createTempsActions(
-              thread,
               sourceArtifact,
               sourceLabel,
               outputName,
@@ -1794,7 +1766,6 @@ public final class CcCompilationHelper {
 
   /** Create the actions for "--save_temps". */
   private ImmutableList<Artifact> createTempsActions(
-      StarlarkThread thread,
       Artifact source,
       Label sourceLabel,
       String outputName,
@@ -1826,7 +1797,6 @@ public final class CcCompilationHelper {
         actionConstructionContext, ruleErrorConsumer, label, category, outputArtifactNameBase);
     dBuilder.setVariables(
         setupCompileBuildVariables(
-            thread,
             dBuilder,
             sourceLabel,
             usePic,
@@ -1853,7 +1823,6 @@ public final class CcCompilationHelper {
         outputArtifactNameBase);
     sdBuilder.setVariables(
         setupCompileBuildVariables(
-            thread,
             sdBuilder,
             sourceLabel,
             usePic,

@@ -17,7 +17,6 @@ Definition of CcToolchainInfo provider.
 """
 
 load(":common/cc/cc_common.bzl", "cc_common")
-load(":common/cc/cc_helper.bzl", "cc_helper")
 
 cc_internal = _builtins.internal.cc_internal
 
@@ -153,7 +152,6 @@ def _create_cc_toolchain_info(
         _compiler_files_without_includes = compiler_files_without_includes,
         _build_variables = build_variables,
         _allowlist_for_layering_check = allowlist_for_layering_check,
-        _build_vars_func = cc_helper.build_variables,
         _xcode_config_info = xcode_config_info,
         _cc_info = cc_info,
         _objcopy_files = objcopy_files,
@@ -247,7 +245,6 @@ CcToolchainInfo, _ = provider(
         "_dynamic_runtime_lib_depset": "INTERNAL API, DO NOT USE!",
         "_compiler_files_without_includes": "INTERNAL API, DO NOT USE!",
         "_allowlist_for_layering_check": "INTERNAL API, DO NOT USE!",
-        "_build_vars_func": "INTERNAL API, DO NOT USE!",
         "_cc_info": "INTERNAL API, DO NOT USE!",
         "_objcopy_files": "INTERNAL API, DO NOT USE!",
     },

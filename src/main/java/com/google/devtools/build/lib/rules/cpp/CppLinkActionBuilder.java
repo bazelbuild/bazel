@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -762,14 +761,7 @@ public class CppLinkActionBuilder {
     CcToolchainVariables ccToolchainVariables;
     Preconditions.checkArgument(actionConstructionContext instanceof RuleContext);
     try {
-      ccToolchainVariables =
-          CcToolchainProvider.getBuildVars(
-              toolchain,
-              ((RuleContext) actionConstructionContext).getStarlarkThread(),
-              cppConfiguration,
-              configuration.getOptions(),
-              configuration.getOptions().get(CoreOptions.class).cpu,
-              toolchain.getBuildVarsFunc());
+      ccToolchainVariables = toolchain.getBuildVars();
     } catch (EvalException e) {
       throw new RuleErrorException(e.getMessage());
     }
@@ -822,7 +814,6 @@ public class CppLinkActionBuilder {
 
       variables =
           LinkBuildVariables.setupVariables(
-              ((RuleContext) actionConstructionContext).getStarlarkThread(),
               getLinkType().linkerOrArchiver().equals(LinkerOrArchiver.LINKER),
               configuration.getBinDirectory(repositoryName).getExecPath(),
               output.getExecPathString(),
@@ -837,7 +828,6 @@ public class CppLinkActionBuilder {
               mustKeepDebug,
               toolchain,
               cppConfiguration,
-              configuration.getOptions(),
               featureConfiguration,
               useTestOnlyFlags,
               isLtoIndexing,

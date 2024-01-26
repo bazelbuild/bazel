@@ -21,7 +21,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -177,13 +176,7 @@ public enum CompileBuildVariables {
       }
       return setupVariables(
           featureConfiguration,
-          CcToolchainProvider.getBuildVars(
-              ccToolchainProvider,
-              thread,
-              cppConfiguration,
-              buildOptions,
-              buildOptions.get(CoreOptions.class).cpu,
-              ccToolchainProvider.getBuildVarsFunc()),
+          ccToolchainProvider.getBuildVars(),
           sourceFile,
           outputFile,
           gcnoFile,
@@ -216,11 +209,8 @@ public enum CompileBuildVariables {
   }
 
   public static CcToolchainVariables setupVariablesOrThrowEvalException(
-      StarlarkThread thread,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchainProvider,
-      BuildOptions buildOptions,
-      CppConfiguration cppConfiguration,
       String sourceFile,
       String outputFile,
       String gcnoFile,
@@ -254,13 +244,7 @@ public enum CompileBuildVariables {
     }
     return setupVariables(
         featureConfiguration,
-        CcToolchainProvider.getBuildVars(
-            ccToolchainProvider,
-            thread,
-            cppConfiguration,
-            buildOptions,
-            buildOptions.get(CoreOptions.class).cpu,
-            ccToolchainProvider.getBuildVarsFunc()),
+        ccToolchainProvider.getBuildVars(),
         sourceFile,
         outputFile,
         gcnoFile,
