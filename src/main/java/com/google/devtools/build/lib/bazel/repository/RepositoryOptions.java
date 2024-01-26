@@ -216,7 +216,8 @@ public class RepositoryOptions extends OptionsBase {
   public enum WorkerForRepoFetching {
     OFF,
     PLATFORM,
-    VIRTUAL;
+    VIRTUAL,
+    AUTO;
 
     static class Converter extends EnumConverter<WorkerForRepoFetching> {
       public Converter() {
@@ -227,14 +228,16 @@ public class RepositoryOptions extends OptionsBase {
 
   @Option(
       name = "experimental_worker_for_repo_fetching",
-      defaultValue = "off",
+      defaultValue = "auto",
       converter = WorkerForRepoFetching.Converter.class,
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "The threading mode to use for repo fetching. If set to 'off', no worker thread is used,"
               + " and the repo fetching is subject to restarts. Otherwise, uses a platform thread"
-              + " (i.e. OS thread) if set to 'platform' or a virtual thread if set to 'virtual'.")
+              + " (i.e. OS thread) if set to 'platform' or a virtual thread if set to 'virtual'. If"
+              + " set to 'auto', virtual threads are used if available (i.e. running on JDK 21+),"
+              + " otherwise no worker thread is used.")
   public WorkerForRepoFetching workerForRepoFetching;
 
   @Option(
