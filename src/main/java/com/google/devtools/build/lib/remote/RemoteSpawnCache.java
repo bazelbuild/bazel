@@ -19,6 +19,8 @@ import static com.google.devtools.build.lib.remote.util.Utils.createSpawnResult;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
+import com.google.common.base.Throwables;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -38,6 +40,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
@@ -45,6 +48,8 @@ import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.NoSuchElementException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 
 /** A remote {@link SpawnCache} implementation. */
 @ThreadSafe // If the RemoteActionCache implementation is thread-safe.
@@ -55,6 +60,8 @@ final class RemoteSpawnCache implements SpawnCache {
   private final RemoteExecutionService remoteExecutionService;
   private final DigestUtil digestUtil;
   private final boolean verboseFailures;
+  private final ConcurrentHashMap<RemoteCacheClient.ActionKey, SettableFuture<RemoteActionResult>>
+      inFlightExecutions = new ConcurrentHashMap<>();
 
   RemoteSpawnCache(
       Path execRoot,
@@ -62,6 +69,7 @@ final class RemoteSpawnCache implements SpawnCache {
       boolean verboseFailures,
       RemoteExecutionService remoteExecutionService,
       DigestUtil digestUtil) {
+    System.err.println("RemoteSpawnCache constructor");
     this.execRoot = execRoot;
     this.options = options;
     this.verboseFailures = verboseFailures;
@@ -96,6 +104,7 @@ final class RemoteSpawnCache implements SpawnCache {
     context.setDigest(digestUtil.asSpawnLogProto(action.getActionKey()));
 
     Profiler prof = Profiler.instance();
+    SettableFuture<RemoteActionResult> ourExecutionResult = SettableFuture.create();
     if (shouldAcceptCachedResult) {
       // Metadata will be available in context.current() until we detach.
       // This is done via a thread-local variable.
@@ -104,6 +113,27 @@ final class RemoteSpawnCache implements SpawnCache {
         try (SilentCloseable c = prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
           result = remoteExecutionService.lookupCache(action);
         }
+
+        if (result == null && shouldUploadLocalResults && !spawn.getPathMapper().isNoop()) {
+          SettableFuture<RemoteActionResult> inFlightExecutionResult =
+              inFlightExecutions.putIfAbsent(action.getActionKey(), ourExecutionResult);
+          if (inFlightExecutionResult != null) {
+            try (SilentCloseable c =
+                prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "waiting for parallel execution")) {
+              result = inFlightExecutionResult.get();
+            } catch (ExecutionException e) {
+              Throwable cause = e.getCause();
+              if (cause != null) {
+                Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
+                Throwables.throwIfInstanceOf(e.getCause(), IOException.class);
+                Throwables.throwIfInstanceOf(e.getCause(), ExecException.class);
+                Throwables.throwIfInstanceOf(e.getCause(), ForbiddenActionInputException.class);
+              }
+              throw new IllegalStateException("Unexpected exception", e);
+            }
+          }
+        }
+
         // In case the remote cache returned a failed action (exit code != 0) we treat it as a
         // cache miss
         if (result != null && result.getExitCode() == 0) {
@@ -149,6 +179,8 @@ final class RemoteSpawnCache implements SpawnCache {
     }
 
     if (shouldUploadLocalResults) {
+      final SettableFuture<RemoteActionResult> executionResult = ourExecutionResult;
+
       return new CacheHandle() {
         @Override
         public boolean hasResult() {
@@ -169,6 +201,7 @@ final class RemoteSpawnCache implements SpawnCache {
         public void store(SpawnResult result) throws ExecException, InterruptedException {
           boolean uploadResults = Status.SUCCESS.equals(result.status()) && result.exitCode() == 0;
           if (!uploadResults) {
+            executionResult.set(null);
             return;
           }
 
@@ -181,11 +214,11 @@ final class RemoteSpawnCache implements SpawnCache {
                       + "with --experimental_guard_against_concurrent_changes enabled: "
                       + e.getMessage();
               remoteExecutionService.report(Event.warn(msg));
-              return;
+              executionResult.set(null);
             }
           }
 
-          remoteExecutionService.uploadOutputs(action, result);
+          remoteExecutionService.uploadOutputs(action, result, executionResult);
         }
 
         private void checkForConcurrentModifications()
