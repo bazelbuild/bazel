@@ -212,7 +212,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertThat(getRuleClass("non_exec_rule").hasAttr("args", Type.STRING_LIST)).isFalse();
   }
 
-  /** Returns a package by the given name (no leading "//"), or null if it was in error. */
+  /**
+   * Returns a package by the given name (no leading "//"), or null upon {@link
+   * NoSuchPackageException}.
+   */
   @CanIgnoreReturnValue
   @Nullable
   private Package getPackage(String pkgName) throws InterruptedException {
@@ -375,9 +378,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertThat(ev.eval("repr(exported)")).isEqualTo("<macro exported>");
     assertThat(ev.eval("repr(s.unexported)")).isEqualTo("<macro>");
   }
-
-  // TODO(#19922): Add assertions for calling convention and execution of macro implementation
-  // function.
 
   private RuleClass getRuleClass(String name) throws Exception {
     return ((StarlarkRuleFunction) ev.lookup(name)).getRuleClass();

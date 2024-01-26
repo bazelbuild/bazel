@@ -1060,6 +1060,14 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       } catch (NameConflictException e) {
         throw new EvalException(e);
       }
+
+      // TODO: #19922 - Instead of evaluating macros synchronously with their declaration, evaluate
+      // them lazily as the targets they declare are requested. But this would mean that targets
+      // declared in a symbolic macro are invisible to native.existing_rules() calls in a legacy
+      // macro. Therefore, this is blocked on either changing the semantics of existing_rules() or
+      // deprecating it entirely.
+      MacroClass.executeMacroImplementation(macroInstance, pkgBuilder, thread.getSemantics());
+
       return Starlark.NONE;
     }
 

@@ -15,9 +15,16 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * Represents a symbolic macro, defined in a .bzl file, that may be instantiated during Package
@@ -63,6 +70,55 @@ public final class MacroClass {
     public MacroClass build() {
       Preconditions.checkNotNull(name);
       return new MacroClass(name, implementation);
+    }
+  }
+
+  /**
+   * Executes a symbolic macro's implementation function, in a new Starlark thread, mutating the
+   * given package under construction.
+   */
+  // TODO: #19922 - Take a new type, PackagePiece.Builder, in place of Package.Builder. PackagePiece
+  // would represent the collection of targets/macros instantiated by expanding a single symbolic
+  // macro.
+  public static void executeMacroImplementation(
+      MacroInstance macro, Package.Builder builder, StarlarkSemantics semantics)
+      throws InterruptedException {
+    try (Mutability mu =
+        Mutability.create("macro", builder.getPackageIdentifier(), macro.getName())) {
+      StarlarkThread thread = new StarlarkThread(mu, semantics);
+      thread.setPrintHandler(Event.makeDebugPrintHandler(builder.getLocalEventHandler()));
+
+      new BazelStarlarkContext(
+              BazelStarlarkContext.Phase.LOADING,
+              // TODO: #19922 - Technically we should use a different key than the one in the main
+              // BUILD thread, but that'll be fixed when we change the builder type to
+              // PackagePiece.Builder.
+              new SymbolGenerator<>(builder.getPackageIdentifier()))
+          .storeInThread(thread);
+
+      // TODO: #19922 - Have Package.Builder inherit from BazelStarlarkContext and only store one
+      // thread-local object.
+      thread.setThreadLocal(Package.Builder.class, builder);
+
+      // TODO: #19922 - If we want to support creating analysis_test rules inside symbolic macros,
+      // we'd need to call `thread.setThreadLocal(RuleDefinitionEnvironment.class,
+      // ruleClassProvider)`. In that case we'll need to consider how to get access to the
+      // ConfiguredRuleClassProvider. For instance, we could put it in the builder.
+
+      try {
+        Starlark.fastcall(
+            thread,
+            macro.getMacroClass().getImplementation(),
+            /* positional= */ new Object[] {},
+            /* named= */ new Object[] {"name", macro.getName()});
+      } catch (EvalException ex) {
+        builder
+            .getLocalEventHandler()
+            .handle(
+                Package.error(
+                    /* location= */ null, ex.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
+        builder.setContainsErrors();
+      }
     }
   }
 }

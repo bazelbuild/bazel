@@ -1660,8 +1660,6 @@ public class Package {
     public void addMacro(MacroInstance macro) throws NameConflictException {
       checkForExistingName(macro);
       macros.put(macro.getName(), macro);
-      // TODO(#19922): Push to a queue of unexpanded macros, read those when expanding macros as
-      // part of monolithic package evaluation (but not lazy macro evaluation).
     }
 
     void addRegisteredExecutionPlatforms(List<TargetPattern> platforms) {
