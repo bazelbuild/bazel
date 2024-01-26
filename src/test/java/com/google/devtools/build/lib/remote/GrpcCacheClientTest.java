@@ -22,7 +22,9 @@ import static org.junit.Assert.fail;
 import static org.mockito.AdditionalAnswers.answerVoid;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheImplBase;
@@ -58,6 +60,7 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
@@ -65,6 +68,8 @@ import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
+import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -257,7 +262,9 @@ public class GrpcCacheClientTest {
     RequestMetadata metadata =
         TracingMetadataUtils.buildMetadata(
             "none", "none", Digest.getDefaultInstance().getHash(), null);
-    context = RemoteActionExecutionContext.create(metadata);
+    context =
+        RemoteActionExecutionContext.create(
+            mock(Spawn.class), mock(SpawnExecutionContext.class), metadata);
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
   }
 
@@ -270,6 +277,30 @@ public class GrpcCacheClientTest {
 
     fakeServer.shutdownNow();
     fakeServer.awaitTermination();
+  }
+
+  @Test
+  public void testSpawnCheckingCacheEvent() throws Exception {
+    GrpcCacheClient client = newClient();
+
+    serviceRegistry.addService(
+        new ActionCacheImplBase() {
+          @Override
+          public void getActionResult(
+              GetActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
+            responseObserver.onError(Status.NOT_FOUND.asRuntimeException());
+          }
+        });
+
+    var unused =
+        getFromFuture(
+            client.downloadActionResult(
+                context,
+                DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key")),
+                /* inlineOutErr= */ false));
+
+    verify(context.getSpawnExecutionContext())
+        .report(SpawnCheckingCacheEvent.create("remote-cache"));
   }
 
   @Test
