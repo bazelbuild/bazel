@@ -35,7 +35,8 @@ import javax.annotation.Nullable;
  * PathMapper}).
  */
 public final class PathMappers {
-  // TODO: Replace with a command-line flag.
+  // TODO: Remove actions from this list by adding ExecutionRequirements.SUPPORTS_PATH_MAPPING to
+  //  their execution info instead.
   private static final ImmutableSet<String> SUPPORTED_MNEMONICS =
       ImmutableSet.of(
           "AndroidLint",
@@ -44,8 +45,6 @@ public final class PathMappers {
           "DejetifySrcs",
           "Desugar",
           "DexBuilder",
-          "Javac",
-          "JavacTurbine",
           "Jetify",
           "JetifySrcs",
           "LinkAndroidResources",
@@ -55,8 +54,6 @@ public final class PathMappers {
           "StarlarkAARGenerator",
           "StarlarkMergeCompiledAndroidResources",
           "StarlarkRClassGenerator",
-          "Turbine",
-          "JavaResourceJar",
           "Mock action");
 
   /**
