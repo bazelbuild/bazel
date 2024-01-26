@@ -339,7 +339,7 @@ public class RemoteSpawnCacheTest {
     verify(service)
         .downloadOutputs(
             any(), eq(RemoteActionResult.createFromCache(CachedActionResult.remote(actionResult))));
-    verify(service, never()).uploadOutputs(any(), any());
+    verify(service, never()).uploadOutputs(any(), any(), executionResult);
     assertThat(result.getDigest())
         .isEqualTo(digestUtil.asSpawnLogProto(actionKeyCaptor.getValue()));
     assertThat(result.setupSuccess()).isTrue();
@@ -370,9 +370,9 @@ public class RemoteSpawnCacheTest {
             .setStatus(Status.SUCCESS)
             .setRunnerName("test")
             .build();
-    doNothing().when(service).uploadOutputs(any(), any());
+    doNothing().when(service).uploadOutputs(any(), any(), executionResult);
     entry.store(result);
-    verify(service).uploadOutputs(any(), any());
+    verify(service).uploadOutputs(any(), any(), executionResult);
   }
 
   @Test
@@ -536,7 +536,7 @@ public class RemoteSpawnCacheTest {
             .setRunnerName("test")
             .build();
     entry.store(result);
-    verify(service, never()).uploadOutputs(any(), any());
+    verify(service, never()).uploadOutputs(any(), any(), executionResult);
   }
 
   @Test
@@ -559,9 +559,9 @@ public class RemoteSpawnCacheTest {
             .setRunnerName("test")
             .build();
 
-    doNothing().when(service).uploadOutputs(any(), any());
+    doNothing().when(service).uploadOutputs(any(), any(), executionResult);
     entry.store(result);
-    verify(service).uploadOutputs(any(), eq(result));
+    verify(service).uploadOutputs(any(), eq(result), executionResult);
 
     assertThat(eventHandler.getEvents()).hasSize(1);
     Event evt = eventHandler.getEvents().get(0);
@@ -607,9 +607,9 @@ public class RemoteSpawnCacheTest {
             .setRunnerName("test")
             .build();
 
-    doNothing().when(service).uploadOutputs(any(), any());
+    doNothing().when(service).uploadOutputs(any(), any(), executionResult);
     entry.store(result);
-    verify(service).uploadOutputs(any(), eq(result));
+    verify(service).uploadOutputs(any(), eq(result), executionResult);
     assertThat(eventHandler.getEvents()).isEmpty(); // no warning is printed.
   }
 

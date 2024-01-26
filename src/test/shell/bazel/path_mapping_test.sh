@@ -46,6 +46,15 @@ source "$(rlocation "io_bazel/src/test/shell/bazel/remote_helpers.sh")" \
 source "$(rlocation "io_bazel/src/test/shell/bazel/remote/remote_utils.sh")" \
   || { echo "remote_utils.sh not found!" >&2; exit 1; }
 
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*|mingw*|cygwin*)
+  function is_windows() { true; }
+  ;;
+*)
+  function is_windows() { false; }
+  ;;
+esac
+
 function set_up() {
   start_worker
 
@@ -544,6 +553,61 @@ EOF
   # Compilation actions for lib1, lib2 and main should result in cache hits due
   # to path stripping, utils is legitimately different and should not.
   expect_log ' 3 remote cache hit'
+}
+
+function test_path_stripping_cache_hit_for_parallel_action() {
+  if is_windows; then
+    echo "Skipping test_path_stripping_singleplex_worker on Windows as it requires sandboxing"
+    return
+  fi
+
+  mkdir rules
+  touch rules/BUILD
+  cat > rules/defs.bzl <<'EOF'
+def _slow_write_impl(ctx):
+    out = ctx.actions.declare_file(ctx.attr.name)
+    args = ctx.actions.args().add(out)
+    ctx.actions.run_shell(
+         outputs = [out],
+         command = "sleep 2 && echo 'echo \"Hello, World!\"' > $1",
+         arguments = [args],
+         execution_requirements = {"supports-path-mapping": ""},
+    )
+    return [
+        DefaultInfo(executable = out),
+    ]
+
+slow_write = rule(_slow_write_impl)
+EOF
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+load("//rules:defs.bzl", "slow_write")
+
+slow_write(name = "script")
+
+genrule(
+    name = "gen_exec",
+    outs = ["out_exec"],
+    cmd = "$(location :script) > $@",
+    tools = [":script"],
+)
+
+genrule(
+    name = "gen_target",
+    outs = ["out_target"],
+    cmd = "$(location :script) > $@",
+    srcs = [":script"],
+)
+EOF
+
+  bazel build \
+    --experimental_output_paths=strip \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //pkg:all &> $TEST_log || fail "build failed unexpectedly"
+  # The first slow_write action plus two genrules.
+  expect_log '3 \(linux\|darwin\|processwrapper\)-sandbox'
+  expect_log '1 concurrent execution cache hit'
 }
 
 run_suite "path mapping tests"
