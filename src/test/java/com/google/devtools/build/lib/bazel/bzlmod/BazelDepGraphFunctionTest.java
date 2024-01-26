@@ -226,11 +226,13 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
 
   @Test
   public void createValue_moduleExtensions() throws Exception {
+    ModuleKey rjeKey = createModuleKey("rules_jvm_external", "1.0");
+    ModuleKey rpyKey = createModuleKey("rules_python", "2.0");
     Module root =
         buildModule("root", "1.0")
             .setKey(ModuleKey.ROOT)
-            .addDep("rje", createModuleKey("rules_jvm_external", "1.0"))
-            .addDep("rpy", createModuleKey("rules_python", "2.0"))
+            .addDep("rje", rjeKey)
+            .addDep("rpy", rpyKey)
             .addExtensionUsage(
                 createModuleExtensionUsage("@rje//:defs.bzl", "maven", "av", "autovalue"))
             .addExtensionUsage(
@@ -240,7 +242,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
     Module dep =
         buildModule("dep", "2.0")
             .setKey(depKey)
-            .addDep("rules_python", createModuleKey("rules_python", "2.0"))
+            .addDep("rules_python", rpyKey)
             .addExtensionUsage(
                 createModuleExtensionUsage("@rules_python//:defs.bzl", "pip", "np", "numpy"))
             .addExtensionUsage(
@@ -248,7 +250,16 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
             .addExtensionUsage(
                 createModuleExtensionUsage("//incredible:conflict.bzl", "myext", "twoext", "myext"))
             .build();
-    ImmutableMap<ModuleKey, Module> depGraph = ImmutableMap.of(ModuleKey.ROOT, root, depKey, dep);
+    ImmutableMap<ModuleKey, Module> depGraph =
+        ImmutableMap.of(
+            ModuleKey.ROOT,
+            root,
+            depKey,
+            dep,
+            rjeKey,
+            buildModule("rules_jvm_external", "1.0").setKey(rjeKey).build(),
+            rpyKey,
+            buildModule("rules_python", "2.0").setKey(rpyKey).build());
 
     ModuleExtensionId maven =
         ModuleExtensionId.create(
@@ -326,6 +337,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
   public void useExtensionBadLabelFails() throws Exception {
     Module root =
         buildModule("module", "1.0")
+            .setKey(ModuleKey.ROOT)
             .addExtensionUsage(createModuleExtensionUsage("@foo//:defs.bzl", "bar"))
             .build();
     ImmutableMap<ModuleKey, Module> depGraph = ImmutableMap.of(ModuleKey.ROOT, root);
