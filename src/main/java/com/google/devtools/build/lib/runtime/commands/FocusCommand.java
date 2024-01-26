@@ -94,6 +94,17 @@ public class FocusCommand implements BlazeCommand {
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         help = "Dump the focused SkyKeys.")
     public boolean dumpKeys;
+
+    @Option(
+        name = "dump_used_heap_size_after_gc",
+        defaultValue = "false",
+        effectTags = OptionEffectTag.TERMINAL_OUTPUT,
+        // Deliberately undocumented.
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        help =
+            "If enabled, trigger manual GC before/after focusing to report accurate heap sizes. "
+                + "This will increase the focus command's latency.")
+    public boolean dumpUsedHeapSizeAfterGc;
   }
 
   /**
@@ -140,21 +151,29 @@ public class FocusCommand implements BlazeCommand {
 
   private static void reportResults(
       CommandEnvironment env,
+      boolean dumpUsedHeapSize,
       long beforeHeap,
       int beforeNodeCount,
       long afterHeap,
       int afterNodeCount) {
-    env.getReporter()
-        .handle(
-            Event.info(
-                String.format(
-                    "Heap: %s -> %s (%.2f%% reduction), Node count: %d -> %d (%.2f%% reduction)",
-                    StringUtilities.prettyPrintBytes(beforeHeap),
-                    StringUtilities.prettyPrintBytes(afterHeap),
-                    (double) (beforeHeap - afterHeap) / beforeHeap * 100,
-                    beforeNodeCount,
-                    afterNodeCount,
-                    (double) (beforeNodeCount - afterNodeCount) / beforeNodeCount * 100)));
+    StringBuilder results = new StringBuilder();
+    if (dumpUsedHeapSize) {
+      // Users may skip heap size reporting, which triggers slow manual GCs, in place of faster
+      // focusing.
+      results.append(
+          String.format(
+              "Heap: %s -> %s (%.2f%% reduction), ",
+              StringUtilities.prettyPrintBytes(beforeHeap),
+              StringUtilities.prettyPrintBytes(afterHeap),
+              (double) (beforeHeap - afterHeap) / beforeHeap * 100));
+    }
+    results.append(
+        String.format(
+            "Node count: %s -> %s (%.2f%% reduction)",
+            beforeNodeCount,
+            afterNodeCount,
+            (double) (beforeNodeCount - afterNodeCount) / beforeNodeCount * 100));
+    env.getReporter().handle(Event.info(results.toString()));
   }
 
   @Override
@@ -221,8 +240,13 @@ public class FocusCommand implements BlazeCommand {
 
     reportRequestStats(env, focusOptions, roots, leafs);
 
-    long beforeHeap = UsedHeapSizeAfterGcInfoItem.getHeapUsageAfterGc();
+    long beforeHeap = 0;
+    long afterHeap = 0;
+
     int beforeNodeCount = graph.valuesSize();
+    if (focusOptions.dumpUsedHeapSizeAfterGc) {
+      beforeHeap = UsedHeapSizeAfterGcInfoItem.getHeapUsageAfterGc();
+    }
 
     SkyframeFocuser.FocusResult focusResult;
     try (SilentCloseable c = Profiler.instance().profile("SkyframeFocuser")) {
@@ -250,10 +274,17 @@ public class FocusCommand implements BlazeCommand {
           InterruptedFailureDetails.detailedExitCode("focus interrupted"));
     }
 
-    long afterHeap = UsedHeapSizeAfterGcInfoItem.getHeapUsageAfterGc();
     int afterNodeCount = graph.valuesSize();
-
-    reportResults(env, beforeHeap, beforeNodeCount, afterHeap, afterNodeCount);
+    if (focusOptions.dumpUsedHeapSizeAfterGc) {
+      afterHeap = UsedHeapSizeAfterGcInfoItem.getHeapUsageAfterGc();
+    }
+    reportResults(
+        env,
+        focusOptions.dumpUsedHeapSizeAfterGc,
+        beforeHeap,
+        beforeNodeCount,
+        afterHeap,
+        afterNodeCount);
 
     if (focusOptions.dumpKeys) {
       dumpKeys(env.getReporter(), focusResult);

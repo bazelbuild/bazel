@@ -128,7 +128,9 @@ EOF
   out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/out.txt
   bazel build //${pkg}:g
 
-  bazel focus --files=${pkg}/in.txt >$TEST_log 2>&1
+  bazel focus \
+    --dump_used_heap_size_after_gc \
+    --files=${pkg}/in.txt >$TEST_log 2>&1
 
   expect_log "Focusing on .\+ roots, .\+ leafs"
   expect_log "Nodes in reverse transitive closure from leafs: .\+"
