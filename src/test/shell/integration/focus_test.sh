@@ -81,7 +81,7 @@ genrule(
 )
 EOF
 
-  bazel focus --files=${pkg}/in.txt >$TEST_log 2>&1 && "unexpected success"
+  bazel focus --experimental_working_set=${pkg}/in.txt >$TEST_log 2>&1 && "unexpected success"
   expect_log "Unable to focus without roots. Run a build first."
 }
 
@@ -105,7 +105,7 @@ EOF
   assert_contains "input" $out
 
   echo "a change" >> ${pkg}/in.txt
-  bazel focus --files=${pkg}/in.txt
+  bazel focus --experimental_working_set=${pkg}/in.txt
 
   bazel build //${pkg}:g
   assert_contains "a change" $out
@@ -130,7 +130,7 @@ EOF
 
   bazel focus \
     --dump_used_heap_size_after_gc \
-    --files=${pkg}/in.txt >$TEST_log 2>&1
+    --experimental_working_set=${pkg}/in.txt >$TEST_log 2>&1
 
   expect_log "Focusing on .\+ roots, .\+ leafs"
   expect_log "Nodes in reverse transitive closure from leafs: .\+"
@@ -157,7 +157,7 @@ EOF
   out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/out.txt
   bazel build //${pkg}:g  &> $TEST_log 2>&1
 
-  bazel focus --dump_keys --files=${pkg}/in.txt >$TEST_log 2>&1
+  bazel focus --dump_keys --experimental_working_set=${pkg}/in.txt >$TEST_log 2>&1
 
   expect_log "Focusing on .\+ roots, .\+ leafs"
 
@@ -202,7 +202,7 @@ EOF
   bazel build //${pkg}:g
   echo "a change" >> ${pkg}/in.txt
 
-  bazel focus --files=${pkg}/in.txt
+  bazel focus --experimental_working_set=${pkg}/in.txt
   bazel build //${pkg}:g
   bazel build //${pkg}:g2 || fail "cannot build //${pkg}:g2"
   bazel build //${pkg}:g3 || fail "cannot build //${pkg}:g3"
@@ -223,7 +223,7 @@ genrule(
 EOF
 
   bazel build //${pkg}:g
-  bazel focus --files=${pkg}/in.txt \
+  bazel focus --experimental_working_set=${pkg}/in.txt \
     --profile=/tmp/profile.log &> "$TEST_log" || fail "Expected success"
   grep '"ph":"X"' /tmp/profile.log > "$TEST_log" \
     || fail "Missing profile file."

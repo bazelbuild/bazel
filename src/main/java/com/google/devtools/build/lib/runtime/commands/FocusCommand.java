@@ -77,14 +77,14 @@ public class FocusCommand implements BlazeCommand {
   public static class FocusOptions extends OptionsBase {
 
     @Option(
-        name = "files",
+        name = "experimental_working_set",
         defaultValue = "",
         effectTags = OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
         // Deliberately undocumented.
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         converter = Converters.CommaSeparatedOptionListConverter.class,
         help = "The working set. Specify as comma-separated workspace root-relative paths.")
-    public List<String> files;
+    public List<String> workingSet;
 
     @Option(
         name = "dump_keys",
@@ -203,8 +203,8 @@ public class FocusCommand implements BlazeCommand {
     // TODO: b/312819241 - For simplicity's sake, use the first --package_path as the root.
     // This may be an issue with packages from a different package_path root.
     Root packageRoot = env.getPackageLocator().getPathEntries().get(0);
-    HashSet<RootedPath> requestedWorkingSet =
-        focusOptions.files.stream()
+    HashSet<RootedPath> workingSetRootedPaths =
+        focusOptions.workingSet.stream()
             .map(f -> RootedPath.toRootedPath(packageRoot, PathFragment.create(f)))
             .collect(toCollection(HashSet::new));
 
@@ -214,7 +214,7 @@ public class FocusCommand implements BlazeCommand {
           SkyKey k = node.getKey();
           if (k instanceof FileStateKey) {
             RootedPath rootedPath = ((FileStateKey) k).argument();
-            if (requestedWorkingSet.remove(rootedPath)) {
+            if (workingSetRootedPaths.remove(rootedPath)) {
               leafs.add(k);
             }
           }
@@ -223,13 +223,13 @@ public class FocusCommand implements BlazeCommand {
       // TODO: b/312819241 - turn this into a FailureDetail and avoid crashing.
       throw new IllegalStateException(
           "Failed to construct working set because files not found in the transitive closure: "
-              + String.join(", ", focusOptions.files));
+              + String.join(", ", focusOptions.workingSet));
     }
-    if (!requestedWorkingSet.isEmpty()) {
+    if (!workingSetRootedPaths.isEmpty()) {
       env.getReporter()
           .handle(
               Event.warn(
-                  requestedWorkingSet.size()
+                  workingSetRootedPaths.size()
                       + " files were not found in the transitive closure, and "
                       + "so they are not included in the working set."));
     }
