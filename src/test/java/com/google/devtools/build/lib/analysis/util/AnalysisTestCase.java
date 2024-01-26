@@ -129,7 +129,9 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     // Flags from TestConstants.PRODUCT_SPECIFIC_FLAGS.
     PRODUCT_SPECIFIC_FLAGS,
     // The --enable_bzlmod flags.
-    ENABLE_BZLMOD
+    ENABLE_BZLMOD,
+    // The --nolegacy_external_runfiles flag.
+    NO_LEGACY_EXTERNAL_RUNFILES
   }
 
   /** Helper class to make it easy to enable and disable flags. */
@@ -354,6 +356,9 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     } else {
       optionsParser.parse("--noenable_bzlmod");
     }
+    if (defaultFlags().contains(Flag.NO_LEGACY_EXTERNAL_RUNFILES)) {
+      optionsParser.parse("--nolegacy_external_runfiles");
+    }
     optionsParser.parse(args);
 
     buildOptions =
@@ -364,7 +369,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     return new FlagBuilder()
         .with(Flag.PUBLIC_VISIBILITY)
         .with(Flag.CPU_K8)
-        .with(Flag.PRODUCT_SPECIFIC_FLAGS);
+        .with(Flag.PRODUCT_SPECIFIC_FLAGS)
+        .with(Flag.NO_LEGACY_EXTERNAL_RUNFILES);
   }
 
   protected Action getGeneratingAction(Artifact artifact) {

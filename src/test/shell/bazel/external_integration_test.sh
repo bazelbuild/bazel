@@ -624,7 +624,7 @@ genrule(
   name = "test_sh",
   outs = ["test.sh"],
   srcs = ["@toto//file"],
-  cmd = "echo '#!/bin/sh' > $@ && echo $(location @toto//file) >> $@",
+  cmd = "echo '#!/bin/sh' > $@ && echo $(rootpath @toto//file) >> $@",
 )
 EOF
 
@@ -682,7 +682,7 @@ genrule(
   name = "test_sh",
   outs = ["test.sh"],
   srcs = ["@toto//file"],
-  cmd = "echo '#!/bin/sh' > $@ && echo cat $(location @toto//file) >> $@",
+  cmd = "echo '#!/bin/sh' > $@ && echo cat $(rootpath @toto//file) >> $@",
 )
 EOF
 

@@ -115,6 +115,7 @@ class TestBase(absltest.TestCase):
     self._test_cwd = tempfile.mkdtemp(dir=self._tests_root)
     self._test_bazelrc = os.path.join(self._temp, 'test_bazelrc')
     with open(self._test_bazelrc, 'wt') as f:
+      f.write('common --nolegacy_external_runfiles\n')
       shared_repo_home = os.environ.get('TEST_REPOSITORY_HOME')
       if shared_repo_home and os.path.exists(shared_repo_home):
         for repo in self._SHARED_REPOS:
