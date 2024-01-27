@@ -606,7 +606,7 @@ public abstract class FileSystem {
 
   /**
    * Returns a collection containing the names of all entities within the directory denoted by the
-   * {@code path}.
+   * {@code path}. Symlinks are followed when resolving the directory whose entries are to be read.
    *
    * @throws IOException if there was an error reading the directory entries
    */
