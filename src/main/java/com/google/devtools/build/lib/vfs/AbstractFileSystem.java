@@ -61,6 +61,12 @@ public abstract class AbstractFileSystem extends FileSystem {
         if (e.getMessage().endsWith("(Interrupted system call)")) {
           continue;
         } else {
+          // FileInputStream throws FileNotFoundException if opening fails for any reason,
+          // including permissions. Fix it up here.
+          // TODO(tjgq): Migrate to java.nio.
+          if (e.getMessage().equals(path + ERR_PERMISSION_DENIED)) {
+            throw new FileAccessException(e.getMessage());
+          }
           throw e;
         }
       }
@@ -158,9 +164,9 @@ public abstract class AbstractFileSystem extends FileSystem {
     try {
       return createFileOutputStream(path, append, internal);
     } catch (FileNotFoundException e) {
-      // Why does it throw a *FileNotFoundException* if it can't write?
-      // That does not make any sense! And its in a completely different
-      // format than in other situations, no less!
+      // FileOutputStream throws FileNotFoundException if opening fails for any reason,
+      // including permissions. Fix it up here.
+      // TODO(tjgq): Migrate to java.nio.
       if (e.getMessage().equals(path + ERR_PERMISSION_DENIED)) {
         throw new FileAccessException(e.getMessage());
       }
