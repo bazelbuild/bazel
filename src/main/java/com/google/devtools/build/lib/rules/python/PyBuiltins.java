@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -48,7 +47,6 @@ import javax.annotation.concurrent.Immutable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -132,44 +130,6 @@ public abstract class PyBuiltins implements StarlarkValue {
       parameters = {})
   public String getCurrentOsName() {
     return OS.getCurrent().getCanonicalName();
-  }
-
-  // TODO(rlevasseur): Remove once Starlark exposes this directly, see
-  // https://github.com/bazelbuild/bazel/issues/15164
-  @StarlarkMethod(
-      name = "get_action_input_manifest_mappings",
-      doc =
-          "Get the set of runfiles passed to the action. These are the runfiles from "
-              + "the `input_manifests`, `tools`, and `executable` args of ctx.actions.run."
-              + "The return value is "
-              + "dict[str runfiles_dir, dict[str runfiles_relative_path, optional File]], "
-              + "which is a dict that maps the runfile directories to a dict of the path->File "
-              + "entries within each runfiles directory. A File value will be None when the "
-              + "path came from runfiles.empty_filesnames. If the passed in action doesn't "
-              + "support fetching its runfiles mapping, None is returned.",
-      parameters = {
-        @Param(name = "action", positional = true, named = true, defaultValue = "unbound"),
-      })
-  public Object getActionRunfilesArtifacts(Object actionUnchecked) {
-    if (!(actionUnchecked instanceof ActionExecutionMetadata)) {
-      // There's many action implementations, and the Starlark caller can't check if they're
-      // passing a valid one ahead of time. So return None instead of failing and crashing.
-      return Starlark.NONE;
-    }
-    ActionExecutionMetadata action = (ActionExecutionMetadata) actionUnchecked;
-
-    Dict.Builder<String, Dict<String, StarlarkValue>> inputManifest = Dict.builder();
-    for (var outerEntry : action.getRunfilesSupplier().getRunfilesTrees()) {
-      Dict.Builder<String, StarlarkValue> runfilesMap = Dict.builder();
-      for (var innerEntry : outerEntry.getMapping().entrySet()) {
-        Artifact value = innerEntry.getValue();
-        // NOTE: value may be null. This happens for Runfiles.empty_filenames entries.
-        runfilesMap.put(innerEntry.getKey().getPathString(), value == null ? Starlark.NONE : value);
-      }
-      inputManifest.put(
-          outerEntry.getPossiblyIncorrectExecPath().getPathString(), runfilesMap.buildImmutable());
-    }
-    return inputManifest.buildImmutable();
   }
 
   @StarlarkMethod(
