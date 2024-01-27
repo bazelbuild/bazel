@@ -1576,6 +1576,7 @@ EOF
   chmod +x "${pkg}"/run.sh
 
   bazel test //"${pkg}":bar --test_output=all --verbose_failures >& "$TEST_log" \
+      --legacy_external_runfiles \
       || fail "Expected success"
 }
 

@@ -155,7 +155,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void otherPathExternalExpansion() throws Exception {
+  public void otherPathExternalExpansionLegacyExternalRunfiles() throws Exception {
     scratch.file(
         "expansion/BUILD",
         "sh_library(name='lib', srcs=['@r//p:foo'])");
@@ -171,6 +171,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
     scratch.file("/r/WORKSPACE", "workspace(name = 'r')");
     scratch.file("/r/p/BUILD", "genrule(name='foo', outs=['foo.txt'], cmd='never executed')");
 
+    useConfiguration("--legacy_external_runfiles");
     LocationExpander expander = makeExpander("//expansion:lib");
     assertThat(expander.expand("foo $(execpath @r//p:foo) bar"))
         .matches("foo .*-out/.*/external/r/p/foo\\.txt bar");
