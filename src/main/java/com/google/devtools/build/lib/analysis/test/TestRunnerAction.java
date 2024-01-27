@@ -739,13 +739,6 @@ public class TestRunnerAction extends AbstractAction
     }
     env.put("XML_OUTPUT_FILE", getXmlOutputPath().getPathString());
 
-    if (!configuration.runfilesEnabled()) {
-      // If runfiles are disabled, tell remote-runtest.sh/local-runtest.sh about that.
-      // TODO: Remove this obsolete mechanism, which has been replaced by the "_runfiles_enabled"
-      //       marker file.
-      env.put("RUNFILES_MANIFEST_ONLY", "1");
-    }
-
     if (isCoverageMode()) {
       // Instruct remote-runtest.sh/local-runtest.sh not to cd into the runfiles directory.
       // TODO(ulfjack): Find a way to avoid setting this variable.

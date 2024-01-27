@@ -133,6 +133,10 @@ Runfiles* Runfiles::Create(const string& argv0,
       // TODO(laszlocsomor): remove JAVA_RUNFILES once the Java launcher can
       // pick up RUNFILES_DIR.
       {"JAVA_RUNFILES", directory}};
+  if (!IsDirectory(directory) || !IsReadableFile(directory + "/_runfiles_enabled")) {
+    // TODO: Remove this once runfiles libraries no longer read RUNFILES_MANIFEST_ONLY.
+    envvars.emplace_back("RUNFILES_MANIFEST_ONLY", "1");
+  }
 
   map<string, string> runfiles;
   if (!manifest.empty()) {
