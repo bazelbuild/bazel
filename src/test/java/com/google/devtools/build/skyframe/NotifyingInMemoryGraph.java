@@ -101,4 +101,9 @@ class NotifyingInMemoryGraph extends NotifyingHelper.NotifyingProcessableGraph
   public InMemoryNodeEntry getIfPresent(SkyKey key) {
     return ((InMemoryGraph) delegate).getIfPresent(key);
   }
+
+  @Override
+  public void shrinkNodeMap() {
+    ((InMemoryGraph) delegate).shrinkNodeMap();
+  }
 }

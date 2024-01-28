@@ -238,7 +238,6 @@ bazel_fragments["CoreOptions"] = fragment(
         "//command_line_option:incompatible_check_testonly_for_output_files",
         "//command_line_option:incompatible_auto_exec_groups",
         "//command_line_option:experimental_writable_outputs",
-        "//command_line_option:incompatible_disallow_unsound_directory_outputs",
         "//command_line_option:build_runfile_manifests",
         "//command_line_option:build_runfile_links",
         "//command_line_option:legacy_external_runfiles",
@@ -254,6 +253,9 @@ bazel_fragments["CoreOptions"] = fragment(
         "//command_line_option:archived_tree_artifact_mnemonics_filter",
         "//command_line_option:allow_unresolved_symlinks",
         "//command_line_option:experimental_exec_config",
+        "//command_line_option:experimental_exclude_defines_from_exec_config",
+        "//command_line_option:experimental_exclude_starlark_flags_from_exec_config",
+        "//command_line_option:experimental_propagate_custom_flag",
     ],
     inputs = ["//command_line_option:features"],
     outputs = [
@@ -394,6 +396,7 @@ bazel_fragments["ObjcCommandLineOptions"] = fragment(
         "//command_line_option:incompatible_avoid_hardcoded_objc_compilation_flags",
         "//command_line_option:incompatible_disallow_sdk_frameworks_attributes",
         "//command_line_option:incompatible_objc_alwayslink_by_default",
+        "//command_line_option:incompatible_strip_executable_safely",
     ],
 )
 

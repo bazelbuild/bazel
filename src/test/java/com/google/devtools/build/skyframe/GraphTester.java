@@ -518,10 +518,14 @@ public class GraphTester {
       super(arg);
     }
 
-    @VisibleForSerialization
-    @AutoCodec.Instantiator
-    static Key create(String arg) {
+    private static Key create(String arg) {
       return interner.intern(new Key(arg));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     @Override
@@ -544,10 +548,14 @@ public class GraphTester {
       super(arg);
     }
 
-    @VisibleForSerialization
-    @AutoCodec.Instantiator
-    static NonHermeticKey create(String arg) {
+    private static NonHermeticKey create(String arg) {
       return interner.intern(new NonHermeticKey(arg));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static NonHermeticKey intern(NonHermeticKey nonHermeticKey) {
+      return interner.intern(nonHermeticKey);
     }
 
     @Override

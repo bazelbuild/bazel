@@ -141,7 +141,9 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
                 RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.FORCE_FETCH,
-                RepositoryDelegatorFunction.FORCE_FETCH_DISABLED)));
+                RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
+            PrecomputedValue.injected(
+                RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty())));
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
@@ -268,14 +270,28 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
 
   /**
    * Returns an exec {@link BuildConfigurationValue} derived from a target configuration with the
-   * given non-default options.
+   * given non-default options. Supports Starlark Options.
+   *
+   * @param starlarkOptions map of Starlark-defined options where the keys are option names (in the
+   *     form of label-like strings) and the values are option values
+   * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
+   */
+  protected BuildConfigurationValue createExec(
+      ImmutableMap<String, Object> starlarkOptions, String... args) throws Exception {
+    return skyframeExecutor.getConfiguration(
+        reporter,
+        AnalysisTestUtil.execOptions(
+            parseBuildOptions(starlarkOptions, args), skyframeExecutor, reporter),
+        /* keepGoing= */ false);
+  }
+
+  /**
+   * Returns an exec {@link BuildConfigurationValue} derived from a target configuration with the
+   * given non-default options. Does not support Starlark Options
    *
    * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
    */
   protected BuildConfigurationValue createExec(String... args) throws Exception {
-    return skyframeExecutor.getConfiguration(
-        reporter,
-        AnalysisTestUtil.execOptions(parseBuildOptions(args), skyframeExecutor, reporter),
-        /* keepGoing= */ false);
+    return createExec(ImmutableMap.of(), args);
   }
 }

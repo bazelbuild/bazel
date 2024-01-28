@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationResult;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Optional;
 import org.junit.Before;
 import org.junit.Test;
@@ -74,12 +73,13 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testMappingFileDoesNotExist() {
-    MissingInputFileException exception =
+    PlatformMappingException exception =
         assertThrows(
-            MissingInputFileException.class,
+            PlatformMappingException.class,
             () ->
                 executeFunction(
                     PlatformMappingValue.Key.create(PathFragment.create("random_location"))));
+    assertThat(exception).hasCauseThat().isInstanceOf(MissingInputFileException.class);
     assertThat(exception).hasMessageThat().contains("random_location");
   }
 
@@ -98,10 +98,11 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
   public void testMappingFileIsDirectory() throws Exception {
     scratch.dir("somedir");
 
-    MissingInputFileException exception =
+    PlatformMappingException exception =
         assertThrows(
-            MissingInputFileException.class,
+            PlatformMappingException.class,
             () -> executeFunction(PlatformMappingValue.Key.create(PathFragment.create("somedir"))));
+    assertThat(exception).hasCauseThat().isInstanceOf(MissingInputFileException.class);
     assertThat(exception).hasMessageThat().contains("somedir");
   }
 
@@ -282,12 +283,14 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
         "  //platforms:one", // Force line break
         "    --//test:this_flag_doesnt_exist=mapped_value");
 
-    assertThrows(
-        "Failed to load //test:this_flag_doesnt_exist",
-        OptionsParsingException.class,
-        () ->
-            executeFunction(
-                PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file"))));
+    PlatformMappingException exception =
+        assertThrows(
+            PlatformMappingException.class,
+            () ->
+                executeFunction(
+                    PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file"))));
+    assertThat(exception).hasCauseThat().isInstanceOf(PlatformMappingParsingException.class);
+    assertThat(exception).hasMessageThat().contains("Failed to load //test:this_flag_doesnt_exist");
   }
 
   @Test
@@ -368,6 +371,27 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
                 .getStarlarkOptions()
                 .get(Label.parseCanonical("//test/flags:my_string_flag")))
         .isEqualTo("platform-mapped value");
+  }
+
+  @Test
+  public void mappingSyntaxError() throws Exception {
+    scratch.file("test/BUILD");
+    scratch.file(
+        "my_mapping_file",
+        "platforms:", // Force line break
+        "  //platforms:one", // Force line break
+        "    --cpu=k8",
+        "  //platforms:one", // Duplicate platform label
+        "    --cpu=arm");
+
+    PlatformMappingException exception =
+        assertThrows(
+            PlatformMappingException.class,
+            () ->
+                executeFunction(
+                    PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file"))));
+    assertThat(exception).hasCauseThat().isInstanceOf(PlatformMappingParsingException.class);
+    assertThat(exception).hasMessageThat().contains("Got duplicate platform entries");
   }
 
   private PlatformMappingValue executeFunction(PlatformMappingValue.Key key) throws Exception {

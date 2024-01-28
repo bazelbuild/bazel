@@ -110,7 +110,8 @@ public class Dict<K, V>
         StarlarkIterable<K> {
 
   private final Map<K, V> contents;
-  private int iteratorCount; // number of active iterators (unused once frozen)
+  // Number of active iterators (unused once frozen).
+  private transient int iteratorCount; // transient for serialization by Bazel
 
   /** Final except for {@link #unsafeShallowFreeze}; must not be modified any other way. */
   private Mutability mutability;

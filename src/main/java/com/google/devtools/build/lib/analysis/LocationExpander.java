@@ -489,12 +489,13 @@ public final class LocationExpander {
       ImmutableList<Label> labels = AliasProvider.getDependencyLabels(dep);
       FilesToRunProvider filesToRun = dep.getProvider(FilesToRunProvider.class);
       Artifact executableArtifact = filesToRun.getExecutable();
+      FileProvider fileProvider = dep.getProvider(FileProvider.class);
 
       // If the label has an executable artifact add that to the multimaps.
       Collection<Artifact> values =
           executableArtifact != null
               ? ImmutableList.of(executableArtifact)
-              : filesToRun.getFilesToRun().toList();
+              : fileProvider.getFilesToBuild().toList();
 
       for (Label label : labels) {
         mapGet(locationMap, label).addAll(values);

@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -543,7 +544,7 @@ public class CompilationSupport implements StarlarkValue {
           CcToolchainProvider.getStaticRuntimeLinkInputsOrThrowError(
                   toolchain.getStaticRuntimeLinkInputs(), featureConfiguration)
               .toList();
-    } catch (EvalException e) {
+    } catch (EvalException | TypeException e) {
       throw ruleContext.throwWithRuleError(e);
     }
 
@@ -648,8 +649,9 @@ public class CompilationSupport implements StarlarkValue {
         inputFileList);
 
     if (cppConfiguration.objcShouldStripBinary()) {
+      ObjcConfiguration objcConfiguration = buildConfiguration.getFragment(ObjcConfiguration.class);
       registerBinaryStripAction(
-          binaryToLink, getStrippingType(extraLinkArgs, featureConfiguration));
+          binaryToLink, getStrippingType(extraLinkArgs, featureConfiguration), objcConfiguration);
     }
 
     return this;
@@ -818,21 +820,29 @@ public class CompilationSupport implements StarlarkValue {
     KERNEL_EXTENSION
   }
 
+  private static final ImmutableList<String> STRIP_LOCAL_FLAGS = ImmutableList.of("-x");
+  private static final ImmutableList<String> STRIP_DEFAULT_FLAGS = ImmutableList.<String>of();
+
   /**
    * Registers an action that uses the 'strip' tool to perform binary stripping on the given binary
    * subject to the given {@link StrippingType}.
    */
-  private void registerBinaryStripAction(Artifact binaryToLink, StrippingType strippingType) {
+  private void registerBinaryStripAction(
+      Artifact binaryToLink, StrippingType strippingType, ObjcConfiguration objcConfiguration) {
     final ImmutableList<String> stripArgs;
     switch (strippingType) {
       case DYNAMIC_LIB:
       case LOADABLE_BUNDLE:
       case KERNEL_EXTENSION:
         // For dylibs, loadable bundles, and kexts, must strip only local symbols.
-        stripArgs = ImmutableList.of("-x");
+        stripArgs = STRIP_LOCAL_FLAGS;
         break;
       case DEFAULT:
-        stripArgs = ImmutableList.<String>of();
+        if (objcConfiguration.stripExecutableSafely()) {
+          stripArgs = STRIP_LOCAL_FLAGS;
+        } else {
+          stripArgs = STRIP_DEFAULT_FLAGS;
+        }
         break;
       default:
         throw new IllegalArgumentException("Unsupported stripping type " + strippingType);

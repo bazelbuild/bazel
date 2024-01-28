@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -52,12 +53,18 @@ public class BzlLoadValue implements SkyValue {
   // from the Module as client data?
   private final byte[] transitiveDigest; // of .bzl file and load dependencies
   private final BzlVisibility bzlVisibility;
+  private final ImmutableTable<RepositoryName, String, RepositoryName> recordedRepoMappings;
 
   @VisibleForTesting
-  public BzlLoadValue(Module module, byte[] transitiveDigest, BzlVisibility bzlVisibility) {
+  public BzlLoadValue(
+      Module module,
+      byte[] transitiveDigest,
+      BzlVisibility bzlVisibility,
+      ImmutableTable<RepositoryName, String, RepositoryName> recordedRepoMappings) {
     this.module = checkNotNull(module);
     this.transitiveDigest = checkNotNull(transitiveDigest);
     this.bzlVisibility = checkNotNull(bzlVisibility);
+    this.recordedRepoMappings = checkNotNull(recordedRepoMappings);
   }
 
   /** Returns the .bzl module. */
@@ -73,6 +80,14 @@ public class BzlLoadValue implements SkyValue {
   /** Returns the visibility of this module for the purpose of {@code load()} statements. */
   public BzlVisibility getBzlVisibility() {
     return bzlVisibility;
+  }
+
+  /**
+   * Returns the repo mapping entries used to laod this bzl file. Stored for correctness across
+   * Bazel server restarts.
+   */
+  public ImmutableTable<RepositoryName, String, RepositoryName> getRecordedRepoMappings() {
+    return recordedRepoMappings;
   }
 
   private static final SkyKeyInterner<Key> keyInterner = SkyKey.newInterner();

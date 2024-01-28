@@ -821,18 +821,10 @@ public class CcToolchainFeatures implements StarlarkValue {
       this.provides = provides;
     }
 
-    @AutoCodec.Instantiator
     @VisibleForSerialization
-    static Feature createFeatureForSerialization(
-        String name,
-        ImmutableList<FlagSet> flagSets,
-        ImmutableList<EnvSet> envSets,
-        boolean enabled,
-        ImmutableList<ImmutableSet<String>> requires,
-        ImmutableList<String> implies,
-        ImmutableList<String> provides) {
-      return FEATURE_INTERNER.intern(
-          new Feature(name, flagSets, envSets, enabled, requires, implies, provides));
+    @AutoCodec.Interner
+    static Feature intern(Feature feature) {
+      return FEATURE_INTERNER.intern(feature);
     }
 
     @Override
@@ -924,6 +916,9 @@ public class CcToolchainFeatures implements StarlarkValue {
     private final ImmutableSet<String> executionRequirements;
     private final ImmutableSet<WithFeatureSet> withFeatureSetSets;
 
+    // Caching tool path string.
+    @Nullable private String toolPathString = null;
+
     private Tool(CToolchain.Tool tool, ImmutableSet<WithFeatureSet> withFeatureSetSets)
         throws EvalException {
       this(
@@ -994,7 +989,10 @@ public class CcToolchainFeatures implements StarlarkValue {
       switch (toolPathOrigin) {
         case CROSSTOOL_PACKAGE:
           // Legacy behavior.
-          return ccToolchainPath.getRelative(toolPathFragment).getSafePathString();
+          if (toolPathString == null) {
+            toolPathString = ccToolchainPath.getRelative(toolPathFragment).getSafePathString();
+          }
+          return toolPathString;
 
         case FILESYSTEM_ROOT: // fallthrough.
         case WORKSPACE_ROOT:
@@ -1109,17 +1107,10 @@ public class CcToolchainFeatures implements StarlarkValue {
       this.implies = implies;
     }
 
-    @AutoCodec.Instantiator
     @VisibleForSerialization
-    static ActionConfig createForSerialization(
-        String configName,
-        String actionName,
-        ImmutableList<Tool> tools,
-        ImmutableList<FlagSet> flagSets,
-        boolean enabled,
-        ImmutableList<String> implies) {
-      return ACTION_CONFIG_INTERNER.intern(
-          new ActionConfig(configName, actionName, tools, flagSets, enabled, implies));
+    @AutoCodec.Interner
+    static ActionConfig intern(ActionConfig actionConfig) {
+      return ACTION_CONFIG_INTERNER.intern(actionConfig);
     }
 
     @Override
@@ -1334,20 +1325,10 @@ public class CcToolchainFeatures implements StarlarkValue {
       this.ccToolchainPath = ccToolchainPath;
     }
 
-    @AutoCodec.Instantiator
-    static FeatureConfiguration createForSerialization(
-        ImmutableSet<String> requestedFeatures,
-        ImmutableList<Feature> enabledFeatures,
-        ImmutableSet<String> enabledActionConfigActionNames,
-        ImmutableMap<String, ActionConfig> actionConfigByActionName,
-        PathFragment ccToolchainPath) {
-      return FEATURE_CONFIGURATION_INTERNER.intern(
-          new FeatureConfiguration(
-              requestedFeatures,
-              enabledFeatures,
-              enabledActionConfigActionNames,
-              actionConfigByActionName,
-              ccToolchainPath));
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static FeatureConfiguration intern(FeatureConfiguration featureConfiguration) {
+      return FEATURE_CONFIGURATION_INTERNER.intern(featureConfiguration);
     }
 
     /**

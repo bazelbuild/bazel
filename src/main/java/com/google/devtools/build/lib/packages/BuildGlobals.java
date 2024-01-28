@@ -18,7 +18,6 @@ import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.License.DistributionType;
-import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import java.util.List;
@@ -77,23 +76,21 @@ public class BuildGlobals {
       StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext.checkLoadingPhase(thread, "environment_group");
-    PackageContext context = PackageFactory.getContext(thread);
+    Package.Builder pkgBuilder = PackageFactory.getContext(thread);
     List<Label> environments =
         BuildType.LABEL_LIST.convert(
-            environmentsList,
-            "'environment_group argument'",
-            context.pkgBuilder.getLabelConverter());
+            environmentsList, "'environment_group argument'", pkgBuilder.getLabelConverter());
     List<Label> defaults =
         BuildType.LABEL_LIST.convert(
-            defaultsList, "'environment_group argument'", context.pkgBuilder.getLabelConverter());
+            defaultsList, "'environment_group argument'", pkgBuilder.getLabelConverter());
 
     if (environments.isEmpty()) {
       throw Starlark.errorf("environment group %s must contain at least one environment", name);
     }
     try {
       Location loc = thread.getCallerLocation();
-      context.pkgBuilder.addEnvironmentGroup(
-          name, environments, defaults, context.eventHandler, loc);
+      pkgBuilder.addEnvironmentGroup(
+          name, environments, defaults, pkgBuilder.getLocalEventHandler(), loc);
       return Starlark.NONE;
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("environment group has invalid name: %s: %s", name, e.getMessage());
@@ -120,14 +117,17 @@ public class BuildGlobals {
       StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext.checkLoadingPhase(thread, "licenses");
-    PackageContext context = PackageFactory.getContext(thread);
+    Package.Builder pkgBuilder = PackageFactory.getContext(thread);
     try {
       License license = BuildType.LICENSE.convert(licensesList, "'licenses' operand");
-      context.pkgBuilder.mergePackageArgsFrom(PackageArgs.builder().setLicense(license));
+      pkgBuilder.mergePackageArgsFrom(PackageArgs.builder().setLicense(license));
     } catch (ConversionException e) {
-      context.eventHandler.handle(
-          Package.error(thread.getCallerLocation(), e.getMessage(), Code.LICENSE_PARSE_FAILURE));
-      context.pkgBuilder.setContainsErrors();
+      pkgBuilder
+          .getLocalEventHandler()
+          .handle(
+              Package.error(
+                  thread.getCallerLocation(), e.getMessage(), Code.LICENSE_PARSE_FAILURE));
+      pkgBuilder.setContainsErrors();
     }
     return Starlark.NONE;
   }
@@ -142,17 +142,19 @@ public class BuildGlobals {
       useStarlarkThread = true)
   public NoneType distribs(Object object, StarlarkThread thread) throws EvalException {
     BazelStarlarkContext.checkLoadingPhase(thread, "distribs");
-    PackageContext context = PackageFactory.getContext(thread);
+    Package.Builder pkgBuilder = PackageFactory.getContext(thread);
 
     try {
       Set<DistributionType> distribs =
           BuildType.DISTRIBUTIONS.convert(object, "'distribs' operand");
-      context.pkgBuilder.mergePackageArgsFrom(PackageArgs.builder().setDistribs(distribs));
+      pkgBuilder.mergePackageArgsFrom(PackageArgs.builder().setDistribs(distribs));
     } catch (ConversionException e) {
-      context.eventHandler.handle(
-          Package.error(
-              thread.getCallerLocation(), e.getMessage(), Code.DISTRIBUTIONS_PARSE_FAILURE));
-      context.pkgBuilder.setContainsErrors();
+      pkgBuilder
+          .getLocalEventHandler()
+          .handle(
+              Package.error(
+                  thread.getCallerLocation(), e.getMessage(), Code.DISTRIBUTIONS_PARSE_FAILURE));
+      pkgBuilder.setContainsErrors();
     }
     return Starlark.NONE;
   }

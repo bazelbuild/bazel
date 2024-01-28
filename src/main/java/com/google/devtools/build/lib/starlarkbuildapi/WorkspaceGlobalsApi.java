@@ -104,10 +104,10 @@ public interface WorkspaceGlobalsApi {
   @StarlarkMethod(
       name = "bind",
       doc =
-          "<p>Warning: use of <code>bind()</code> is not recommended. See <a"
-              + " href=\"https://github.com/bazelbuild/bazel/issues/1952\">Consider removing"
-              + " bind</a> for a long discussion of its issues and alternatives.</p> <p>Gives a"
-              + " target an alias in the <code>//external</code> package.</p>",
+          "<p>DEPRECATED: see <a href=\"https://github.com/bazelbuild/bazel/issues/1952\">Consider"
+              + " removing bind</a> for a long discussion of its issues and alternatives."
+              + " <code>bind()</code> is not be available in Bzlmod.</p> <p>Gives a target an alias"
+              + " in the <code>//external</code> package.</p>",
       parameters = {
         @Param(
             name = "name",

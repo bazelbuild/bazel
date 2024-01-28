@@ -179,7 +179,7 @@ incompatible change for your users.
 ### Specify the operating system and architecture
 
 If your extension relies on the operating system or its architecture type,
-ensure to indicate this in the extension definition using the "os_dependent"
-and "arch_dependent" boolean attributes. This ensures that Bazel recognizes the
+ensure to indicate this in the extension definition using the `os_dependent`
+and `arch_dependent` boolean attributes. This ensures that Bazel recognizes the
 need for re-evaluation if there are changes to either of them.
 

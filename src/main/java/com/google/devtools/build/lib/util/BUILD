@@ -1,3 +1,4 @@
+load("//src:build_defs.bzl", "java_11_library")
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(
@@ -30,7 +31,7 @@ java_library(
     ],
 )
 
-java_library(
+java_11_library(
     name = "os",
     srcs = ["OS.java"],
 )
@@ -127,6 +128,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -139,7 +141,6 @@ java_library(
     ],
     deps = [
         ":resource_converter",
-        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//third_party:guava",
     ],
 )
@@ -151,12 +152,11 @@ java_library(
     ],
     deps = [
         ":resource_converter",
-        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//third_party:guava",
     ],
 )
 
-java_library(
+java_11_library(
     name = "pair",
     srcs = [
         "Pair.java",
@@ -179,6 +179,7 @@ java_library(
         "FileHandlerQuerier.java",
         "Fingerprint.java",
         "JavaSleeper.java",
+        "LatestObjectMetricExporter.java",
         "LogHandlerQuerier.java",
         "LoggingUtil.java",
         "LongArrayList.java",
@@ -288,7 +289,7 @@ java_library(
     ],
 )
 
-java_library(
+java_11_library(
     name = "exit_code",
     srcs = [
         "ExitCode.java",

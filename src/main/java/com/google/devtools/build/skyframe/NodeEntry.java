@@ -249,7 +249,7 @@ public interface NodeEntry {
   @ThreadSafe
   boolean hasAtLeastOneDep() throws InterruptedException;
 
-  /** Removes a reverse dependency. */
+  /** Removes a reverse dependency, which must be present. */
   @ThreadSafe
   void removeReverseDep(SkyKey reverseDep) throws InterruptedException;
 
@@ -260,16 +260,6 @@ public interface NodeEntry {
    */
   @ThreadSafe
   void removeReverseDepsFromDoneEntryDueToDeletion(Set<SkyKey> deletedKeys);
-
-  /**
-   * Removes a reverse dependency.
-   *
-   * <p>May only be called if this entry is not done (i.e. {@link #isDone} is false) and {@code
-   * reverseDep} was added/confirmed during this evaluation (by {@link #addReverseDepAndCheckIfDone}
-   * or {@link #checkIfDoneForDirtyReverseDep}).
-   */
-  @ThreadSafe
-  void removeInProgressReverseDep(SkyKey reverseDep);
 
   /**
    * Returns a copy of the set of reverse dependencies. Note that this introduces a potential

@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -39,12 +38,12 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.testutil.TimestampGranularityUtils;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.ErrorInfo;
-import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.GroupedDeps;
 import com.google.devtools.build.skyframe.InvalidationProgressReceiver;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -57,7 +56,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
@@ -103,18 +101,16 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
 
       @Override
       public int hashCode() {
-        return Objects.hashCode(skyKey, state);
+        return HashCodes.hashObjects(skyKey, state);
       }
     }
 
     private static final class EvaluatedEntry {
-      public final SkyKey skyKey;
-      final EvaluationSuccessState successState;
-      public final EvaluationState state;
+      final SkyKey skyKey;
+      final EvaluationState state;
 
-      EvaluatedEntry(SkyKey skyKey, EvaluationSuccessState successState, EvaluationState state) {
+      EvaluatedEntry(SkyKey skyKey, EvaluationState state) {
         this.skyKey = skyKey;
-        this.successState = successState;
         this.state = state;
       }
 
@@ -122,13 +118,12 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
       public boolean equals(Object obj) {
         return obj instanceof EvaluatedEntry
             && this.skyKey.equals(((EvaluatedEntry) obj).skyKey)
-            && this.successState.equals(((EvaluatedEntry) obj).successState)
             && this.state.equals(((EvaluatedEntry) obj).state);
       }
 
       @Override
       public int hashCode() {
-        return Objects.hashCode(skyKey, successState, state);
+        return HashCodes.hashObjects(skyKey, state);
       }
     }
 
@@ -173,12 +168,11 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     @Override
     public void evaluated(
         SkyKey skyKey,
+        EvaluationState state,
         @Nullable SkyValue value,
         @Nullable ErrorInfo error,
-        Supplier<EvaluationSuccessState> evaluationSuccessState,
-        EvaluationState state,
         @Nullable GroupedDeps directDeps) {
-      evaluated.add(new EvaluatedEntry(skyKey, evaluationSuccessState.get(), state));
+      evaluated.add(new EvaluatedEntry(skyKey, state));
     }
   }
 
@@ -475,11 +469,11 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
       assertThat(newEntry).isNotNull();
       if (expectActionIs.actuallyClean()) {
         // Action was dirtied but verified clean.
-        assertThat(newEntry.state).isEqualTo(EvaluationState.CLEAN);
+        assertThat(newEntry.state.changed()).isFalse();
       } else {
         // Action was dirtied and rebuilt. It was either reexecuted or was an action cache hit,
         // doesn't matter here.
-        assertThat(newEntry.state).isEqualTo(EvaluationState.BUILT);
+        assertThat(newEntry.state.changed()).isTrue();
       }
     } else {
       // Action was not dirtied.

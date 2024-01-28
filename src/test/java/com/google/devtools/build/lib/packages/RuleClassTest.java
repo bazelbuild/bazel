@@ -252,17 +252,18 @@ public final class RuleClassTest extends PackageLoadingTestCase {
   }
 
   private Package.Builder createDummyPackageBuilder() {
-    return packageFactory
-        .newPackageBuilder(
-            PackageIdentifier.createInMainRepo(TEST_PACKAGE_NAME),
-            "TESTING",
-            Optional.empty(),
-            Optional.empty(),
-            StarlarkSemantics.DEFAULT,
-            RepositoryMapping.ALWAYS_FALLBACK,
-            RepositoryMapping.ALWAYS_FALLBACK,
-            /* cpuBoundSemaphore= */ null)
-        .setFilename(RootedPath.toRootedPath(root, testBuildfilePath));
+    return packageFactory.newPackageBuilder(
+        PackageIdentifier.createInMainRepo(TEST_PACKAGE_NAME),
+        RootedPath.toRootedPath(root, testBuildfilePath),
+        "TESTING",
+        Optional.empty(),
+        Optional.empty(),
+        StarlarkSemantics.DEFAULT,
+        /* repositoryMapping= */ RepositoryMapping.ALWAYS_FALLBACK,
+        /* cpuBoundSemaphore= */ null,
+        /* generatorMap= */ null,
+        /* configSettingVisibilityPolicy= */ null,
+        /* globber= */ null);
   }
 
   @Test
@@ -930,14 +931,16 @@ public final class RuleClassTest extends PackageLoadingTestCase {
     } catch (LabelSyntaxException e) {
       throw new IllegalArgumentException("Rule has illegal label", e);
     }
-    return ruleClass.createRule(
-        pkgBuilder,
-        ruleLabel,
-        new BuildLangTypedAttributeValuesMap(attributeValues),
-        true,
-        reporter,
-        ImmutableList.of(
-            StarlarkThread.callStackEntry(StarlarkThread.TOP_LEVEL, testRuleLocation)));
+    Rule rule =
+        ruleClass.createRule(
+            pkgBuilder,
+            ruleLabel,
+            new BuildLangTypedAttributeValuesMap(attributeValues),
+            true,
+            ImmutableList.of(
+                StarlarkThread.callStackEntry(StarlarkThread.TOP_LEVEL, testRuleLocation)));
+    pkgBuilder.getLocalEventHandler().replayOn(reporter);
+    return rule;
   }
 
   @Test

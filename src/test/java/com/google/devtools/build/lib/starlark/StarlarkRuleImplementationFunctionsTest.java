@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -55,6 +56,8 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
@@ -71,6 +74,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -725,7 +729,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     RunfilesSupplier runfilesSupplier =
         CompositeRunfilesSupplier.fromSuppliers(
             (List<RunfilesSupplier>) ev.lookup("input_manifests"));
-    assertThat(runfilesSupplier.getMappings()).hasSize(1);
+    assertThat(runfilesSupplier.getRunfilesTrees()).hasSize(1);
   }
 
   @Test
@@ -851,7 +855,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     RunfilesSupplier runfilesSupplier =
         CompositeRunfilesSupplier.fromSuppliers(
             (List<RunfilesSupplier>) ev.lookup("input_manifests"));
-    assertThat(runfilesSupplier.getMappings()).hasSize(1);
+    assertThat(runfilesSupplier.getRunfilesTrees()).hasSize(1);
 
     SpawnAction action =
         (SpawnAction)
@@ -2775,7 +2779,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     Action action =
         getGeneratingAction(r.getProvider(FileProvider.class).getFilesToBuild().getSingleton());
-    assertThat(ActionsTestUtil.baseArtifactNames(action.getRunfilesSupplier().getAllArtifacts()))
+    assertThat(
+            ActionsTestUtil.baseArtifactNames(
+                getAllRunfilesArtifacts(action.getRunfilesSupplier())))
         .containsAtLeast("tool", "tool.sh", "data");
   }
 
@@ -2804,7 +2810,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     Action action =
         getGeneratingAction(r.getProvider(FileProvider.class).getFilesToBuild().getSingleton());
-    assertThat(ActionsTestUtil.baseArtifactNames(action.getRunfilesSupplier().getAllArtifacts()))
+    assertThat(
+            ActionsTestUtil.baseArtifactNames(
+                getAllRunfilesArtifacts(action.getRunfilesSupplier())))
         .containsAtLeast("tool", "tool.sh", "data");
   }
 
@@ -3400,5 +3408,13 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     assertThat(a2).isNotNull();
     assertThat(a2.getRoot().getExecPathString())
         .matches(getRelativeOutputPath() + "/[\\w\\-]+\\-exec\\-[\\w\\-]+/bin");
+  }
+
+  public static NestedSet<Artifact> getAllRunfilesArtifacts(RunfilesSupplier runfilesSupplier) {
+    return NestedSetBuilder.fromNestedSets(
+            runfilesSupplier.getRunfilesTrees().stream()
+                .map(RunfilesTree::getArtifacts)
+                .collect(Collectors.toList()))
+        .build();
   }
 }

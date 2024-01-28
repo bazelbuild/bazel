@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -75,11 +77,11 @@ public class WorkerFilesHash {
           tool.getExecPath(), actionInputFileCache.getInputMetadata(tool).getDigest());
     }
 
-    for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> rootAndMappings :
-        spawn.getRunfilesSupplier().getMappings().entrySet()) {
-      PathFragment root = rootAndMappings.getKey();
+    RunfilesSupplier runfilesSupplier = spawn.getRunfilesSupplier();
+    for (RunfilesTree runfilesTree : runfilesSupplier.getRunfilesTrees()) {
+      PathFragment root = RunfilesSupplier.getExecPathForTree(runfilesSupplier, runfilesTree);
       Preconditions.checkState(!root.isAbsolute(), root);
-      for (Map.Entry<PathFragment, Artifact> mapping : rootAndMappings.getValue().entrySet()) {
+      for (Map.Entry<PathFragment, Artifact> mapping : runfilesTree.getMapping().entrySet()) {
         Artifact localArtifact = mapping.getValue();
         if (localArtifact != null) {
           @Nullable

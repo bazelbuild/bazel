@@ -48,7 +48,7 @@ public class AarImportBaseRule implements RuleDefinition {
         .add(attr("aar", LABEL).mandatory().allowedFileTypes(FileType.of(".aar")))
         /* <!-- #BLAZE_RULE(aar_import).ATTRIBUTE(exports) -->
         Targets to export to rules that depend on this rule.
-        See <a href="${link java_library.exports}">java_library.exports.
+        See <code>java_library.exports</code>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("exports", LABEL_LIST)

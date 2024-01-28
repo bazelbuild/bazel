@@ -210,8 +210,26 @@ fi
 # Setup bazel for integration tests
 #
 
-# OS X has a limit in the pipe length, so force the root to a shorter one
-bazel_root="${TEST_TMPDIR}/root"
+if [[ "$TEST_TMPDIR" =~ ^/tmp/bazel-working-directory/ ]]; then
+  RUNNING_IN_BAZEL_SANDBOX=1
+else
+  RUNNING_IN_BAZEL_SANDBOX=0
+fi
+
+if [[ "$RUNNING_IN_BAZEL_SANDBOX" == 1 ]]; then
+  # If we are running under the Bazel sandbox an output user root under
+  # $TEST_TMPDIR is not quite enough because that's under
+  # /tmp-bazel-working-directory, which is going to be overridden by the sandbox
+  # in which the actions of the inner Bazel instance run.
+  #
+  # So put the output user root under /tmp instead, which requires an additional
+  # --sandbox_add_mount_pair option but is the only place other than
+  # $TEST_TMPDIR where we are guaranteed to be able to write.
+  bazel_root="/tmp/output_user_root"
+else
+  # OS X has a limit in the pipe length, so force the root to a shorter one
+  bazel_root="${TEST_TMPDIR}/root"
+fi
 
 # Delete stale installation directory from previously failed tests. On Windows
 # we regularly get the same TEST_TMPDIR but a failed test may only partially
@@ -267,8 +285,23 @@ build --incompatible_use_toolchain_resolution_for_java_rules
 # Enable Bzlmod in all shell integration tests
 common --enable_bzlmod
 
+# Verify compatibility before the flip (https://github.com/bazelbuild/bazel/issues/12821)
+common --nolegacy_external_runfiles
+
 ${EXTRA_BAZELRC:-}
 EOF
+
+  if [[ "$RUNNING_IN_BAZEL_SANDBOX" == 1 ]]; then
+    # If both the outer and the inner Bazel instances use the Linux sandbox,
+    # $TEST_TMPDIR for the outer one will be under /tmp/bazel-working-directory.
+    # The inner one mounts a fresh empty directory under /tmp so we need to
+    # explicitly tell it that it should make /tmp/output_user_root from the
+    # outer sandbox available also in the inner sandbox also because a lot the
+    # input files for the inner actions will be symlinks to there.
+    cat >> "$TEST_TMPDIR/bazelrc" <<EOF
+build --sandbox_add_mount_pair=${bazel_root}
+EOF
+  fi
 
   if [[ -n ${TEST_REPOSITORY_HOME:-} ]]; then
     echo "testenv.sh: Using shared repositories from $TEST_REPOSITORY_HOME."
@@ -341,6 +374,12 @@ EOF
     echo "testenv.sh: Using shared install base at $TEST_INSTALL_BASE."
     echo "startup --install_base=$TEST_INSTALL_BASE" >> $TEST_TMPDIR/bazelrc
   fi
+
+  if is_darwin; then
+    echo "Add flags to prefer ipv6 network"
+    echo "startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true" >> $TEST_TMPDIR/bazelrc
+    echo "build --jvmopt=-Djava.net.preferIPv6Addresses" >> $TEST_TMPDIR/bazelrc
+  fi
 }
 
 function setup_android_sdk_support() {
@@ -350,9 +389,34 @@ function setup_android_sdk_support() {
   local android_jar=$(rlocation androidsdk/platforms/android-28/android.jar)
   local android=$(dirname $android_jar)
   local platforms=$(dirname $android)
-  ANDROID_SDK=$(dirname $platforms)
+  local local_android_sdk=$(dirname $platforms)
+  if [[ "$RUNNING_IN_BAZEL_SANDBOX" == 1 ]]; then
+    ANDROID_SDK="/tmp/androidsdk"
+    if [[ ! -d "$ANDROID_SDK" ]]; then
+      # If this test is running in a Bazel sandbox, $local_android_sdk will be
+      # under /tmp/bazel-working-directory which is going to replaced by the
+      # working directory of the inner test, so we need to copy it somewhere
+      # else. We can't use the outer /tmp/bazel-execroot, either, because the
+      # same applies to it.
 
-cat >> WORKSPACE <<EOF
+      # -L is to dereference symbolic links. Otherwise, we'd get symlinks to
+      # /tmp/bazel-source-roots/ under $ANDROID_SDK, which reference the source
+      # roots of the outer Bazel sandbox which are duly overriden by the inner
+      # one.
+      cp -LR "$local_android_sdk" "$ANDROID_SDK"
+    fi
+
+    # /tmp is overwritten in the inner sandbox by an empty directory so we need
+    # to explicitly make it available there
+    cat >>$TEST_TMPDIR/bazelrc <<EOF
+build --sandbox_add_mount_pair="$ANDROID_SDK"
+EOF
+  else
+    # No pesky outer sandbox, we can use the android SDK as this test sees it
+    ANDROID_SDK="$local_android_sdk"
+  fi
+
+  cat >> WORKSPACE <<EOF
 android_sdk_repository(
     name = "androidsdk",
     path = "$ANDROID_SDK",
@@ -662,7 +726,9 @@ EOF
 
 # Set up a lockfile to avoid accessing BCR for tests with a clean workspace.
 function write_default_lockfile() {
-  cp -f $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) ${1:-MODULE.bazel.lock}
+  module_lockfile=${1:-MODULE.bazel.lock}
+  touch "$(dirname ${module_lockfile})/MODULE.bazel"
+  cp -f $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) ${module_lockfile}
 }
 
 workspaces=()

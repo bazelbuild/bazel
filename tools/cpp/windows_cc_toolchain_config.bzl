@@ -1204,7 +1204,7 @@ def _impl(ctx):
                         ACTION_NAMES.lto_backend,
                         ACTION_NAMES.clif_match,
                     ],
-                    flag_groups = [flag_group(flags = ["-std=gnu++14"])],
+                    flag_groups = [flag_group(flags = ["-std=gnu++14"] + ctx.attr.default_compile_flags)],
                 ),
             ],
         )
@@ -1215,7 +1215,7 @@ def _impl(ctx):
             flag_sets = [
                 flag_set(
                     actions = all_link_actions,
-                    flag_groups = [flag_group(flags = ["-lstdc++"])],
+                    flag_groups = [flag_group(flags = ["-lstdc++"] + ctx.attr.default_link_flags)],
                 ),
             ],
         )
@@ -1425,6 +1425,7 @@ cc_toolchain_config = rule(
         "tool_paths": attr.string_dict(),
         "cxx_builtin_include_directories": attr.string_list(),
         "archiver_flags": attr.string_list(default = []),
+        "default_compile_flags": attr.string_list(default = []),
         "default_link_flags": attr.string_list(default = []),
         "msvc_env_tmp": attr.string(default = "msvc_not_found"),
         "msvc_env_path": attr.string(default = "msvc_not_found"),
@@ -1434,8 +1435,8 @@ cc_toolchain_config = rule(
         "msvc_ml_path": attr.string(default = "vc_installation_error.bat"),
         "msvc_link_path": attr.string(default = "vc_installation_error.bat"),
         "msvc_lib_path": attr.string(default = "vc_installation_error.bat"),
-        "dbg_mode_debug_flag": attr.string(),
-        "fastbuild_mode_debug_flag": attr.string(),
+        "dbg_mode_debug_flag": attr.string(default = ""),
+        "fastbuild_mode_debug_flag": attr.string(default = ""),
         "tool_bin_path": attr.string(default = "not_found"),
         "supports_parse_showincludes": attr.bool(),
     },

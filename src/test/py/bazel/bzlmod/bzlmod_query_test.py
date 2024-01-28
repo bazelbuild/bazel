@@ -40,7 +40,7 @@ class BzlmodQueryTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'common --experimental_enable_bzlmod',
+            'common --noenable_workspace',
             'common --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
@@ -49,10 +49,6 @@ class BzlmodQueryTest(test_base.TestBase):
             'common --allow_yanked_versions=all',
         ],
     )
-    self.ScratchFile('WORKSPACE')
-    # The existence of WORKSPACE.bzlmod prevents WORKSPACE prefixes or suffixes
-    # from being used; this allows us to test built-in modules actually work
-    self.ScratchFile('WORKSPACE.bzlmod')
 
   def testQueryModuleRepoTargetsBelow(self):
     self.ScratchFile('MODULE.bazel', [

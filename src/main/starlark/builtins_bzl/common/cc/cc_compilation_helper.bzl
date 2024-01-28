@@ -16,6 +16,7 @@
 
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/cc/semantics.bzl", "USE_EXEC_ROOT_FOR_VIRTUAL_INCLUDES_SYMLINKS")
 load(":common/paths.bzl", "paths")
 
 cc_internal = _builtins.internal.cc_internal
@@ -120,7 +121,7 @@ def _compute_public_headers(
                 output = virtual_header,
                 target_file = original_header,
                 progress_message = "Symlinking virtual headers for " + label.name,
-                use_exec_root_for_source = True,
+                use_exec_root_for_source = USE_EXEC_ROOT_FOR_VIRTUAL_INCLUDES_SYMLINKS,
             )
             module_map_headers.append(virtual_header)
             if config.coverage_enabled:

@@ -89,6 +89,34 @@ EOF
   expect_log "I am Python 3"
 }
 
+# Verify that a bzlmod without any workspace interference is able to
+# run Python rules.
+# This test is obsolete once the Python rules are removed from Bazel itself.
+function test_pure_bzlmod_can_build_py_binary() {
+  mkdir -p test
+
+  cat > test/BUILD << EOF
+py_binary(
+    name = "main3",
+    python_version = "PY3",
+    srcs = ["main3.py"],
+)
+EOF
+
+  touch test/main3.py
+
+  # Tell bzlmod to ignore workspace entirely
+  touch WORKSPACE.bzlmod
+  # Also clear out workspace, just to be safe. If workspace is triggered at all,
+  # then internal logic as part of the Python rules registration will trigger
+  # registering a Python toolchain, which we explicitly want to avoid.
+  cat > WORKSPACE
+
+  # Build instead of run. The autodetecting toolchain may not produce something
+  # that actually works (it could be a fake or some arbitrary system python).
+  bazel build --enable_bzlmod //test:main3 &> $TEST_log || fail "unable to build py binary"
+}
+
 # Test that access to runfiles works (in general, and under our test environment
 # specifically).
 function test_can_access_runfiles() {
@@ -447,6 +475,90 @@ EOF
       runfiles_listing \
       "runfiles didn't have external links"
   fi
+}
+
+function test_incompatible_python_disallow_native_rules_external_repos() {
+
+  mkdir ../external_repo
+  external_repo=$(cd ../external_repo && pwd)
+
+  touch $external_repo/WORKSPACE
+  touch $external_repo/WORKSPACE.bzlmod
+  cat > $external_repo/MODULE.bazel <<EOF
+module(name="external_repo")
+EOF
+
+  # There's special logic to handle targets at the root.
+  cat > $external_repo/BUILD <<EOF
+py_library(
+    name = "root",
+    visibility = ["//visibility:public"],
+)
+EOF
+  mkdir $external_repo/pkg
+  cat > $external_repo/pkg/BUILD <<EOF
+py_library(
+    name = "pkg",
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  touch bin.py
+  cat > BUILD <<EOF
+load("@rules_python//python:py_binary.bzl", "py_binary")
+load("@rules_python//python:py_runtime.bzl", "py_runtime")
+load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
+
+py_binary(
+    name = "bin",
+    srcs = ["bin.py"],
+    deps = [
+        "@external_repo//:root",
+        "@external_repo//pkg:pkg",
+    ],
+)
+py_runtime(
+    name = "runtime",
+    interpreter_path = "/fakepython",
+    python_version = "PY3",
+)
+py_runtime_pair(
+    name = "pair",
+    py3_runtime = ":runtime",
+)
+# A custom toolchain is used so this test is independent of
+# custom python toolchain setup the integration test performs
+toolchain(
+  name = "py_toolchain",
+  toolchain = ":pair",
+  toolchain_type = "@rules_python//python:toolchain_type",
+)
+package_group(
+    name = "allowed",
+    packages = [
+        "//__EXTERNAL_REPOS__/external_repo/...",
+        "//__EXTERNAL_REPOS__/external_repo~override/...",
+        "//__EXTERNAL_REPOS__/bazel_tools/...",
+        ##"//tools/python/windows...",
+    ],
+)
+EOF
+  cat > MODULE.bazel <<EOF
+module(name="python_version_test")
+bazel_dep(name = "external_repo", version="0.0.0")
+local_path_override(
+    module_name = "external_repo",
+    # A relative path must be used to keep Windows CI happy.
+    path = "../external_repo",
+)
+EOF
+
+  bazel build \
+    --extra_toolchains=//:py_toolchain \
+    --incompatible_python_disallow_native_rules \
+    --python_native_rules_allowlist=//:allowed \
+    //:bin &> $TEST_log || fail "build failed"
+
 }
 
 run_suite "Tests for how the Python rules handle Python 2 vs Python 3"

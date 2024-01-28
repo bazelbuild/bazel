@@ -260,7 +260,6 @@ public final class LtoBackendAction extends SpawnAction {
       throw new AssertionError("LtoBackendAction command line expansion cannot fail", e);
     }
     fp.addString(getMnemonic());
-    fp.addPaths(getRunfilesSupplier().getRunfilesDirs());
     for (Artifact input : mandatoryInputs.toList()) {
       fp.addPath(input.getExecPath());
     }

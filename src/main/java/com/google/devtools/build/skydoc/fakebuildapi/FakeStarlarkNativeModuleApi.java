@@ -79,6 +79,11 @@ public class FakeStarlarkNativeModuleApi implements StarlarkNativeModuleApi, Str
   }
 
   @Override
+  public String repoName(StarlarkThread thread) {
+    return "";
+  }
+
+  @Override
   public Label packageRelativeLabel(Object input, StarlarkThread thread) throws EvalException {
     return Label.parseCanonicalUnchecked("//:fake_label");
   }

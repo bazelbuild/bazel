@@ -152,7 +152,9 @@ repository.
 ### Fetch external dependencies with module extensions{:#fetch-deps-module-extensions}
 
 If your dependency is not a Bazel project or not yet available in any Bazel
-registry, you can introduce it using [module extensions](/external/extension).
+registry, you can introduce it using
+[`use_repo_rule`](/external/module#use_repo_rule) or [module
+extensions](/external/extension).
 
 *   **WORKSPACE**
 
@@ -172,9 +174,24 @@ registry, you can introduce it using [module extensions](/external/extension).
 
 *   **Bzlmod**
 
-    With Bzlmod, you have to move the definition into a `.bzl` file, which also
-    lets you share the definition between WORKSPACE and Bzlmod during the
-    migration period.
+    With Bzlmod, you can use the `use_repo_rule` directive in your MODULE.bazel
+    file to directly instantiate repos:
+
+    ```python
+    ## MODULE.bazel
+    http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+    http_file(
+        name = "data_file",
+        url = "http://example.com/file",
+        sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    )
+    ```
+
+    Under the hood, this is implemented using a module extension. If you need to
+    perform more complex logic than simply invoking a repo rule, you could also
+    implement a module extension yourself. You'll need to move the definition
+    into a `.bzl` file, which also lets you share the definition between
+    WORKSPACE and Bzlmod during the migration period.
 
     ```python
     ## repositories.bzl
@@ -552,6 +569,27 @@ away from this by:
 
     *   Replace all usages of `//external:openssl` with
         `//third_party:openssl-lib`.
+
+### Fetch versus Sync {:#fetch-sync}
+
+Fetch and sync commands are used to download external repos locally and keep
+them updated. Sometimes also to allow building offline using the `--nofetch`
+flag after fetching all repos needed for a build.
+
+*   **WORKSPACE**
+
+    Sync performs a force fetch for all repositories, or for a specific
+    configured set of repos, while fetch is _only_ used to fetch for a specific
+    target.
+
+*   **Bzlmod**
+
+    The sync command is no longer applicable, but fetch offers
+    [various options](/reference/command-line-reference#fetch-options).
+    You can fetch a target, a repository, a set of configured repos or all
+    repositories involved in your dependency resolution and module extensions.
+    The fetch result is cached and to force a fetch you must include the
+    `--force` option during the fetch process.
 
 ## Migration {:#migration}
 

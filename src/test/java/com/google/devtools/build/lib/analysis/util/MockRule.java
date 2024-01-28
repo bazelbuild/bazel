@@ -183,15 +183,6 @@ public interface MockRule extends RuleDefinition {
   }
 
   /**
-   * Sets a custom {@link RuleClassType} for this mock rule.
-   *
-   * <p>If not set, {@link RuleClassType#NORMAL} is used.
-   */
-  static State.Builder type(RuleClassType type) {
-    return new State.Builder().type(type);
-  }
-
-  /**
    * Returns a new {@link State} for this rule class with custom attributes. This is a convenience
    * method for lambda definitions:
    *

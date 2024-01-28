@@ -286,7 +286,7 @@ static unique_ptr<vector<char *>> ExpandArgument(
     }
 
     for (std::string line; std::getline(f, line);) {
-      if (line.length() > 0) {
+      if (!line.empty()) {
         expanded = ExpandArgument(std::move(expanded), strdup(line.c_str()));
       }
     }

@@ -145,10 +145,6 @@ public final class ParsedOptionDescription {
     return String.format("--%s=%s", optionDefinition.getOptionName(), value);
   }
 
-  public boolean isBooleanOption() {
-    return optionDefinition.getType().equals(boolean.class);
-  }
-
   private OptionDocumentationCategory documentationCategory() {
     return optionDefinition.getDocumentationCategory();
   }

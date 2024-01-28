@@ -156,4 +156,10 @@ public interface JavaConfigurationApi extends StarlarkValue {
               + " a *.pgcfg extension.",
       documented = false)
   boolean enforceProguardFileExtension();
+
+  @StarlarkMethod(
+      name = "auto_create_java_test_deploy_jars",
+      useStarlarkThread = true,
+      documented = false)
+  boolean autoCreateJavaTestDeployJars(StarlarkThread thread) throws EvalException;
 }

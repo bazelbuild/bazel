@@ -57,6 +57,7 @@ public class RepositoryMappingFunction implements SkyFunction {
     }
     RepositoryName repositoryName = ((RepositoryMappingValue.Key) skyKey).repoName();
     boolean enableBzlmod = starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD);
+    boolean enableWorkspace = starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE);
 
     if (enableBzlmod) {
       if (StarlarkBuiltinsValue.isBuiltinsRepo(repositoryName)) {
@@ -102,7 +103,8 @@ public class RepositoryMappingFunction implements SkyFunction {
       }
 
       if (repositoryName.isMain()
-          && ((RepositoryMappingValue.Key) skyKey).rootModuleShouldSeeWorkspaceRepos()) {
+          && ((RepositoryMappingValue.Key) skyKey).rootModuleShouldSeeWorkspaceRepos()
+          && enableWorkspace) {
         // The root module should be able to see repos defined in WORKSPACE. Therefore, we find all
         // workspace repos and add them as extra visible repos in root module's repo mappings.
         PackageValue externalPackageValue =
@@ -126,14 +128,17 @@ public class RepositoryMappingFunction implements SkyFunction {
             .withAdditionalMappings(
                 ImmutableMap.of(
                     externalPackageValue.getPackage().getWorkspaceName(), RepositoryName.MAIN))
-            .withAdditionalMappings(additionalMappings);
+            .withAdditionalMappings(additionalMappings)
+            .withCachedInverseMap();
       }
 
       // Try and see if this is a repo generated from a Bazel module.
       Optional<RepositoryMappingValue> mappingValue =
           computeForBazelModuleRepo(repositoryName, bazelDepGraphValue);
       if (mappingValue.isPresent()) {
-        return mappingValue.get();
+        return repositoryName.isMain()
+            ? mappingValue.get().withCachedInverseMap()
+            : mappingValue.get();
       }
 
       // Now try and see if this is a repo generated from a module extension.
@@ -154,22 +159,26 @@ public class RepositoryMappingFunction implements SkyFunction {
       }
     }
 
-    PackageValue externalPackageValue =
-        (PackageValue) env.getValue(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
-    RepositoryMappingValue rootModuleRepoMappingValue =
-        enableBzlmod
-            ? (RepositoryMappingValue)
-                env.getValue(RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS)
-            : null;
-    if (env.valuesMissing()) {
-      return null;
+    if (enableWorkspace) {
+      PackageValue externalPackageValue =
+          (PackageValue) env.getValue(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
+      RepositoryMappingValue rootModuleRepoMappingValue =
+          enableBzlmod
+              ? (RepositoryMappingValue)
+                  env.getValue(RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS)
+              : null;
+      if (env.valuesMissing()) {
+        return null;
+      }
+
+      RepositoryMapping rootModuleRepoMapping =
+          rootModuleRepoMappingValue == null
+              ? null
+              : rootModuleRepoMappingValue.getRepositoryMapping();
+      return computeFromWorkspace(repositoryName, externalPackageValue, rootModuleRepoMapping);
     }
 
-    RepositoryMapping rootModuleRepoMapping =
-        rootModuleRepoMappingValue == null
-            ? null
-            : rootModuleRepoMappingValue.getRepositoryMapping();
-    return computeFromWorkspace(repositoryName, externalPackageValue, rootModuleRepoMapping);
+    return RepositoryMappingValue.NOT_FOUND_VALUE;
   }
 
   /**

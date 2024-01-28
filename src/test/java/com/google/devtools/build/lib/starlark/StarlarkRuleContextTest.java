@@ -1994,7 +1994,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testAccessingRunfilesSymlinksAsDepsets() throws Exception {
-    // Arrange
+    // Prepare rule using ctx.runfiles() with `symlinks`/`root_symlinks` kwargs.
     scratch.file("test/a.py");
     scratch.file("test/b.py");
     scratch.file(
@@ -2035,13 +2035,13 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         ")");
     setRuleContext(createRuleContext("//test:test_with_symlink"));
 
-    // Act
+    // Evaluate path expression for runfiles symlinks.
     Object symlinkPaths =
         ev.eval("[s.path for s in ruleContext.attr.data[0].data_runfiles.symlinks.to_list()]");
     Object rootSymlinkPaths =
         ev.eval("[s.path for s in ruleContext.attr.data[0].data_runfiles.root_symlinks.to_list()]");
 
-    // Assert
+    // Confirm expected runfiles symlink behavior in returned sequences.
     assertThat(symlinkPaths).isInstanceOf(Sequence.class);
     Sequence<?> symlinkPathsList = (Sequence) symlinkPaths;
     assertThat(symlinkPathsList).containsExactly("symlink_test/a.py").inOrder();

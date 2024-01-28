@@ -198,14 +198,6 @@ public final class SkyframeActionExecutor {
   // receiving more than one of those events per action.
   private Set<OwnerlessArtifactWrapper> rewoundActions;
 
-  // We also keep track of actions that failed due to lost discovered inputs. In some circumstances
-  // the input discovery process will use a discovered input before requesting it as a dep. If that
-  // input was generated but is lost, and its generating action is rewound, then the lost input's
-  // generating action must be rerun before the failed action tries input discovery again. A
-  // previously failed action satisfies that requirement by requesting the deps in this map at the
-  // start of its next attempt,
-  private ConcurrentMap<OwnerlessArtifactWrapper, ImmutableList<SkyKey>> lostDiscoveredInputsMap;
-
   private ActionOutputDirectoryHelper outputDirectoryHelper;
 
   private OptionsProvider options;
@@ -222,7 +214,6 @@ public final class SkyframeActionExecutor {
   private OutputService outputService;
   private boolean finalizeActions;
   private boolean rewindingEnabled;
-  private boolean trackLostDiscoveredInputs;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
 
   private DiscoveredModulesPruner discoveredModulesPruner;
@@ -297,7 +288,6 @@ public final class SkyframeActionExecutor {
     // Start with a new map each build so there's no issue with internal resizing.
     this.buildActionMap = Maps.newConcurrentMap();
     this.rewoundActions = Sets.newConcurrentHashSet();
-    this.lostDiscoveredInputsMap = Maps.newConcurrentMap();
     this.hadExecutionError = false;
     this.actionCacheChecker = checkNotNull(actionCacheChecker);
     // Don't cache possibly stale data from the last build.
@@ -305,7 +295,6 @@ public final class SkyframeActionExecutor {
     // Cache some option values for performance, since we consult them on every action.
     this.finalizeActions = buildRequestOptions.finalizeActions;
     this.rewindingEnabled = buildRequestOptions.rewindLostInputs;
-    this.trackLostDiscoveredInputs = buildRequestOptions.trackLostDiscoveredInputs;
     this.outputService = outputService;
     this.outputDirectoryHelper = outputDirectoryHelper;
 
@@ -354,12 +343,12 @@ public final class SkyframeActionExecutor {
         .test(action.getMnemonic());
   }
 
-  boolean requiresTreeMetadataWhenTreeFileIsInput() {
-    return actionInputPrefetcher.requiresTreeMetadataWhenTreeFileIsInput();
-  }
-
   boolean publishTargetSummaries() {
     return options.getOptions(BuildEventProtocolOptions.class).publishTargetSummary;
+  }
+
+  boolean rewindingEnabled() {
+    return rewindingEnabled;
   }
 
   OutputPermissions getOutputPermissions() {
@@ -407,7 +396,6 @@ public final class SkyframeActionExecutor {
     this.outputService = null;
     this.buildActionMap = null;
     this.rewoundActions = null;
-    this.lostDiscoveredInputsMap = null;
     this.actionCacheChecker = null;
     this.outputDirectoryHelper = null;
   }
@@ -444,7 +432,6 @@ public final class SkyframeActionExecutor {
   void prepareForRewinding(
       ActionLookupData failedKey,
       Action failedAction,
-      ImmutableList<SkyKey> lostDiscoveredInputs,
       ImmutableList<Action> depsToRewind) {
     var ownerlessArtifactWrapper = new OwnerlessArtifactWrapper(failedAction.getPrimaryOutput());
     ActionExecutionState state = buildActionMap.get(ownerlessArtifactWrapper);
@@ -452,9 +439,6 @@ public final class SkyframeActionExecutor {
       // If an action failed from lost inputs during input discovery then it won't have a state to
       // obsolete.
       state.obsolete(failedKey, buildActionMap, ownerlessArtifactWrapper);
-    }
-    if (trackLostDiscoveredInputs && !lostDiscoveredInputs.isEmpty()) {
-      lostDiscoveredInputsMap.put(ownerlessArtifactWrapper, lostDiscoveredInputs);
     }
     if (!actionFileSystemType().inMemoryFileSystem()) {
       outputDirectoryHelper.invalidateTreeArtifactDirectoryCreation(failedAction.getOutputs());
@@ -479,11 +463,6 @@ public final class SkyframeActionExecutor {
     if (actionCacheChecker.enabled()) {
       actionCacheChecker.removeCacheEntry(dep);
     }
-  }
-
-  @Nullable
-  ImmutableList<SkyKey> getLostDiscoveredInputs(Action action) {
-    return lostDiscoveredInputsMap.get(new OwnerlessArtifactWrapper(action.getPrimaryOutput()));
   }
 
   void noteActionEvaluationStarted(ActionLookupData actionLookupData, Action action) {
@@ -1676,24 +1655,19 @@ public final class SkyframeActionExecutor {
 
   private boolean checkForUnsoundDirectoryOutput(
       Action action, Artifact output, FileArtifactValue metadata) {
-    boolean success = true;
-    if (!output.isDirectory() && !output.isSymlink() && metadata.getType().isDirectory()) {
-      boolean asError = options.getOptions(CoreOptions.class).disallowUnsoundDirectoryOutputs;
-      String ownerString = action.getOwner().getLabel().toString();
-      reporter.handle(
-          Event.of(
-                  asError ? EventKind.ERROR : EventKind.WARNING,
-                  action.getOwner().getLocation(),
-                  String.format(
-                      "output '%s' of %s is a directory; "
-                          + "dependency checking of directories is unsound",
-                      output.prettyPrint(), ownerString))
-              .withTag(ownerString));
-      if (asError) {
-        success = false;
-      }
+    if (output.isDirectory() || output.isSymlink() || !metadata.getType().isDirectory()) {
+      return true;
     }
-    return success;
+    String ownerString = action.getOwner().getLabel().toString();
+    reporter.handle(
+        Event.of(
+                EventKind.ERROR,
+                action.getOwner().getLocation(),
+                String.format(
+                    "output '%s' of %s is a directory but was not declared as such",
+                    output.prettyPrint(), ownerString))
+            .withTag(ownerString));
+    return false;
   }
 
   /**

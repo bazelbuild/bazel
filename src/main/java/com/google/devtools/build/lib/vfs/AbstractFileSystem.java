@@ -31,10 +31,8 @@ import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
-import java.nio.file.OpenOption;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 
@@ -61,6 +59,12 @@ public abstract class AbstractFileSystem extends FileSystem {
         if (e.getMessage().endsWith("(Interrupted system call)")) {
           continue;
         } else {
+          // FileInputStream throws FileNotFoundException if opening fails for any reason,
+          // including permissions. Fix it up here.
+          // TODO(tjgq): Migrate to java.nio.
+          if (e.getMessage().equals(path + ERR_PERMISSION_DENIED)) {
+            throw new FileAccessException(e.getMessage());
+          }
           throw e;
         }
       }
@@ -91,42 +95,24 @@ public abstract class AbstractFileSystem extends FileSystem {
     }
   }
 
-  private static final ImmutableSet<StandardOpenOption> READABLE_BYTE_CHANNEL_OPEN_OPTIONS =
-      Sets.immutableEnumSet(READ);
-  private static final ImmutableSet<ProfilerTask> READABLE_BYTE_CHANNEL_PROFILER_TASKS =
-      Sets.immutableEnumSet(ProfilerTask.VFS_OPEN, ProfilerTask.VFS_READ);
   private static final ImmutableSet<StandardOpenOption> READ_WRITE_BYTE_CHANNEL_OPEN_OPTIONS =
       Sets.immutableEnumSet(READ, WRITE, CREATE, TRUNCATE_EXISTING);
-  private static final ImmutableSet<ProfilerTask> READ_WRITE_BYTE_CHANNEL_PROFILER_TASKS =
-      Sets.immutableEnumSet(ProfilerTask.VFS_OPEN, ProfilerTask.VFS_READ, ProfilerTask.VFS_WRITE);
-
-  @Override
-  protected ReadableByteChannel createReadableByteChannel(PathFragment path) throws IOException {
-    return createSeekableByteChannelInternal(
-        path, READABLE_BYTE_CHANNEL_OPEN_OPTIONS, READABLE_BYTE_CHANNEL_PROFILER_TASKS);
-  }
 
   @Override
   protected SeekableByteChannel createReadWriteByteChannel(PathFragment path) throws IOException {
-    return createSeekableByteChannelInternal(
-        path, READ_WRITE_BYTE_CHANNEL_OPEN_OPTIONS, READ_WRITE_BYTE_CHANNEL_PROFILER_TASKS);
-  }
-
-  private static SeekableByteChannel createSeekableByteChannelInternal(
-      PathFragment path,
-      ImmutableSet<? extends OpenOption> options,
-      ImmutableSet<ProfilerTask> profilerTasks)
-      throws IOException {
     String name = path.getPathString();
-    if (!profiler.isActive() || profilerTasks.stream().noneMatch(profiler::isProfiling)) {
-      return Files.newByteChannel(Paths.get(name), options);
-    }
+
+    boolean shouldProfile = profiler.isActive() && profiler.isProfiling(ProfilerTask.VFS_OPEN);
+
     long startTime = Profiler.nanoTimeMaybe();
+
     try {
-      // Currently, we do not proxy SeekableByteChannel for profiling.
-      return Files.newByteChannel(Paths.get(name), options);
+      // Currently, we do not proxy SeekableByteChannel for profiling reads and writes.
+      return Files.newByteChannel(Paths.get(name), READ_WRITE_BYTE_CHANNEL_OPEN_OPTIONS);
     } finally {
-      profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, name);
+      if (shouldProfile) {
+        profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, name);
+      }
     }
   }
 
@@ -158,9 +144,9 @@ public abstract class AbstractFileSystem extends FileSystem {
     try {
       return createFileOutputStream(path, append, internal);
     } catch (FileNotFoundException e) {
-      // Why does it throw a *FileNotFoundException* if it can't write?
-      // That does not make any sense! And its in a completely different
-      // format than in other situations, no less!
+      // FileOutputStream throws FileNotFoundException if opening fails for any reason,
+      // including permissions. Fix it up here.
+      // TODO(tjgq): Migrate to java.nio.
       if (e.getMessage().equals(path + ERR_PERMISSION_DENIED)) {
         throw new FileAccessException(e.getMessage());
       }

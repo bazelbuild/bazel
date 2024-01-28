@@ -240,27 +240,10 @@ abstract class ReverseDepsUtility {
                 entry);
           }
           Preconditions.checkState(
-              newReverseDeps.remove(key),
+              newReverseDeps.remove(key) || !allRdepsAreNew,
               "Reverse dep to be removed not present: %s %s %s %s",
               keyToConsolidate,
               newReverseDeps,
-              dataToConsolidate,
-              entry);
-          break;
-        case REMOVE_OLD:
-          Preconditions.checkState(!allRdepsAreNew, entry);
-          Preconditions.checkState(
-              allReverseDeps.remove(key),
-              "Reverse dep to be removed not present: %s %s %s %s",
-              keyToConsolidate,
-              allReverseDeps,
-              dataToConsolidate,
-              entry);
-          Preconditions.checkState(
-              !newReverseDeps.contains(key),
-              "Reverse dep shouldn't have been added to new: %s %s %s %s",
-              keyToConsolidate,
-              allReverseDeps,
               dataToConsolidate,
               entry);
           break;
@@ -328,14 +311,6 @@ abstract class ReverseDepsUtility {
                   + raw
                   + ", "
                   + entry);
-        case REMOVE_OLD:
-          throw new IllegalStateException(
-              "Shouldn't be removing old deps if node already done: "
-                  + keyToConsolidate
-                  + ", "
-                  + raw
-                  + ", "
-                  + entry);
       }
       return;
     }
@@ -373,16 +348,6 @@ abstract class ReverseDepsUtility {
               dataToConsolidate,
               entry);
           break;
-        case REMOVE_OLD:
-          throw new IllegalStateException(
-              "Shouldn't be removing old deps if node already done: "
-                  + keyToConsolidate
-                  + ", "
-                  + raw
-                  + ", "
-                  + dataToConsolidate
-                  + ", "
-                  + entry);
       }
     }
     writeReverseDepsSet(entry, reverseDepsAsSet);

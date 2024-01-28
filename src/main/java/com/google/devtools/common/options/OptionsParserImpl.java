@@ -544,7 +544,7 @@ class OptionsParserImpl {
         parsedOption = result.parsedOptionDescription;
       }
       if (parsedOption.isPresent()) {
-        handleNewParsedOption(parsedOption.get());
+        handleNewParsedOption(parsedOption.get(), fallbackData);
       }
       priority = OptionPriority.nextOptionPriority(priority);
     }
@@ -644,7 +644,7 @@ class OptionsParserImpl {
   }
 
   /** Takes care of tracking the parsed option's value in relation to other options. */
-  private void handleNewParsedOption(ParsedOptionDescription parsedOption)
+  private void handleNewParsedOption(ParsedOptionDescription parsedOption, OptionsData fallbackData)
       throws OptionsParsingException {
     OptionDefinition optionDefinition = parsedOption.getOptionDefinition();
     ExpansionBundle expansionBundle = setOptionValue(parsedOption);
@@ -658,7 +658,7 @@ class OptionsParserImpl {
               optionDefinition.hasImplicitRequirements() ? parsedOption : null,
               optionDefinition.isExpansionOption() ? parsedOption : null,
               expansionBundle.expansionArgs,
-              /* fallbackData= */ null);
+              fallbackData);
       if (!optionsParserImplResult.getResidue().isEmpty()) {
 
         // Throw an assertion here, because this indicates an error in the definition of this

@@ -1240,6 +1240,26 @@ message BuildMetrics {
   }
 
   WorkerPoolMetrics worker_pool_metrics = 11;
+
+  // Information about dynamic execution.
+  message DynamicExecutionMetrics {
+    message RaceStatistics {
+      // Mnemonic of the action.
+      string mnemonic = 1;
+      // Name of runner of local branch.
+      string local_runner = 2;
+      // Name of runner of remote branch.
+      string remote_runner = 3;
+      // Number of wins of local branch in race.
+      int32 local_wins = 4;
+      // Number of wins of remote branch in race.
+      int32 remote_wins = 5;
+    }
+    // Race statistics grouped by mnemonic, local_name, remote_name.
+    repeated RaceStatistics race_statistics = 1;
+  }
+
+  DynamicExecutionMetrics dynamic_execution_metrics = 12;
 }
 
 // Event providing additional statistics/logs after completion of the build.

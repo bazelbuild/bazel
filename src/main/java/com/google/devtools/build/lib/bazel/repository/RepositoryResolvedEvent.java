@@ -61,7 +61,6 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
 
   private ImmutableMap.Builder<String, Object> repositoryBuilder = ImmutableMap.builder();
 
-  private String directoryDigest;
   private final Path outputDirectory;
 
   private final String name;
@@ -169,7 +168,6 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
       // Digest not available, but we still have to report that a repository rule
       // was invoked. So we can do nothing, but ignore the event.
     }
-    this.directoryDigest = digest;
     if (repositoryBuilder != null) {
       resolvedInformationBuilder.put(
           ResolvedFileValue.REPOSITORIES,
@@ -193,11 +191,6 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
   @Override
   public String getName() {
     return name;
-  }
-
-  public String getDirectoryDigest(XattrProvider xattrProvider) {
-    finalizeResolvedInformation(xattrProvider);
-    return directoryDigest;
   }
 
   /**

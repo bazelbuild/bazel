@@ -14,11 +14,11 @@
 
 """objc_import Starlark implementation replacing native"""
 
-load("@_builtins//:common/objc/attrs.bzl", "common_attrs")
-load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
-load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
-load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_common.bzl", "cc_common")
+load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/objc/attrs.bzl", "common_attrs")
+load(":common/objc/compilation_support.bzl", "compilation_support")
 
 objc_internal = _builtins.internal.objc_internal
 
@@ -78,9 +78,15 @@ def _objc_import_impl(ctx):
 
 objc_import = rule(
     implementation = _objc_import_impl,
+    doc = """
+<p>This rule encapsulates an already-compiled static library in the form of an
+<code>.a</code> file. It also allows exporting headers and resources using the same
+attributes supported by <code>objc_library</code>.</p>""",
     attrs = common_attrs.union(
         {
-            "archives": attr.label_list(allow_empty = False, mandatory = True, allow_files = [".a"]),
+            "archives": attr.label_list(allow_empty = False, mandatory = True, allow_files = [".a"], doc = """
+The list of <code>.a</code> files provided to Objective-C targets that
+depend on this target."""),
         },
         common_attrs.ALWAYSLINK_RULE,
         common_attrs.CC_TOOLCHAIN_RULE,

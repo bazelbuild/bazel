@@ -10,10 +10,9 @@ which publishes metadata about other modules that it depends on. This is
 analogous to familiar concepts in other dependency management systems, such as a
 Maven *artifact*, an npm *package*, a Go *module*, or a Cargo *crate*.
 
-A module must have a `MODULE.bazel` file at its repo root (next to the
-`WORKSPACE` file). This file is the module's manifest, declaring its name,
-version, list of direct dependencies, and other information. For a basic
-example:
+A module must have a `MODULE.bazel` file at its repo root. This file is the
+module's manifest, declaring its name, version, list of direct dependencies, and
+other information. For a basic example:
 
 ```python
 module(name = "my-module", version = "1.0")
@@ -22,7 +21,8 @@ bazel_dep(name = "rules_cc", version = "0.0.1")
 bazel_dep(name = "protobuf", version = "3.19.0")
 ```
 
-See the [full list](/rules/lib/globals/module) of directives available in `MODULE.bazel` files.
+See the [full list](/rules/lib/globals/module) of directives available in
+`MODULE.bazel` files.
 
 To perform module resolution, Bazel starts by reading the root module's
 `MODULE.bazel` file, and then repeatedly requests any dependency's
@@ -172,6 +172,21 @@ Bazel supports the following non-registry overrides:
 *   [`archive_override`](/rules/lib/globals/module#archive_override)
 *   [`git_override`](/rules/lib/globals/module#git_override)
 *   [`local_path_override`](/rules/lib/globals/module#local_path_override)
+
+## Define repos that don't represent Bazel modules {:#use_repo_rule}
+
+With `bazel_dep`, you can define repos that represent other Bazel modules.
+Sometimes there is a need to define a repo that does _not_ represent a Bazel
+module; for example, one that contains a plain JSON file to be read as data.
+
+In this case, you could use the [`use_repo_rule`
+directive](/rules/lib/globals/module#use_repo_rule) to directly define a repo
+by invoking a repo rule. This repo will only be visible to the module it's
+defined in.
+
+Under the hood, this is implemented using the same mechanism as [module
+extensions](/external/extension), which lets you define repos with more
+flexibility.
 
 ## Repository names and strict deps
 

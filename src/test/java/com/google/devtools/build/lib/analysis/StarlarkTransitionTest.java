@@ -15,9 +15,18 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.Fragment;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -30,6 +39,43 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class StarlarkTransitionTest extends BuildViewTestCase {
+
+  /** Extra options for this test. */
+  public static class DummyTestOptions extends FragmentOptions {
+    public DummyTestOptions() {}
+
+    @Option(
+        name = "immutable_option",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "super secret",
+        metadataTags = {OptionMetadataTag.IMMUTABLE})
+    public String immutableOption;
+  }
+
+  /** Test fragment. */
+  @RequiresOptions(options = {DummyTestOptions.class})
+  public static final class DummyTestOptionsFragment extends Fragment {
+    private final BuildOptions buildOptions;
+
+    public DummyTestOptionsFragment(BuildOptions buildOptions) {
+      this.buildOptions = buildOptions;
+    }
+
+    // Getter required to satisfy AutoCodec.
+    public BuildOptions getBuildOptions() {
+      return buildOptions;
+    }
+  }
+
+  @Override
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    builder.addConfigurationFragment(DummyTestOptionsFragment.class);
+    return builder.build();
+  }
+
   static void writeAllowlistFile(Scratch scratch) throws Exception {
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
@@ -239,5 +285,31 @@ public class StarlarkTransitionTest extends BuildViewTestCase {
     assertThat(
             getConfiguration(getConfiguredTarget("//test:foo")).getOptions().getStarlarkOptions())
         .containsExactly(Label.parseCanonicalUnchecked("//options:usually_orange"), "orange-eaten");
+  }
+
+  @Test
+  public void testChangingImmutableOptionFails() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _transition_impl(settings, attr):",
+        "  return {'//command_line_option:immutable_option': 'something_else'}",
+        "_transition = transition(",
+        "  implementation = _transition_impl,",
+        "  inputs = [],",
+        "  outputs = ['//command_line_option:immutable_option'],",
+        ")",
+        "def _impl(ctx):",
+        "  return []",
+        "state = rule(",
+        "  implementation = _impl,",
+        "  cfg = _transition,",
+        ")");
+    scratch.file("test/BUILD", "load('//test:defs.bzl', 'state')", "state(name = 'arizona')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:arizona");
+    assertContainsEvent(
+        "transition outputs [//command_line_option:immutable_option] cannot be changed: they are"
+            + " immutable");
   }
 }

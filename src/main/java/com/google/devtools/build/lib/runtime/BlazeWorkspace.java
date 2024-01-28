@@ -210,7 +210,8 @@ public final class BlazeWorkspace {
       long commandStartTime,
       List<Any> commandExtensions,
       Consumer<String> shutdownReasonConsumer,
-      CommandExtensionReporter commandExtensionReporter) {
+      CommandExtensionReporter commandExtensionReporter,
+      int attemptNumber) {
     quiescingExecutors.resetParameters(options);
     CommandEnvironment env =
         new CommandEnvironment(
@@ -227,7 +228,8 @@ public final class BlazeWorkspace {
             commandStartTime,
             commandExtensions,
             shutdownReasonConsumer,
-            commandExtensionReporter);
+            commandExtensionReporter,
+            attemptNumber);
     skyframeExecutor.setClientEnv(env.getClientEnv());
     BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
     if (buildRequestOptions != null && !buildRequestOptions.useActionCache) {

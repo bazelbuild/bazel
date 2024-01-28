@@ -132,14 +132,6 @@ public final class JavaCompilationHelper {
         additionalInputsForDatabinding);
   }
 
-  @Nullable
-  static ImmutableList<String> internJavacOpts(@Nullable ImmutableList<String> javacOpts) {
-    if (javacOpts == null) {
-      return null;
-    }
-    return javacOptsInterner.intern(javacOpts);
-  }
-
   public void javaBuilderJvmFlags(NestedSet<String> javaBuilderJvmFlags) {
     this.javaBuilderJvmFlags = javaBuilderJvmFlags;
   }

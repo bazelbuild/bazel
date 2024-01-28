@@ -22,6 +22,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses.EmptyRule;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
@@ -49,11 +51,8 @@ import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSemantics;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidToolsDefaultsJarRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelDexArchiveAspect;
 import com.google.devtools.build.lib.bazel.rules.android.BazelSdkToolchainRule;
-import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaLiteProtoLibraryRule;
-import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaProtoLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBuiltins;
-import com.google.devtools.build.lib.bazel.rules.python.BazelPyLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyTestRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
@@ -101,16 +100,12 @@ import com.google.devtools.build.lib.rules.android.ProguardMappingProvider;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingV2Provider;
 import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
-import com.google.devtools.build.lib.rules.cpp.CcSharedLibraryRule;
 import com.google.devtools.build.lib.rules.cpp.CcStarlarkInternal;
-import com.google.devtools.build.lib.rules.cpp.proto.CcProtoLibraryRule;
 import com.google.devtools.build.lib.rules.objc.BazelObjcStarlarkInternal;
 import com.google.devtools.build.lib.rules.objc.ObjcStarlarkInternal;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.proto.BazelProtoCommon;
-import com.google.devtools.build.lib.rules.proto.BazelProtoLibraryRule;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
-import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainRule;
 import com.google.devtools.build.lib.rules.python.PyRuleClasses.Py3Symlink;
 import com.google.devtools.build.lib.rules.python.PyRuntimeRule;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
@@ -316,14 +311,12 @@ public class BazelRuleClassProvider {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
           builder.addConfigurationFragment(ProtoConfiguration.class);
-          builder.addRuleDefinition(new BazelProtoLibraryRule());
-          builder.addRuleDefinition(new ProtoLangToolchainRule());
+          builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("proto_library") {});
+          builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("proto_lang_toolchain") {});
 
           ProtoBootstrap bootstrap =
               new ProtoBootstrap(
-                  BazelProtoCommon.INSTANCE,
-                  new StarlarkAspectStub(),
-                  new ProviderStub());
+                  BazelProtoCommon.INSTANCE, new StarlarkAspectStub(), new ProviderStub());
           builder.addStarlarkBootstrap(bootstrap);
         }
 
@@ -333,25 +326,12 @@ public class BazelRuleClassProvider {
         }
       };
 
-  public static final RuleSet CPP_PROTO_RULES =
-      new RuleSet() {
-        @Override
-        public void init(ConfiguredRuleClassProvider.Builder builder) {
-          builder.addRuleDefinition(new CcProtoLibraryRule());
-        }
-
-        @Override
-        public ImmutableList<RuleSet> requires() {
-          return ImmutableList.of(CoreRules.INSTANCE, CcRules.INSTANCE);
-        }
-      };
-
   public static final RuleSet JAVA_PROTO_RULES =
       new RuleSet() {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
-          builder.addRuleDefinition(new BazelJavaProtoLibraryRule());
-          builder.addRuleDefinition(new BazelJavaLiteProtoLibraryRule());
+          builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("java_proto_library") {});
+          builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("java_lite_proto_library") {});
         }
 
         @Override
@@ -456,7 +436,7 @@ public class BazelRuleClassProvider {
 
           builder.addRuleDefinition(new BazelPyRuleClasses.PyBaseRule());
           builder.addRuleDefinition(new BazelPyRuleClasses.PyBinaryBaseRule());
-          builder.addRuleDefinition(new BazelPyLibraryRule());
+          builder.addRuleDefinition(new EmptyRule("py_library") {});
           builder.addRuleDefinition(new BazelPyBinaryRule());
           builder.addRuleDefinition(new BazelPyTestRule());
           builder.addRuleDefinition(new PyRuntimeRule());
@@ -493,7 +473,6 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new AndroidSdkRepositoryRule());
           builder.addRuleDefinition(new AndroidNdkRepositoryRule());
           builder.addRuleDefinition(new LocalConfigPlatformRule());
-          builder.addRuleDefinition(new CcSharedLibraryRule());
 
           try {
             builder.addWorkspaceFileSuffix(
@@ -529,13 +508,11 @@ public class BazelRuleClassProvider {
           PROTO_RULES,
           ShRules.INSTANCE,
           CcRules.INSTANCE,
-          CPP_PROTO_RULES,
           JavaRules.INSTANCE,
           JAVA_PROTO_RULES,
           ANDROID_RULES,
           PYTHON_RULES,
           ObjcRules.INSTANCE,
-          J2ObjcRules.INSTANCE,
           TestingSupportRules.INSTANCE,
           VARIOUS_WORKSPACE_RULES,
           PACKAGING_RULES,

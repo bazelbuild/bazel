@@ -34,7 +34,7 @@ NON_ARC_SRCS = [".m", ".mm"]
 ios_cpus = struct(
     IOS_SIMULATOR_TARGET_CPUS = ["ios_x86_64", "ios_i386", "ios_sim_arm64"],
     IOS_DEVICE_TARGET_CPUS = ["ios_armv6", "ios_arm64", "ios_armv7", "ios_armv7s", "ios_arm64e"],
-    VISIONOS_SIMULATOR_TARGET_CPUS = ["visionos_x86_64", "visionos_sim_arm64"],
+    VISIONOS_SIMULATOR_TARGET_CPUS = ["visionos_sim_arm64"],
     VISIONOS_DEVICE_TARGET_CPUS = ["visionos_arm64"],
     WATCHOS_SIMULATOR_TARGET_CPUS = ["watchos_i386", "watchos_x86_64", "watchos_arm64"],
     WATCHOS_DEVICE_TARGET_CPUS = ["watchos_armv7k", "watchos_arm64_32", "watchos_device_arm64", "watchos_device_arm64e"],
@@ -347,26 +347,23 @@ def _get_common_vars(cpp_config, sysroot):
         variables["sysroot"] = sysroot
     return variables
 
-def _apple_cc_toolchain_build_variables(xcode_config):
-    def apple_cc_toolchain_build_variables(platform, cpu, cpp_config, sysroot):
-        variables = _get_common_vars(cpp_config, sysroot)
-        apple_env = _get_apple_env_build_variables(xcode_config, cpu)
-        variables["xcode_version"] = _to_string_with_minimum_components(str(xcode_config.xcode_version()), 2)
-        variables["ios_sdk_version"] = _to_string_with_minimum_components(str(xcode_config.sdk_version_for_platform(apple_common.platform.ios_simulator)), 2)
-        variables["macos_sdk_version"] = _to_string_with_minimum_components(str(xcode_config.sdk_version_for_platform(apple_common.platform.macos)), 2)
-        variables["tvos_sdk_version"] = _to_string_with_minimum_components(str(xcode_config.sdk_version_for_platform(apple_common.platform.tvos_simulator)), 2)
-        variables["visionos_sdk_version"] = _to_string_with_minimum_components(str(xcode_config.sdk_version_for_platform(apple_common.platform.visionos_simulator)), 2)
-        variables["watchos_sdk_version"] = _to_string_with_minimum_components(str(xcode_config.sdk_version_for_platform(apple_common.platform.watchos_simulator)), 2)
-        variables["sdk_dir"] = "__BAZEL_XCODE_SDKROOT__"
-        variables["sdk_framework_dir"] = _sdk_framework_dir(platform, xcode_config)
-        variables["platform_developer_framework_dir"] = _platform_developer_framework_dir(platform)
-        variables["xcode_version_override_value"] = apple_env.get("XCODE_VERSION_OVERRIDE", "")
-        variables["apple_sdk_version_override_value"] = apple_env.get("APPLE_SDK_VERSION_OVERRIDE", "")
-        variables["apple_sdk_platform_value"] = apple_env.get("APPLE_SDK_PLATFORM", "")
-        variables["version_min"] = str(xcode_config.minimum_os_for_platform_type(platform.platform_type))
-        return cc_internal.cc_toolchain_variables(vars = variables)
-
-    return apple_cc_toolchain_build_variables
+def _apple_cc_toolchain_build_variables(xcode_config, platform, cpu, cpp_config, sysroot):
+    variables = _get_common_vars(cpp_config, sysroot)
+    apple_env = _get_apple_env_build_variables(xcode_config, cpu)
+    variables["xcode_version"] = _to_string_with_minimum_components(str(xcode_config.xcode_version()), 2)
+    variables["ios_sdk_version"] = _to_string_with_minimum_components(str(xcode_config.sdk_version_for_platform(apple_common.platform.ios_simulator)), 2)
+    variables["macos_sdk_version"] = _to_string_with_minimum_components(str(xcode_config.sdk_version_for_platform(apple_common.platform.macos)), 2)
+    variables["tvos_sdk_version"] = _to_string_with_minimum_components(str(xcode_config.sdk_version_for_platform(apple_common.platform.tvos_simulator)), 2)
+    variables["visionos_sdk_version"] = _to_string_with_minimum_components(str(xcode_config.sdk_version_for_platform(apple_common.platform.visionos_simulator)), 2)
+    variables["watchos_sdk_version"] = _to_string_with_minimum_components(str(xcode_config.sdk_version_for_platform(apple_common.platform.watchos_simulator)), 2)
+    variables["sdk_dir"] = "__BAZEL_XCODE_SDKROOT__"
+    variables["sdk_framework_dir"] = _sdk_framework_dir(platform, xcode_config)
+    variables["platform_developer_framework_dir"] = _platform_developer_framework_dir(platform)
+    variables["xcode_version_override_value"] = apple_env.get("XCODE_VERSION_OVERRIDE", "")
+    variables["apple_sdk_version_override_value"] = apple_env.get("APPLE_SDK_VERSION_OVERRIDE", "")
+    variables["apple_sdk_platform_value"] = apple_env.get("APPLE_SDK_PLATFORM", "")
+    variables["version_min"] = str(xcode_config.minimum_os_for_platform_type(platform.platform_type))
+    return cc_internal.cc_toolchain_variables(vars = variables)
 
 # TODO(bazel-team): Delete this function when MultiArchBinarySupport is starlarkified.
 def _j2objc_mapping_file_info_union(providers):

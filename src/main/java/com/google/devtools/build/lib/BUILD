@@ -229,13 +229,11 @@ java_library(
         "runtime/GcThrashingDetector.java",
         "runtime/MemoryPressureEvent.java",
         "runtime/MemoryPressureOptions.java",
-        "runtime/MemoryPressureStatCollector.java",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:memory_pressure_java_proto",
         "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:guava",
@@ -313,6 +311,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/actions:important_output_handler",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/actions:middleman_type",
         "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
@@ -385,6 +384,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:allocationtracker",
         "//src/main/java/com/google/devtools/build/lib/query2",
         "//src/main/java/com/google/devtools/build/lib/query2:aquery-utils",
+        "//src/main/java/com/google/devtools/build/lib/query2/common:cquery-node",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/build/lib/query2/query/output",
         "//src/main/java/com/google/devtools/build/lib/runtime/events",
@@ -525,6 +525,11 @@ genrule(
     srcs = [
         ":docs_embedded_in_sources",
         "//src/main/java/com/google/devtools/build/docgen:bazel_link_map",
+        "//src/main/starlark/docgen:gen_be_proto_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_java_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_cpp_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_objc_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_python_stardoc_proto",
     ],
     outs = ["build-encyclopedia.zip"],
     cmd = (
@@ -534,6 +539,11 @@ genrule(
         " --provider=com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider" +
         " --input_root=$$PWD" +
         " --input_dir=$$PWD/src/main/java/com/google/devtools/build/lib" +
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_proto_stardoc_proto)" +
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_java_stardoc_proto)" +
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_cpp_stardoc_proto)" +
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_objc_stardoc_proto)" +
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_python_stardoc_proto)" +
         " --output_dir=$(@D)/be" +
         " --create_toc=true &&" +
         "zip -qj $@ $(@D)/be/*"
@@ -615,6 +625,11 @@ genrule(
     name = "gen_api_proto",
     srcs = [
         "//src/main/java/com/google/devtools/build/docgen:bazel_link_map",
+        "//src/main/starlark/docgen:gen_be_proto_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_java_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_cpp_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_objc_stardoc_proto",
+        "//src/main/starlark/docgen:gen_be_python_stardoc_proto",
     ],
     outs = ["builtin.pb"],
     cmd = (
@@ -623,7 +638,12 @@ genrule(
         " --link_map_path=$(location //src/main/java/com/google/devtools/build/docgen:bazel_link_map) " +
         " --provider=com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider" +
         " --input_root=$$PWD" +
-        " --input_dir=$$PWD/src/main/java/com/google/devtools/build/lib"
+        " --input_dir=$$PWD/src/main/java/com/google/devtools/build/lib" +
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_proto_stardoc_proto)" +
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_java_stardoc_proto)" +
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_cpp_stardoc_proto)" +
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_objc_stardoc_proto)" +
+        " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_python_stardoc_proto)"
     ),
     tools = [
         "//src/main/java/com/google/devtools/build/docgen:api_exporter",

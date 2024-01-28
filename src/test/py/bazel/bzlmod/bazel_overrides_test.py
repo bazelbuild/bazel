@@ -41,7 +41,7 @@ class BazelOverridesTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'build --enable_bzlmod',
+            'build --noenable_workspace',
             'build --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
@@ -53,10 +53,6 @@ class BazelOverridesTest(test_base.TestBase):
             'build --lockfile_mode=update',
         ],
     )
-    self.ScratchFile('WORKSPACE')
-    # The existence of WORKSPACE.bzlmod prevents WORKSPACE prefixes or suffixes
-    # from being used; this allows us to test built-in modules actually work
-    self.ScratchFile('WORKSPACE.bzlmod')
 
   def writeMainProjectFiles(self):
     self.ScratchFile(
@@ -237,7 +233,6 @@ class BazelOverridesTest(test_base.TestBase):
         ],
     )
     self.ScratchFile('BUILD')
-    self.ScratchFile('WORKSPACE')
 
     self.ScratchFile(
         'aa/MODULE.bazel',
@@ -251,7 +246,6 @@ class BazelOverridesTest(test_base.TestBase):
             'filegroup(name = "never_ever")',
         ],
     )
-    self.ScratchFile('aa/WORKSPACE')
 
     self.ScratchFile(
         'bb/MODULE.bazel',
@@ -265,7 +259,6 @@ class BazelOverridesTest(test_base.TestBase):
             'filegroup(name = "choose_me")',
         ],
     )
-    self.ScratchFile('bb/WORKSPACE')
 
     _, _, stderr = self.RunBazel(
         ['build', '@ss//:all', '--override_module', 'ss=' + self.Path('bb')]
@@ -276,7 +269,6 @@ class BazelOverridesTest(test_base.TestBase):
     )
 
   def testCmdRelativeModuleOverride(self):
-    self.ScratchFile('aa/WORKSPACE')
     self.ScratchFile(
         'aa/MODULE.bazel',
         [
@@ -287,7 +279,6 @@ class BazelOverridesTest(test_base.TestBase):
 
     self.ScratchFile('aa/cc/BUILD')
 
-    self.ScratchFile('bb/WORKSPACE')
     self.ScratchFile(
         'bb/MODULE.bazel',
         [
@@ -316,7 +307,6 @@ class BazelOverridesTest(test_base.TestBase):
     )
 
   def testCmdWorkspaceRelativeModuleOverride(self):
-    self.ScratchFile('WORKSPACE')
     self.ScratchFile(
         'MODULE.bazel',
         [
@@ -325,7 +315,6 @@ class BazelOverridesTest(test_base.TestBase):
     )
     self.ScratchFile('BUILD')
     self.ScratchFile('aa/BUILD')
-    self.ScratchFile('bb/WORKSPACE')
     self.ScratchFile(
         'bb/MODULE.bazel',
         [

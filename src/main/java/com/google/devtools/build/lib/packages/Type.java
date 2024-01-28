@@ -606,8 +606,23 @@ public abstract class Type<T> {
     @Override
     public Object copyAndLiftStarlarkValue(
         Object x, Object what, @Nullable LabelConverter labelConverter) throws ConversionException {
-      return Dict.immutableCopyOf(convert(x, what, labelConverter));
+      if (!(x instanceof Map)) {
+        throw new ConversionException(this, x, what);
+      }
+      Map<?, ?> o = (Map<?, ?>) x;
+      // It's possible that #convert() calls transform non-equal keys into equal ones so we can't
+      // just use ImmutableMap.Builder() here (that throws on collisions).
+      LinkedHashMap<Object, Object> result = new LinkedHashMap<>();
+      for (Map.Entry<?, ?> elem : o.entrySet()) {
+        result.put(
+            keyType.copyAndLiftStarlarkValue(elem.getKey(), "dict key element", labelConverter),
+            valueType.copyAndLiftStarlarkValue(
+                elem.getValue(), "dict value element", labelConverter));
+      }
+      return Dict.immutableCopyOf(result);
     }
+
+
 
     @Override
     public Map<KeyT, ValueT> concat(Iterable<Map<KeyT, ValueT>> iterable) {

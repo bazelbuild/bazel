@@ -23,10 +23,16 @@ java_library(
         ":autocodec-annotation",
         # Generated classes have the following dependencies.
         ":registered-singleton",
+        ":runtime-helpers",
         "//third_party/protobuf:protobuf_java",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
     ],
+)
+
+java_library(
+    name = "runtime-helpers",
+    srcs = ["RuntimeHelpers.java"],
 )
 
 java_library(
@@ -118,6 +124,7 @@ java_library(
     ],
     deps = [
         ":autocodec-annotation",
+        ":runtime-helpers",
         ":serialization-processing-exception",
         ":type-operations",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",

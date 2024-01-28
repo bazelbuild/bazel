@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe.config;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -34,9 +35,14 @@ public final class BuildConfigurationKey implements SkyKey {
    *
    * @param options the {@link BuildOptions} object the {@link BuildOptions} should be rebuilt from
    */
-  @AutoCodec.Instantiator
   public static BuildConfigurationKey create(BuildOptions options) {
     return interner.intern(new BuildConfigurationKey(options));
+  }
+
+  @VisibleForSerialization
+  @AutoCodec.Interner
+  static BuildConfigurationKey intern(BuildConfigurationKey buildConfigurationKey) {
+    return interner.intern(buildConfigurationKey);
   }
 
   private final BuildOptions options;

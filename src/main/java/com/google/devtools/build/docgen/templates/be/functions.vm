@@ -39,6 +39,10 @@ package(default_deprecation, default_package_metadata, default_testonly, default
 <p>This function declares metadata that applies to every rule in the
 package. It is used at most once within a package (BUILD file).</p>
 
+<p>For the counterpart that declares metadata applying to every rule in the whole
+<em>repository</em>, use the <code>repo()</code> function in the
+<a href="/external/overview#repo.bazel"><code>REPO.bazel</code> file</a> at the root of your repo.
+The <code>repo()</code> function takes exactly the same arguments as <code>package()</code>.</p>
 <p>The package() function should be called right after all the load() statements at the top of the
 file, before any rule.</p>
 
@@ -406,14 +410,20 @@ in this package (unless <code>foo/</code> is a subpackage)</li>
 <li><code>foo/*.txt</code> matches every file in the <code>foo/</code> directory
 if the file ends with <code>.txt</code> (unless <code>foo/</code> is a
 subpackage)</li>
-<li><code>foo/*</code> matches every file in the <code>foo/</code> directory,
-(unless <code>foo/</code> is a subpackage). It does not match <code>foo</code>
-directory itself.</li>
 <li><code>foo/a*.htm*</code> matches every file in the <code>foo/</code>
 directory that starts with <code>a</code>, then has an arbitrary string (could
 be empty), then has <code>.htm</code>, and ends with another arbitrary string
-(unless <code>foo/</code> is a subpackage) ; such as <code>foo/axx.htm</code>
+(unless <code>foo/</code> is a subpackage); such as <code>foo/axx.htm</code>
 and <code>foo/a.html</code> or <code>foo/axxx.html</code></li>
+<li><code>foo/*</code> matches every file in the <code>foo/</code> directory,
+(unless <code>foo/</code> is a subpackage); it does not match <code>foo</code>
+directory itself even if <code>exclude_directories</code> is set to
+</code>0</code></li>
+<li><code>foo/**</code> matches every file in every non-subpackage subdirectory
+under package's first level subdirectory <code>foo/</code>; if
+<code>exclude_directories</code> is set to </code>0</code>, <code>foo</code>
+directory itself also matches the pattern; in this case, <code>**</code> is
+considered to match zero path segments</li>
 <li><code>**/a.txt</code> matches every <code>a.txt</code> file in every
 non-subpackage subdirectory of this package</li>
 <li><code>**/bar/**/*.txt</code> matches every <code>.txt</code> file in every
@@ -423,8 +433,6 @@ resulting path is called <code>bar</code>, such as
 <code>**</code> also matches zero segments) or <code>bar/zzz/a.txt</code></li>
 <li><code>**</code> matches every file in every non-subpackage subdirectory of
 this package</li>
-<li><code>foo/**</code> matches every file in every non-subpackage subdirectory
-under package's first level subdirectory <code>foo/</code></li>
 <li><code>foo**/a.txt</code> is an invalid pattern, because <code>**</code> must
 stand on its own as a segment</li>
 <li><code>foo/</code> is an invalid pattern, because the second segment defined
@@ -679,7 +687,7 @@ sh_binary(
   configuration conditions to matching values. Each condition is a label
   reference to
   a <code><a href="general.html#config_setting">config_setting</a></code> or
-  <code><a href="platform.html#constraint_value">constraint_value</a></code>,
+  <code><a href="platforms-and-toolchains#constraint_value">constraint_value</a></code>,
   which "matches" if the target's configuration matches an expected set of
   values. The value of <code>mytarget#srcs</code> then becomes whichever
   label list matches the current invocation.
@@ -760,27 +768,30 @@ subs1 = subpackages(include = ["**"])
 subs2 = subpackages(include = ["bar/*"])
 # results in subs2 = ["bar/baz"]
 #
-# Since 'bar' is not a subpackage itself, bazel looks for any subpackages under
+# Since 'bar' is not a subpackage itself, this looks for any subpackages under
 # all first level subdirectories of 'bar'.
 
 subs3 = subpackages(include = ["bar/**"])
 # results in subs3 = ["bar/baz", "bar/but/bad"]
 #
-# Since bar is not a subpackage itself, bazel looks for any subpackages which
-# are (1) under all subdirectories of 'bar' which can be at any level, (2) not a
+# Since bar is not a subpackage itself, this looks for any subpackages which are
+# (1) under all subdirectories of 'bar' which can be at any level, (2) not a
 # subpackage of another subpackages.
 
 subs4 = subpackages(include = ["sub"])
 subs5 = subpackages(include = ["sub/*"])
 subs6 = subpackages(include = ["sub/**"])
-# results in subs4 = ["sub"]
-# results in both subs5 and subs6 being [].
+# results in subs4 and subs6 being ["sub"]
+# results in subs5 = [].
 #
 # In subs4, expression "sub" checks whether 'foo/sub' is a package (i.e. is a
 # subpackage of 'foo').
-# In subs5 and subs5, "sub/*" and "sub/**" try to look for subpackages under
-# directory 'foo/sub'. Since 'foo/sub' is already a subpackage itself, the
-# subdirectory will not be traversed anymore.
+# In subs5, "sub/*" looks for subpackages under directory 'foo/sub'. Since
+# 'foo/sub' is already a subpackage itself, the subdirectories will not be
+# traversed anymore.
+# In subs6, 'foo/sub' is a subpackage itself and matches pattern "sub/**", so it
+# is returned. But the subdirectories of 'foo/sub' will not be traversed
+# anymore.
 </pre>
 
     <p>

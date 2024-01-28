@@ -427,9 +427,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       builder.addOutputGroup(OutputGroupInfo.VALIDATION, oneVersionOutputArtifact);
     }
 
-    NestedSet<Artifact> extraFilesToRun =
-        NestedSetBuilder.create(Order.STABLE_ORDER, runfilesSupport.getRunfilesMiddleman());
-
     JavaInfo javaInfo =
         javaInfoBuilder
             .javaSourceJars(sourceJarsProvider)
@@ -446,7 +443,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
                 new Runfiles.Builder(ruleContext.getWorkspaceName())
                     .merge(runfilesSupport)
                     .build()))
-        .addFilesToRun(extraFilesToRun)
         .setRunfilesSupport(runfilesSupport, executable)
         .addProvider(
             JavaRuntimeClasspathProvider.class,

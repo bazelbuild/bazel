@@ -138,8 +138,7 @@ def my_macro(name, visibility=None):
 
 If you need to know the package name (for example, which `BUILD` file is calling the
 macro), use the function [native.package_name()](/rules/lib/toplevel/native#package_name).
-Note that `native` can only be used in `.bzl` files, and not in `WORKSPACE` or
-`BUILD` files.
+Note that `native` can only be used in `.bzl` files, and not in `BUILD` files.
 
 ## Label resolution in macros {:#label-resolution}
 
@@ -164,7 +163,7 @@ def my_cc_wrapper(name, deps = [], **kwargs):
       Label("//config:needs_foo"): [
         # Due to the use of Label, this label will resolve to the correct target
         # even if the canonical name of @dep_of_my_ruleset should be different
-        # in the main workspace, such as due to repo mappings.
+        # in the main repo, such as due to repo mappings.
         Label("@dep_of_my_ruleset//tools:foo"),
       ],
       "//conditions:default": [],

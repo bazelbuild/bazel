@@ -486,9 +486,10 @@ def check_native_allowed(ctx):
         # package_group doesn't allow @repo syntax, so we work around that
         # by prefixing external repos with a fake package path. This also
         # makes it easy to enable or disable all external repos.
-        check_label = Label("@//__EXTERNAL_REPOS__/{workspace}/{package}".format(
+        check_label = Label("@//__EXTERNAL_REPOS__/{workspace}{package}".format(
             workspace = ctx.label.workspace_name,
-            package = ctx.label.package,
+            # Prevent a label with trailing slash, which is malformed.
+            package = "/" + ctx.label.package if ctx.label.package else "",
         ))
     allowlist = ctx.attr._native_rules_allowlist
     if allowlist:

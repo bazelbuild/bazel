@@ -151,4 +151,15 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "No-op. Kept here for backwards compatibility.")
   public boolean incompatibleDisableNativeAppleBinaryRule;
+
+  @Option(
+      name = "incompatible_strip_executable_safely",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, strip action for executables will use flag -x, which does not break dynamic "
+              + "symbol resolution.")
+  public boolean incompatibleStripExecutableSafely;
 }

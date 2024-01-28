@@ -64,7 +64,11 @@ public class BazelBuildEventServiceModule
       return new AutoValue_BazelBuildEventServiceModule_BackendConfig(
           besOptions.besBackend,
           besOptions.besProxy,
-          ImmutableMap.copyOf(besOptions.besHeaders).entrySet().asList(),
+          ImmutableMap.<String, String>builder()
+              .putAll(besOptions.besHeaders)
+              .buildKeepingLast()
+              .entrySet()
+              .asList(),
           authAndTLSOptions);
     }
   }

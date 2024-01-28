@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.util;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.DigestFunction;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashCode;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
@@ -30,6 +32,7 @@ import com.google.protobuf.Message;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Arrays;
 
 /** Utility methods to work with {@link Digest}. */
 public class DigestUtil {
@@ -43,12 +46,13 @@ public class DigestUtil {
     this.digestFunction = getDigestFunctionFromHashFunction(hashFn);
   }
 
+  private static final ImmutableSet<String> DIGEST_FUNCTION_NAMES =
+      Arrays.stream(DigestFunction.Value.values()).map(Enum::name).collect(toImmutableSet());
+
   private static DigestFunction.Value getDigestFunctionFromHashFunction(DigestHashFunction hashFn) {
     for (String name : hashFn.getNames()) {
-      try {
+      if (DIGEST_FUNCTION_NAMES.contains(name)) {
         return DigestFunction.Value.valueOf(name);
-      } catch (IllegalArgumentException e) {
-        // continue.
       }
     }
     return DigestFunction.Value.UNKNOWN;

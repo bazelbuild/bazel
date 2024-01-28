@@ -28,18 +28,7 @@ import java.io.IOException;
 //
 // Once all codecs are migrated, this should replace the existing DeserializationContext as the
 // interface to codecs.
-public interface AsyncDeserializationContext extends SerializationDependencyProvider {
-
-  /** Defines a way to set a field in a given object. */
-  interface FieldSetter {
-    /**
-     * Sets a field of {@code obj}.
-     *
-     * @param target the object that accepts the field value.
-     * @param fieldValue the non-null field value.
-     */
-    void set(Object target, Object fieldValue) throws SerializationException;
-  }
+public interface AsyncDeserializationContext extends FlatDeserializationContext {
 
   /**
    * Registers an initial value for the currently deserializing value, for use by child objects that
@@ -57,7 +46,7 @@ public interface AsyncDeserializationContext extends SerializationDependencyProv
    *
    * <p>No value is written when the resulting value is null.
    */
-  void deserialize(CodedInputStream codedIn, Object obj, FieldSetter setter)
+  <T> void deserialize(CodedInputStream codedIn, T obj, FieldSetter<? super T> setter)
       throws IOException, SerializationException;
 
   /**
@@ -69,5 +58,16 @@ public interface AsyncDeserializationContext extends SerializationDependencyProv
    * not at all if its value was null.
    */
   void deserialize(CodedInputStream codedIn, Object obj, long offset)
+      throws IOException, SerializationException;
+
+  /**
+   * Similar to the {@code offset} based {@link #deserialize} above, but includes a {@code done}
+   * callback.
+   *
+   * <p>The {@code done} callback is called once the assignment is complete, which is useful for
+   * container codecs that perform reference counting. The {@code done} callback is always called,
+   * even if the deserialized value is null.
+   */
+  void deserialize(CodedInputStream codedIn, Object obj, long offset, Runnable done)
       throws IOException, SerializationException;
 }

@@ -293,35 +293,54 @@ public class ExecutionOptions extends OptionsBase {
 
   @Option(
       name = "local_cpu_resources",
-      defaultValue = "HOST_CPUS",
+      defaultValue = ResourceConverter.HOST_CPUS_KEYWORD,
+      deprecationWarning =
+          "--local_cpu_resources is deprecated, please use --local_resources=cpu= instead.",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
           "Explicitly set the total number of local CPU cores available to Bazel to spend on build"
-              + " actions executed locally. Takes an integer, or \"HOST_CPUS\", optionally followed"
-              + " by [-|*]<float> (eg. HOST_CPUS*.5 to use half the available CPU cores).By"
-              + " default, (\"HOST_CPUS\"), Bazel will query system configuration to estimate"
-              + " the number of CPU cores available.",
+              + " actions executed locally. Takes an integer, or \""
+              + ResourceConverter.HOST_CPUS_KEYWORD
+              + "\", optionally followed"
+              + " by [-|*]<float> (eg. "
+              + ResourceConverter.HOST_CPUS_KEYWORD
+              + "*.5"
+              + " to use half the available CPU cores). By default, (\""
+              + ResourceConverter.HOST_CPUS_KEYWORD
+              + "\"), Bazel will query system"
+              + " configuration to estimate the number of CPU cores available.",
       converter = CpuResourceConverter.class)
   public double localCpuResources;
 
   @Option(
       name = "local_ram_resources",
-      defaultValue = "HOST_RAM*.67",
+      defaultValue = ResourceConverter.HOST_RAM_KEYWORD + "*.67",
+      deprecationWarning =
+          "--local_ram_resources is deprecated, please use --local_resources=memory= instead.",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
           "Explicitly set the total amount of local host RAM (in MB) available to Bazel to spend on"
-              + " build actions executed locally. Takes an integer, or \"HOST_RAM\", optionally"
-              + " followed by [-|*]<float> (eg. HOST_RAM*.5 to use half the available RAM). By"
-              + " default, (\"HOST_RAM*.67\"), Bazel will query system configuration to estimate"
-              + " the amount of RAM available and will use 67% of it.",
+              + " build actions executed locally. Takes an integer, or \""
+              + ResourceConverter.HOST_RAM_KEYWORD
+              + "\", optionally followed by [-|*]<float>"
+              + " (eg. "
+              + ResourceConverter.HOST_RAM_KEYWORD
+              + "*.5 to use half the available"
+              + " RAM). By default, (\""
+              + ResourceConverter.HOST_RAM_KEYWORD
+              + "*.67\"),"
+              + " Bazel will query system configuration to estimate the amount of RAM available"
+              + " and will use 67% of it.",
       converter = RamResourceConverter.class)
   public double localRamResources;
 
   @Option(
       name = "local_extra_resources",
       defaultValue = "null",
+      deprecationWarning =
+          "--local_extra_resources is deprecated, please use --local_resources instead.",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       allowMultiple = true,
@@ -335,6 +354,31 @@ public class ExecutionOptions extends OptionsBase {
               + "Available CPU, RAM and resources cannot be set with this flag.",
       converter = Converters.StringToDoubleAssignmentConverter.class)
   public List<Map.Entry<String, Double>> localExtraResources;
+
+  @Option(
+      name = "local_resources",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      allowMultiple = true,
+      help =
+          "Set the number of resources available to Bazel. "
+              + "Takes in an assignment to a float or "
+              + ResourceConverter.HOST_RAM_KEYWORD
+              + "/"
+              + ResourceConverter.HOST_CPUS_KEYWORD
+              + ", optionally "
+              + "followed by [-|*]<float> (eg. memory="
+              + ResourceConverter.HOST_RAM_KEYWORD
+              + "*.5 to use half the available RAM). "
+              + "Can be used multiple times to specify multiple "
+              + "types of resources. Bazel will limit concurrently running actions "
+              + "based on the available resources and the resources required. "
+              + "Tests can declare the amount of resources they need "
+              + "by using a tag of the \"resources:<resource name>:<amount>\" format. "
+              + "Overrides resources specified by --local_{cpu|ram|extra}_resources.",
+      converter = ResourceConverter.AssignmentConverter.class)
+  public List<Map.Entry<String, Double>> localResources;
 
   @Option(
       name = "local_test_jobs",
@@ -397,8 +441,8 @@ public class ExecutionOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
       help =
-          "Log the executed spawns into this file as delimited Spawn protos, according to"
-              + " src/main/protobuf/spawn.proto. Related flags:"
+          "Log the executed spawns into this file as length-delimited SpawnExec protos, according"
+              + " to src/main/protobuf/spawn.proto. Related flags:"
               + " --execution_log_json_file (text JSON format; mutually exclusive),"
               + " --execution_log_sort (whether to sort the execution log),"
               + " --subcommands (for displaying subcommands in terminal output).")
@@ -412,12 +456,29 @@ public class ExecutionOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
       help =
-          "Log the executed spawns into this file as a JSON representation of the delimited Spawn"
-              + " protos, according to src/main/protobuf/spawn.proto. Related flags:"
+          "Log the executed spawns into this file as newline-delimited JSON representations of"
+              + " SpawnExec protos, according to src/main/protobuf/spawn.proto. Related flags:"
               + " --execution_log_binary_file (binary protobuf format; mutually exclusive),"
               + " --execution_log_sort (whether to sort the execution log),"
               + " --subcommands (for displaying subcommands in terminal output).")
   public PathFragment executionLogJsonFile;
+
+  @Option(
+      name = "experimental_execution_log_compact_file",
+      defaultValue = "null",
+      category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
+      help =
+          "Log the executed spawns into this file as length-delimited ExecLogEntry protos,"
+              + " according to src/main/protobuf/spawn.proto. The entire file is zstd compressed."
+              + " This is an experimental format under active development, and may change at any"
+              + " time. Related flags:"
+              + " --execution_log_binary_file (binary protobuf format; mutually exclusive),"
+              + " --execution_log_json_file (text JSON format; mutually exclusive),"
+              + " --subcommands (for displaying subcommands in terminal output).")
+  public PathFragment executionLogCompactFile;
 
   @Option(
       name = "execution_log_sort",
@@ -428,7 +489,8 @@ public class ExecutionOptions extends OptionsBase {
           "Whether to sort the execution log, making it easier to compare logs across invocations."
               + " Set to false to avoid potentially significant CPU and memory usage at the end of"
               + " the invocation, at the cost of producing the log in nondeterministic execution"
-              + " order.")
+              + " order. Only applies to the binary and JSON formats; the compact format is never"
+              + " sorted.")
   public boolean executionLogSort;
 
   @Option(
@@ -567,9 +629,9 @@ public class ExecutionOptions extends OptionsBase {
   }
 
   /** Converter for --local_test_jobs, which takes {@value FLAG_SYNTAX} */
-  public static class LocalTestJobsConverter extends ResourceConverter {
+  public static class LocalTestJobsConverter extends ResourceConverter.IntegerConverter {
     public LocalTestJobsConverter() throws OptionsParsingException {
-      super(/* autoSupplier= */ () -> 0, /* minValue= */ 0, /* maxValue= */ Integer.MAX_VALUE);
+      super(/* auto= */ () -> 0, /* minValue= */ 0, /* maxValue= */ Integer.MAX_VALUE);
     }
   }
 

@@ -21,10 +21,12 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Tables;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
@@ -1034,7 +1036,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
     scratch.file("/y/WORKSPACE");
     scratch.file("/y/BUILD");
-    scratch.file("/y/y.bzl", "y_symbol = 5");
+    scratch.file("/y/y.bzl", "l = Label('@z//:z')", "y_symbol = 5");
 
     scratch.file("/a/WORKSPACE");
     scratch.file("/a/BUILD");
@@ -1050,8 +1052,13 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
 
-    assertThat(result.get(skyKey).getModule().getGlobals())
-        .containsEntry("a_symbol", StarlarkInt.of(5));
+    var bzlLoadValue = result.get(skyKey);
+    assertThat(bzlLoadValue.getModule().getGlobals()).containsEntry("a_symbol", StarlarkInt.of(5));
+    assertThat(bzlLoadValue.getRecordedRepoMappings().cellSet())
+        .containsExactly(
+            Tables.immutableCell(RepositoryName.create("a"), "x", RepositoryName.create("y")),
+            Tables.immutableCell(RepositoryName.create("y"), "z", RepositoryName.create("z")))
+        .inOrder();
   }
 
   @Test
@@ -1071,6 +1078,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         fooDir.getRelative("test.bzl").getPathString(),
         // Also test that bzlmod .bzl files can load .scl files.
         "load('@bar_alias//:test.scl', 'haha')",
+        "l = Label('@foo//:whatever')",
         "hoho = haha");
     Path barDir = moduleRoot.getRelative("bar~2.0");
     scratch.file(barDir.getRelative("WORKSPACE").getPathString());
@@ -1083,8 +1091,15 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
             getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
 
     assertThatEvaluationResult(result).hasNoError();
-    assertThat(result.get(skyKey).getModule().getGlobals())
-        .containsEntry("hoho", StarlarkInt.of(5));
+    var bzlLoadValue = result.get(skyKey);
+    assertThat(bzlLoadValue.getModule().getGlobals()).containsEntry("hoho", StarlarkInt.of(5));
+    assertThat(bzlLoadValue.getRecordedRepoMappings().cellSet())
+        .containsExactly(
+            Tables.immutableCell(
+                RepositoryName.create("foo~1.0"), "bar_alias", RepositoryName.create("bar~2.0")),
+            Tables.immutableCell(
+                RepositoryName.create("foo~1.0"), "foo", RepositoryName.create("foo~1.0")))
+        .inOrder();
     // Note that we're not testing the case of a non-registry override using @bazel_tools here, but
     // that is incredibly hard to set up in a unit test. So we should just rely on integration tests
     // for that.

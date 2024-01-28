@@ -141,8 +141,7 @@ public final class ObjcCommon implements StarlarkValue {
       ObjcCompilationContext.Builder objcCompilationContextBuilder =
           ObjcCompilationContext.builder();
 
-      ObjcProvider.Builder objcProvider =
-          new ObjcProvider.Builder(context.getAnalysisEnvironment().getStarlarkSemantics());
+      ObjcProvider.Builder objcProvider = new ObjcProvider.Builder();
 
       objcProvider
           .addTransitiveAndPropagate(objcProviders);

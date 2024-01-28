@@ -31,7 +31,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -121,7 +120,6 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -133,7 +131,6 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
-import java.util.stream.Collectors;
 
 /**
  * {@link AbstractBlazeQueryEnvironment} that introspects the Skyframe graph to find forward and
@@ -480,14 +477,19 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   private Map<SkyKey, Collection<Target>> targetifyValues(
-      Map<SkyKey, ? extends Iterable<SkyKey>> input) throws InterruptedException {
+      Map<SkyKey, ? extends Iterable<SkyKey>> input,
+      ImmutableSet.Builder<SkyKey> missingTargetCollector)
+      throws InterruptedException {
     return targetifyValues(
-        input, makePackageKeyToTargetKeyMap(ImmutableSet.copyOf(Iterables.concat(input.values()))));
+        input,
+        makePackageKeyToTargetKeyMap(ImmutableSet.copyOf(Iterables.concat(input.values()))),
+        missingTargetCollector);
   }
 
   private Map<SkyKey, Collection<Target>> targetifyValues(
       Map<SkyKey, ? extends Iterable<SkyKey>> input,
-      Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap)
+      Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap,
+      ImmutableSet.Builder<SkyKey> missingTargetCollector)
       throws InterruptedException {
     ImmutableMap.Builder<SkyKey, Collection<Target>> result = ImmutableMap.builder();
 
@@ -501,6 +503,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         Target target = allTargets.get(key);
         if (target != null) {
           targets.add(target);
+        } else {
+          missingTargetCollector.add(key);
         }
       }
       result.put(entry.getKey(), targets);
@@ -510,7 +514,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   private Map<SkyKey, Collection<Target>> getRawReverseDeps(
       Iterable<SkyKey> transitiveTraversalKeys) throws InterruptedException {
-    return targetifyValues(getReverseDepLabelsOfLabels(transitiveTraversalKeys));
+    return targetifyValues(
+        getReverseDepLabelsOfLabels(transitiveTraversalKeys), ImmutableSet.builder());
   }
 
   protected Map<SkyKey, Iterable<SkyKey>> getReverseDepLabelsOfLabels(
@@ -540,19 +545,30 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   @Override
-  public ThreadSafeMutableSet<Target> getFwdDeps(
+  public final ThreadSafeMutableSet<Target> getFwdDeps(
       Iterable<Target> targets, QueryExpressionContext<Target> context)
+      throws InterruptedException {
+    ImmutableSet.Builder<SkyKey> missingTargetsBuilder = ImmutableSet.builder();
+    ThreadSafeMutableSet<Target> result = getFwdDeps(targets, context, missingTargetsBuilder);
+
+    ImmutableSet<SkyKey> missingTargets = missingTargetsBuilder.build();
+    if (!missingTargets.isEmpty()) {
+      eventHandler.handle(Event.warn("Targets were missing from graph: " + missingTargets));
+    }
+    return result;
+  }
+
+  protected ThreadSafeMutableSet<Target> getFwdDeps(
+      Iterable<Target> targets,
+      QueryExpressionContext<Target> context,
+      ImmutableSet.Builder<SkyKey> missingTargetCollector)
       throws InterruptedException {
     Map<SkyKey, Target> targetsByKey = Maps.newHashMapWithExpectedSize(Iterables.size(targets));
     for (Target target : targets) {
       targetsByKey.put(TARGET_TO_SKY_KEY.apply(target), target);
     }
     Map<SkyKey, Collection<Target>> directDeps =
-        targetifyValues(getFwdDepLabels(targetsByKey.keySet()));
-    if (targetsByKey.keySet().size() != directDeps.keySet().size()) {
-      Iterable<SkyKey> missingTargets = Sets.difference(targetsByKey.keySet(), directDeps.keySet());
-      eventHandler.handle(Event.warn("Targets were missing from graph: " + missingTargets));
-    }
+        targetifyValues(getFwdDepLabels(targetsByKey.keySet()), missingTargetCollector);
     ThreadSafeMutableSet<Target> result = createThreadSafeMutableSet();
     for (Map.Entry<SkyKey, Collection<Target>> entry : directDeps.entrySet()) {
       result.addAll(filterFwdDeps(targetsByKey.get(entry.getKey()), entry.getValue()));
@@ -601,8 +617,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
               break;
             }
 
-            current = createThreadSafeMutableSet();
-            addTargetsOfDirectDepsAndReportErrorsIfAny(context, caller, current, toProcess);
+            ImmutableSet.Builder<SkyKey> missingTargetBuilder = ImmutableSet.builder();
+            current = getFwdDeps(toProcess, context, missingTargetBuilder);
+            reportUnsuccessfulOrMissingTargetsInternal(
+                current, missingTargetBuilder.build(), caller);
 
             if (current.isEmpty()) {
               // Exit when there are no more nodes to visit.
@@ -610,27 +628,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
             }
           }
         });
-  }
-
-  protected void addTargetsOfDirectDepsAndReportErrorsIfAny(
-      QueryExpressionContext<Target> context,
-      QueryExpression caller,
-      ThreadSafeMutableSet<Target> toAddTo,
-      ImmutableList<Target> toProcess)
-      throws InterruptedException, QueryException {
-    Map<SkyKey, Iterable<SkyKey>> keyToDepKeys =
-        getFwdDepLabels(toProcess.stream().map(Target::getLabel).collect(Collectors.toList()));
-    Map<SkyKey, Collection<Target>> targetDepMap = targetifyValues(keyToDepKeys);
-
-    Map<SkyKey, Target> targetMap = new HashMap<>();
-    Set<SkyKey> depLabels = ImmutableSet.copyOf(Iterables.concat(keyToDepKeys.values()));
-    for (Collection<Target> depTargets : targetDepMap.values()) {
-      for (Target depTarget : depTargets) {
-        targetMap.putIfAbsent(depTarget.getLabel(), depTarget);
-        toAddTo.add(depTarget);
-      }
-    }
-    reportUnsuccessfulOrMissingTargets(targetMap, depLabels, caller);
   }
 
   @Override
@@ -652,7 +649,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       Map<SkyKey, ? extends Iterable<SkyKey>> rawReverseDeps,
       Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap)
       throws InterruptedException {
-    return processRawReverseDeps(targetifyValues(rawReverseDeps, packageKeyToTargetKeyMap));
+    return processRawReverseDeps(
+        targetifyValues(rawReverseDeps, packageKeyToTargetKeyMap, ImmutableSet.builder()));
   }
 
   private Set<Target> processRawReverseDeps(Map<SkyKey, Collection<Target>> rawReverseDeps) {

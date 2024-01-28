@@ -160,12 +160,12 @@ workspace.
 </tr>
 <tr>
   <td><code>//...</code></td>
-  <td>All targets in packages in the workspace. This does not include targets
+  <td>All rule targets in packages in the main repository. Does not include targets
   from <a href="/docs/external">external repositories</a>.</td>
 </tr>
 <tr>
   <td><code>//:all</code></td>
-  <td>All targets in the top-level package, if there is a `BUILD` file at the
+  <td>All rule targets in the top-level package, if there is a `BUILD` file at the
   root of the workspace.</td>
 </tr>
 </table>
@@ -314,6 +314,13 @@ To fetch all external dependencies for a workspace, run:
 bazel fetch //...
 ```
 
+With Bazel 7 or later, if you have Bzlmod enabled, you can also fetch all
+external dependencies by running
+
+```posix-terminal
+bazel fetch --all
+```
+
 You do not need to run bazel fetch at all if you have all of the tools you are
 using (from library jars to the JDK itself) under your workspace root.
 However, if you're using anything outside of the workspace directory then Bazel
@@ -342,7 +349,9 @@ be determined, for example to manually clean up the cache. The cache is never
 cleaned up automatically, as it might contain a copy of a file that is no
 longer available upstream.
 
-#### Distribution files directories {:#distribution-directory}
+#### [Deprecated] Distribution files directories {:#distribution-directory}
+
+**Deprecated**: *Using repository cache is preferred to achieve offline build.*
 
 The distribution directory is another Bazel mechanism to avoid unnecessary
 downloads. Bazel searches distribution directories before the repository cache.
@@ -370,11 +379,62 @@ contain toolchains and rules that may not be necessary for everyone. For
 example, Android tools are unbundled and fetched only when building Android
 projects.
 
-However, these implicit dependencies may cause problems when running
-Bazel in an airgapped environment, even if you have vendored all of your
-WORKSPACE dependencies. To solve that, you can prepare a distribution directory
-containing these dependencies on a machine with network access, and then
-transfer them to the airgapped environment with an offline approach.
+However, these implicit dependencies may cause problems when running Bazel in an
+airgapped environment, even if you have vendored all of your external
+dependencies. To solve that, you can prepare a repository cache (with Bazel 7 or
+later) or distribution directory (with Bazel prior to 7) containing these
+dependencies on a machine with network access, and then transfer them to the
+airgapped environment with an offline approach.
+
+##### Repository cache (with Bazel 7 or later)
+
+To prepare the [repository cache](#repository-cache), use the
+[`--repository_cache`](/reference/command-line-reference#flag--repository_cache)
+flag. You will need to do this once for every new Bazel binary version, since
+the implicit dependencies can be different for every release.
+
+To fetch those dependencies outside of your airgapped environment, first create
+an empty workspace:
+
+```posix-terminal
+mkdir empty_workspace && cd empty_workspace
+
+touch MODULE.bazel
+
+touch WORKSPACE
+```
+
+To fetch built-in Bzlmod dependencies, run
+
+```posix-terminal
+bazel fetch --all --repository_cache="path/to/repository/cache"
+```
+
+If you still rely on the legacy WORKSPACE file, to fetch built-in WORKSPACE
+dependencies, run
+
+```posix-terminal
+bazel sync --repository_cache="path/to/repository/cache"
+```
+
+Finally, when you use Bazel in your airgapped environment, pass the same
+`--repository_cache` flag. For convenience, you can add it as an `.bazelrc`
+entry:
+
+```python
+common --repository_cache="path/to/repository/cache"
+```
+
+In addition, you may also need to clone the
+[BCR](https://github.com/bazelbuild/bazel-central-registry) locally and use
+`--registry` flag to point your local copy to prevent Bazel from accessing the
+BCR through internet. Add the following line to your `.bazelrc`:
+
+```python
+common --registry="path/to/local/bcr/registry"
+```
+
+##### Distribution directory (with Bazel prior to 7)
 
 To prepare the [distribution directory](#distribution-directory), use the
 [`--distdir`](/reference/command-line-reference#flag--distdir)

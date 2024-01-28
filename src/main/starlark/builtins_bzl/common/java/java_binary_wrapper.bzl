@@ -120,6 +120,7 @@ _DEPLOY_JAR_RULE_ATTRS = {key: None for key in [
     "testonly",
     "tags",
     "compatible_with",
+    "restricted_to",
     "target_compatible_with",
 ]}
 

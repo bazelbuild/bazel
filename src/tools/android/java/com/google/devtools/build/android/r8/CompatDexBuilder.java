@@ -22,7 +22,7 @@ import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.D8;
 import com.android.tools.r8.D8Command;
-import com.android.tools.r8.DexIndexedConsumer;
+import com.android.tools.r8.DexFilePerClassFileConsumer;
 import com.android.tools.r8.Diagnostic;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.SyntheticInfoConsumer;
@@ -111,14 +111,17 @@ public class CompatDexBuilder {
     }
   }
 
-  private static class DexConsumer implements DexIndexedConsumer {
+  private static class DexConsumer implements DexFilePerClassFileConsumer {
 
     final ContextConsumer contextConsumer = new ContextConsumer();
     byte[] bytes;
 
     @Override
     public synchronized void accept(
-        int fileIndex, ByteDataView data, Set<String> descriptors, DiagnosticsHandler handler) {
+        String primaryClassDescriptor,
+        ByteDataView data,
+        Set<String> descriptors,
+        DiagnosticsHandler handler) {
       verify(bytes == null, "Should not have been populated until now");
       bytes = data.copyByteData();
     }
@@ -212,7 +215,7 @@ public class CompatDexBuilder {
     List<String> flags = new ArrayList<>();
     String input = null;
     String output = null;
-    int minSdkVersionFlag = Constants.MIN_API_LEVEL;
+    String minSdkVersionFlag = Constants.MIN_API_LEVEL;
     int numberOfThreads = min(8, Runtime.getRuntime().availableProcessors());
     boolean noLocals = false;
 
@@ -256,7 +259,7 @@ public class CompatDexBuilder {
           noLocals = true;
           break;
         case "--min_sdk_version":
-          minSdkVersionFlag = Integer.parseInt(flags.get(++i));
+          minSdkVersionFlag = flags.get(++i);
           break;
         default:
           throw new OptionsParsingException("Unsupported option: " + flag);
@@ -292,7 +295,7 @@ public class CompatDexBuilder {
           }
         }
 
-        final int minSdkVersion = minSdkVersionFlag;
+        final int minSdkVersion = Integer.parseInt(minSdkVersionFlag);
         List<Future<DexConsumer>> futures = new ArrayList<>(toDex.size());
         for (ZipEntry classEntry : toDex) {
           futures.add(

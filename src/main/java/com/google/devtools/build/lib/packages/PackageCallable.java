@@ -39,7 +39,7 @@ public class PackageCallable {
       useStarlarkThread = true)
   public Object packageCallable(Map<String, Object> kwargs, StarlarkThread thread)
       throws EvalException {
-    Package.Builder pkgBuilder = PackageFactory.getContext(thread).pkgBuilder;
+    Package.Builder pkgBuilder = PackageFactory.getContext(thread);
     if (pkgBuilder.isPackageFunctionUsed()) {
       throw new EvalException("'package' can only be used once per BUILD file");
     }

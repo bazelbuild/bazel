@@ -25,7 +25,6 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -48,7 +47,6 @@ import com.google.devtools.build.lib.skyframe.FileFunction;
 import com.google.devtools.build.lib.skyframe.FileStateFunction;
 import com.google.devtools.build.lib.skyframe.LocalRepositoryLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
-import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -80,10 +78,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -158,20 +156,7 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
                 .build(ruleClassProvider, fileSystem),
             directories,
             /*bzlLoadFunctionForInlining=*/ null));
-    skyFunctions.put(
-        SkyFunctions.PACKAGE,
-        new PackageFunction(
-            null,
-            null,
-            null,
-            /* numPackagesSuccessfullyLoaded= */ new AtomicInteger(),
-            null,
-            /* packageProgress= */ null,
-            PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE,
-            /* shouldUseRepoDotBazel= */ true,
-            GlobbingStrategy.SKYFRAME_HYBRID,
-            k -> ThreadStateReceiver.NULL_INSTANCE,
-            new AtomicReference<>()));
+    skyFunctions.put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build());
     skyFunctions.put(
         SkyFunctions.EXTERNAL_PACKAGE,
         new ExternalPackageFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
@@ -326,7 +311,7 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
 
   private static Environment createMockEnvironment() throws InterruptedException {
     Environment env = mock(Environment.class);
-    when(env.getValue(PrecomputedValue.PATH_PACKAGE_LOCATOR.getKeyForTesting()))
+    when(env.getValue(PrecomputedValue.PATH_PACKAGE_LOCATOR.getKey()))
         .thenReturn(
             new PrecomputedValue(
                 new PathPackageLocator(
@@ -413,12 +398,14 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
       ImmutableList<TargetPattern> userRegisteredToolchains =
-          RegisteredToolchainsFunction.getWorkspaceToolchains(env, /* userRegistered= */ true);
+          RegisteredToolchainsFunction.getWorkspaceToolchains(
+              StarlarkSemantics.DEFAULT, env, /* userRegistered= */ true);
       if (userRegisteredToolchains == null) {
         return null;
       }
       ImmutableList<TargetPattern> workspaceSuffixRegisteredToolchains =
-          RegisteredToolchainsFunction.getWorkspaceToolchains(env, /* userRegistered= */ false);
+          RegisteredToolchainsFunction.getWorkspaceToolchains(
+              StarlarkSemantics.DEFAULT, env, /* userRegistered= */ false);
       if (workspaceSuffixRegisteredToolchains == null) {
         return null;
       }
@@ -451,7 +438,8 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
       List<TargetPattern> registeredExecutionPlatforms =
-          RegisteredExecutionPlatformsFunction.getWorkspaceExecutionPlatforms(env);
+          RegisteredExecutionPlatformsFunction.getWorkspaceExecutionPlatforms(
+              StarlarkSemantics.DEFAULT, env);
       if (registeredExecutionPlatforms == null) {
         return null;
       }

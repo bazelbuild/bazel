@@ -13,18 +13,29 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.exec.Protos.Digest;
+import com.google.devtools.build.lib.exec.Protos.EnvironmentVariable;
+import com.google.devtools.build.lib.exec.Protos.Platform;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -34,6 +45,7 @@ import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.protobuf.util.Durations;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Map;
 import java.util.SortedMap;
 import javax.annotation.Nullable;
 
@@ -63,6 +75,58 @@ public interface SpawnLogContext extends ActionContext {
 
   /** Finishes writing the log and performs any required post-processing. */
   void close() throws IOException;
+
+  /** Computes the environment variables. */
+  static ImmutableList<EnvironmentVariable> getEnvironmentVariables(Spawn spawn) {
+    ImmutableMap<String, String> environment = spawn.getEnvironment();
+    ImmutableList.Builder<EnvironmentVariable> builder =
+        ImmutableList.builderWithExpectedSize(environment.size());
+    for (Map.Entry<String, String> entry : ImmutableSortedMap.copyOf(environment).entrySet()) {
+      builder.add(
+          EnvironmentVariable.newBuilder()
+              .setName(entry.getKey())
+              .setValue(entry.getValue())
+              .build());
+    }
+    return builder.build();
+  }
+
+  /** Computes the execution platform. */
+  @Nullable
+  static Platform getPlatform(Spawn spawn, RemoteOptions remoteOptions) throws UserExecException {
+    var execPlatform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
+    if (execPlatform == null) {
+      return null;
+    }
+    Platform.Builder builder = Platform.newBuilder();
+    for (var p : execPlatform.getPropertiesList()) {
+      builder.addPropertiesBuilder().setName(p.getName()).setValue(p.getValue());
+    }
+    return builder.build();
+  }
+
+  /**
+   * Determines whether an action input is a directory, avoiding I/O if possible.
+   *
+   * <p>Do not call for action outputs.
+   */
+  static boolean isInputDirectory(ActionInput input, InputMetadataProvider inputMetadataProvider)
+      throws IOException {
+    if (input.isDirectory()) {
+      return true;
+    }
+    if (!(input instanceof SourceArtifact)) {
+      return false;
+    }
+    // A source artifact may be a directory in spite of claiming to be a file. Avoid unnecessary I/O
+    // by inspecting its metadata, which should have already been collected and cached.
+    FileArtifactValue metadata =
+        checkNotNull(
+            inputMetadataProvider.getInputMetadata(input),
+            "missing metadata for %s",
+            input.getExecPath());
+    return metadata.getType().isDirectory();
+  }
 
   /**
    * Computes the digest of an ActionInput or its path.

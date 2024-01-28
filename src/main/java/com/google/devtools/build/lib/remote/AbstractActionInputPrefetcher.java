@@ -359,8 +359,12 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
       return RxUtils.toTransferResult(result);
     } catch (IOException e) {
+      // TODO(b/320630578): Temporary logging which might help to catch the root cause.
+      logger.atWarning().withCause(e).log("Failed to prefetch file %s", input.getExecPathString());
       return Single.just(TransferResult.error(e));
     } catch (InterruptedException e) {
+      // TODO(b/320630578): Temporary logging which might help to catch the root cause.
+      logger.atWarning().withCause(e).log("Failed to prefetch file %s", input.getExecPathString());
       return Single.just(TransferResult.interrupted());
     }
   }

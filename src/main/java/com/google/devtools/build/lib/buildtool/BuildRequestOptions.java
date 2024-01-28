@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.buildtool;
 import com.github.benmanes.caffeine.cache.CaffeineSpec;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -69,7 +68,7 @@ public class BuildRequestOptions extends OptionsBase {
 
   @Option(
       name = "experimental_use_semaphore_for_jobs",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
       help = "If set to true, additionally use semaphore to limit number of concurrent jobs.")
@@ -347,16 +346,6 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean rewindLostInputs;
 
   @Option(
-      name = "track_lost_discovered_inputs",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help =
-          "Whether to track lost discovered inputs and proactively request them after rewinding."
-              + " This option is a rollout mechanism for removing this behavior, see b/315059768.")
-  public boolean trackLostDiscoveredInputs;
-
-  @Option(
       name = "incompatible_skip_genfiles_symlink",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -407,13 +396,9 @@ public class BuildRequestOptions extends OptionsBase {
   public int skymeldAnalysisOverlapPercentage;
 
   /** Converter for filesystem value checker threads. */
-  public static class ThreadConverter extends ResourceConverter {
+  public static class ThreadConverter extends ResourceConverter.IntegerConverter {
     public ThreadConverter() {
-      super(
-          /* autoSupplier= */ () ->
-              (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage()),
-          /* minValue= */ 1,
-          /* maxValue= */ Integer.MAX_VALUE);
+      super(/* auto= */ HOST_CPUS_SUPPLIER, /* minValue= */ 1, /* maxValue= */ Integer.MAX_VALUE);
     }
   }
 
@@ -456,27 +441,24 @@ public class BuildRequestOptions extends OptionsBase {
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and
    * MAX_JOBS.
    */
-  public static class JobsConverter extends ResourceConverter {
+  public static class JobsConverter extends ResourceConverter.IntegerConverter {
     public JobsConverter() {
-      super(
-          () -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage()),
-          1,
-          MAX_JOBS);
+      super(/* auto= */ HOST_CPUS_SUPPLIER, /* minValue= */ 1, /* maxValue= */ MAX_JOBS);
     }
 
     @Override
-    public int checkAndLimit(int value) throws OptionsParsingException {
-      if (value < minValue) {
+    public Integer checkAndLimit(Integer value) throws OptionsParsingException {
+      if (value.doubleValue() < minValue) {
         throw new OptionsParsingException(
             String.format("Value '(%d)' must be at least %d.", value, minValue));
       }
-      if (value > maxValue) {
+      if (value.doubleValue() > maxValue) {
         logger.atWarning().log(
             "Flag remoteWorker \"jobs\" ('%d') was set too high. "
                 + "This is a result of passing large values to --local_resources or --jobs. "
                 + "Using '%d' jobs",
             value, maxValue);
-        value = maxValue;
+        return maxValue;
       }
       return value;
     }

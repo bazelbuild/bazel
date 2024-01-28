@@ -187,7 +187,8 @@ public class OptionFilterDescriptions {
             "This option should not be used by a user, and should not be logged.")
         .put(
             OptionMetadataTag.INTERNAL, // Here for completeness, these options are UNDOCUMENTED.
-            "This option isn't even a option, and should not be logged.");
+            "This option isn't even a option, and should not be logged.")
+        .put(OptionMetadataTag.IMMUTABLE, "This option cannot be changed in a transition.");
     return effectTagDescriptionBuilder.build();
   }
 }

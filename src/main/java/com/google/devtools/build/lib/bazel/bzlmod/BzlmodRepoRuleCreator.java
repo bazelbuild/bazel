@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleFactory;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.Map;
@@ -66,7 +67,7 @@ public final class BzlmodRepoRuleCreator {
             RootedPath.toRootedPath(
                 Root.fromPath(directories.getWorkspace()),
                 LabelConstants.MODULE_DOT_BAZEL_FILE_NAME),
-            semantics,
+            semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
             basePackageId,
             repoMapping);
     BuildLangTypedAttributeValuesMap attributeValues =
@@ -76,17 +77,20 @@ public final class BzlmodRepoRuleCreator {
     Rule rule;
     try {
       rule =
-          RuleFactory.createAndAddRule(
-              packageBuilder, ruleClass, attributeValues, true, eventHandler, callStack);
+          RuleFactory.createAndAddRule(packageBuilder, ruleClass, attributeValues, true, callStack);
+      if (rule.containsErrors()) {
+        throw Starlark.errorf(
+            "failed to instantiate '%s' from this module extension", ruleClass.getName());
+      }
+      packageBuilder.build();
     } catch (NameConflictException e) {
       // This literally cannot happen -- we just created the package!
       throw new IllegalStateException(e);
+    } finally {
+      // Make sure we propagate any errors reported by the rule,
+      // from the builder to the event handler.
+      packageBuilder.getLocalEventHandler().replayOn(eventHandler);
     }
-    if (rule.containsErrors()) {
-      throw Starlark.errorf(
-          "failed to instantiate '%s' from this module extension", ruleClass.getName());
-    }
-    packageBuilder.build();
     return rule;
   }
 }

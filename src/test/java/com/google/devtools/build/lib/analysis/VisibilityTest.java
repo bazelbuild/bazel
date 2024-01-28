@@ -65,20 +65,8 @@ public class VisibilityTest extends AnalysisTestCase {
     setupArgsScenario();
     scratch.file("data/BUILD", "exports_files(['data.txt'], visibility=['//visibility:public'])");
     scratch.file("tool/BUILD", "exports_files(['tool.sh'], visibility=['//rule:__pkg__'])");
-    useConfiguration("--incompatible_visibility_private_attributes_at_definition");
     update("//use:world");
     assertThat(hasErrors(getConfiguredTarget("//use:world"))).isFalse();
-  }
-
-  @Test
-  public void testToolVisibilityRuleCheckAtUse() throws Exception {
-    setupArgsScenario();
-    scratch.file("data/BUILD", "exports_files(['data.txt'], visibility=['//visibility:public'])");
-    scratch.file("tool/BUILD", "exports_files(['tool.sh'], visibility=['//rule:__pkg__'])");
-    useConfiguration("--noincompatible_visibility_private_attributes_at_definition");
-
-    reporter.removeHandler(failFastHandler);
-    assertThrows(ViewCreationFailedException.class, () -> update("//use:world"));
   }
 
   @Test
@@ -86,7 +74,6 @@ public class VisibilityTest extends AnalysisTestCase {
     setupArgsScenario();
     scratch.file("data/BUILD", "exports_files(['data.txt'], visibility=['//visibility:public'])");
     scratch.file("tool/BUILD", "exports_files(['tool.sh'], visibility=['//use:__pkg__'])");
-    useConfiguration("--noincompatible_visibility_private_attributes_at_definition");
     update("//use:world");
     assertThat(hasErrors(getConfiguredTarget("//use:world"))).isFalse();
   }
@@ -96,7 +83,6 @@ public class VisibilityTest extends AnalysisTestCase {
     setupArgsScenario();
     scratch.file("data/BUILD", "exports_files(['data.txt'], visibility=['//visibility:public'])");
     scratch.file("tool/BUILD", "exports_files(['tool.sh'], visibility=['//use:__pkg__'])");
-    useConfiguration("--incompatible_visibility_private_attributes_at_definition");
 
     update("//use:world");
 
@@ -108,31 +94,19 @@ public class VisibilityTest extends AnalysisTestCase {
     setupArgsScenario();
     scratch.file("data/BUILD", "exports_files(['data.txt'], visibility=['//visibility:public'])");
     scratch.file("tool/BUILD", "exports_files(['tool.sh'], visibility=['//visibility:private'])");
-    useConfiguration("--noincompatible_visibility_private_attributes_at_definition");
 
     reporter.removeHandler(failFastHandler);
     assertThrows(ViewCreationFailedException.class, () -> update("//use:world"));
   }
 
   @Test
-  public void testToolVisibilityPrivateCheckAtRule() throws Exception {
+  public void testToolVisibilityPrivate() throws Exception {
     setupArgsScenario();
     scratch.file("data/BUILD", "exports_files(['data.txt'], visibility=['//visibility:public'])");
     scratch.file("tool/BUILD", "exports_files(['tool.sh'], visibility=['//visibility:private'])");
-    useConfiguration("--incompatible_visibility_private_attributes_at_definition");
 
     reporter.removeHandler(failFastHandler);
     assertThrows(ViewCreationFailedException.class, () -> update("//use:world"));
-  }
-
-  @Test
-  public void testDataVisibilityUseCheckPrivateAtUse() throws Exception {
-    setupArgsScenario();
-    scratch.file("data/BUILD", "exports_files(['data.txt'], visibility=['//use:__pkg__'])");
-    scratch.file("tool/BUILD", "exports_files(['tool.sh'], visibility=['//visibility:public'])");
-    useConfiguration("--noincompatible_visibility_private_attributes_at_definition");
-    update("//use:world");
-    assertThat(hasErrors(getConfiguredTarget("//use:world"))).isFalse();
   }
 
   @Test
@@ -140,28 +114,15 @@ public class VisibilityTest extends AnalysisTestCase {
     setupArgsScenario();
     scratch.file("data/BUILD", "exports_files(['data.txt'], visibility=['//use:__pkg__'])");
     scratch.file("tool/BUILD", "exports_files(['tool.sh'], visibility=['//visibility:public'])");
-    useConfiguration("--incompatible_visibility_private_attributes_at_definition");
     update("//use:world");
     assertThat(hasErrors(getConfiguredTarget("//use:world"))).isFalse();
   }
 
   @Test
-  public void testDataVisibilityPrivateCheckPrivateAtRule() throws Exception {
+  public void testDataVisibilityPrivate() throws Exception {
     setupArgsScenario();
     scratch.file("data/BUILD", "exports_files(['data.txt'], visibility=['//visibility:private'])");
     scratch.file("tool/BUILD", "exports_files(['tool.sh'], visibility=['//visibility:public'])");
-    useConfiguration("--incompatible_visibility_private_attributes_at_definition");
-
-    reporter.removeHandler(failFastHandler);
-    assertThrows(ViewCreationFailedException.class, () -> update("//use:world"));
-  }
-
-  @Test
-  public void testDataVisibilityPrivateCheckPrivateAtUse() throws Exception {
-    setupArgsScenario();
-    scratch.file("data/BUILD", "exports_files(['data.txt'], visibility=['//visibility:private'])");
-    scratch.file("tool/BUILD", "exports_files(['tool.sh'], visibility=['//visibility:public'])");
-    useConfiguration("--noincompatible_visibility_private_attributes_at_definition");
 
     reporter.removeHandler(failFastHandler);
     assertThrows(ViewCreationFailedException.class, () -> update("//use:world"));
@@ -197,7 +158,6 @@ public class VisibilityTest extends AnalysisTestCase {
         "    values = {'cpu': 'does_not_matter'},",
         "    visibility = ['//:__pkg__'],",
         ")");
-    useConfiguration("--incompatible_visibility_private_attributes_at_definition");
 
     update("//:my_target");
     assertThat(hasErrors(getConfiguredTarget("//:my_target"))).isFalse();
@@ -266,7 +226,6 @@ public class VisibilityTest extends AnalysisTestCase {
         "  srcs = ['a.sh'],",
         "  visibility = ['//rule:__pkg__'],",
         ")");
-    useConfiguration("--incompatible_visibility_private_attributes_at_definition");
 
     update("//foo:target_with_aspects");
 
@@ -337,7 +296,6 @@ public class VisibilityTest extends AnalysisTestCase {
         "  srcs = ['a.sh'],",
         "  visibility = ['//rule:__pkg__'],",
         ")");
-    useConfiguration("--incompatible_visibility_private_attributes_at_definition");
 
     update("//foo:target_with_aspects");
 
@@ -411,14 +369,14 @@ public class VisibilityTest extends AnalysisTestCase {
         "  srcs = ['a.sh'],",
         "  visibility = ['//rule:__pkg__'],",
         ")");
-    useConfiguration("--incompatible_visibility_private_attributes_at_definition");
     reporter.removeHandler(failFastHandler);
 
     assertThrows(ViewCreationFailedException.class, () -> update("//foo:target_with_aspects"));
     assertContainsEvent(
         "in //inner_aspect:lib.bzl%inner_aspect,//outer_aspect:lib.bzl%outer_aspect "
-            + "aspect on simple_starlark_rule rule //foo:simple_dep: target "
-            + "'//tool:outer_aspect_tool' is not visible from target '//outer_aspect:lib.bzl'");
+            + "aspect on simple_starlark_rule rule //foo:simple_dep: Visibility error:\n"
+            + "target '//tool:outer_aspect_tool' is not visible from\n"
+            + "target '//outer_aspect:lib.bzl'");
   }
 
   @Test
@@ -488,13 +446,13 @@ public class VisibilityTest extends AnalysisTestCase {
         "  srcs = ['a.sh'],",
         "  visibility = ['//rule:__pkg__'],",
         ")");
-    useConfiguration("--incompatible_visibility_private_attributes_at_definition");
     reporter.removeHandler(failFastHandler);
 
     assertThrows(ViewCreationFailedException.class, () -> update("//foo:target_with_aspects"));
     assertContainsEvent(
         "in //inner_aspect:lib.bzl%inner_aspect aspect on simple_starlark_rule "
-            + "rule //foo:simple_dep: target '//tool:inner_aspect_tool' is not visible from "
+            + "rule //foo:simple_dep: Visibility error:\n"
+            + "target '//tool:inner_aspect_tool' is not visible from\n"
             + "target '//inner_aspect:lib.bzl'");
   }
 
@@ -565,13 +523,13 @@ public class VisibilityTest extends AnalysisTestCase {
         "    '//inner_aspect:__pkg__',",
         "  ],",
         ")");
-    useConfiguration("--incompatible_visibility_private_attributes_at_definition");
     reporter.removeHandler(failFastHandler);
 
     assertThrows(ViewCreationFailedException.class, () -> update("//foo:target_with_aspects"));
     assertContainsEvent(
-        "in my_rule rule //foo:target_with_aspects: target '//tool:rule_tool' is "
-            + "not visible from target '//rule:lib.bzl'");
+        "in my_rule rule //foo:target_with_aspects: Visibility error:\n"
+            + "target '//tool:rule_tool' is not visible from\n"
+            + "target '//rule:lib.bzl'");
   }
 
   void setupFilesScenario(String wantRead) throws Exception {

@@ -14,7 +14,7 @@
 
 """cc_binary Starlark implementation replacing native"""
 
-load(":common/cc/cc_binary_attrs.bzl", "cc_binary_attrs")
+load(":common/cc/attrs.bzl", "cc_binary_attrs")
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper", "linker_mode")
 load(":common/cc/cc_info.bzl", "CcInfo")
@@ -30,7 +30,7 @@ _DYNAMIC_LIBRARY = "dynamic_library"
 
 _IOS_SIMULATOR_TARGET_CPUS = ["ios_x86_64", "ios_i386", "ios_sim_arm64"]
 _IOS_DEVICE_TARGET_CPUS = ["ios_armv6", "ios_arm64", "ios_armv7", "ios_armv7s", "ios_arm64e"]
-_VISIONOS_SIMULATOR_TARGET_CPUS = ["visionos_x86_64", "visionos_sim_arm64"]
+_VISIONOS_SIMULATOR_TARGET_CPUS = ["visionos_sim_arm64"]
 _VISIONOS_DEVICE_TARGET_CPUS = ["visionos_arm64"]
 _WATCHOS_SIMULATOR_TARGET_CPUS = ["watchos_i386", "watchos_x86_64", "watchos_arm64"]
 _WATCHOS_DEVICE_TARGET_CPUS = ["watchos_armv7k", "watchos_arm64_32"]
@@ -47,7 +47,7 @@ def _strip_extension(file):
 def _new_dwp_action(ctx, cc_toolchain, dwp_tools):
     return {
         "tools": dwp_tools,
-        "executable": cc_toolchain.tool_paths().get("dwp", None),
+        "executable": cc_toolchain._tool_paths.get("dwp", None),
         "arguments": ctx.actions.args(),
         "inputs": [],
         "outputs": [],
@@ -143,7 +143,7 @@ def _create_debug_packager_actions(ctx, cc_toolchain, dwp_output, dwo_files):
     # The actions form an n-ary tree with n == MAX_INPUTS_PER_DWP_ACTION. The tree is fuller
     # at the leaves than the root, but that both increases parallelism and reduces the final
     # action's input size.
-    packager = _create_intermediate_dwp_packagers(ctx, dwp_output, cc_toolchain, cc_toolchain.dwp_files(), dwo_files_list, 1)
+    packager = _create_intermediate_dwp_packagers(ctx, dwp_output, cc_toolchain, cc_toolchain._dwp_files, dwo_files_list, 1)
     packager["outputs"].append(dwp_output)
     packager["arguments"].add("-o", dwp_output)
     ctx.actions.run(
@@ -343,7 +343,6 @@ def _filter_libraries_that_are_linked_dynamically(ctx, feature_configuration, cc
     merged_cc_shared_library_infos = merge_cc_shared_library_infos(ctx)
     link_once_static_libs_map = build_link_once_static_libs_map(merged_cc_shared_library_infos)
     transitive_exports = build_exports_map_from_only_dynamic_deps(merged_cc_shared_library_infos)
-    static_linker_inputs = []
     linker_inputs = cc_linking_context.linker_inputs.to_list()
 
     all_deps = ctx.attr._deps_analyzed_by_graph_structure_aspect
@@ -415,12 +414,10 @@ def _create_transitive_linking_actions(
         ctx,
         cc_toolchain,
         feature_configuration,
-        cpp_config,
         precompiled_files,
         cc_compilation_outputs,
         additional_linker_inputs,
         cc_linking_outputs,
-        compilation_context,
         binary,
         deps_cc_linking_context,
         extra_link_time_libraries_depset,
@@ -536,10 +533,10 @@ def _collect_linking_context(ctx):
     cc_infos = _get_providers(ctx)
     return cc_common.merge_cc_infos(direct_cc_infos = cc_infos, cc_infos = cc_infos).linking_context
 
-def _get_link_staticness(ctx, cpp_config):
+def _get_link_staticness(ctx, cpp_config, force_linkstatic):
     if cpp_config.dynamic_mode() == "FULLY":
         return linker_mode.LINKING_DYNAMIC
-    elif cpp_config.dynamic_mode() == "OFF" or ctx.attr.linkstatic:
+    elif cpp_config.dynamic_mode() == "OFF" or ctx.attr.linkstatic or force_linkstatic:
         return linker_mode.LINKING_STATIC
     else:
         return linker_mode.LINKING_DYNAMIC
@@ -558,7 +555,7 @@ def _is_apple_platform(target_cpu):
         return True
     return False
 
-def cc_binary_impl(ctx, additional_linkopts):
+def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
     """Implementation function of cc_binary rule.
 
     Do NOT import outside cc_test.
@@ -566,12 +563,12 @@ def cc_binary_impl(ctx, additional_linkopts):
     Args:
       ctx: The Starlark rule context.
       additional_linkopts: Additional linkopts from an external source (e.g. toolchain)
+      force_linkstatic: If set, force this to be linked statically (i.e. --dynamic_mode=off)
 
     Returns:
       Appropriate providers for cc_binary/cc_test.
     """
     cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_binary", True)
-    common = cc_internal.create_common(ctx = ctx)
     semantics.validate_deps(ctx)
 
     if len(ctx.attr.dynamic_deps) > 0:
@@ -611,7 +608,7 @@ def cc_binary_impl(ctx, additional_linkopts):
             cc_toolchain = cc_toolchain,
             is_dynamic_link_type = is_dynamic_link_type,
         )
-    linking_mode = _get_link_staticness(ctx, cpp_config)
+    linking_mode = _get_link_staticness(ctx, cpp_config, force_linkstatic)
     features = ctx.features
     features.append(linking_mode)
     disabled_features = ctx.disabled_features
@@ -727,12 +724,10 @@ def cc_binary_impl(ctx, additional_linkopts):
         ctx,
         cc_toolchain,
         feature_configuration,
-        cpp_config,
         precompiled_files,
         cc_compilation_outputs,
         additional_linker_inputs,
         cc_linking_outputs,
-        compilation_context,
         binary,
         deps_cc_linking_context,
         linker_inputs_extra,
@@ -917,6 +912,26 @@ def _impl(ctx):
 cc_binary = rule(
     implementation = _impl,
     initializer = cc_shared_library_initializer,
+    doc = """
+<p>It produces an executable binary.</p>
+
+<br/>The <code>name</code> of the target should be the same as the name of the
+source file that is the main entry point of the application (minus the extension).
+For example, if your entry point is in <code>main.cc</code>, then your name should
+be <code>main</code>.
+
+<h4>Implicit output targets</h4>
+<ul>
+<li><code><var>name</var>.stripped</code> (only built if explicitly requested): A stripped
+  version of the binary. <code>strip -g</code> is run on the binary to remove debug
+  symbols.  Additional strip options can be provided on the command line using
+  <code>--stripopt=-foo</code>.</li>
+<li><code><var>name</var>.dwp</code> (only built if explicitly requested): If
+  <a href="https://gcc.gnu.org/wiki/DebugFission">Fission</a> is enabled: a debug
+  information package file suitable for debugging remotely deployed binaries. Else: an
+  empty file.</li>
+</ul>
+""" + semantics.cc_binary_extra_docs,
     attrs = cc_binary_attrs,
     outputs = {
         "stripped_binary": "%{name}.stripped",

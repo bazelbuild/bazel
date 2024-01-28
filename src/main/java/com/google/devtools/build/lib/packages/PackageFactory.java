@@ -22,16 +22,16 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
+import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -209,11 +209,16 @@ public final class PackageFactory {
     return ruleClassProvider;
   }
 
-  /** Get the PackageContext by looking up in the environment. */
-  public static PackageContext getContext(StarlarkThread thread) throws EvalException {
-    PackageContext value = thread.getThreadLocal(PackageContext.class);
+  /**
+   * Retrieves the {@link Package.Builder} from the given {@link StarlarkThread}, or throws {@link
+   * EvalException} if unavailable.
+   */
+  // TODO(#19922): The name is a holdover from when we had PackageContext. Migrate this to a static
+  // fromOrFail method on Package.Builder or a new parent interface of it.
+  public static Package.Builder getContext(StarlarkThread thread) throws EvalException {
+    Package.Builder value = Package.Builder.fromOrNull(thread);
     if (value == null) {
-      // if PackageContext is missing, we're not called from a BUILD file. This happens if someone
+      // if PackageBuilder is missing, we're not called from a BUILD file. This happens if someone
       // uses native.some_func() in the wrong place.
       throw Starlark.errorf(
           "The native module can be accessed only from a BUILD thread. "
@@ -223,16 +228,16 @@ public final class PackageFactory {
   }
 
   public Package.Builder newExternalPackageBuilder(
-      RootedPath workspacePath,
+      WorkspaceFileKey workspaceFileKey,
       String workspaceName,
       RepositoryMapping mainRepoMapping,
       StarlarkSemantics starlarkSemantics) {
     return Package.newExternalPackageBuilder(
         packageSettings,
-        workspacePath,
+        workspaceFileKey,
         workspaceName,
         mainRepoMapping,
-        starlarkSemantics,
+        starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
         packageOverheadEstimator);
   }
 
@@ -242,24 +247,30 @@ public final class PackageFactory {
   // TODO(adonovan): refactor Rule{Class,Factory}Test not to need this.
   public Package.Builder newPackageBuilder(
       PackageIdentifier packageId,
+      RootedPath filename,
       String workspaceName,
       Optional<String> associatedModuleName,
       Optional<String> associatedModuleVersion,
       StarlarkSemantics starlarkSemantics,
       RepositoryMapping repositoryMapping,
-      RepositoryMapping mainRepositoryMapping,
-      @Nullable Semaphore cpuBoundSemaphore) {
-    return new Package.Builder(
+      @Nullable Semaphore cpuBoundSemaphore,
+      @Nullable ImmutableMap<Location, String> generatorMap,
+      @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
+      @Nullable Globber globber) {
+    return Package.newPackageBuilder(
         packageSettings,
         packageId,
+        filename,
         workspaceName,
         associatedModuleName,
         associatedModuleVersion,
         starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
         repositoryMapping,
-        mainRepositoryMapping,
         cpuBoundSemaphore,
-        packageOverheadEstimator);
+        packageOverheadEstimator,
+        generatorMap,
+        configSettingVisibilityPolicy,
+        globber);
   }
 
   /** Returns a new {@link NonSkyframeGlobber}. */
@@ -280,53 +291,6 @@ public final class PackageFactory {
             executor,
             maxDirectoriesToEagerlyVisitInGlobbing,
             threadStateReceiverForMetrics));
-  }
-
-  /**
-   * This class holds state associated with the construction of a single package for the duration of
-   * execution of one BUILD file. (We use a PackageContext object in preference to storing these
-   * values in mutable fields of the PackageFactory.)
-   *
-   * <p>PLEASE NOTE: the PackageContext is referred to by the StarlarkThread, but should become
-   * unreachable once the StarlarkThread is discarded at the end of evaluation. Please be aware of
-   * your memory footprint when making changes here!
-   */
-  // TODO(adonovan): is there any reason not to merge this with Package.Builder?
-  public static class PackageContext {
-    final Package.Builder pkgBuilder;
-    final Globber globber;
-    final ExtendedEventHandler eventHandler;
-
-    @VisibleForTesting
-    public PackageContext(
-        Package.Builder pkgBuilder, Globber globber, ExtendedEventHandler eventHandler) {
-      this.pkgBuilder = pkgBuilder;
-      this.eventHandler = eventHandler;
-      this.globber = globber;
-    }
-
-    /** Returns the Label of this Package's BUILD file. */
-    public Label getLabel() {
-      return pkgBuilder.getBuildFileLabel();
-    }
-
-    /** Sets a Make variable. */
-    public void setMakeVariable(String name, String value) {
-      pkgBuilder.setMakeVariable(name, value);
-    }
-
-    /** Returns the builder of this Package. */
-    public Package.Builder getBuilder() {
-      return pkgBuilder;
-    }
-
-    /**
-     * Returns the event handler that should be used to report events happening while building this
-     * package.
-     */
-    public ExtendedEventHandler getEventHandler() {
-      return eventHandler;
-    }
   }
 
   /**
@@ -397,9 +361,10 @@ public final class PackageFactory {
       ImmutableList<String> subpackages,
       ImmutableMap<String, Object> predeclared,
       ImmutableMap<String, Module> loadedModules,
-      StarlarkSemantics starlarkSemantics,
-      Globber globber)
+      StarlarkSemantics starlarkSemantics)
       throws InterruptedException {
+    Globber globber = pkgBuilder.getGlobber();
+
     // Prefetch glob patterns asynchronously.
     if (maxDirectoriesToEagerlyVisitInGlobbing == -2) {
       try {
@@ -422,7 +387,7 @@ public final class PackageFactory {
         cpuSemaphore.acquire();
       }
       executeBuildFileImpl(
-          pkgBuilder, buildFileProgram, predeclared, loadedModules, starlarkSemantics, globber);
+          pkgBuilder, buildFileProgram, predeclared, loadedModules, starlarkSemantics);
     } catch (InterruptedException e) {
       globber.onInterrupt();
       throw e;
@@ -439,45 +404,32 @@ public final class PackageFactory {
       Program buildFileProgram,
       ImmutableMap<String, Object> predeclared,
       ImmutableMap<String, Module> loadedModules,
-      StarlarkSemantics semantics,
-      Globber globber)
+      StarlarkSemantics semantics)
       throws InterruptedException {
     pkgBuilder.setLoads(loadedModules.values());
-
-    StoredEventHandler eventHandler = new StoredEventHandler();
-    PackageContext pkgContext = new PackageContext(pkgBuilder, globber, eventHandler);
 
     try (Mutability mu = Mutability.create("package", pkgBuilder.getFilename())) {
       Module module = Module.withPredeclared(semantics, predeclared);
       StarlarkThread thread = new StarlarkThread(mu, semantics);
       thread.setLoader(loadedModules::get);
-      thread.setPrintHandler(Event.makeDebugPrintHandler(pkgContext.eventHandler));
-
-      new BazelStarlarkContext(
-              BazelStarlarkContext.Phase.LOADING,
-              new SymbolGenerator<>(pkgBuilder.getPackageIdentifier()))
-          .storeInThread(thread);
-
-      // TODO(adonovan): save this as a field in BazelStarlarkContext.
-      // It needn't be a second thread-local.
-      thread.setThreadLocal(PackageContext.class, pkgContext);
+      thread.setPrintHandler(Event.makeDebugPrintHandler(pkgBuilder.getLocalEventHandler()));
+      pkgBuilder.storeInThread(thread);
 
       // TODO(b/291752414): The rule definition environment shouldn't be needed at BUILD evaluation
       // time EXCEPT for analysis_test, which needs the tools repository for use in
       // StarlarkRuleClassFunctions#createRule. So we set it here as a thread-local to be retrieved
       // by StarlarkTestingModule#analysisTest.
-      // TODO(b/236456122): Though instead of being a separate thread-local, we should stick it and
-      // PackageContext on a new PackageThreadContext object.
       thread.setThreadLocal(RuleDefinitionEnvironment.class, ruleClassProvider);
 
       try {
         Starlark.execFileProgram(buildFileProgram, module, thread);
       } catch (EvalException ex) {
-        pkgContext.eventHandler.handle(
-            Package.error(null, ex.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
+        pkgBuilder
+            .getLocalEventHandler()
+            .handle(Package.error(null, ex.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
         pkgBuilder.setContainsErrors();
       } catch (InterruptedException ex) {
-        if (pkgContext.pkgBuilder.containsErrors()) {
+        if (pkgBuilder.containsErrors()) {
           // Suppress the interrupted exception: we have an error of our own to return.
           Thread.currentThread().interrupt();
           logger.atInfo().withCause(ex).log(
@@ -489,9 +441,6 @@ public final class PackageFactory {
       }
       pkgBuilder.setComputationSteps(thread.getExecutedSteps());
     }
-
-    pkgBuilder.addPosts(eventHandler.getPosts());
-    pkgBuilder.addEvents(eventHandler.getEvents());
   }
 
   /**

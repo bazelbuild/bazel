@@ -11,24 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.packages;
-
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkThread;
@@ -48,7 +39,16 @@ final class CallStack {
 
   private CallStack() {}
 
+  /**
+   * Returns the <em>full</em> call stack of the given rule, including both {@link Rule#getLocation}
+   * and {@link Rule#getInteriorCallStack}.
+   */
+  static Node getFullCallStack(Rule rule) {
+    return new Node(StarlarkThread.TOP_LEVEL, rule.getLocation(), rule.getInteriorCallStack());
+  }
+
   /** Compact representation of a call stack entry. */
+  @AutoCodec
   static final class Node {
     /** Function name. */
     private final String name;
@@ -58,6 +58,16 @@ final class CallStack {
     private final int line;
     private final int col;
     @Nullable private final Node next;
+
+    @AutoCodec.Instantiator
+    @VisibleForSerialization
+    static Node createForDeserialization(
+        String name, String file, int line, int col, @Nullable Node next) {
+      // Use common canonicalizer based on assertion that most strings (function names, locations)
+      // were already shared across packages to some degree.
+      return new Node(
+          StringCanonicalizer.intern(name), StringCanonicalizer.intern(file), line, col, next);
+    }
 
     private Node(String name, Location location, @Nullable Node next) {
       this(name, location.file(), location.line(), location.column(), next);
@@ -131,146 +141,5 @@ final class CallStack {
       node = nodeInterner.intern(new Node(entry.name, entry.location, node));
     }
     return node;
-  }
-
-  /**
-   * Efficient serializer for {@link Node}s. Before callstacks are serialized in a package {@link
-   * #prepareCallStack} method must be called on them (to prepare a table of strings).
-   */
-  static final class Serializer {
-    private static final int NULL_NODE_ID = 0;
-
-    private final IdentityHashMap<Node, Integer> nodeTable = new IdentityHashMap<>();
-    private final List<String> stringTable = new ArrayList<>();
-    private boolean stringTableSerialized = false;
-
-    private final Map<String, Integer> stringTableIndex = new HashMap<>();
-
-    Serializer() {
-      nodeTable.put(null, NULL_NODE_ID);
-      indexString(StarlarkThread.TOP_LEVEL);
-    }
-
-    private void indexString(String s) {
-      checkState(!stringTableSerialized);
-      int i = stringTableIndex.size();
-      if (stringTableIndex.putIfAbsent(s, i) == null) {
-        stringTable.add(s);
-      }
-    }
-
-    private int indexOf(String s) {
-      return checkNotNull(stringTableIndex.get(s), s);
-    }
-
-    /**
-     * Serializes the <em>full</em> call stack of the given rule, including both {@link
-     * Rule#getLocation} and {@link Rule#getInteriorCallStack}.
-     */
-    void serializeCallStack(Rule rule, CodedOutputStream codedOut) throws IOException {
-      if (!stringTableSerialized) {
-        codedOut.writeInt32NoTag(stringTable.size());
-        for (String string : stringTable) {
-          codedOut.writeStringNoTag(string);
-        }
-        stringTableSerialized = true;
-      }
-
-      emitNode(
-          new Node(StarlarkThread.TOP_LEVEL, rule.getLocation(), rule.getInteriorCallStack()),
-          codedOut);
-    }
-
-    private void emitNode(Node node, CodedOutputStream codedOut) throws IOException {
-      Integer index = nodeTable.get(node);
-      if (index != null) {
-        codedOut.writeInt32NoTag(index);
-        return;
-      }
-
-      if (node == null) {
-        return;
-      }
-
-      int newIndex = nodeTable.size();
-      codedOut.writeInt32NoTag(newIndex);
-      nodeTable.put(node, newIndex);
-      codedOut.writeInt32NoTag(indexOf(node.name));
-      codedOut.writeInt32NoTag(indexOf(node.file));
-      codedOut.writeInt32NoTag(node.line);
-      codedOut.writeInt32NoTag(node.col);
-      emitNode(node.next, codedOut);
-    }
-
-    void prepareCallStack(Rule rule) {
-      indexString(rule.getLocation().file());
-      for (Node n = rule.getInteriorCallStack(); n != null; n = n.next) {
-        indexString(n.name);
-        indexString(n.file);
-      }
-    }
-  }
-
-  /** Deserializes call stacks as serialized by a {@link Serializer}. */
-  static final class Deserializer {
-    private static final Node DUMMY_NODE = new Node("", "", -1, -1, null);
-
-    private final List<Node> nodeTable = new ArrayList<>();
-    @Nullable private List<String> stringTable;
-
-    Deserializer() {
-      // By convention index 0 = null.
-      nodeTable.add(null);
-    }
-
-    /**
-     * Deserializes a <em>full</em> call stack.
-     *
-     * <p>The returned {@link Node} represents {@link Rule#getLocation}. Calling {@link Node#next()}
-     * on the returned {@link Node} yields {@link Rule#getInteriorCallStack}.
-     */
-    Node deserializeFullCallStack(CodedInputStream codedIn) throws IOException {
-      if (stringTable == null) {
-        int length = codedIn.readInt32();
-        stringTable = new ArrayList<>(length);
-        for (int i = 0; i < length; i++) {
-          // Avoid having a new set of strings per deserialized string table. Use common
-          // canonicalizer based on assertion that most strings (function names, locations) were
-          // already some degree of shared across packages.
-          stringTable.add(StringCanonicalizer.intern(codedIn.readString()));
-        }
-      }
-
-      return readNode(codedIn);
-    }
-
-    @Nullable
-    @SuppressWarnings("ReferenceEquality")
-    private Node readNode(CodedInputStream codedIn) throws IOException {
-      int index = codedIn.readInt32();
-      if (index < nodeTable.size()) {
-        Node result = nodeTable.get(index);
-        checkState(result != DUMMY_NODE, "Loop detected at index %s", index);
-        return result;
-      }
-
-      checkState(
-          index == nodeTable.size(),
-          "Unexpected next value index - read %s, expected %s",
-          index,
-          nodeTable.size());
-
-      // Add dummy node to grow the table and save our spot in the table until we're done.
-      nodeTable.add(DUMMY_NODE);
-      int name = codedIn.readInt32();
-      int file = codedIn.readInt32();
-      int line = codedIn.readInt32();
-      int col = codedIn.readInt32();
-      Node child = readNode(codedIn);
-
-      Node result = new Node(stringTable.get(name), stringTable.get(file), line, col, child);
-      nodeTable.set(index, result);
-      return result;
-    }
   }
 }

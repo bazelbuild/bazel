@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -64,26 +63,6 @@ public final class DeserializationContextTest {
   }
 
   @Test
-  public void descriptorDeserialize() throws Exception {
-    ObjectCodecRegistry.CodecDescriptor codecDescriptor =
-        mock(ObjectCodecRegistry.CodecDescriptor.class);
-    ObjectCodecRegistry registry = mock(ObjectCodecRegistry.class);
-    when(registry.getCodecDescriptorByTag(1)).thenReturn(codecDescriptor);
-    CodedInputStream codedInputStream = mock(CodedInputStream.class);
-    when(codedInputStream.readSInt32()).thenReturn(1);
-    DeserializationContext deserializationContext =
-        new DeserializationContext(registry, ImmutableClassToInstanceMap.of());
-    Object returnValue = new Object();
-    when(codecDescriptor.deserialize(deserializationContext, codedInputStream))
-        .thenReturn(returnValue);
-    assertThat((Object) deserializationContext.deserialize(codedInputStream))
-        .isSameInstanceAs(returnValue);
-    verify(codedInputStream).readSInt32();
-    verify(registry).getCodecDescriptorByTag(1);
-    verify(codecDescriptor).deserialize(deserializationContext, codedInputStream);
-  }
-
-  @Test
   public void memoizingDeserialize_null() throws SerializationException, IOException {
     ObjectCodecRegistry registry = mock(ObjectCodecRegistry.class);
     CodedInputStream codedInputStream = mock(CodedInputStream.class);
@@ -120,8 +99,7 @@ public final class DeserializationContextTest {
     when(codec.getEncodedClass()).thenAnswer(unused -> Object.class);
     when(codec.additionalEncodedClasses()).thenReturn(ImmutableList.of());
     ObjectCodecRegistry.CodecDescriptor codecDescriptor =
-        mock(ObjectCodecRegistry.CodecDescriptor.class);
-    doReturn(codec).when(codecDescriptor).getCodec();
+        new ObjectCodecRegistry.CodecDescriptor(/* tag= */ 1, codec);
     ObjectCodecRegistry registry = mock(ObjectCodecRegistry.class);
     when(registry.getCodecDescriptorByTag(1)).thenReturn(codecDescriptor);
     CodedInputStream codedInputStream = mock(CodedInputStream.class);
@@ -134,7 +112,6 @@ public final class DeserializationContextTest {
     verify(codedInputStream).readSInt32();
     verify(registry).maybeGetConstantByTag(1);
     verify(registry).getCodecDescriptorByTag(1);
-    verify(codecDescriptor).getCodec();
     verify(codec).deserialize(deserializationContext, codedInputStream);
   }
 

@@ -235,9 +235,9 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
     if (isDone()) {
       ReverseDepsUtility.removeReverseDep(this, reverseDep);
     } else {
-      // Removing a reverse dep from an in-flight node is rare -- it should only happen when this
-      // node is about to be cleaned from the graph.
-      appendToReverseDepOperations(reverseDep, Op.REMOVE_OLD);
+      // Removing a reverse dep from an in-flight node is rare -- it should only happen when there
+      // is a cycle or this node is about to be cleaned from the graph.
+      appendToReverseDepOperations(reverseDep, Op.REMOVE);
     }
   }
 
@@ -245,11 +245,6 @@ public class IncrementalInMemoryNodeEntry extends AbstractInMemoryNodeEntry<Dirt
   public synchronized void removeReverseDepsFromDoneEntryDueToDeletion(Set<SkyKey> deletedKeys) {
     checkState(isDone(), this);
     ReverseDepsUtility.removeReverseDepsMatching(this, deletedKeys);
-  }
-
-  @Override
-  public synchronized void removeInProgressReverseDep(SkyKey reverseDep) {
-    appendToReverseDepOperations(reverseDep, Op.REMOVE);
   }
 
   @Override

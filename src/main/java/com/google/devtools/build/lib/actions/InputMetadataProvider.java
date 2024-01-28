@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import java.io.IOException;
@@ -40,6 +42,18 @@ public interface InputMetadataProvider {
    */
   @Nullable
   FileArtifactValue getInputMetadata(ActionInput input) throws IOException;
+
+  /**
+   * Returns the {@link RunfilesArtifactValue} for the given {@link ActionInput}, which must be a
+   * runfiles middleman artifact.
+   *
+   * @return the appropriate {@link RunfilesArtifactValue} or null if it's not found.
+   */
+  @Nullable
+  RunfilesArtifactValue getRunfilesMetadata(ActionInput input);
+
+  /** Returns the runfiles trees in this metadata provider. */
+  ImmutableList<RunfilesTree> getRunfilesTrees();
 
   /** Looks up an input from its exec path. */
   @Nullable

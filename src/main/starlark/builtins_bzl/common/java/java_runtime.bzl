@@ -159,17 +159,95 @@ def _java_runtime_rule_impl(ctx):
 
 java_runtime = rule(
     implementation = _java_runtime_rule_impl,
+    doc = """
+<p>
+Specifies the configuration for a Java runtime.
+</p>
+
+<h4 id="java_runtime_example">Example:</h4>
+
+<pre class="code">
+<code class="lang-starlark">
+
+java_runtime(
+    name = "jdk-9-ea+153",
+    srcs = glob(["jdk9-ea+153/**"]),
+    java_home = "jdk9-ea+153",
+)
+
+</code>
+</pre>
+    """,
     attrs = {
-        "default_cds": attr.label(allow_single_file = True, executable = True, cfg = "target"),
-        "hermetic_srcs": attr.label_list(allow_files = True),
-        "hermetic_static_libs": attr.label_list(providers = [CcInfo]),
-        "java": attr.label(allow_single_file = True, executable = True, cfg = "target"),
-        "java_home": attr.string(),
-        "lib_ct_sym": attr.label(allow_single_file = True),
-        "lib_modules": attr.label(allow_single_file = True, executable = True, cfg = "target"),
+        "default_cds": attr.label(
+            allow_single_file = True,
+            executable = True,
+            cfg = "target",
+            doc = """
+Default CDS archive for hermetic <code>java_runtime</code>. When hermetic
+is enabled for a <code>java_binary</code> target and if the target does not
+provide its own CDS archive by specifying the
+<a href="${link java_binary.classlist}"><code>classlist</code></a> attribute,
+the <code>java_runtime</code> default CDS is packaged in the hermetic deploy JAR.
+            """,
+        ),
+        "hermetic_srcs": attr.label_list(
+            allow_files = True,
+            doc = """
+Files in the runtime needed for hermetic deployments.
+            """,
+        ),
+        "hermetic_static_libs": attr.label_list(
+            providers = [CcInfo],
+            doc = """
+The libraries that are statically linked with the launcher for hermetic deployments
+            """,
+        ),
+        "java": attr.label(
+            allow_single_file = True,
+            executable = True,
+            cfg = "target",
+            doc = """
+The path to the java executable.
+            """,
+        ),
+        "java_home": attr.string(
+            doc = """
+The path to the root of the runtime.
+Subject to <a href="${link make-variables}">"Make" variable</a> substitution.
+If this path is absolute, the rule denotes a non-hermetic Java runtime with a well-known
+path. In that case, the <code>srcs</code> and <code>java</code> attributes must be empty.
+            """,
+        ),
+        "lib_ct_sym": attr.label(
+            allow_single_file = True,
+            doc = """
+The lib/ct.sym file needed for compilation with <code>--release</code>. If not specified and
+there is exactly one file in <code>srcs</code> whose path ends with
+<code>/lib/ct.sym</code>, that file is used.
+            """,
+        ),
+        "lib_modules": attr.label(
+            allow_single_file = True,
+            executable = True,
+            cfg = "target",
+            doc = """
+The lib/modules file needed for hermetic deployments.
+            """,
+        ),
+        "srcs": attr.label_list(
+            allow_files = True,
+            doc = """
+All files in the runtime.
+            """,
+        ),
+        "version": attr.int(
+            doc = """
+The feature version of the Java runtime. I.e., the integer returned by
+<code>Runtime.version().feature()</code>.
+            """,
+        ),
         "output_licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
-        "srcs": attr.label_list(allow_files = True),
-        "version": attr.int(),
         "_windows_constraints": attr.label_list(
             default = ["@" + paths.join(cc_semantics.get_platforms_root(), "os:windows")],
         ),

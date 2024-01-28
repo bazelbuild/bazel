@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Globber;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -47,7 +48,6 @@ public final class GlobDescriptor implements SkyKey {
    * @param pattern a valid glob pattern
    * @param globberOperation type of Globber operation being tracked.
    */
-  @AutoCodec.Instantiator
   public static GlobDescriptor create(
       PackageIdentifier packageId,
       Root packageRoot,
@@ -56,6 +56,12 @@ public final class GlobDescriptor implements SkyKey {
       Globber.Operation globberOperation) {
     return interner.intern(
         new GlobDescriptor(packageId, packageRoot, subdir, pattern, globberOperation));
+  }
+
+  @VisibleForSerialization
+  @AutoCodec.Interner
+  static GlobDescriptor intern(GlobDescriptor globDescriptor) {
+    return interner.intern(globDescriptor);
   }
 
   private final PackageIdentifier packageId;

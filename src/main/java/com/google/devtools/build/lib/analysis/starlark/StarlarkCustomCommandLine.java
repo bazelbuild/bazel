@@ -113,10 +113,14 @@ public class StarlarkCustomCommandLine extends CommandLine {
       this.features = features;
     }
 
-    @VisibleForSerialization
-    @AutoCodec.Instantiator
-    static VectorArg create(int features) {
+    private static VectorArg create(int features) {
       return interner.intern(new VectorArg(features));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static VectorArg intern(VectorArg vectorArg) {
+      return interner.intern(vectorArg);
     }
 
     private static void push(
@@ -598,10 +602,14 @@ public class StarlarkCustomCommandLine extends CommandLine {
       this.hasFormat = hasFormat;
     }
 
-    @VisibleForSerialization
-    @AutoCodec.Instantiator
-    static ScalarArg create(boolean hasFormat) {
+    private static ScalarArg create(boolean hasFormat) {
       return interner.intern(new ScalarArg(hasFormat));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static ScalarArg intern(ScalarArg scalarArg) {
+      return interner.intern(scalarArg);
     }
 
     private static void push(List<Object> arguments, Builder arg) {

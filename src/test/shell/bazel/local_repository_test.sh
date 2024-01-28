@@ -850,7 +850,9 @@ EOF
 
   bazel build @r//:public >& $TEST_log || fail "failed to build public target"
   bazel build @r//:private >& $TEST_log && fail "could build private target"
-  expect_log "target '//:private' is not visible from target '//external:private'"
+  # Note: Visibility error extends across multiple lines
+  expect_log "^target '//:private' is not visible from\$"
+  expect_log "^target '//external:private'\$"
 }
 
 function test_load_in_remote_repository() {
@@ -1165,17 +1167,12 @@ local_repository(
 EOF
 
   bazel build @r//... &> $TEST_log && fail "Build succeeded unexpectedly"
-  expect_log "No WORKSPACE file found"
+  expect_log "No MODULE.bazel, REPO.bazel, or WORKSPACE file found"
 
   # Create the workspace and verify it now succeeds.
   create_workspace_with_default_repos $r/WORKSPACE
   bazel build @r//... &> $TEST_log || fail "Build failed unexpectedly"
-  expect_not_log "No WORKSPACE file found"
-
-  # Remove again and verify it fails again.
-  rm -f $r/WORKSPACE
-  bazel build @r//... &> $TEST_log && fail "Build succeeded unexpectedly"
-  expect_log "No WORKSPACE file found"
+  expect_not_log "No MODULE.bazel, REPO.bazel, or WORKSPACE file found"
 }
 
 # Regression test for #1697.

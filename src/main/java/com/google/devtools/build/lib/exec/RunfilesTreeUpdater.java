@@ -13,24 +13,27 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode.SKIP;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.XattrProvider;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.Arrays;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -74,11 +77,9 @@ public class RunfilesTreeUpdater {
   public void updateRunfiles(
       RunfilesSupplier runfilesSupplier, ImmutableMap<String, String> env, OutErr outErr)
       throws ExecException, IOException, InterruptedException {
-    for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> entry :
-        runfilesSupplier.getMappings().entrySet()) {
-      PathFragment runfilesDir = entry.getKey();
-      Map<PathFragment, Artifact> runfilesMapping = entry.getValue();
-      if (runfilesSupplier.isBuildRunfileLinks(runfilesDir)) {
+    for (RunfilesTree tree : runfilesSupplier.getRunfilesTrees()) {
+      PathFragment runfilesDir = RunfilesSupplier.getExecPathForTree(runfilesSupplier, tree);
+      if (tree.isBuildRunfileLinks()) {
         continue;
       }
 
@@ -88,12 +89,7 @@ public class RunfilesTreeUpdater {
       if (priorFuture == null) {
         // We are the first attempt; update the runfiles tree and mark the future complete.
         try {
-          updateRunfilesTree(
-              runfilesDir,
-              runfilesMapping,
-              env,
-              outErr,
-              checkNotNull(runfilesSupplier.getRunfileSymlinksMode(runfilesDir)));
+          updateRunfilesTree(runfilesSupplier, tree, env, outErr);
           freshFuture.complete(null);
         } catch (Exception e) {
           freshFuture.completeExceptionally(e);
@@ -118,13 +114,13 @@ public class RunfilesTreeUpdater {
   }
 
   private void updateRunfilesTree(
-      PathFragment runfilesDir,
-      Map<PathFragment, Artifact> runfilesMapping,
+      RunfilesSupplier runfilesSupplier,
+      RunfilesTree tree,
       ImmutableMap<String, String> env,
-      OutErr outErr,
-      RunfileSymlinksMode runfileSymlinksMode)
+      OutErr outErr)
       throws IOException, ExecException, InterruptedException {
-    Path runfilesDirPath = execRoot.getRelative(runfilesDir);
+    Path runfilesDirPath =
+        execRoot.getRelative(RunfilesSupplier.getExecPathForTree(runfilesSupplier, tree));
     Path inputManifest = RunfilesSupport.inputManifestPath(runfilesDirPath);
     if (!inputManifest.exists()) {
       return;
@@ -136,11 +132,17 @@ public class RunfilesTreeUpdater {
       // implying the symlinks exist and are already up to date. If the output manifest is a
       // symbolic link, it is likely a symbolic link to the input manifest, so we cannot trust it as
       // an up-to-date check.
-      if (!outputManifest.isSymbolicLink()
+      // On Windows, where symlinks may be silently replaced by copies, a previous run in SKIP mode
+      // could have resulted in an output manifest that is an identical copy of the input manifest,
+      // which we must not treat as up to date, but we also don't want to unnecessarily rebuild the
+      // runfiles directory all the time. Instead, check for the presence of the first runfile in
+      // the manifest. If it is present, we can be certain that the previous mode wasn't SKIP.
+      if (tree.getSymlinksMode() != SKIP
+          && !outputManifest.isSymbolicLink()
           && Arrays.equals(
               DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(outputManifest, xattrProvider),
-              DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(
-                  inputManifest, xattrProvider))) {
+              DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(inputManifest, xattrProvider))
+          && (OS.getCurrent() != OS.WINDOWS || isRunfilesDirectoryPopulated(runfilesDirPath))) {
         return;
       }
     } catch (IOException e) {
@@ -152,19 +154,35 @@ public class RunfilesTreeUpdater {
     }
 
     SymlinkTreeHelper helper =
-        new SymlinkTreeHelper(inputManifest, runfilesDirPath, /* filesetTree= */ false);
+        new SymlinkTreeHelper(
+            inputManifest, runfilesDirPath, /* filesetTree= */ false, tree.getWorkspaceName());
 
-    switch (runfileSymlinksMode) {
+    switch (tree.getSymlinksMode()) {
       case SKIP:
-        helper.linkManifest();
+        helper.clearRunfilesDirectory();
         break;
       case EXTERNAL:
         helper.createSymlinksUsingCommand(execRoot, binTools, env, outErr);
         break;
       case INTERNAL:
-        helper.createSymlinksDirectly(runfilesDirPath, runfilesMapping);
+        helper.createSymlinksDirectly(runfilesDirPath, tree.getMapping());
         outputManifest.createSymbolicLink(inputManifest);
         break;
     }
+  }
+
+  private boolean isRunfilesDirectoryPopulated(Path runfilesDirPath) {
+    Path outputManifest = RunfilesSupport.outputManifestPath(runfilesDirPath);
+    String relativeRunfilePath;
+    try (BufferedReader reader =
+        new BufferedReader(new InputStreamReader(outputManifest.getInputStream(), ISO_8859_1))) {
+      // If it is created at all, the manifest always contains at least one line.
+      relativeRunfilePath = reader.readLine().split(" ", -1)[0];
+    } catch (IOException e) {
+      // Instead of failing outright, just assume the runfiles directory is not populated.
+      return false;
+    }
+    // The runfile could be a dangling symlink.
+    return runfilesDirPath.getRelative(relativeRunfilePath).exists(Symlinks.NOFOLLOW);
   }
 }

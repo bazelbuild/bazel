@@ -31,9 +31,11 @@ import com.google.common.graph.ImmutableGraph;
 import com.google.common.graph.Traverser;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.Reportable;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
@@ -42,6 +44,7 @@ import com.google.devtools.build.skyframe.EvaluationProgressReceiver.NodeState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.NodeEntry.LifecycleState;
+import com.google.devtools.build.skyframe.NodeEntry.NodeValueAndRdepsToSignal;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunction.Reset;
@@ -96,9 +99,9 @@ abstract class AbstractParallelEvaluator {
 
   final ProcessableGraph graph;
   final ParallelEvaluatorContext evaluatorContext;
-  protected final CycleDetector cycleDetector;
+  final CycleDetector cycleDetector;
 
-  protected final Cache<SkyKey, SkyKeyComputeState> stateCache =
+  final Cache<SkyKey, SkyKeyComputeState> stateCache =
       Caffeine.newBuilder()
           .executor(Runnable::run) // run the removalListener immediately in the same thread
           .removalListener((SkyKey k, SkyKeyComputeState v, RemovalCause cause) -> v.close())
@@ -117,8 +120,7 @@ abstract class AbstractParallelEvaluator {
       InflightTrackingProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       QuiescingExecutor executor,
-      CycleDetector cycleDetector,
-      boolean mergingSkyframeAnalysisExecutionPhases) {
+      CycleDetector cycleDetector) {
     this.graph = graph;
     this.cycleDetector = cycleDetector;
     this.evaluatorContext =
@@ -135,7 +137,6 @@ abstract class AbstractParallelEvaluator {
             errorInfoManager,
             graphInconsistencyReceiver,
             () -> new NodeEntryVisitor(executor, progressReceiver, Evaluate::new, stateCache),
-            /* mergingSkyframeAnalysisExecutionPhases= */ mergingSkyframeAnalysisExecutionPhases,
             stateCache);
   }
 
@@ -345,19 +346,19 @@ abstract class AbstractParallelEvaluator {
         case VERIFIED_CLEAN:
           // No child has a changed value. This node can be marked done and its parents signaled
           // without any re-evaluation.
-          NodeEntry.NodeValueAndRdepsToSignal nodeValueAndRdeps = nodeEntry.markClean();
+          NodeValueAndRdepsToSignal nodeValueAndRdeps = nodeEntry.markClean();
           Set<SkyKey> rDepsToSignal = nodeValueAndRdeps.getRdepsToSignal();
-          // Make sure to replay events once change-pruned
-          replay(ValueWithMetadata.wrapWithMetadata(nodeValueAndRdeps.getValue()));
+          SkyValue valueMaybeWithMetadata = nodeValueAndRdeps.getValue();
+          // Replay events once change-pruned.
+          replay(ValueWithMetadata.getEvents(valueMaybeWithMetadata));
           // Tell the receiver that the value was not actually changed this run.
           evaluatorContext
               .getProgressReceiver()
               .evaluated(
                   skyKey,
+                  EvaluationState.get(valueMaybeWithMetadata, /* changed= */ false),
                   /* newValue= */ null,
                   /* newError= */ null,
-                  new EvaluationSuccessStateSupplier(nodeEntry),
-                  EvaluationState.CLEAN,
                   /* directDeps= */ null);
           if (!evaluatorContext.keepGoing() && nodeEntry.getErrorInfo() != null) {
             if (!evaluatorContext.getVisitor().preventNewEvaluations()) {
@@ -471,7 +472,7 @@ abstract class AbstractParallelEvaluator {
                       skyKey.functionName().getName());
             }
           }
-        } catch (final SkyFunctionException builderException) {
+        } catch (SkyFunctionException builderException) {
           // TODO(b/261604460): invalidating the state cache here appears to be load-bearing for
           // error propagation. It ought to be allowed to invalidate it only after the following
           // early return checks pass, but something is misusing the state cache, and moving it
@@ -821,13 +822,11 @@ abstract class AbstractParallelEvaluator {
     private static final int MAX_REVERSEDEP_DUMP_LENGTH = 1000;
   }
 
-  protected void replay(ValueWithMetadata valueWithMetadata) {
+  protected void replay(NestedSet<Reportable> transitiveEvents) {
     // Replaying actions is done on a small number of nodes, but potentially over a large dependency
     // graph. Under those conditions, using the regular NestedSet flattening with .toList() is more
     // efficient than using NestedSetVisitor's custom traversal logic.
-    evaluatorContext
-        .getReplayingNestedSetEventVisitor()
-        .visit(valueWithMetadata.getTransitiveEvents().toList());
+    evaluatorContext.getReplayingNestedSetEventVisitor().visit(transitiveEvents.toList());
   }
 
   /**

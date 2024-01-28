@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
@@ -391,7 +390,6 @@ public final class SpawnActionTest extends BuildViewTestCase {
     EXECUTABLE_PATH,
     EXECUTABLE,
     MNEMONIC,
-    RUNFILES_SUPPLIER_PATH,
     ENVIRONMENT
   }
 
@@ -420,12 +418,6 @@ public final class SpawnActionTest extends BuildViewTestCase {
             }
 
             builder.setMnemonic(attributesToFlip.contains(KeyAttributes.MNEMONIC) ? "a" : "b");
-
-            if (attributesToFlip.contains(KeyAttributes.RUNFILES_SUPPLIER_PATH)) {
-              builder.addRunfilesSupplier(runfilesSupplier(PathFragment.create("aa")));
-            } else {
-              builder.addRunfilesSupplier(runfilesSupplier(PathFragment.create("ab")));
-            }
 
             Map<String, String> env = new HashMap<>();
             if (attributesToFlip.contains(KeyAttributes.ENVIRONMENT)) {
@@ -459,10 +451,7 @@ public final class SpawnActionTest extends BuildViewTestCase {
             .setProgressMessage("Progress for %{label}: %{input} -> %{output}")
             .build(nullOwnerWithTargetConfig(), targetConfig);
     assertThat(action.getProgressMessage())
-        .isEqualTo(
-            "Progress for //null/action:owner: some/input -> "
-                + getAnalysisMock().getProductName()
-                + "-out/k8-fastbuild/bin/some/output");
+        .isEqualTo("Progress for //null/action:owner: some/input -> some/output");
   }
 
   /**
@@ -573,15 +562,6 @@ public final class SpawnActionTest extends BuildViewTestCase {
         createWorkerSupportSpawn(ImmutableMap.of("worker-key-mnemonic", "ToolPoolMnemonic"));
     assertThat(Spawns.getWorkerKeyMnemonic(customMnemonicSpawn.getSpawn()))
         .isEqualTo("ToolPoolMnemonic");
-  }
-
-  private static RunfilesSupplier runfilesSupplier(PathFragment dir) {
-    return new SingleRunfilesSupplier(
-        dir,
-        Runfiles.EMPTY,
-        /* repoMappingManifest= */ null,
-        RunfileSymlinksMode.SKIP,
-        /* buildRunfileLinks= */ false);
   }
 
   private ActionOwner nullOwnerWithTargetConfig() {

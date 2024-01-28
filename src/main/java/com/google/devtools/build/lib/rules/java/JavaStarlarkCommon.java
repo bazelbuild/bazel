@@ -372,14 +372,6 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public Sequence<String> internJavacOpts(Object javacOpts) throws EvalException {
-    ImmutableList<String> interned =
-        JavaCompilationHelper.internJavacOpts(
-            Sequence.cast(javacOpts, String.class, "javac_opts").getImmutableList());
-    return StarlarkList.lazyImmutable(() -> interned);
-  }
-
-  @Override
   public boolean incompatibleDisableNonExecutableJavaBinary(StarlarkThread thread) {
     return thread
         .getSemantics()

@@ -117,8 +117,27 @@ def _proxy(ctx):
 JAVA_PLUGIN_ATTRS = merge_attrs(
     JAVA_LIBRARY_ATTRS,
     {
-        "generates_api": attr.bool(),
-        "processor_class": attr.string(),
+        "generates_api": attr.bool(doc = """
+This attribute marks annotation processors that generate API code.
+<p>If a rule uses an API-generating annotation processor, other rules
+depending on it can refer to the generated code only if their
+compilation actions are scheduled after the generating rule. This
+attribute instructs Bazel to introduce scheduling constraints when
+--java_header_compilation is enabled.
+<p><em class="harmful">WARNING: This attribute affects build
+performance, use it only if necessary.</em></p>
+        """),
+        "processor_class": attr.string(doc = """
+The processor class is the fully qualified type of the class that the Java compiler should
+use as entry point to the annotation processor. If not specified, this rule will not
+contribute an annotation processor to the Java compiler's annotation processing, but its
+runtime classpath will still be included on the compiler's annotation processor path. (This
+is primarily intended for use by
+<a href="https://errorprone.info/docs/plugins">Error Prone plugins</a>, which are loaded
+from the annotation processor path using
+<a href="https://docs.oracle.com/javase/8/docs/api/java/util/ServiceLoader.html">
+java.util.ServiceLoader</a>.)
+       """),
         "output_licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
     },
     remove_attrs = ["runtime_deps", "exports", "exported_plugins"],
@@ -128,6 +147,26 @@ JAVA_PLUGIN_IMPLICIT_ATTRS = JAVA_LIBRARY_IMPLICIT_ATTRS
 
 java_plugin = rule(
     _proxy,
+    doc = """
+<p>
+  <code>java_plugin</code> defines plugins for the Java compiler run by Bazel. At the moment, the
+  only supported kind of plugins are annotation processors. A <code>java_library</code> or
+  <code>java_binary</code> rule can run plugins by depending on them via the <code>plugins</code>
+  attribute. A <code>java_library</code> can also automatically export plugins to libraries that
+  directly depend on it using
+  <code><a href="${link java_library.exported_plugins}">exported_plugins</a></code>.
+</p>
+
+<h4 id="java_plugin_implicit_outputs">Implicit output targets</h4>
+    <ul>
+      <li><code><var>libname</var>.jar</code>: A Java archive.</li>
+    </ul>
+
+<p>
+  Arguments are identical to <a href="${link java_library}"><code>java_library</code></a>, except
+  for the addition of the <code>processor_class</code> argument.
+</p>
+    """,
     attrs = merge_attrs(
         JAVA_PLUGIN_ATTRS,
         JAVA_PLUGIN_IMPLICIT_ATTRS,

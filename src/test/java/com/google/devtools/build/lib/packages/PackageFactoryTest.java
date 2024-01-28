@@ -245,8 +245,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         "x = 1//0"); // not reached
     Package pkg = loadPackage("duplicaterulename");
     assertContainsEvent(
-        "cc_library rule 'spellcheck_proto' in package 'duplicaterulename' conflicts with"
-            + " existing proto_library rule");
+        "cc_library rule 'spellcheck_proto' conflicts with" + " existing proto_library rule");
     assertDoesNotContainEvent("division by zero");
     assertThat(pkg.containsErrors()).isTrue();
   }
@@ -303,10 +302,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     NoSuchTargetException e = assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("B"));
     assertThat(e)
         .hasMessageThat()
-        .isEqualTo(
-            "no such target '//foo:B': target 'B' not declared in package 'foo' defined by"
-                + " /workspace/foo/BUILD (Tip: use `query \"//foo:*\"` to see all the targets in"
-                + " that package)");
+        .contains("no such target '//foo:B': target 'B' not declared in package 'foo'");
 
     // These are the only input files: BUILD, Z
     Set<String> inputFiles = Sets.newTreeSet();
@@ -328,8 +324,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         "cc_library(name = 'dup_proto',",
         "           srcs = ['dup.pb.cc', 'dup.pb.h'])");
     Package pkg = loadPackage("dup");
-    assertContainsEvent(
-        "cc_library rule 'dup_proto' in package 'dup' conflicts with existing proto_library rule");
+    assertContainsEvent("cc_library rule 'dup_proto' conflicts with existing proto_library rule");
     assertThat(pkg.containsErrors()).isTrue();
 
     Rule dupProto = pkg.getRule("dup_proto");
@@ -443,9 +438,9 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     assertThat(e)
         .hasMessageThat()
         .isEqualTo(
-            "no such target '//x:z.cc': target 'z.cc' not declared in package 'x' defined by"
-                + " /workspace/x/BUILD (did you mean 'x.cc'? Tip: use `query \"//x:*\"` to see all"
-                + " the targets in that package)");
+            "no such target '//x:z.cc': "
+                + "target 'z.cc' not declared in package 'x' "
+                + "defined by /workspace/x/BUILD (did you mean x.cc?)");
 
     e = assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("dir"));
     assertThat(e)
@@ -730,7 +725,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   @Test
   public void testBadCharacterInGlob() throws Exception {
     reporter.removeHandler(failFastHandler);
-    assertGlobFails("glob(['?'])", "Error in glob: wildcard ? forbidden");
+    assertGlobFails("glob(['?'])", "Error in glob: invalid glob pattern '?': wildcard ? forbidden");
   }
 
   @Test
@@ -1015,7 +1010,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   @Test
   public void testGenruleExportConflict() throws Exception {
     expectEvalError(
-        "generated label '//pkg:a.cc' conflicts with existing generated file",
+        "source file 'a.cc' conflicts with existing generated file from rule 'foo'",
         "genrule(name = 'foo',",
         "    outs = ['a.cc'],",
         "    cmd = '')",
@@ -1148,6 +1143,159 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     expectEvalError(
         "duplicate label(s) in default_restricted_to: //foo:foo",
         "package(default_restricted_to=['//foo', '//bar', '//foo'])");
+  }
+
+  /**
+   * Defines a symbolic macro "my_macro" in //pkg:my_macro.bzl, and enables the experimental flag.
+   */
+  private void defineMacroBzl() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_first_class_macros");
+    scratch.file(
+        "pkg/my_macro.bzl", //
+        "def _impl(name):",
+        "    pass",
+        "my_macro = macro(implementation = _impl)");
+  }
+
+  @Test
+  public void testSymbolicMacro_duplicateMacroNames() throws Exception {
+    defineMacroBzl();
+    expectEvalError(
+        "macro 'foo' conflicts with existing macro",
+        "load(':my_macro.bzl', 'my_macro')",
+        "my_macro(name = 'foo')",
+        "my_macro(name = 'foo')");
+  }
+
+  @Test
+  public void testSymbolicMacro_ruleConflictsWithMacro() throws Exception {
+    defineMacroBzl();
+    expectEvalError(
+        "cc_library rule 'foo' conflicts with existing macro",
+        "load(':my_macro.bzl', 'my_macro')",
+        "my_macro(name = 'foo')",
+        "cc_library(name = 'foo')");
+  }
+
+  @Test
+  public void testSymbolicMacro_macroConflictsWithRule() throws Exception {
+    defineMacroBzl();
+    expectEvalError(
+        "macro 'foo' conflicts with existing cc_library rule",
+        "load(':my_macro.bzl', 'my_macro')",
+        "cc_library(name = 'foo')",
+        "my_macro(name = 'foo')");
+  }
+
+  @Test
+  public void testSymbolicMacro_outputConflictsWithMacro() throws Exception {
+    defineMacroBzl();
+    expectEvalError(
+        "generated file 'foo' in rule 'gen' conflicts with existing macro",
+        "load(':my_macro.bzl', 'my_macro')",
+        "my_macro(name = 'foo')",
+        "genrule(name = 'gen', outs = ['foo'], cmd = '')");
+  }
+
+  @Test
+  public void testSymbolicMacro_macroConflictsWithOutput() throws Exception {
+    defineMacroBzl();
+    expectEvalError(
+        "macro 'foo' conflicts with existing generated file from rule 'gen'",
+        "load(':my_macro.bzl', 'my_macro')",
+        "genrule(name = 'gen', outs = ['foo'], cmd = '')",
+        "my_macro(name = 'foo')");
+  }
+
+  @Test
+  public void testSymbolicMacro_macroMayCollideWithPrefixOfOutput() throws Exception {
+    // TODO(bazel-team): This test case verifies an existing but possibly undesirable behavior.
+    // Currently we only prevent output file prefixes from colliding with other output files, and
+    // don't check if they collide with other types of targets. If we become more restrictive in the
+    // future, we should also ensure they can't collide with macros.
+    defineMacroBzl();
+    expectEvalSuccess(
+        "load(':my_macro.bzl', 'my_macro')",
+        "my_macro(name = 'foo')",
+        "genrule(name = 'gen', outs = ['foo/bar'], cmd = '')");
+  }
+
+  @Test
+  public void testSymbolicMacro_environmentGroupConflictsWithMacro() throws Exception {
+    defineMacroBzl();
+    expectEvalError(
+        "environment group 'foo' conflicts with existing macro",
+        "load(':my_macro.bzl', 'my_macro')",
+        "my_macro(name = 'foo')",
+        "environment(name = 'env')",
+        "environment_group(name='foo', environments = [':env'], defaults = [':env'])");
+  }
+
+  @Test
+  public void testSymbolicMacro_macroConflictsWithEnvironmentGroup() throws Exception {
+    defineMacroBzl();
+    expectEvalError(
+        "macro 'foo' conflicts with existing environment group",
+        "load(':my_macro.bzl', 'my_macro')",
+        "environment(name = 'env')",
+        "environment_group(name='foo', environments = [':env'], defaults = [':env'])",
+        "my_macro(name = 'foo')");
+  }
+
+  @Test
+  public void testSymbolicMacro_packageGroupConflictsWithMacro() throws Exception {
+    defineMacroBzl();
+    expectEvalError(
+        "package group 'foo' conflicts with existing macro",
+        "load(':my_macro.bzl', 'my_macro')",
+        "my_macro(name = 'foo')",
+        "package_group(name = 'foo')");
+  }
+
+  @Test
+  public void testSymbolicMacro_macroConflictsWithPackageGroup() throws Exception {
+    defineMacroBzl();
+    expectEvalError(
+        "macro 'foo' conflicts with existing package group",
+        "load(':my_macro.bzl', 'my_macro')",
+        "package_group(name = 'foo')",
+        "my_macro(name = 'foo')");
+  }
+
+  @Test
+  public void testSymbolicMacro_inputConflictsWithMacro() throws Exception {
+    defineMacroBzl();
+    expectEvalError(
+        "source file 'foo' conflicts with existing macro",
+        "load(':my_macro.bzl', 'my_macro')",
+        "my_macro(name = 'foo')",
+        "exports_files(['foo'])");
+  }
+
+  @Test
+  public void testSymbolicMacro_macroConflictsWithInput() throws Exception {
+    defineMacroBzl();
+    expectEvalError(
+        "macro 'foo' conflicts with existing source file",
+        "load(':my_macro.bzl', 'my_macro')",
+        "exports_files(['foo'])",
+        "my_macro(name = 'foo')");
+  }
+
+  @Test
+  public void testSymbolicMacro_macroPreventsImplicitCreationOfInputFile() throws Exception {
+    defineMacroBzl();
+    scratch.file(
+        "pkg/BUILD",
+        "load(':my_macro.bzl', 'my_macro')",
+        "my_macro(name = 'foo')",
+        "cc_library(",
+        "    name = 'lib',",
+        "    srcs = ['foo', 'bar'],",
+        ")");
+    Package pkg = loadPackage("pkg");
+    assertThat(pkg.getTarget("bar")).isInstanceOf(InputFile.class);
+    assertThat(pkg.getTargets()).doesNotContainKey("foo");
   }
 
   @Test

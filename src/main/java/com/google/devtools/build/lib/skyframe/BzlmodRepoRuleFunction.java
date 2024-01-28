@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.AttributeValues;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleCreator;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
-import com.google.devtools.build.lib.bazel.bzlmod.GitOverride;
+import com.google.devtools.build.lib.bazel.bzlmod.GitRepoSpecBuilder;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -148,10 +147,7 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
       return BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE;
     }
     RepoSpec extRepoSpec = extensionEval.getGeneratedRepoSpecs().get(internalRepo);
-    Package pkg = createRuleFromSpec(extRepoSpec, starlarkSemantics, env).getRule().getPackage();
-    Preconditions.checkNotNull(pkg);
-
-    return new BzlmodRepoRuleValue(pkg, repositoryName.getName());
+    return createRuleFromSpec(extRepoSpec, starlarkSemantics, env);
   }
 
   private static Optional<RepoSpec> checkRepoFromNonRegistryOverrides(
@@ -250,7 +246,7 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
   private static final Set<String> BOOTSTRAP_RULE_CLASSES =
       ImmutableSet.of(
           ArchiveRepoSpecBuilder.HTTP_ARCHIVE_PATH + "%http_archive",
-          GitOverride.GIT_REPOSITORY_PATH + "%git_repository");
+          GitRepoSpecBuilder.GIT_REPO_PATH + "%git_repository");
 
   /** Loads modules from the given bzl file. */
   private ImmutableMap<String, Module> loadBzlModules(

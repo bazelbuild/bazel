@@ -270,8 +270,7 @@ public class XcodeConfigInfo extends NativeInfo
   }
 
   public static XcodeConfigInfo fromRuleContext(RuleContext ruleContext) {
-    return ruleContext.getPrerequisite(
-        XcodeConfigRule.XCODE_CONFIG_ATTR_NAME, XcodeConfigInfo.PROVIDER);
+    return ruleContext.getPrerequisite(":xcode_config", XcodeConfigInfo.PROVIDER);
   }
 
   @StarlarkMethod(name = "ios_sdk_version", documented = false, useStarlarkThread = true)

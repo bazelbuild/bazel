@@ -70,6 +70,7 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   private final boolean avoidHardcodedCompilationFlags;
   private final boolean disallowSdkFrameworksAttributes;
   private final boolean alwayslinkByDefault;
+  private final boolean stripExecutableSafely;
 
   public ObjcConfiguration(BuildOptions buildOptions) {
     CoreOptions options = buildOptions.get(CoreOptions.class);
@@ -91,6 +92,7 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
         objcOptions.incompatibleAvoidHardcodedObjcCompilationFlags;
     this.disallowSdkFrameworksAttributes = objcOptions.incompatibleDisallowSdkFrameworksAttributes;
     this.alwayslinkByDefault = objcOptions.incompatibleObjcAlwayslinkByDefault;
+    this.stripExecutableSafely = objcOptions.incompatibleStripExecutableSafely;
   }
 
   /**
@@ -217,5 +219,14 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
     }
 
     return alwayslinkByDefault;
+  }
+
+  /**
+   * Returns whether executable strip action should use flag -x, which does not break dynamic symbol
+   * resolution.
+   */
+  @Override
+  public boolean stripExecutableSafely() {
+    return stripExecutableSafely;
   }
 }

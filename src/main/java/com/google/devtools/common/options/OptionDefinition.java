@@ -14,7 +14,6 @@
 
 package com.google.devtools.common.options;
 
-import static java.util.Arrays.stream;
 import static java.util.Comparator.comparing;
 
 import com.google.common.collect.ImmutableList;
@@ -131,11 +130,6 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
   /** {@link Option#metadataTags()} */
   public OptionMetadataTag[] getOptionMetadataTags() {
     return optionAnnotation.metadataTags();
-  }
-
-  /** {@link Option#metadataTags()} */
-  public boolean hasOptionMetadataTag(OptionMetadataTag tag) {
-    return stream(getOptionMetadataTags()).anyMatch(tag::equals);
   }
 
   /** {@link Option#converter()} ()} */

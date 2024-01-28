@@ -71,7 +71,7 @@ public class TestExecutorBuilder {
     this.execRoot = execRoot;
     addContext(FileWriteActionContext.class, new FileWriteStrategy());
     addContext(TemplateExpansionContext.class, new LocalTemplateExpansionStrategy());
-    addContext(SymlinkTreeActionContext.class, new SymlinkTreeStrategy(null, binTools));
+    addContext(SymlinkTreeActionContext.class, new SymlinkTreeStrategy(null, binTools, "__main__"));
     addContext(SpawnStrategyResolver.class, new SpawnStrategyResolver());
   }
 

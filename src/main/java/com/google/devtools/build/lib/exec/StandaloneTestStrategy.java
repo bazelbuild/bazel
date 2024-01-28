@@ -136,11 +136,8 @@ public class StandaloneTestStrategy extends TestStrategy {
             localResourcesSupplier);
     Path execRoot = actionExecutionContext.getExecRoot();
     ArtifactPathResolver pathResolver = actionExecutionContext.getPathResolver();
-    Path runfilesDir = pathResolver.convertPath(action.getExecutionSettings().getRunfilesDir());
     Path tmpDir = pathResolver.convertPath(tmpDirRoot.getChild(TestStrategy.getTmpDirName(action)));
-    Path workingDirectory = runfilesDir.getRelative(action.getRunfilesPrefix());
-    return new StandaloneTestRunnerSpawn(
-        action, actionExecutionContext, spawn, tmpDir, workingDirectory, execRoot);
+    return new StandaloneTestRunnerSpawn(action, actionExecutionContext, spawn, tmpDir, execRoot);
   }
 
   private static ImmutableList<Pair<String, Path>> renameOutputs(
@@ -556,7 +553,6 @@ public class StandaloneTestStrategy extends TestStrategy {
     private final ActionExecutionContext actionExecutionContext;
     private final Spawn spawn;
     private final Path tmpDir;
-    private final Path workingDirectory;
     private final Path execRoot;
 
     StandaloneTestRunnerSpawn(
@@ -564,13 +560,11 @@ public class StandaloneTestStrategy extends TestStrategy {
         ActionExecutionContext actionExecutionContext,
         Spawn spawn,
         Path tmpDir,
-        Path workingDirectory,
         Path execRoot) {
       this.testAction = testAction;
       this.actionExecutionContext = actionExecutionContext;
       this.spawn = spawn;
       this.tmpDir = tmpDir;
-      this.workingDirectory = workingDirectory;
       this.execRoot = execRoot;
     }
 
@@ -581,7 +575,7 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     @Override
     public TestAttemptResult execute() throws InterruptedException, IOException, ExecException {
-      prepareFileSystem(testAction, execRoot, tmpDir, workingDirectory);
+      prepareFileSystem(testAction, execRoot, tmpDir);
       return beginTestAttempt(testAction, spawn, actionExecutionContext, execRoot);
     }
 
@@ -744,6 +738,12 @@ public class StandaloneTestStrategy extends TestStrategy {
               .getOutputMetadataStore()
               .getTreeArtifactChildren(
                   (SpecialArtifact) testAction.getCoverageDirectoryTreeArtifact());
+      ImmutableSet<ActionInput> coverageSpawnMetadata =
+          ImmutableSet.<ActionInput>builder()
+              .addAll(expandedCoverageDir)
+              .add(testAction.getCoverageDirectoryTreeArtifact())
+              .build();
+
       Spawn coveragePostProcessingSpawn =
           createCoveragePostProcessingSpawn(
               actionExecutionContext,
@@ -763,7 +763,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       ActionExecutionContext coverageActionExecutionContext =
           actionExecutionContext
               .withFileOutErr(coverageOutErr)
-              .withOutputsAsInputs(expandedCoverageDir);
+              .withOutputsAsInputs(coverageSpawnMetadata);
 
       writeOutFile(coverageOutErr.getErrorPath(), coverageOutErr.getOutputPath());
       appendCoverageLog(coverageOutErr, fileOutErr);
@@ -806,9 +806,12 @@ public class StandaloneTestStrategy extends TestStrategy {
         // Make sure that the test.log exists.Spaw
         FileSystemUtils.touchFile(fileOutErr.getOutputPath());
       }
-      // Append any error output to the test.log. This is very rare.
-      writeOutFile(fileOutErr.getErrorPath(), fileOutErr.getOutputPath());
       fileOutErr.close();
+      // Append any error output to the test.log. This is very rare.
+      //
+      // Only write after the error output stream has been closed. Otherwise, Bazel cannot delete
+      // test.err file on Windows. See https://github.com/bazelbuild/bazel/issues/20741.
+      writeOutFile(fileOutErr.getErrorPath(), fileOutErr.getOutputPath());
       if (streamed != null) {
         streamed.close();
       }

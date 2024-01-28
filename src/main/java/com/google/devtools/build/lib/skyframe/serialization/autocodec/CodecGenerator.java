@@ -42,7 +42,7 @@ abstract class CodecGenerator {
     TypeSpec.Builder classBuilder = initializeCodecClassBuilder(encodedType, env);
     performAdditionalCodecInitialization(classBuilder, encodedType, instantiator);
 
-    MethodSpec.Builder constructor = initializeConstructor(!fieldGenerators.isEmpty());
+    MethodSpec.Builder constructor = initializeConstructor(encodedType, fieldGenerators.size());
     MethodSpec.Builder serialize = initializeSerializeMethodBuilder(encodedType, annotation, env);
     MethodSpec.Builder deserialize = initializeDeserializeMethod(encodedType);
 
@@ -79,10 +79,11 @@ abstract class CodecGenerator {
   /**
    * Initializes the field-independent parts of the constructor.
    *
-   * @param hasFields true if there are any fields to serialize. Exception handling logic may depend
-   *     on the presence of fields.
+   * @param fieldCount number of fields to serialize. This is used in two ways. 1. Exception
+   *     handling logic may depend on the presence of fields. 2. We cross check the number of fields
+   *     at runtime.
    */
-  abstract MethodSpec.Builder initializeConstructor(boolean hasFields);
+  abstract MethodSpec.Builder initializeConstructor(TypeElement type, int fieldCount);
 
   /** Initializes the method that performs deserialization work. */
   abstract MethodSpec.Builder initializeDeserializeMethod(TypeElement encodedType);

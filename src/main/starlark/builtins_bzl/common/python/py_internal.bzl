@@ -45,10 +45,10 @@ def _cc_semantics_get_stl(*args, **kwargs):
     return cc_semantics.get_stl(*args, **kwargs)
 
 def _cc_toolchain_strip_files(cc_toolchain, *args, **kwargs):
-    return cc_toolchain.strip_files(*args, **kwargs)
+    return cc_toolchain._strip_files
 
 def _cc_toolchain_build_info_files(cc_toolchain, *args, **kwargs):
-    return cc_toolchain.build_info_files(*args, **kwargs)
+    return cc_toolchain._build_info_files
 
 def _cc_launcher_info_cc_info(cc_launcher_info, *args, **kwargs):
     return cc_launcher_info.cc_info(*args, **kwargs)

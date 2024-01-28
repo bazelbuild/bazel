@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.devtools.build.buildjar.javac.plugins.dependency.StrictJavaDepsPlugin.NonPlatformJar.Kind.FOR_JSPECIFY_FROM_PLATFORM;
 import static com.google.devtools.build.buildjar.javac.plugins.dependency.StrictJavaDepsPlugin.NonPlatformJar.Kind.IN_CLASSPATH;
-import static java.lang.Boolean.parseBoolean;
 import static javax.tools.StandardLocation.CLASS_PATH;
 
 import com.google.auto.value.AutoOneOf;
@@ -265,9 +264,6 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     private final Name jspecifyAnnotationsPackage;
     private final Name jspecifyNullnessPackage;
 
-    /* TODO(b/297254214): Remove this flag after the depot is clean. */
-    private final boolean hidePlatformJspecify;
-
     public CheckingTreeScanner(
         DependencyModule dependencyModule,
         List<SjdDiagnostic> diagnostics,
@@ -283,7 +279,6 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       this.fileManager = fileManager;
       jspecifyAnnotationsPackage = names.fromString("org.jspecify.annotations");
       jspecifyNullnessPackage = names.fromString("org.jspecify.nullness");
-      hidePlatformJspecify = parseBoolean(System.getProperty("hidePlatformJspecify", "true"));
     }
 
     Set<ClassSymbol> getSeenClasses() {
@@ -510,9 +505,8 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       // Filter out classes from the system modules and bootclasspath
       if (path == null || platformJars.contains(path)) {
         // ...except the JSpecify annotations, which we treat specially.
-        if (hidePlatformJspecify
-            && (classSymbol.packge().fullname.equals(jspecifyAnnotationsPackage)
-                || classSymbol.packge().fullname.equals(jspecifyNullnessPackage))) {
+        if (classSymbol.packge().fullname.equals(jspecifyAnnotationsPackage)
+            || classSymbol.packge().fullname.equals(jspecifyNullnessPackage)) {
           Path classpathJar = findLookingOnlyInClasspath(classSymbol);
           return classpathJar != null
               ? NonPlatformJar.forClasspathJar(classpathJar)

@@ -13,10 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionException;
-import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
@@ -74,20 +71,5 @@ public abstract class GlobFunction implements SkyFunction {
     return recursionInSingleFunction
         ? new GlobFunctionWithRecursionInSingleFunction()
         : new GlobFunctionWithMultipleRecursiveFunctions();
-  }
-
-  /**
-   * Used to declare all the exception types that can be wrapped in the exception thrown by {@link
-   * GlobFunction#compute}.
-   */
-  protected static final class GlobFunctionException extends SkyFunctionException {
-
-    GlobFunctionException(InconsistentFilesystemException e, Transience transience) {
-      super(e, transience);
-    }
-
-    GlobFunctionException(FileSymlinkInfiniteExpansionException e, Transience transience) {
-      super(e, transience);
-    }
   }
 }

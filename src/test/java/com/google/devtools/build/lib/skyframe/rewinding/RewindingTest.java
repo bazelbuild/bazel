@@ -231,4 +231,22 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   public void doneToDirtyDepForNodeInError() throws Exception {
     helper.runDoneToDirtyDepForNodeInError();
   }
+
+  @Test
+  public void flakyActionFailsAfterRewind_raceWithIndirectConsumer_undoneDuringInputChecking()
+      throws Exception {
+    helper.runFlakyActionFailsAfterRewind_raceWithIndirectConsumer_undoneDuringInputChecking();
+  }
+
+  @Test
+  public void flakyActionFailsAfterRewind_raceWithIndirectConsumer_undoneDuringLostInputHandling()
+      throws Exception {
+    helper.runFlakyActionFailsAfterRewind_raceWithIndirectConsumer_undoneDuringLostInputHandling();
+  }
+
+  @Test
+  public void discoveredCppModuleLost() throws Exception {
+    skipIfBazel();
+    helper.runDiscoveredCppModuleLost();
+  }
 }

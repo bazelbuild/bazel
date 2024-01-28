@@ -17,10 +17,13 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Tables;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.Label.RepoContext;
+import com.google.devtools.build.lib.cmdline.Label.RepoMappingRecorder;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.regex.Pattern;
 import net.starlark.java.eval.Starlark;
@@ -500,5 +503,52 @@ public class LabelTest {
             .build();
     assertThat(Starlark.str(Label.parseCanonical("//x"), semantics)).isEqualTo("//x:x");
     assertThat(Starlark.str(Label.parseCanonical("@x//y"), semantics)).isEqualTo("@@x//y:y");
+  }
+
+  @Test
+  public void testCodec() throws Exception {
+    new SerializationTester(
+            Label.parseCanonical("//foo/bar:baz"),
+            Label.parseCanonical("@foo"),
+            Label.parseCanonical("@@foo//bar"),
+            Label.parseCanonical("//xyz/@foo:abc"))
+        .setVerificationFunction(
+            (original, deserialized) -> assertThat(original).isSameInstanceAs(deserialized))
+        .runTests();
+  }
+
+  @Test
+  public void parseWithPackageContext_recordingRepoMapping() throws Exception {
+    RepositoryName foo = RepositoryName.createUnvalidated("foo");
+    RepositoryName bar = RepositoryName.createUnvalidated("bar");
+    RepositoryName quux = RepositoryName.createUnvalidated("quux");
+    PackageContext fooPackageContext =
+        PackageContext.of(
+            PackageIdentifier.create(foo, PathFragment.create("hah")),
+            RepositoryMapping.create(ImmutableMap.of("bar", quux, "quux", bar), foo));
+    PackageContext barPackageContext =
+        PackageContext.of(
+            PackageIdentifier.create(bar, PathFragment.EMPTY_FRAGMENT),
+            RepositoryMapping.create(ImmutableMap.of("foo", quux, "quux", foo), bar));
+
+    RepoMappingRecorder recorder = new RepoMappingRecorder();
+    // Not recorded: no repo part
+    var unused = Label.parseWithPackageContext("//foo/bar", fooPackageContext, recorder);
+    // Recorded: <foo, bar, quux>
+    unused = Label.parseWithPackageContext("@bar//foo/bar", fooPackageContext, recorder);
+    // Recorded: <bar, quux, foo>
+    unused = Label.parseWithPackageContext("@quux//foo/bar", barPackageContext, recorder);
+    // Recorded: <bar, foo, quux>
+    unused = Label.parseWithPackageContext("@foo//foo/bar", barPackageContext, recorder);
+    // Not recorded: canonical repo name
+    unused = Label.parseWithPackageContext("@@quux//foo/bar", fooPackageContext, recorder);
+
+    // Recorded entries are sorted by row and then column
+    assertThat(recorder.recordedEntries().cellSet())
+        .containsExactly(
+            Tables.immutableCell(bar, "foo", quux),
+            Tables.immutableCell(bar, "quux", foo),
+            Tables.immutableCell(foo, "bar", quux))
+        .inOrder();
   }
 }

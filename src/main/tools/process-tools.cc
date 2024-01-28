@@ -18,6 +18,7 @@
 #include <fcntl.h>
 #include <math.h>
 #include <signal.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -293,4 +294,57 @@ void WriteStatsToFile(struct rusage *rusage, const std::string &stats_path) {
   }
 
   close(fd_out);
+}
+
+// Write contents to a file.
+void WriteFile(const std::string &filename, const char *fmt, ...) {
+  FILE *stream = fopen(filename.c_str(), "w");
+  if (stream == nullptr) {
+    DIE("fopen(%s)", filename.c_str());
+  }
+
+  va_list ap;
+  va_start(ap, fmt);
+  int r = vfprintf(stream, fmt, ap);
+  va_end(ap);
+
+  if (r < 0) {
+    DIE("vfprintf");
+  }
+
+  if (fclose(stream) != 0) {
+    DIE("fclose(%s)", filename.c_str());
+  }
+}
+
+// Waits for a signal to proceed from the pipe.
+void WaitPipe(int *pipe) {
+  char buf = 0;
+  // Close the writer fd of this process as it should only be written to by the
+  // writer of the other process.
+  if (close(pipe[1]) < 0) {
+    DIE("close");
+  }
+  if (read(pipe[0], &buf, 1) < 0) {
+    DIE("read");
+  }
+  if (close(pipe[0]) < 0) {
+    DIE("close");
+  }
+}
+
+// Sends a signal to the pipe for the other waiting process proceed.
+void SignalPipe(int *pipe) {
+  char buf = 0;
+  // Close the reader fd of this process as it should only be read by the reader
+  // of the other process.
+  if (close(pipe[0]) < 0) {
+    DIE("close");
+  }
+  if (write(pipe[1], &buf, 1) < 0) {
+    DIE("write");
+  }
+  if (close(pipe[1]) < 0) {
+    DIE("close");
+  }
 }

@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
-import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.LazyWriteNestedSetOfTupleAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -294,11 +293,7 @@ public final class TestActionBuilder {
         if (lcovFilesToRun != null) {
           extraTestEnv.put(LCOV_MERGER, lcovFilesToRun.getExecutable().getExecPathString());
           inputsBuilder.addTransitive(lcovFilesToRun.getFilesToRun());
-
           lcovMergerFilesToRun.addTransitive(lcovFilesToRun.getFilesToRun());
-          if (lcovFilesToRun.getRunfilesSupport() != null) {
-            lcovMergerFilesToRun.add(lcovFilesToRun.getRunfilesSupport().getRunfilesMiddleman());
-          }
           lcovMergerRunfilesSupplier = lcovFilesToRun.getRunfilesSupplier();
         } else {
           NestedSet<Artifact> filesToBuild =
@@ -356,21 +351,6 @@ public final class TestActionBuilder {
     ImmutableList.Builder<Artifact> coverageArtifacts = ImmutableList.builder();
     ImmutableList.Builder<ActionInput> testOutputs = ImmutableList.builder();
 
-    RunfilesSupplier testRunfilesSupplier;
-    if (shardRuns > 1 || runsPerTest > 1) {
-      // When creating multiple test actions, cache the runfiles mappings across test actions. This
-      // saves a lot of garbage when shard_count and/or runs_per_test is high.
-      testRunfilesSupplier =
-          SingleRunfilesSupplier.createCaching(
-              runfilesSupport.getRunfilesDirectoryExecPath(),
-              runfilesSupport.getRunfiles(),
-              runfilesSupport.getRepoMappingManifest(),
-              runfilesSupport.getRunfileSymlinksMode(),
-              runfilesSupport.isBuildRunfileLinks());
-    } else {
-      testRunfilesSupplier = runfilesSupport;
-    }
-
     ActionOwner actionOwner =
         testConfiguration.useTargetPlatformForTests() ? getTestActionOwner() : getOwner();
 
@@ -422,7 +402,7 @@ public final class TestActionBuilder {
             new TestRunnerAction(
                 actionOwner,
                 inputs,
-                testRunfilesSupplier,
+                runfilesSupport,
                 testActionExecutable,
                 testXmlGeneratorExecutable,
                 collectCoverageScript,

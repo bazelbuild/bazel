@@ -30,6 +30,7 @@ import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -60,6 +61,10 @@ import javax.annotation.Nullable;
  * safe to trim the cache at the same time a Bazel process is accessing it.
  */
 public class DiskCacheClient implements RemoteCacheClient {
+
+  private static final SpawnCheckingCacheEvent SPAWN_CHECKING_CACHE_EVENT =
+      SpawnCheckingCacheEvent.create("disk-cache");
+
   private final Path root;
   private final boolean verifyDownloads;
   private final DigestUtil digestUtil;
@@ -222,6 +227,10 @@ public class DiskCacheClient implements RemoteCacheClient {
   @Override
   public ListenableFuture<CachedActionResult> downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
+    if (context.getSpawnExecutionContext() != null) {
+      context.getSpawnExecutionContext().report(SPAWN_CHECKING_CACHE_EVENT);
+    }
+
     return Futures.transformAsync(
         Utils.downloadAsActionResult(actionKey, (digest, out) -> download(digest, out, Store.AC)),
         actionResult -> {

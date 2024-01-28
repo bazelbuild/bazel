@@ -37,27 +37,13 @@ public class DirectoryArtifactWarningTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void testOutputArtifactDirectoryWarning_forGenrule() throws Exception {
-    setupGenruleWithOutputArtifactDirectory();
-
-    addOptions("--noincompatible_disallow_unsound_directory_outputs");
-    buildTarget("//x");
-
-    events.assertContainsWarning(
-        "output 'x/dir' of //x:x is a directory; "
-            + "dependency checking of directories is unsound");
-  }
-
-  @Test
   public void testOutputArtifactDirectoryError_forGenrule() throws Exception {
     setupGenruleWithOutputArtifactDirectory();
 
-    addOptions("--incompatible_disallow_unsound_directory_outputs");
     assertThrows(BuildFailedException.class, () -> buildTarget("//x"));
 
     events.assertContainsError(
-        "output 'x/dir' of //x:x is a directory; "
-            + "dependency checking of directories is unsound");
+        "output 'x/dir' of //x:x is a directory but was not declared as such");
   }
 
   private void setupStarlarkRuleWithOutputArtifactDirectory() throws Exception {
@@ -79,27 +65,13 @@ public class DirectoryArtifactWarningTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void testOutputArtifactDirectoryWarning_forStarlarkRule() throws Exception {
-    setupStarlarkRuleWithOutputArtifactDirectory();
-
-    addOptions("--noincompatible_disallow_unsound_directory_outputs");
-    buildTarget("//x");
-
-    events.assertContainsWarning(
-        "output 'x/dir' of //x:x is a directory; "
-            + "dependency checking of directories is unsound");
-  }
-
-  @Test
   public void testOutputArtifactDirectoryError_forStarlarkRule() throws Exception {
     setupStarlarkRuleWithOutputArtifactDirectory();
 
-    addOptions("--incompatible_disallow_unsound_directory_outputs");
     assertThrows(BuildFailedException.class, () -> buildTarget("//x"));
 
     events.assertContainsError(
-        "output 'x/dir' of //x:x is a directory; "
-            + "dependency checking of directories is unsound");
+        "output 'x/dir' of //x:x is a directory but was not declared as such");
   }
 
   @Test

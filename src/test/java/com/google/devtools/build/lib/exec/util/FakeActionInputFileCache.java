@@ -14,12 +14,16 @@
 package com.google.devtools.build.lib.exec.util;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** A fake implementation of the {@link InputMetadataProvider} interface. */
 public final class FakeActionInputFileCache implements InputMetadataProvider {
@@ -34,6 +38,17 @@ public final class FakeActionInputFileCache implements InputMetadataProvider {
   @Override
   public FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
     return Preconditions.checkNotNull(inputs.get(input));
+  }
+
+  @Override
+  @Nullable
+  public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public ImmutableList<RunfilesTree> getRunfilesTrees() {
+    throw new UnsupportedOperationException();
   }
 
   @Override

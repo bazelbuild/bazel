@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util.io;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -57,8 +56,7 @@ public class AsynchronousMessageOutputStream<T extends Message> implements Messa
             path.getOutputStream(), 100000));
   }
 
-  @VisibleForTesting
-  AsynchronousMessageOutputStream(String name, OutputStream out) {
+  public AsynchronousMessageOutputStream(String name, OutputStream out) {
     writerThread =
         new Thread(
             () -> {

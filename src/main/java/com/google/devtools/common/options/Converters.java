@@ -432,28 +432,6 @@ public final class Converters {
     }
   }
 
-  /** Limits the length of a string argument. */
-  public static class LengthLimitingConverter extends Converter.Contextless<String> {
-    private final int maxSize;
-
-    public LengthLimitingConverter(int maxSize) {
-      this.maxSize = maxSize;
-    }
-
-    @Override
-    public String convert(String input) throws OptionsParsingException {
-      if (input.length() > maxSize) {
-        throw new OptionsParsingException("Input must be " + getTypeDescription());
-      }
-      return input;
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a string <= " + maxSize + " characters";
-    }
-  }
-
   /** Checks whether an integer is in the given range. */
   public static class RangeConverter extends Converter.Contextless<Integer> {
     final int minValue;
@@ -700,41 +678,6 @@ public final class Converters {
     @Override
     public String getTypeDescription() {
       return "a 'name=value' assignment with an optional value part";
-    }
-  }
-
-  /**
-   * A converter for named integers of the form "[name=]value". When no name is specified, an empty
-   * string is used for the key.
-   */
-  public static class NamedIntegersConverter
-      extends Converter.Contextless<Map.Entry<String, Integer>> {
-
-    @Override
-    public Map.Entry<String, Integer> convert(String input) throws OptionsParsingException {
-      int pos = input.indexOf('=');
-      if (pos == 0 || input.length() == 0) {
-        throw new OptionsParsingException(
-            "Specify either 'value' or 'name=value', where 'value' is an integer");
-      } else if (pos < 0) {
-        try {
-          return Maps.immutableEntry("", Integer.parseInt(input));
-        } catch (NumberFormatException e) {
-          throw new OptionsParsingException("'" + input + "' is not an int", e);
-        }
-      }
-      String name = input.substring(0, pos);
-      String value = input.substring(pos + 1);
-      try {
-        return Maps.immutableEntry(name, Integer.parseInt(value));
-      } catch (NumberFormatException e) {
-        throw new OptionsParsingException("'" + value + "' is not an int", e);
-      }
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "an integer or a named integer, 'name=value'";
     }
   }
 

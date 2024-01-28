@@ -29,10 +29,15 @@ import javax.annotation.Nullable;
  */
 public interface Target extends TargetApi, TargetData {
 
-  /**
-   *  Returns the Package to which this rule belongs.
-   */
+  /** Returns the Package to which this target belongs. */
   Package getPackage();
+
+  /**
+   * Returns the {@code Package.Metadata} associated with the package to which this target belongs.
+   */
+  default Package.Metadata getPackageMetadata() {
+    return getPackage().getMetadata();
+  }
 
   /**
    * Returns the rule associated with this target, if any.

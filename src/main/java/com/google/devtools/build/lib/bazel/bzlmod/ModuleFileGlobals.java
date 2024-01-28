@@ -29,9 +29,13 @@ import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileGlobals.ModuleExtensionUsageBuilder.ModuleExtensionProxy;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -480,17 +484,31 @@ public class ModuleFileGlobals {
   }
 
   private String normalizeLabelString(String rawExtensionBzlFile) {
-    // Normalize the label by adding the current module's repo_name if the label doesn't specify a
-    // repository name. This is necessary as ModuleExtensionUsages are grouped by the string value
-    // of this label, but later mapped to their Label representation. If multiple strings map to the
-    // same Label, this would result in a crash.
+    // Normalize the label by parsing and stringifying it with a repo mapping that preserves the
+    // apparent repository name, except that a reference to the main repository via the empty
+    // repo name is translated to using the module repo name. This is necessary as
+    // ModuleExtensionUsages are grouped by the string value of this label, but later mapped to
+    // their Label representation. If multiple strings map to the same Label, this would result in a
+    // crash.
     // ownName can't change anymore as calling module() after this results in an error.
     String ownName = module.getRepoName().orElse(module.getName());
-    if (module.getKey().equals(ModuleKey.ROOT) && rawExtensionBzlFile.startsWith("@//")) {
-      return "@" + ownName + rawExtensionBzlFile.substring(1);
-    } else if (rawExtensionBzlFile.startsWith("//")) {
-      return "@" + ownName + rawExtensionBzlFile;
-    } else {
+    RepositoryName ownRepoName = RepositoryName.createUnvalidated(ownName);
+    try {
+      ImmutableMap<String, RepositoryName> repoMapping = ImmutableMap.of();
+      if (module.getKey().equals(ModuleKey.ROOT)) {
+        repoMapping = ImmutableMap.of("", ownRepoName);
+      }
+      Label label =
+          Label.parseWithPackageContext(
+              rawExtensionBzlFile,
+              Label.PackageContext.of(
+                  PackageIdentifier.create(ownRepoName, PathFragment.EMPTY_FRAGMENT),
+                  RepositoryMapping.createAllowingFallback(repoMapping)));
+      // Skip over the leading "@" of the unambiguous form.
+      return label.getUnambiguousCanonicalForm().substring(1);
+    } catch (LabelSyntaxException ignored) {
+      // Preserve backwards compatibility by not failing eagerly, rather keep the invalid label and
+      // let the extension fail when evaluated.
       return rawExtensionBzlFile;
     }
   }
@@ -1020,6 +1038,12 @@ public class ModuleFileGlobals {
             named = true,
             positional = false,
             defaultValue = "0"),
+        @Param(
+            name = "init_submodules",
+            doc = "Whether submodules in the fetched repo should be recursively initialized.",
+            named = true,
+            positional = false,
+            defaultValue = "False"),
       })
   public void gitOverride(
       String moduleName,
@@ -1027,7 +1051,8 @@ public class ModuleFileGlobals {
       String commit,
       Iterable<?> patches,
       Iterable<?> patchCmds,
-      StarlarkInt patchStrip)
+      StarlarkInt patchStrip,
+      boolean initSubmodules)
       throws EvalException {
     hadNonModuleCall = true;
     addOverride(
@@ -1037,7 +1062,8 @@ public class ModuleFileGlobals {
             commit,
             Sequence.cast(patches, String.class, "patches").getImmutableList(),
             Sequence.cast(patchCmds, String.class, "patchCmds").getImmutableList(),
-            patchStrip.toInt("git_override.patch_strip")));
+            patchStrip.toInt("git_override.patch_strip"),
+            initSubmodules));
   }
 
   @StarlarkMethod(

@@ -11,8 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.skyframe.serialization;
+
+import static com.google.devtools.build.lib.skyframe.serialization.ArrayProcessor.deserializeObjectArray;
 
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -20,7 +21,7 @@ import java.io.IOException;
 import java.lang.reflect.Array;
 
 /** {@link ObjectCodec} for arrays of an arbitrary component type. */
-public class ArrayCodec<T> implements ObjectCodec<T[]> {
+public class ArrayCodec<T> extends AsyncObjectCodec<T[]> {
 
   /** Creates a codec for arrays of the given component type. */
   public static <T> ArrayCodec<T> forComponentType(Class<T> componentType) {
@@ -64,14 +65,13 @@ public class ArrayCodec<T> implements ObjectCodec<T[]> {
   }
 
   @Override
-  public final T[] deserialize(DeserializationContext context, CodedInputStream codedIn)
+  public final T[] deserializeAsync(AsyncDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     @SuppressWarnings("unchecked")
     T[] result = (T[]) Array.newInstance(componentType, codedIn.readInt32());
+    context.registerInitialValue(result);
     try {
-      for (int i = 0; i < result.length; i++) {
-        result[i] = context.deserialize(codedIn);
-      }
+      deserializeObjectArray(context, codedIn, result, result.length);
     } catch (StackOverflowError e) {
       // TODO(janakr): figure out if we need to handle this better and handle it better if so.
       throw new SerializationException("StackOverflow deserializing array", e);

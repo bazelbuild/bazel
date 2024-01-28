@@ -1363,7 +1363,7 @@ public class RemoteSpawnRunnerTest {
 
   @Test
   public void shouldReportCheckingCacheBeforeScheduling() throws Exception {
-    // Arrange
+    // Prepare a faked/mocked remote SpawnExecutionContext.
     RemoteSpawnRunner runner = newSpawnRunner();
     RemoteExecutionService service = runner.getRemoteExecutionService();
     ExecuteResponse succeeded =
@@ -1388,11 +1388,11 @@ public class RemoteSpawnRunnerTest {
 
     doReturn(null).when(service).downloadOutputs(any(), any());
 
-    // Act
+    // Run the faked spawn.
     SpawnResult res = runner.exec(spawn, policy);
-    assertThat(res.status()).isEqualTo(Status.SUCCESS);
 
-    // Assert
+    // Verify expected behavior with mocked remote SpawnExecutionContext.
+    assertThat(res.status()).isEqualTo(Status.SUCCESS);
     verify(executor)
         .executeRemotely(
             any(RemoteActionExecutionContext.class),

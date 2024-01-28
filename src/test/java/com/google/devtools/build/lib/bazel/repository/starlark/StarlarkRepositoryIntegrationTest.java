@@ -440,9 +440,9 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
     invalidatePackages();
     getConfiguredTarget("//:x");
     assertContainsEvent(
-        "target '//external:zlib' is not visible from target '//:x'. "
-            + "Check the visibility declaration of the former target if you think the "
-            + "dependency is legitimate");
+        "target '//external:zlib' is not visible from\ntarget '//:x'\n"
+            + "Recommendation: modify the visibility declaration if you think the dependency"
+            + " is legitimate. For more info see https://bazel.build/concepts/visibility");
   }
 
   @Test

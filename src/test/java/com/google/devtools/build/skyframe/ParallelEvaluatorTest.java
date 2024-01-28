@@ -86,7 +86,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Assume;
@@ -141,7 +140,6 @@ public class ParallelEvaluatorTest {
         GraphInconsistencyReceiver.THROWING,
         AbstractQueueVisitor.create("test-pool", 200, ParallelEvaluatorErrorClassifier.instance()),
         new SimpleCycleDetector(),
-        /* mergingSkyframeAnalysisExecutionPhases= */ false,
         UnnecessaryTemporaryStateDropperReceiver.NULL);
   }
 
@@ -499,10 +497,9 @@ public class ParallelEvaluatorTest {
               @Override
               public void evaluated(
                   SkyKey skyKey,
+                  EvaluationState state,
                   @Nullable SkyValue newValue,
                   @Nullable ErrorInfo newError,
-                  Supplier<EvaluationSuccessState> evaluationSuccessState,
-                  EvaluationState state,
                   @Nullable GroupedDeps directDeps) {
                 receivedValues.add(skyKey);
               }
@@ -2557,10 +2554,9 @@ public class ParallelEvaluatorTest {
           @Override
           public void evaluated(
               SkyKey skyKey,
+              EvaluationState state,
               @Nullable SkyValue newValue,
               @Nullable ErrorInfo newError,
-              Supplier<EvaluationSuccessState> evaluationSuccessState,
-              EvaluationState state,
               @Nullable GroupedDeps directDeps) {
             evaluatedValues.add(skyKey);
           }
@@ -3228,7 +3224,6 @@ public class ParallelEvaluatorTest {
             AbstractQueueVisitor.create(
                 "test-pool", 1, ParallelEvaluatorErrorClassifier.instance()),
             new SimpleCycleDetector(),
-            /* mergingSkyframeAnalysisExecutionPhases= */ false,
             dropperReceiver);
     // Then, when we evaluate key1,
     SkyValue resultValue = parallelEvaluator.eval(ImmutableList.of(key1)).get(key1);

@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
@@ -2117,14 +2116,14 @@ public class RuleClass implements RuleClassData {
       Label ruleLabel,
       AttributeValues<T> attributeValues,
       boolean failOnUnknownAttributes,
-      EventHandler eventHandler,
       List<StarlarkThread.CallStackEntry> callstack)
       throws LabelSyntaxException, InterruptedException, CannotPrecomputeDefaultsException {
+    EventHandler eventHandler = pkgBuilder.getLocalEventHandler();
+
     Rule rule = pkgBuilder.createRule(ruleLabel, this, callstack);
-    populateRuleAttributeValues(
-        rule, pkgBuilder, attributeValues, failOnUnknownAttributes, eventHandler);
+    populateRuleAttributeValues(rule, pkgBuilder, attributeValues, failOnUnknownAttributes);
     checkAspectAllowedValues(rule, eventHandler);
-    rule.populateOutputFiles(eventHandler, pkgBuilder);
+    rule.populateOutputFiles(eventHandler, pkgBuilder.getPackageIdentifier());
     checkForDuplicateLabels(rule, eventHandler);
 
     checkForValidSizeAndTimeoutValues(rule, eventHandler);
@@ -2145,7 +2144,7 @@ public class RuleClass implements RuleClassData {
       ImplicitOutputsFunction implicitOutputsFunction)
       throws InterruptedException, CannotPrecomputeDefaultsException {
     Rule rule = pkgBuilder.createRule(ruleLabel, this, callstack.toLocation(), callstack.next());
-    populateRuleAttributeValues(rule, pkgBuilder, attributeValues, true, NullEventHandler.INSTANCE);
+    populateRuleAttributeValues(rule, pkgBuilder, attributeValues, true);
     rule.populateOutputFilesUnchecked(pkgBuilder, implicitOutputsFunction);
     return rule;
   }
@@ -2161,8 +2160,7 @@ public class RuleClass implements RuleClassData {
       Rule rule,
       Package.Builder pkgBuilder,
       AttributeValues<T> attributeValues,
-      boolean failOnUnknownAttributes,
-      EventHandler eventHandler)
+      boolean failOnUnknownAttributes)
       throws InterruptedException, CannotPrecomputeDefaultsException {
 
     BitSet definedAttrIndices =
@@ -2172,8 +2170,8 @@ public class RuleClass implements RuleClassData {
             attributeValues,
             failOnUnknownAttributes,
             pkgBuilder.getListInterner(),
-            eventHandler);
-    populateDefaultRuleAttributeValues(rule, pkgBuilder, definedAttrIndices, eventHandler);
+            pkgBuilder.getLocalEventHandler());
+    populateDefaultRuleAttributeValues(rule, pkgBuilder, definedAttrIndices);
     // Now that all attributes are bound to values, collect and store configurable attribute keys.
     populateConfigDependenciesAttribute(rule);
   }
@@ -2284,7 +2282,7 @@ public class RuleClass implements RuleClassData {
    * <p>Errors are reported on {@code eventHandler}.
    */
   private void populateDefaultRuleAttributeValues(
-      Rule rule, Package.Builder pkgBuilder, BitSet definedAttrIndices, EventHandler eventHandler)
+      Rule rule, Package.Builder pkgBuilder, BitSet definedAttrIndices)
       throws InterruptedException, CannotPrecomputeDefaultsException {
     // Set defaults; ensure that every mandatory attribute has a value. Use the default if none
     // is specified.
@@ -2299,10 +2297,8 @@ public class RuleClass implements RuleClassData {
         rule.reportError(
             String.format(
                 "%s: missing value for mandatory attribute '%s' in '%s' rule",
-                rule.getLabel(),
-                attr.getName(),
-                name),
-            eventHandler);
+                rule.getLabel(), attr.getName(), name),
+            pkgBuilder.getLocalEventHandler());
       }
 
       // We must check both the name and the type of each attribute below in case a Starlark rule
@@ -2396,7 +2392,7 @@ public class RuleClass implements RuleClassData {
       Object defaultValue = attr.getDefaultValue(null);
       if (defaultValue instanceof StarlarkComputedDefaultTemplate) {
         StarlarkComputedDefaultTemplate template = (StarlarkComputedDefaultTemplate) defaultValue;
-        valueToSet = template.computePossibleValues(attr, rule, eventHandler);
+        valueToSet = template.computePossibleValues(attr, rule, pkgBuilder.getLocalEventHandler());
       } else if (defaultValue instanceof ComputedDefault) {
         // Compute all possible values to verify that the ComputedDefault is well-defined. This was
         // previously done implicitly as part of visiting all labels to check for null-ness in

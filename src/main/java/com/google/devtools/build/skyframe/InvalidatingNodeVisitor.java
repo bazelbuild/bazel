@@ -274,18 +274,18 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
               MIN_TIME_FOR_LOGGING)) {
         // To avoid contention and scheduling too many jobs for our #cpus, we start
         // DEFAULT_THREAD_COUNT jobs, each processing a chunk of the pending visitations.
-        int listSize = pendingList.size();
-        int numThreads = min(DEFAULT_THREAD_COUNT, listSize);
-        for (int i = 0; i < numThreads; i++) {
-          int index = i;
+        long listSize = pendingList.size();
+        long numThreads = min(DEFAULT_THREAD_COUNT, listSize);
+        for (long i = 0; i < numThreads; i++) {
+          // Use long multiplication to avoid possible overflow, as numThreads * listSize might be
+          // larger than max int.
+          int startIndex = (int) ((i * listSize) / numThreads);
+          int endIndex = (int) (((i + 1) * listSize) / numThreads);
           executor.execute(
               () ->
                   visit(
                       Collections2.transform(
-                          pendingList.subList(
-                              (index * listSize) / numThreads,
-                              ((index + 1) * listSize) / numThreads),
-                          Pair::getFirst),
+                          pendingList.subList(startIndex, endIndex), Pair::getFirst),
                       InvalidationType.DELETED));
         }
       }
@@ -381,9 +381,6 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
                                     && !pendingVisitations.contains(
                                         Pair.of(k, InvalidationType.DELETED))));
                 if (!depMap.isEmpty()) {
-                  // Don't do set operation below for signalingDeps if there's no work.
-                  Set<SkyKey> signalingDeps =
-                      entry.isDone() ? ImmutableSet.of() : entry.getTemporaryDirectDeps().toSet();
                   for (Map.Entry<SkyKey, ? extends NodeEntry> directDepEntry : depMap.entrySet()) {
                     NodeEntry dep = directDepEntry.getValue();
                     if (dep == null) {
@@ -394,24 +391,15 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
                           directDepEntry.getKey(), Boolean.TRUE);
                       continue;
                     }
-                    if (!signalingDeps.contains(directDepEntry.getKey())) {
-                      try {
-                        dep.removeReverseDep(key);
-                      } catch (InterruptedException e) {
-                        throw new IllegalStateException(
-                            "Deletion cannot happen on a graph that may have blocking "
-                                + "operations: "
-                                + key
-                                + ", "
-                                + entry,
-                            e);
-                      }
-                    } else {
-                      // This step is not strictly necessary, since all in-progress nodes are
-                      // deleted during graph cleaning, which happens in a single
-                      // DeletingNodeVisitor visitation, aka the one right now. We leave this
-                      // here in case the logic changes.
-                      dep.removeInProgressReverseDep(key);
+                    try {
+                      dep.removeReverseDep(key);
+                    } catch (InterruptedException e) {
+                      throw new IllegalStateException(
+                          "Deletion cannot happen on a graph that may have blocking operations: "
+                              + key
+                              + ", "
+                              + entry,
+                          e);
                     }
                   }
                 }
@@ -573,9 +561,6 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
         // AbstractQueueVisitor is shutting down. We haven't yet removed the pending
         // visitation, so we can resume next time.
         return;
-      } catch (IllegalStateException e) {
-        // Debugging for #10912.
-        throw new IllegalStateException("Crash caused by " + key, e);
       }
       if (markedDirtyResult == null) {
         // Another thread has already dirtied this node. Don't do anything in this thread.

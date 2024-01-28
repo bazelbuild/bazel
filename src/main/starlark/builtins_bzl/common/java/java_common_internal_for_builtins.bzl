@@ -75,7 +75,7 @@ def compile(
             source_jars or source_files should be specified.
         output_source_jar: (File) The output source jar. Optional. Defaults to
             `{output_jar}-src.jar` if unset.
-        javac_opts: ([str]) A list of the desired javac options. Optional.
+        javac_opts: ([str]|depset[str]) A list of the desired javac options. Optional.
         deps: ([JavaInfo]) A list of dependencies. Optional.
         runtime_deps: ([JavaInfo]) A list of runtime dependencies. Optional.
         exports: ([JavaInfo]) A list of exports. Optional.
@@ -136,15 +136,20 @@ def compile(
         ))
     for package_config in java_toolchain._package_configuration:
         if package_config.matches(ctx.label):
-            all_javac_opts.append(package_config.javac_opts(as_depset = True))
+            all_javac_opts.append(package_config.javac_opts)
 
     all_javac_opts.append(depset(
         ["--add-exports=%s=ALL-UNNAMED" % x for x in add_exports],
         order = "preorder",
     ))
 
-    # detokenize target's javacopts, it will be tokenized before compilation
-    all_javac_opts.append(helper.detokenize_javacopts(helper.tokenize_javacopts(ctx, javac_opts)))
+    if type(javac_opts) == type([]):
+        # detokenize target's javacopts, it will be tokenized before compilation
+        all_javac_opts.append(helper.detokenize_javacopts(helper.tokenize_javacopts(ctx, javac_opts)))
+    elif type(javac_opts) == type(depset()):
+        all_javac_opts.append(javac_opts)
+    else:
+        fail("Expected javac_opts to be a list or depset, got:", type(javac_opts))
 
     # we reverse the list of javacopts depsets, so that we keep the right-most set
     # in case it's deduped. When this depset is flattened, we will reverse again,
@@ -286,7 +291,6 @@ def compile(
 
     compilation_info = struct(
         javac_options = all_javac_opts,
-        javac_options_list = all_javac_opts_list,
         # needs to be flattened because the public API is a list
         boot_classpath = (bootclasspath.bootclasspath if bootclasspath else java_toolchain.bootclasspath).to_list(),
         # we only add compile time jars from deps, and not exports

@@ -41,6 +41,10 @@ import sys
 import time
 
 
+class TCPServerV6(TCPServer):
+  address_family = socket.AF_INET6
+
+
 class Handler(BaseHTTPRequestHandler):
   """Handlers for testing HTTP server."""
   auth = False
@@ -152,7 +156,10 @@ def main(argv):
     while port is None:
       try:
         port = random.randrange(32760, 59760)
-        httpd = TCPServer(('', port), Handler)
+        if sys.platform == 'darwin':
+          httpd = TCPServerV6(('', port), Handler)
+        else:
+          httpd = TCPServer(('', port), Handler)
       except socket.error:
         port = None
     sys.stdout.write('%d\nstarted\n' % (port,))

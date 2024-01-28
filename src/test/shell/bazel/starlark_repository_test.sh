@@ -70,6 +70,9 @@ source "$(rlocation "io_bazel/src/test/shell/bazel/remote_helpers.sh")" \
 
 mock_rules_java_to_avoid_downloading
 
+# Make sure no repository cache is used in this test
+add_to_bazelrc "build --repository_cache="
+
 # Basic test.
 function test_macro_local_repository() {
   create_new_workspace
@@ -2329,7 +2332,8 @@ genrule(
 )
 EOF
 
-  bazel build --distdir="." --repository_disable_download //:it || fail "Failed to build"
+  # for some reason --repository_disable_download fails with bzlmod trying to download @platforms.
+  bazel build --distdir="." --repository_disable_download --noenable_bzlmod //:it || fail "Failed to build"
 }
 
 function test_disable_download_should_allow_local_repository() {
@@ -2382,6 +2386,12 @@ EOF
   # platform worker thread, never restarts
   bazel shutdown
   bazel build @foo//:bar --experimental_worker_for_repo_fetching=platform >& $TEST_log \
+    || fail "Expected build to succeed"
+  expect_log_n "hello world!" 1
+
+  # virtual worker thread, never restarts
+  bazel shutdown
+  bazel build @foo//:bar --experimental_worker_for_repo_fetching=virtual >& $TEST_log \
     || fail "Expected build to succeed"
   expect_log_n "hello world!" 1
 }
@@ -2581,6 +2591,28 @@ EOF
   bazel build @foo//:all || fail "expected bazel to succeed"
   headers="${TEST_TMPDIR}/string_headers.json"
   assert_contains '"Accept": "application/text"' "$headers"
+}
+
+function test_repo_boundary_files() {
+  create_new_workspace
+  cat > MODULE.bazel <<EOF
+r = use_repo_rule("//:r.bzl", "r")
+r(name = "r")
+EOF
+  touch BUILD
+  cat > r.bzl <<EOF
+def _r(rctx):
+  rctx.file("BUILD", "filegroup(name='r', srcs=glob(['*']))")
+r = repository_rule(_r)
+EOF
+
+  bazel query --noenable_workspace --output=build @r > output || fail "expected bazel to succeed"
+  assert_contains 'REPO.bazel' output
+  assert_not_contains 'WORKSPACE' output
+
+  bazel query --enable_workspace --output=build @r > output || fail "expected bazel to succeed"
+  assert_contains 'REPO.bazel' output
+  assert_contains 'WORKSPACE' output
 }
 
 run_suite "local repository tests"

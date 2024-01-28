@@ -378,10 +378,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     fp.addString(GUID);
     commandLines.addToFingerprint(actionKeyContext, artifactExpander, fp);
     fp.addString(mnemonic);
-    // We don't need the toolManifests here, because they are a subset of the inputManifests by
-    // definition and the output of an action shouldn't change whether something is considered a
-    // tool or not.
-    fp.addPaths(runfilesSupplier.getRunfilesDirs());
     env.addTo(fp);
     fp.addStringMap(getExecutionInfo());
     PathMappers.addToFingerprint(getMnemonic(), getExecutionInfo(), outputPathsMode, fp);

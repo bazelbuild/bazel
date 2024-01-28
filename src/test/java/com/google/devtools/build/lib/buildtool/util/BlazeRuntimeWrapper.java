@@ -217,7 +217,8 @@ public class BlazeRuntimeWrapper {
                 /* commandStartTime= */ 0L,
                 extensions.stream().map(Any::pack).collect(toImmutableList()),
                 this.crashMessages::add,
-                NO_OP_COMMAND_EXTENSION_REPORTER);
+                NO_OP_COMMAND_EXTENSION_REPORTER,
+                /* attemptNumber= */ 1);
     return env;
   }
 

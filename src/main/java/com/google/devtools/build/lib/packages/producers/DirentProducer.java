@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.packages.producers;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Globber.Operation;
 import com.google.devtools.build.lib.packages.producers.GlobComputationProducer.GlobDetail;
@@ -155,20 +156,28 @@ final class DirentProducer implements StateMachine, Consumer<SkyValue> {
 
   /** Returns {@code true} if {@code path} can be added as a glob matching result. */
   private boolean shouldAddResult(boolean isDir, boolean isSubpackage) {
-    if (fragmentIndex < globDetail.patternFragments().size() - 1) {
-      // Early return because this dirent path has not matched all pattern fragments.
-      return false;
-    }
-
     switch (globDetail.globOperation()) {
       case FILES:
-        return !isDir;
+        return fragmentIndex == globDetail.patternFragments().size() - 1 && !isDir;
       case SUBPACKAGES:
-        return isDir && isSubpackage;
+        return isDir
+            && isSubpackage
+            && allRemainPatternFragmentsDoubleStar(globDetail.patternFragments(), fragmentIndex);
       case FILES_AND_DIRS:
-        return !isSubpackage;
+        return fragmentIndex == globDetail.patternFragments().size() - 1 && !isSubpackage;
     }
     throw new IllegalStateException(
         "Unexpected globber globberOperation = [" + globDetail.globOperation() + "]");
+  }
+
+  private static boolean allRemainPatternFragmentsDoubleStar(
+      ImmutableList<String> patternFragments, int index) {
+    if (index == patternFragments.size() - 1) {
+      // Already covered all pattern fragments at this point, so we don't need to check additional
+      // pattern fragments.
+      return true;
+    }
+    return patternFragments.subList(index + 1, patternFragments.size()).stream()
+        .allMatch("**"::equals);
   }
 }

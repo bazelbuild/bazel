@@ -164,6 +164,9 @@ py_test(
     timeout = "long",
     srcs = ["runfiles_test.py"],
     data = glob(["testdata/runfiles_test/**"]),
+    tags = [
+        "requires-network",
+    ],
     deps = [
         ":test_base",
     ],
@@ -177,6 +180,7 @@ py_test(
     tags = [
         # Windows does not support sandboxing yet.
         "no_windows",
+        "requires-network",
     ],
     deps = [":test_base"],
 )
@@ -301,6 +305,21 @@ py_test(
     size = "medium",
     srcs = ["bzlmod/bazel_fetch_test.py"],
     data = ["//tools/build_defs/repo:http_src"],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+    ],
+)
+
+py_test(
+    name = "bazel_vendor_test",
+    size = "large",
+    srcs = ["bzlmod/bazel_vendor_test.py"],
+    data = ["//tools/build_defs/repo:http_src"],
+    shard_count = 5,
+    tags = [
+        "requires-network",
+    ],
     deps = [
         ":bzlmod_test_utils",
         ":test_base",

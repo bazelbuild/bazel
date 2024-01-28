@@ -26,6 +26,8 @@ import net.starlark.java.eval.StarlarkThread;
 /**
  * Converts a label literal string into a {@link Label} object, using the appropriate base package
  * and repo mapping.
+ *
+ * <p>Instances are not thread-safe, due to an internal cache.
  */
 public class LabelConverter {
 

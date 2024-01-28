@@ -207,21 +207,6 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
   }
 
   @Test
-  public void testLinkerParamFileIsExported() throws Exception {
-    useConfiguration();
-
-    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['some-dir/bar.so'])");
-    scratch.file("x/some-dir/bar.so");
-
-    ConfiguredTarget target = getConfiguredTarget("//x:bin");
-    CcToolchainVariables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
-    String variableValue =
-        getVariableValue(
-            getRuleContext(), variables, LinkBuildVariables.LINKER_PARAM_FILE.getVariableName());
-    assertThat(variableValue).matches(".*bin/x/bin" + "-2.params$");
-  }
-
-  @Test
   public void testInterfaceLibraryBuildingVariablesWhenLegacyGenerationPossible() throws Exception {
     AnalysisMock.get()
         .ccSupport()

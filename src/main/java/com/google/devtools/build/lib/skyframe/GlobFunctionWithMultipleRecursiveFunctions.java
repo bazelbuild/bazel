@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static java.util.Arrays.stream;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
@@ -47,7 +49,7 @@ public final class GlobFunctionWithMultipleRecursiveFunctions extends GlobFuncti
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
-      throws GlobFunctionException, InterruptedException {
+      throws GlobException, InterruptedException {
     GlobDescriptor glob = (GlobDescriptor) skyKey.argument();
     Globber.Operation globberOperation = glob.globberOperation();
 
@@ -68,20 +70,6 @@ public final class GlobFunctionWithMultipleRecursiveFunctions extends GlobFuncti
     }
 
     String pattern = glob.getPattern();
-    // Split off the first path component of the pattern.
-    int slashPos = pattern.indexOf('/');
-    String patternHead;
-    String patternTail;
-    if (slashPos == -1) {
-      patternHead = pattern;
-      patternTail = null;
-    } else {
-      // Substrings will share the backing array of the original glob string. That should be fine.
-      patternHead = pattern.substring(0, slashPos);
-      patternTail = pattern.substring(slashPos + 1);
-    }
-
-    boolean globMatchesBareFile = patternTail == null;
 
     // Note that the glob's package is assumed to exist which implies that the package's BUILD file
     // exists which implies that the package's directory exists.
@@ -102,11 +90,11 @@ public final class GlobFunctionWithMultipleRecursiveFunctions extends GlobFuncti
         // defines another package, so glob expansion should not descend into
         // that subdir.
         //
-        // For SUBPACKAGES, we should check whether all pattern splits have been matched so that
-        // this is terminal package for that pattern. In that case we should include the
-        // subDirFragment PathFragment (relative to the glob's package) in the GlobValue.getMatches,
-        // otherwise for file/dir matching return EMPTY.
-        if (globberOperation == Globber.Operation.SUBPACKAGES && globMatchesBareFile) {
+        // For SUBPACKAGES, we encounter this when all remaining patterns in the glob expression
+        // are `**`s. In that case we should include the subpackage's PathFragment (relative to the
+        // package fragment) in the GlobValue.getMatches. Otherwise, return EMPTY.
+        if (globberOperation == Globber.Operation.SUBPACKAGES
+            && stream(pattern.split("/")).allMatch("**"::equals)) {
           return new GlobValueWithNestedSet(
               NestedSetBuilder.<PathFragment>stableOrder()
                   .add(subDirFragment.relativeTo(glob.getPackageId().getPackageFragment()))
@@ -119,6 +107,21 @@ public final class GlobFunctionWithMultipleRecursiveFunctions extends GlobFuncti
         return GlobValueWithNestedSet.EMPTY;
       }
     }
+
+    // Split off the first path component of the pattern.
+    int slashPos = pattern.indexOf('/');
+    String patternHead;
+    String patternTail;
+    if (slashPos == -1) {
+      patternHead = pattern;
+      patternTail = null;
+    } else {
+      // Substrings will share the backing array of the original glob string. That should be fine.
+      patternHead = pattern.substring(0, slashPos);
+      patternTail = pattern.substring(slashPos + 1);
+    }
+
+    boolean globMatchesBareFile = patternTail == null;
 
     NestedSetBuilder<PathFragment> matches = NestedSetBuilder.stableOrder();
 
@@ -134,7 +137,7 @@ public final class GlobFunctionWithMultipleRecursiveFunctions extends GlobFuncti
       SkyKey directoryListingKey = DirectoryListingValue.key(dirRootedPath);
       DirectoryListingValue listingValue = null;
 
-      boolean patternHeadIsStarStar = "**".equals(patternHead);
+      boolean patternHeadIsStarStar = patternHead.equals("**");
       if (patternHeadIsStarStar) {
         // "**" also matches an empty segment, so try the case where it is not present.
         if (globMatchesBareFile) {
@@ -242,7 +245,7 @@ public final class GlobFunctionWithMultipleRecursiveFunctions extends GlobFuncti
             return null;
           }
           if (!symlinkFileValue.isSymlink()) {
-            throw new GlobFunctionException(
+            throw new GlobException(
                 new InconsistentFilesystemException(
                     "readdir and stat disagree about whether "
                         + ((RootedPath) subdirAndSymlinksKey.argument()).asPath()
@@ -271,7 +274,7 @@ public final class GlobFunctionWithMultipleRecursiveFunctions extends GlobFuncti
                 new FileSymlinkInfiniteExpansionException(
                     symlinkFileValue.pathToUnboundedAncestorSymlinkExpansionChain(),
                     symlinkFileValue.unboundedAncestorSymlinkExpansionChain());
-            throw new GlobFunctionException(symlinkException, Transience.PERSISTENT);
+            throw new GlobException(symlinkException, Transience.PERSISTENT);
           }
 
           Dirent dirent = symlinkFileMap.get(subdirAndSymlinksKey);
