@@ -77,6 +77,7 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -1260,7 +1261,8 @@ public final class SkyframeBuildView {
       ExtendedEventHandler eventHandler,
       Environment env,
       BuildConfigurationValue config,
-      StarlarkBuiltinsValue starlarkBuiltinsValue) {
+      StarlarkBuiltinsValue starlarkBuiltinsValue,
+      RepositoryMapping mainRepoMapping) {
     boolean extendedSanityChecks = config != null && config.extendedSanityChecks();
     boolean allowAnalysisFailures = config != null && config.allowAnalysisFailures();
     return new CachingAnalysisEnvironment(
@@ -1271,7 +1273,8 @@ public final class SkyframeBuildView {
         allowAnalysisFailures,
         eventHandler,
         env,
-        starlarkBuiltinsValue);
+        starlarkBuiltinsValue,
+        mainRepoMapping);
   }
 
   /**

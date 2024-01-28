@@ -351,11 +351,22 @@ public final class DependencyModule {
         if (missingTargets.isEmpty()) {
           return "";
         }
+        String buildozerCommand = "";
+        // buildozer can't modify BUILD files in external repositories.
+        if (!recipient.startsWith("@")) {
+          buildozerCommand =
+              String.format(
+                  "%1$s ** You can use the following buildozer command:%2$s "
+                      + "\nbuildozer 'add deps %3$s' %4$s \n",
+                  "\033[35m\033[1m", "\033[0m", Joiner.on(" ").join(missingTargets), recipient);
+        }
         return String.format(
-            "%1$s ** Please add the following dependencies:%2$s \n  %3$s to %4$s \n"
-                + "%1$s ** You can use the following buildozer command:%2$s "
-                + "\nbuildozer 'add deps %3$s' %4$s \n\n",
-            "\033[35m\033[1m", "\033[0m", Joiner.on(" ").join(missingTargets), recipient);
+            "%1$s ** Please add the following dependencies:%2$s \n  %3$s to %4$s \n%5$s\n",
+            "\033[35m\033[1m",
+            "\033[0m",
+            Joiner.on(" ").join(missingTargets),
+            recipient,
+            buildozerCommand);
       }
     }
 

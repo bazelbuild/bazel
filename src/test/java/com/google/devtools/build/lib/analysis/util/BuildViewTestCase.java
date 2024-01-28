@@ -112,6 +112,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -154,6 +155,7 @@ import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.PackageRootsNoSymlinkCreation;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyFunctionEnvironmentForTesting;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -663,6 +665,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     StarlarkBuiltinsValue starlarkBuiltinsValue =
         (StarlarkBuiltinsValue)
             Preconditions.checkNotNull(env.getValue(StarlarkBuiltinsValue.key()));
+    RepositoryMappingValue mainRepoMappingValue =
+        (RepositoryMappingValue)
+            Preconditions.checkNotNull(
+                env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN)));
     return new CachingAnalysisEnvironment(
         view.getArtifactFactory(),
         actionKeyContext,
@@ -688,7 +694,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         /*allowAnalysisFailures=*/ false,
         reporter,
         env,
-        starlarkBuiltinsValue);
+        starlarkBuiltinsValue,
+        mainRepoMappingValue.getRepositoryMapping());
   }
 
   /**
@@ -2160,6 +2167,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     @Override
     public ActionKeyContext getActionKeyContext() {
       return actionKeyContext;
+    }
+
+    @Override
+    public RepositoryMapping getMainRepoMapping() {
+      throw new UnsupportedOperationException();
     }
   }
 

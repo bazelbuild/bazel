@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.JavaCompileInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -313,14 +314,12 @@ public final class JavaCompileActionBuilder {
       result.add("--");
     }
     if (targetLabel != null) {
-      result.add("--target_label");
-      if (targetLabel.getRepository().isMain()) {
-        result.addLabel(targetLabel);
-      } else {
-        // @-prefixed strings will be assumed to be filenames and expanded by
-        // {@link JavaLibraryBuildRequest}, so add an extra &at; to escape it.
-        result.addPrefixedLabel("@", targetLabel);
-      }
+      result.addAll(
+          "--target_label",
+          VectorArg.of(ImmutableList.of(targetLabel))
+              .mapped(
+                  JavaCompilationHelper.TARGET_LABEL_MAP_FN_CACHE.get(
+                      ruleContext.getMainRepoMapping())));
     }
     result.add("--injecting_rule_kind", injectingRuleKind);
     // strict_java_deps controls whether the mapping from jars to targets is

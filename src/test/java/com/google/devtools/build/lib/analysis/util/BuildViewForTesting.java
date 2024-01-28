@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -77,6 +78,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptio
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.UnreportedException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.DependencyResolver;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctionEnvironmentForTesting;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
@@ -348,6 +350,10 @@ public class BuildViewForTesting {
     StarlarkBuiltinsValue starlarkBuiltinsValue =
         (StarlarkBuiltinsValue)
             Preconditions.checkNotNull(skyframeEnv.getValue(StarlarkBuiltinsValue.key()));
+    RepositoryMappingValue mainRepoMappingValue =
+        (RepositoryMappingValue)
+            Preconditions.checkNotNull(
+                skyframeEnv.getValue(RepositoryMappingValue.key(RepositoryName.MAIN)));
     CachingAnalysisEnvironment analysisEnv =
         new CachingAnalysisEnvironment(
             getArtifactFactory(),
@@ -360,7 +366,8 @@ public class BuildViewForTesting {
             targetConfig.allowAnalysisFailures(),
             eventHandler,
             skyframeEnv,
-            starlarkBuiltinsValue);
+            starlarkBuiltinsValue,
+            mainRepoMappingValue.getRepositoryMapping());
     return getRuleContextForTesting(eventHandler, target, analysisEnv);
   }
 

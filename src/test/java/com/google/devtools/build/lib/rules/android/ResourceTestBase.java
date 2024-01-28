@@ -31,10 +31,12 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctionEnvironmentForTesting;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -192,6 +194,10 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
     StarlarkBuiltinsValue starlarkBuiltinsValue =
         (StarlarkBuiltinsValue)
             Preconditions.checkNotNull(skyframeEnv.getValue(StarlarkBuiltinsValue.key()));
+    RepositoryMappingValue mainRepoMappingValue =
+        (RepositoryMappingValue)
+            Preconditions.checkNotNull(
+                skyframeEnv.getValue(RepositoryMappingValue.key(RepositoryName.MAIN)));
     CachingAnalysisEnvironment analysisEnv =
         new CachingAnalysisEnvironment(
             view.getArtifactFactory(),
@@ -204,7 +210,8 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
             targetConfig.allowAnalysisFailures(),
             eventHandler,
             skyframeEnv,
-            starlarkBuiltinsValue);
+            starlarkBuiltinsValue,
+            mainRepoMappingValue.getRepositoryMapping());
 
     return view.getRuleContextForTesting(eventHandler, dummyTarget, analysisEnv);
   }
