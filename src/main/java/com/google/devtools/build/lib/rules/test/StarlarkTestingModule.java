@@ -68,7 +68,7 @@ public class StarlarkTestingModule implements TestingModuleApi {
       Object attrValuesApi,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
-    Package.Builder pkgBuilder = thread.getThreadLocal(Package.Builder.class);
+    Package.Builder pkgBuilder = Package.Builder.fromOrNull(thread);
     RuleDefinitionEnvironment ruleDefinitionEnvironment =
         thread.getThreadLocal(RuleDefinitionEnvironment.class);
     // TODO(b/236456122): Refactor this check into a standard helper / error message

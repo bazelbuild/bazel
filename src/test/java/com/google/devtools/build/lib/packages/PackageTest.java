@@ -158,7 +158,7 @@ public class PackageTest {
   }
 
   private Package.Builder pkgBuilder(String name) {
-    return new Package.Builder(
+    return Package.newPackageBuilder(
         PackageSettings.DEFAULTS,
         PackageIdentifier.createInMainRepo(name),
         /* filename= */ RootedPath.toRootedPath(

@@ -293,8 +293,7 @@ public class WorkspaceFileFunction implements SkyFunction {
     // The default 'workspace name' is "__main__". Note that this is different from the "workspace
     // name" returned by WorkspaceNameFunction, which is a fixed string when Bzlmod is enabled.
     Package.Builder builder =
-        packageFactory.newExternalPackageBuilder(
-            workspaceFile, "__main__", repoMapping, starlarkSemantics);
+        packageFactory.newExternalPackageBuilder(key, "__main__", repoMapping, starlarkSemantics);
 
     if (chunks.isEmpty()) {
       builder.setLoads(ImmutableList.of());
@@ -390,7 +389,7 @@ public class WorkspaceFileFunction implements SkyFunction {
       }
       // Execute the partial files that comprise this chunk.
       for (StarlarkFile partialFile : chunk) {
-        parser.execute(partialFile, loadedModules, key);
+        parser.execute(partialFile, loadedModules);
       }
     }
 

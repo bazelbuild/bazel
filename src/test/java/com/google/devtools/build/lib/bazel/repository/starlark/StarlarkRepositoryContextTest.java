@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
+import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
@@ -137,7 +138,7 @@ public final class StarlarkRepositoryContextTest {
     Package.Builder packageBuilder =
         Package.newExternalPackageBuilder(
             PackageSettings.DEFAULTS,
-            RootedPath.toRootedPath(root, workspaceFile),
+            WorkspaceFileValue.key(RootedPath.toRootedPath(root, workspaceFile)),
             "runfiles",
             RepositoryMapping.ALWAYS_FALLBACK,
             starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
