@@ -131,8 +131,8 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
 
     ArrayList<SpawnExec> actual = new ArrayList<>();
     try (InputStream in = new ZstdInputStream(logPath.getInputStream())) {
-      while (in.available() > 0) {
-        ExecLogEntry e = ExecLogEntry.parseDelimitedFrom(in);
+      ExecLogEntry e;
+      while ((e = ExecLogEntry.parseDelimitedFrom(in)) != null) {
         entryMap.put(e.getId(), e);
         if (e.hasSpawn()) {
           actual.add(reconstructSpawnExec(e.getSpawn(), entryMap));

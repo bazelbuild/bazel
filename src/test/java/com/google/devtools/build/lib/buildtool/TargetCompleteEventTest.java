@@ -269,8 +269,9 @@ public final class TargetCompleteEventTest extends BuildIntegrationTestCase {
       throws IOException {
     ImmutableList.Builder<BuildEvent> buildEvents = ImmutableList.builder();
     try (InputStream in = new FileInputStream(bep)) {
-      while (in.available() > 0) {
-        buildEvents.add(BuildEvent.parseDelimitedFrom(in));
+      BuildEvent ev;
+      while ((ev = BuildEvent.parseDelimitedFrom(in)) != null) {
+        buildEvents.add(ev);
       }
     }
     return buildEvents.build();
