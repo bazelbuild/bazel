@@ -119,20 +119,6 @@ public class Package {
   private static final long PACKAGE_OVERHEAD_UNSET = -1;
 
   /**
-   * An exception used when the name of a target or symbolic macro clashes with another entity
-   * defined in the package.
-   *
-   * <p>Common examples of conflicts include two targets or symbolic macros sharing the same name,
-   * and one output file being a prefix of another. See {@link #checkForExistingName} and {@link
-   * #checkRuleAndOutputs} for more details.
-   */
-  public static final class NameConflictException extends Exception {
-    private NameConflictException(String message) {
-      super(message);
-    }
-  }
-
-  /**
    * The collection of all targets defined in this package, indexed by name.
    *
    * <p>Invariant: This is disjoint with the set of keys in {@link #macros}.
@@ -864,7 +850,7 @@ public class Package {
    * A builder for {@link Package} objects. Only intended to be used by {@link PackageFactory} and
    * {@link com.google.devtools.build.lib.skyframe.PackageFunction}.
    */
-  public static class Builder extends BazelStarlarkContext {
+  public static class Builder extends TargetDefinitionContext {
 
     /**
      * A bundle of options affecting package construction, that is not specific to any particular

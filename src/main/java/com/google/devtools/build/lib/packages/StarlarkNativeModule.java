@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.io.FileSymlinkException;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
+import com.google.devtools.build.lib.packages.TargetDefinitionContext.NameConflictException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkNativeModuleApi;
@@ -557,7 +558,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       return Starlark.NONE;
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("package group has invalid name: %s: %s", name, e.getMessage());
-    } catch (Package.NameConflictException e) {
+    } catch (NameConflictException e) {
       throw new EvalException(e);
     }
   }
@@ -598,7 +599,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
         }
 
         pkgBuilder.setVisibilityAndLicense(inputFile, visibility, license);
-      } catch (Package.NameConflictException e) {
+      } catch (NameConflictException e) {
         throw Starlark.errorf("%s", e.getMessage());
       }
     }

@@ -18,6 +18,7 @@ import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.License.DistributionType;
+import com.google.devtools.build.lib.packages.TargetDefinitionContext.NameConflictException;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import java.util.List;
@@ -94,7 +95,7 @@ public class BuildGlobals {
       return Starlark.NONE;
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("environment group has invalid name: %s: %s", name, e.getMessage());
-    } catch (Package.NameConflictException e) {
+    } catch (NameConflictException e) {
       throw Starlark.errorf("%s", e.getMessage());
     }
   }
