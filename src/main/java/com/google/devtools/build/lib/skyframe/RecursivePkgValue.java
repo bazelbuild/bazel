@@ -84,13 +84,17 @@ public class RecursivePkgValue implements SkyValue {
       super(repositoryName, rootedPath, excludedPaths);
     }
 
-    @VisibleForSerialization
-    @AutoCodec.Instantiator
-    static Key create(
+    private static Key create(
         RepositoryName repositoryName,
         RootedPath rootedPath,
         ImmutableSet<PathFragment> excludedPaths) {
       return interner.intern(new Key(repositoryName, rootedPath, excludedPaths));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     @Override
