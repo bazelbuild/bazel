@@ -91,6 +91,8 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.gson.JsonObject;
 import com.google.protobuf.ByteString;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import io.grpc.BindableService;
 import io.grpc.CallCredentials;
 import io.grpc.CallOptions;
@@ -129,14 +131,13 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
 /** Tests for {@link GrpcCacheClient}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class GrpcCacheClientTest {
   private static final DigestUtil DIGEST_UTIL =
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
@@ -1271,36 +1272,42 @@ public class GrpcCacheClientTest {
   }
 
   @Test
-  public void testCompressedDownload() throws IOException, InterruptedException {
+  public void testCompressedDownload(@TestParameter boolean overThreshold)
+      throws IOException, InterruptedException {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.cacheCompression = true;
+    options.cacheCompressionThreshold = 100;
     final GrpcCacheClient client = newClient(options);
-    final byte[] data = "abcdefg".getBytes(UTF_8);
+    final byte[] data =
+        overThreshold ? "0123456789".repeat(10).getBytes(UTF_8) : "0123456789".getBytes(UTF_8);
     final Digest digest = DIGEST_UTIL.compute(data);
-    final byte[] compressed = Zstd.compress(data);
+    final byte[] bytes = overThreshold ? Zstd.compress(data) : data;
 
     serviceRegistry.addService(
         new ByteStreamImplBase() {
           @Override
           public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
             assertThat(request.getResourceName()).contains(digest.getHash());
+            if (overThreshold) {
+              assertThat(request.getResourceName()).contains("compressed-blobs/zstd");
+            } else {
+              assertThat(request.getResourceName()).doesNotContain("compressed-blobs/zstd");
+            }
             responseObserver.onNext(
                 ReadResponse.newBuilder()
-                    .setData(ByteString.copyFrom(Arrays.copyOf(compressed, compressed.length / 3)))
+                    .setData(ByteString.copyFrom(Arrays.copyOf(bytes, bytes.length / 3)))
                     .build());
             responseObserver.onNext(
                 ReadResponse.newBuilder()
                     .setData(
                         ByteString.copyFrom(
-                            Arrays.copyOfRange(
-                                compressed, compressed.length / 3, compressed.length / 3 * 2)))
+                            Arrays.copyOfRange(bytes, bytes.length / 3, bytes.length / 3 * 2)))
                     .build());
             responseObserver.onNext(
                 ReadResponse.newBuilder()
                     .setData(
                         ByteString.copyFrom(
-                            Arrays.copyOfRange(
-                                compressed, compressed.length / 3 * 2, compressed.length)))
+                            Arrays.copyOfRange(bytes, bytes.length / 3 * 2, bytes.length)))
                     .build());
             responseObserver.onCompleted();
           }
