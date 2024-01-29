@@ -50,10 +50,14 @@ public class TargetPatternErrorFunction implements SkyFunction {
       this.detailedExitCode = detailedExitCode;
     }
 
-    @VisibleForSerialization
-    @AutoCodec.Instantiator
-    static Key create(String message, DetailedExitCode detailedExitCode) {
+    private static Key create(String message, DetailedExitCode detailedExitCode) {
       return interner.intern(new Key(message, detailedExitCode));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     @Override
