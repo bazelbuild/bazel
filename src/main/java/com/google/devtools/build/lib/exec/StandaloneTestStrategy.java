@@ -808,9 +808,12 @@ public class StandaloneTestStrategy extends TestStrategy {
         // Make sure that the test.log exists.Spaw
         FileSystemUtils.touchFile(fileOutErr.getOutputPath());
       }
-      // Append any error output to the test.log. This is very rare.
-      writeOutFile(fileOutErr.getErrorPath(), fileOutErr.getOutputPath());
       fileOutErr.close();
+      // Append any error output to the test.log. This is very rare.
+      //
+      // Only write after the error output stream has been closed. Otherwise, Bazel cannot delete
+      // test.err file on Windows. See https://github.com/bazelbuild/bazel/issues/20741.
+      writeOutFile(fileOutErr.getErrorPath(), fileOutErr.getOutputPath());
       if (streamed != null) {
         streamed.close();
       }
