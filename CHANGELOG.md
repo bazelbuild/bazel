@@ -12,6 +12,8 @@ Cherry picks:
    + 162cacd30dc19352ec34fe1de6a056d6b1ee9374:
      Automated rollback of commit
      915fb3e861dd28e16f42072101adf498242d26d0.
+   + 7788abb73f09921197d27c45ac9eb23b5a4f89a0:
+     Release 8.0.0-pre.20240108.6 (2024-01-29)
 ```
 
 Initial release.
