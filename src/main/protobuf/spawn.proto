@@ -200,7 +200,18 @@ message SpawnExec {
 // Each entry describes either an executed spawn or a piece of data referenced
 // by other entries. This considerably reduces the runtime overhead and the size
 // of the log when compared to the --execution_log_{binary,json}_file formats.
+//
+// To ensure that the log can be parsed in a single pass, every entry must be
+// serialized after all other entries it references by ID.
+//
+// Entries other than spawns may not be assumed to be canonical. For performance
+// reasons, the same file, directory or input set may be serialized multiple
+// times with a different ID.
 message ExecLogEntry {
+  // Information pertaining to the entire invocation.
+  // May appear at most once in the initial position.
+  message Invocation {}
+
   // An input or output file.
   message File {
     // The file path.
@@ -220,6 +231,10 @@ message ExecLogEntry {
   }
 
   // A set of spawn inputs.
+  // The contents of the set are the directly referenced files and directories
+  // in addition to the contents of all transitively referenced sets. Sets are
+  // not canonical: two sets with different structure may yield the same
+  // contents.
   message InputSet {
     // Entry IDs of files belonging to this set.
     repeated int32 file_ids = 1;
@@ -303,10 +318,10 @@ message ExecLogEntry {
 
   // The entry payload.
   oneof type {
-    File file = 2;
-    Directory directory = 3;
-    InputSet input_set = 4;
-    Output output = 5;
+    Invocation invocation = 2;
+    File file = 3;
+    Directory directory = 4;
+    InputSet input_set = 5;
     Spawn spawn = 6;
   }
 }
