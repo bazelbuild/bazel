@@ -267,9 +267,9 @@ java_library(
         "CompactSpawnLogContext.java",
         "ExpandedSpawnLogContext.java",
         "SpawnLogContext.java",
-        "StableSort.java",
     ],
     deps = [
+        ":spawn_log_context_utils",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
@@ -290,6 +290,17 @@ java_library(
         "//third_party/protobuf:protobuf_java",
         "//third_party/protobuf:protobuf_java_util",
         "@zstd-jni",
+    ],
+)
+
+java_library(
+    name = "spawn_log_context_utils",
+    srcs = ["StableSort.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
+        "//src/main/protobuf:spawn_java_proto",
+        "//third_party:guava",
     ],
 )
 
