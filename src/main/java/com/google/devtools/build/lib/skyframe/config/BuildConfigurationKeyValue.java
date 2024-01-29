@@ -34,10 +34,14 @@ public final class BuildConfigurationKeyValue implements SkyValue {
   public static final class Key implements SkyKey {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
-    @AutoCodec.Instantiator
-    @VisibleForSerialization
     public static Key create(BuildOptions buildOptions) {
       return interner.intern(new Key(buildOptions));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     private final BuildOptions buildOptions;
