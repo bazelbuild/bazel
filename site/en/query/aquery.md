@@ -327,7 +327,7 @@ tells us the timing and duration of their execution.
 It is possible to combine these 2 sets of information via a common denominator: an action's primary output.
 
 To include actions' outputs in the JSON profile, generate the profile with
-`--experimental_include_primary_output --noexperimental_slim_json_profile`.
+`--experimental_include_primary_output --noslim_profile`.
 Slim profiles are incompatible with the inclusion of primary outputs. An action's primary output
 is included by default by aquery.
 
