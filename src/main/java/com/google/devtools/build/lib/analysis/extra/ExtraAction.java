@@ -168,11 +168,10 @@ public final class ExtraAction extends SpawnAction {
       return super.getSpawn(actionExecutionContext);
     }
     return getSpawn(
-        actionExecutionContext.getArtifactExpander(),
+        actionExecutionContext,
         actionExecutionContext.getClientEnv(),
-        /*envResolved=*/ false,
-        actionExecutionContext.getTopLevelFilesets(),
-        /*reportOutputs=*/ false);
+        /* envResolved= */ false,
+        /* reportOutputs= */ false);
   }
 
   @Override

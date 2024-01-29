@@ -48,7 +48,7 @@ public final class FakeActionInputFileCache implements InputMetadataProvider {
 
   @Override
   public ImmutableList<RunfilesTree> getRunfilesTrees() {
-    throw new UnsupportedOperationException();
+    return ImmutableList.of();
   }
 
   @Override
