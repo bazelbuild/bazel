@@ -83,10 +83,15 @@ public final class PlatformMappingValue implements SkyValue {
       }
     }
 
-    @AutoCodec.Instantiator
-    @VisibleForSerialization
-    static Key create(PathFragment workspaceRelativeMappingPath, boolean wasExplicitlySetByUser) {
+    private static Key create(
+        PathFragment workspaceRelativeMappingPath, boolean wasExplicitlySetByUser) {
       return interner.intern(new Key(workspaceRelativeMappingPath, wasExplicitlySetByUser));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     private final PathFragment path;
