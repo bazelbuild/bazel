@@ -268,8 +268,8 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
       if (sorted) {
         StableSort.stableSort(in, convertedOutputStream);
       } else {
-        while (in.available() > 0) {
-          SpawnExec ex = SpawnExec.parseDelimitedFrom(in);
+        SpawnExec ex;
+        while ((ex = SpawnExec.parseDelimitedFrom(in)) != null) {
           convertedOutputStream.write(ex);
         }
       }

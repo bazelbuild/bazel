@@ -37,8 +37,8 @@ import java.util.PriorityQueue;
 public final class StableSort {
   private static ImmutableList<SpawnExec> read(InputStream in) throws IOException {
     ImmutableList.Builder<SpawnExec> result = ImmutableList.builder();
-    while (in.available() > 0) {
-      SpawnExec ex = SpawnExec.parseDelimitedFrom(in);
+    SpawnExec ex;
+    while ((ex = SpawnExec.parseDelimitedFrom(in)) != null) {
       result.add(ex);
     }
     return result.build();
