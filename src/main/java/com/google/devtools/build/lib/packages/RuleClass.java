@@ -29,6 +29,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
@@ -786,8 +788,9 @@ public class RuleClass implements RuleClassData {
         NO_OPTION_REFERENCE;
     /** This field and the next are null iff the rule is native. */
     @Nullable private Label ruleDefinitionEnvironmentLabel;
-
     @Nullable private byte[] ruleDefinitionEnvironmentDigest = null;
+    /** This filed is non-null iff the rule is a Starlark repo rule. */
+    @Nullable private ImmutableTable<RepositoryName, String, RepositoryName> ruleDefinitionEnvironmentRepoMappingEntries;
     private final ConfigurationFragmentPolicy.Builder configurationFragmentPolicy =
         new ConfigurationFragmentPolicy.Builder();
 
@@ -984,6 +987,7 @@ public class RuleClass implements RuleClassData {
           optionReferenceFunction,
           ruleDefinitionEnvironmentLabel,
           ruleDefinitionEnvironmentDigest,
+          ruleDefinitionEnvironmentRepoMappingEntries,
           configurationFragmentPolicy.build(),
           supportsConstraintChecking,
           toolchainTypes,
@@ -1410,6 +1414,13 @@ public class RuleClass implements RuleClassData {
       return this.ruleDefinitionEnvironmentLabel;
     }
 
+    @CanIgnoreReturnValue
+    public Builder setRuleDefinitionEnvironmentRepoMappingEntries(
+        ImmutableTable<RepositoryName, String, RepositoryName> recordedRepoMappingEntries) {
+      this.ruleDefinitionEnvironmentRepoMappingEntries = recordedRepoMappingEntries;
+      return this;
+    }
+
     /**
      * Removes an attribute with the same name from this rule class.
      *
@@ -1762,8 +1773,8 @@ public class RuleClass implements RuleClassData {
    * Starlark executable RuleClasses.
    */
   @Nullable private final Label ruleDefinitionEnvironmentLabel;
-
   @Nullable private final byte[] ruleDefinitionEnvironmentDigest;
+  @Nullable private final ImmutableTable<RepositoryName, String, RepositoryName> ruleDefinitionEnvironmentRepoMappingEntries;
   private final OutputFile.Kind outputFileKind;
 
   /**
@@ -1835,6 +1846,7 @@ public class RuleClass implements RuleClassData {
       Function<? super Rule, ? extends Set<String>> optionReferenceFunction,
       @Nullable Label ruleDefinitionEnvironmentLabel,
       @Nullable byte[] ruleDefinitionEnvironmentDigest,
+      @Nullable ImmutableTable<RepositoryName, String, RepositoryName> ruleDefinitionEnvironmentRepoMappingEntries,
       ConfigurationFragmentPolicy configurationFragmentPolicy,
       boolean supportsConstraintChecking,
       Set<ToolchainTypeRequirement> toolchainTypes,
@@ -1870,6 +1882,7 @@ public class RuleClass implements RuleClassData {
     this.optionReferenceFunction = optionReferenceFunction;
     this.ruleDefinitionEnvironmentLabel = ruleDefinitionEnvironmentLabel;
     this.ruleDefinitionEnvironmentDigest = ruleDefinitionEnvironmentDigest;
+    this.ruleDefinitionEnvironmentRepoMappingEntries = ruleDefinitionEnvironmentRepoMappingEntries;
     this.outputFileKind = outputFileKind;
     this.attributes = attributes;
     this.workspaceOnly = workspaceOnly;
@@ -2633,6 +2646,11 @@ public class RuleClass implements RuleClassData {
   @Nullable
   public byte[] getRuleDefinitionEnvironmentDigest() {
     return ruleDefinitionEnvironmentDigest;
+  }
+
+  @Nullable
+  public ImmutableTable<RepositoryName, String, RepositoryName> getRuleDefinitionEnvironmentRepoMappingEntries() {
+    return ruleDefinitionEnvironmentRepoMappingEntries;
   }
 
   /** Returns true if this RuleClass is a Starlark-defined RuleClass. */
