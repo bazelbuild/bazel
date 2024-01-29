@@ -430,8 +430,20 @@ public final class RemoteOptions extends CommonRemoteOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "If enabled, compress/decompress cache blobs with zstd.")
+      help =
+          "If enabled, compress/decompress cache blobs with zstd when their size is at least"
+              + " --experimental_remote_cache_compression_threshold.")
   public boolean cacheCompression;
+
+  @Option(
+      name = "experimental_remote_cache_compression_threshold",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The minimum blob size required to compress/decompress with zstd. Ineffectual unless"
+              + " --remote_cache_compression is set.")
+  public int cacheCompressionThreshold;
 
   @Option(
       name = "build_event_upload_max_threads",

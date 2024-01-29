@@ -394,16 +394,14 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
       CountingOutputStream rawOut,
       @Nullable Supplier<Digest> digestSupplier,
       Channel channel) {
+    boolean compressed = shouldCompress(digest);
     String resourceName =
         getResourceName(
-            options.remoteInstanceName,
-            digest,
-            options.cacheCompression,
-            digestUtil.getDigestFunction());
+            options.remoteInstanceName, digest, compressed, digestUtil.getDigestFunction());
     SettableFuture<Long> future = SettableFuture.create();
     OutputStream out;
     try {
-      out = options.cacheCompression ? new ZstdDecompressingOutputStream(rawOut) : rawOut;
+      out = compressed ? new ZstdDecompressingOutputStream(rawOut) : rawOut;
     } catch (IOException e) {
       return Futures.immediateFailedFuture(e);
     }
@@ -499,7 +497,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
         digest,
         Chunker.builder()
             .setInput(digest.getSizeBytes(), path)
-            .setCompressed(options.cacheCompression)
+            .setCompressed(shouldCompress(digest))
             .build());
   }
 
@@ -511,7 +509,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
         digest,
         Chunker.builder()
             .setInput(data.toByteArray())
-            .setCompressed(options.cacheCompression)
+            .setCompressed(shouldCompress(digest))
             .build());
   }
 
@@ -533,6 +531,10 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
 
   Retrier getRetrier() {
     return this.retrier;
+  }
+
+  private boolean shouldCompress(Digest digest) {
+    return options.cacheCompression && digest.getSizeBytes() >= options.cacheCompressionThreshold;
   }
 
   public ReferenceCountedChannel getChannel() {
