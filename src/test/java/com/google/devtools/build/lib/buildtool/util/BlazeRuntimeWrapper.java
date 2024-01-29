@@ -482,10 +482,6 @@ public class BlazeRuntimeWrapper {
     return execConfiguration;
   }
 
-  public ImmutableSet<ConfiguredTarget> getTopLevelTargets() {
-    return topLevelTargets;
-  }
-
   public List<String> getCrashMessages() {
     return crashMessages;
   }
