@@ -43,7 +43,6 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /** Test-related options. */
 @RequiresOptions(options = {TestConfiguration.TestOptions.class})
@@ -87,7 +86,7 @@ public class TestConfiguration extends Fragment {
     public Map<TestTimeout, Duration> testTimeout;
 
     @Option(
-        name = "test_resources",
+        name = "default_test_resources",
         defaultValue = "null",
         converter = TestResourcesConverter.class,
         allowMultiple = true,
@@ -100,8 +99,7 @@ public class TestConfiguration extends Fragment {
                 + " comma-separated numbers are specified, they will override the resource"
                 + " amount for respectively the small, medium, large, enormous test sizes."
                 + " Values can also be HOST_RAM/HOST_CPU, optionally followed"
-                + " by [-|*]<float> (eg. memory=HOST_RAM*.1,HOST_RAM*.2,HOST_RAM*.3,HOST_RAM*.4)."
-                + " Multiple usages are accumulated and the last value of each resource is used.")
+                + " by [-|*]<float> (eg. memory=HOST_RAM*.1,HOST_RAM*.2,HOST_RAM*.3,HOST_RAM*.4).")
     public List<Map.Entry<String, Map<TestSize, Double>>> testResources;
 
     @Option(
@@ -365,7 +363,7 @@ public class TestConfiguration extends Fragment {
 
   /** Returns test resource mapping as set by --test_resources options. */
   public ImmutableMap<String, Double> getTestResources(TestSize size) {
-    return testResources.get(size);
+    return testResources.getOrDefault(size, ImmutableMap.of());
   }
 
   public String getTestFilter() {
