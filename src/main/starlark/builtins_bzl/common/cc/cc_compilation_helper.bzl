@@ -120,7 +120,7 @@ def _compute_public_headers(
             actions.symlink(
                 output = virtual_header,
                 target_file = original_header,
-                progress_message = "Symlinking virtual headers for " + label.name,
+                progress_message = "Symlinking virtual headers for %{label}",
                 use_exec_root_for_source = USE_EXEC_ROOT_FOR_VIRTUAL_INCLUDES_SYMLINKS,
             )
             module_map_headers.append(virtual_header)
