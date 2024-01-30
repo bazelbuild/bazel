@@ -28,16 +28,13 @@ option java_outer_classname = "Protos";
 
 // Digest of a file or action cache entry.
 message Digest {
-  // The content hash.
+  // The content hash as a lowercase hex string including any leading zeroes.
   string hash = 1;
 
   // The original content size in bytes.
   int64 size_bytes = 2;
 
-  // The digest function that was used to generate the hash.
-  // This is not an enum for compatibility reasons, and also because the
-  // purpose of these logs is to enable analysis by comparison of multiple
-  // builds. So, from the programmatic perspective, this is an opaque field.
+  // The name of the digest function used to compute the hash.
   string hash_function_name = 3;
 }
 
@@ -46,6 +43,7 @@ message File {
   string path = 1;
 
   // File digest.
+  // May be omitted for empty files.
   Digest digest = 2;
 
   // Whether the file is a tool.
@@ -211,16 +209,19 @@ message SpawnExec {
 message ExecLogEntry {
   // Information pertaining to the entire invocation.
   // May appear at most once in the initial position.
-  message Invocation {}
+  message Invocation {
+    // The hash function used to compute digests.
+    string hash_function_name = 1;
+  }
 
   // An input or output file.
   message File {
     // The file path.
     string path = 1;
-    // The file size in bytes.
-    int64 size_bytes = 2;
-    // A digest of the file contents. Unset if the file is empty.
-    string digest = 3;
+    // A digest of the file contents.
+    // The hash function name is omitted. It can be obtained from Invocation.
+    // May be omitted for empty files.
+    Digest digest = 2;
   }
 
   // An input or output directory.
@@ -305,7 +306,9 @@ message ExecLogEntry {
     bool remote_cacheable = 15;
 
     // See SpawnExec.digest.
-    string digest = 16;
+    // The hash function name is omitted. It can be obtained from Invocation.
+    // Unset if the file is empty.
+    Digest digest = 16;
 
     // See SpawnExec.timeout_millis.
     int64 timeout_millis = 17;

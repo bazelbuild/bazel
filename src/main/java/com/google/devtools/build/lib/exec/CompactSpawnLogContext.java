@@ -95,6 +95,8 @@ public class CompactSpawnLogContext implements SpawnLogContext {
     this.digestHashFunction = digestHashFunction;
     this.xattrProvider = xattrProvider;
     this.outputStream = getOutputStream(outputPath);
+
+    logInvocation();
   }
 
   private static MessageOutputStream<ExecLogEntry> getOutputStream(Path path) throws IOException {
@@ -102,6 +104,16 @@ public class CompactSpawnLogContext implements SpawnLogContext {
     // thread. This ensures concurrent writes don't tear and avoids blocking execution.
     return new AsynchronousMessageOutputStream<>(
         path.toString(), new ZstdOutputStream(new BufferedOutputStream(path.getOutputStream())));
+  }
+
+  private void logInvocation() throws IOException {
+    logEntry(
+        null,
+        () ->
+            ExecLogEntry.newBuilder()
+                .setInvocation(
+                    ExecLogEntry.Invocation.newBuilder()
+                        .setHashFunctionName(digestHashFunction.toString())));
   }
 
   @Override
@@ -156,7 +168,7 @@ public class CompactSpawnLogContext implements SpawnLogContext {
       builder.setRemoteCacheable(Spawns.mayBeCachedRemotely(spawn));
 
       if (result.getDigest() != null) {
-        builder.setDigest(result.getDigest().getHash());
+        builder.setDigest(result.getDigest().toBuilder().clearHashFunctionName().build());
       }
 
       builder.setTimeoutMillis(timeout.toMillis());
@@ -306,9 +318,15 @@ public class CompactSpawnLogContext implements SpawnLogContext {
           builder.setPath(input.getExecPathString());
 
           Digest digest =
-              computeDigest(input, path, inputMetadataProvider, xattrProvider, digestHashFunction);
-          builder.setDigest(digest.getHash());
-          builder.setSizeBytes(digest.getSizeBytes());
+              computeDigest(
+                  input,
+                  path,
+                  inputMetadataProvider,
+                  xattrProvider,
+                  digestHashFunction,
+                  /* includeHashFunctionName= */ false);
+
+          builder.setDigest(digest);
 
           return ExecLogEntry.newBuilder().setFile(builder);
         });
@@ -381,13 +399,15 @@ public class CompactSpawnLogContext implements SpawnLogContext {
 
             Digest digest =
                 computeDigest(
-                    input, path, inputMetadataProvider, xattrProvider, digestHashFunction);
+                    input,
+                    path,
+                    inputMetadataProvider,
+                    xattrProvider,
+                    digestHashFunction,
+                    /* includeHashFunctionName= */ false);
 
             builder.addFiles(
-                ExecLogEntry.File.newBuilder()
-                    .setPath(runfilesPath)
-                    .setSizeBytes(digest.getSizeBytes())
-                    .setDigest(digest.getHash()));
+                ExecLogEntry.File.newBuilder().setPath(runfilesPath).setDigest(digest));
           }
 
           return ExecLogEntry.newBuilder().setDirectory(builder);
@@ -422,14 +442,14 @@ public class CompactSpawnLogContext implements SpawnLogContext {
 
         Digest digest =
             computeDigest(
-                /* input= */ null, child, inputMetadataProvider, xattrProvider, digestHashFunction);
+                /* input= */ null,
+                child,
+                inputMetadataProvider,
+                xattrProvider,
+                digestHashFunction,
+                /* includeHashFunctionName= */ false);
 
-        builder.add(
-            ExecLogEntry.File.newBuilder()
-                .setPath(childPath)
-                .setSizeBytes(digest.getSizeBytes())
-                .setDigest(digest.getHash())
-                .build());
+        builder.add(ExecLogEntry.File.newBuilder().setPath(childPath).setDigest(digest).build());
       }
     }
     return builder.build();
