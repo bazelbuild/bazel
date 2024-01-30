@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
-import com.google.devtools.build.lib.analysis.test.TestConfiguration;
+import com.google.devtools.build.lib.analysis.test.TestActionBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -187,24 +187,15 @@ public final class RunfilesSupport implements RunfilesSupplier {
       return false;
     }
 
-    TestConfiguration testConfiguration = ruleContext.getFragment(TestConfiguration.class);
-    if (testConfiguration == null) {
-      return false;
-    }
-
-    int runsPerTest = testConfiguration.getRunsPerTestForLabel(ruleContext.getLabel());
-    if (runsPerTest > 1) {
+    if (TestActionBuilder.getRunsPerTest(ruleContext) > 1) {
       return true;
     }
 
-    if (!ruleContext.attributes().has("shard_count", Type.INTEGER)) {
-      return false;
+    if (TestActionBuilder.getShardCount(ruleContext) > 1) {
+      return true;
     }
 
-    int explicitShardCount =
-        ruleContext.attributes().get("shard_count", Type.INTEGER).toIntUnchecked();
-
-    return explicitShardCount > 1;
+    return false;
   }
 
   /**

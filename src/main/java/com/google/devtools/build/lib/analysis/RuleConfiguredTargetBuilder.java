@@ -469,7 +469,6 @@ public final class RuleConfiguredTargetBuilder {
             .addTools(additionalTestActionTools.build())
             .setExecutionRequirements(
                 (ExecutionInfo) providersBuilder.getProvider(ExecutionInfo.PROVIDER.getKey()))
-            .setShardCount(explicitShardCount)
             .build();
     return new TestProvider(testParams);
   }
