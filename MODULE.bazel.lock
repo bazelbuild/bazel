@@ -2598,7 +2598,7 @@
   "moduleExtensions": {
     "//:extensions.bzl%bazel_android_deps": {
       "general": {
-        "bzlTransitiveDigest": "qv82HsiBe0vb3j0W2aBdQ4TGGrc1P1ojDy0tdHZvJks=",
+        "bzlTransitiveDigest": "aLFwk5PgjrQ77jnEZTK+g9sZAtuhw7EFhP0uTNQgHns=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2739,7 +2739,7 @@
     },
     "//:extensions.bzl%bazel_build_deps": {
       "general": {
-        "bzlTransitiveDigest": "qv82HsiBe0vb3j0W2aBdQ4TGGrc1P1ojDy0tdHZvJks=",
+        "bzlTransitiveDigest": "aLFwk5PgjrQ77jnEZTK+g9sZAtuhw7EFhP0uTNQgHns=",
         "accumulatedFileDigests": {
           "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "0a80fbbd4241dc7ccd3f7665029acd69a64c8d79fa49108c1c46ef778c857685",
           "@@//:MODULE.bazel": "15825821d543809fdc03e543f9c92a0ebfb3a53629e60c864f83566e1c41710d"
@@ -2856,7 +2856,8 @@
                 "grpc~1.48.1.bcr.1~grpc_repo_deps_ext~com_github_cncf_udpa",
                 "grpc~1.48.1.bcr.1~grpc_repo_deps_ext~com_google_googleapis",
                 "grpc~1.48.1.bcr.1~grpc_repo_deps_ext~envoy_api",
-                "grpc~1.48.1.bcr.1~grpc_repo_deps_ext~rules_cc"
+                "grpc~1.48.1.bcr.1~grpc_repo_deps_ext~rules_cc",
+                "rules_kotlin~1.9.0~rules_kotlin_extensions~com_github_jetbrains_kotlin"
               ],
               "dirname": "derived/repository_cache"
             }
@@ -3120,7 +3121,7 @@
     },
     "//:extensions.bzl%bazel_test_deps": {
       "general": {
-        "bzlTransitiveDigest": "qv82HsiBe0vb3j0W2aBdQ4TGGrc1P1ojDy0tdHZvJks=",
+        "bzlTransitiveDigest": "aLFwk5PgjrQ77jnEZTK+g9sZAtuhw7EFhP0uTNQgHns=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
