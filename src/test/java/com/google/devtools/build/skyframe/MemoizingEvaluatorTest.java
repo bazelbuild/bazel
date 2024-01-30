@@ -26,6 +26,8 @@ import static com.google.devtools.build.skyframe.GraphTester.nonHermeticKey;
 import static com.google.devtools.build.skyframe.GraphTester.skyKey;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
@@ -55,6 +57,7 @@ import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
 import com.google.devtools.build.skyframe.NotifyingHelper.Listener;
 import com.google.devtools.build.skyframe.NotifyingHelper.Order;
+import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunction.Reset;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
@@ -174,6 +177,38 @@ public abstract class MemoizingEvaluatorTest {
   public void evaluateEmptySet() throws InterruptedException {
     tester.eval(false, new SkyKey[0]);
     tester.eval(true, new SkyKey[0]);
+  }
+
+  @Test
+  public void injectGraphTransformer() throws Exception {
+    Listener listener = mock(Listener.class);
+    tester.evaluator.injectGraphTransformerForTesting(
+        NotifyingHelper.makeNotifyingTransformer(listener));
+    SkyKey key = skyKey("key");
+    SkyValue val = new StringValue("val");
+    tester.getOrCreate(key).setConstantValue(val);
+
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(val);
+
+    verify(listener).accept(key, EventType.GET_BATCH, Order.BEFORE, Reason.PRE_OR_POST_EVALUATION);
+  }
+
+  @Test
+  public void injectMultipleGraphTransformers() throws Exception {
+    Listener listener1 = mock(Listener.class);
+    Listener listener2 = mock(Listener.class);
+    tester.evaluator.injectGraphTransformerForTesting(
+        NotifyingHelper.makeNotifyingTransformer(listener1));
+    tester.evaluator.injectGraphTransformerForTesting(
+        NotifyingHelper.makeNotifyingTransformer(listener2));
+    SkyKey key = skyKey("key");
+    SkyValue val = new StringValue("val");
+    tester.getOrCreate(key).setConstantValue(val);
+
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(val);
+
+    verify(listener1).accept(key, EventType.GET_BATCH, Order.BEFORE, Reason.PRE_OR_POST_EVALUATION);
+    verify(listener2).accept(key, EventType.GET_BATCH, Order.BEFORE, Reason.PRE_OR_POST_EVALUATION);
   }
 
   @Test

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -142,9 +144,15 @@ public interface MemoizingEvaluator {
   ErrorInfo getExistingErrorForTesting(SkyKey key) throws InterruptedException;
 
   /**
-   * Tests that want finer control over the graph being used may provide a {@code transformer} here.
-   * This {@code transformer} will be applied to the graph for each invalidation/evaluation.
+   * Injects a {@link GraphTransformerForTesting} to allow tests to have finer-grained control over
+   * the graph.
+   *
+   * <p>May be called multiple times, in which case the effective graph is the result of
+   * sequentially applying all transformers in an undefined order.
+   *
+   * <p>Must only be called in tests.
    */
+  // TODO: b/228318515 - Define an order for transforms to be applied.
   void injectGraphTransformerForTesting(GraphTransformerForTesting transformer);
 
   /** Transforms a graph, possibly injecting other functionality. */
@@ -165,6 +173,33 @@ public interface MemoizingEvaluator {
             return graph;
           }
         };
+
+    /**
+     * Returns a composite transformer that applies both of the given transformers in the given
+     * order.
+     */
+    static GraphTransformerForTesting compose(
+        GraphTransformerForTesting before, GraphTransformerForTesting after) {
+      checkNotNull(before);
+      checkNotNull(after);
+      if (before == NO_OP) {
+        return after;
+      }
+      if (after == NO_OP) {
+        return before;
+      }
+      return new GraphTransformerForTesting() {
+        @Override
+        public InMemoryGraph transform(InMemoryGraph graph) {
+          return after.transform(before.transform(graph));
+        }
+
+        @Override
+        public ProcessableGraph transform(ProcessableGraph graph) {
+          return after.transform(before.transform(graph));
+        }
+      };
+    }
   }
 
   /**
