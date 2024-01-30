@@ -730,8 +730,9 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
 
     List<BuildEvent> buildEvents = new ArrayList<>();
     try (InputStream in = new FileInputStream(buildEventBinaryFile)) {
-      while (in.available() > 0) {
-        buildEvents.add(BuildEvent.parseDelimitedFrom(in));
+      BuildEvent ev;
+      while ((ev = BuildEvent.parseDelimitedFrom(in)) != null) {
+        buildEvents.add(ev);
       }
     }
 
@@ -842,8 +843,9 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
 
     List<BuildEvent> buildEvents = new ArrayList<>();
     try (InputStream in = new FileInputStream(buildEventBinaryFile)) {
-      while (in.available() > 0) {
-        buildEvents.add(BuildEvent.parseDelimitedFrom(in));
+      BuildEvent ev;
+      while ((ev = BuildEvent.parseDelimitedFrom(in)) != null) {
+        buildEvents.add(ev);
       }
     }
     Aborted expectedAbort =
