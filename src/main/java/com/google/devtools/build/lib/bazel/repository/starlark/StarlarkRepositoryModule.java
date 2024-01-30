@@ -76,7 +76,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       Object doc, // <String> or Starlark.NONE
       StarlarkThread thread)
       throws EvalException {
-    var bzlInitContext = BzlInitThreadContext.fromOrFail(thread, "repository_rule");
+    BazelStarlarkContext.checkLoadingOrWorkspacePhase(thread, "repository_rule");
     // We'll set the name later, pass the empty string for now.
     RuleClass.Builder builder = new RuleClass.Builder("", RuleClassType.WORKSPACE, true);
 
@@ -107,8 +107,11 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       }
     }
     builder.setConfiguredTargetFunction(implementation);
+    // TODO(b/291752414): If we care about the digest of repository rules, we should be using the
+    // transitive bzl digest of the module of the outermost stack frame, not the innermost.
+    BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrThrow(thread);
     builder.setRuleDefinitionEnvironmentLabelAndDigest(
-        bzlInitContext.getBzlFile(), bzlInitContext.getTransitiveDigest());
+        moduleContext.label(), moduleContext.bzlTransitiveDigest());
     Label.RepoMappingRecorder repoMappingRecorder = thread.getThreadLocal(Label.RepoMappingRecorder.class);
     if (repoMappingRecorder != null) {
       builder.setRuleDefinitionEnvironmentRepoMappingEntries(repoMappingRecorder.recordedEntries());
