@@ -24,6 +24,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.FileArtifactValue.UnresolvedSymlinkArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -56,7 +57,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
-import java.util.TreeMap;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
@@ -144,7 +144,6 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
       SpawnResult result)
       throws IOException, ExecException {
     try (SilentCloseable c = Profiler.instance().profile("logSpawn")) {
-      SortedMap<Path, ActionInput> existingOutputs = listExistingOutputs(spawn, fileSystem);
       SpawnExec.Builder builder = SpawnExec.newBuilder();
       builder.addAllCommandArgs(spawn.getArguments());
       builder.addAllEnvironmentVariables(getEnvironmentVariables(spawn));
@@ -175,6 +174,16 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
             continue;
           }
 
+          if (input.isSymlink()) {
+            UnresolvedSymlinkArtifactValue metadata =
+                (UnresolvedSymlinkArtifactValue) inputMetadataProvider.getInputMetadata(input);
+            builder
+                .addInputsBuilder()
+                .setPath(displayPath.getPathString())
+                .setSymlinkTargetPath(metadata.getSymlinkTarget());
+            continue;
+          }
+
           Digest digest =
               computeDigest(
                   input,
@@ -201,29 +210,33 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
         Collections.sort(outputPaths);
         builder.addAllListedOutputs(outputPaths);
         try {
-          for (Map.Entry<Path, ActionInput> e : existingOutputs.entrySet()) {
-            Path path = e.getKey();
-            ActionInput output = e.getValue();
-            if (path.isDirectory()) {
+          for (ActionInput output : spawn.getOutputFiles()) {
+            Path path = fileSystem.getPath(execRoot.getRelative(output.getExecPathString()));
+            if (!output.isDirectory() && !output.isSymlink() && path.isFile()) {
+              builder
+                  .addActualOutputsBuilder()
+                  .setPath(output.getExecPathString())
+                  .setDigest(
+                      computeDigest(
+                          output,
+                          path,
+                          inputMetadataProvider,
+                          xattrProvider,
+                          digestHashFunction,
+                          /* includeHashFunctionName= */ true));
+            } else if (output.isDirectory() && path.isDirectory()) {
               listDirectoryContents(
                   output.getExecPath(),
                   path,
                   builder::addActualOutputs,
                   inputMetadataProvider,
                   /* isTool= */ false);
-              continue;
+            } else if (output.isSymlink() && path.isSymbolicLink()) {
+              builder
+                  .addActualOutputsBuilder()
+                  .setPath(output.getExecPathString())
+                  .setSymlinkTargetPath(path.readSymbolicLink().getPathString());
             }
-            builder
-                .addActualOutputsBuilder()
-                .setPath(output.getExecPathString())
-                .setDigest(
-                    computeDigest(
-                        output,
-                        path,
-                        inputMetadataProvider,
-                        xattrProvider,
-                        digestHashFunction,
-                        /* includeHashFunctionName= */ true));
           }
         } catch (IOException ex) {
           logger.atWarning().withCause(ex).log("Error computing spawn output properties");
@@ -292,18 +305,6 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
     }
   }
 
-  private SortedMap<Path, ActionInput> listExistingOutputs(Spawn spawn, FileSystem fileSystem) {
-    TreeMap<Path, ActionInput> result = new TreeMap<>();
-    for (ActionInput output : spawn.getOutputFiles()) {
-      Path outputPath = fileSystem.getPath(execRoot.getRelative(output.getExecPathString()));
-      // TODO(olaola): once symlink API proposal is implemented, report symlinks here.
-      if (outputPath.exists()) {
-        result.put(outputPath, output);
-      }
-    }
-    return result;
-  }
-
   /**
    * Expands a directory into its contents.
    *
@@ -318,7 +319,6 @@ public class ExpandedSpawnLogContext implements SpawnLogContext {
       InputMetadataProvider inputMetadataProvider,
       boolean isTool)
       throws IOException {
-    // TODO(olaola): once symlink API proposal is implemented, report symlinks here.
     List<Dirent> sortedDirent = new ArrayList<>(contentPath.readdir(Symlinks.NOFOLLOW));
     sortedDirent.sort(Comparator.comparing(Dirent::getName));
 
