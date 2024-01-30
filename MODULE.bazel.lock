@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "15825821d543809fdc03e543f9c92a0ebfb3a53629e60c864f83566e1c41710d",
+  "moduleFileHash": "c177ead1f17b4c6482e2d1e38eb4091ebdd202ca95ef305fa74122d454f9d75c",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -83,7 +83,7 @@
                   "com.google.http-client:google-http-client-gson:1.42.0",
                   "com.google.http-client:google-http-client:1.42.0",
                   "com.google.j2objc:j2objc-annotations:1.3",
-                  "com.google.turbine:turbine:0.3.1",
+                  "com.google.turbine:turbine:0.4.0",
                   "com.ryanharter.auto.value:auto-value-gson-extension:1.3.1",
                   "com.ryanharter.auto.value:auto-value-gson-runtime:1.3.1",
                   "com.ryanharter.auto.value:auto-value-gson-factory:1.3.1",
@@ -2742,7 +2742,7 @@
         "bzlTransitiveDigest": "aazFN6GuLhvfkNKMuclv+T1HxL1E8g176trDl638NAs=",
         "accumulatedFileDigests": {
           "@@//src/test/tools/bzlmod:MODULE.bazel.lock": "0a80fbbd4241dc7ccd3f7665029acd69a64c8d79fa49108c1c46ef778c857685",
-          "@@//:MODULE.bazel": "15825821d543809fdc03e543f9c92a0ebfb3a53629e60c864f83566e1c41710d"
+          "@@//:MODULE.bazel": "c177ead1f17b4c6482e2d1e38eb4091ebdd202ca95ef305fa74122d454f9d75c"
         },
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -5353,7 +5353,7 @@
       "general": {
         "bzlTransitiveDigest": "ZfFFJr1eI3/nwAJgyEcYi9fjDDO/97v19BWbwVi0WeE=",
         "accumulatedFileDigests": {
-          "@@//:maven_install.json": "cc25122f058cf9683ab23f43b25fe0142aaf79c4f99b74c84905f7d03220950b",
+          "@@//:maven_install.json": "6a16a589df70f63009a1f554b33bd8245c39d4c7d710c715ce848eb0ba35092f",
           "@@rules_jvm_external~6.0//:rules_jvm_external_deps_install.json": "cafb5d2d8119391eb2b322ce3840d3352ea82d496bdb8cbd4b6779ec4d044dda",
           "@@//src/tools/android:maven_android_install.json": "09bff3e33d291336046f7c9201630fb5e014f0e60b78b6f09b84e4f5f73ed04f"
         },
@@ -5753,6 +5753,18 @@
               "downloaded_file_path": "v1/com/android/zipflinger/7.1.3/zipflinger-7.1.3.jar"
             }
           },
+          "com_google_turbine_turbine_0_4_0": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "name": "rules_jvm_external~6.0~maven~com_google_turbine_turbine_0_4_0",
+              "sha256": "1947490c23263ae1c0a95acceb7cb419724f236d14cfbbe5a558101e79842b28",
+              "urls": [
+                "https://repo1.maven.org/maven2/com/google/turbine/turbine/0.4.0/turbine-0.4.0.jar"
+              ],
+              "downloaded_file_path": "v1/com/google/turbine/turbine/0.4.0/turbine-0.4.0.jar"
+            }
+          },
           "io_grpc_grpc_protobuf_lite_1_56_1": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -6015,7 +6027,7 @@
                 "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client-gson\", \"version\": \"1.42.0\" }",
                 "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client\", \"version\": \"1.42.0\" }",
                 "{ \"group\": \"com.google.j2objc\", \"artifact\": \"j2objc-annotations\", \"version\": \"1.3\" }",
-                "{ \"group\": \"com.google.turbine\", \"artifact\": \"turbine\", \"version\": \"0.3.1\" }",
+                "{ \"group\": \"com.google.turbine\", \"artifact\": \"turbine\", \"version\": \"0.4.0\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-extension\", \"version\": \"1.3.1\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-runtime\", \"version\": \"1.3.1\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-factory\", \"version\": \"1.3.1\" }",
@@ -8754,7 +8766,7 @@
                 "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client-gson\", \"version\": \"1.42.0\" }",
                 "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client\", \"version\": \"1.42.0\" }",
                 "{ \"group\": \"com.google.j2objc\", \"artifact\": \"j2objc-annotations\", \"version\": \"1.3\" }",
-                "{ \"group\": \"com.google.turbine\", \"artifact\": \"turbine\", \"version\": \"0.3.1\" }",
+                "{ \"group\": \"com.google.turbine\", \"artifact\": \"turbine\", \"version\": \"0.4.0\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-extension\", \"version\": \"1.3.1\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-runtime\", \"version\": \"1.3.1\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-factory\", \"version\": \"1.3.1\" }",
@@ -9283,18 +9295,6 @@
                 "https://repo1.maven.org/maven2/org/yaml/snakeyaml/1.28/snakeyaml-1.28.jar"
               ],
               "downloaded_file_path": "v1/org/yaml/snakeyaml/1.28/snakeyaml-1.28.jar"
-            }
-          },
-          "com_google_turbine_turbine_0_3_1": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "name": "rules_jvm_external~6.0~maven~com_google_turbine_turbine_0_3_1",
-              "sha256": "c0778917005294a59c805a60a5ace2ec847dcece41ced70680f675d822fc03a7",
-              "urls": [
-                "https://repo1.maven.org/maven2/com/google/turbine/turbine/0.3.1/turbine-0.3.1.jar"
-              ],
-              "downloaded_file_path": "v1/com/google/turbine/turbine/0.3.1/turbine-0.3.1.jar"
             }
           },
           "io_netty_netty_transport_native_epoll_jar_linux_aarch_64_4_1_93_Final": {
